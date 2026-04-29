@@ -86,10 +86,7 @@ def _validate_cache_result(result: Any) -> str:
     except (json.JSONDecodeError, TypeError, ValueError) as exc:
         raise ParwaBaseError(
             error_code="INVALID_CACHE_RESULT",
-            message=(
-                "cached_result is not valid JSON-serializable: "
-                f"{str(exc)}"
-            ),
+            message=("cached_result is not valid JSON-serializable: " f"{str(exc)}"),
             status_code=400,
         )
 
@@ -118,19 +115,27 @@ def get_cached_result(
     _validate_company_id(company_id)
 
     try:
-        entry = db.query(TechniqueCache).filter_by(
-            company_id=company_id,
-            technique_id=technique_id,
-            query_hash=query_hash,
-        ).first()
-
-        if instance_id is not None:
-            entry = db.query(TechniqueCache).filter_by(
+        entry = (
+            db.query(TechniqueCache)
+            .filter_by(
                 company_id=company_id,
                 technique_id=technique_id,
                 query_hash=query_hash,
-                instance_id=instance_id,
-            ).first()
+            )
+            .first()
+        )
+
+        if instance_id is not None:
+            entry = (
+                db.query(TechniqueCache)
+                .filter_by(
+                    company_id=company_id,
+                    technique_id=technique_id,
+                    query_hash=query_hash,
+                    instance_id=instance_id,
+                )
+                .first()
+            )
     except Exception:
         logger.warning(
             "technique_cache_query_error",
@@ -142,8 +147,7 @@ def get_cached_result(
         return None
 
     # Check TTL expiry
-    if entry.ttl_expires_at and entry.ttl_expires_at < datetime.now(
-            timezone.utc):
+    if entry.ttl_expires_at and entry.ttl_expires_at < datetime.now(timezone.utc):
         return None
 
     # Safe JSON parse — BC-008: never crash on malformed data
@@ -190,12 +194,16 @@ def set_cached_result(
 
     # Check for existing entry (unique constraint)
     try:
-        existing = db.query(TechniqueCache).filter_by(
-            company_id=company_id,
-            technique_id=technique_id,
-            query_hash=query_hash,
-            instance_id=instance_id,
-        ).first()
+        existing = (
+            db.query(TechniqueCache)
+            .filter_by(
+                company_id=company_id,
+                technique_id=technique_id,
+                query_hash=query_hash,
+                instance_id=instance_id,
+            )
+            .first()
+        )
     except Exception:
         existing = None
 
@@ -242,12 +250,16 @@ def invalidate_cached_result(
     _validate_company_id(company_id)
 
     try:
-        entry = db.query(TechniqueCache).filter_by(
-            company_id=company_id,
-            technique_id=technique_id,
-            query_hash=query_hash,
-            instance_id=instance_id,
-        ).first()
+        entry = (
+            db.query(TechniqueCache)
+            .filter_by(
+                company_id=company_id,
+                technique_id=technique_id,
+                query_hash=query_hash,
+                instance_id=instance_id,
+            )
+            .first()
+        )
     except Exception:
         return False
 
@@ -274,11 +286,16 @@ def cleanup_expired_entries(
     _validate_company_id(company_id)
 
     try:
-        expired = db.query(TechniqueCache).filter_by(
-            company_id=company_id,
-        ).filter(
-            TechniqueCache.ttl_expires_at < datetime.now(timezone.utc),
-        ).all()
+        expired = (
+            db.query(TechniqueCache)
+            .filter_by(
+                company_id=company_id,
+            )
+            .filter(
+                TechniqueCache.ttl_expires_at < datetime.now(timezone.utc),
+            )
+            .all()
+        )
 
         count = len(expired)
         for entry in expired:

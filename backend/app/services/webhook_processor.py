@@ -97,7 +97,8 @@ def verify_paddle_signature(
         if not is_valid:
             logger.warning(
                 "paddle_signature_mismatch expected=%s... got=%s...",
-                expected[:16], h1_hash[:16],
+                expected[:16],
+                h1_hash[:16],
             )
 
         return is_valid
@@ -134,18 +135,23 @@ def check_idempotency_key(
     try:
         now = datetime.now(timezone.utc)
 
-        record = db.query(IdempotencyKey).filter(
-            and_(
-                IdempotencyKey.idempotency_key == key,
-                IdempotencyKey.resource_type == resource_type,
-                IdempotencyKey.expires_at > now,
+        record = (
+            db.query(IdempotencyKey)
+            .filter(
+                and_(
+                    IdempotencyKey.idempotency_key == key,
+                    IdempotencyKey.resource_type == resource_type,
+                    IdempotencyKey.expires_at > now,
+                )
             )
-        ).first()
+            .first()
+        )
 
         if record:
             logger.info(
                 "idempotency_key_found key=%s status=%s",
-                key, record.response_status,
+                key,
+                record.response_status,
             )
             return {
                 "found": True,
@@ -202,17 +208,16 @@ def store_idempotency_key(
 
         logger.info(
             "idempotency_key_stored key=%s resource_type=%s expires=%s",
-            key, resource_type, expires_at.isoformat(),
+            key,
+            resource_type,
+            expires_at.isoformat(),
         )
 
         return record
 
     except Exception as e:
         db.rollback()
-        logger.error(
-            "idempotency_key_store_error key=%s error=%s",
-            key,
-            str(e))
+        logger.error("idempotency_key_store_error key=%s error=%s", key, str(e))
         raise
     finally:
         db.close()
@@ -296,7 +301,8 @@ def process_with_idempotency(
                     "error_detail": (
                         "Duplicate webhook detected but request body hash does not "
                         "match the originally processed event. This may indicate "
-                        "tampering. The cached response will NOT be returned."),
+                        "tampering. The cached response will NOT be returned."
+                    ),
                     "duplicate": True,
                     "response_status": 409,
                     "response_body": json.dumps(
@@ -304,8 +310,10 @@ def process_with_idempotency(
                             "error": "request_body_hash_mismatch",
                             "message": (
                                 "Event ID already processed with a different "
-                                "request body. Possible tampering detected."),
-                        }),
+                                "request body. Possible tampering detected."
+                            ),
+                        }
+                    ),
                 }
 
             logger.info(
@@ -380,9 +388,13 @@ def cleanup_expired_idempotency_keys() -> int:
     try:
         now = datetime.now(timezone.utc)
 
-        deleted = db.query(IdempotencyKey).filter(
-            IdempotencyKey.expires_at < now,
-        ).delete()
+        deleted = (
+            db.query(IdempotencyKey)
+            .filter(
+                IdempotencyKey.expires_at < now,
+            )
+            .delete()
+        )
 
         db.commit()
 
@@ -405,9 +417,13 @@ def get_idempotency_key_info(key: str) -> Optional[Dict[str, Any]]:
     """
     db: Session = SessionLocal()
     try:
-        record = db.query(IdempotencyKey).filter(
-            IdempotencyKey.idempotency_key == key,
-        ).first()
+        record = (
+            db.query(IdempotencyKey)
+            .filter(
+                IdempotencyKey.idempotency_key == key,
+            )
+            .first()
+        )
 
         if not record:
             return None

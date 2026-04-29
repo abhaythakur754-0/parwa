@@ -287,11 +287,14 @@ async def update_custom_command(
 @router.get("/api/errors/recent")
 async def get_recent_errors(
     limit: int = Query(
-        5, ge=1, le=100,
+        5,
+        ge=1,
+        le=100,
         description="Number of errors to return (default 5)",
     ),
     offset: int = Query(
-        0, ge=0,
+        0,
+        ge=0,
         description="Pagination offset",
     ),
     severity: Optional[str] = Query(
@@ -380,6 +383,7 @@ async def get_error_detail(
 
         if "error" in result and result.get("error") == "Error not found":
             from app.exceptions import NotFoundError
+
             raise NotFoundError(
                 message="Error not found",
                 details={"error_id": error_id},
@@ -389,6 +393,7 @@ async def get_error_detail(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, NotFoundError):
             raise
         logger.error(
@@ -454,7 +459,9 @@ async def dismiss_error(
 @router.get("/api/errors/stats")
 async def get_error_stats(
     hours: int = Query(
-        24, ge=1, le=720,
+        24,
+        ge=1,
+        le=720,
         description="Time window in hours (default 24)",
     ),
     company_id: str = Depends(get_company_id),
@@ -566,11 +573,14 @@ async def create_training_from_error(
 @router.get("/api/training-points")
 async def list_training_points(
     limit: int = Query(
-        20, ge=1, le=100,
+        20,
+        ge=1,
+        le=100,
         description="Pagination limit",
     ),
     offset: int = Query(
-        0, ge=0,
+        0,
+        ge=0,
         description="Pagination offset",
     ),
     status: Optional[str] = Query(
@@ -651,12 +661,10 @@ async def review_training_point(
     action = body.get("action", "")
     review_notes = body.get("review_notes")
 
-    if not action or action.strip() not in (
-            "approved", "rejected", "needs_revision"):
+    if not action or action.strip() not in ("approved", "rejected", "needs_revision"):
         raise ValidationError(
             message="action is required and must be one of: approved, rejected, needs_revision",
-            details={
-                "field": "action"},
+            details={"field": "action"},
         )
 
     try:
@@ -769,11 +777,14 @@ async def get_self_healing_status(
 @router.get("/api/jarvis/self-healing/history")
 async def get_self_healing_history(
     limit: int = Query(
-        50, ge=1, le=200,
+        50,
+        ge=1,
+        le=200,
         description="Number of events to return",
     ),
     offset: int = Query(
-        0, ge=0,
+        0,
+        ge=0,
         description="Pagination offset",
     ),
     action_name: Optional[str] = Query(
@@ -879,12 +890,14 @@ async def trigger_healing_action(
 
         if "error" in result and result.get("error"):
             from app.exceptions import NotFoundError
+
             raise NotFoundError(
                 message=result["error"],
                 details={
                     "action_name": action_name,
                     "available_actions": result.get(
-                        "available_actions", [],
+                        "available_actions",
+                        [],
                     ),
                 },
             )
@@ -900,11 +913,8 @@ async def trigger_healing_action(
 
     except (AuthorizationError, ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
-        if isinstance(
-            exc,
-            (AuthorizationError,
-             ValidationError,
-             NotFoundError)):
+
+        if isinstance(exc, (AuthorizationError, ValidationError, NotFoundError)):
             raise
         logger.error(
             "self_healing_trigger_error",
@@ -1033,10 +1043,7 @@ async def set_trust_protocol_mode(
 
     if not mode or mode.lower().strip() not in ("green", "amber", "red"):
         raise ValidationError(
-            message=(
-                "mode is required and must be one of: "
-                "green, amber, red"
-            ),
+            message=("mode is required and must be one of: " "green, amber, red"),
             details={
                 "field": "mode",
                 "valid_modes": ["green", "amber", "red"],
@@ -1081,7 +1088,9 @@ async def set_trust_protocol_mode(
 @router.get("/api/jarvis/trust-protocol/history")
 async def get_trust_protocol_history(
     limit: int = Query(
-        50, ge=1, le=200,
+        50,
+        ge=1,
+        le=200,
         description="Number of transitions to return",
     ),
     company_id: str = Depends(get_company_id),

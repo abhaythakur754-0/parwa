@@ -11,11 +11,13 @@ Run:  pytest tests/test_jarvis_pipeline_after.py -v
 import ast
 import os
 
-
 # Path to the jarvis_service.py file
 JARVIS_SERVICE_PATH = os.path.join(
     os.path.dirname(__file__),
-    "..", "app", "services", "jarvis_service.py",
+    "..",
+    "app",
+    "services",
+    "jarvis_service.py",
 )
 
 
@@ -80,8 +82,7 @@ class TestAfterStateAllFunctionsExist:
         """AFTER: jarvis_service.py defines 50+ functions total."""
         source = _get_jarvis_source()
         functions = _get_function_names(source)
-        assert len(
-            functions) >= 50, f"Expected 50+ functions, got {len(functions)}"
+        assert len(functions) >= 50, f"Expected 50+ functions, got {len(functions)}"
 
     def test_scan_prompt_injection_defined(self):
         """AFTER: _scan_prompt_injection is defined."""
@@ -299,10 +300,9 @@ class TestAfterStateP0ServiceConnections:
     def test_injection_blocked_message_returns_string(self):
         """AFTER: _get_injection_blocked_message returns a user-friendly string."""
         source = _get_jarvis_source()
-        func_src = _get_function_source(
-            source, "_get_injection_blocked_message")
+        func_src = _get_function_source(source, "_get_injection_blocked_message")
         assert func_src is not None
-        assert 'return (' in func_src
+        assert "return (" in func_src
         assert "unusual" in func_src.lower()
 
 
@@ -486,7 +486,7 @@ class TestAfterStatePipelineIntegration:
         """AFTER: _call_ai_provider metadata includes pipeline_version."""
         source = _get_jarvis_source()
         func_src = _get_function_source(source, "_call_ai_provider")
-        assert 'week8-11-full' in func_src
+        assert "week8-11-full" in func_src
 
     def test_call_ai_provider_has_phase_comments(self):
         """AFTER: _call_ai_provider has clear phase comments."""
@@ -509,17 +509,30 @@ class TestAfterStateGracefulDegradation:
 
         # Functions with external service imports need try/except
         functions_with_external_imports = [
-            "_scan_prompt_injection", "_redact_pii", "_deredact_pii",
-            "_extract_signals", "_update_gsd_state", "_get_prompt_template",
-            "_get_brand_voice_config", "_rag_retrieve", "_classify_message",
-            "_compress_context", "_check_token_budget",
-            "_run_clara_quality_gate", "_run_guardrails",
+            "_scan_prompt_injection",
+            "_redact_pii",
+            "_deredact_pii",
+            "_extract_signals",
+            "_update_gsd_state",
+            "_get_prompt_template",
+            "_get_brand_voice_config",
+            "_rag_retrieve",
+            "_classify_message",
+            "_compress_context",
+            "_check_token_budget",
+            "_run_clara_quality_gate",
+            "_run_guardrails",
             "_merge_brand_voice",
-            "_summarize_conversation", "_track_usage",
-            "_check_cost_protection", "_track_ai_metrics",
-            "_buffer_event", "_track_technique_metrics",
-            "_check_burst_protection", "_run_self_healing_check",
-            "_acquire_session_lock", "_release_session_lock",
+            "_summarize_conversation",
+            "_track_usage",
+            "_check_cost_protection",
+            "_track_ai_metrics",
+            "_buffer_event",
+            "_track_technique_metrics",
+            "_check_burst_protection",
+            "_run_self_healing_check",
+            "_acquire_session_lock",
+            "_release_session_lock",
             "_process_language",
         ]
 
@@ -531,7 +544,8 @@ class TestAfterStateGracefulDegradation:
 
         # Pure logic functions (no external imports) don't need try/except
         pure_logic_functions = [
-            "_score_confidence", "_detect_hallucination",
+            "_score_confidence",
+            "_detect_hallucination",
             "_apply_response_formatters",
         ]
 
@@ -666,26 +680,41 @@ class TestAfterStateDocstrings:
         tree = ast.parse(source)
 
         pipeline_functions = [
-            "_scan_prompt_injection", "_check_spam", "_redact_pii",
-            "_deredact_pii", "_process_language", "_extract_signals",
-            "_acquire_session_lock", "_release_session_lock",
-            "_update_gsd_state", "_get_prompt_template",
-            "_get_brand_voice_config", "_inject_brand_voice",
-            "_rag_retrieve", "_classify_message", "_compress_context",
-            "_check_context_health", "_check_token_budget",
-            "_run_clara_quality_gate", "_run_guardrails",
-            "_score_confidence", "_detect_hallucination",
-            "_apply_response_formatters", "_merge_brand_voice",
-            "_summarize_conversation", "_track_usage",
-            "_check_cost_protection", "_track_ai_metrics",
-            "_buffer_event", "_track_technique_metrics",
-            "_check_burst_protection", "_run_self_healing_check",
+            "_scan_prompt_injection",
+            "_check_spam",
+            "_redact_pii",
+            "_deredact_pii",
+            "_process_language",
+            "_extract_signals",
+            "_acquire_session_lock",
+            "_release_session_lock",
+            "_update_gsd_state",
+            "_get_prompt_template",
+            "_get_brand_voice_config",
+            "_inject_brand_voice",
+            "_rag_retrieve",
+            "_classify_message",
+            "_compress_context",
+            "_check_context_health",
+            "_check_token_budget",
+            "_run_clara_quality_gate",
+            "_run_guardrails",
+            "_score_confidence",
+            "_detect_hallucination",
+            "_apply_response_formatters",
+            "_merge_brand_voice",
+            "_summarize_conversation",
+            "_track_usage",
+            "_check_cost_protection",
+            "_track_ai_metrics",
+            "_buffer_event",
+            "_track_technique_metrics",
+            "_check_burst_protection",
+            "_run_self_healing_check",
         ]
 
         for node in ast.walk(tree):
-            if isinstance(
-                    node,
-                    ast.FunctionDef) and node.name in pipeline_functions:
+            if isinstance(node, ast.FunctionDef) and node.name in pipeline_functions:
                 docstring = ast.get_docstring(node)
                 assert docstring is not None, f"{node.name} missing docstring"
                 assert len(docstring) > 20, f"{node.name} docstring too short"

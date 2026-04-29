@@ -30,29 +30,37 @@ def upgrade():
     op.add_column(
         "companies",
         sa.Column(
-            "undo_window_minutes", sa.Integer(),
-            nullable=False, server_default="30",
+            "undo_window_minutes",
+            sa.Integer(),
+            nullable=False,
+            server_default="30",
         ),
     )
     op.add_column(
         "companies",
         sa.Column(
-            "risk_threshold_shadow", sa.Float(),
-            nullable=False, server_default="0.7",
+            "risk_threshold_shadow",
+            sa.Float(),
+            nullable=False,
+            server_default="0.7",
         ),
     )
     op.add_column(
         "companies",
         sa.Column(
-            "risk_threshold_auto", sa.Float(),
-            nullable=False, server_default="0.3",
+            "risk_threshold_auto",
+            sa.Float(),
+            nullable=False,
+            server_default="0.3",
         ),
     )
     op.add_column(
         "companies",
         sa.Column(
-            "shadow_actions_remaining", sa.Integer(),
-            nullable=True, server_default="10",
+            "shadow_actions_remaining",
+            sa.Integer(),
+            nullable=True,
+            server_default="10",
         ),
     )
 
@@ -60,8 +68,10 @@ def upgrade():
     op.add_column(
         "tickets",
         sa.Column(
-            "shadow_status", sa.String(20),
-            nullable=False, server_default="none",
+            "shadow_status",
+            sa.String(20),
+            nullable=False,
+            server_default="none",
         ),
     )
     op.add_column(
@@ -79,7 +89,8 @@ def upgrade():
     op.add_column(
         "tickets",
         sa.Column(
-            "shadow_log_id", sa.String(36),
+            "shadow_log_id",
+            sa.String(36),
             sa.ForeignKey("shadow_log.id", ondelete="SET NULL"),
             nullable=True,
         ),

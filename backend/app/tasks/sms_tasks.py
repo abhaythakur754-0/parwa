@@ -102,7 +102,8 @@ def schedule_sms_auto_reply(
             result = service.send_sms(
                 company_id=company_id,
                 to_number=customer_number,
-                body=auto_reply_message or "Thanks for your message! An agent will respond shortly.",
+                body=auto_reply_message
+                or "Thanks for your message! An agent will respond shortly.",
                 sender_role="system",
                 conversation_id=conversation_id,
             )
@@ -114,7 +115,8 @@ def schedule_sms_auto_reply(
     except Exception as exc:
         logger.error(
             "sms_auto_reply_task_error conv=%s error=%s",
-            conversation_id, str(exc)[:200],
+            conversation_id,
+            str(exc)[:200],
         )
         raise self.retry(exc=exc)
 
@@ -160,7 +162,8 @@ def process_sms_inbound_task(
     except Exception as exc:
         logger.error(
             "sms_inbound_task_error company=%s error=%s",
-            company_id, str(exc)[:200],
+            company_id,
+            str(exc)[:200],
         )
         raise self.retry(exc=exc)
 

@@ -35,7 +35,6 @@ from app.core.variant_transition import (
     _TIER_2_TECHNIQUES,
 )
 
-
 # ═══════════════════════════════════════════════════════════════════
 # FIXTURES
 # ═══════════════════════════════════════════════════════════════════
@@ -80,8 +79,9 @@ class TestConstructor:
         """parwa should have max_tier=2 with tier 1 + tier 2 techniques."""
         caps = handler._capabilities["parwa"]
         assert caps.max_tier == 2
-        assert len(caps.allowed_techniques) == len(
-            _TIER_1_TECHNIQUES) + len(_TIER_2_TECHNIQUES)
+        assert len(caps.allowed_techniques) == len(_TIER_1_TECHNIQUES) + len(
+            _TIER_2_TECHNIQUES
+        )
 
     def test_high_parwa_tier_3(self, handler):
         """high_parwa should have max_tier=3 with all 14 techniques."""
@@ -178,8 +178,7 @@ class TestTicketRegistration:
     def test_new_ticket_uses_effective_variant_after_transition(self, handler):
         """New ticket registered after transition should use effective variant."""
         handler.register_ticket("co_1", "tkt_1", "mini_parwa")
-        record = handler.initiate_upgrade(
-            "co_1", "mini_parwa", "parwa", "plan upgrade")
+        record = handler.initiate_upgrade("co_1", "mini_parwa", "parwa", "plan upgrade")
         handler.complete_transition("co_1", record.transition_id)
         ticket = handler.register_ticket("co_1", "tkt_2", "mini_parwa")
         assert ticket.effective_variant == "parwa"
@@ -196,7 +195,10 @@ class TestInitiateUpgrade:
     def test_valid_upgrade(self, handler_with_tickets):
         """Valid upgrade mini_parwa → parwa should succeed."""
         record = handler_with_tickets.initiate_upgrade(
-            "co_1", "mini_parwa", "parwa", "plan upgrade",
+            "co_1",
+            "mini_parwa",
+            "parwa",
+            "plan upgrade",
         )
         assert record.transition_type == TransitionType.UPGRADE
         assert record.from_variant == "mini_parwa"
@@ -213,8 +215,7 @@ class TestInitiateUpgrade:
 
     def test_upgrade_affected_count(self, handler_with_tickets):
         """Record should reflect number of affected in-flight tickets."""
-        record = handler_with_tickets.initiate_upgrade(
-            "co_1", "mini_parwa", "parwa")
+        record = handler_with_tickets.initiate_upgrade("co_1", "mini_parwa", "parwa")
         assert record.in_flight_tickets_affected >= 1
 
     def test_upgrade_invalid_direction(self, handler):
@@ -261,8 +262,7 @@ class TestOnTurnStart:
         """Subsequent turns should use the new variant."""
         handler.register_ticket("co_1", "tkt_1", "mini_parwa")
         handler.initiate_upgrade("co_1", "mini_parwa", "parwa")
-        variant1 = handler.on_turn_start(
-            "co_1", "tkt_1")  # turn 1: applies upgrade
+        variant1 = handler.on_turn_start("co_1", "tkt_1")  # turn 1: applies upgrade
         variant2 = handler.on_turn_start("co_1", "tkt_1")  # turn 2
         assert variant1 == "parwa"
         assert variant2 == "parwa"
@@ -348,8 +348,7 @@ class TestCompleteTransition:
     def test_complete_wrong_company(self, handler):
         """Should return None for wrong company."""
         record = handler.initiate_upgrade("co_1", "mini_parwa", "parwa")
-        assert handler.complete_transition(
-            "co_2", record.transition_id) is None
+        assert handler.complete_transition("co_2", record.transition_id) is None
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -363,7 +362,10 @@ class TestInitiateDowngrade:
     def test_valid_downgrade(self, handler_with_tickets):
         """Valid downgrade parwa → mini_parwa should succeed."""
         record = handler_with_tickets.initiate_downgrade(
-            "co_1", "parwa", "mini_parwa", "cancel plan",
+            "co_1",
+            "parwa",
+            "mini_parwa",
+            "cancel plan",
         )
         assert record.transition_type == TransitionType.DOWNGRADE
         assert record.status == TransitionStatus.ACTIVE
@@ -413,8 +415,7 @@ class TestRestrictedFeatures:
 
     def test_parwa_to_mini_parwa_features(self, handler):
         """parwa → mini_parwa should list removed features."""
-        restricted = handler.get_restricted_features(
-            "co_1", "parwa", "mini_parwa")
+        restricted = handler.get_restricted_features("co_1", "parwa", "mini_parwa")
         assert len(restricted) > 0
         # Features like chain_of_thought_reasoning should be restricted
         assert "chain_of_thought_reasoning" in restricted
@@ -422,16 +423,14 @@ class TestRestrictedFeatures:
 
     def test_high_parwa_to_parwa_features(self, handler):
         """high_parwa → parwa should list tier-3 features."""
-        restricted = handler.get_restricted_features(
-            "co_1", "high_parwa", "parwa")
+        restricted = handler.get_restricted_features("co_1", "high_parwa", "parwa")
         assert "tree_of_thoughts" in restricted
         assert "reflexion_cycles" in restricted
         assert "chain_of_thought_reasoning" not in restricted  # still in parwa
 
     def test_unknown_variant_returns_empty(self, handler):
         """Unknown variant should return empty list."""
-        assert handler.get_restricted_features(
-            "co_1", "unknown", "parwa") == []
+        assert handler.get_restricted_features("co_1", "unknown", "parwa") == []
 
     def test_same_variant_returns_empty(self, handler):
         """Same variant should return empty list."""
@@ -468,8 +467,7 @@ class TestDeactivationNotices:
 
     def test_acknowledge_nonexistent(self, handler):
         """acknowledge_deactivation should return False for nonexistent notice."""
-        assert handler.acknowledge_deactivation(
-            "co_1", "dn_nonexistent") is False
+        assert handler.acknowledge_deactivation("co_1", "dn_nonexistent") is False
 
     def test_notice_has_message(self, handler):
         """Notice should have a human-readable message."""
@@ -651,20 +649,23 @@ class TestTechniqueAccess:
     def test_is_technique_available_true(self, handler):
         """Should return True for available technique."""
         handler.register_ticket("co_1", "tkt_1", "parwa")
-        assert handler.is_technique_available(
-            "co_1", "tkt_1", "chain_of_thought") is True
+        assert (
+            handler.is_technique_available("co_1", "tkt_1", "chain_of_thought") is True
+        )
 
     def test_is_technique_available_false(self, handler):
         """Should return False for unavailable technique."""
         handler.register_ticket("co_1", "tkt_1", "mini_parwa")
-        assert handler.is_technique_available(
-            "co_1", "tkt_1", "tree_of_thoughts") is False
+        assert (
+            handler.is_technique_available("co_1", "tkt_1", "tree_of_thoughts") is False
+        )
 
     def test_is_technique_case_insensitive(self, handler):
         """Technique lookup should be case-insensitive."""
         handler.register_ticket("co_1", "tkt_1", "parwa")
-        assert handler.is_technique_available(
-            "co_1", "tkt_1", "CHAIN_OF_THOUGHT") is True
+        assert (
+            handler.is_technique_available("co_1", "tkt_1", "CHAIN_OF_THOUGHT") is True
+        )
 
     def test_technique_access_after_upgrade(self, handler):
         """After upgrade and turn switch, new techniques should be available."""
@@ -672,8 +673,9 @@ class TestTechniqueAccess:
         handler.initiate_upgrade("co_1", "mini_parwa", "parwa")
         handler.on_turn_start("co_1", "tkt_1")  # turn 1: old
         handler.on_turn_start("co_1", "tkt_1")  # turn 2: new
-        assert handler.is_technique_available(
-            "co_1", "tkt_1", "chain_of_thought") is True
+        assert (
+            handler.is_technique_available("co_1", "tkt_1", "chain_of_thought") is True
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -731,10 +733,8 @@ class TestRollbackTransition:
 
     def test_rollback_active_upgrade(self, handler_with_tickets):
         """Rolling back an active upgrade should revert tickets."""
-        record = handler_with_tickets.initiate_upgrade(
-            "co_1", "mini_parwa", "parwa")
-        result = handler_with_tickets.rollback_transition(
-            "co_1", record.transition_id)
+        record = handler_with_tickets.initiate_upgrade("co_1", "mini_parwa", "parwa")
+        result = handler_with_tickets.rollback_transition("co_1", record.transition_id)
         assert result.status == TransitionStatus.ROLLED_BACK
         # Tickets should no longer have transition pending
         tkt1 = handler_with_tickets.get_ticket("co_1", "tkt_1")
@@ -756,8 +756,7 @@ class TestRollbackTransition:
     def test_rollback_wrong_company(self, handler):
         """Rolling back with wrong company should return None."""
         record = handler.initiate_upgrade("co_1", "mini_parwa", "parwa")
-        assert handler.rollback_transition(
-            "co_2", record.transition_id) is None
+        assert handler.rollback_transition("co_2", record.transition_id) is None
 
     def test_rollback_reverts_effective_variant(self, handler):
         """Rollback should revert company effective variant."""
@@ -837,10 +836,7 @@ class TestThreadSafety:
             except Exception as e:
                 errors.append(str(e))
 
-        threads = [
-            threading.Thread(
-                target=register, args=(
-                    i,)) for i in range(100)]
+        threads = [threading.Thread(target=register, args=(i,)) for i in range(100)]
         for t in threads:
             t.start()
         for t in threads:
@@ -860,10 +856,7 @@ class TestThreadSafety:
             except Exception as e:
                 errors.append(str(e))
 
-        threads = [
-            threading.Thread(
-                target=turn_start, args=(
-                    i,)) for i in range(50)]
+        threads = [threading.Thread(target=turn_start, args=(i,)) for i in range(50)]
         for t in threads:
             t.start()
         for t in threads:

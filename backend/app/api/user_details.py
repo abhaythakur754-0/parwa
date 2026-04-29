@@ -90,6 +90,7 @@ def get_details(
     )
     if not result:
         from fastapi import HTTPException
+
         raise HTTPException(
             status_code=404,
             detail="User details not found. Please submit details first.",
@@ -204,6 +205,4 @@ def confirm_verification(
     BC-011: Token is cryptographically random.
     """
     verify_work_email(db=db, token=body.token)
-    return MessageResponse(
-        message="Work email verified successfully."
-    )
+    return MessageResponse(message="Work email verified successfully.")

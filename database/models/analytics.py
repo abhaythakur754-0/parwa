@@ -12,7 +12,14 @@ from datetime import datetime
 import uuid
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Integer, Numeric, String, Text, ForeignKey
+    Boolean,
+    Column,
+    DateTime,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    ForeignKey,
 )
 
 from database.base import Base
@@ -27,8 +34,10 @@ class MetricAggregate(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     metric_type = Column(String(100), nullable=False)
     # daily, weekly, monthly
@@ -45,8 +54,10 @@ class ROISnapshot(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     period = Column(String(20), nullable=False)
     tickets_ai_resolved = Column(Integer, default=0)
@@ -64,8 +75,10 @@ class DriftReport(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     agent_id = Column(String(36), ForeignKey("agents.id"))
     metric_type = Column(String(100), nullable=False)
@@ -82,8 +95,10 @@ class QAScore(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     session_id = Column(String(36), ForeignKey("tickets.id"))
     agent_id = Column(String(36), ForeignKey("agents.id"))
@@ -100,8 +115,10 @@ class TrainingRun(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     agent_id = Column(String(36), ForeignKey("agents.id"))
     dataset_id = Column(String(36), ForeignKey("training_datasets.id"))
@@ -109,7 +126,9 @@ class TrainingRun(Base):
     # manual, auto_threshold, scheduled, cold_start
     trigger = Column(String(50), nullable=False)
     base_model = Column(String(255))
-    status = Column(String(50), default="queued")  # queued, initializing, running, completed, failed, cancelled
+    status = Column(
+        String(50), default="queued"
+    )  # queued, initializing, running, completed, failed, cancelled
     progress_pct = Column(Numeric(5, 2), default=0)
     current_epoch = Column(Integer, default=0)
     total_epochs = Column(Integer, default=3)

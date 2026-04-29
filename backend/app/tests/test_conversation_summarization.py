@@ -37,8 +37,10 @@ def _mock_logger():
             SummaryStatus as _SummaryStatus,
             ConversationState as _ConversationState,
         )
+
         globals()[
-            "ConversationSummarizationService"] = _ConversationSummarizationService
+            "ConversationSummarizationService"
+        ] = _ConversationSummarizationService
         globals()["ConversationMessage"] = _ConversationMessage
         globals()["ConversationSummary"] = _ConversationSummary
         globals()["ConversationContext"] = _ConversationContext
@@ -86,31 +88,40 @@ class _Base:
         for i in range(n):
             role = "customer" if i % 2 == 0 else "agent"
             msg = self._msg(
-                f"This is message number {i} with some content.",
-                role=role,
-                ts=ts)
+                f"This is message number {i} with some content.", role=role, ts=ts
+            )
             self.service.add_message(company_id, conv_id, msg)
         return self.service.get_conversation_version(company_id, conv_id)
 
     def _add_realistic(
-            self,
-            n: int = 5,
-            company_id: str = CID,
-            conv_id: str = CONV) -> list:
+        self, n: int = 5, company_id: str = CID, conv_id: str = CONV
+    ) -> list:
         """Add a handful of realistic messages; returns the list."""
         texts = [
             ("I have a problem with my order. The delivery is delayed.", "customer"),
             ("Let me help you with that. Can you provide your order number?", "agent"),
-            ("Sure, my order number is 12345. I need this resolved urgently.", "customer"),
-            ("Thank you. I found your order. It seems there was a shipping error.", "agent"),
-            ("Can you fix the error and refund the shipping charge please?", "customer"),
+            (
+                "Sure, my order number is 12345. I need this resolved urgently.",
+                "customer",
+            ),
+            (
+                "Thank you. I found your order. It seems there was a shipping error.",
+                "agent",
+            ),
+            (
+                "Can you fix the error and refund the shipping charge please?",
+                "customer",
+            ),
             ("I have processed the refund for your shipping charge.", "agent"),
             ("What about the delivery? Will my order arrive soon?", "customer"),
             ("Yes, the updated delivery date is next Monday.", "agent"),
             ("Great, thank you for your help. I appreciate it.", "customer"),
             ("You are welcome. Is there anything else I can help with?", "agent"),
             ("No, that will be all. Thanks again.", "customer"),
-            ("Have a great day! Feel free to reach out if you need more help.", "agent"),
+            (
+                "Have a great day! Feel free to reach out if you need more help.",
+                "agent",
+            ),
         ]
         msgs = []
         for i in range(min(n, len(texts))):
@@ -192,8 +203,11 @@ class TestDataclasses:
     def test_message_custom_values(self):
         ts = datetime(2024, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
         m = ConversationMessage(
-            message_id="m2", content="hello world", role="agent",
-            timestamp=ts, metadata={"source": "web"},
+            message_id="m2",
+            content="hello world",
+            role="agent",
+            timestamp=ts,
+            metadata={"source": "web"},
         )
         assert m.message_id == "m2"
         assert m.content == "hello world"
@@ -210,8 +224,11 @@ class TestDataclasses:
     # ── ConversationSummary ────────────────────────────────────────────
     def test_summary_defaults_empty_strings(self):
         s = ConversationSummary(
-            summary_id="s1", conversation_id="c1", company_id="co1",
-            mode=SummarizationMode.HYBRID, status=SummaryStatus.COMPLETED,
+            summary_id="s1",
+            conversation_id="c1",
+            company_id="co1",
+            mode=SummarizationMode.HYBRID,
+            status=SummaryStatus.COMPLETED,
         )
         assert s.extractive_summary == ""
         assert s.abstractive_summary == ""
@@ -219,15 +236,21 @@ class TestDataclasses:
 
     def test_summary_defaults_key_points_empty(self):
         s = ConversationSummary(
-            summary_id="s1", conversation_id="c1", company_id="co1",
-            mode=SummarizationMode.HYBRID, status=SummaryStatus.COMPLETED,
+            summary_id="s1",
+            conversation_id="c1",
+            company_id="co1",
+            mode=SummarizationMode.HYBRID,
+            status=SummaryStatus.COMPLETED,
         )
         assert s.key_points == []
 
     def test_summary_defaults_zero_values(self):
         s = ConversationSummary(
-            summary_id="s1", conversation_id="c1", company_id="co1",
-            mode=SummarizationMode.HYBRID, status=SummaryStatus.COMPLETED,
+            summary_id="s1",
+            conversation_id="c1",
+            company_id="co1",
+            mode=SummarizationMode.HYBRID,
+            status=SummaryStatus.COMPLETED,
         )
         assert s.conversation_version == 0
         assert s.message_count == 0
@@ -237,16 +260,22 @@ class TestDataclasses:
 
     def test_summary_defaults_metadata_empty(self):
         s = ConversationSummary(
-            summary_id="s1", conversation_id="c1", company_id="co1",
-            mode=SummarizationMode.HYBRID, status=SummaryStatus.COMPLETED,
+            summary_id="s1",
+            conversation_id="c1",
+            company_id="co1",
+            mode=SummarizationMode.HYBRID,
+            status=SummaryStatus.COMPLETED,
         )
         assert s.metadata == {}
 
     def test_summary_timestamp_is_utc(self):
         before = datetime.now(timezone.utc) - timedelta(seconds=1)
         s = ConversationSummary(
-            summary_id="s1", conversation_id="c1", company_id="co1",
-            mode=SummarizationMode.HYBRID, status=SummaryStatus.COMPLETED,
+            summary_id="s1",
+            conversation_id="c1",
+            company_id="co1",
+            mode=SummarizationMode.HYBRID,
+            status=SummaryStatus.COMPLETED,
         )
         after = datetime.now(timezone.utc) + timedelta(seconds=1)
         assert before <= s.created_at <= after
@@ -254,8 +283,11 @@ class TestDataclasses:
 
     def test_summary_custom_values(self):
         s = ConversationSummary(
-            summary_id="s2", conversation_id="c2", company_id="co2",
-            mode=SummarizationMode.EXTRACTIVE, status=SummaryStatus.PENDING,
+            summary_id="s2",
+            conversation_id="c2",
+            company_id="co2",
+            mode=SummarizationMode.EXTRACTIVE,
+            status=SummaryStatus.PENDING,
             extractive_summary="Excerpt here",
             abstractive_summary="Condensed here",
             hybrid_summary="Both here",
@@ -301,7 +333,8 @@ class TestDataclasses:
 
     def test_request_custom(self):
         req = SummarizationRequest(
-            company_id="co1", conversation_id="c1",
+            company_id="co1",
+            conversation_id="c1",
             mode=SummarizationMode.EXTRACTIVE,
             max_messages=50,
             include_key_points=False,
@@ -328,8 +361,11 @@ class TestDataclasses:
 
     def test_result_with_summary(self):
         s = ConversationSummary(
-            summary_id="s1", conversation_id="c1", company_id="co1",
-            mode=SummarizationMode.HYBRID, status=SummaryStatus.COMPLETED,
+            summary_id="s1",
+            conversation_id="c1",
+            company_id="co1",
+            mode=SummarizationMode.HYBRID,
+            status=SummaryStatus.COMPLETED,
         )
         r = SummarizationResult(success=True, summary=s)
         assert r.summary.summary_id == "s1"
@@ -351,6 +387,7 @@ class TestInitialization(_Base):
     def test_create_with_custom_generator(self):
         def gen(msgs):
             return "custom"
+
         svc = ConversationSummarizationService(abstractive_generator=gen)
         assert svc._abstractive_generator is gen
 
@@ -423,7 +460,9 @@ class TestAddMessage(_Base):
 
     def test_add_message_preserves_metadata(self):
         m = ConversationMessage(
-            message_id="meta1", content="test", role="customer",
+            message_id="meta1",
+            content="test",
+            role="customer",
             metadata={"key": "value"},
         )
         self.service.add_message(CID, CONV, m)
@@ -556,11 +595,13 @@ class TestExtractiveSummarization(_Base):
             ConversationMessage(
                 message_id="a",
                 content="I have a serious problem with my order and need urgent help.",
-                role="customer"),
+                role="customer",
+            ),
             ConversationMessage(
                 message_id="b",
                 content="The delivery was delayed and I want a refund for the shipping charge.",
-                role="customer"),
+                role="customer",
+            ),
         ]
         ext, kp = self.service._extractive_summarize(msgs)
         # Should contain content about problem/order/delivery/refund
@@ -572,11 +613,13 @@ class TestExtractiveSummarization(_Base):
             ConversationMessage(
                 message_id="a",
                 content="Can you help me resolve this issue?",
-                role="customer"),
+                role="customer",
+            ),
             ConversationMessage(
                 message_id="b",
                 content="Sure, what seems to be the error you are experiencing?",
-                role="agent"),
+                role="agent",
+            ),
         ]
         _, kp = self.service._extractive_summarize(msgs)
         # Questions should appear in key points
@@ -640,18 +683,11 @@ class TestAbstractiveSummarization(_Base):
 
     def test_merges_consecutive_same_role(self):
         msgs = [
+            ConversationMessage(message_id="a", content="First part.", role="customer"),
             ConversationMessage(
-                message_id="a",
-                content="First part.",
-                role="customer"),
-            ConversationMessage(
-                message_id="b",
-                content="Second part.",
-                role="customer"),
-            ConversationMessage(
-                message_id="c",
-                content="Agent reply.",
-                role="agent"),
+                message_id="b", content="Second part.", role="customer"
+            ),
+            ConversationMessage(message_id="c", content="Agent reply.", role="agent"),
         ]
         result = self.service._abstractive_summarize(msgs)
         assert isinstance(result, str)
@@ -664,10 +700,8 @@ class TestAbstractiveSummarization(_Base):
     def test_truncates_long_sentences(self):
         long_content = "A" * 200
         msgs = [
-            ConversationMessage(
-                message_id="x",
-                content=long_content,
-                role="customer")]
+            ConversationMessage(message_id="x", content=long_content, role="customer")
+        ]
         result = self.service._abstractive_summarize(msgs)
         # Rule-based should truncate to ~60 chars per block first sentence
         assert isinstance(result, str)
@@ -710,9 +744,7 @@ class TestHybridSummarization(_Base):
 
     def test_hybrid_key_points_excluded_when_flag_false(self):
         self._add_realistic(6)
-        r = self._summarize_mode(
-            SummarizationMode.HYBRID,
-            include_key_points=False)
+        r = self._summarize_mode(SummarizationMode.HYBRID, include_key_points=False)
         assert r.success is True
         assert r.summary.key_points == []
 
@@ -771,7 +803,8 @@ class TestSummarize(_Base):
     def test_company_id_mismatch_returns_error(self):
         self._add_realistic(3)
         req = SummarizationRequest(
-            company_id="wrong_company", conversation_id=CONV,
+            company_id="wrong_company",
+            conversation_id=CONV,
         )
         r = self.service.summarize(CID, CONV, req)
         assert r.success is False
@@ -786,7 +819,9 @@ class TestSummarize(_Base):
         for i in range(10):
             self.service.add_message(CID, CONV, self._msg(f"msg {i}"))
         req = SummarizationRequest(
-            company_id=CID, conversation_id=CONV, max_messages=3,
+            company_id=CID,
+            conversation_id=CONV,
+            max_messages=3,
         )
         r = self.service.summarize(CID, CONV, req)
         assert r.success is True
@@ -905,7 +940,9 @@ class TestW9GAP024(_Base):
 
         try:
             # Set a very short TTL by patching
-            with patch("app.core.conversation_summarization._VERSION_LOCK_TTL_SECONDS", 0):
+            with patch(
+                "app.core.conversation_summarization._VERSION_LOCK_TTL_SECONDS", 0
+            ):
                 r = self.service.summarize(CID, CONV)
             assert r.success is False
             assert "lock" in r.error.lower() or "timeout" in r.error.lower()
@@ -921,8 +958,7 @@ class TestW9GAP024(_Base):
             time.sleep(0.3)
             return "Slow generated summary"
 
-        svc = ConversationSummarizationService(
-            abstractive_generator=slow_generator)
+        svc = ConversationSummarizationService(abstractive_generator=slow_generator)
         svc.reset()
 
         for i in range(5):
@@ -937,7 +973,8 @@ class TestW9GAP024(_Base):
         t.start()
 
         req = SummarizationRequest(
-            company_id=CID, conversation_id=CONV,
+            company_id=CID,
+            conversation_id=CONV,
             mode=SummarizationMode.ABSTRACTIVE,
         )
         r = svc.summarize(CID, CONV, req)
@@ -1217,7 +1254,8 @@ class TestBC008(_Base):
 
     def test_add_message_does_not_crash_on_internal_error(self):
         with patch.object(
-            self.service, "_get_or_create_context",
+            self.service,
+            "_get_or_create_context",
             side_effect=RuntimeError("DB down"),
         ):
             v = self.service.add_message(CID, CONV, self._msg("hi"))
@@ -1225,7 +1263,8 @@ class TestBC008(_Base):
 
     def test_should_summarize_does_not_crash(self):
         with patch.object(
-            self.service, "_get_or_create_context",
+            self.service,
+            "_get_or_create_context",
             side_effect=RuntimeError("DB down"),
         ):
             result = self.service.should_summarize(CID, CONV)
@@ -1233,7 +1272,8 @@ class TestBC008(_Base):
 
     def test_summarize_does_not_crash_on_internal_error(self):
         with patch.object(
-            self.service, "_get_or_create_context",
+            self.service,
+            "_get_or_create_context",
             side_effect=RuntimeError("DB down"),
         ):
             r = self.service.summarize(CID, CONV)
@@ -1261,7 +1301,8 @@ class TestBC008(_Base):
 
     def test_get_context_window_does_not_crash(self):
         with patch.object(
-            self.service, "_get_or_create_context",
+            self.service,
+            "_get_or_create_context",
             side_effect=RuntimeError("error"),
         ):
             w = self.service.get_context_window(CID, CONV)
@@ -1338,11 +1379,17 @@ class TestEdgeCases(_Base):
 
     def test_unicode_content(self):
         msgs = [
-            ConversationMessage(message_id="u1", content="こんにちは世界", role="customer"),
+            ConversationMessage(
+                message_id="u1", content="こんにちは世界", role="customer"
+            ),
             ConversationMessage(message_id="u2", content="مرحبا بالعالم", role="agent"),
             ConversationMessage(message_id="u3", content="Привет мир", role="customer"),
-            ConversationMessage(message_id="u4", content="🎉 emoji test 🚀", role="agent"),
-            ConversationMessage(message_id="u5", content="Ñoño café résumé", role="customer"),
+            ConversationMessage(
+                message_id="u4", content="🎉 emoji test 🚀", role="agent"
+            ),
+            ConversationMessage(
+                message_id="u5", content="Ñoño café résumé", role="customer"
+            ),
         ]
         for m in msgs:
             self.service.add_message(CID, CONV, m)
@@ -1350,14 +1397,11 @@ class TestEdgeCases(_Base):
         assert r.success is True
 
     def test_special_characters(self):
-        self.service.add_message(
-            CID, CONV, self._msg("<script>alert('xss')</script>"))
-        self.service.add_message(
-            CID, CONV, self._msg("SQL: DROP TABLE users; --"))
+        self.service.add_message(CID, CONV, self._msg("<script>alert('xss')</script>"))
+        self.service.add_message(CID, CONV, self._msg("SQL: DROP TABLE users; --"))
         self.service.add_message(CID, CONV, self._msg("Path: /etc/passwd"))
         self.service.add_message(CID, CONV, self._msg("Regex: ^[a-z]+$"))
-        self.service.add_message(
-            CID, CONV, self._msg("JSON: {\"key\": \"value\"}"))
+        self.service.add_message(CID, CONV, self._msg('JSON: {"key": "value"}'))
         r = self.service.summarize(CID, CONV)
         assert r.success is True
 
@@ -1390,7 +1434,9 @@ class TestEdgeCases(_Base):
         self._add_realistic(5)
         for mode in SummarizationMode:
             req = SummarizationRequest(
-                company_id=CID, conversation_id=CONV, mode=mode,
+                company_id=CID,
+                conversation_id=CONV,
+                mode=mode,
             )
             r = self.service.summarize(CID, CONV, req)
             assert r.success is True, f"Failed for mode {mode}"
@@ -1422,7 +1468,8 @@ class TestEdgeCases(_Base):
     def test_abbr_protected_in_sentence_split(self):
         """Ensure abbreviations like Mr. Dr. don't cause incorrect splits."""
         msg = ConversationMessage(
-            message_id="abbr", role="customer",
+            message_id="abbr",
+            role="customer",
             content="Mr. Smith went to see Dr. Jones about the issue.",
         )
         self.service.add_message(CID, CONV, msg)

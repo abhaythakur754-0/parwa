@@ -16,24 +16,37 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-
 # ══════════════════════════════════════════════════════════════════
 # F-095: Agent Provisioning Schemas
 # ══════════════════════════════════════════════════════════════════
 
 VALID_AGENT_STATUSES = (
-    "initializing", "training", "active", "paused",
-    "deprovisioned", "error",
+    "initializing",
+    "training",
+    "active",
+    "paused",
+    "deprovisioned",
+    "error",
 )
 VALID_SPECIALTIES = (
-    "billing_specialist", "returns_specialist", "technical_support",
-    "general_support", "sales_assistant", "onboarding_guide",
-    "vip_concierge", "feedback_collector", "custom",
+    "billing_specialist",
+    "returns_specialist",
+    "technical_support",
+    "general_support",
+    "sales_assistant",
+    "onboarding_guide",
+    "vip_concierge",
+    "feedback_collector",
+    "custom",
 )
 VALID_PERMISSION_LEVELS = ("basic", "standard", "advanced", "admin")
 VALID_SETUP_STEPS = (
-    "configuration", "training", "integration_setup",
-    "permission_config", "testing", "activation",
+    "configuration",
+    "training",
+    "integration_setup",
+    "permission_config",
+    "testing",
+    "activation",
 )
 VALID_CHANNELS = ("chat", "email", "sms", "voice", "slack", "webchat")
 
@@ -44,15 +57,18 @@ class AgentCreateRequest(BaseModel):
     Includes all configuration needed to provision an agent:
     name, specialty, description, channel list, and permission level.
     """
+
     name: str = Field(
-        min_length=1, max_length=200,
+        min_length=1,
+        max_length=200,
         description="Agent display name",
     )
     specialty: str = Field(
         description="Agent specialty type",
     )
     description: Optional[str] = Field(
-        default=None, max_length=2000,
+        default=None,
+        max_length=2000,
         description="Agent description / purpose",
     )
     channels: List[str] = Field(
@@ -82,6 +98,7 @@ class AgentConfig(BaseModel):
 
     Resolved from the create request after validation and parsing.
     """
+
     name: str
     specialty: str
     description: Optional[str] = None
@@ -95,6 +112,7 @@ class AgentConfig(BaseModel):
 
 class AgentResponse(BaseModel):
     """Agent record returned from API endpoints."""
+
     id: str
     company_id: str
     name: str
@@ -113,6 +131,7 @@ class AgentResponse(BaseModel):
 
 class AgentListResponse(BaseModel):
     """Paginated list of agents."""
+
     agents: List[AgentResponse] = Field(default_factory=list)
     total: int = 0
     limit: int = 20
@@ -121,6 +140,7 @@ class AgentListResponse(BaseModel):
 
 class AgentCreateResponse(BaseModel):
     """Response from agent creation endpoint."""
+
     agent: AgentResponse
     requires_approval: bool = False
     clarification_needed: bool = False
@@ -130,6 +150,7 @@ class AgentCreateResponse(BaseModel):
 
 class SetupLogEntry(BaseModel):
     """Single setup step status."""
+
     step: str
     status: str
     configuration: Dict[str, Any] = Field(default_factory=dict)
@@ -140,6 +161,7 @@ class SetupLogEntry(BaseModel):
 
 class SetupStatusResponse(BaseModel):
     """Agent setup progress status."""
+
     agent_id: str
     overall_status: str
     steps: List[SetupLogEntry] = Field(default_factory=list)
@@ -151,6 +173,7 @@ class SetupStatusResponse(BaseModel):
 
 class CompleteSetupRequest(BaseModel):
     """Request to complete agent setup with final configuration."""
+
     configuration: Dict[str, Any] = Field(
         default_factory=dict,
         description="Final configuration for activation",
@@ -163,6 +186,7 @@ class CompleteSetupRequest(BaseModel):
 
 class CompleteSetupResponse(BaseModel):
     """Response after completing agent setup."""
+
     agent_id: str
     status: str
     message: str
@@ -171,6 +195,7 @@ class CompleteSetupResponse(BaseModel):
 
 class PlanLimitsResponse(BaseModel):
     """Current agent count vs plan limit."""
+
     current_agents: int = 0
     max_agents: int = 0
     available_slots: int = 0
@@ -179,6 +204,7 @@ class PlanLimitsResponse(BaseModel):
 
 class AgentStatusDetail(BaseModel):
     """Detailed agent status with metrics."""
+
     agent: AgentResponse
     setup_status: Optional[SetupStatusResponse] = None
     active_instructions: Optional[Dict[str, Any]] = None
@@ -190,8 +216,10 @@ class AgentStatusDetail(BaseModel):
 # F-095: Specialty Template Schemas
 # ══════════════════════════════════════════════════════════════════
 
+
 class SpecialtyTemplate(BaseModel):
     """Pre-defined specialty template for agent creation."""
+
     specialty: str
     display_name: str
     description: str
@@ -204,6 +232,7 @@ class SpecialtyTemplate(BaseModel):
 
 class SpecialtyTemplatesResponse(BaseModel):
     """List of all available specialty templates."""
+
     templates: List[SpecialtyTemplate] = Field(default_factory=list)
     total: int = 0
 
@@ -222,6 +251,7 @@ class InstructionContent(BaseModel):
     Defines the behavioral rules, tone guidelines, escalation triggers,
     response templates, and confidence thresholds for an agent.
     """
+
     behavioral_rules: List[str] = Field(
         default_factory=list,
         description="Rules the agent must follow (e.g., 'Always greet by name')",
@@ -250,8 +280,10 @@ class InstructionContent(BaseModel):
 
 class InstructionSetCreateRequest(BaseModel):
     """Request to create a new instruction set."""
+
     name: str = Field(
-        min_length=1, max_length=200,
+        min_length=1,
+        max_length=200,
         description="Instruction set name",
     )
     agent_id: str = Field(
@@ -268,8 +300,10 @@ class InstructionSetCreateRequest(BaseModel):
 
 class InstructionSetUpdateRequest(BaseModel):
     """Request to update an existing instruction set (draft only)."""
+
     name: Optional[str] = Field(
-        default=None, max_length=200,
+        default=None,
+        max_length=200,
         description="Updated instruction set name",
     )
     instructions: Optional[InstructionContent] = Field(
@@ -277,13 +311,15 @@ class InstructionSetUpdateRequest(BaseModel):
         description="Updated instruction content",
     )
     change_summary: Optional[str] = Field(
-        default=None, max_length=1000,
+        default=None,
+        max_length=1000,
         description="Description of changes made",
     )
 
 
 class InstructionSetResponse(BaseModel):
     """Instruction set returned from API endpoints."""
+
     id: str
     company_id: str
     agent_id: str
@@ -302,6 +338,7 @@ class InstructionSetResponse(BaseModel):
 
 class InstructionSetListResponse(BaseModel):
     """Paginated list of instruction sets."""
+
     sets: List[InstructionSetResponse] = Field(default_factory=list)
     total: int = 0
     limit: int = 20
@@ -310,6 +347,7 @@ class InstructionSetListResponse(BaseModel):
 
 class InstructionVersionResponse(BaseModel):
     """A single version in the instruction set history."""
+
     id: str
     set_id: str
     company_id: str
@@ -323,6 +361,7 @@ class InstructionVersionResponse(BaseModel):
 
 class VersionHistoryResponse(BaseModel):
     """Version history for an instruction set."""
+
     set_id: str
     versions: List[InstructionVersionResponse] = Field(
         default_factory=list,
@@ -332,6 +371,7 @@ class VersionHistoryResponse(BaseModel):
 
 class PublishResponse(BaseModel):
     """Response from publishing an instruction set."""
+
     set_id: str
     previous_version: int
     new_version: int
@@ -342,6 +382,7 @@ class PublishResponse(BaseModel):
 
 class ArchiveResponse(BaseModel):
     """Response from archiving an instruction set."""
+
     set_id: str
     status: str
     message: str = "Instruction set archived successfully"
@@ -349,6 +390,7 @@ class ArchiveResponse(BaseModel):
 
 class RollbackResponse(BaseModel):
     """Response from rolling back to a previous version."""
+
     set_id: str
     previous_version: int
     rolled_back_to: int
@@ -362,6 +404,7 @@ class RollbackResponse(BaseModel):
 
 class ABTestCreateRequest(BaseModel):
     """Request to create a new A/B test."""
+
     agent_id: str = Field(
         description="Agent to run the A/B test on",
     )
@@ -372,7 +415,9 @@ class ABTestCreateRequest(BaseModel):
         description="Instruction set for variant B",
     )
     traffic_split: int = Field(
-        default=50, ge=0, le=100,
+        default=50,
+        ge=0,
+        le=100,
         description="Percentage of traffic for variant A (0-100)",
     )
     success_metric: str = Field(
@@ -380,13 +425,16 @@ class ABTestCreateRequest(BaseModel):
         description="Primary metric: csat, resolution_rate, or both",
     )
     duration_days: int = Field(
-        default=14, ge=1, le=90,
+        default=14,
+        ge=1,
+        le=90,
         description="Maximum test duration in days",
     )
 
 
 class ABTestResponse(BaseModel):
     """A/B test returned from API endpoints."""
+
     id: str
     company_id: str
     agent_id: str
@@ -411,6 +459,7 @@ class ABTestResponse(BaseModel):
 
 class ABTestDetailResponse(ABTestResponse):
     """Detailed A/B test response with set info and evaluation."""
+
     set_a_name: Optional[str] = None
     set_b_name: Optional[str] = None
     winner_name: Optional[str] = None
@@ -419,6 +468,7 @@ class ABTestDetailResponse(ABTestResponse):
 
 class ABTestListResponse(BaseModel):
     """Paginated list of A/B tests."""
+
     tests: List[ABTestResponse] = Field(default_factory=list)
     total: int = 0
     limit: int = 20
@@ -427,6 +477,7 @@ class ABTestListResponse(BaseModel):
 
 class ABTestStopRequest(BaseModel):
     """Request to stop an A/B test."""
+
     winner_id: Optional[str] = Field(
         default=None,
         description="Optional: manually select a winner when stopping",
@@ -435,6 +486,7 @@ class ABTestStopRequest(BaseModel):
 
 class ABTestStopResponse(BaseModel):
     """Response from stopping an A/B test."""
+
     test_id: str
     status: str
     winner_id: Optional[str] = None
@@ -444,6 +496,7 @@ class ABTestStopResponse(BaseModel):
 
 class ABTestEvaluation(BaseModel):
     """Statistical evaluation results for an A/B test."""
+
     test_id: str
     is_significant: bool = False
     p_value: Optional[float] = None
@@ -457,6 +510,7 @@ class ABTestEvaluation(BaseModel):
 
 class ABAssignmentResponse(BaseModel):
     """Result of assigning a ticket to an A/B variant."""
+
     test_id: str
     ticket_id: str
     variant: str
@@ -466,6 +520,7 @@ class ABAssignmentResponse(BaseModel):
 
 class ActiveInstructionsResponse(BaseModel):
     """Active instructions for an agent (may be from A/B test)."""
+
     agent_id: str
     source: str = Field(
         description="Source type: 'instruction_set' or 'ab_test'",

@@ -112,9 +112,12 @@ class PaymentFailureService:
         """
         with SessionLocal() as db:
             # Get company with row lock to prevent race conditions
-            company = db.query(Company).filter(
-                Company.id == str(company_id)
-            ).with_for_update().first()
+            company = (
+                db.query(Company)
+                .filter(Company.id == str(company_id))
+                .with_for_update()
+                .first()
+            )
 
             if not company:
                 raise PaymentFailureError(f"Company {company_id} not found")
@@ -123,10 +126,14 @@ class PaymentFailureService:
             grace_period_ends_at = now + timedelta(days=self.GRACE_PERIOD_DAYS)
 
             # Check if there's already an unresolved payment failure
-            existing_failure = db.query(PaymentFailure).filter(
-                PaymentFailure.company_id == str(company_id),
-                PaymentFailure.resolved is False,
-            ).first()
+            existing_failure = (
+                db.query(PaymentFailure)
+                .filter(
+                    PaymentFailure.company_id == str(company_id),
+                    PaymentFailure.resolved is False,
+                )
+                .first()
+            )
 
             if existing_failure:
                 # Already has active payment failure - just log this one
@@ -165,10 +172,14 @@ class PaymentFailureService:
             company.subscription_status = self.PAST_DUE_STATUS
 
             # Update subscription record if exists
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-                Subscription.status == self.ACTIVE_STATUS,
-            ).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                    Subscription.status == self.ACTIVE_STATUS,
+                )
+                .first()
+            )
 
             if subscription:
                 subscription.status = self.PAST_DUE_STATUS
@@ -196,10 +207,15 @@ class PaymentFailureService:
                 # info
                 from app.services.email_service import send_email
                 from database.models.core import User
-                company_owner = db.query(User).filter(
-                    User.company_id == str(company_id),
-                    User.role == "owner",
-                ).first()
+
+                company_owner = (
+                    db.query(User)
+                    .filter(
+                        User.company_id == str(company_id),
+                        User.role == "owner",
+                    )
+                    .first()
+                )
                 if company_owner:
                     try:
                         send_email(
@@ -232,6 +248,7 @@ class PaymentFailureService:
                 # Notify via notification service
                 try:
                     from app.services.notification_service import NotificationService
+
                     notif_svc = NotificationService(db)
                     notif_svc.create_notification(
                         user_id=str(company_owner.id) if company_owner else None,
@@ -256,6 +273,7 @@ class PaymentFailureService:
                 try:
                     from app.core.event_buffer import store_event
                     import asyncio
+
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     try:
@@ -270,7 +288,8 @@ class PaymentFailureService:
                                     "grace_period_days": self.GRACE_PERIOD_DAYS,
                                     "message": "Payment failed. 7-day grace period started.",
                                 },
-                            ))
+                            )
+                        )
                     finally:
                         loop.close()
                 except Exception as socket_err:
@@ -333,19 +352,25 @@ class PaymentFailureService:
 
         with SessionLocal() as db:
             # Find all unresolved failures past grace period
-            expired_failures = db.query(PaymentFailure).filter(
-                PaymentFailure.resolved is False,
-                PaymentFailure.grace_period_ends_at.isnot(None),
-                PaymentFailure.grace_period_ends_at < now,
-                PaymentFailure.service_stopped_at.isnot(
-                    None),  # has been escalated
-            ).all()
+            expired_failures = (
+                db.query(PaymentFailure)
+                .filter(
+                    PaymentFailure.resolved is False,
+                    PaymentFailure.grace_period_ends_at.isnot(None),
+                    PaymentFailure.grace_period_ends_at < now,
+                    PaymentFailure.service_stopped_at.isnot(None),  # has been escalated
+                )
+                .all()
+            )
 
             for failure in expired_failures:
                 try:
-                    company = db.query(Company).filter(
-                        Company.id == failure.company_id
-                    ).with_for_update().first()
+                    company = (
+                        db.query(Company)
+                        .filter(Company.id == failure.company_id)
+                        .with_for_update()
+                        .first()
+                    )
 
                     if not company:
                         continue
@@ -360,10 +385,16 @@ class PaymentFailureService:
                     company.subscription_status = self.PAYMENT_FAILED_STATUS
 
                     # Update subscription
-                    subscription = db.query(Subscription).filter(
-                        Subscription.company_id == failure.company_id,
-                        Subscription.status.in_([self.ACTIVE_STATUS, self.PAST_DUE_STATUS]),
-                    ).first()
+                    subscription = (
+                        db.query(Subscription)
+                        .filter(
+                            Subscription.company_id == failure.company_id,
+                            Subscription.status.in_(
+                                [self.ACTIVE_STATUS, self.PAST_DUE_STATUS]
+                            ),
+                        )
+                        .first()
+                    )
 
                     if subscription:
                         subscription.status = self.PAYMENT_FAILED_STATUS
@@ -386,7 +417,10 @@ class PaymentFailureService:
 
                     # Trigger full service stop in background
                     try:
-                        from app.tasks.payment_failure_tasks import stop_service_immediately
+                        from app.tasks.payment_failure_tasks import (
+                            stop_service_immediately,
+                        )
+
                         stop_service_immediately.delay(
                             company_id=failure.company_id,
                             failure_id=failure.id,
@@ -399,8 +433,7 @@ class PaymentFailureService:
                         logger.error(
                             "grace_period_suspension_task_failed company_id=%s error=%s",
                             failure.company_id,
-                            str(task_err)[
-                                :200],
+                            str(task_err)[:200],
                         )
 
                     # Send final suspension email
@@ -408,10 +441,14 @@ class PaymentFailureService:
                         from app.services.email_service import send_email
                         from database.models.core import User
 
-                        owner = db.query(User).filter(
-                            User.company_id == failure.company_id,
-                            User.role == "owner",
-                        ).first()
+                        owner = (
+                            db.query(User)
+                            .filter(
+                                User.company_id == failure.company_id,
+                                User.role == "owner",
+                            )
+                            .first()
+                        )
 
                         if owner:
                             send_email(
@@ -432,22 +469,22 @@ class PaymentFailureService:
                         logger.error(
                             "grace_period_suspension_email_failed company_id=%s error=%s",
                             failure.company_id,
-                            str(email_err)[
-                                :200],
+                            str(email_err)[:200],
                         )
 
                 except Exception as e:
                     logger.error(
                         "grace_period_suspension_failed company_id=%s error=%s",
                         failure.company_id,
-                        str(e)[
-                            :200],
+                        str(e)[:200],
                     )
-                    results["errors"].append({
-                        "failure_id": failure.id,
-                        "company_id": failure.company_id,
-                        "error": str(e)[:200],
-                    })
+                    results["errors"].append(
+                        {
+                            "failure_id": failure.id,
+                            "company_id": failure.company_id,
+                            "error": str(e)[:200],
+                        }
+                    )
 
         logger.info(
             "check_expired_grace_periods_completed "
@@ -471,10 +508,14 @@ class PaymentFailureService:
             Includes whether the grace period has expired.
         """
         with SessionLocal() as db:
-            failure = db.query(PaymentFailure).filter(
-                PaymentFailure.company_id == str(company_id),
-                PaymentFailure.resolved is False,
-            ).first()
+            failure = (
+                db.query(PaymentFailure)
+                .filter(
+                    PaymentFailure.company_id == str(company_id),
+                    PaymentFailure.resolved is False,
+                )
+                .first()
+            )
 
             if not failure:
                 return None
@@ -495,19 +536,25 @@ class PaymentFailureService:
 
             return {
                 "failure_id": failure.id,
-                "status": "grace_period" if is_in_grace_period else (
-                    "expired" if is_expired else "unknown"),
+                "status": (
+                    "grace_period"
+                    if is_in_grace_period
+                    else ("expired" if is_expired else "unknown")
+                ),
                 "grace_period_ends_at": grace_ends.isoformat() if grace_ends else None,
                 "is_expired": is_expired,
                 "is_in_grace_period": is_in_grace_period,
-                "days_remaining": round(
-                    days_remaining,
-                    1) if days_remaining is not None else None,
+                "days_remaining": (
+                    round(days_remaining, 1) if days_remaining is not None else None
+                ),
                 "failure_code": failure.failure_code,
                 "failure_reason": failure.failure_reason,
-                "amount_attempted": str(
-                    failure.amount_attempted) if failure.amount_attempted else None,
-                "created_at": failure.created_at.isoformat() if failure.created_at else None,
+                "amount_attempted": (
+                    str(failure.amount_attempted) if failure.amount_attempted else None
+                ),
+                "created_at": (
+                    failure.created_at.isoformat() if failure.created_at else None
+                ),
             }
 
     async def handle_payment_failure(
@@ -549,9 +596,12 @@ class PaymentFailureService:
         """
         with SessionLocal() as db:
             # Get company with row lock to prevent race conditions
-            company = db.query(Company).filter(
-                Company.id == str(company_id)
-            ).with_for_update().first()
+            company = (
+                db.query(Company)
+                .filter(Company.id == str(company_id))
+                .with_for_update()
+                .first()
+            )
 
             if not company:
                 raise PaymentFailureError(f"Company {company_id} not found")
@@ -559,10 +609,14 @@ class PaymentFailureService:
             now = datetime.now(timezone.utc)
 
             # Check if there's already an unresolved payment failure
-            existing_failure = db.query(PaymentFailure).filter(
-                PaymentFailure.company_id == str(company_id),
-                PaymentFailure.resolved is False,
-            ).first()
+            existing_failure = (
+                db.query(PaymentFailure)
+                .filter(
+                    PaymentFailure.company_id == str(company_id),
+                    PaymentFailure.resolved is False,
+                )
+                .first()
+            )
 
             if existing_failure:
                 # Already has active payment failure - just log this one
@@ -600,10 +654,14 @@ class PaymentFailureService:
             company.subscription_status = self.PAYMENT_FAILED_STATUS
 
             # Update subscription record if exists
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-                Subscription.status == self.ACTIVE_STATUS,
-            ).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                    Subscription.status == self.ACTIVE_STATUS,
+                )
+                .first()
+            )
 
             if subscription:
                 subscription.status = self.PAYMENT_FAILED_STATUS
@@ -629,10 +687,15 @@ class PaymentFailureService:
                 # Send payment failure notification email
                 from app.services.email_service import send_email
                 from database.models.core import User
-                company_owner = db.query(User).filter(
-                    User.company_id == str(company_id),
-                    User.role == "owner",
-                ).first()
+
+                company_owner = (
+                    db.query(User)
+                    .filter(
+                        User.company_id == str(company_id),
+                        User.role == "owner",
+                    )
+                    .first()
+                )
                 if company_owner:
                     try:
                         send_email(
@@ -660,10 +723,10 @@ class PaymentFailureService:
                 # Notify via notification service
                 try:
                     from app.services.notification_service import NotificationService
+
                     notif_svc = NotificationService(db)
                     notif_svc.create_notification(
-                        user_id=str(
-                            company_owner.id) if company_owner else None,
+                        user_id=str(company_owner.id) if company_owner else None,
                         company_id=str(company_id),
                         event_type="payment_failed",
                         title="Payment Failed",
@@ -715,19 +778,21 @@ class PaymentFailureService:
         with SessionLocal() as db:
             # Check company subscription status - only payment_failed = full
             # stop
-            company = db.query(Company).filter(
-                Company.id == str(company_id)
-            ).first()
+            company = db.query(Company).filter(Company.id == str(company_id)).first()
 
             if company and company.subscription_status == self.PAYMENT_FAILED_STATUS:
                 return True
 
             # Also check for unresolved payment failures that have expired
             # grace period
-            failure = db.query(PaymentFailure).filter(
-                PaymentFailure.company_id == str(company_id),
-                PaymentFailure.resolved is False,
-            ).first()
+            failure = (
+                db.query(PaymentFailure)
+                .filter(
+                    PaymentFailure.company_id == str(company_id),
+                    PaymentFailure.resolved is False,
+                )
+                .first()
+            )
 
             if failure and failure.grace_period_ends_at:
                 grace_ends = failure.grace_period_ends_at
@@ -749,16 +814,18 @@ class PaymentFailureService:
             True if in grace period, False otherwise
         """
         with SessionLocal() as db:
-            company = db.query(Company).filter(
-                Company.id == str(company_id)
-            ).first()
+            company = db.query(Company).filter(Company.id == str(company_id)).first()
 
             if company and company.subscription_status == self.PAST_DUE_STATUS:
                 # Verify there's an active failure with unexpired grace period
-                failure = db.query(PaymentFailure).filter(
-                    PaymentFailure.company_id == str(company_id),
-                    PaymentFailure.resolved is False,
-                ).first()
+                failure = (
+                    db.query(PaymentFailure)
+                    .filter(
+                        PaymentFailure.company_id == str(company_id),
+                        PaymentFailure.resolved is False,
+                    )
+                    .first()
+                )
 
                 if failure and failure.grace_period_ends_at:
                     grace_ends = failure.grace_period_ends_at
@@ -795,23 +862,28 @@ class PaymentFailureService:
         """
         with SessionLocal() as db:
             # Get company with row lock
-            company = db.query(Company).filter(
-                Company.id == str(company_id)
-            ).with_for_update().first()
+            company = (
+                db.query(Company)
+                .filter(Company.id == str(company_id))
+                .with_for_update()
+                .first()
+            )
 
             if not company:
                 raise PaymentFailureError(f"Company {company_id} not found")
 
             # Get active payment failure
-            failure = db.query(PaymentFailure).filter(
-                PaymentFailure.company_id == str(company_id),
-                PaymentFailure.resolved is False,
-            ).first()
+            failure = (
+                db.query(PaymentFailure)
+                .filter(
+                    PaymentFailure.company_id == str(company_id),
+                    PaymentFailure.resolved is False,
+                )
+                .first()
+            )
 
             if not failure:
-                logger.info(
-                    "payment_resume_no_failure company_id=%s", company_id
-                )
+                logger.info("payment_resume_no_failure company_id=%s", company_id)
                 # No active failure - just ensure status is active
                 if company.subscription_status != self.ACTIVE_STATUS:
                     company.subscription_status = self.ACTIVE_STATUS
@@ -832,9 +904,14 @@ class PaymentFailureService:
             company.subscription_status = self.ACTIVE_STATUS
 
             # Update subscription record
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-            ).order_by(Subscription.created_at.desc()).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                )
+                .order_by(Subscription.created_at.desc())
+                .first()
+            )
 
             if subscription:
                 subscription.status = self.ACTIVE_STATUS
@@ -858,9 +935,11 @@ class PaymentFailureService:
                     from app.services.agent_provisioning_service import (
                         AgentProvisioningService,
                     )
+
                     provisioner = AgentProvisioningService()
                     provisioner.resume_company_agents(
-                        company_id=str(company_id), db=db,
+                        company_id=str(company_id),
+                        db=db,
                     )
                     logger.info(
                         "payment_resume_agents_resumed company_id=%s",
@@ -869,16 +948,22 @@ class PaymentFailureService:
                 except Exception as agent_err:
                     logger.warning(
                         "payment_resume_agents_failed company_id=%s error=%s",
-                        company_id, str(agent_err)[:200],
+                        company_id,
+                        str(agent_err)[:200],
                     )
 
                 # Unfreeze tickets that were frozen during payment failure
                 try:
                     from database.models.tickets import Ticket
-                    unfrozen_count = db.query(Ticket).filter(
-                        Ticket.company_id == str(company_id),
-                        Ticket.status == "frozen",
-                    ).update({"status": "open"})
+
+                    unfrozen_count = (
+                        db.query(Ticket)
+                        .filter(
+                            Ticket.company_id == str(company_id),
+                            Ticket.status == "frozen",
+                        )
+                        .update({"status": "open"})
+                    )
                     db.commit()
                     logger.info(
                         "payment_resume_tickets_unfrozen company_id=%s count=%d",
@@ -888,17 +973,23 @@ class PaymentFailureService:
                 except Exception as ticket_err:
                     logger.warning(
                         "payment_resume_tickets_failed company_id=%s error=%s",
-                        company_id, str(ticket_err)[:200],
+                        company_id,
+                        str(ticket_err)[:200],
                     )
 
                 # Send service_resumed email notification
                 try:
                     from app.services.email_service import send_email
                     from database.models.core import User
-                    company_owner = db.query(User).filter(
-                        User.company_id == str(company_id),
-                        User.role == "owner",
-                    ).first()
+
+                    company_owner = (
+                        db.query(User)
+                        .filter(
+                            User.company_id == str(company_id),
+                            User.role == "owner",
+                        )
+                        .first()
+                    )
                     if company_owner:
                         send_email(
                             to=company_owner.email,
@@ -922,12 +1013,14 @@ class PaymentFailureService:
                 except Exception as email_err:
                     logger.warning(
                         "payment_resume_email_failed company_id=%s error=%s",
-                        company_id, str(email_err)[:200],
+                        company_id,
+                        str(email_err)[:200],
                     )
 
                 # Emit Socket.io event for real-time UI update
                 try:
                     from app.core.event_emitter import EventEmitter
+
                     emitter = EventEmitter()
                     emitter.emit_to_company(
                         company_id=str(company_id),
@@ -946,15 +1039,15 @@ class PaymentFailureService:
                 except Exception as socket_err:
                     logger.warning(
                         "payment_resume_socket_failed company_id=%s error=%s",
-                        company_id, str(socket_err)[:200],
+                        company_id,
+                        str(socket_err)[:200],
                     )
 
             except Exception as side_err:
                 logger.error(
                     "payment_resume_side_effects_failed company_id=%s error=%s",
                     company_id,
-                    str(side_err)[
-                        :200],
+                    str(side_err)[:200],
                 )
 
             return {
@@ -987,11 +1080,13 @@ class PaymentFailureService:
             List of payment failure records
         """
         with SessionLocal() as db:
-            failures = db.query(PaymentFailure).filter(
-                PaymentFailure.company_id == str(company_id)
-            ).order_by(
-                PaymentFailure.created_at.desc()
-            ).limit(limit).all()
+            failures = (
+                db.query(PaymentFailure)
+                .filter(PaymentFailure.company_id == str(company_id))
+                .order_by(PaymentFailure.created_at.desc())
+                .limit(limit)
+                .all()
+            )
 
             return [
                 {
@@ -1000,10 +1095,20 @@ class PaymentFailureService:
                     "paddle_transaction_id": f.paddle_transaction_id,
                     "failure_code": f.failure_code,
                     "failure_reason": f.failure_reason,
-                    "amount_attempted": str(f.amount_attempted) if f.amount_attempted else None,
+                    "amount_attempted": (
+                        str(f.amount_attempted) if f.amount_attempted else None
+                    ),
                     "currency": f.currency,
-                    "service_stopped_at": f.service_stopped_at.isoformat() if f.service_stopped_at else None,
-                    "service_resumed_at": f.service_resumed_at.isoformat() if f.service_resumed_at else None,
+                    "service_stopped_at": (
+                        f.service_stopped_at.isoformat()
+                        if f.service_stopped_at
+                        else None
+                    ),
+                    "service_resumed_at": (
+                        f.service_resumed_at.isoformat()
+                        if f.service_resumed_at
+                        else None
+                    ),
                     "notification_sent": f.notification_sent,
                     "resolved": f.resolved,
                     "created_at": f.created_at.isoformat() if f.created_at else None,
@@ -1025,10 +1130,14 @@ class PaymentFailureService:
             Active payment failure or None
         """
         with SessionLocal() as db:
-            failure = db.query(PaymentFailure).filter(
-                PaymentFailure.company_id == str(company_id),
-                PaymentFailure.resolved is False,
-            ).first()
+            failure = (
+                db.query(PaymentFailure)
+                .filter(
+                    PaymentFailure.company_id == str(company_id),
+                    PaymentFailure.resolved is False,
+                )
+                .first()
+            )
 
             if not failure:
                 return None
@@ -1039,12 +1148,19 @@ class PaymentFailureService:
                 "paddle_transaction_id": failure.paddle_transaction_id,
                 "failure_code": failure.failure_code,
                 "failure_reason": failure.failure_reason,
-                "amount_attempted": str(
-                    failure.amount_attempted) if failure.amount_attempted else None,
+                "amount_attempted": (
+                    str(failure.amount_attempted) if failure.amount_attempted else None
+                ),
                 "currency": failure.currency,
-                "service_stopped_at": failure.service_stopped_at.isoformat() if failure.service_stopped_at else None,
+                "service_stopped_at": (
+                    failure.service_stopped_at.isoformat()
+                    if failure.service_stopped_at
+                    else None
+                ),
                 "resolved": failure.resolved,
-                "created_at": failure.created_at.isoformat() if failure.created_at else None,
+                "created_at": (
+                    failure.created_at.isoformat() if failure.created_at else None
+                ),
             }
 
     async def mark_notification_sent(
@@ -1061,9 +1177,9 @@ class PaymentFailureService:
             True if updated successfully
         """
         with SessionLocal() as db:
-            failure = db.query(PaymentFailure).filter(
-                PaymentFailure.id == failure_id
-            ).first()
+            failure = (
+                db.query(PaymentFailure).filter(PaymentFailure.id == failure_id).first()
+            )
 
             if not failure:
                 return False
@@ -1071,9 +1187,7 @@ class PaymentFailureService:
             failure.notification_sent = True
             db.commit()
 
-            logger.info(
-                "payment_failure_notification_sent failure_id=%s", failure_id
-            )
+            logger.info("payment_failure_notification_sent failure_id=%s", failure_id)
 
             return True
 

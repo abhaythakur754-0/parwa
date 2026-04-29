@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # Module-level stubs
 TechniqueTierAccessChecker = None  # type: ignore[assignment,misc]
 TierAccessDecision = None  # type: ignore[assignment,misc]
@@ -40,20 +39,23 @@ def _mock_logger():
             _FALLBACK_T2_TO_T1,
             _CACHE_TTL_SECONDS,
         )
-        globals().update({
-            "TechniqueTierAccessChecker": TechniqueTierAccessChecker,
-            "TierAccessDecision": TierAccessDecision,
-            "TierAccessResult": TierAccessResult,
-            "VariantTierConfig": VariantTierConfig,
-            "_TECHNIQUE_TO_TIER": _TECHNIQUE_TO_TIER,
-            "_TIER_1_TECHNIQUES": _TIER_1_TECHNIQUES,
-            "_TIER_2_TECHNIQUES": _TIER_2_TECHNIQUES,
-            "_TIER_3_TECHNIQUES": _TIER_3_TECHNIQUES,
-            "_DOWNGRADE_FALLBACK": _DOWNGRADE_FALLBACK,
-            "_FALLBACK_T3_TO_T1": _FALLBACK_T3_TO_T1,
-            "_FALLBACK_T2_TO_T1": _FALLBACK_T2_TO_T1,
-            "_CACHE_TTL_SECONDS": _CACHE_TTL_SECONDS,
-        })
+
+        globals().update(
+            {
+                "TechniqueTierAccessChecker": TechniqueTierAccessChecker,
+                "TierAccessDecision": TierAccessDecision,
+                "TierAccessResult": TierAccessResult,
+                "VariantTierConfig": VariantTierConfig,
+                "_TECHNIQUE_TO_TIER": _TECHNIQUE_TO_TIER,
+                "_TIER_1_TECHNIQUES": _TIER_1_TECHNIQUES,
+                "_TIER_2_TECHNIQUES": _TIER_2_TECHNIQUES,
+                "_TIER_3_TECHNIQUES": _TIER_3_TECHNIQUES,
+                "_DOWNGRADE_FALLBACK": _DOWNGRADE_FALLBACK,
+                "_FALLBACK_T3_TO_T1": _FALLBACK_T3_TO_T1,
+                "_FALLBACK_T2_TO_T1": _FALLBACK_T2_TO_T1,
+                "_CACHE_TTL_SECONDS": _CACHE_TTL_SECONDS,
+            }
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -167,6 +169,7 @@ class TestDataclasses:
 
     def test_tier_access_result_is_dataclass(self):
         from dataclasses import fields
+
         result = TierAccessResult(
             technique="clara",
             requested_tier="tier_1",
@@ -358,9 +361,9 @@ class TestCheckAccess:
         all_techniques = _TIER_1_TECHNIQUES + _TIER_2_TECHNIQUES + _TIER_3_TECHNIQUES
         for tid in all_techniques:
             result = checker.check_access(tid, "parwa_high")
-            assert result.decision == TierAccessDecision.ALLOWED, (
-                f"{tid} should be ALLOWED on parwa_high"
-            )
+            assert (
+                result.decision == TierAccessDecision.ALLOWED
+            ), f"{tid} should be ALLOWED on parwa_high"
 
     def test_empty_technique_returns_blocked(self):
         checker = TechniqueTierAccessChecker()
@@ -584,9 +587,7 @@ class TestBatchOperations:
             ["gst", "tree_of_thoughts", "reflexion"],
             "parwa",
         )
-        assert all(
-            r.decision == TierAccessDecision.DOWNGRADED for r in results
-        )
+        assert all(r.decision == TierAccessDecision.DOWNGRADED for r in results)
 
     def test_filter_techniques_keeps_allowed(self):
         checker = TechniqueTierAccessChecker()
@@ -815,8 +816,7 @@ class TestFallbackLookup:
 
     def test_fallback_for_chain_of_thought_on_mini_parwa(self):
         checker = TechniqueTierAccessChecker()
-        fb = checker.get_fallback_for_technique(
-            "chain_of_thought", "mini_parwa")
+        fb = checker.get_fallback_for_technique("chain_of_thought", "mini_parwa")
         assert fb == "crp"
 
     def test_fallback_for_gst_on_parwa(self):
@@ -868,28 +868,36 @@ class TestUpgradeTechnique:
     def test_upgrade_mini_parwa_to_parwa_unlocks_t2(self):
         checker = TechniqueTierAccessChecker()
         result = checker.upgrade_technique(
-            "chain_of_thought", "mini_parwa", "parwa",
+            "chain_of_thought",
+            "mini_parwa",
+            "parwa",
         )
         assert result.decision == TierAccessDecision.ALLOWED
 
     def test_upgrade_mini_parwa_to_parwa_high_unlocks_all(self):
         checker = TechniqueTierAccessChecker()
         result = checker.upgrade_technique(
-            "gst", "mini_parwa", "parwa_high",
+            "gst",
+            "mini_parwa",
+            "parwa_high",
         )
         assert result.decision == TierAccessDecision.ALLOWED
 
     def test_upgrade_parwa_to_parwa_high_unlocks_t3(self):
         checker = TechniqueTierAccessChecker()
         result = checker.upgrade_technique(
-            "gst", "parwa", "parwa_high",
+            "gst",
+            "parwa",
+            "parwa_high",
         )
         assert result.decision == TierAccessDecision.ALLOWED
 
     def test_upgrade_same_variant_no_change(self):
         checker = TechniqueTierAccessChecker()
         result = checker.upgrade_technique(
-            "clara", "mini_parwa", "mini_parwa",
+            "clara",
+            "mini_parwa",
+            "mini_parwa",
         )
         assert result.decision == TierAccessDecision.ALLOWED
 
@@ -897,7 +905,9 @@ class TestUpgradeTechnique:
         """upgrade_technique returns the TARGET variant's access result."""
         checker = TechniqueTierAccessChecker()
         result = checker.upgrade_technique(
-            "clara", "unknown", "parwa",
+            "clara",
+            "unknown",
+            "parwa",
         )
         # Target parwa allows clara, so result is ALLOWED
         assert result.decision == TierAccessDecision.ALLOWED
@@ -905,14 +915,18 @@ class TestUpgradeTechnique:
     def test_upgrade_to_unknown_variant_returns_blocked(self):
         checker = TechniqueTierAccessChecker()
         result = checker.upgrade_technique(
-            "clara", "parwa", "unknown",
+            "clara",
+            "parwa",
+            "unknown",
         )
         assert result.decision == TierAccessDecision.BLOCKED
 
     def test_upgrade_t3_still_downgraded_on_parwa(self):
         checker = TechniqueTierAccessChecker()
         result = checker.upgrade_technique(
-            "gst", "mini_parwa", "parwa",
+            "gst",
+            "mini_parwa",
+            "parwa",
         )
         # gst is Tier 3, parwa max is Tier 2 → still downgraded
         assert result.decision == TierAccessDecision.DOWNGRADED
@@ -921,7 +935,9 @@ class TestUpgradeTechnique:
     def test_upgrade_case_insensitive(self):
         checker = TechniqueTierAccessChecker()
         result = checker.upgrade_technique(
-            "CHAIN_OF_THOUGHT", "MINI_PARWA", "PARWA",
+            "CHAIN_OF_THOUGHT",
+            "MINI_PARWA",
+            "PARWA",
         )
         assert result.decision == TierAccessDecision.ALLOWED
 
@@ -1198,7 +1214,8 @@ class TestBC008GracefulDegradation:
     def test_no_crash_on_none_company_id(self):
         checker = TechniqueTierAccessChecker()
         result = checker.check_access(
-            "clara", "parwa", company_id=None)  # type: ignore[arg-type]
+            "clara", "parwa", company_id=None
+        )  # type: ignore[arg-type]
         assert result.decision == TierAccessDecision.ALLOWED
 
     def test_no_crash_on_batch_with_empty_list(self):

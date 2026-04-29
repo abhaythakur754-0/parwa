@@ -103,16 +103,20 @@ class AgentMetricsService:
             raise ValidationError(
                 message=f"Invalid period: {period}. " f"Must be one of {
                     list(
-                        VALID_PERIODS.keys())}", details={
-                    "field": "period", "valid_values": list(
-                        VALID_PERIODS.keys())}, )
+                        VALID_PERIODS.keys())}",
+                details={"field": "period", "valid_values": list(VALID_PERIODS.keys())},
+            )
 
         # Validate granularity
         if granularity not in VALID_GRANULARITIES:
             raise ValidationError(
                 message=f"Invalid granularity: {granularity}. " f"Must be one of {
-                    list(VALID_GRANULARITIES)}", details={
-                    "field": "granularity", "valid_values": list(VALID_GRANULARITIES)}, )
+                    list(VALID_GRANULARITIES)}",
+                details={
+                    "field": "granularity",
+                    "valid_values": list(VALID_GRANULARITIES),
+                },
+            )
 
         try:
             from database.models.agent_metrics import AgentMetricsDaily
@@ -121,80 +125,91 @@ class AgentMetricsService:
             end_date = date.today()
             start_date = end_date - timedelta(days=days - 1)
 
-            rows = self.db.query(AgentMetricsDaily).filter(
-                AgentMetricsDaily.agent_id == agent_id,
-                AgentMetricsDaily.company_id == company_id,
-                AgentMetricsDaily.date >= start_date,
-                AgentMetricsDaily.date <= end_date,
-            ).order_by(AgentMetricsDaily.date.asc()).all()
+            rows = (
+                self.db.query(AgentMetricsDaily)
+                .filter(
+                    AgentMetricsDaily.agent_id == agent_id,
+                    AgentMetricsDaily.company_id == company_id,
+                    AgentMetricsDaily.date >= start_date,
+                    AgentMetricsDaily.date <= end_date,
+                )
+                .order_by(AgentMetricsDaily.date.asc())
+                .all()
+            )
 
             data_points: List[Dict[str, Any]] = []
             for row in rows:
-                data_points.append({
-                    "date": row.date.isoformat() if row.date else None,
-                    "resolution_rate": (
-                        float(row.resolution_rate)
-                        if row.resolution_rate is not None else None
-                    ),
-                    "avg_confidence": (
-                        float(row.avg_confidence)
-                        if row.avg_confidence is not None else None
-                    ),
-                    "avg_csat": (
-                        float(row.avg_csat)
-                        if row.avg_csat is not None else None
-                    ),
-                    "escalation_rate": (
-                        float(row.escalation_rate)
-                        if row.escalation_rate is not None else None
-                    ),
-                    "avg_handle_time": (
-                        int(row.avg_handle_time_seconds)
-                        if row.avg_handle_time_seconds is not None else None
-                    ),
-                    "tickets_handled": row.tickets_handled or 0,
-                })
+                data_points.append(
+                    {
+                        "date": row.date.isoformat() if row.date else None,
+                        "resolution_rate": (
+                            float(row.resolution_rate)
+                            if row.resolution_rate is not None
+                            else None
+                        ),
+                        "avg_confidence": (
+                            float(row.avg_confidence)
+                            if row.avg_confidence is not None
+                            else None
+                        ),
+                        "avg_csat": (
+                            float(row.avg_csat) if row.avg_csat is not None else None
+                        ),
+                        "escalation_rate": (
+                            float(row.escalation_rate)
+                            if row.escalation_rate is not None
+                            else None
+                        ),
+                        "avg_handle_time": (
+                            int(row.avg_handle_time_seconds)
+                            if row.avg_handle_time_seconds is not None
+                            else None
+                        ),
+                        "tickets_handled": row.tickets_handled or 0,
+                    }
+                )
 
             # Aggregate by week if requested
             if granularity == "weekly" and data_points:
                 data_points = self._aggregate_weekly(data_points)
 
             # Compute summary
-            total_tickets = sum(dp.get("tickets_handled", 0)
-                                for dp in data_points)
+            total_tickets = sum(dp.get("tickets_handled", 0) for dp in data_points)
             resolution_rates = [
-                dp["resolution_rate"] for dp in data_points
+                dp["resolution_rate"]
+                for dp in data_points
                 if dp.get("resolution_rate") is not None
             ]
             confidences = [
-                dp["avg_confidence"] for dp in data_points
+                dp["avg_confidence"]
+                for dp in data_points
                 if dp.get("avg_confidence") is not None
             ]
             csats = [
-                dp["avg_csat"] for dp in data_points
-                if dp.get("avg_csat") is not None
+                dp["avg_csat"] for dp in data_points if dp.get("avg_csat") is not None
             ]
             escalation_rates = [
-                dp["escalation_rate"] for dp in data_points
+                dp["escalation_rate"]
+                for dp in data_points
                 if dp.get("escalation_rate") is not None
             ]
 
             summary = {
                 "avg_resolution_rate": (
                     round(sum(resolution_rates) / len(resolution_rates), 2)
-                    if resolution_rates else None
+                    if resolution_rates
+                    else None
                 ),
                 "avg_confidence": (
                     round(sum(confidences) / len(confidences), 2)
-                    if confidences else None
+                    if confidences
+                    else None
                 ),
-                "avg_csat": (
-                    round(sum(csats) / len(csats), 1)
-                    if csats else None
-                ),
+                "avg_csat": (round(sum(csats) / len(csats), 1) if csats else None),
                 "avg_escalation_rate": (
                     round(sum(escalation_rates) / len(escalation_rates), 2)
-                    if escalation_rates else None
+                    if escalation_rates
+                    else None
                 ),
                 "total_tickets": total_tickets,
             }
@@ -326,15 +341,16 @@ class AgentMetricsService:
 
             if "resolution_rate_min" in updates:
                 threshold.resolution_rate_min = Decimal(
-                    str(updates["resolution_rate_min"]))
+                    str(updates["resolution_rate_min"])
+                )
             if "confidence_min" in updates:
-                threshold.confidence_min = Decimal(
-                    str(updates["confidence_min"]))
+                threshold.confidence_min = Decimal(str(updates["confidence_min"]))
             if "csat_min" in updates:
                 threshold.csat_min = Decimal(str(updates["csat_min"]))
             if "escalation_max_pct" in updates:
                 threshold.escalation_max_pct = Decimal(
-                    str(updates["escalation_max_pct"]))
+                    str(updates["escalation_max_pct"])
+                )
 
             threshold.updated_at = now
             self.db.flush()
@@ -418,12 +434,14 @@ class AgentMetricsService:
                 ]
                 trend = self._determine_trend(resolution_values)
 
-                results.append({
-                    "agent_id": agent_id,
-                    **summary,
-                    "trend": trend,
-                    "data_point_count": len(data_points),
-                })
+                results.append(
+                    {
+                        "agent_id": agent_id,
+                        **summary,
+                        "trend": trend,
+                        "data_point_count": len(data_points),
+                    }
+                )
 
             except Exception as exc:
                 logger.warning(
@@ -455,10 +473,14 @@ class AgentMetricsService:
             from database.models.agent_metrics import AgentMetricsDaily
 
             yesterday = date.today() - timedelta(days=1)
-            agents = self.db.query(Agent).filter(
-                Agent.company_id == company_id,
-                Agent.status == "active",
-            ).all()
+            agents = (
+                self.db.query(Agent)
+                .filter(
+                    Agent.company_id == company_id,
+                    Agent.status == "active",
+                )
+                .all()
+            )
 
             computed: List[Dict[str, Any]] = []
             errors: int = 0
@@ -472,11 +494,15 @@ class AgentMetricsService:
                     )
 
                     # Upsert: check if record already exists
-                    existing = self.db.query(AgentMetricsDaily).filter(
-                        AgentMetricsDaily.agent_id == agent.id,
-                        AgentMetricsDaily.company_id == company_id,
-                        AgentMetricsDaily.date == yesterday,
-                    ).first()
+                    existing = (
+                        self.db.query(AgentMetricsDaily)
+                        .filter(
+                            AgentMetricsDaily.agent_id == agent.id,
+                            AgentMetricsDaily.company_id == company_id,
+                            AgentMetricsDaily.date == yesterday,
+                        )
+                        .first()
+                    )
 
                     if existing:
                         existing.tickets_handled = metrics["tickets_handled"]
@@ -485,11 +511,10 @@ class AgentMetricsService:
                         existing.avg_confidence = metrics.get("avg_confidence")
                         existing.avg_csat = metrics.get("avg_csat")
                         existing.avg_handle_time_seconds = metrics.get(
-                            "avg_handle_time_seconds")
-                        existing.resolution_rate = metrics.get(
-                            "resolution_rate")
-                        existing.escalation_rate = metrics.get(
-                            "escalation_rate")
+                            "avg_handle_time_seconds"
+                        )
+                        existing.resolution_rate = metrics.get("resolution_rate")
+                        existing.escalation_rate = metrics.get("escalation_rate")
                     else:
                         record = AgentMetricsDaily(
                             agent_id=agent.id,
@@ -500,18 +525,22 @@ class AgentMetricsService:
                             escalated_count=metrics["escalated_count"],
                             avg_confidence=metrics.get("avg_confidence"),
                             avg_csat=metrics.get("avg_csat"),
-                            avg_handle_time_seconds=metrics.get("avg_handle_time_seconds"),
+                            avg_handle_time_seconds=metrics.get(
+                                "avg_handle_time_seconds"
+                            ),
                             resolution_rate=metrics.get("resolution_rate"),
                             escalation_rate=metrics.get("escalation_rate"),
                         )
                         self.db.add(record)
 
-                    computed.append({
-                        "agent_id": agent.id,
-                        "agent_name": agent.name,
-                        "date": yesterday.isoformat(),
-                        **metrics,
-                    })
+                    computed.append(
+                        {
+                            "agent_id": agent.id,
+                            "agent_name": agent.name,
+                            "date": yesterday.isoformat(),
+                            **metrics,
+                        }
+                    )
 
                 except Exception as exc:
                     errors += 1
@@ -575,42 +604,55 @@ class AgentMetricsService:
             alerts_result: List[Dict[str, Any]] = []
 
             # Get all active agents with thresholds
-            agents = self.db.query(Agent).filter(
-                Agent.company_id == company_id,
-                Agent.status == "active",
-            ).all()
+            agents = (
+                self.db.query(Agent)
+                .filter(
+                    Agent.company_id == company_id,
+                    Agent.status == "active",
+                )
+                .all()
+            )
 
             yesterday = date.today() - timedelta(days=1)
 
             for agent in agents:
                 try:
-                    threshold = self.db.query(AgentMetricThreshold).filter(
-                        AgentMetricThreshold.company_id == company_id,
-                        AgentMetricThreshold.agent_id == agent.id,
-                    ).first()
+                    threshold = (
+                        self.db.query(AgentMetricThreshold)
+                        .filter(
+                            AgentMetricThreshold.company_id == company_id,
+                            AgentMetricThreshold.agent_id == agent.id,
+                        )
+                        .first()
+                    )
 
                     if not threshold:
                         continue
 
                     # Get recent metrics (last 7 days for evaluation)
                     seven_days_ago = yesterday - timedelta(days=6)
-                    daily_metrics = self.db.query(AgentMetricsDaily).filter(
-                        AgentMetricsDaily.agent_id == agent.id,
-                        AgentMetricsDaily.company_id == company_id,
-                        AgentMetricsDaily.date >= seven_days_ago,
-                        AgentMetricsDaily.date <= yesterday,
-                    ).order_by(AgentMetricsDaily.date.desc()).all()
+                    daily_metrics = (
+                        self.db.query(AgentMetricsDaily)
+                        .filter(
+                            AgentMetricsDaily.agent_id == agent.id,
+                            AgentMetricsDaily.company_id == company_id,
+                            AgentMetricsDaily.date >= seven_days_ago,
+                            AgentMetricsDaily.date <= yesterday,
+                        )
+                        .order_by(AgentMetricsDaily.date.desc())
+                        .all()
+                    )
 
                     if not daily_metrics:
                         continue
 
                     # Map metric names to threshold values
                     metric_threshold_map = {
-                        "resolution_rate": float(
-                            threshold.resolution_rate_min), "avg_confidence": float(
-                            threshold.confidence_min), "avg_csat": float(
-                            threshold.csat_min), "escalation_rate": float(
-                            threshold.escalation_max_pct), }
+                        "resolution_rate": float(threshold.resolution_rate_min),
+                        "avg_confidence": float(threshold.confidence_min),
+                        "avg_csat": float(threshold.csat_min),
+                        "escalation_rate": float(threshold.escalation_max_pct),
+                    }
 
                     for metric_name, threshold_val in metric_threshold_map.items():
                         consecutive_below = 0
@@ -638,30 +680,35 @@ class AgentMetricsService:
 
                         if consecutive_below == 0:
                             # Metric recovered — resolve any active alerts
-                            active_alert = self.db.query(
-                                AgentPerformanceAlert,
-                            ).filter(
-                                AgentPerformanceAlert.company_id == company_id,
-                                AgentPerformanceAlert.agent_id == agent.id,
-                                AgentPerformanceAlert.metric_name == metric_name,
-                                AgentPerformanceAlert.status == "active",
-                            ).first()
+                            active_alert = (
+                                self.db.query(
+                                    AgentPerformanceAlert,
+                                )
+                                .filter(
+                                    AgentPerformanceAlert.company_id == company_id,
+                                    AgentPerformanceAlert.agent_id == agent.id,
+                                    AgentPerformanceAlert.metric_name == metric_name,
+                                    AgentPerformanceAlert.status == "active",
+                                )
+                                .first()
+                            )
 
                             if active_alert:
                                 active_alert.status = "resolved"
                                 active_alert.resolved_at = datetime.utcnow()
-                                alerts_result.append({
-                                    "alert_id": active_alert.id,
-                                    "agent_id": agent.id,
-                                    "metric_name": metric_name,
-                                    "action": "resolved",
-                                })
+                                alerts_result.append(
+                                    {
+                                        "alert_id": active_alert.id,
+                                        "agent_id": agent.id,
+                                        "metric_name": metric_name,
+                                        "action": "resolved",
+                                    }
+                                )
                             continue
 
                         # Get the latest value for the alert
                         latest_dm = daily_metrics[0]
-                        latest_value = float(
-                            getattr(latest_dm, metric_name, 0))
+                        latest_value = float(getattr(latest_dm, metric_name, 0))
 
                         # Check minimum ticket threshold for first entry
                         total_tickets = sum(
@@ -671,27 +718,32 @@ class AgentMetricsService:
                             continue
 
                         # Check if an active alert already exists
-                        existing_alert = self.db.query(
-                            AgentPerformanceAlert,
-                        ).filter(
-                            AgentPerformanceAlert.company_id == company_id,
-                            AgentPerformanceAlert.agent_id == agent.id,
-                            AgentPerformanceAlert.metric_name == metric_name,
-                            AgentPerformanceAlert.status == "active",
-                        ).first()
+                        existing_alert = (
+                            self.db.query(
+                                AgentPerformanceAlert,
+                            )
+                            .filter(
+                                AgentPerformanceAlert.company_id == company_id,
+                                AgentPerformanceAlert.agent_id == agent.id,
+                                AgentPerformanceAlert.metric_name == metric_name,
+                                AgentPerformanceAlert.status == "active",
+                            )
+                            .first()
+                        )
 
                         if existing_alert:
-                            existing_alert.current_value = Decimal(
-                                str(latest_value))
+                            existing_alert.current_value = Decimal(str(latest_value))
                             existing_alert.consecutive_days_below = consecutive_below
                             self.db.flush()
-                            alerts_result.append({
-                                "alert_id": existing_alert.id,
-                                "agent_id": agent.id,
-                                "metric_name": metric_name,
-                                "action": "updated",
-                                "consecutive_days_below": consecutive_below,
-                            })
+                            alerts_result.append(
+                                {
+                                    "alert_id": existing_alert.id,
+                                    "agent_id": agent.id,
+                                    "metric_name": metric_name,
+                                    "action": "updated",
+                                    "consecutive_days_below": consecutive_below,
+                                }
+                            )
                         elif consecutive_below >= CONSECUTIVE_DAYS_THRESHOLD:
                             # Create new alert
                             new_alert = AgentPerformanceAlert(
@@ -705,13 +757,15 @@ class AgentMetricsService:
                             )
                             self.db.add(new_alert)
                             self.db.flush()
-                            alerts_result.append({
-                                "alert_id": new_alert.id,
-                                "agent_id": agent.id,
-                                "metric_name": metric_name,
-                                "action": "created",
-                                "consecutive_days_below": consecutive_below,
-                            })
+                            alerts_result.append(
+                                {
+                                    "alert_id": new_alert.id,
+                                    "agent_id": agent.id,
+                                    "metric_name": metric_name,
+                                    "action": "created",
+                                    "consecutive_days_below": consecutive_below,
+                                }
+                            )
 
                 except Exception as exc:
                     logger.error(
@@ -750,10 +804,14 @@ class AgentMetricsService:
         """
         from database.models.agent_metrics import AgentMetricThreshold
 
-        threshold = self.db.query(AgentMetricThreshold).filter(
-            AgentMetricThreshold.company_id == company_id,
-            AgentMetricThreshold.agent_id == agent_id,
-        ).first()
+        threshold = (
+            self.db.query(AgentMetricThreshold)
+            .filter(
+                AgentMetricThreshold.company_id == company_id,
+                AgentMetricThreshold.agent_id == agent_id,
+            )
+            .first()
+        )
 
         if threshold:
             return threshold
@@ -837,16 +895,23 @@ class AgentMetricsService:
             day_end = day_start + timedelta(days=1)
 
             # Total tickets handled
-            tickets_handled = self.db.query(
-                func.count(TicketAssignment.id),
-            ).join(
-                Ticket, Ticket.id == TicketAssignment.ticket_id,
-            ).filter(
-                TicketAssignment.company_id == company_id,
-                TicketAssignment.assignee_id == agent.id,
-                TicketAssignment.assigned_at >= day_start,
-                TicketAssignment.assigned_at < day_end,
-            ).scalar() or 0
+            tickets_handled = (
+                self.db.query(
+                    func.count(TicketAssignment.id),
+                )
+                .join(
+                    Ticket,
+                    Ticket.id == TicketAssignment.ticket_id,
+                )
+                .filter(
+                    TicketAssignment.company_id == company_id,
+                    TicketAssignment.assignee_id == agent.id,
+                    TicketAssignment.assigned_at >= day_start,
+                    TicketAssignment.assigned_at < day_end,
+                )
+                .scalar()
+                or 0
+            )
 
             if tickets_handled == 0:
                 return {
@@ -861,68 +926,98 @@ class AgentMetricsService:
                 }
 
             # Resolved count
-            resolved_count = self.db.query(
-                func.count(TicketAssignment.id),
-            ).join(
-                Ticket, Ticket.id == TicketAssignment.ticket_id,
-            ).filter(
-                TicketAssignment.company_id == company_id,
-                TicketAssignment.assignee_id == agent.id,
-                TicketAssignment.assigned_at >= day_start,
-                TicketAssignment.assigned_at < day_end,
-                Ticket.status.in_(["resolved", "closed"]),
-            ).scalar() or 0
+            resolved_count = (
+                self.db.query(
+                    func.count(TicketAssignment.id),
+                )
+                .join(
+                    Ticket,
+                    Ticket.id == TicketAssignment.ticket_id,
+                )
+                .filter(
+                    TicketAssignment.company_id == company_id,
+                    TicketAssignment.assignee_id == agent.id,
+                    TicketAssignment.assigned_at >= day_start,
+                    TicketAssignment.assigned_at < day_end,
+                    Ticket.status.in_(["resolved", "closed"]),
+                )
+                .scalar()
+                or 0
+            )
 
             # Escalated count
-            escalated_count = self.db.query(
-                func.count(TicketAssignment.id),
-            ).join(
-                Ticket, Ticket.id == TicketAssignment.ticket_id,
-            ).filter(
-                TicketAssignment.company_id == company_id,
-                TicketAssignment.assignee_id == agent.id,
-                TicketAssignment.assigned_at >= day_start,
-                TicketAssignment.assigned_at < day_end,
-                Ticket.status.in_(["escalated", "awaiting_human"]),
-            ).scalar() or 0
+            escalated_count = (
+                self.db.query(
+                    func.count(TicketAssignment.id),
+                )
+                .join(
+                    Ticket,
+                    Ticket.id == TicketAssignment.ticket_id,
+                )
+                .filter(
+                    TicketAssignment.company_id == company_id,
+                    TicketAssignment.assignee_id == agent.id,
+                    TicketAssignment.assigned_at >= day_start,
+                    TicketAssignment.assigned_at < day_end,
+                    Ticket.status.in_(["escalated", "awaiting_human"]),
+                )
+                .scalar()
+                or 0
+            )
 
             # Resolution rate
             resolution_rate = (
                 round(resolved_count / tickets_handled * 100, 2)
-                if tickets_handled > 0 else None
+                if tickets_handled > 0
+                else None
             )
 
             # Escalation rate
             escalation_rate = (
                 round(escalated_count / tickets_handled * 100, 2)
-                if tickets_handled > 0 else None
+                if tickets_handled > 0
+                else None
             )
 
             # Avg CSAT
-            avg_csat_val = self.db.query(
-                func.avg(TicketFeedback.rating),
-            ).join(
-                Ticket, Ticket.id == TicketFeedback.ticket_id,
-            ).join(
-                TicketAssignment,
-                TicketAssignment.ticket_id == Ticket.id,
-            ).filter(
-                TicketAssignment.company_id == company_id,
-                TicketAssignment.assignee_id == agent.id,
-                TicketFeedback.created_at >= day_start,
-                TicketFeedback.created_at < day_end,
-            ).scalar()
-            avg_csat = Decimal(
-                str(round(float(avg_csat_val), 1))) if avg_csat_val else None
+            avg_csat_val = (
+                self.db.query(
+                    func.avg(TicketFeedback.rating),
+                )
+                .join(
+                    Ticket,
+                    Ticket.id == TicketFeedback.ticket_id,
+                )
+                .join(
+                    TicketAssignment,
+                    TicketAssignment.ticket_id == Ticket.id,
+                )
+                .filter(
+                    TicketAssignment.company_id == company_id,
+                    TicketAssignment.assignee_id == agent.id,
+                    TicketFeedback.created_at >= day_start,
+                    TicketFeedback.created_at < day_end,
+                )
+                .scalar()
+            )
+            avg_csat = (
+                Decimal(str(round(float(avg_csat_val), 1))) if avg_csat_val else None
+            )
 
             # Avg confidence
             avg_confidence_val = self._get_avg_confidence_for_date(
-                agent.id, company_id, day_start, day_end,
+                agent.id,
+                company_id,
+                day_start,
+                day_end,
             )
 
             # Avg handle time
             avg_handle_time = self._get_avg_handle_time_for_date(
-                agent.id, company_id, day_start, day_end,
+                agent.id,
+                company_id,
+                day_start,
+                day_end,
             )
 
             return {
@@ -932,10 +1027,16 @@ class AgentMetricsService:
                 "avg_confidence": avg_confidence_val,
                 "avg_csat": avg_csat,
                 "avg_handle_time_seconds": avg_handle_time,
-                "resolution_rate": Decimal(
-                    str(resolution_rate)) if resolution_rate is not None else None,
-                "escalation_rate": Decimal(
-                    str(escalation_rate)) if escalation_rate is not None else None,
+                "resolution_rate": (
+                    Decimal(str(resolution_rate))
+                    if resolution_rate is not None
+                    else None
+                ),
+                "escalation_rate": (
+                    Decimal(str(escalation_rate))
+                    if escalation_rate is not None
+                    else None
+                ),
             }
 
         except Exception as exc:
@@ -971,19 +1072,23 @@ class AgentMetricsService:
             if "ai_confidence" not in ticket_model:
                 return None
 
-            avg_conf = self.db.query(func.avg(Ticket.ai_confidence)).join(
-                TicketAssignment,
-                TicketAssignment.ticket_id == Ticket.id,
-            ).filter(
-                TicketAssignment.company_id == company_id,
-                TicketAssignment.assignee_id == agent_id,
-                TicketAssignment.assigned_at >= day_start,
-                TicketAssignment.assigned_at < day_end,
-                Ticket.ai_confidence.isnot(None),
-            ).scalar()
+            avg_conf = (
+                self.db.query(func.avg(Ticket.ai_confidence))
+                .join(
+                    TicketAssignment,
+                    TicketAssignment.ticket_id == Ticket.id,
+                )
+                .filter(
+                    TicketAssignment.company_id == company_id,
+                    TicketAssignment.assignee_id == agent_id,
+                    TicketAssignment.assigned_at >= day_start,
+                    TicketAssignment.assigned_at < day_end,
+                    Ticket.ai_confidence.isnot(None),
+                )
+                .scalar()
+            )
 
-            return Decimal(str(round(float(avg_conf), 2))
-                           ) if avg_conf else None
+            return Decimal(str(round(float(avg_conf), 2))) if avg_conf else None
 
         except Exception:
             return None
@@ -999,16 +1104,21 @@ class AgentMetricsService:
         try:
             from database.models.tickets import Ticket, TicketAssignment
 
-            tickets = self.db.query(Ticket).join(
-                TicketAssignment,
-                TicketAssignment.ticket_id == Ticket.id,
-            ).filter(
-                TicketAssignment.company_id == company_id,
-                TicketAssignment.assignee_id == agent_id,
-                TicketAssignment.assigned_at >= day_start,
-                TicketAssignment.assigned_at < day_end,
-                Ticket.first_response_at.isnot(None),
-            ).all()
+            tickets = (
+                self.db.query(Ticket)
+                .join(
+                    TicketAssignment,
+                    TicketAssignment.ticket_id == Ticket.id,
+                )
+                .filter(
+                    TicketAssignment.company_id == company_id,
+                    TicketAssignment.assignee_id == agent_id,
+                    TicketAssignment.assigned_at >= day_start,
+                    TicketAssignment.assigned_at < day_end,
+                    Ticket.first_response_at.isnot(None),
+                )
+                .all()
+            )
 
             if not tickets:
                 return None
@@ -1016,9 +1126,7 @@ class AgentMetricsService:
             times: List[float] = []
             for t in tickets:
                 if t.first_response_at and t.created_at:
-                    seconds = (
-                        t.first_response_at - t.created_at
-                    ).total_seconds()
+                    seconds = (t.first_response_at - t.created_at).total_seconds()
                     times.append(seconds)
 
             return int(round(sum(times) / len(times))) if times else None
@@ -1059,54 +1167,59 @@ class AgentMetricsService:
         result: List[Dict[str, Any]] = []
         for week_key in sorted(weeks.keys()):
             week_data = weeks[week_key]
-            total_tickets = sum(dp.get("tickets_handled", 0)
-                                for dp in week_data)
+            total_tickets = sum(dp.get("tickets_handled", 0) for dp in week_data)
 
             resolution_rates = [
-                dp["resolution_rate"] for dp in week_data
+                dp["resolution_rate"]
+                for dp in week_data
                 if dp.get("resolution_rate") is not None
             ]
             confidences = [
-                dp["avg_confidence"] for dp in week_data
+                dp["avg_confidence"]
+                for dp in week_data
                 if dp.get("avg_confidence") is not None
             ]
             csats = [
-                dp["avg_csat"] for dp in week_data
-                if dp.get("avg_csat") is not None
+                dp["avg_csat"] for dp in week_data if dp.get("avg_csat") is not None
             ]
             escalation_rates = [
-                dp["escalation_rate"] for dp in week_data
+                dp["escalation_rate"]
+                for dp in week_data
                 if dp.get("escalation_rate") is not None
             ]
             handle_times = [
-                dp["avg_handle_time"] for dp in week_data
+                dp["avg_handle_time"]
+                for dp in week_data
                 if dp.get("avg_handle_time") is not None
             ]
 
-            result.append({
-                "date": week_key,
-                "resolution_rate": (
-                    round(sum(resolution_rates) / len(resolution_rates), 2)
-                    if resolution_rates else None
-                ),
-                "avg_confidence": (
-                    round(sum(confidences) / len(confidences), 2)
-                    if confidences else None
-                ),
-                "avg_csat": (
-                    round(sum(csats) / len(csats), 1)
-                    if csats else None
-                ),
-                "escalation_rate": (
-                    round(sum(escalation_rates) / len(escalation_rates), 2)
-                    if escalation_rates else None
-                ),
-                "avg_handle_time": (
-                    int(sum(handle_times) / len(handle_times))
-                    if handle_times else None
-                ),
-                "tickets_handled": total_tickets,
-            })
+            result.append(
+                {
+                    "date": week_key,
+                    "resolution_rate": (
+                        round(sum(resolution_rates) / len(resolution_rates), 2)
+                        if resolution_rates
+                        else None
+                    ),
+                    "avg_confidence": (
+                        round(sum(confidences) / len(confidences), 2)
+                        if confidences
+                        else None
+                    ),
+                    "avg_csat": (round(sum(csats) / len(csats), 1) if csats else None),
+                    "escalation_rate": (
+                        round(sum(escalation_rates) / len(escalation_rates), 2)
+                        if escalation_rates
+                        else None
+                    ),
+                    "avg_handle_time": (
+                        int(sum(handle_times) / len(handle_times))
+                        if handle_times
+                        else None
+                    ),
+                    "tickets_handled": total_tickets,
+                }
+            )
 
         return result
 

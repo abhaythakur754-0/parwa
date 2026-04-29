@@ -48,13 +48,15 @@ def verify_hmac_signature(
         if hash_func is None:
             return False
         import hmac as hmac_mod
+
         expected = hmac_mod.new(
             secret.encode("utf-8"),
             payload_bytes,
             hash_func,
         ).hexdigest()
         return hmac_mod.compare_digest(
-            expected, signature.strip(),
+            expected,
+            signature.strip(),
         )
     except Exception:
         return False

@@ -29,7 +29,9 @@ logger = logging.getLogger("parwa.webhook_tasks")
 )
 @with_company_id
 def process_webhook_event(
-    self, company_id: str, event_db_id: str,
+    self,
+    company_id: str,
+    event_db_id: str,
 ):
     """Generic webhook event processor.
 
@@ -64,7 +66,8 @@ def process_webhook_event(
         )
 
         mark_webhook_processed(
-            event_db_id, status="processed",
+            event_db_id,
+            status="processed",
         )
     except Exception as exc:
         logger.error(
@@ -77,8 +80,10 @@ def process_webhook_event(
             from app.services.webhook_service import (
                 mark_webhook_processed,
             )
+
             mark_webhook_processed(
-                event_db_id, status="failed",
+                event_db_id,
+                status="failed",
                 error=str(exc)[:500],
             )
         except Exception:
@@ -93,7 +98,9 @@ def process_webhook_event(
 )
 @with_company_id
 def process_paddle_webhook(
-    self, company_id: str, event_db_id: str,
+    self,
+    company_id: str,
+    event_db_id: str,
 ):
     """Process Paddle webhook event (subscription, payment).
 
@@ -109,9 +116,11 @@ def process_paddle_webhook(
 
         event = get_webhook_event(event_db_id)
         from app.webhooks import dispatch_event
+
         dispatch_event("paddle", event)
         mark_webhook_processed(
-            event_db_id, status="processed",
+            event_db_id,
+            status="processed",
         )
     except Exception as exc:
         logger.error(
@@ -124,8 +133,10 @@ def process_paddle_webhook(
             from app.services.webhook_service import (
                 mark_webhook_processed,
             )
+
             mark_webhook_processed(
-                event_db_id, status="failed",
+                event_db_id,
+                status="failed",
                 error=str(exc)[:500],
             )
         except Exception:
@@ -140,7 +151,9 @@ def process_paddle_webhook(
 )
 @with_company_id
 def process_twilio_webhook(
-    self, company_id: str, event_db_id: str,
+    self,
+    company_id: str,
+    event_db_id: str,
 ):
     """Process Twilio SMS/voice webhook event.
 
@@ -156,9 +169,11 @@ def process_twilio_webhook(
 
         event = get_webhook_event(event_db_id)
         from app.webhooks import dispatch_event
+
         dispatch_event("twilio", event)
         mark_webhook_processed(
-            event_db_id, status="processed",
+            event_db_id,
+            status="processed",
         )
     except Exception as exc:
         logger.error(
@@ -171,8 +186,10 @@ def process_twilio_webhook(
             from app.services.webhook_service import (
                 mark_webhook_processed,
             )
+
             mark_webhook_processed(
-                event_db_id, status="failed",
+                event_db_id,
+                status="failed",
                 error=str(exc)[:500],
             )
         except Exception:
@@ -187,7 +204,9 @@ def process_twilio_webhook(
 )
 @with_company_id
 def process_brevo_webhook(
-    self, company_id: str, event_db_id: str,
+    self,
+    company_id: str,
+    event_db_id: str,
 ):
     """Process Brevo inbound email webhook event.
 
@@ -203,9 +222,11 @@ def process_brevo_webhook(
 
         event = get_webhook_event(event_db_id)
         from app.webhooks import dispatch_event
+
         dispatch_event("brevo", event)
         mark_webhook_processed(
-            event_db_id, status="processed",
+            event_db_id,
+            status="processed",
         )
     except Exception as exc:
         logger.error(
@@ -218,8 +239,10 @@ def process_brevo_webhook(
             from app.services.webhook_service import (
                 mark_webhook_processed,
             )
+
             mark_webhook_processed(
-                event_db_id, status="failed",
+                event_db_id,
+                status="failed",
                 error=str(exc)[:500],
             )
         except Exception:
@@ -234,7 +257,9 @@ def process_brevo_webhook(
 )
 @with_company_id
 def process_shopify_webhook(
-    self, company_id: str, event_db_id: str,
+    self,
+    company_id: str,
+    event_db_id: str,
 ):
     """Process Shopify order webhook event.
 
@@ -250,9 +275,11 @@ def process_shopify_webhook(
 
         event = get_webhook_event(event_db_id)
         from app.webhooks import dispatch_event
+
         dispatch_event("shopify", event)
         mark_webhook_processed(
-            event_db_id, status="processed",
+            event_db_id,
+            status="processed",
         )
     except Exception as exc:
         logger.error(
@@ -265,8 +292,10 @@ def process_shopify_webhook(
             from app.services.webhook_service import (
                 mark_webhook_processed,
             )
+
             mark_webhook_processed(
-                event_db_id, status="failed",
+                event_db_id,
+                status="failed",
                 error=str(exc)[:500],
             )
         except Exception:

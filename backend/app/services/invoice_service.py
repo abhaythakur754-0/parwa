@@ -84,17 +84,28 @@ class InvoiceService:
 
         with SessionLocal() as db:
             # Get total count
-            total = db.query(Invoice).filter(
-                Invoice.company_id == str(company_id),
-            ).count()
+            total = (
+                db.query(Invoice)
+                .filter(
+                    Invoice.company_id == str(company_id),
+                )
+                .count()
+            )
 
             # Get paginated invoices
-            invoices = db.query(Invoice).filter(
-                Invoice.company_id == str(company_id),
-            ).order_by(
-                desc(Invoice.invoice_date),
-                desc(Invoice.created_at),
-            ).offset(offset).limit(page_size).all()
+            invoices = (
+                db.query(Invoice)
+                .filter(
+                    Invoice.company_id == str(company_id),
+                )
+                .order_by(
+                    desc(Invoice.invoice_date),
+                    desc(Invoice.created_at),
+                )
+                .offset(offset)
+                .limit(page_size)
+                .all()
+            )
 
             return {
                 "invoices": [
@@ -104,10 +115,14 @@ class InvoiceService:
                         "amount": str(inv.amount) if inv.amount else "0.00",
                         "currency": inv.currency or "USD",
                         "status": inv.status,
-                        "invoice_date": inv.invoice_date.isoformat() if inv.invoice_date else None,
+                        "invoice_date": (
+                            inv.invoice_date.isoformat() if inv.invoice_date else None
+                        ),
                         "due_date": inv.due_date.isoformat() if inv.due_date else None,
                         "paid_at": inv.paid_at.isoformat() if inv.paid_at else None,
-                        "created_at": inv.created_at.isoformat() if inv.created_at else None,
+                        "created_at": (
+                            inv.created_at.isoformat() if inv.created_at else None
+                        ),
                     }
                     for inv in invoices
                 ],
@@ -139,33 +154,36 @@ class InvoiceService:
             InvoiceAccessDeniedError: Invoice belongs to different company
         """
         with SessionLocal() as db:
-            invoice = db.query(Invoice).filter(
-                Invoice.id == invoice_id,
-            ).first()
+            invoice = (
+                db.query(Invoice)
+                .filter(
+                    Invoice.id == invoice_id,
+                )
+                .first()
+            )
 
             if not invoice:
-                raise InvoiceNotFoundError(
-                    f"Invoice {invoice_id} not found"
-                )
+                raise InvoiceNotFoundError(f"Invoice {invoice_id} not found")
 
             # BC-001: Validate company_id
             if invoice.company_id != str(company_id):
-                raise InvoiceAccessDeniedError(
-                    "Access denied to this invoice"
-                )
+                raise InvoiceAccessDeniedError("Access denied to this invoice")
 
             return {
                 "id": invoice.id,
                 "company_id": invoice.company_id,
                 "paddle_invoice_id": invoice.paddle_invoice_id,
-                "amount": str(
-                    invoice.amount) if invoice.amount else "0.00",
+                "amount": str(invoice.amount) if invoice.amount else "0.00",
                 "currency": invoice.currency or "USD",
                 "status": invoice.status,
-                "invoice_date": invoice.invoice_date.isoformat() if invoice.invoice_date else None,
+                "invoice_date": (
+                    invoice.invoice_date.isoformat() if invoice.invoice_date else None
+                ),
                 "due_date": invoice.due_date.isoformat() if invoice.due_date else None,
                 "paid_at": invoice.paid_at.isoformat() if invoice.paid_at else None,
-                "created_at": invoice.created_at.isoformat() if invoice.created_at else None,
+                "created_at": (
+                    invoice.created_at.isoformat() if invoice.created_at else None
+                ),
             }
 
     async def get_invoice_pdf(
@@ -199,9 +217,7 @@ class InvoiceService:
 
         try:
             paddle = await self._get_paddle()
-            pdf_bytes = await paddle.get_invoice_pdf(
-                invoice["paddle_invoice_id"]
-            )
+            pdf_bytes = await paddle.get_invoice_pdf(invoice["paddle_invoice_id"])
             logger.info(
                 "invoice_pdf_retrieved company_id=%s invoice_id=%s",
                 company_id,
@@ -259,15 +275,13 @@ class InvoiceService:
 
             c.drawString(inch, y, f"Invoice ID: {invoice.get('id', 'N/A')}")
             y -= 0.3 * inch
-            c.drawString(
-                inch, y, f"Amount: {
+            c.drawString(inch, y, f"Amount: {
                     invoice.get(
                         'amount', '0.00')} {
                     invoice.get(
                         'currency', 'USD')}")
             y -= 0.3 * inch
-            c.drawString(
-                inch, y, f"Status: {
+            c.drawString(inch, y, f"Status: {
                     invoice.get(
                         'status', 'pending')}")
             y -= 0.3 * inch
@@ -320,9 +334,13 @@ class InvoiceService:
         """
         with SessionLocal() as db:
             # Get company for paddle_customer_id
-            company = db.query(Company).filter(
-                Company.id == str(company_id),
-            ).first()
+            company = (
+                db.query(Company)
+                .filter(
+                    Company.id == str(company_id),
+                )
+                .first()
+            )
 
             if not company or not company.paddle_customer_id:
                 logger.info(
@@ -352,9 +370,13 @@ class InvoiceService:
                         continue
 
                     # Check for existing invoice
-                    existing = db.query(Invoice).filter(
-                        Invoice.paddle_invoice_id == txn_id,
-                    ).first()
+                    existing = (
+                        db.query(Invoice)
+                        .filter(
+                            Invoice.paddle_invoice_id == txn_id,
+                        )
+                        .first()
+                    )
 
                     invoice_data = {
                         "company_id": str(company_id),
@@ -362,9 +384,13 @@ class InvoiceService:
                         "amount": Decimal(str(txn.get("amount", "0"))),
                         "currency": txn.get("currency_code", "USD"),
                         "status": txn.get("status", "pending"),
-                        "invoice_date": datetime.fromisoformat(
-                            txn["created_at"].replace("Z", "+00:00")
-                        ) if txn.get("created_at") else None,
+                        "invoice_date": (
+                            datetime.fromisoformat(
+                                txn["created_at"].replace("Z", "+00:00")
+                            )
+                            if txn.get("created_at")
+                            else None
+                        ),
                     }
 
                     if existing:
@@ -484,14 +510,16 @@ class InvoiceService:
             )
 
         with SessionLocal() as db:
-            invoice = db.query(Invoice).filter(
-                Invoice.id == invoice_id,
-            ).first()
+            invoice = (
+                db.query(Invoice)
+                .filter(
+                    Invoice.id == invoice_id,
+                )
+                .first()
+            )
 
             if not invoice:
-                raise InvoiceNotFoundError(
-                    f"Invoice {invoice_id} not found"
-                )
+                raise InvoiceNotFoundError(f"Invoice {invoice_id} not found")
 
             invoice.status = status
             if paid_at:

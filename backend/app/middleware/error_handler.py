@@ -51,8 +51,7 @@ def get_correlation_id(request: Request) -> str:
     if correlation_id and len(correlation_id) <= 64:
         # Sanitize: only allow alphanumeric, hyphens, underscores
         safe_chars = set(
-            "abcdefghijklmnopqrstuvwxyz"
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+            "abcdefghijklmnopqrstuvwxyz" "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
         )
         if all(c in safe_chars for c in correlation_id):
             return correlation_id
@@ -90,7 +89,9 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
         except Exception as exc:
             # Handle unexpected errors — log, return generic msg
             return self._handle_unexpected_error(
-                request, exc, correlation_id,
+                request,
+                exc,
+                correlation_id,
             )
 
     def _handle_parwa_error(
@@ -150,7 +151,8 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
         }
 
         response = JSONResponse(
-            status_code=exc.status_code, content=error_response,
+            status_code=exc.status_code,
+            content=error_response,
         )
         response.headers[CORRELATION_ID_HEADER] = correlation_id
         return response

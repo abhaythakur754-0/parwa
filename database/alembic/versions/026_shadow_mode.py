@@ -27,26 +27,33 @@ def upgrade():
         "shadow_log",
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column(
-            "company_id", sa.String(36),
+            "company_id",
+            sa.String(36),
             sa.ForeignKey("companies.id", ondelete="CASCADE"),
             nullable=False,
         ),
         sa.Column("action_type", sa.String(50), nullable=False),
         sa.Column(
-            "action_payload", postgresql.JSONB,
-            nullable=False, server_default="{}",
+            "action_payload",
+            postgresql.JSONB,
+            nullable=False,
+            server_default="{}",
         ),
         sa.Column("jarvis_risk_score", sa.Float(), nullable=True),
         sa.Column(
-            "mode", sa.String(15), nullable=False,
+            "mode",
+            sa.String(15),
+            nullable=False,
             server_default="supervised",
         ),
         sa.Column("manager_decision", sa.String(15), nullable=True),
         sa.Column("manager_note", sa.Text(), nullable=True),
         sa.Column("resolved_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True),
-            nullable=False, server_default=sa.func.now(),
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
         ),
     )
 
@@ -66,25 +73,33 @@ def upgrade():
         "shadow_preferences",
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column(
-            "company_id", sa.String(36),
+            "company_id",
+            sa.String(36),
             sa.ForeignKey("companies.id", ondelete="CASCADE"),
             nullable=False,
         ),
         sa.Column("action_category", sa.String(50), nullable=False),
         sa.Column(
-            "preferred_mode", sa.String(15), nullable=False,
+            "preferred_mode",
+            sa.String(15),
+            nullable=False,
             server_default="shadow",
         ),
         sa.Column(
-            "set_via", sa.String(10), nullable=False,
+            "set_via",
+            sa.String(10),
+            nullable=False,
             server_default="ui",
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True),
-            nullable=False, server_default=sa.func.now(),
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
         ),
         sa.UniqueConstraint(
-            "company_id", "action_category",
+            "company_id",
+            "action_category",
             name="uq_shadow_prefs_company_category",
         ),
     )
@@ -99,7 +114,9 @@ def upgrade():
     op.add_column(
         "companies",
         sa.Column(
-            "system_mode", sa.String(15), nullable=False,
+            "system_mode",
+            sa.String(15),
+            nullable=False,
             server_default="supervised",
         ),
     )

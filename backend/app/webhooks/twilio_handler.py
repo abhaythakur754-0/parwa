@@ -34,9 +34,7 @@ def _sanitize_sms_field(value: str, max_length: int = 200) -> str:
     """
     if not value:
         return ""
-    cleaned = "".join(
-        c for c in str(value) if ord(c) >= 32 or c in "\n\r\t"
-    )
+    cleaned = "".join(c for c in str(value) if ord(c) >= 32 or c in "\n\r\t")
     if len(cleaned) > max_length:
         cleaned = cleaned[:max_length]
     return cleaned.strip()

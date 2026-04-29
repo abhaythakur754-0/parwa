@@ -78,7 +78,7 @@ def _extract_feature_id(path: str) -> str | None:
     if not path.startswith(AI_PATH_PREFIX):
         return None
 
-    remainder = path[len(AI_PATH_PREFIX):]
+    remainder = path[len(AI_PATH_PREFIX) :]
     # Remove leading slash
     remainder = remainder.lstrip("/")
 
@@ -114,10 +114,14 @@ def _get_company_variant_type(db, company_id: str) -> str:
     try:
         from database.models.variant_engine import VariantInstance
 
-        instances = db.query(VariantInstance).filter_by(
-            company_id=company_id,
-            status="active",
-        ).all()
+        instances = (
+            db.query(VariantInstance)
+            .filter_by(
+                company_id=company_id,
+                status="active",
+            )
+            .all()
+        )
 
         if not instances:
             return DEFAULT_VARIANT_TYPE
@@ -187,8 +191,7 @@ class AIEntitlementMiddleware(BaseHTTPMiddleware):
                     "error": {
                         "code": "AUTHORIZATION_ERROR",
                         "message": (
-                            "Tenant identification required "
-                            "for AI feature access"
+                            "Tenant identification required " "for AI feature access"
                         ),
                         "details": None,
                     }
@@ -212,10 +215,14 @@ class AIEntitlementMiddleware(BaseHTTPMiddleware):
             db = SessionLocal()
             try:
                 variant_type = _get_company_variant_type(
-                    db, company_id,
+                    db,
+                    company_id,
                 )
                 enforce_entitlement(
-                    db, company_id, feature_id, variant_type,
+                    db,
+                    company_id,
+                    feature_id,
+                    variant_type,
                 )
 
                 logger.info(
@@ -248,7 +255,9 @@ class AIEntitlementMiddleware(BaseHTTPMiddleware):
 
             # Include correlation ID if available
             correlation_id = getattr(
-                request.state, "correlation_id", None,
+                request.state,
+                "correlation_id",
+                None,
             )
             if correlation_id:
                 error_response["correlation_id"] = correlation_id

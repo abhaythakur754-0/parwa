@@ -223,8 +223,7 @@ def get_workflow_state(
         if state is None:
             raise NotFoundError(
                 message=(
-                    "No workflow state found for "
-                    f"conversation '{conversation_id}'"
+                    "No workflow state found for " f"conversation '{conversation_id}'"
                 ),
                 details={"conversation_id": conversation_id},
             )
@@ -270,8 +269,7 @@ def get_workflow_state(
                 )
 
             available = [
-                t.value if hasattr(t, "value") else str(t)
-                for t in transitions
+                t.value if hasattr(t, "value") else str(t) for t in transitions
             ]
         except Exception:
             available = []
@@ -285,9 +283,7 @@ def get_workflow_state(
             for h in state.gsd_history:
                 history.append(
                     {
-                        "state": (
-                            h.value if hasattr(h, "value") else str(h)
-                        ),
+                        "state": (h.value if hasattr(h, "value") else str(h)),
                     }
                 )
 
@@ -355,8 +351,7 @@ def force_state_transition(
         if state is None:
             raise NotFoundError(
                 message=(
-                    "No workflow state found for "
-                    f"conversation '{conversation_id}'"
+                    "No workflow state found for " f"conversation '{conversation_id}'"
                 ),
                 details={"conversation_id": conversation_id},
             )
@@ -604,9 +599,7 @@ def compress_context(
                     compressor.compress(company_id, input_data)
                 )
         except Exception:
-            output = asyncio.run(
-                compressor.compress(company_id, input_data)
-            )
+            output = asyncio.run(compressor.compress(company_id, input_data))
 
         return ContextCompressResponse(
             status="ok",
@@ -667,7 +660,7 @@ def get_technique_metrics(
             technique_ids = [technique_id]
         else:
             # Get all unique technique IDs from stats
-            for (tid, _) in collector._stats.keys():
+            for tid, _ in collector._stats.keys():
                 if tid not in technique_ids:
                     technique_ids.append(tid)
 
@@ -900,14 +893,16 @@ def get_capacity_status(
             variant_statuses.append(
                 CapacityVariantStatus(
                     variant=variant,
-                    used=vstatus["max_concurrent"]
-                    - (
+                    used=(
                         vstatus["max_concurrent"]
-                        * vstatus["utilization_percentage"]
-                        // 100
-                    )
-                    if vstatus["utilization_percentage"] > 0
-                    else 0,
+                        - (
+                            vstatus["max_concurrent"]
+                            * vstatus["utilization_percentage"]
+                            // 100
+                        )
+                        if vstatus["utilization_percentage"] > 0
+                        else 0
+                    ),
                     total=vstatus["max_concurrent"],
                     available=max(
                         0,
@@ -983,9 +978,7 @@ def configure_capacity(
     except ValueError as exc:
         raise ValidationError(
             message=str(exc),
-            details={
-                "variant": body.variant,
-                "max_concurrent": body.max_concurrent},
+            details={"variant": body.variant, "max_concurrent": body.max_concurrent},
         )
     except Exception as exc:
         from app.logger import get_logger
@@ -1029,7 +1022,8 @@ def get_tenant_config(
         config_dict = asdict(config)
         version = manager._versions.get(company_id, 0)
         variant = manager._tenant_variants.get(
-            company_id, manager._default_variant,
+            company_id,
+            manager._default_variant,
         )
 
         return TenantConfigResponse(
@@ -1157,9 +1151,7 @@ def get_gsd_transitions(
 
         if state is None:
             raise NotFoundError(
-                message=(
-                    f"No workflow state found for ticket '{ticket_id}'"
-                ),
+                message=(f"No workflow state found for ticket '{ticket_id}'"),
                 details={"ticket_id": ticket_id},
             )
 
@@ -1168,7 +1160,8 @@ def get_gsd_transitions(
         try:
             gsd_manager = SharedGSDManager()
             history = gsd_manager.get_transition_history(
-                company_id, ticket_id,
+                company_id,
+                ticket_id,
             )
             if history:
                 for record in history:
@@ -1186,10 +1179,7 @@ def get_gsd_transitions(
                 for h in state.gsd_history:
                     transitions.append(
                         {
-                            "state": (
-                                h.value if hasattr(h, "value")
-                                else str(h)
-                            ),
+                            "state": (h.value if hasattr(h, "value") else str(h)),
                             "timestamp": "",
                             "trigger": "",
                             "metadata": {},
@@ -1247,9 +1237,7 @@ def get_gsd_analytics(
 
         if state is None:
             raise NotFoundError(
-                message=(
-                    f"No workflow state found for ticket '{ticket_id}'"
-                ),
+                message=(f"No workflow state found for ticket '{ticket_id}'"),
                 details={"ticket_id": ticket_id},
             )
 
@@ -1276,9 +1264,7 @@ def get_gsd_analytics(
                     reason = futures[0].result()
                     summary = futures[1].result()
             else:
-                reason = loop.run_until_complete(
-                    engine.get_transition_reason(state)
-                )
+                reason = loop.run_until_complete(engine.get_transition_reason(state))
                 summary = loop.run_until_complete(
                     engine.get_conversation_summary(state)
                 )
@@ -1297,20 +1283,24 @@ def get_gsd_analytics(
             ticket_id=ticket_id,
             current_state=reason.get("current_state", "unknown"),
             recommended_next_state=reason.get(
-                "recommended_next_state", "unknown",
+                "recommended_next_state",
+                "unknown",
             ),
             variant=reason.get("variant", "parwa"),
             reasoning_chain=reason.get("reasoning_chain", []),
             signals_snapshot=reason.get("signals_snapshot", {}),
             escalation_conditions_met=reason.get(
-                "escalation_conditions_met", False,
+                "escalation_conditions_met",
+                False,
             ),
             diagnosis_loop_count=reason.get("diagnosis_loops", 0),
             time_in_current_state_seconds=summary.get(
-                "time_in_current_state_seconds", 0.0,
+                "time_in_current_state_seconds",
+                0.0,
             ),
             estimated_resolution_time_minutes=summary.get(
-                "estimated_resolution_time_minutes", 0,
+                "estimated_resolution_time_minutes",
+                0,
             ),
             state_distribution=summary.get("state_distribution", {}),
         )

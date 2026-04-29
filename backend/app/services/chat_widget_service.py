@@ -450,9 +450,7 @@ class ChatWidgetService:
         session.last_message_at = now
 
         if role == "visitor":
-            session.visitor_message_count = (
-                session.visitor_message_count or 0
-            ) + 1
+            session.visitor_message_count = (session.visitor_message_count or 0) + 1
             if not session.first_message_at:
                 session.first_message_at = now
 
@@ -744,12 +742,22 @@ class ChatWidgetService:
         config = self.get_or_create_widget_config(company_id)
 
         allowed_fields = [
-            "widget_title", "welcome_message", "placeholder_text",
-            "primary_color", "widget_position", "is_enabled",
-            "auto_greeting_enabled", "auto_greeting_delay_seconds",
-            "bot_enabled", "max_file_size_mb", "allowed_file_types",
-            "max_queue_size", "queue_message", "business_hours_json",
-            "offline_message", "require_visitor_name",
+            "widget_title",
+            "welcome_message",
+            "placeholder_text",
+            "primary_color",
+            "widget_position",
+            "is_enabled",
+            "auto_greeting_enabled",
+            "auto_greeting_delay_seconds",
+            "bot_enabled",
+            "max_file_size_mb",
+            "allowed_file_types",
+            "max_queue_size",
+            "queue_message",
+            "business_hours_json",
+            "offline_message",
+            "require_visitor_name",
             "require_visitor_email",
         ]
 
@@ -860,10 +868,7 @@ class ChatWidgetService:
         if is_active is not None:
             query = query.filter(CannedResponse.is_active == is_active)
 
-        items = (
-            query.order_by(CannedResponse.sort_order, CannedResponse.title)
-            .all()
-        )
+        items = query.order_by(CannedResponse.sort_order, CannedResponse.title).all()
 
         return [item.to_dict() for item in items]
 
@@ -897,8 +902,12 @@ class ChatWidgetService:
             return {"status": "error", "error": "Canned response not found"}
 
         allowed_fields = [
-            "title", "content", "category", "shortcut",
-            "sort_order", "is_active",
+            "title",
+            "content",
+            "category",
+            "shortcut",
+            "sort_order",
+            "is_active",
         ]
         for field in allowed_fields:
             if field in updates and updates[field] is not None:
@@ -1007,7 +1016,9 @@ class ChatWidgetService:
         secret = self._get_hmac_secret()
         message = f"{session_id}:{company_id}".encode("utf-8")
         return hmac.new(
-            secret.encode("utf-8"), message, hashlib.sha256,
+            secret.encode("utf-8"),
+            message,
+            hashlib.sha256,
         ).hexdigest()
 
     def _get_hmac_secret(self) -> str:
@@ -1020,6 +1031,7 @@ class ChatWidgetService:
         """
         try:
             from app.config import get_settings
+
             settings = get_settings()
             return settings.SECRET_KEY
         except Exception:
@@ -1090,7 +1102,8 @@ class ChatWidgetService:
             if available:
                 # Simple assignment: pick the agent with fewest active sessions
                 agent = self._pick_least_loaded_agent(
-                    session.company_id, available,
+                    session.company_id,
+                    available,
                 )
                 if agent:
                     session.assigned_agent_id = agent.id
@@ -1243,9 +1256,7 @@ class ChatWidgetService:
                 },
             )
 
-    def _get_widget_config(
-            self,
-            company_id: str) -> Optional[ChatWidgetConfig]:
+    def _get_widget_config(self, company_id: str) -> Optional[ChatWidgetConfig]:
         """Get widget config (private helper)."""
         return (
             self.db.query(ChatWidgetConfig)

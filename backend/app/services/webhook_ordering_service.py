@@ -46,18 +46,10 @@ ORDERED_EVENT_TYPES = {
 
 # Events that must come before others (dependency map)
 EVENT_DEPENDENCIES = {
-    "subscription.updated": [
-        "subscription.created",
-        "subscription.activated"],
-    "subscription.canceled": [
-        "subscription.created",
-        "subscription.activated"],
-    "subscription.past_due": [
-        "subscription.created",
-        "subscription.activated"],
-    "subscription.paused": [
-        "subscription.created",
-        "subscription.activated"],
+    "subscription.updated": ["subscription.created", "subscription.activated"],
+    "subscription.canceled": ["subscription.created", "subscription.activated"],
+    "subscription.past_due": ["subscription.created", "subscription.activated"],
+    "subscription.paused": ["subscription.created", "subscription.activated"],
     "subscription.resumed": ["subscription.paused"],
     "transaction.completed": ["transaction.paid"],
 }
@@ -77,9 +69,13 @@ def get_or_create_webhook_sequence(
     db: Session = SessionLocal()
     try:
         # Check for existing
-        existing = db.query(WebhookSequence).filter(
-            WebhookSequence.paddle_event_id == paddle_event_id,
-        ).first()
+        existing = (
+            db.query(WebhookSequence)
+            .filter(
+                WebhookSequence.paddle_event_id == paddle_event_id,
+            )
+            .first()
+        )
 
         if existing:
             return existing
@@ -99,7 +95,9 @@ def get_or_create_webhook_sequence(
 
         logger.info(
             "webhook_sequence_created event_id=%s type=%s occurred_at=%s",
-            paddle_event_id, event_type, occurred_at.isoformat(),
+            paddle_event_id,
+            event_type,
+            occurred_at.isoformat(),
         )
 
         return sequence
@@ -108,7 +106,8 @@ def get_or_create_webhook_sequence(
         db.rollback()
         logger.error(
             "webhook_sequence_create_error event_id=%s error=%s",
-            paddle_event_id, str(e),
+            paddle_event_id,
+            str(e),
         )
         raise
     finally:
@@ -123,9 +122,14 @@ def get_next_processing_order(company_id: str) -> int:
     """
     db: Session = SessionLocal()
     try:
-        last = db.query(WebhookSequence).filter(
-            WebhookSequence.company_id == company_id,
-        ).order_by(desc(WebhookSequence.processing_order)).first()
+        last = (
+            db.query(WebhookSequence)
+            .filter(
+                WebhookSequence.company_id == company_id,
+            )
+            .order_by(desc(WebhookSequence.processing_order))
+            .first()
+        )
 
         if last and last.processing_order is not None:
             return last.processing_order + 1
@@ -147,12 +151,18 @@ def get_pending_events_ordered(
     """
     db: Session = SessionLocal()
     try:
-        events = db.query(WebhookSequence).filter(
-            and_(
-                WebhookSequence.company_id == company_id,
-                WebhookSequence.status == "pending",
+        events = (
+            db.query(WebhookSequence)
+            .filter(
+                and_(
+                    WebhookSequence.company_id == company_id,
+                    WebhookSequence.status == "pending",
+                )
             )
-        ).order_by(asc(WebhookSequence.occurred_at)).limit(limit).all()
+            .order_by(asc(WebhookSequence.occurred_at))
+            .limit(limit)
+            .all()
+        )
 
         return events
 
@@ -164,9 +174,13 @@ def mark_sequence_processing(sequence_id: str) -> None:
     """Mark a webhook sequence as currently being processed."""
     db: Session = SessionLocal()
     try:
-        record = db.query(WebhookSequence).filter(
-            WebhookSequence.id == sequence_id,
-        ).first()
+        record = (
+            db.query(WebhookSequence)
+            .filter(
+                WebhookSequence.id == sequence_id,
+            )
+            .first()
+        )
 
         if record:
             record.status = "processing"
@@ -187,9 +201,13 @@ def mark_sequence_processed(
     """Mark a webhook sequence as successfully processed."""
     db: Session = SessionLocal()
     try:
-        record = db.query(WebhookSequence).filter(
-            WebhookSequence.id == sequence_id,
-        ).first()
+        record = (
+            db.query(WebhookSequence)
+            .filter(
+                WebhookSequence.id == sequence_id,
+            )
+            .first()
+        )
 
         if record:
             record.status = "processed"
@@ -200,7 +218,8 @@ def mark_sequence_processed(
 
             logger.info(
                 "webhook_sequence_processed id=%s order=%s",
-                sequence_id, processing_order,
+                sequence_id,
+                processing_order,
             )
 
     except Exception:
@@ -217,20 +236,24 @@ def mark_sequence_failed(
     """Mark a webhook sequence as failed."""
     db: Session = SessionLocal()
     try:
-        record = db.query(WebhookSequence).filter(
-            WebhookSequence.id == sequence_id,
-        ).first()
+        record = (
+            db.query(WebhookSequence)
+            .filter(
+                WebhookSequence.id == sequence_id,
+            )
+            .first()
+        )
 
         if record:
             record.status = "failed"
-            record.error_message = error_message[:
-                                                 500] if error_message else None
+            record.error_message = error_message[:500] if error_message else None
             record.retry_count = (record.retry_count or 0) + 1
             db.commit()
 
             logger.warning(
                 "webhook_sequence_failed id=%s error=%s",
-                sequence_id, error_message[:100],
+                sequence_id,
+                error_message[:100],
             )
 
     except Exception:
@@ -260,14 +283,18 @@ def check_dependencies_met(
     try:
         # Check if all dependencies have been processed
         # for events that occurred BEFORE this one
-        processed_deps = db.query(WebhookSequence.event_type).filter(
-            and_(
-                WebhookSequence.company_id == company_id,
-                WebhookSequence.event_type.in_(dependencies),
-                WebhookSequence.occurred_at < occurred_at,
-                WebhookSequence.status == "processed",
+        processed_deps = (
+            db.query(WebhookSequence.event_type)
+            .filter(
+                and_(
+                    WebhookSequence.company_id == company_id,
+                    WebhookSequence.event_type.in_(dependencies),
+                    WebhookSequence.occurred_at < occurred_at,
+                    WebhookSequence.status == "processed",
+                )
             )
-        ).all()
+            .all()
+        )
 
         processed_types = {r[0] for r in processed_deps}
         missing = [d for d in dependencies if d not in processed_types]
@@ -326,7 +353,8 @@ def process_ordered(
     if not deps["met"]:
         logger.info(
             "webhook_dependencies_not_met event_id=%s missing=%s",
-            paddle_event_id, deps["missing"],
+            paddle_event_id,
+            deps["missing"],
         )
         # Leave as pending - recovery task will process later
         return {
@@ -374,8 +402,9 @@ def get_stuck_events(
     """
     db: Session = SessionLocal()
     try:
-        cutoff = datetime.now(
-            timezone.utc) - __import__('datetime').timedelta(hours=max_age_hours)
+        cutoff = datetime.now(timezone.utc) - __import__("datetime").timedelta(
+            hours=max_age_hours
+        )
 
         query = db.query(WebhookSequence).filter(
             and_(
@@ -420,9 +449,13 @@ def retry_stuck_event(sequence_id: str) -> Dict[str, Any]:
     """
     db: Session = SessionLocal()
     try:
-        record = db.query(WebhookSequence).filter(
-            WebhookSequence.id == sequence_id,
-        ).first()
+        record = (
+            db.query(WebhookSequence)
+            .filter(
+                WebhookSequence.id == sequence_id,
+            )
+            .first()
+        )
 
         if not record:
             raise ValueError(f"Sequence {sequence_id} not found")
@@ -438,7 +471,8 @@ def retry_stuck_event(sequence_id: str) -> Dict[str, Any]:
 
         logger.info(
             "webhook_sequence_retry id=%s retry_count=%s",
-            sequence_id, record.retry_count,
+            sequence_id,
+            record.retry_count,
         )
 
         return {
@@ -466,15 +500,20 @@ def cleanup_old_sequences(days: int = 30) -> int:
     """
     db: Session = SessionLocal()
     try:
-        cutoff = datetime.now(timezone.utc) - \
-            __import__('datetime').timedelta(days=days)
+        cutoff = datetime.now(timezone.utc) - __import__("datetime").timedelta(
+            days=days
+        )
 
-        deleted = db.query(WebhookSequence).filter(
-            and_(
-                WebhookSequence.status == "processed",
-                WebhookSequence.created_at < cutoff,
+        deleted = (
+            db.query(WebhookSequence)
+            .filter(
+                and_(
+                    WebhookSequence.status == "processed",
+                    WebhookSequence.created_at < cutoff,
+                )
             )
-        ).delete()
+            .delete()
+        )
 
         db.commit()
 

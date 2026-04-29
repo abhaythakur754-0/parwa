@@ -82,10 +82,15 @@ def process_knowledge_document(
     with get_db_context() as db:
         try:
             # GAP 2: Fetch document with company_id verification
-            doc = db.query(KnowledgeDocument).filter(
-                KnowledgeDocument.id == document_id,
-                KnowledgeDocument.company_id == company_id,  # CRITICAL: Tenant isolation
-            ).first()
+            doc = (
+                db.query(KnowledgeDocument)
+                .filter(
+                    KnowledgeDocument.id == document_id,
+                    KnowledgeDocument.company_id
+                    == company_id,  # CRITICAL: Tenant isolation
+                )
+                .first()
+            )
 
             if not doc:
                 raise ValidationError(
@@ -105,10 +110,11 @@ def process_knowledge_document(
             content = ""
             try:
                 from app.services.file_storage_service import FileStorageService
+
                 storage_svc = FileStorageService()
-                file_id = getattr(
-                    doc, 'storage_file_id', None) or getattr(
-                    doc, 'file_path', None)
+                file_id = getattr(doc, "storage_file_id", None) or getattr(
+                    doc, "file_path", None
+                )
                 if file_id:
                     storage_result = storage_svc.download_file(
                         company_id=company_id,
@@ -117,7 +123,7 @@ def process_knowledge_document(
                     content = storage_result.get("content", b"")
                     if isinstance(content, bytes):
                         # Decode bytes to text
-                        for encoding in ['utf-8', 'latin-1', 'ascii']:
+                        for encoding in ["utf-8", "latin-1", "ascii"]:
                             try:
                                 content = content.decode(encoding)
                                 break
@@ -142,8 +148,7 @@ def process_knowledge_document(
             # Store chunks with embeddings (GAP 2: tenant isolation)
             chunk_count = 0
             for i, chunk_text in enumerate(chunk_texts):
-                embedding_vector = embeddings[i] if i < len(
-                    embeddings) else None
+                embedding_vector = embeddings[i] if i < len(embeddings) else None
                 chunk = DocumentChunk(
                     document_id=document_id,
                     company_id=company_id,  # CRITICAL: Tenant isolation for embeddings
@@ -195,9 +200,13 @@ def process_knowledge_document(
 
             # Update document status to failed
             try:
-                doc = db.query(KnowledgeDocument).filter(
-                    KnowledgeDocument.id == document_id,
-                ).first()
+                doc = (
+                    db.query(KnowledgeDocument)
+                    .filter(
+                        KnowledgeDocument.id == document_id,
+                    )
+                    .first()
+                )
 
                 if doc:
                     doc.status = "failed"
@@ -239,10 +248,14 @@ def reprocess_failed_documents(company_id: str) -> dict:
         Dict with retry count.
     """
     with get_db_context() as db:
-        failed_docs = db.query(KnowledgeDocument).filter(
-            KnowledgeDocument.company_id == company_id,
-            KnowledgeDocument.status == "failed",
-        ).all()
+        failed_docs = (
+            db.query(KnowledgeDocument)
+            .filter(
+                KnowledgeDocument.company_id == company_id,
+                KnowledgeDocument.status == "failed",
+            )
+            .all()
+        )
 
         retry_count = 0
         for doc in failed_docs:
@@ -324,6 +337,7 @@ def _generate_embedding(text: str) -> Optional[list]:
     """
     try:
         from app.config import get_settings
+
         settings = get_settings()
         api_key = settings.GOOGLE_AI_API_KEY
         if not api_key:

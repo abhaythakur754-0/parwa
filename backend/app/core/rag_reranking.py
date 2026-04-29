@@ -47,8 +47,8 @@ logger = get_logger("rag_reranking")
 class RerankStrategy(Enum):
     """Strategy selector for reranking behaviour per variant."""
 
-    SKIP = "skip"                      # mini_parwa — no reranking
-    CROSS_ENCODER = "cross_encoder"    # parwa    — cosine + keyword
+    SKIP = "skip"  # mini_parwa — no reranking
+    CROSS_ENCODER = "cross_encoder"  # parwa    — cosine + keyword
     REWRITE_RERANK = "rewrite_rerank"  # high_parwa — rewrite then rerank
 
 
@@ -94,21 +94,117 @@ _CHARS_PER_TOKEN = 4
 # ── Stop-word set for TF-IDF style keyword scoring ────────────────
 
 _STOP_WORDS: Set[str] = {
-    "a", "an", "the", "is", "it", "in", "on", "at", "to", "for",
-    "o", "and", "or", "but", "not", "with", "as", "by", "from",
-    "this", "that", "these", "those", "be", "are", "was", "were",
-    "been", "being", "have", "has", "had", "do", "does", "did",
-    "will", "would", "could", "should", "may", "might", "can",
-    "shall", "must", "i", "you", "he", "she", "we", "they",
-    "me", "him", "her", "us", "them", "my", "your", "his",
-    "our", "their", "its", "what", "which", "who", "whom",
-    "how", "when", "where", "why", "i", "then", "so", "no",
-    "yes", "all", "each", "every", "both", "few", "more",
-    "most", "other", "some", "such", "only", "own", "same",
-    "than", "too", "very", "just", "about", "above", "also",
-    "into", "over", "after", "before", "between", "through",
-    "during", "up", "out", "of", "again", "once", "here",
-    "there", "any", "much", "many",
+    "a",
+    "an",
+    "the",
+    "is",
+    "it",
+    "in",
+    "on",
+    "at",
+    "to",
+    "for",
+    "o",
+    "and",
+    "or",
+    "but",
+    "not",
+    "with",
+    "as",
+    "by",
+    "from",
+    "this",
+    "that",
+    "these",
+    "those",
+    "be",
+    "are",
+    "was",
+    "were",
+    "been",
+    "being",
+    "have",
+    "has",
+    "had",
+    "do",
+    "does",
+    "did",
+    "will",
+    "would",
+    "could",
+    "should",
+    "may",
+    "might",
+    "can",
+    "shall",
+    "must",
+    "i",
+    "you",
+    "he",
+    "she",
+    "we",
+    "they",
+    "me",
+    "him",
+    "her",
+    "us",
+    "them",
+    "my",
+    "your",
+    "his",
+    "our",
+    "their",
+    "its",
+    "what",
+    "which",
+    "who",
+    "whom",
+    "how",
+    "when",
+    "where",
+    "why",
+    "i",
+    "then",
+    "so",
+    "no",
+    "yes",
+    "all",
+    "each",
+    "every",
+    "both",
+    "few",
+    "more",
+    "most",
+    "other",
+    "some",
+    "such",
+    "only",
+    "own",
+    "same",
+    "than",
+    "too",
+    "very",
+    "just",
+    "about",
+    "above",
+    "also",
+    "into",
+    "over",
+    "after",
+    "before",
+    "between",
+    "through",
+    "during",
+    "up",
+    "out",
+    "of",
+    "again",
+    "once",
+    "here",
+    "there",
+    "any",
+    "much",
+    "many",
 }
 
 
@@ -131,8 +227,7 @@ class AssembledContext:
     context_string: str = ""
     total_tokens: int = 0
     chunks_used: List[RAGChunk] = field(default_factory=list)
-    citations: List[Citation] = field(
-        default_factory=list)  # type: ignore[assignment]
+    citations: List[Citation] = field(default_factory=list)  # type: ignore[assignment]
     truncated: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
@@ -193,7 +288,12 @@ class MetadataFilter:
 
     # Known metadata keys — unknown keys are silently ignored.
     _SUPPORTED_KEYS: Set[str] = {
-        "source_type", "date_from", "date_to", "category", "tags", "min_score",
+        "source_type",
+        "date_from",
+        "date_to",
+        "category",
+        "tags",
+        "min_score",
     }
 
     @classmethod
@@ -334,8 +434,21 @@ class QueryRewriter:
 
     # Stop words to exclude from expansion
     _EXTRA_STOP_WORDS: Set[str] = _STOP_WORDS | {
-        "also", "like", "get", "use", "using", "used", "make", "made",
-        "know", "need", "want", "think", "thing", "things", "way",
+        "also",
+        "like",
+        "get",
+        "use",
+        "using",
+        "used",
+        "make",
+        "made",
+        "know",
+        "need",
+        "want",
+        "think",
+        "thing",
+        "things",
+        "way",
     }
 
     @classmethod
@@ -527,25 +640,25 @@ class ContextWindowAssembler:
                 continue
 
             # Calculate length of this chunk with separator
-            part_len = len(content) + \
-                (separator_len if accumulated_parts else 0)
+            part_len = len(content) + (separator_len if accumulated_parts else 0)
 
             if current_length + part_len > effective_max_chars:
                 # We need to truncate this last chunk to fit
                 remaining_chars = effective_max_chars - current_length
                 if remaining_chars > 100:  # Only add if meaningful content fits
-                    truncated_content = cls._smart_truncate(
-                        content, remaining_chars)
+                    truncated_content = cls._smart_truncate(content, remaining_chars)
                     if truncated_content:
                         pos_offset = current_length
                         accumulated_parts.append(truncated_content)
                         used_chunks.append(chunk)
-                        positions.append((
-                            chunk.chunk_id,
-                            chunk.document_id,
-                            chunk.score,
-                            pos_offset,
-                        ))
+                        positions.append(
+                            (
+                                chunk.chunk_id,
+                                chunk.document_id,
+                                chunk.score,
+                                pos_offset,
+                            )
+                        )
                         current_length += len(truncated_content)
                         result.truncated = True
                 else:
@@ -555,12 +668,14 @@ class ContextWindowAssembler:
             pos_offset = current_length
             accumulated_parts.append(content)
             used_chunks.append(chunk)
-            positions.append((
-                chunk.chunk_id,
-                chunk.document_id,
-                chunk.score,
-                pos_offset,
-            ))
+            positions.append(
+                (
+                    chunk.chunk_id,
+                    chunk.document_id,
+                    chunk.score,
+                    pos_offset,
+                )
+            )
             current_length += part_len
 
         # Build context string
@@ -577,13 +692,15 @@ class ContextWindowAssembler:
                     if len(ch.content) > cls._MAX_EXCERPT_LENGTH:
                         excerpt += "..."
                     break
-            citations.append(Citation(
-                chunk_id=chunk_id,
-                document_id=doc_id,
-                relevance_score=score,
-                position_in_context=pos,
-                excerpt=excerpt,
-            ))
+            citations.append(
+                Citation(
+                    chunk_id=chunk_id,
+                    document_id=doc_id,
+                    relevance_score=score,
+                    position_in_context=pos,
+                    excerpt=excerpt,
+                )
+            )
 
         result.context_string = context_string
         result.total_tokens = total_tokens
@@ -667,9 +784,7 @@ class CitationTracker:
             return []
 
         # Build a quick lookup: chunk_id -> chunk
-        chunk_lookup: Dict[str, RAGChunk] = {
-            c.chunk_id: c for c in chunks
-        }
+        chunk_lookup: Dict[str, RAGChunk] = {c.chunk_id: c for c in chunks}
 
         # The assembler already built citations — use them but enrich
         # with metadata from the full chunk list
@@ -825,8 +940,7 @@ class CrossEncoderReranker:
                 error=str(exc),
             )
             sorted_chunks = sorted(chunks, key=lambda c: c.score, reverse=True)
-            retrieval_time_ms = round(
-                (time.monotonic() - start_time) * 1000, 2)
+            retrieval_time_ms = round((time.monotonic() - start_time) * 1000, 2)
             result = RAGResult(
                 chunks=sorted_chunks[:top_k],
                 total_found=len(sorted_chunks),
@@ -946,9 +1060,7 @@ class CrossEncoderReranker:
 
         for idx, chunk in enumerate(chunks):
             content_lower = chunk.content.lower()
-            content_tokens: List[str] = re.findall(
-                r"\b[a-z0-9]+\b", content_lower
-            )
+            content_tokens: List[str] = re.findall(r"\b[a-z0-9]+\b", content_lower)
             content_terms: Set[str] = set(content_tokens)
             content_term_freq: Dict[str, int] = {}
             for t in content_tokens:
@@ -991,14 +1103,16 @@ class CrossEncoderReranker:
                 + position_bonus
             )
 
-            reranked.append(RAGChunk(
-                chunk_id=chunk.chunk_id,
-                document_id=chunk.document_id,
-                content=chunk.content,
-                score=round(min(final_score, 1.0), 6),
-                metadata=chunk.metadata,
-                citation=chunk.citation,
-            ))
+            reranked.append(
+                RAGChunk(
+                    chunk_id=chunk.chunk_id,
+                    document_id=chunk.document_id,
+                    content=chunk.content,
+                    score=round(min(final_score, 1.0), 6),
+                    metadata=chunk.metadata,
+                    citation=chunk.citation,
+                )
+            )
 
         # Sort by new score
         reranked.sort(key=lambda c: c.score, reverse=True)
@@ -1043,9 +1157,7 @@ class CrossEncoderReranker:
 
             # BM25 TF component
             numerator = tf * (k1 + 1)
-            denominator = tf + k1 * (
-                1 - b + b * (content_length / avg_dl)
-            )
+            denominator = tf + k1 * (1 - b + b * (content_length / avg_dl))
 
             total_score += idf * (numerator / denominator)
             matched_terms += 1
@@ -1083,9 +1195,7 @@ class CrossEncoderReranker:
         for term in query_terms:
             doc_freq = df.get(term, 0)
             # Smooth IDF: log((N - df + 0.5) / (df + 0.5) + 1)
-            idf_val = math.log(
-                (total_docs - doc_freq + 0.5) / (doc_freq + 0.5) + 1.0
-            )
+            idf_val = math.log((total_docs - doc_freq + 0.5) / (doc_freq + 0.5) + 1.0)
             idf[term] = max(idf_val, 0.0)
 
         return idf
@@ -1156,8 +1266,7 @@ class CrossEncoderReranker:
 
         # All retries exhausted — raise so the caller's BC-008 guard
         # can catch and fall back
-        raise last_error or RuntimeError(
-            "rerank_execute_with_guard: unexpected state")
+        raise last_error or RuntimeError("rerank_execute_with_guard: unexpected state")
 
     async def _execute_strategy(
         self,
@@ -1311,9 +1420,7 @@ class CrossEncoderReranker:
         Returns:
             ``AssembledContext`` with the combined context string.
         """
-        config = VARIANT_RERANK_CONFIG.get(
-            variant_type, VARIANT_RERANK_CONFIG["parwa"]
-        )
+        config = VARIANT_RERANK_CONFIG.get(variant_type, VARIANT_RERANK_CONFIG["parwa"])
         max_tokens: int = config["max_context_tokens"]
 
         assembled = ContextWindowAssembler.assemble(
@@ -1413,9 +1520,7 @@ def _build_rerank_cache_key(
     where ``query_hash`` is the first 16 hex chars of SHA-256 of the
     normalised query + variant + top_k + filters.
     """
-    query_hash = hashlib.sha256(
-        query.lower().strip().encode("utf-8")
-    ).hexdigest()[:16]
+    query_hash = hashlib.sha256(query.lower().strip().encode("utf-8")).hexdigest()[:16]
 
     # Include variant, top_k, and filters in the hash for uniqueness
     meta = json.dumps(
@@ -1472,9 +1577,7 @@ async def get_cached_rerank(
                 chunks=chunks,
                 total_found=cached.get("total_found", 0),
                 retrieval_time_ms=cached.get("retrieval_time_ms", 0.0),
-                query_embedding_time_ms=cached.get(
-                    "query_embedding_time_ms", 0.0
-                ),
+                query_embedding_time_ms=cached.get("query_embedding_time_ms", 0.0),
                 filters_applied=cached.get("filters_applied", {}),
                 variant_tier_used=cached.get("variant_tier_used", "parwa"),
                 cached=True,

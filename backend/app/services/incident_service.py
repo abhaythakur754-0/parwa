@@ -103,25 +103,29 @@ class IncidentService:
 
         incident_id = str(uuid4())
 
-        incident = {"id": incident_id,
-                    "company_id": self.company_id,
-                    "title": title,
-                    "description": description,
-                    "severity": severity,
+        incident = {
+            "id": incident_id,
+            "company_id": self.company_id,
+            "title": title,
+            "description": description,
+            "severity": severity,
+            "status": Incident.STATUS_ACTIVE,
+            "affected_services": affected_services or [],
+            "master_ticket_id": master_ticket_id,
+            "linked_ticket_ids": [master_ticket_id] if master_ticket_id else [],
+            "affected_customer_ids": [],
+            "status_updates": [
+                {
                     "status": Incident.STATUS_ACTIVE,
-                    "affected_services": affected_services or [],
-                    "master_ticket_id": master_ticket_id,
-                    "linked_ticket_ids": [master_ticket_id] if master_ticket_id else [],
-                    "affected_customer_ids": [],
-                    "status_updates": [{"status": Incident.STATUS_ACTIVE,
-                                        "message": "Incident created",
-                                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                                        }],
-                    "created_by": created_by,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                    "resolved_at": None,
-                    }
+                    "message": "Incident created",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            ],
+            "created_by": created_by,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "resolved_at": None,
+        }
 
         # Store incident (in production, save to incidents table)
         self._store_incident(incident)
@@ -169,8 +173,7 @@ class IncidentService:
         status_update = {
             "status": new_status,
             "message": message or f"Status changed from {old_status} to {new_status}",
-            "timestamp": datetime.now(
-                timezone.utc).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "updated_by": updated_by,
         }
         incident["status_updates"].append(status_update)
@@ -349,8 +352,7 @@ class IncidentService:
 
         if not include_resolved:
             incidents = [
-                i for i in incidents
-                if i["status"] != Incident.STATUS_RESOLVED
+                i for i in incidents if i["status"] != Incident.STATUS_RESOLVED
             ]
 
         return sorted(incidents, key=lambda x: x["created_at"], reverse=True)
@@ -374,9 +376,10 @@ class IncidentService:
 
         # Filter for banner-worthy incidents
         banner_incidents = [
-            i for i in active_incidents if i["severity"] in [
-                Incident.SEVERITY_CRITICAL,
-                Incident.SEVERITY_HIGH]]
+            i
+            for i in active_incidents
+            if i["severity"] in [Incident.SEVERITY_CRITICAL, Incident.SEVERITY_HIGH]
+        ]
 
         if not banner_incidents:
             return None
@@ -412,10 +415,14 @@ class IncidentService:
         if not incident["linked_ticket_ids"]:
             return []
 
-        tickets = self.db.query(Ticket).filter(
-            Ticket.id.in_(incident["linked_ticket_ids"]),
-            Ticket.company_id == self.company_id,
-        ).all()
+        tickets = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id.in_(incident["linked_ticket_ids"]),
+                Ticket.company_id == self.company_id,
+            )
+            .all()
+        )
 
         return list(tickets)
 
@@ -425,10 +432,8 @@ class IncidentService:
         """Get incident statistics for the company."""
         incidents = self._get_company_incidents()
 
-        active = [i for i in incidents if i["status"]
-                  != Incident.STATUS_RESOLVED]
-        resolved = [i for i in incidents if i["status"]
-                    == Incident.STATUS_RESOLVED]
+        active = [i for i in incidents if i["status"] != Incident.STATUS_RESOLVED]
+        resolved = [i for i in incidents if i["status"] == Incident.STATUS_RESOLVED]
 
         by_severity = {
             Incident.SEVERITY_CRITICAL: 0,
@@ -446,12 +451,10 @@ class IncidentService:
             if incident.get("resolved_at") and incident.get("created_at"):
                 created = datetime.fromisoformat(incident["created_at"])
                 resolved_at = datetime.fromisoformat(incident["resolved_at"])
-                resolution_times.append(
-                    (resolved_at - created).total_seconds() / 3600)
+                resolution_times.append((resolved_at - created).total_seconds() / 3600)
 
         avg_resolution_time = (
-            sum(resolution_times) / len(resolution_times)
-            if resolution_times else 0
+            sum(resolution_times) / len(resolution_times) if resolution_times else 0
         )
 
         return {
@@ -478,7 +481,7 @@ class IncidentService:
             key = f"parwa:incidents:{self.company_id}:{incident['id']}"
             r.set(key, json.dumps(incident))
             # Add to company's incident index
-            r.sadd(f"parwa:incidents:{self.company_id}:index", incident['id'])
+            r.sadd(f"parwa:incidents:{self.company_id}:index", incident["id"])
         except Exception:
             pass  # Graceful degradation if Redis unavailable
 
@@ -519,8 +522,11 @@ class IncidentService:
 
             for incident_id in incident_ids:
                 try:
-                    incident_id_str = incident_id.decode() if isinstance(
-                        incident_id, bytes) else incident_id
+                    incident_id_str = (
+                        incident_id.decode()
+                        if isinstance(incident_id, bytes)
+                        else incident_id
+                    )
                     incident = self._get_incident(incident_id_str)
                     incidents.append(incident)
                 except Exception:
@@ -536,10 +542,14 @@ class IncidentService:
         incident_id: str,
     ) -> None:
         """Add incident tag to ticket."""
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if ticket:
             try:
@@ -559,10 +569,14 @@ class IncidentService:
         incident_id: str,
     ) -> None:
         """Remove incident tag from ticket."""
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if ticket:
             try:
@@ -588,16 +602,22 @@ class IncidentService:
         notification_service = NotificationService(self.db, self.company_id)
 
         # Get admins to notify
-        admins = self.db.query(User).filter(
-            User.company_id == self.company_id,
-            User.role.in_(["admin", "manager"]),
-        ).all()
+        admins = (
+            self.db.query(User)
+            .filter(
+                User.company_id == self.company_id,
+                User.role.in_(["admin", "manager"]),
+            )
+            .all()
+        )
 
         if not admins:
             return
 
         notification_service.send_notification(
-            event_type="incident_created" if event_type == "created" else "incident_resolved",
+            event_type=(
+                "incident_created" if event_type == "created" else "incident_resolved"
+            ),
             recipient_ids=[a.id for a in admins],
             data={
                 "incident_id": incident["id"],
@@ -606,5 +626,9 @@ class IncidentService:
                 "severity": incident["severity"],
             },
             channels=["email", "in_app"],
-            priority="urgent" if incident["severity"] == Incident.SEVERITY_CRITICAL else "high",
+            priority=(
+                "urgent"
+                if incident["severity"] == Incident.SEVERITY_CRITICAL
+                else "high"
+            ),
         )

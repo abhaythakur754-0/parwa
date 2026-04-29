@@ -62,13 +62,13 @@ class SLAService:
             Priority.low.value: (1440, 4320, 240),
         },
         PlanTier.growth.value: {
-            Priority.critical.value: (30, 240, 15),      # Half of starter
+            Priority.critical.value: (30, 240, 15),  # Half of starter
             Priority.high.value: (120, 720, 30),
             Priority.medium.value: (360, 1440, 60),
             Priority.low.value: (720, 2160, 120),
         },
         PlanTier.high.value: {
-            Priority.critical.value: (15, 120, 10),      # Half of growth
+            Priority.critical.value: (15, 120, 10),  # Half of growth
             Priority.high.value: (60, 360, 15),
             Priority.medium.value: (180, 720, 30),
             Priority.low.value: (360, 1080, 60),
@@ -100,11 +100,15 @@ class SLAService:
             DuplicateSLAPolicyError: If policy already exists for this plan_tier × priority
         """
         # Check for duplicate
-        existing = self.db.query(SLAPolicy).filter(
-            SLAPolicy.company_id == company_id,
-            SLAPolicy.plan_tier == plan_tier,
-            SLAPolicy.priority == priority,
-        ).first()
+        existing = (
+            self.db.query(SLAPolicy)
+            .filter(
+                SLAPolicy.company_id == company_id,
+                SLAPolicy.plan_tier == plan_tier,
+                SLAPolicy.priority == priority,
+            )
+            .first()
+        )
 
         if existing:
             raise DuplicateSLAPolicyError(
@@ -131,10 +135,14 @@ class SLAService:
         policy_id: str,
     ) -> Optional[SLAPolicy]:
         """Get an SLA policy by ID."""
-        return self.db.query(SLAPolicy).filter(
-            SLAPolicy.id == policy_id,
-            SLAPolicy.company_id == company_id,
-        ).first()
+        return (
+            self.db.query(SLAPolicy)
+            .filter(
+                SLAPolicy.id == policy_id,
+                SLAPolicy.company_id == company_id,
+            )
+            .first()
+        )
 
     def get_policy_by_tier_priority(
         self,
@@ -143,12 +151,16 @@ class SLAService:
         priority: str,
     ) -> Optional[SLAPolicy]:
         """Get SLA policy for a specific plan tier and priority."""
-        return self.db.query(SLAPolicy).filter(
-            SLAPolicy.company_id == company_id,
-            SLAPolicy.plan_tier == plan_tier,
-            SLAPolicy.priority == priority,
-            SLAPolicy.is_active is True,  # noqa: E712
-        ).first()
+        return (
+            self.db.query(SLAPolicy)
+            .filter(
+                SLAPolicy.company_id == company_id,
+                SLAPolicy.plan_tier == plan_tier,
+                SLAPolicy.priority == priority,
+                SLAPolicy.is_active is True,  # noqa: E712
+            )
+            .first()
+        )
 
     def list_policies(
         self,
@@ -233,18 +245,19 @@ class SLAService:
         """
         created_policies = []
 
-        tiers_to_seed = [plan_tier] if plan_tier else list(
-            self.DEFAULT_POLICIES.keys())
+        tiers_to_seed = [plan_tier] if plan_tier else list(self.DEFAULT_POLICIES.keys())
 
         for tier in tiers_to_seed:
             if tier not in self.DEFAULT_POLICIES:
                 continue
 
-            for priority, (first_resp, resolution,
-                           update_freq) in self.DEFAULT_POLICIES[tier].items():
+            for priority, (
+                first_resp,
+                resolution,
+                update_freq,
+            ) in self.DEFAULT_POLICIES[tier].items():
                 # Check if already exists
-                existing = self.get_policy_by_tier_priority(
-                    company_id, tier, priority)
+                existing = self.get_policy_by_tier_priority(company_id, tier, priority)
                 if existing:
                     continue
 
@@ -279,9 +292,13 @@ class SLAService:
             raise SLAPolicyNotFoundError(f"SLA policy {policy_id} not found")
 
         # Check if timer already exists
-        existing = self.db.query(SLATimer).filter(
-            SLATimer.ticket_id == ticket_id,
-        ).first()
+        existing = (
+            self.db.query(SLATimer)
+            .filter(
+                SLATimer.ticket_id == ticket_id,
+            )
+            .first()
+        )
 
         if existing:
             return existing
@@ -312,10 +329,14 @@ class SLAService:
         ticket_id: str,
     ) -> Optional[SLATimer]:
         """Get SLA timer for a ticket."""
-        return self.db.query(SLATimer).filter(
-            SLATimer.ticket_id == ticket_id,
-            SLATimer.company_id == company_id,
-        ).first()
+        return (
+            self.db.query(SLATimer)
+            .filter(
+                SLATimer.ticket_id == ticket_id,
+                SLATimer.company_id == company_id,
+            )
+            .first()
+        )
 
     def record_first_response(
         self,
@@ -375,25 +396,34 @@ class SLAService:
         if not timer.first_response_at:
             return False
 
-        policy = self.db.query(SLAPolicy).filter(
-            SLAPolicy.id == timer.policy_id,
-        ).first()
+        policy = (
+            self.db.query(SLAPolicy)
+            .filter(
+                SLAPolicy.id == timer.policy_id,
+            )
+            .first()
+        )
 
         if not policy:
             return False
 
         # Calculate time to first response
-        response_time = (timer.first_response_at
-                         - timer.created_at).total_seconds() / 60
+        response_time = (
+            timer.first_response_at - timer.created_at
+        ).total_seconds() / 60
 
         if response_time > policy.first_response_minutes:
             timer.breached_at = timer.first_response_at
             timer.is_breached = True
 
             # Update ticket
-            ticket = self.db.query(Ticket).filter(
-                Ticket.id == timer.ticket_id,
-            ).first()
+            ticket = (
+                self.db.query(Ticket)
+                .filter(
+                    Ticket.id == timer.ticket_id,
+                )
+                .first()
+            )
             if ticket:
                 ticket.sla_breached = True
 
@@ -424,9 +454,13 @@ class SLAService:
         if timer.resolved_at:
             return False, None  # Already resolved, no breach check needed
 
-        policy = self.db.query(SLAPolicy).filter(
-            SLAPolicy.id == timer.policy_id,
-        ).first()
+        policy = (
+            self.db.query(SLAPolicy)
+            .filter(
+                SLAPolicy.id == timer.policy_id,
+            )
+            .first()
+        )
 
         if not policy:
             return False, None
@@ -459,9 +493,13 @@ class SLAService:
         timer.updated_at = datetime.now(timezone.utc)
 
         # Update ticket
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == timer.ticket_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == timer.ticket_id,
+            )
+            .first()
+        )
         if ticket:
             ticket.sla_breached = True
             # PS11: Escalate priority on breach
@@ -485,9 +523,13 @@ class SLAService:
         if not timer or timer.is_breached or timer.resolved_at:
             return False, None
 
-        policy = self.db.query(SLAPolicy).filter(
-            SLAPolicy.id == timer.policy_id,
-        ).first()
+        policy = (
+            self.db.query(SLAPolicy)
+            .filter(
+                SLAPolicy.id == timer.policy_id,
+            )
+            .first()
+        )
 
         if not policy:
             return False, None
@@ -511,16 +553,23 @@ class SLAService:
         limit: int = 100,
     ) -> List[Ticket]:
         """Get all breached SLA tickets for a company."""
-        return self.db.query(Ticket).join(
-            SLATimer, Ticket.id == SLATimer.ticket_id
-        ).filter(
-            Ticket.company_id == company_id,
-            SLATimer.is_breached is True,  # noqa: E712
-            Ticket.status.notin_([
-                TicketStatus.closed.value,
-                TicketStatus.resolved.value,
-            ]),
-        ).order_by(SLATimer.breached_at.desc()).limit(limit).all()
+        return (
+            self.db.query(Ticket)
+            .join(SLATimer, Ticket.id == SLATimer.ticket_id)
+            .filter(
+                Ticket.company_id == company_id,
+                SLATimer.is_breached is True,  # noqa: E712
+                Ticket.status.notin_(
+                    [
+                        TicketStatus.closed.value,
+                        TicketStatus.resolved.value,
+                    ]
+                ),
+            )
+            .order_by(SLATimer.breached_at.desc())
+            .limit(limit)
+            .all()
+        )
 
     def get_approaching_tickets(
         self,
@@ -533,11 +582,15 @@ class SLAService:
         Returns list of dicts with ticket and percentage info.
         """
         # Get all active timers
-        timers = self.db.query(SLATimer).filter(
-            SLATimer.company_id == company_id,
-            SLATimer.is_breached is False,  # noqa: E712
-            SLATimer.resolved_at == None,  # noqa: E711
-        ).all()
+        timers = (
+            self.db.query(SLATimer)
+            .filter(
+                SLATimer.company_id == company_id,
+                SLATimer.is_breached is False,  # noqa: E712
+                SLATimer.resolved_at == None,  # noqa: E711
+            )
+            .all()
+        )
 
         approaching = []
         for timer in timers:
@@ -545,15 +598,21 @@ class SLAService:
                 company_id, timer.ticket_id
             )
             if is_approaching:
-                ticket = self.db.query(Ticket).filter(
-                    Ticket.id == timer.ticket_id,
-                ).first()
+                ticket = (
+                    self.db.query(Ticket)
+                    .filter(
+                        Ticket.id == timer.ticket_id,
+                    )
+                    .first()
+                )
                 if ticket:
-                    approaching.append({
-                        "ticket": ticket,
-                        "timer": timer,
-                        "percentage": percentage,
-                    })
+                    approaching.append(
+                        {
+                            "ticket": ticket,
+                            "timer": timer,
+                            "percentage": percentage,
+                        }
+                    )
 
         # Sort by percentage (highest first)
         approaching.sort(key=lambda x: x["percentage"], reverse=True)
@@ -602,8 +661,7 @@ class SLAService:
         first_response_times = []
         for t in timers:
             if t.first_response_at and t.created_at:
-                minutes = (t.first_response_at
-                           - t.created_at).total_seconds() / 60
+                minutes = (t.first_response_at - t.created_at).total_seconds() / 60
                 first_response_times.append(minutes)
 
         resolution_times = []
@@ -624,10 +682,12 @@ class SLAService:
             "compliance_rate": compliant_count / total if total > 0 else 1.0,
             "avg_first_response_minutes": (
                 sum(first_response_times) / len(first_response_times)
-                if first_response_times else None
+                if first_response_times
+                else None
             ),
             "avg_resolution_minutes": (
                 sum(resolution_times) / len(resolution_times)
-                if resolution_times else None
+                if resolution_times
+                else None
             ),
         }

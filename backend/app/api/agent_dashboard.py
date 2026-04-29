@@ -124,6 +124,7 @@ async def get_agent_card_detail(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, (ValidationError, NotFoundError)):
             raise
         logger.error(
@@ -217,6 +218,7 @@ async def pause_agent(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, (ValidationError, NotFoundError)):
             raise
         logger.error(
@@ -276,6 +278,7 @@ async def resume_agent(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, (ValidationError, NotFoundError)):
             raise
         logger.error(
@@ -323,6 +326,7 @@ async def get_agent_realtime_metrics(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, (ValidationError, NotFoundError)):
             raise
         logger.error(

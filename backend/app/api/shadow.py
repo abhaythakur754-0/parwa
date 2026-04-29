@@ -29,32 +29,31 @@ router = APIRouter(prefix="/api/shadow", tags=["shadow"])
 
 
 class SetModeRequest(BaseModel):
-    mode: str = Field(...,
-                      description="New system mode: shadow, supervised, graduated")
-    set_via: str = Field(
-        default="ui",
-        description="How this was set: ui or jarvis")
+    mode: str = Field(..., description="New system mode: shadow, supervised, graduated")
+    set_via: str = Field(default="ui", description="How this was set: ui or jarvis")
 
 
 class SetPreferenceRequest(BaseModel):
-    action_category: str = Field(...,
-                                 description="Action category: refund, sms, email_reply, etc.")
-    preferred_mode: str = Field(...,
-                                description="Preferred mode: shadow, supervised, graduated")
-    set_via: str = Field(
-        default="ui",
-        description="How this was set: ui or jarvis")
+    action_category: str = Field(
+        ..., description="Action category: refund, sms, email_reply, etc."
+    )
+    preferred_mode: str = Field(
+        ..., description="Preferred mode: shadow, supervised, graduated"
+    )
+    set_via: str = Field(default="ui", description="How this was set: ui or jarvis")
 
 
 class EvaluateActionRequest(BaseModel):
     action_type: str = Field(..., description="Type of action to evaluate")
     action_payload: Dict[str, Any] = Field(
-        default_factory=dict, description="Action payload data")
+        default_factory=dict, description="Action payload data"
+    )
 
 
 class ResolveActionRequest(BaseModel):
-    note: Optional[str] = Field(default=None,
-                                description="Manager note for the decision")
+    note: Optional[str] = Field(
+        default=None, description="Manager note for the decision"
+    )
 
 
 class UndoActionRequest(BaseModel):
@@ -62,12 +61,11 @@ class UndoActionRequest(BaseModel):
 
 
 class BatchResolveRequest(BaseModel):
-    ids: list[str] = Field(...,
-                           description="List of shadow log IDs to resolve")
-    decision: str = Field(...,
-                          description="Batch decision: approved or rejected")
-    note: Optional[str] = Field(default=None,
-                                description="Optional note for all entries")
+    ids: list[str] = Field(..., description="List of shadow log IDs to resolve")
+    decision: str = Field(..., description="Batch decision: approved or rejected")
+    note: Optional[str] = Field(
+        default=None, description="Optional note for all entries"
+    )
 
 
 # ── Endpoints ─────────────────────────────────────────────────
@@ -107,10 +105,12 @@ def set_mode(
 
     if body.mode not in VALID_MODES:
         raise HTTPException(
-            status_code=400, detail=f"Invalid mode: {
+            status_code=400,
+            detail=f"Invalid mode: {
                 body.mode}. Must be one of: {
                 ', '.join(
-                    sorted(VALID_MODES))}", )
+                    sorted(VALID_MODES))}",
+        )
 
     svc = ShadowModeService()
 
@@ -184,10 +184,12 @@ def set_preference(
 
     if body.preferred_mode not in VALID_MODES:
         raise HTTPException(
-            status_code=400, detail=f"Invalid mode: {
+            status_code=400,
+            detail=f"Invalid mode: {
                 body.preferred_mode}. Must be one of: {
                 ', '.join(
-                    sorted(VALID_MODES))}", )
+                    sorted(VALID_MODES))}",
+        )
 
     svc = ShadowModeService()
     preference = svc.set_shadow_preference(
@@ -385,9 +387,7 @@ def approve_action(
             note=body.note,
         )
     except ShadowModeService.ShadowLogNotFoundError:
-        raise HTTPException(
-            status_code=404,
-            detail="Shadow log entry not found")
+        raise HTTPException(status_code=404, detail="Shadow log entry not found")
     except ShadowModeService.ShadowModeError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -438,9 +438,7 @@ def reject_action(
             note=body.note,
         )
     except ShadowModeService.ShadowLogNotFoundError:
-        raise HTTPException(
-            status_code=404,
-            detail="Shadow log entry not found")
+        raise HTTPException(status_code=404, detail="Shadow log entry not found")
     except ShadowModeService.ShadowModeError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -491,9 +489,7 @@ def undo_action(
             manager_id=user.id,
         )
     except ShadowModeService.ShadowLogNotFoundError:
-        raise HTTPException(
-            status_code=404,
-            detail="Shadow log entry not found")
+        raise HTTPException(status_code=404, detail="Shadow log entry not found")
     except ShadowModeService.ShadowModeError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -539,24 +535,29 @@ def get_undo_history(
             # Get the user who undid the action
             undone_by_name = None
             if log.undone_by:
-                undo_user = db.query(User).filter(
-                    User.id == log.undone_by).first()
+                undo_user = db.query(User).filter(User.id == log.undone_by).first()
                 if undo_user:
                     undone_by_name = undo_user.name or undo_user.email
 
-            entries.append({
-                "id": log.id,
-                "company_id": log.company_id,
-                "executed_action_id": log.executed_action_id,
-                "undo_type": log.undo_type,
-                "original_data": log.original_data,
-                "undo_data": log.undo_data,
-                "undo_reason": log.undo_reason,
-                "undone_by": log.undone_by,
-                "undone_by_name": undone_by_name,
-                "action_type": executed_action.action_type if executed_action else None,
-                "created_at": log.created_at.isoformat() if log.created_at else None,
-            })
+            entries.append(
+                {
+                    "id": log.id,
+                    "company_id": log.company_id,
+                    "executed_action_id": log.executed_action_id,
+                    "undo_type": log.undo_type,
+                    "original_data": log.original_data,
+                    "undo_data": log.undo_data,
+                    "undo_reason": log.undo_reason,
+                    "undone_by": log.undone_by,
+                    "undone_by_name": undone_by_name,
+                    "action_type": (
+                        executed_action.action_type if executed_action else None
+                    ),
+                    "created_at": (
+                        log.created_at.isoformat() if log.created_at else None
+                    ),
+                }
+            )
 
         return {
             "entries": entries,
@@ -566,14 +567,20 @@ def get_undo_history(
 
 class UpdateConfigRequest(BaseModel):
     undo_window_minutes: Optional[int] = Field(
-        None, ge=1, le=1440, description="Undo window in minutes (1-1440)")
+        None, ge=1, le=1440, description="Undo window in minutes (1-1440)"
+    )
     risk_threshold_shadow: Optional[float] = Field(
-        None, ge=0.0, le=1.0, description="Risk threshold to force shadow mode (0.0-1.0)")
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Risk threshold to force shadow mode (0.0-1.0)",
+    )
     risk_threshold_auto: Optional[float] = Field(
         None,
         ge=0.0,
         le=1.0,
-        description="Risk threshold for auto-execute in graduated mode (0.0-1.0)")
+        description="Risk threshold for auto-execute in graduated mode (0.0-1.0)",
+    )
 
 
 class GetConfigResponse(BaseModel):
@@ -583,8 +590,9 @@ class GetConfigResponse(BaseModel):
 
 
 class JarvisCommandRequest(BaseModel):
-    message: str = Field(...,
-                         description="The user's message containing a shadow mode command")
+    message: str = Field(
+        ..., description="The user's message containing a shadow mode command"
+    )
 
 
 @router.get("/config")
@@ -606,10 +614,16 @@ def get_config(
 
         return {
             "undo_window_minutes": company.undo_window_minutes or 30,
-            "risk_threshold_shadow": float(
-                company.risk_threshold_shadow) if company.risk_threshold_shadow else 0.7,
-            "risk_threshold_auto": float(
-                company.risk_threshold_auto) if company.risk_threshold_auto else 0.3,
+            "risk_threshold_shadow": (
+                float(company.risk_threshold_shadow)
+                if company.risk_threshold_shadow
+                else 0.7
+            ),
+            "risk_threshold_auto": (
+                float(company.risk_threshold_auto)
+                if company.risk_threshold_auto
+                else 0.3
+            ),
         }
 
 
@@ -656,19 +670,23 @@ def update_config(
             company_id,
             user.id,
             company.undo_window_minutes,
-            float(
-                company.risk_threshold_shadow or 0.7),
-            float(
-                company.risk_threshold_auto or 0.3),
+            float(company.risk_threshold_shadow or 0.7),
+            float(company.risk_threshold_auto or 0.3),
         )
 
         return {
             "company_id": str(company_id),
             "undo_window_minutes": company.undo_window_minutes,
-            "risk_threshold_shadow": float(
-                company.risk_threshold_shadow) if company.risk_threshold_shadow else 0.7,
-            "risk_threshold_auto": float(
-                company.risk_threshold_auto) if company.risk_threshold_auto else 0.3,
+            "risk_threshold_shadow": (
+                float(company.risk_threshold_shadow)
+                if company.risk_threshold_shadow
+                else 0.7
+            ),
+            "risk_threshold_auto": (
+                float(company.risk_threshold_auto)
+                if company.risk_threshold_auto
+                else 0.3
+            ),
         }
 
 
@@ -707,8 +725,8 @@ def jarvis_shadow_command(
         }
 
     return {
-        "command_matched": True, "success": result.get(
-            "success", False), "message": result.get(
-            "message", ""), "data": {
-                k: v for k, v in result.items() if k not in (
-                    "success", "message")}, }
+        "command_matched": True,
+        "success": result.get("success", False),
+        "message": result.get("message", ""),
+        "data": {k: v for k, v in result.items() if k not in ("success", "message")},
+    }

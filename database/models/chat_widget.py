@@ -47,8 +47,7 @@ def _uuid() -> str:
 _SESSION_STATUSES = "'active','queued','assigned','closed','expired'"
 _MESSAGE_ROLES = "'visitor','agent','system','bot'"
 _MESSAGE_TYPES = (
-    "'text','image','file','typing','system_event',"
-    "'quick_reply','rating'"
+    "'text','image','file','typing','system_event'," "'quick_reply','rating'"
 )
 _RATING_VALUES = "'1','2','3','4','5'"
 _WIDGET_POSITIONS = "'bottom_right','bottom_left','top_right','top_left'"
@@ -118,13 +117,15 @@ class ChatWidgetSession(Base):
     closed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
         onupdate=lambda: datetime.utcnow(),
     )
 
     # Relationships
     messages = relationship(
-        "ChatWidgetMessage", back_populates="session",
+        "ChatWidgetMessage",
+        back_populates="session",
         cascade="all, delete-orphan",
         order_by="ChatWidgetMessage.created_at",
     )
@@ -173,22 +174,14 @@ class ChatWidgetSession(Base):
             "csat_rating": self.csat_rating,
             "csat_comment": self.csat_comment,
             "first_message_at": (
-                self.first_message_at.isoformat()
-                if self.first_message_at else None
+                self.first_message_at.isoformat() if self.first_message_at else None
             ),
             "last_message_at": (
-                self.last_message_at.isoformat()
-                if self.last_message_at else None
+                self.last_message_at.isoformat() if self.last_message_at else None
             ),
-            "closed_at": (
-                self.closed_at.isoformat() if self.closed_at else None
-            ),
-            "created_at": (
-                self.created_at.isoformat() if self.created_at else None
-            ),
-            "updated_at": (
-                self.updated_at.isoformat() if self.updated_at else None
-            ),
+            "closed_at": (self.closed_at.isoformat() if self.closed_at else None),
+            "created_at": (self.created_at.isoformat() if self.created_at else None),
+            "updated_at": (self.updated_at.isoformat() if self.updated_at else None),
         }
 
 
@@ -245,7 +238,8 @@ class ChatWidgetMessage(Base):
 
     # Relationship
     session = relationship(
-        "ChatWidgetSession", back_populates="messages",
+        "ChatWidgetSession",
+        back_populates="messages",
     )
 
     __table_args__ = (
@@ -282,12 +276,8 @@ class ChatWidgetMessage(Base):
             "is_ai_generated": self.is_ai_generated,
             "ai_confidence": self.ai_confidence,
             "is_read": self.is_read,
-            "read_at": (
-                self.read_at.isoformat() if self.read_at else None
-            ),
-            "created_at": (
-                self.created_at.isoformat() if self.created_at else None
-            ),
+            "read_at": (self.read_at.isoformat() if self.read_at else None),
+            "created_at": (self.created_at.isoformat() if self.created_at else None),
         }
 
 
@@ -321,13 +311,15 @@ class CannedResponse(Base):
     updated_by = Column(String(36), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
         onupdate=lambda: datetime.utcnow(),
     )
 
     __table_args__ = (
         UniqueConstraint(
-            "company_id", "shortcut",
+            "company_id",
+            "shortcut",
             name="uq_canned_response_company_shortcut",
         ),
         CheckConstraint("sort_order >= 0", name="ck_canned_sort_nonneg"),
@@ -347,12 +339,8 @@ class CannedResponse(Base):
             "is_active": self.is_active,
             "created_by": self.created_by,
             "updated_by": self.updated_by,
-            "created_at": (
-                self.created_at.isoformat() if self.created_at else None
-            ),
-            "updated_at": (
-                self.updated_at.isoformat() if self.updated_at else None
-            ),
+            "created_at": (self.created_at.isoformat() if self.created_at else None),
+            "updated_at": (self.updated_at.isoformat() if self.updated_at else None),
         }
 
 
@@ -378,22 +366,29 @@ class ChatWidgetConfig(Base):
     # Widget appearance
     widget_title = Column(String(100), nullable=False, default="Chat with us")
     welcome_message = Column(
-        Text, nullable=False,
+        Text,
+        nullable=False,
         default="Hi! How can we help you today?",
     )
     placeholder_text = Column(
-        String(200), nullable=False, default="Type your message...",
+        String(200),
+        nullable=False,
+        default="Type your message...",
     )
     primary_color = Column(String(7), nullable=False, default="#4F46E5")
     widget_position = Column(
-        String(20), nullable=False, default="bottom_right",
+        String(20),
+        nullable=False,
+        default="bottom_right",
     )
 
     # Behavior
     is_enabled = Column(Boolean, nullable=False, default=True)
     auto_greeting_enabled = Column(Boolean, nullable=False, default=True)
     auto_greeting_delay_seconds = Column(
-        Integer, nullable=False, default=5,
+        Integer,
+        nullable=False,
+        default=5,
     )
     bot_enabled = Column(Boolean, nullable=False, default=True)
     max_file_size_mb = Column(Integer, nullable=False, default=10)
@@ -402,14 +397,16 @@ class ChatWidgetConfig(Base):
     # Queue settings
     max_queue_size = Column(Integer, nullable=False, default=50)
     queue_message = Column(
-        Text, nullable=True,
+        Text,
+        nullable=True,
         default="All agents are busy. Please wait...",
     )
 
     # Business hours (JSON: {enabled, timezone, schedule: [{day, start, end}]})
     business_hours_json = Column(Text, default="{}")
     offline_message = Column(
-        Text, nullable=True,
+        Text,
+        nullable=True,
         default="We're currently offline. Leave us a message!",
     )
 
@@ -419,7 +416,8 @@ class ChatWidgetConfig(Base):
 
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
         onupdate=lambda: datetime.utcnow(),
     )
 
@@ -465,10 +463,6 @@ class ChatWidgetConfig(Base):
             "offline_message": self.offline_message,
             "require_visitor_name": self.require_visitor_name,
             "require_visitor_email": self.require_visitor_email,
-            "created_at": (
-                self.created_at.isoformat() if self.created_at else None
-            ),
-            "updated_at": (
-                self.updated_at.isoformat() if self.updated_at else None
-            ),
+            "created_at": (self.created_at.isoformat() if self.created_at else None),
+            "updated_at": (self.updated_at.isoformat() if self.updated_at else None),
         }

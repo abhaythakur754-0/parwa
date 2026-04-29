@@ -21,6 +21,7 @@ from uuid import UUID
 
 
 from database.base import SessionLocal
+
 # Lazy imports to avoid DB connection at module load time in tests
 from database.models.billing import Subscription
 from database.models.core import Company
@@ -83,16 +84,20 @@ class DataRetentionService:
             Dict with retention status info
         """
         with SessionLocal() as db:
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-            ).order_by(Subscription.created_at.desc()).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                )
+                .order_by(Subscription.created_at.desc())
+                .first()
+            )
 
             if not subscription:
                 return {"status": "no_subscription"}
 
             # Check if service has been stopped
-            service_stopped_at = getattr(
-                subscription, "service_stopped_at", None)
+            service_stopped_at = getattr(subscription, "service_stopped_at", None)
             if not service_stopped_at:
                 # Check if canceled immediately
                 if subscription.status == "canceled":
@@ -105,12 +110,10 @@ class DataRetentionService:
 
             # Calculate retention countdown
             if service_stopped_at.tzinfo is None:
-                service_stopped_at = service_stopped_at.replace(
-                    tzinfo=timezone.utc)
+                service_stopped_at = service_stopped_at.replace(tzinfo=timezone.utc)
 
             now = datetime.now(timezone.utc)
-            deletion_date = service_stopped_at + \
-                timedelta(days=RETENTION_PERIOD_DAYS)
+            deletion_date = service_stopped_at + timedelta(days=RETENTION_PERIOD_DAYS)
             days_remaining = (deletion_date - now).days
 
             if days_remaining <= 0:
@@ -150,15 +153,18 @@ class DataRetentionService:
 
         with SessionLocal() as db:
             # Check for existing in-progress export
-            existing = db.query(DataExport).filter(
-                DataExport.company_id == str(company_id),
-                DataExport.status == "processing",
-            ).first()
+            existing = (
+                db.query(DataExport)
+                .filter(
+                    DataExport.company_id == str(company_id),
+                    DataExport.status == "processing",
+                )
+                .first()
+            )
 
             if existing:
                 raise DataExportInProgressError(
-                    "A data export is already in progress. "
-                    f"Export ID: {existing.id}"
+                    "A data export is already in progress. " f"Export ID: {existing.id}"
                 )
 
             # Check retention status
@@ -193,8 +199,7 @@ class DataRetentionService:
             try:
                 export_data = self._generate_export_data(str(company_id))
                 export.status = "completed"
-                export.file_size_bytes = len(
-                    json.dumps(export_data).encode("utf-8"))
+                export.file_size_bytes = len(json.dumps(export_data).encode("utf-8"))
                 export.completed_at = datetime.now(timezone.utc)
                 # Store the export data temporarily
                 export.export_data_json = json.dumps(export_data)
@@ -213,9 +218,12 @@ class DataRetentionService:
             return {
                 "export_id": export.id,
                 "status": export.status,
-                "requested_at": export.requested_at.isoformat() if export.requested_at else None,
+                "requested_at": (
+                    export.requested_at.isoformat() if export.requested_at else None
+                ),
                 "message": (
-                    "Data export completed." if export.status == "completed"
+                    "Data export completed."
+                    if export.status == "completed"
                     else "Data export is processing."
                 ),
             }
@@ -240,15 +248,17 @@ class DataRetentionService:
         from database.models.billing_extended import DataExport
 
         with SessionLocal() as db:
-            export = db.query(DataExport).filter(
-                DataExport.company_id == str(company_id),
-                DataExport.id == export_id,
-            ).first()
+            export = (
+                db.query(DataExport)
+                .filter(
+                    DataExport.company_id == str(company_id),
+                    DataExport.id == export_id,
+                )
+                .first()
+            )
 
             if not export:
-                raise DataExportNotFoundError(
-                    f"Data export {export_id} not found"
-                )
+                raise DataExportNotFoundError(f"Data export {export_id} not found")
 
             if export.status != "completed":
                 raise DataExportError(
@@ -268,8 +278,9 @@ class DataRetentionService:
                     )
 
             # Generate ZIP
-            export_data = json.loads(
-                export.export_data_json) if export.export_data_json else {}
+            export_data = (
+                json.loads(export.export_data_json) if export.export_data_json else {}
+            )
             return self._generate_zip(export_data, str(company_id))
 
     def _generate_export_data(self, company_id: str) -> Dict[str, Any]:
@@ -302,51 +313,88 @@ class DataRetentionService:
         try:
             with SessionLocal() as db:
                 # Export subscription data
-                subscriptions = db.query(Subscription).filter(
-                    Subscription.company_id == company_id,
-                ).all()
+                subscriptions = (
+                    db.query(Subscription)
+                    .filter(
+                        Subscription.company_id == company_id,
+                    )
+                    .all()
+                )
 
                 for sub in subscriptions:
-                    export_data["subscription"].append({
-                        "id": sub.id,
-                        "tier": sub.tier,
-                        "status": sub.status,
-                        "billing_frequency": getattr(sub, "billing_frequency", "monthly"),
-                        "current_period_start": sub.current_period_start.isoformat() if sub.current_period_start else None,
-                        "current_period_end": sub.current_period_end.isoformat() if sub.current_period_end else None,
-                        "cancel_at_period_end": sub.cancel_at_period_end,
-                        "created_at": sub.created_at.isoformat() if sub.created_at else None,
-                    })
+                    export_data["subscription"].append(
+                        {
+                            "id": sub.id,
+                            "tier": sub.tier,
+                            "status": sub.status,
+                            "billing_frequency": getattr(
+                                sub, "billing_frequency", "monthly"
+                            ),
+                            "current_period_start": (
+                                sub.current_period_start.isoformat()
+                                if sub.current_period_start
+                                else None
+                            ),
+                            "current_period_end": (
+                                sub.current_period_end.isoformat()
+                                if sub.current_period_end
+                                else None
+                            ),
+                            "cancel_at_period_end": sub.cancel_at_period_end,
+                            "created_at": (
+                                sub.created_at.isoformat() if sub.created_at else None
+                            ),
+                        }
+                    )
 
                 # Export invoices (billing records retained for 7 years)
                 from database.models.billing import Invoice
-                invoices = db.query(Invoice).filter(
-                    Invoice.company_id == company_id,
-                ).all()
+
+                invoices = (
+                    db.query(Invoice)
+                    .filter(
+                        Invoice.company_id == company_id,
+                    )
+                    .all()
+                )
 
                 for inv in invoices:
-                    export_data["invoices"].append({
-                        "id": inv.id,
-                        "paddle_invoice_id": inv.paddle_invoice_id,
-                        "amount": str(inv.amount) if inv.amount else None,
-                        "currency": inv.currency,
-                        "status": inv.status,
-                        "invoice_date": inv.invoice_date.isoformat() if inv.invoice_date else None,
-                        "paid_at": inv.paid_at.isoformat() if inv.paid_at else None,
-                    })
+                    export_data["invoices"].append(
+                        {
+                            "id": inv.id,
+                            "paddle_invoice_id": inv.paddle_invoice_id,
+                            "amount": str(inv.amount) if inv.amount else None,
+                            "currency": inv.currency,
+                            "status": inv.status,
+                            "invoice_date": (
+                                inv.invoice_date.isoformat()
+                                if inv.invoice_date
+                                else None
+                            ),
+                            "paid_at": inv.paid_at.isoformat() if inv.paid_at else None,
+                        }
+                    )
 
                 # Export company settings
-                company = db.query(Company).filter(
-                    Company.id == company_id,
-                ).first()
+                company = (
+                    db.query(Company)
+                    .filter(
+                        Company.id == company_id,
+                    )
+                    .first()
+                )
 
                 if company:
                     export_data["settings"] = {
-                        "name": getattr(
-                            company, "name", None), "subscription_tier": getattr(
-                            company, "subscription_tier", None), "subscription_status": getattr(
-                            company, "subscription_status", None), "created_at": getattr(
-                            company, "created_at", None), }
+                        "name": getattr(company, "name", None),
+                        "subscription_tier": getattr(
+                            company, "subscription_tier", None
+                        ),
+                        "subscription_status": getattr(
+                            company, "subscription_status", None
+                        ),
+                        "created_at": getattr(company, "created_at", None),
+                    }
 
         except Exception as e:
             logger.warning(
@@ -378,11 +426,7 @@ class DataRetentionService:
             zf.writestr("parwa_export.json", json_content)
 
             # Add CSV files for main entities
-            for section in [
-                "subscription",
-                "invoices",
-                "tickets",
-                    "customers"]:
+            for section in ["subscription", "invoices", "tickets", "customers"]:
                 items = export_data.get(section, [])
                 if items:
                     csv_content = self._dicts_to_csv(items)
@@ -421,8 +465,9 @@ class DataRetentionService:
         writer.writeheader()
         for d in dicts:
             row = {
-                k: v if not isinstance(
-                    v, (list, dict)) else json.dumps(v) for k, v in d.items()}
+                k: v if not isinstance(v, (list, dict)) else json.dumps(v)
+                for k, v in d.items()
+            }
             writer.writerow(row)
 
         return buf.getvalue()
@@ -459,11 +504,15 @@ class DataRetentionService:
 
         with SessionLocal() as db:
             # Find subscriptions past retention period
-            expired = db.query(Subscription).filter(
-                Subscription.status == "canceled",
-                Subscription.service_stopped_at <= cutoff,
-                Subscription.data_hard_deleted is False,  # type: ignore
-            ).all()
+            expired = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.status == "canceled",
+                    Subscription.service_stopped_at <= cutoff,
+                    Subscription.data_hard_deleted is False,  # type: ignore
+                )
+                .all()
+            )
 
             for sub in expired:
                 try:
@@ -484,11 +533,13 @@ class DataRetentionService:
                         sub.id,
                         str(e),
                     )
-                    results["errors"].append({
-                        "subscription_id": sub.id,
-                        "company_id": sub.company_id,
-                        "error": str(e)[:200],
-                    })
+                    results["errors"].append(
+                        {
+                            "subscription_id": sub.id,
+                            "company_id": sub.company_id,
+                            "error": str(e)[:200],
+                        }
+                    )
 
             db.commit()
 
@@ -516,15 +567,21 @@ class DataRetentionService:
         # Soft-delete tickets
         try:
             from database.models.ticket import Ticket
-            tickets = db.query(Ticket).filter(
-                Ticket.company_id == company_id,
-            ).all()
+
+            tickets = (
+                db.query(Ticket)
+                .filter(
+                    Ticket.company_id == company_id,
+                )
+                .all()
+            )
             for ticket in tickets:
                 ticket.status = "deleted"
                 ticket.metadata_json = ticket.metadata_json or {}
                 ticket.metadata_json["deleted_by_retention"] = True
                 ticket.metadata_json["deleted_at"] = datetime.now(
-                    timezone.utc).isoformat()
+                    timezone.utc
+                ).isoformat()
         except Exception as e:
             logger.warning(
                 "ticket_cleanup_failed company_id=%s error=%s",
@@ -535,9 +592,14 @@ class DataRetentionService:
         # Anonymize customer PII
         try:
             from database.models.tickets import Customer
-            customers = db.query(Customer).filter(
-                Customer.company_id == company_id,
-            ).all()
+
+            customers = (
+                db.query(Customer)
+                .filter(
+                    Customer.company_id == company_id,
+                )
+                .all()
+            )
             for customer in customers:
                 customer.name = "[REDACTED]"
                 customer.email = "[REDACTED]"
@@ -546,7 +608,8 @@ class DataRetentionService:
                     customer.metadata_json = customer.metadata_json or {}
                     customer.metadata_json["anonymized_by_retention"] = True
                     customer.metadata_json["anonymized_at"] = datetime.now(
-                        timezone.utc).isoformat()
+                        timezone.utc
+                    ).isoformat()
         except Exception as e:
             logger.warning(
                 "customer_anonymization_failed company_id=%s error=%s",
@@ -557,9 +620,14 @@ class DataRetentionService:
         # Archive KB docs
         try:
             from database.models.onboarding import KnowledgeDocument
-            docs = db.query(KnowledgeDocument).filter(
-                KnowledgeDocument.company_id == company_id,
-            ).all()
+
+            docs = (
+                db.query(KnowledgeDocument)
+                .filter(
+                    KnowledgeDocument.company_id == company_id,
+                )
+                .all()
+            )
             for doc in docs:
                 doc.status = "archived"
         except Exception as e:
@@ -587,27 +655,38 @@ class DataRetentionService:
         companies = []
 
         with SessionLocal() as db:
-            expired = db.query(Subscription).filter(
-                Subscription.status == "canceled",
-                Subscription.service_stopped_at >= reminder_cutoff,
-                Subscription.service_stopped_at <= now,
-            ).all()
+            expired = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.status == "canceled",
+                    Subscription.service_stopped_at >= reminder_cutoff,
+                    Subscription.service_stopped_at <= now,
+                )
+                .all()
+            )
 
             for sub in expired:
-                company = db.query(Company).filter(
-                    Company.id == sub.company_id,
-                ).first()
+                company = (
+                    db.query(Company)
+                    .filter(
+                        Company.id == sub.company_id,
+                    )
+                    .first()
+                )
 
                 if company:
                     days_since_stop = (now - sub.service_stopped_at).days
-                    companies.append({
-                        "company_id": sub.company_id,
-                        "company_name": getattr(company, "name", "Unknown"),
-                        "days_since_service_stopped": days_since_stop,
-                        "deletion_date": (
-                            sub.service_stopped_at + timedelta(days=RETENTION_PERIOD_DAYS)
-                        ).isoformat(),
-                    })
+                    companies.append(
+                        {
+                            "company_id": sub.company_id,
+                            "company_name": getattr(company, "name", "Unknown"),
+                            "days_since_service_stopped": days_since_stop,
+                            "deletion_date": (
+                                sub.service_stopped_at
+                                + timedelta(days=RETENTION_PERIOD_DAYS)
+                            ).isoformat(),
+                        }
+                    )
 
         return companies
 

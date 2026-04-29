@@ -24,37 +24,61 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ── Validators ─────────────────────────────────────────────────────
 
-_EMAIL_REGEX = re.compile(
-    r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
-)
+_EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
 
 _VALID_SESSION_TYPES = ("onboarding", "customer_care")
 _VALID_PACK_TYPES = ("free", "demo")
 _VALID_PAYMENT_STATUSES = ("none", "pending", "completed", "failed")
 _VALID_ROLES = ("user", "jarvis", "system")
 _VALID_MESSAGE_TYPES = (
-    "text", "bill_summary", "payment_card", "otp_card",
-    "handoff_card", "demo_call_card", "action_ticket",
-    "call_summary", "recharge_cta",
-    "limit_reached", "pack_expired", "error",
+    "text",
+    "bill_summary",
+    "payment_card",
+    "otp_card",
+    "handoff_card",
+    "demo_call_card",
+    "action_ticket",
+    "call_summary",
+    "recharge_cta",
+    "limit_reached",
+    "pack_expired",
+    "error",
 )
 _VALID_STAGES = (
-    "welcome", "discovery", "demo", "pricing",
-    "bill_review", "verification", "payment", "handoff",
+    "welcome",
+    "discovery",
+    "demo",
+    "pricing",
+    "bill_review",
+    "verification",
+    "payment",
+    "handoff",
 )
 _VALID_TICKET_TYPES = (
-    "otp_verification", "otp_verified",
-    "payment_demo_pack", "payment_variant", "payment_variant_completed",
-    "demo_call", "demo_call_completed",
-    "roi_import", "handoff",
+    "otp_verification",
+    "otp_verified",
+    "payment_demo_pack",
+    "payment_variant",
+    "payment_variant_completed",
+    "demo_call",
+    "demo_call_completed",
+    "roi_import",
+    "handoff",
 )
 _VALID_TICKET_STATUSES = ("pending", "in_progress", "completed", "failed")
 _VALID_ENTRY_SOURCES = (
-    "direct", "pricing", "roi", "demo", "features",
-    "referral", "ad", "organic", "email_campaign", "other",
+    "direct",
+    "pricing",
+    "roi",
+    "demo",
+    "features",
+    "referral",
+    "ad",
+    "organic",
+    "email_campaign",
+    "other",
 )
 
 
@@ -309,8 +333,7 @@ class JarvisPaymentCreate(BaseModel):
 
     @field_validator("variants")
     @classmethod
-    def validate_variants(
-            cls, v: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def validate_variants(cls, v: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         for item in v:
             if "id" not in item:
                 raise ValueError("Each variant must have an 'id'")

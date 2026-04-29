@@ -36,11 +36,16 @@ logger = get_logger("signal_extraction")
 # ── Currency Conversion Rates to USD (W9-GAP-017) ────────────────────
 
 CURRENCY_TO_USD: Dict[str, float] = {
-    "USD": 1.0, "$": 1.0,
-    "EUR": 1.09, "€": 1.09,
-    "GBP": 1.27, "£": 1.27,
-    "INR": 0.012, "₹": 0.012,
-    "JPY": 0.0067, "¥": 0.0067,
+    "USD": 1.0,
+    "$": 1.0,
+    "EUR": 1.09,
+    "€": 1.09,
+    "GBP": 1.27,
+    "£": 1.27,
+    "INR": 0.012,
+    "₹": 0.012,
+    "JPY": 0.0067,
+    "¥": 0.0067,
 }
 
 # Multi-currency regex (W9-GAP-017): matches $500, £1,200.50, €99, ₹50000,
@@ -54,27 +59,118 @@ MONETARY_REGEX = re.compile(
 # ── Sentiment Lexicon ────────────────────────────────────────────────
 
 NEGATIVE_WORDS = {
-    "angry", "annoyed", "bad", "broken", "cancel", "complaint", "damage",
-    "defective", "delay", "disappointed", "error", "fail", "fault", "frustrated",
-    "hate", "horrible", "impossible", "intolerable", "irritated", "issue",
-    "mad", "neglect", "never", "nothing", "outage", "pathetic", "poor",
-    "problem", "refund", "reject", "ridiculous", "rude", "slow", "terrible",
-    "unacceptable", "unfair", "unhappy", "unhelpful", "useless", "worst",
-    "wrong", "awful", "scam", "cheat", "lies", "deceived", "fraud",
-    "garbage", "waste", "sucks", "trash", "disgusting", "horrendous",
-    "abysmal", "atrocious", "appalling", "dreadful", "miserable", "painful",
-    "infuriating", "outrageous", "unbearable", "excruciating", "disastrous",
-    "catastrophic", "devastating", "ruined", "destroyed", "corrupted",
+    "angry",
+    "annoyed",
+    "bad",
+    "broken",
+    "cancel",
+    "complaint",
+    "damage",
+    "defective",
+    "delay",
+    "disappointed",
+    "error",
+    "fail",
+    "fault",
+    "frustrated",
+    "hate",
+    "horrible",
+    "impossible",
+    "intolerable",
+    "irritated",
+    "issue",
+    "mad",
+    "neglect",
+    "never",
+    "nothing",
+    "outage",
+    "pathetic",
+    "poor",
+    "problem",
+    "refund",
+    "reject",
+    "ridiculous",
+    "rude",
+    "slow",
+    "terrible",
+    "unacceptable",
+    "unfair",
+    "unhappy",
+    "unhelpful",
+    "useless",
+    "worst",
+    "wrong",
+    "awful",
+    "scam",
+    "cheat",
+    "lies",
+    "deceived",
+    "fraud",
+    "garbage",
+    "waste",
+    "sucks",
+    "trash",
+    "disgusting",
+    "horrendous",
+    "abysmal",
+    "atrocious",
+    "appalling",
+    "dreadful",
+    "miserable",
+    "painful",
+    "infuriating",
+    "outrageous",
+    "unbearable",
+    "excruciating",
+    "disastrous",
+    "catastrophic",
+    "devastating",
+    "ruined",
+    "destroyed",
+    "corrupted",
 }
 
 POSITIVE_WORDS = {
-    "awesome", "brilliant", "excellent", "fantastic", "good", "great",
-    "happy", "helpful", "love", "perfect", "pleased", "quick", "satisfied",
-    "superb", "thank", "thanks", "wonderful", "amazing", "impressed",
-    "outstanding", "phenomenal", "remarkable", "stellar", "magnificent",
-    "splendid", "terrific", "marvelous", "exceptional", "delightful",
-    "grateful", "appreciate", "efficient", "reliable", "professional",
-    "friendly", "polite", "responsive", "smooth", "seamless", "easy",
+    "awesome",
+    "brilliant",
+    "excellent",
+    "fantastic",
+    "good",
+    "great",
+    "happy",
+    "helpful",
+    "love",
+    "perfect",
+    "pleased",
+    "quick",
+    "satisfied",
+    "superb",
+    "thank",
+    "thanks",
+    "wonderful",
+    "amazing",
+    "impressed",
+    "outstanding",
+    "phenomenal",
+    "remarkable",
+    "stellar",
+    "magnificent",
+    "splendid",
+    "terrific",
+    "marvelous",
+    "exceptional",
+    "delightful",
+    "grateful",
+    "appreciate",
+    "efficient",
+    "reliable",
+    "professional",
+    "friendly",
+    "polite",
+    "responsive",
+    "smooth",
+    "seamless",
+    "easy",
 }
 
 # ── Topic Clusters for Breadth Detection ─────────────────────────────
@@ -99,7 +195,8 @@ TOPIC_CLUSTERS = {
         "plan",
         "upgrade",
         "cancel",
-        "renewal"},
+        "renewal",
+    },
     "technical": {
         "error",
         "bug",
@@ -124,7 +221,8 @@ TOPIC_CLUSTERS = {
         "database",
         "server",
         "code",
-        "deploy"},
+        "deploy",
+    },
     "shipping": {
         "ship",
         "deliver",
@@ -141,7 +239,8 @@ TOPIC_CLUSTERS = {
         "box",
         "warehouse",
         "express",
-        "overnight"},
+        "overnight",
+    },
     "account": {
         "account",
         "profile",
@@ -157,7 +256,8 @@ TOPIC_CLUSTERS = {
         " deactivate",
         "delete account",
         "privacy",
-        "security"},
+        "security",
+    },
     "product": {
         "feature",
         "suggestion",
@@ -172,7 +272,8 @@ TOPIC_CLUSTERS = {
         "capability",
         "option",
         "setting",
-        "customization"},
+        "customization",
+    },
     "support": {
         "help",
         "support",
@@ -189,7 +290,8 @@ TOPIC_CLUSTERS = {
         "reach",
         "response",
         "follow up",
-        "status"},
+        "status",
+    },
     "content": {
         "documentation",
         "guide",
@@ -205,7 +307,8 @@ TOPIC_CLUSTERS = {
         "learn",
         "training",
         "video",
-        "resource"},
+        "resource",
+    },
 }
 
 # ── Intent Keywords ──────────────────────────────────────────────────
@@ -219,7 +322,8 @@ INTENT_KEYWORDS = {
         "credit back",
         "chargeback",
         "cancel order",
-        "get my money"],
+        "get my money",
+    ],
     "technical": [
         "error",
         "bug",
@@ -235,7 +339,8 @@ INTENT_KEYWORDS = {
         "connection",
         "timeout",
         "offline",
-        "down"],
+        "down",
+    ],
     "billing": [
         "bill",
         "invoice",
@@ -248,7 +353,8 @@ INTENT_KEYWORDS = {
         "overcharge",
         "duplicate charge",
         "unauthorized charge",
-        "renewal"],
+        "renewal",
+    ],
     "complaint": [
         "complaint",
         "unhappy",
@@ -262,7 +368,8 @@ INTENT_KEYWORDS = {
         "unacceptable",
         "speak to manager",
         "escalate",
-        "formal complaint"],
+        "formal complaint",
+    ],
     "feature_request": [
         "feature",
         "suggestion",
@@ -273,7 +380,8 @@ INTENT_KEYWORDS = {
         "enhancement",
         "improve",
         "new functionality",
-        "missing feature"],
+        "missing feature",
+    ],
     "general": [],
     "cancellation": [
         "cancel subscription",
@@ -285,7 +393,8 @@ INTENT_KEYWORDS = {
         "deactivate",
         "cancel my",
         "cancel immediately",
-        "cancel right now"],
+        "cancel right now",
+    ],
     "shipping": [
         "ship",
         "deliver",
@@ -296,7 +405,8 @@ INTENT_KEYWORDS = {
         "courier",
         "transit",
         "parcel",
-        "address"],
+        "address",
+    ],
     "inquiry": [
         "question",
         "how do i",
@@ -306,7 +416,8 @@ INTENT_KEYWORDS = {
         "help me understand",
         "guide",
         "wondering",
-        "curious"],
+        "curious",
+    ],
     "escalation": [
         "escalate",
         "manager",
@@ -315,7 +426,8 @@ INTENT_KEYWORDS = {
         "higher up",
         "speak to someone",
         "not resolved",
-        "still waiting"],
+        "still waiting",
+    ],
     "account": [
         "account",
         "profile",
@@ -328,7 +440,8 @@ INTENT_KEYWORDS = {
         "email change",
         "username",
         "settings",
-        "deactivate"],
+        "deactivate",
+    ],
     "feedback": [
         "feedback",
         "suggestion",
@@ -342,7 +455,8 @@ INTENT_KEYWORDS = {
         "amazing",
         "great job",
         "keep it up",
-        "love your"],
+        "love your",
+    ],
 }
 
 # ── Data Classes ──────────────────────────────────────────────────────
@@ -413,7 +527,12 @@ class SignalExtractor:
     VARIANT_WEIGHTS: Dict[str, Dict[str, float]] = {
         "mini_parwa": {"complexity": 0.3, "intent": 0.5, "sentiment": 0.2},
         "parwa": {"complexity": 0.4, "intent": 0.3, "sentiment": 0.3},
-        "high_parwa": {"complexity": 0.3, "intent": 0.3, "sentiment": 0.2, "monetary": 0.2},
+        "high_parwa": {
+            "complexity": 0.3,
+            "intent": 0.3,
+            "sentiment": 0.2,
+            "monetary": 0.2,
+        },
     }
 
     CACHE_TTL_SECONDS = 60
@@ -421,9 +540,7 @@ class SignalExtractor:
     def __init__(self):
         pass
 
-    async def extract(
-            self,
-            request: SignalExtractionRequest) -> ExtractedSignals:
+    async def extract(self, request: SignalExtractionRequest) -> ExtractedSignals:
         """Extract all 10 signals from a query.
 
         GAP-007 FIX: Cache key format is
@@ -439,6 +556,7 @@ class SignalExtractor:
         # Check cache (fail-open — never crash on Redis errors)
         try:
             from app.core.redis import cache_get, cache_set
+
             cached = await cache_get(request.company_id, cache_key)
             if cached is not None and isinstance(cached, dict):
                 logger.debug("signal_cache_hit", key=cache_key)
@@ -466,13 +584,14 @@ class SignalExtractor:
         intent = self._extract_intent(request.query)
         sentiment = self._extract_sentiment(request.query)
         weights = self.VARIANT_WEIGHTS.get(
-            request.variant_type, self.VARIANT_WEIGHTS["parwa"])
+            request.variant_type, self.VARIANT_WEIGHTS["parwa"]
+        )
         complexity = self._extract_complexity(request.query, weights)
-        monetary_value, monetary_currency = self._extract_monetary_value(
-            request.query)
+        monetary_value, monetary_currency = self._extract_monetary_value(request.query)
         customer_tier = self._resolve_customer_tier(request)
         reasoning_loop = self._detect_reasoning_loop(
-            request.query, request.conversation_history or [],
+            request.query,
+            request.conversation_history or [],
         )
         resolution_paths = self._count_resolution_paths(request.query, intent)
         query_breadth = self._calculate_query_breadth(request.query)
@@ -506,8 +625,10 @@ class SignalExtractor:
         # Store in cache (GAP-007: key already includes variant_type)
         try:
             await cache_set(
-                request.company_id, cache_key,
-                result.to_dict(), ttl_seconds=self.CACHE_TTL_SECONDS,
+                request.company_id,
+                cache_key,
+                result.to_dict(),
+                ttl_seconds=self.CACHE_TTL_SECONDS,
             )
         except Exception as exc:
             logger.warning("signal_cache_write_error", error=str(exc))
@@ -526,8 +647,7 @@ class SignalExtractor:
             if intent == "general":
                 continue
             # Score by keyword length (longer = more specific = better match)
-            score = sum(len(kw.split())
-                        for kw in keywords if kw in query_lower)
+            score = sum(len(kw.split()) for kw in keywords if kw in query_lower)
             if score > best_score:
                 best_score = score
                 best_intent = intent
@@ -551,8 +671,17 @@ class SignalExtractor:
         pos_count = sum(1 for w in words if w in POSITIVE_WORDS)
 
         # Intensifiers boost effect
-        intensifiers = {"very", "extremely", "really", "so", "incredibly",
-                        "absolutely", "totally", "completely", "utterly"}
+        intensifiers = {
+            "very",
+            "extremely",
+            "really",
+            "so",
+            "incredibly",
+            "absolutely",
+            "totally",
+            "completely",
+            "utterly",
+        }
         intensifier_count = sum(1 for w in words if w in intensifiers)
 
         neg_score = neg_count * (1.0 + 0.3 * intensifier_count)
@@ -568,8 +697,7 @@ class SignalExtractor:
 
     # ── Signal 3: Complexity ─────────────────────────────────────────
 
-    def _extract_complexity(
-            self, query: str, weights: Dict[str, float]) -> float:
+    def _extract_complexity(self, query: str, weights: Dict[str, float]) -> float:
         """Multi-factor complexity scoring (0.0-1.0).
 
         Factors:
@@ -587,19 +715,16 @@ class SignalExtractor:
         # Question factor: each ? adds complexity
         question_marks = query.count("?")
         question_words = sum(
-            1 for w in words if w in {
-                "how",
-                "why",
-                "what",
-                "when",
-                "where",
-                "which"})
-        question_factor = min(
-            1.0, (question_marks + question_words * 0.5) / 5.0)
+            1 for w in words if w in {"how", "why", "what", "when", "where", "which"}
+        )
+        question_factor = min(1.0, (question_marks + question_words * 0.5) / 5.0)
 
         # Technical density
         technical_words = sum(
-            1 for w in words if w in {
+            1
+            for w in words
+            if w
+            in {
                 "api",
                 "database",
                 "server",
@@ -620,7 +745,9 @@ class SignalExtractor:
                 "kubernetes",
                 "lambda",
                 "function",
-                "script"})
+                "script",
+            }
+        )
         tech_factor = min(1.0, technical_words / 5.0) if words else 0.0
 
         # Multi-topic factor (uses query_breadth internally)
@@ -639,8 +766,7 @@ class SignalExtractor:
 
     # ── Signal 4: Monetary Value (W9-GAP-017) ────────────────────────
 
-    def _extract_monetary_value(
-            self, query: str) -> Tuple[float, Optional[str]]:
+    def _extract_monetary_value(self, query: str) -> Tuple[float, Optional[str]]:
         """Extract monetary value with multi-currency support.
 
         W9-GAP-017 FIX: Supports $ £ € ¥ ₹ and USD/EUR/GBP/INR/JPY codes.
@@ -705,7 +831,9 @@ class SignalExtractor:
     # ── Signal 8: Reasoning Loop Detection ───────────────────────────
 
     def _detect_reasoning_loop(
-        self, query: str, history: List[str],
+        self,
+        query: str,
+        history: List[str],
     ) -> bool:
         """Detect repeated similar queries indicating a reasoning loop.
 
@@ -724,8 +852,7 @@ class SignalExtractor:
             if not past_msg or not past_msg.strip():
                 continue
             past_normalized = past_msg.lower().strip()
-            ratio = SequenceMatcher(
-                None, query_normalized, past_normalized).ratio()
+            ratio = SequenceMatcher(None, query_normalized, past_normalized).ratio()
             if ratio >= 0.85:
                 similar_count += 1
 
@@ -740,11 +867,18 @@ class SignalExtractor:
         More complex queries have more possible resolution approaches.
         """
         base_paths = {
-            "general": 1, "inquiry": 1, "feedback": 1,
-            "account": 2, "shipping": 2,
-            "technical": 3, "billing": 3, "feature_request": 2,
-            "refund": 3, "cancellation": 3,
-            "complaint": 4, "escalation": 4,
+            "general": 1,
+            "inquiry": 1,
+            "feedback": 1,
+            "account": 2,
+            "shipping": 2,
+            "technical": 3,
+            "billing": 3,
+            "feature_request": 2,
+            "refund": 3,
+            "cancellation": 3,
+            "complaint": 4,
+            "escalation": 4,
         }
 
         paths = base_paths.get(intent, 2)
@@ -814,15 +948,12 @@ class SignalExtractor:
             previous_response_status=extracted.previous_response_status,
             reasoning_loop_detected=extracted.reasoning_loop_detected,
             resolution_path_count=extracted.resolution_path_count,
-            external_data_required=extracted.intent in (
-                "technical",
-                "shipping",
-                "account"),
+            external_data_required=extracted.intent
+            in ("technical", "shipping", "account"),
         )
 
     def get_variant_weights(self, variant_type: str) -> Dict[str, float]:
         """Get configurable weights for a variant type."""
         return dict(
-            self.VARIANT_WEIGHTS.get(
-                variant_type,
-                self.VARIANT_WEIGHTS["parwa"]))
+            self.VARIANT_WEIGHTS.get(variant_type, self.VARIANT_WEIGHTS["parwa"])
+        )

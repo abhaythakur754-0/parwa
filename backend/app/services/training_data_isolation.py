@@ -166,7 +166,8 @@ class TrainingDataRecord:
 
     @classmethod
     def from_dict(
-        cls, data: Dict[str, Any],
+        cls,
+        data: Dict[str, Any],
     ) -> TrainingDataRecord:
         """Deserialize from dictionary."""
         return cls(
@@ -203,9 +204,7 @@ class DatasetIsolationResult:
         return {
             "is_isolated": self.is_isolated,
             "violations": self.violations,
-            "cross_variant_access_attempted": (
-                self.cross_variant_access_attempted
-            ),
+            "cross_variant_access_attempted": (self.cross_variant_access_attempted),
             "checked_paths": self.checked_paths,
         }
 
@@ -222,10 +221,7 @@ def _validate_company_id(company_id: str) -> None:
     if not company_id or not company_id.strip():
         raise ParwaBaseError(
             error_code="INVALID_COMPANY_ID",
-            message=(
-                "company_id is required and cannot be empty"
-                " (BC-001)"
-            ),
+            message=("company_id is required and cannot be empty" " (BC-001)"),
             status_code=400,
         )
     if len(company_id) > 128:
@@ -282,8 +278,7 @@ def _validate_record_content(content: str) -> None:
         raise ParwaBaseError(
             error_code="RECORD_TOO_LARGE",
             message=(
-                "Record content exceeds max length "
-                f"({MAX_CONTENT_LENGTH} chars)"
+                "Record content exceeds max length " f"({MAX_CONTENT_LENGTH} chars)"
             ),
             status_code=400,
         )
@@ -301,9 +296,14 @@ def _build_storage_path(
     This path is the isolation boundary — each variant has
     its own partition under the company namespace.
     """
-    return ":".join([
-        _KEY_PREFIX, company_id, variant_type, dataset_id,
-    ])
+    return ":".join(
+        [
+            _KEY_PREFIX,
+            company_id,
+            variant_type,
+            dataset_id,
+        ]
+    )
 
 
 def _now_iso() -> str:
@@ -410,7 +410,9 @@ class TrainingDataIsolationService:
         dataset_id = str(uuid.uuid4())
         now = _now_iso()
         storage_path = _build_storage_path(
-            company_id, variant_type, dataset_id,
+            company_id,
+            variant_type,
+            dataset_id,
         )
         clean_meta = _sanitize_metadata(metadata)
 
@@ -434,24 +436,31 @@ class TrainingDataIsolationService:
             redis = await get_redis()
             meta_key = storage_path + _META_SUFFIX
 
-            await redis.hset(meta_key, mapping={
-                "dataset_id": dataset_id,
-                "company_id": company_id,
-                "variant_type": variant_type,
-                "name": dataset.name,
-                "description": dataset.description,
-                "record_count": "0",
-                "created_at": now,
-                "updated_at": now,
-                "metadata": json.dumps(clean_meta),
-                "storage_path": storage_path,
-                "is_active": "1",
-            })
+            await redis.hset(
+                meta_key,
+                mapping={
+                    "dataset_id": dataset_id,
+                    "company_id": company_id,
+                    "variant_type": variant_type,
+                    "name": dataset.name,
+                    "description": dataset.description,
+                    "record_count": "0",
+                    "created_at": now,
+                    "updated_at": now,
+                    "metadata": json.dumps(clean_meta),
+                    "storage_path": storage_path,
+                    "is_active": "1",
+                },
+            )
 
             # Track dataset in company index
-            idx_key = ":".join([
-                _KEY_PREFIX, company_id, "datasets",
-            ])
+            idx_key = ":".join(
+                [
+                    _KEY_PREFIX,
+                    company_id,
+                    "datasets",
+                ]
+            )
             await redis.sadd(idx_key, dataset_id)
 
             logger.info(
@@ -470,10 +479,7 @@ class TrainingDataIsolationService:
             )
             raise ParwaBaseError(
                 error_code="DATASET_CREATE_FAILED",
-                message=(
-                    "Failed to create dataset due to "
-                    "storage error"
-                ),
+                message=("Failed to create dataset due to " "storage error"),
                 status_code=500,
             )
 
@@ -524,8 +530,7 @@ class TrainingDataIsolationService:
             raise ParwaBaseError(
                 error_code="DATASET_NOT_FOUND",
                 message=(
-                    f"Dataset '{dataset_id}' not found for "
-                    f"company '{company_id}'"
+                    f"Dataset '{dataset_id}' not found for " f"company '{company_id}'"
                 ),
                 status_code=404,
             )
@@ -538,9 +543,7 @@ class TrainingDataIsolationService:
             )
 
         # Check record cap
-        if dataset.record_count + len(records) > (
-            MAX_RECORDS_PER_DATASET
-        ):
+        if dataset.record_count + len(records) > (MAX_RECORDS_PER_DATASET):
             raise ParwaBaseError(
                 error_code="DATASET_FULL",
                 message=(
@@ -568,28 +571,26 @@ class TrainingDataIsolationService:
                 except (TypeError, ValueError):
                     sentiment = None
 
-            validated.append(TrainingDataRecord(
-                record_id=record_id,
-                dataset_id=dataset_id,
-                content=content.strip(),
-                label=rec.get("label"),
-                intent=rec.get("intent"),
-                sentiment=sentiment,
-                metadata=rec_meta,
-                created_at=now,
-            ))
+            validated.append(
+                TrainingDataRecord(
+                    record_id=record_id,
+                    dataset_id=dataset_id,
+                    content=content.strip(),
+                    label=rec.get("label"),
+                    intent=rec.get("intent"),
+                    sentiment=sentiment,
+                    metadata=rec_meta,
+                    created_at=now,
+                )
+            )
 
         added = 0
         try:
             from app.core.redis import get_redis
 
             redis = await get_redis()
-            records_key = (
-                dataset.storage_path + _RECORDS_SUFFIX
-            )
-            index_key = (
-                dataset.storage_path + _INDEX_SUFFIX
-            )
+            records_key = dataset.storage_path + _RECORDS_SUFFIX
+            index_key = dataset.storage_path + _INDEX_SUFFIX
 
             pipeline = redis.pipeline()
             for v_rec in validated:
@@ -599,7 +600,9 @@ class TrainingDataIsolationService:
                     json.dumps(v_rec.to_dict()),
                 )
                 pipeline.hset(
-                    index_key, v_rec.record_id, str(idx),
+                    index_key,
+                    v_rec.record_id,
+                    str(idx),
                 )
                 added += 1
 
@@ -608,7 +611,9 @@ class TrainingDataIsolationService:
             new_count = dataset.record_count + added
             pipeline.hset(meta_key, "record_count", str(new_count))
             pipeline.hset(
-                meta_key, "updated_at", _now_iso(),
+                meta_key,
+                "updated_at",
+                _now_iso(),
             )
 
             # Remove the dummy entry we pushed for idx calc
@@ -665,9 +670,13 @@ class TrainingDataIsolationService:
             from app.core.redis import get_redis
 
             redis = await get_redis()
-            idx_key = ":".join([
-                _KEY_PREFIX, company_id, "datasets",
-            ])
+            idx_key = ":".join(
+                [
+                    _KEY_PREFIX,
+                    company_id,
+                    "datasets",
+                ]
+            )
 
             # Check dataset belongs to this company
             is_member = await redis.sismember(idx_key, dataset_id)
@@ -677,7 +686,9 @@ class TrainingDataIsolationService:
             # Search across all variant types for the meta
             for vt in VALID_VARIANT_TYPES:
                 path = _build_storage_path(
-                    company_id, vt, dataset_id,
+                    company_id,
+                    vt,
+                    dataset_id,
                 )
                 meta_key = path + _META_SUFFIX
                 meta = await redis.hgetall(meta_key)
@@ -747,33 +758,35 @@ class TrainingDataIsolationService:
             from app.core.redis import get_redis
 
             redis = await get_redis()
-            idx_key = ":".join([
-                _KEY_PREFIX, company_id, "datasets",
-            ])
+            idx_key = ":".join(
+                [
+                    _KEY_PREFIX,
+                    company_id,
+                    "datasets",
+                ]
+            )
             dataset_ids = await redis.smembers(idx_key)
 
             if not dataset_ids:
                 return datasets
 
             variant_types_to_check = (
-                {variant_type}
-                if variant_type
-                else VALID_VARIANT_TYPES
+                {variant_type} if variant_type else VALID_VARIANT_TYPES
             )
 
             for ds_id in dataset_ids:
                 for vt in variant_types_to_check:
                     path = _build_storage_path(
-                        company_id, vt, ds_id,
+                        company_id,
+                        vt,
+                        ds_id,
                     )
                     meta_key = path + _META_SUFFIX
                     meta = await redis.hgetall(meta_key)
                     if not meta:
                         continue
 
-                    is_active = (
-                        meta.get("is_active", "1") == "1"
-                    )
+                    is_active = meta.get("is_active", "1") == "1"
                     try:
                         rec_count = int(
                             meta.get("record_count", "0"),
@@ -788,21 +801,24 @@ class TrainingDataIsolationService:
                     except (json.JSONDecodeError, TypeError):
                         stored_meta = {}
 
-                    datasets.append(TrainingDataset(
-                        dataset_id=ds_id,
-                        company_id=company_id,
-                        variant_type=vt,
-                        name=meta.get("name", ""),
-                        description=meta.get("description", ""),
-                        record_count=rec_count,
-                        created_at=meta.get("created_at", ""),
-                        updated_at=meta.get("updated_at", ""),
-                        metadata=stored_meta,
-                        storage_path=meta.get(
-                            "storage_path", "",
-                        ),
-                        is_active=is_active,
-                    ))
+                    datasets.append(
+                        TrainingDataset(
+                            dataset_id=ds_id,
+                            company_id=company_id,
+                            variant_type=vt,
+                            name=meta.get("name", ""),
+                            description=meta.get("description", ""),
+                            record_count=rec_count,
+                            created_at=meta.get("created_at", ""),
+                            updated_at=meta.get("updated_at", ""),
+                            metadata=stored_meta,
+                            storage_path=meta.get(
+                                "storage_path",
+                                "",
+                            ),
+                            is_active=is_active,
+                        )
+                    )
                     break  # Found dataset, next ds_id
         except Exception as exc:
             logger.warning(
@@ -842,14 +858,15 @@ class TrainingDataIsolationService:
         if dataset is None:
             result.is_isolated = False
             result.violations.append(
-                f"Dataset '{dataset_id}' not found "
-                f"for company '{company_id}'"
+                f"Dataset '{dataset_id}' not found " f"for company '{company_id}'"
             )
             return result
 
         expected_vt = dataset.variant_type
         expected_path_prefix = _build_storage_path(
-            company_id, expected_vt, dataset_id,
+            company_id,
+            expected_vt,
+            dataset_id,
         )
         result.checked_paths.append(
             expected_path_prefix + _META_SUFFIX,
@@ -877,7 +894,9 @@ class TrainingDataIsolationService:
                     continue
 
                 other_path = _build_storage_path(
-                    company_id, vt, dataset_id,
+                    company_id,
+                    vt,
+                    dataset_id,
                 )
                 other_meta_key = other_path + _META_SUFFIX
                 other_meta = await redis.hgetall(
@@ -893,9 +912,7 @@ class TrainingDataIsolationService:
                         f"under variant '{vt}' — "
                         "cross-variant duplication detected"
                     )
-                    result.cross_variant_access_attempted = (
-                        True
-                    )
+                    result.cross_variant_access_attempted = True
 
             # Verify records list is not accessible from
             # another variant's path
@@ -903,11 +920,11 @@ class TrainingDataIsolationService:
                 if vt == expected_vt:
                     continue
                 check_path = _build_storage_path(
-                    company_id, vt, dataset_id,
+                    company_id,
+                    vt,
+                    dataset_id,
                 )
-                check_records = (
-                    check_path + _RECORDS_SUFFIX
-                )
+                check_records = check_path + _RECORDS_SUFFIX
                 exists = await redis.exists(check_records)
                 if exists:
                     result.checked_paths.append(
@@ -919,9 +936,7 @@ class TrainingDataIsolationService:
                         f"'{vt}' path for dataset "
                         f"'{dataset_id}'"
                     )
-                    result.cross_variant_access_attempted = (
-                        True
-                    )
+                    result.cross_variant_access_attempted = True
 
         except Exception as exc:
             logger.warning(
@@ -930,8 +945,7 @@ class TrainingDataIsolationService:
             )
             # Fail open — don't report false violations
             result.violations.append(
-                "Could not complete isolation check "
-                "due to storage error"
+                "Could not complete isolation check " "due to storage error"
             )
 
         return result
@@ -1004,10 +1018,12 @@ class TrainingDataIsolationService:
                 resource_type="training_dataset",
                 resource_id=dataset_id,
                 old_value=None,
-                new_value=json.dumps({
-                    "requesting_variant": requesting_variant,
-                    "dataset_variant": dataset_vt,
-                }),
+                new_value=json.dumps(
+                    {
+                        "requesting_variant": requesting_variant,
+                        "dataset_variant": dataset_vt,
+                    }
+                ),
             )
         except Exception as exc:
             # Audit failure must not break the flow
@@ -1047,19 +1063,19 @@ class TrainingDataIsolationService:
 
             redis = await get_redis()
             meta_key = dataset.storage_path + _META_SUFFIX
-            records_key = (
-                dataset.storage_path + _RECORDS_SUFFIX
-            )
-            index_key = (
-                dataset.storage_path + _INDEX_SUFFIX
-            )
+            records_key = dataset.storage_path + _RECORDS_SUFFIX
+            index_key = dataset.storage_path + _INDEX_SUFFIX
 
             await redis.delete(meta_key, records_key, index_key)
 
             # Remove from company index
-            idx_key = ":".join([
-                _KEY_PREFIX, company_id, "datasets",
-            ])
+            idx_key = ":".join(
+                [
+                    _KEY_PREFIX,
+                    company_id,
+                    "datasets",
+                ]
+            )
             await redis.srem(idx_key, dataset_id)
 
             logger.info(
@@ -1105,7 +1121,8 @@ class TrainingDataIsolationService:
             _validate_variant_type(variant_type)  # GAP-024
 
         datasets = await self.list_datasets(
-            company_id, variant_type,
+            company_id,
+            variant_type,
         )
 
         total_records = 0
@@ -1136,9 +1153,7 @@ class TrainingDataIsolationService:
             "active_datasets": active_datasets,
             "total_records": total_records,
             "max_records_per_dataset": MAX_RECORDS_PER_DATASET,
-            "max_datasets_per_company": (
-                MAX_DATASETS_PER_COMPANY
-            ),
+            "max_datasets_per_company": (MAX_DATASETS_PER_COMPANY),
             "by_variant_type": by_variant,
         }
 
@@ -1169,8 +1184,7 @@ class TrainingDataIsolationService:
             raise ParwaBaseError(
                 error_code="UNSUPPORTED_EXPORT_FORMAT",
                 message=(
-                    f"Unsupported format '{format}'. "
-                    "Only 'json' is supported."
+                    f"Unsupported format '{format}'. " "Only 'json' is supported."
                 ),
                 status_code=400,
             )
@@ -1180,8 +1194,7 @@ class TrainingDataIsolationService:
             raise ParwaBaseError(
                 error_code="DATASET_NOT_FOUND",
                 message=(
-                    f"Dataset '{dataset_id}' not found "
-                    f"for company '{company_id}'"
+                    f"Dataset '{dataset_id}' not found " f"for company '{company_id}'"
                 ),
                 status_code=404,
             )
@@ -1192,12 +1205,12 @@ class TrainingDataIsolationService:
             from app.core.redis import get_redis
 
             redis = await get_redis()
-            records_key = (
-                dataset.storage_path + _RECORDS_SUFFIX
-            )
+            records_key = dataset.storage_path + _RECORDS_SUFFIX
 
             raw_records = await redis.lrange(
-                records_key, 0, -1,
+                records_key,
+                0,
+                -1,
             )
             for raw in raw_records:
                 try:
@@ -1270,8 +1283,7 @@ class TrainingDataIsolationService:
             raise ParwaBaseError(
                 error_code="DATASET_NOT_FOUND",
                 message=(
-                    f"Dataset '{dataset_id}' not found "
-                    f"for company '{company_id}'"
+                    f"Dataset '{dataset_id}' not found " f"for company '{company_id}'"
                 ),
                 status_code=404,
             )
@@ -1281,12 +1293,12 @@ class TrainingDataIsolationService:
             from app.core.redis import get_redis
 
             redis = await get_redis()
-            records_key = (
-                dataset.storage_path + _RECORDS_SUFFIX
-            )
+            records_key = dataset.storage_path + _RECORDS_SUFFIX
 
             raw_records = await redis.lrange(
-                records_key, offset, offset + limit - 1,
+                records_key,
+                offset,
+                offset + limit - 1,
             )
             for raw in raw_records:
                 try:
@@ -1323,7 +1335,8 @@ class TrainingDataIsolationService:
             List of shared TrainingDataset objects.
         """
         return await self.list_datasets(
-            company_id, variant_type="shared",
+            company_id,
+            variant_type="shared",
         )
 
     # ── Dataset Activation ─────────────────────────────────────
@@ -1360,10 +1373,14 @@ class TrainingDataIsolationService:
             meta_key = dataset.storage_path + _META_SUFFIX
 
             await redis.hset(
-                meta_key, "is_active", "1" if is_active else "0",
+                meta_key,
+                "is_active",
+                "1" if is_active else "0",
             )
             await redis.hset(
-                meta_key, "updated_at", _now_iso(),
+                meta_key,
+                "updated_at",
+                _now_iso(),
             )
 
             dataset.is_active = is_active
@@ -1419,10 +1436,7 @@ class TrainingDataIsolationService:
         if missing:
             raise ParwaBaseError(
                 error_code="INVALID_INDEX_METADATA",
-                message=(
-                    "Missing required keys: "
-                    f"{', '.join(sorted(missing))}"
-                ),
+                message=("Missing required keys: " f"{', '.join(sorted(missing))}"),
                 status_code=400,
             )
 
@@ -1437,15 +1451,12 @@ class TrainingDataIsolationService:
                 extra={
                     "dataset_id": dataset_id,
                     "company_id": company_id,
-                    "metadata_tenant": (
-                        index_metadata["tenant_id"]
-                    ),
+                    "metadata_tenant": (index_metadata["tenant_id"]),
                 },
             )
             raise ParwaBaseError(
                 error_code="TENANT_MISMATCH",
-                message="tenant_id in metadata does not "
-                "match company_id",
+                message="tenant_id in metadata does not " "match company_id",
                 status_code=400,
             )
 
@@ -1454,8 +1465,7 @@ class TrainingDataIsolationService:
             raise ParwaBaseError(
                 error_code="DATASET_NOT_FOUND",
                 message=(
-                    f"Dataset '{dataset_id}' not found "
-                    f"for company '{company_id}'"
+                    f"Dataset '{dataset_id}' not found " f"for company '{company_id}'"
                 ),
                 status_code=404,
             )
@@ -1474,7 +1484,9 @@ class TrainingDataIsolationService:
                 json.dumps(merged_meta),
             )
             await redis.hset(
-                meta_key, "updated_at", _now_iso(),
+                meta_key,
+                "updated_at",
+                _now_iso(),
             )
 
             dataset.metadata = merged_meta
@@ -1485,9 +1497,7 @@ class TrainingDataIsolationService:
                 extra={
                     "dataset_id": dataset_id,
                     "company_id": company_id,
-                    "variant_type": (
-                        index_metadata["variant_type"]
-                    ),
+                    "variant_type": (index_metadata["variant_type"]),
                 },
             )
         except Exception as exc:
@@ -1497,10 +1507,7 @@ class TrainingDataIsolationService:
             )
             raise ParwaBaseError(
                 error_code="VECTOR_META_UPDATE_FAILED",
-                message=(
-                    "Failed to update vector index "
-                    "metadata"
-                ),
+                message=("Failed to update vector index " "metadata"),
                 status_code=500,
             )
 
@@ -1550,7 +1557,9 @@ class TrainingDataIsolationService:
                 "technique_tier": "tier_3",
                 "confidence_threshold": 0.75,
                 "models": [
-                    "gpt-4o", "claude-opus", "gemini-pro",
+                    "gpt-4o",
+                    "claude-opus",
+                    "gemini-pro",
                 ],
             },
         }
@@ -1559,10 +1568,14 @@ class TrainingDataIsolationService:
             from app.core.redis import get_redis
 
             redis = await get_redis()
-            config_key = ":".join([
-                _KEY_PREFIX, company_id, "model_config",
-                variant_type,
-            ])
+            config_key = ":".join(
+                [
+                    _KEY_PREFIX,
+                    company_id,
+                    "model_config",
+                    variant_type,
+                ]
+            )
             stored = await redis.hgetall(config_key)
             if stored and stored.get("config"):
                 try:
@@ -1607,10 +1620,14 @@ class TrainingDataIsolationService:
             from app.core.redis import get_redis
 
             redis = await get_redis()
-            config_key = ":".join([
-                _KEY_PREFIX, company_id, "model_config",
-                variant_type,
-            ])
+            config_key = ":".join(
+                [
+                    _KEY_PREFIX,
+                    company_id,
+                    "model_config",
+                    variant_type,
+                ]
+            )
 
             await redis.hset(
                 config_key,

@@ -35,8 +35,12 @@ from app.logger import get_logger
 logger = get_logger("data_freshness_service")
 
 ENTITY_TYPES = (
-    "signal", "context", "rag_cache",
-    "embedding", "kb_document", "technique_cache",
+    "signal",
+    "context",
+    "rag_cache",
+    "embedding",
+    "kb_document",
+    "technique_cache",
 )
 
 KBCallback = Callable[[str, str, str], None]
@@ -44,6 +48,7 @@ KBCallback = Callable[[str, str, str], None]
 
 class FreshnessStatus(str, Enum):
     """Freshness status of a cached entity."""
+
     FRESH = "fresh"
     STALE = "stale"
     EXPIRED = "expired"
@@ -53,6 +58,7 @@ class FreshnessStatus(str, Enum):
 @dataclass
 class FreshnessCheckResult:
     """Result of a freshness check for a single entity."""
+
     status: FreshnessStatus
     age_seconds: float
     max_age_seconds: float
@@ -69,6 +75,7 @@ class StalenessConfig:
     Defaults: signals=5min, context=30min, rag_cache=2min,
     embeddings=1hr, kb_document=1hr.
     """
+
     signal_max_age_seconds: float = 300.0
     context_max_age_seconds: float = 1800.0
     rag_cache_max_age_seconds: float = 120.0
@@ -96,7 +103,8 @@ class DataFreshnessService:
     """
 
     def __init__(
-        self, config: Optional[StalenessConfig] = None,
+        self,
+        config: Optional[StalenessConfig] = None,
     ) -> None:
         """Initialize with configurable thresholds."""
         self.config = config or StalenessConfig()
@@ -105,7 +113,9 @@ class DataFreshnessService:
     # ── Freshness Checks ───────────────────────────────────────────
 
     async def check_cache_freshness(
-        self, cache_key: str, company_id: str,
+        self,
+        cache_key: str,
+        company_id: str,
     ) -> FreshnessCheckResult:
         """Check freshness of a generic cache entry."""
         return await self._safe_check(
@@ -118,7 +128,9 @@ class DataFreshnessService:
         )
 
     async def check_signal_freshness(
-        self, query_hash: str, company_id: str,
+        self,
+        query_hash: str,
+        company_id: str,
         variant_type: str,
     ) -> FreshnessCheckResult:
         """Check if extracted signals are still fresh (<5 min)."""
@@ -134,7 +146,9 @@ class DataFreshnessService:
         )
 
     async def check_context_freshness(
-        self, conversation_id: str, company_id: str,
+        self,
+        conversation_id: str,
+        company_id: str,
     ) -> FreshnessCheckResult:
         """Check conversation context freshness (<30 min)."""
         return await self._safe_check(
@@ -147,7 +161,9 @@ class DataFreshnessService:
         )
 
     async def check_rag_freshness(
-        self, query: str, company_id: str,
+        self,
+        query: str,
+        company_id: str,
         variant_type: str,
     ) -> FreshnessCheckResult:
         """Check RAG cache freshness (<2 min)."""
@@ -203,13 +219,20 @@ class DataFreshnessService:
                 jv = pipe_results[i * 2]
                 ep = pipe_results[i * 2 + 1]
                 results[eid] = self._evaluate(
-                    jv, ep, ma, src, et, eid,
-                    company_id, now,
+                    jv,
+                    ep,
+                    ma,
+                    src,
+                    et,
+                    eid,
+                    company_id,
+                    now,
                 )
         except Exception as exc:
             logger.warning(
                 "batch_check_freshness_error",
-                error=str(exc), key_count=len(keys),
+                error=str(exc),
+                key_count=len(keys),
                 company_id=company_id,
             )
             for ks in keys:
@@ -218,8 +241,10 @@ class DataFreshnessService:
                 ma = self._max_age(et)
                 results[eid] = FreshnessCheckResult(
                     status=FreshnessStatus.UNKNOWN,
-                    age_seconds=0.0, max_age_seconds=ma,
-                    is_fresh=False, last_updated=None,
+                    age_seconds=0.0,
+                    max_age_seconds=ma,
+                    is_fresh=False,
+                    last_updated=None,
                     source=ks.get("source", et),
                     metadata={"error": str(exc)},
                 )
@@ -228,7 +253,9 @@ class DataFreshnessService:
     # ── Cache Invalidation ─────────────────────────────────────────
 
     async def invalidate_cache(
-        self, cache_key: str, company_id: str,
+        self,
+        cache_key: str,
+        company_id: str,
     ) -> bool:
         """Delete a single stale cache entry from Redis."""
         fk = self._fkey(company_id, "rag_cache", cache_key)
@@ -257,7 +284,9 @@ class DataFreshnessService:
             return False
 
     async def invalidate_kb_caches(
-        self, document_id: str, company_id: str,
+        self,
+        document_id: str,
+        company_id: str,
     ) -> int:
         """Invalidate all RAG caches related to a KB document.
 
@@ -267,7 +296,10 @@ class DataFreshnessService:
         from app.core.redis import make_key
 
         pattern = make_key(
-            company_id, "freshness", "rag_cache", "*",
+            company_id,
+            "freshness",
+            "rag_cache",
+            "*",
         )
         total = 0
 
@@ -276,7 +308,8 @@ class DataFreshnessService:
             cursor = 0
             while True:
                 cursor, keys = await client.scan(
-                    cursor=cursor, match=pattern,
+                    cursor=cursor,
+                    match=pattern,
                     count=100,
                 )
                 if keys:
@@ -388,7 +421,8 @@ class DataFreshnessService:
     # ── Freshness Report ───────────────────────────────────────────
 
     async def get_freshness_report(
-        self, company_id: str,
+        self,
+        company_id: str,
     ) -> Dict[str, Any]:
         """Aggregate freshness status across all entity types.
 
@@ -404,8 +438,10 @@ class DataFreshnessService:
                 timezone.utc,
             ).isoformat(),
             "summary": {
-                "fresh": 0, "stale": 0,
-                "expired": 0, "unknown": 0,
+                "fresh": 0,
+                "stale": 0,
+                "expired": 0,
+                "unknown": 0,
                 "total": 0,
             },
             "by_entity_type": {},
@@ -417,7 +453,8 @@ class DataFreshnessService:
             cursor = 0
             while True:
                 cursor, keys = await client.scan(
-                    cursor=cursor, match=pattern,
+                    cursor=cursor,
+                    match=pattern,
                     count=200,
                 )
                 if keys:
@@ -430,12 +467,17 @@ class DataFreshnessService:
                     for i, k in enumerate(keys):
                         jv = pr[i * 2]
                         ep = pr[i * 2 + 1]
-                        et = self._extract_et(k, company_id) \
-                            or "unknown"
+                        et = self._extract_et(k, company_id) or "unknown"
                         ma = self._max_age(et)
                         r = self._evaluate(
-                            jv, ep, ma, et, et, "",
-                            company_id, now,
+                            jv,
+                            ep,
+                            ma,
+                            et,
+                            et,
+                            "",
+                            company_id,
+                            now,
                         )
                         sk = r.status.value
                         report["summary"][sk] += 1
@@ -443,50 +485,60 @@ class DataFreshnessService:
 
                         if et not in report["by_entity_type"]:
                             report["by_entity_type"][et] = {
-                                "fresh": 0, "stale": 0,
-                                "expired": 0, "unknown": 0,
+                                "fresh": 0,
+                                "stale": 0,
+                                "expired": 0,
+                                "unknown": 0,
                                 "total": 0,
                             }
                         report["by_entity_type"][et][sk] += 1
-                        report["by_entity_type"][et][
-                            "total"
-                        ] += 1
+                        report["by_entity_type"][et]["total"] += 1
 
                 if cursor == 0:
                     break
         except Exception as exc:
             logger.warning(
                 "get_freshness_report_error",
-                error=str(exc), company_id=company_id,
+                error=str(exc),
+                company_id=company_id,
             )
         return report
 
     # ── Convenience Predicates ─────────────────────────────────────
 
     async def needs_re_extraction(
-        self, query_hash: str, company_id: str,
+        self,
+        query_hash: str,
+        company_id: str,
         variant_type: str,
     ) -> bool:
         """Returns True if signals need re-extraction."""
         r = await self.check_signal_freshness(
-            query_hash, company_id, variant_type,
+            query_hash,
+            company_id,
+            variant_type,
         )
         return not r.is_fresh
 
     async def needs_rag_refresh(
-        self, query: str, company_id: str,
+        self,
+        query: str,
+        company_id: str,
         variant_type: str,
     ) -> bool:
         """Returns True if RAG results need refresh."""
         r = await self.check_rag_freshness(
-            query, company_id, variant_type,
+            query,
+            company_id,
+            variant_type,
         )
         return not r.is_fresh
 
     # ── KB Update Listener ─────────────────────────────────────────
 
     def register_kb_update_listener(
-        self, callback: KBCallback,
+        self,
+        callback: KBCallback,
     ) -> None:
         """Register callback for KB document updates."""
         self._kb_listeners.append(callback)
@@ -496,7 +548,9 @@ class DataFreshnessService:
         )
 
     async def _notify_kb_listeners(
-        self, document_id: str, company_id: str,
+        self,
+        document_id: str,
+        company_id: str,
     ) -> None:
         """Invoke all registered KB update listeners (BC-008)."""
         for cb in self._kb_listeners:
@@ -511,7 +565,9 @@ class DataFreshnessService:
                     document_id=document_id,
                     company_id=company_id,
                     callback=getattr(
-                        cb, "__name__", str(cb),
+                        cb,
+                        "__name__",
+                        str(cb),
                     ),
                 )
 
@@ -519,6 +575,7 @@ class DataFreshnessService:
 
     async def _get_redis(self):
         from app.core.redis import get_redis
+
         return await get_redis()
 
     async def _safe_check(
@@ -541,13 +598,19 @@ class DataFreshnessService:
             pipe.expiretime(rk)
             results = await pipe.execute()
             return self._evaluate(
-                results[0], results[1], ma, source,
-                entity_type, entity_id, company_id,
+                results[0],
+                results[1],
+                ma,
+                source,
+                entity_type,
+                entity_id,
+                company_id,
                 time.time(),
             )
         except Exception as exc:
             logger.warning(
-                log_label, error=str(exc),
+                log_label,
+                error=str(exc),
                 entity_id=log_key[:64],
                 company_id=company_id,
             )
@@ -556,9 +619,12 @@ class DataFreshnessService:
                 meta.update(extra_meta)
             return FreshnessCheckResult(
                 status=FreshnessStatus.UNKNOWN,
-                age_seconds=0.0, max_age_seconds=ma,
-                is_fresh=False, last_updated=None,
-                source=source, metadata=meta,
+                age_seconds=0.0,
+                max_age_seconds=ma,
+                is_fresh=False,
+                last_updated=None,
+                source=source,
+                metadata=meta,
             )
 
     def _evaluate(
@@ -583,12 +649,15 @@ class DataFreshnessService:
         }
 
         # Key does not exist
-        if expire_epoch == -2 or (
-            json_val is None and expire_epoch is None
-        ):
+        if expire_epoch == -2 or (json_val is None and expire_epoch is None):
             return FreshnessCheckResult(
-                FreshnessStatus.EXPIRED, 0.0, max_age,
-                False, None, source, meta,
+                FreshnessStatus.EXPIRED,
+                0.0,
+                max_age,
+                False,
+                None,
+                source,
+                meta,
             )
 
         # W9-GAP-027: Use EXPIRETIME when available
@@ -596,16 +665,23 @@ class DataFreshnessService:
             ttl = expire_epoch - now
             if ttl <= 0:
                 return FreshnessCheckResult(
-                    FreshnessStatus.EXPIRED, max_age, max_age,
-                    False, self._updated_at(json_val),
-                    source, {**meta, "method": "expiretime"},
+                    FreshnessStatus.EXPIRED,
+                    max_age,
+                    max_age,
+                    False,
+                    self._updated_at(json_val),
+                    source,
+                    {**meta, "method": "expiretime"},
                 )
             age = max_age - ttl
             st = self._status(age, max_age)
             return FreshnessCheckResult(
-                st, round(age, 2), max_age,
+                st,
+                round(age, 2),
+                max_age,
                 st == FreshnessStatus.FRESH,
-                self._updated_at(json_val), source,
+                self._updated_at(json_val),
+                source,
                 {**meta, "method": "expiretime"},
             )
 
@@ -613,8 +689,12 @@ class DataFreshnessService:
         ua = self._updated_at(json_val)
         if ua is None:
             return FreshnessCheckResult(
-                FreshnessStatus.UNKNOWN, 0.0, max_age,
-                False, None, source,
+                FreshnessStatus.UNKNOWN,
+                0.0,
+                max_age,
+                False,
+                None,
+                source,
                 {**meta, "method": "fallback_no_ts"},
             )
         try:
@@ -624,14 +704,22 @@ class DataFreshnessService:
             age = max(0.0, now - dt.timestamp())
         except (ValueError, TypeError, OSError):
             return FreshnessCheckResult(
-                FreshnessStatus.UNKNOWN, 0.0, max_age,
-                False, ua, source,
+                FreshnessStatus.UNKNOWN,
+                0.0,
+                max_age,
+                False,
+                ua,
+                source,
                 {**meta, "method": "fallback_parse_err"},
             )
         st = self._status(age, max_age)
         return FreshnessCheckResult(
-            st, round(age, 2), max_age,
-            st == FreshnessStatus.FRESH, ua, source,
+            st,
+            round(age, 2),
+            max_age,
+            st == FreshnessStatus.FRESH,
+            ua,
+            source,
             {**meta, "method": "fallback_ts"},
         )
 
@@ -651,18 +739,10 @@ class DataFreshnessService:
         m = {
             "signal": self.config.signal_max_age_seconds,
             "context": self.config.context_max_age_seconds,
-            "rag_cache": (
-                self.config.rag_cache_max_age_seconds
-            ),
-            "embedding": (
-                self.config.embedding_max_age_seconds
-            ),
-            "kb_document": (
-                self.config.kb_document_max_age_seconds
-            ),
-            "technique_cache": (
-                self.config.rag_cache_max_age_seconds
-            ),
+            "rag_cache": (self.config.rag_cache_max_age_seconds),
+            "embedding": (self.config.embedding_max_age_seconds),
+            "kb_document": (self.config.kb_document_max_age_seconds),
+            "technique_cache": (self.config.rag_cache_max_age_seconds),
         }
         return m.get(
             entity_type,
@@ -670,17 +750,25 @@ class DataFreshnessService:
         )
 
     def _fkey(
-        self, company_id: str, et: str, eid: str,
+        self,
+        company_id: str,
+        et: str,
+        eid: str,
     ) -> str:
         """Build freshness Redis key (BC-001)."""
         from app.core.redis import make_key
+
         return make_key(company_id, "freshness", et, eid)
 
     def _dkey(
-        self, company_id: str, et: str, eid: str,
+        self,
+        company_id: str,
+        et: str,
+        eid: str,
     ) -> str:
         """Build data Redis key (BC-001)."""
         from app.core.redis import make_key
+
         return make_key(company_id, "cache", et, eid)
 
     @staticmethod
@@ -696,11 +784,7 @@ class DataFreshnessService:
         if json_val is None:
             return None
         try:
-            d = (
-                json.loads(json_val)
-                if isinstance(json_val, str)
-                else json_val
-            )
+            d = json.loads(json_val) if isinstance(json_val, str) else json_val
             if isinstance(d, dict):
                 return d.get("updated_at")
         except (json.JSONDecodeError, TypeError):
@@ -709,13 +793,14 @@ class DataFreshnessService:
 
     @staticmethod
     def _extract_et(
-        redis_key: str, company_id: str,
+        redis_key: str,
+        company_id: str,
     ) -> Optional[str]:
         """Extract entity_type from Redis key."""
         try:
             p = f"parwa:{company_id}:freshness:"
             if redis_key.startswith(p):
-                return redis_key[len(p):].split(":")[0]
+                return redis_key[len(p) :].split(":")[0]
         except (IndexError, AttributeError):
             pass
         return None

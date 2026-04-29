@@ -24,12 +24,12 @@ class RuleMigrationService:
     """Manages migration from static to dynamic AI rules."""
 
     # Migration modes
-    MODE_STATIC = "static"        # All hardcoded rules
+    MODE_STATIC = "static"  # All hardcoded rules
     # AI rules evaluated but not applied (shadow mode)
     MODE_SHADOW = "shadow"
-    MODE_CANARY = "canary"        # AI rules applied for X% of requests
-    MODE_GRADUAL = "gradual"      # Percentage increases over time
-    MODE_ACTIVE = "active"        # AI rules fully active
+    MODE_CANARY = "canary"  # AI rules applied for X% of requests
+    MODE_GRADUAL = "gradual"  # Percentage increases over time
+    MODE_ACTIVE = "active"  # AI rules fully active
 
     def __init__(self, db, company_id: str):
         self.db = db
@@ -64,12 +64,16 @@ class RuleMigrationService:
         - Active: Full AI routing
         """
         valid_modes = [
-            self.MODE_STATIC, self.MODE_SHADOW, self.MODE_CANARY,
-            self.MODE_GRADUAL, self.MODE_ACTIVE,
+            self.MODE_STATIC,
+            self.MODE_SHADOW,
+            self.MODE_CANARY,
+            self.MODE_GRADUAL,
+            self.MODE_ACTIVE,
         ]
         if mode not in valid_modes:
             raise ValidationError(
-                f"Invalid migration mode: {mode}. Must be one of: {valid_modes}")
+                f"Invalid migration mode: {mode}. Must be one of: {valid_modes}"
+            )
         if not 0 <= percentage <= 100:
             raise ValidationError("Percentage must be between 0 and 100")
 
@@ -123,7 +127,9 @@ class RuleMigrationService:
 
         return {
             "static_rules": {
-                "activated": [a.technique_id.value for a in static_result.activated_techniques],
+                "activated": [
+                    a.technique_id.value for a in static_result.activated_techniques
+                ],
                 "total_tokens": static_result.total_estimated_tokens,
             },
             "ai_rules": {

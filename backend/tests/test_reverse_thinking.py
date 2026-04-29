@@ -31,7 +31,6 @@ from app.core.techniques.reverse_thinking import (
     _DEFAULT_CATEGORY,
 )
 
-
 # ── Fixtures ────────────────────────────────────────────────────────
 
 
@@ -274,6 +273,7 @@ class TestReverseThinkingNode:
 
     def test_tier_2(self, node):
         from app.core.technique_router import TechniqueTier
+
         assert node.technique_info.tier == TechniqueTier.TIER_2
 
     def test_node_with_custom_config(self):
@@ -524,7 +524,8 @@ class TestGenerateWrongHypotheses:
     @pytest.mark.asyncio
     async def test_explicit_category(self, processor):
         result = await processor.generate_wrong_hypotheses(
-            "something", category=ProblemCategory.BILLING,
+            "something",
+            category=ProblemCategory.BILLING,
         )
         assert len(result) > 0
 
@@ -550,11 +551,13 @@ class TestAnalyzeErrors:
 
     @pytest.mark.asyncio
     async def test_single_hypothesis(self, processor):
-        hypotheses = [InversionHypothesis(
-            hypothesis_text="Wrong answer",
-            error_type="factual_incorrect",
-            inversion_result="Correct answer",
-        )]
+        hypotheses = [
+            InversionHypothesis(
+                hypothesis_text="Wrong answer",
+                error_type="factual_incorrect",
+                inversion_result="Correct answer",
+            )
+        ]
         result = await processor.analyze_errors(hypotheses)
         assert "factual_incorrect" in result
         assert "1" in result  # 1 error pattern
@@ -582,11 +585,13 @@ class TestAnalyzeErrors:
     async def test_duplicate_error_types(self, processor):
         hypotheses = [
             InversionHypothesis(
-                hypothesis_text="W1", error_type="factual_incorrect",
+                hypothesis_text="W1",
+                error_type="factual_incorrect",
                 inversion_result="C1",
             ),
             InversionHypothesis(
-                hypothesis_text="W2", error_type="factual_incorrect",
+                hypothesis_text="W2",
+                error_type="factual_incorrect",
                 inversion_result="C2",
             ),
         ]
@@ -619,11 +624,13 @@ class TestInvertToCorrectAnswer:
 
     @pytest.mark.asyncio
     async def test_single_hypothesis(self, processor):
-        hypotheses = [InversionHypothesis(
-            hypothesis_text="Wrong",
-            error_type="e",
-            inversion_result="This is the correct answer with verification.",
-        )]
+        hypotheses = [
+            InversionHypothesis(
+                hypothesis_text="Wrong",
+                error_type="e",
+                inversion_result="This is the correct answer with verification.",
+            )
+        ]
         result = await processor.invert_to_correct_answer(hypotheses)
         assert "correct answer" in result
 
@@ -649,11 +656,13 @@ class TestInvertToCorrectAnswer:
     async def test_empty_inversion_result_skipped(self, processor):
         hypotheses = [
             InversionHypothesis(
-                hypothesis_text="W1", error_type="e1",
+                hypothesis_text="W1",
+                error_type="e1",
                 inversion_result="",
             ),
             InversionHypothesis(
-                hypothesis_text="W2", error_type="e2",
+                hypothesis_text="W2",
+                error_type="e2",
                 inversion_result="Valid answer.",
             ),
         ]
@@ -805,64 +814,73 @@ class TestCategorizeQuery:
     """Tests for the _categorize_query() utility method."""
 
     def test_billing_category(self):
-        assert ReverseThinkingProcessor._categorize_query(
-            "I have a billing question"
-        ) == ProblemCategory.BILLING
+        assert (
+            ReverseThinkingProcessor._categorize_query("I have a billing question")
+            == ProblemCategory.BILLING
+        )
 
     def test_refund_category(self):
-        assert ReverseThinkingProcessor._categorize_query(
-            "I want a refund"
-        ) == ProblemCategory.REFUND
+        assert (
+            ReverseThinkingProcessor._categorize_query("I want a refund")
+            == ProblemCategory.REFUND
+        )
 
     def test_subscription_category(self):
-        assert ReverseThinkingProcessor._categorize_query(
-            "Cancel my subscription plan"
-        ) == ProblemCategory.SUBSCRIPTION
+        assert (
+            ReverseThinkingProcessor._categorize_query("Cancel my subscription plan")
+            == ProblemCategory.SUBSCRIPTION
+        )
 
     def test_technical_category(self):
-        assert ReverseThinkingProcessor._categorize_query(
-            "The app is broken and crashes"
-        ) == ProblemCategory.TECHNICAL
+        assert (
+            ReverseThinkingProcessor._categorize_query("The app is broken and crashes")
+            == ProblemCategory.TECHNICAL
+        )
 
     def test_account_category(self):
-        assert ReverseThinkingProcessor._categorize_query(
-            "Change my account email"
-        ) == ProblemCategory.ACCOUNT
+        assert (
+            ReverseThinkingProcessor._categorize_query("Change my account email")
+            == ProblemCategory.ACCOUNT
+        )
 
     def test_general_category(self):
-        assert ReverseThinkingProcessor._categorize_query(
-            "Hello how are you"
-        ) == ProblemCategory.GENERAL
+        assert (
+            ReverseThinkingProcessor._categorize_query("Hello how are you")
+            == ProblemCategory.GENERAL
+        )
 
     def test_case_insensitive(self):
-        assert ReverseThinkingProcessor._categorize_query(
-            "BILLING INVOICE"
-        ) == ProblemCategory.BILLING
+        assert (
+            ReverseThinkingProcessor._categorize_query("BILLING INVOICE")
+            == ProblemCategory.BILLING
+        )
 
     def test_empty_query(self):
-        assert ReverseThinkingProcessor._categorize_query(
-            ""
-        ) == ProblemCategory.GENERAL
+        assert ReverseThinkingProcessor._categorize_query("") == ProblemCategory.GENERAL
 
     def test_billing_match_with_charge(self):
-        assert ReverseThinkingProcessor._categorize_query(
-            "I see a charge on my statement"
-        ) == ProblemCategory.BILLING
+        assert (
+            ReverseThinkingProcessor._categorize_query("I see a charge on my statement")
+            == ProblemCategory.BILLING
+        )
 
     def test_refund_match_with_money_back(self):
-        assert ReverseThinkingProcessor._categorize_query(
-            "Give me my money back"
-        ) == ProblemCategory.REFUND
+        assert (
+            ReverseThinkingProcessor._categorize_query("Give me my money back")
+            == ProblemCategory.REFUND
+        )
 
     def test_technical_match_with_bug(self):
-        assert ReverseThinkingProcessor._categorize_query(
-            "There is a bug in the system"
-        ) == ProblemCategory.TECHNICAL
+        assert (
+            ReverseThinkingProcessor._categorize_query("There is a bug in the system")
+            == ProblemCategory.TECHNICAL
+        )
 
     def test_subscription_match_with_upgrade(self):
-        assert ReverseThinkingProcessor._categorize_query(
-            "I want to upgrade my plan"
-        ) == ProblemCategory.SUBSCRIPTION
+        assert (
+            ReverseThinkingProcessor._categorize_query("I want to upgrade my plan")
+            == ProblemCategory.SUBSCRIPTION
+        )
 
 
 # ── Key Term Extraction Tests ────────────────────────────────────────
@@ -932,20 +950,23 @@ class TestScoreInversion:
     def test_longer_answer_scores_higher(self):
         short = "Hello."
         long = "Let me verify your account details and review the transaction history to confirm the billing discrepancy."
-        assert ReverseThinkingProcessor._score_inversion(long) > \
-            ReverseThinkingProcessor._score_inversion(short)
+        assert ReverseThinkingProcessor._score_inversion(
+            long
+        ) > ReverseThinkingProcessor._score_inversion(short)
 
     def test_action_words_boost(self):
         plain = "Your issue will be addressed."
         with_actions = "Let me verify and review your account to confirm the details."
-        assert ReverseThinkingProcessor._score_inversion(with_actions) > \
-            ReverseThinkingProcessor._score_inversion(plain)
+        assert ReverseThinkingProcessor._score_inversion(
+            with_actions
+        ) > ReverseThinkingProcessor._score_inversion(plain)
 
     def test_negative_absolutes_penalty(self):
         good = "I can check that for you."
         bad = "This can never be fixed and is always impossible."
-        assert ReverseThinkingProcessor._score_inversion(good) > \
-            ReverseThinkingProcessor._score_inversion(bad)
+        assert ReverseThinkingProcessor._score_inversion(
+            good
+        ) > ReverseThinkingProcessor._score_inversion(bad)
 
     def test_score_non_negative(self):
         score = ReverseThinkingProcessor._score_inversion(
@@ -974,8 +995,7 @@ class TestNodeExecute:
         assert "result" in record
 
     @pytest.mark.asyncio
-    async def test_execute_increases_confidence(
-            self, node, low_confidence_state):
+    async def test_execute_increases_confidence(self, node, low_confidence_state):
         original_confidence = low_confidence_state.signals.confidence_score
         result = await node.execute(low_confidence_state)
         assert result.signals.confidence_score >= original_confidence
@@ -1014,10 +1034,12 @@ class TestCompanyIsolation:
 
     def test_two_companies_independent(self):
         config1 = ReverseThinkingConfig(
-            company_id="A", max_inversions=1,
+            company_id="A",
+            max_inversions=1,
         )
         config2 = ReverseThinkingConfig(
-            company_id="B", max_inversions=3,
+            company_id="B",
+            max_inversions=3,
         )
         p1 = ReverseThinkingProcessor(config=config1)
         p2 = ReverseThinkingProcessor(config=config2)
@@ -1043,10 +1065,12 @@ class TestErrorFallback:
 
     @pytest.mark.asyncio
     async def test_execute_returns_original_on_exception(
-            self, node, low_confidence_state):
+        self, node, low_confidence_state
+    ):
         """Force an exception inside execute() and verify original state returned."""
         with patch.object(
-            node._processor, 'process',
+            node._processor,
+            "process",
             side_effect=RuntimeError("boom"),
         ):
             result = await node.execute(low_confidence_state)
@@ -1056,7 +1080,8 @@ class TestErrorFallback:
     async def test_process_returns_fallback_on_internal_error(self, processor):
         """Force an exception inside process() pipeline."""
         with patch.object(
-            processor, 'formulate_problem_statement',
+            processor,
+            "formulate_problem_statement",
             side_effect=RuntimeError("pipeline error"),
         ):
             result = await processor.process("billing question")
@@ -1066,7 +1091,8 @@ class TestErrorFallback:
     async def test_processor_error_logs_warning(self, processor):
         """Error should be logged as warning, not crash."""
         with patch.object(
-            processor, 'formulate_problem_statement',
+            processor,
+            "formulate_problem_statement",
             side_effect=ValueError("error"),
         ):
             result = await processor.process("test query")
@@ -1076,7 +1102,8 @@ class TestErrorFallback:
     async def test_empty_confidence_on_error(self, processor):
         """Confidence boost should be 0 on error."""
         with patch.object(
-            processor, 'generate_wrong_hypotheses',
+            processor,
+            "generate_wrong_hypotheses",
             side_effect=Exception("fail"),
         ):
             result = await processor.process("test query")
@@ -1172,8 +1199,9 @@ class TestTemplatesAndConstants:
 
     def test_all_categories_have_templates(self):
         for category in ProblemCategory:
-            assert category in _WRONG_ANSWER_TEMPLATES, \
-                f"Missing templates for {category}"
+            assert (
+                category in _WRONG_ANSWER_TEMPLATES
+            ), f"Missing templates for {category}"
 
     def test_billing_templates_count(self):
         assert len(_WRONG_ANSWER_TEMPLATES[ProblemCategory.BILLING]) >= 3
@@ -1192,8 +1220,12 @@ class TestTemplatesAndConstants:
 
     def test_error_types_complete(self):
         expected = {
-            "factual_incorrect", "policy_violation", "logical_fallacy",
-            "incomplete_info", "misinterpretation", "wrong_scope",
+            "factual_incorrect",
+            "policy_violation",
+            "logical_fallacy",
+            "incomplete_info",
+            "misinterpretation",
+            "wrong_scope",
         }
         actual = {et.value for et in ErrorType}
         assert expected == actual
@@ -1202,16 +1234,15 @@ class TestTemplatesAndConstants:
         """All templates must have hypothesis, error_type, error_reason, inversion."""
         for category, templates in _WRONG_ANSWER_TEMPLATES.items():
             for template in templates:
-                assert "hypothesis" in template, \
-                    f"Missing 'hypothesis' in {category}"
-                assert "error_type" in template, \
-                    f"Missing 'error_type' in {category}"
-                assert "error_reason" in template, \
-                    f"Missing 'error_reason' in {category}"
-                assert "inversion" in template, \
-                    f"Missing 'inversion' in {category}"
-                assert isinstance(template["error_type"], ErrorType), \
-                    f"error_type should be ErrorType in {category}"
+                assert "hypothesis" in template, f"Missing 'hypothesis' in {category}"
+                assert "error_type" in template, f"Missing 'error_type' in {category}"
+                assert (
+                    "error_reason" in template
+                ), f"Missing 'error_reason' in {category}"
+                assert "inversion" in template, f"Missing 'inversion' in {category}"
+                assert isinstance(
+                    template["error_type"], ErrorType
+                ), f"error_type should be ErrorType in {category}"
 
 
 # ── _get_error_reason Tests ──────────────────────────────────────────

@@ -41,7 +41,7 @@ class CustomFieldService:
     ]
 
     # Valid field key pattern
-    FIELD_KEY_PATTERN = re.compile(r'^[a-z][a-z0-9_]*$')
+    FIELD_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 
     def __init__(self, db: Session, company_id: str):
         self.db = db
@@ -77,14 +77,17 @@ class CustomFieldService:
             ValidationError: If validation fails or limit exceeded
         """
         # Check limit
-        current_count = self.db.query(CustomField).filter(
-            CustomField.company_id == self.company_id,
-            CustomField.is_active,
-        ).count()
+        current_count = (
+            self.db.query(CustomField)
+            .filter(
+                CustomField.company_id == self.company_id,
+                CustomField.is_active,
+            )
+            .count()
+        )
 
         if current_count >= self.MAX_FIELDS_PER_COMPANY:
-            raise ValidationError(
-                f"Maximum {
+            raise ValidationError(f"Maximum {
                     self.MAX_FIELDS_PER_COMPANY} custom fields per company")
 
         # Validate name
@@ -101,20 +104,22 @@ class CustomFieldService:
             )
 
         # Check for duplicate field_key
-        existing = self.db.query(CustomField).filter(
-            CustomField.company_id == self.company_id,
-            CustomField.field_key == field_key,
-            CustomField.is_active,
-        ).first()
+        existing = (
+            self.db.query(CustomField)
+            .filter(
+                CustomField.company_id == self.company_id,
+                CustomField.field_key == field_key,
+                CustomField.is_active,
+            )
+            .first()
+        )
 
         if existing:
-            raise ValidationError(
-                f"Field with key '{field_key}' already exists")
+            raise ValidationError(f"Field with key '{field_key}' already exists")
 
         # Validate field_type
         if field_type not in self.VALID_FIELD_TYPES:
-            raise ValidationError(
-                f"Invalid field type: {field_type}. Valid types: {
+            raise ValidationError(f"Invalid field type: {field_type}. Valid types: {
                     ', '.join(
                         self.VALID_FIELD_TYPES)}")
 
@@ -150,8 +155,7 @@ class CustomFieldService:
 
         return field
 
-    def _validate_config(self, field_type: str,
-                         config: Dict[str, Any]) -> None:
+    def _validate_config(self, field_type: str, config: Dict[str, Any]) -> None:
         """Validate field config based on type."""
         if field_type in ["dropdown", "multi_select"]:
             options = config.get("options", [])
@@ -192,10 +196,14 @@ class CustomFieldService:
         Raises:
             NotFoundError: If field not found
         """
-        field = self.db.query(CustomField).filter(
-            CustomField.id == field_id,
-            CustomField.company_id == self.company_id,
-        ).first()
+        field = (
+            self.db.query(CustomField)
+            .filter(
+                CustomField.id == field_id,
+                CustomField.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not field:
             raise NotFoundError(f"Custom field {field_id} not found")
@@ -211,11 +219,15 @@ class CustomFieldService:
         Returns:
             CustomField object or None
         """
-        return self.db.query(CustomField).filter(
-            CustomField.company_id == self.company_id,
-            CustomField.field_key == field_key,
-            CustomField.is_active,
-        ).first()
+        return (
+            self.db.query(CustomField)
+            .filter(
+                CustomField.company_id == self.company_id,
+                CustomField.field_key == field_key,
+                CustomField.is_active,
+            )
+            .first()
+        )
 
     def list_fields(
         self,
@@ -432,10 +444,15 @@ class CustomFieldService:
         Returns:
             List of CustomField objects
         """
-        fields = self.db.query(CustomField).filter(
-            CustomField.company_id == self.company_id,
-            CustomField.is_active,
-        ).order_by(CustomField.sort_order).all()
+        fields = (
+            self.db.query(CustomField)
+            .filter(
+                CustomField.company_id == self.company_id,
+                CustomField.is_active,
+            )
+            .order_by(CustomField.sort_order)
+            .all()
+        )
 
         if not category:
             return fields

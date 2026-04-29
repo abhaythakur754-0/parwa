@@ -15,7 +15,6 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List
 
-
 # HTML tag pattern for stripping
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 
@@ -95,12 +94,16 @@ class DocumentChunker:
                 start = boundary
                 continue
 
-            chunks.append({
-                "content": chunk_content.strip(),
-                "chunk_index": chunk_index,
-                "char_count": len(chunk_content.strip()),
-                "metadata": self._build_metadata(filename, chunk_index, len(chunks)),
-            })
+            chunks.append(
+                {
+                    "content": chunk_content.strip(),
+                    "chunk_index": chunk_index,
+                    "char_count": len(chunk_content.strip()),
+                    "metadata": self._build_metadata(
+                        filename, chunk_index, len(chunks)
+                    ),
+                }
+            )
 
             chunk_index += 1
             # Overlap: step back from the boundary
@@ -145,12 +148,14 @@ class DocumentChunker:
                 metadata: Dict[str, Any] = {
                     "section_header": section_header,
                 }
-                chunks.append({
-                    "content": section_text.strip(),
-                    "chunk_index": chunk_index,
-                    "char_count": len(section_text.strip()),
-                    "metadata": metadata,
-                })
+                chunks.append(
+                    {
+                        "content": section_text.strip(),
+                        "chunk_index": chunk_index,
+                        "char_count": len(section_text.strip()),
+                        "metadata": metadata,
+                    }
+                )
                 chunk_index += 1
             else:
                 # Section is too large, sub-chunk it
@@ -256,8 +261,7 @@ class DocumentChunker:
 
         # Each header section
         for i, (hdr_start, hdr_end, header_text) in enumerate(positions):
-            next_start = positions[i + 1][0] if i + \
-                1 < len(positions) else len(text)
+            next_start = positions[i + 1][0] if i + 1 < len(positions) else len(text)
             section_body = text[hdr_end:next_start]
             sections.append((header_text, section_body))
 

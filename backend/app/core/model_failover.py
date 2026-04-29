@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 class FailoverReason(str, Enum):
     """Why a provider failed and triggered failover."""
+
     RATE_LIMIT = "rate_limit"
     TIMEOUT = "timeout"
     SERVER_ERROR = "server_error"
@@ -43,6 +44,7 @@ class FailoverReason(str, Enum):
 
 class ProviderState(str, Enum):
     """Current health state of a provider+model circuit."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -55,6 +57,7 @@ class ProviderState(str, Enum):
 @dataclass
 class FailoverEvent:
     """Record of a single failover occurrence."""
+
     provider: str
     model_id: str
     reason: FailoverReason
@@ -68,6 +71,7 @@ class FailoverEvent:
 @dataclass
 class CircuitBreaker:
     """Circuit breaker state for one provider+model combination."""
+
     provider: str
     model_id: str
     state: ProviderState = ProviderState.HEALTHY
@@ -184,9 +188,7 @@ class DegradedResponseDetector:
     ]
 
     # Repetition: same short phrase repeated 3+ times
-    REPETITION_PATTERN = re.compile(
-        r"(.{5,50}?)\1{2,}", re.DOTALL | re.IGNORECASE
-    )
+    REPETITION_PATTERN = re.compile(r"(.{5,50}?)\1{2,}", re.DOTALL | re.IGNORECASE)
 
     def is_degraded(
         self, response_text: str, expected_min_length: int = 50
@@ -222,9 +224,7 @@ class DegradedResponseDetector:
 
         return False, "ok"
 
-    def check_response_quality(
-        self, response: dict
-    ) -> Tuple[bool, float, str]:
+    def check_response_quality(self, response: dict) -> Tuple[bool, float, str]:
         """
         Assess the quality of a structured response dict.
 
@@ -235,8 +235,11 @@ class DegradedResponseDetector:
             (is_good, quality_score_0_to_1, reason)
         """
         # Extract text from various response formats
-        text = response.get("content") or response.get(
-            "text") or response.get("message", "")
+        text = (
+            response.get("content")
+            or response.get("text")
+            or response.get("message", "")
+        )
 
         if isinstance(text, dict):
             text = text.get("content", "")
@@ -359,8 +362,7 @@ class FailoverManager:
         self._circuits: Dict[str, CircuitBreaker] = {}
         self._events: List[FailoverEvent] = []
         self._max_events = 10000  # Prevent unbounded memory growth
-        self._stats_per_company: Dict[str,
-                                      List[FailoverEvent]] = defaultdict(list)
+        self._stats_per_company: Dict[str, List[FailoverEvent]] = defaultdict(list)
 
         self._init_circuits()
 
@@ -415,9 +417,7 @@ class FailoverManager:
         circuit.last_success_at = now
 
         # Close circuit if half-open or degraded
-        if circuit.state in (
-                ProviderState.DEGRADED,
-                ProviderState.CIRCUIT_OPEN):
+        if circuit.state in (ProviderState.DEGRADED, ProviderState.CIRCUIT_OPEN):
             circuit.state = ProviderState.HEALTHY
             circuit.failure_count = 0
             circuit.half_open_call_count = 0
@@ -465,7 +465,7 @@ class FailoverManager:
 
         # Trim old events to prevent memory leak
         if len(self._events) > self._max_events:
-            self._events = self._events[-self._max_events // 2:]
+            self._events = self._events[-self._max_events // 2 :]
             logger.debug("Trimmed failover events to %d", len(self._events))
 
         if company_id:
@@ -493,10 +493,7 @@ class FailoverManager:
 
     # ── State Queries ────────────────────────────────────────────
 
-    def get_provider_state(
-            self,
-            provider: str,
-            model_id: str) -> ProviderState:
+    def get_provider_state(self, provider: str, model_id: str) -> ProviderState:
         """Return current circuit state, checking recovery timeouts."""
         self._check_recovery(provider, model_id)
         circuit = self._get_circuit(provider, model_id)
@@ -544,9 +541,7 @@ class FailoverManager:
             }
         return result
 
-    def get_failover_stats(
-        self, company_id: str, hours: int = 24
-    ) -> Dict[str, Any]:
+    def get_failover_stats(self, company_id: str, hours: int = 24) -> Dict[str, Any]:
         """
         Aggregate failover stats for a company over the last N hours.
 
@@ -559,8 +554,7 @@ class FailoverManager:
         recent = []
         for event in events:
             try:
-                event_time = datetime.fromisoformat(
-                    event.timestamp).timestamp()
+                event_time = datetime.fromisoformat(event.timestamp).timestamp()
                 if event_time >= cutoff:
                     recent.append(event)
             except (ValueError, TypeError):
@@ -582,9 +576,7 @@ class FailoverManager:
 
         # Convert defaultdicts
         for prov in provider_stats:
-            provider_stats[prov]["reasons"] = dict(
-                provider_stats[prov]["reasons"]
-            )
+            provider_stats[prov]["reasons"] = dict(provider_stats[prov]["reasons"])
 
         circuit_states = self.get_all_circuit_states()
 
@@ -706,9 +698,7 @@ class FailoverChainExecutor:
             # Try the provider with retries
             for attempt in range(1, max_retries + 1):
                 try:
-                    result = self._execute_single(
-                        provider, model_id, call_fn
-                    )
+                    result = self._execute_single(provider, model_id, call_fn)
                     latency_ms = result.get("latency_ms", 0)
 
                     # Check for degraded response
@@ -723,7 +713,8 @@ class FailoverChainExecutor:
                         response_text = str(response_text)
 
                     is_degraded, degradation_reason = self.detector.is_degraded(
-                        response_text)
+                        response_text
+                    )
 
                     if is_degraded:
                         logger.warning(
@@ -836,9 +827,7 @@ class FailoverChainExecutor:
         and awaits async call_fn.
         """
         if not chain:
-            logger.error(
-                "Empty async failover chain for company %s",
-                company_id)
+            logger.error("Empty async failover chain for company %s", company_id)
             return self._build_error_response([])
 
         failover_events: List[FailoverEvent] = []
@@ -878,12 +867,15 @@ class FailoverChainExecutor:
                         response_text = str(response_text)
 
                     is_degraded, degradation_reason = self.detector.is_degraded(
-                        response_text)
+                        response_text
+                    )
 
                     if is_degraded:
                         logger.warning(
                             "Async degraded response from %s:%s: %s",
-                            provider, model_id, degradation_reason,
+                            provider,
+                            model_id,
+                            degradation_reason,
                         )
                         self.manager.report_failure(
                             provider=provider,
@@ -931,7 +923,10 @@ class FailoverChainExecutor:
                     reason, http_status = self._classify_exception(exc)
                     logger.warning(
                         "Async attempt %d/%d failed for %s:%s — %s",
-                        attempt, max_retries, provider, model_id,
+                        attempt,
+                        max_retries,
+                        provider,
+                        model_id,
                         str(exc)[:100],
                     )
                     if attempt < max_retries:
@@ -988,9 +983,7 @@ class FailoverChainExecutor:
                 f"Unexpected error calling {provider}/{model_id}: {str(exc)}"
             ) from exc
 
-    def _classify_exception(
-        self, exc: Exception
-    ) -> Tuple[FailoverReason, int]:
+    def _classify_exception(self, exc: Exception) -> Tuple[FailoverReason, int]:
         """Map exception type to FailoverReason and HTTP status code."""
         msg = str(exc).lower()
 
@@ -1007,9 +1000,7 @@ class FailoverChainExecutor:
 
         return FailoverReason.UNKNOWN, 0
 
-    def _build_error_response(
-            self,
-            failover_events: List[FailoverEvent]) -> dict:
+    def _build_error_response(self, failover_events: List[FailoverEvent]) -> dict:
         """
         Build a graceful error response when ALL providers fail.
 

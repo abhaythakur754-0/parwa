@@ -14,17 +14,22 @@ class WebhookPayload(BaseModel):
 
     Used as a base for provider-specific payload extraction.
     """
+
     provider: str = Field(
-        ..., description="Webhook provider name",
+        ...,
+        description="Webhook provider name",
     )
     event_id: str = Field(
-        ..., description="Provider-specific event ID",
+        ...,
+        description="Provider-specific event ID",
     )
     event_type: str = Field(
-        ..., description="Event type (e.g. subscription.created)",
+        ...,
+        description="Event type (e.g. subscription.created)",
     )
     company_id: str = Field(
-        ..., description="Tenant company ID (BC-001)",
+        ...,
+        description="Tenant company ID (BC-001)",
     )
     payload: Optional[dict[str, Any]] = Field(
         default=None,
@@ -34,11 +39,14 @@ class WebhookPayload(BaseModel):
 
 class WebhookResponse(BaseModel):
     """Response schema for webhook endpoints (BC-012)."""
+
     status: str = Field(
-        ..., description="Processing status",
+        ...,
+        description="Processing status",
     )
     message: str = Field(
-        ..., description="Human-readable status message",
+        ...,
+        description="Human-readable status message",
     )
     event_id: Optional[str] = Field(
         default=None,

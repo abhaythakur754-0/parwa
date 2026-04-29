@@ -85,8 +85,11 @@ class ProviderRegistry:
             provider_class: The provider implementation class
             metadata: Optional metadata (display_name, description, etc.)
         """
-        type_key = provider_type.value if isinstance(
-            provider_type, ProviderType) else provider_type
+        type_key = (
+            provider_type.value
+            if isinstance(provider_type, ProviderType)
+            else provider_type
+        )
 
         if type_key not in cls._providers:
             cls._providers[type_key] = {}
@@ -99,8 +102,12 @@ class ProviderRegistry:
             "display_name": getattr(provider_class, "display_name", provider_name),
             "description": getattr(provider_class, "description", ""),
             "website": getattr(provider_class, "website", ""),
-            "capabilities": [c.value for c in getattr(provider_class, "capabilities", [])],
-            "required_config_fields": getattr(provider_class, "required_config_fields", []),
+            "capabilities": [
+                c.value for c in getattr(provider_class, "capabilities", [])
+            ],
+            "required_config_fields": getattr(
+                provider_class, "required_config_fields", []
+            ),
         }
 
         # Override with provided metadata
@@ -127,8 +134,11 @@ class ProviderRegistry:
         Raises:
             ValueError: If provider not found.
         """
-        type_key = provider_type.value if isinstance(
-            provider_type, ProviderType) else provider_type
+        type_key = (
+            provider_type.value
+            if isinstance(provider_type, ProviderType)
+            else provider_type
+        )
 
         if type_key not in cls._providers:
             raise ValueError(f"Unknown provider type: {provider_type}")
@@ -158,8 +168,11 @@ class ProviderRegistry:
         Returns:
             Dict with provider metadata.
         """
-        type_key = provider_type.value if isinstance(
-            provider_type, ProviderType) else provider_type
+        type_key = (
+            provider_type.value
+            if isinstance(provider_type, ProviderType)
+            else provider_type
+        )
         name_lower = provider_name.lower()
 
         return cls._metadata.get(type_key, {}).get(name_lower, {})
@@ -180,19 +193,24 @@ class ProviderRegistry:
         result = []
 
         if provider_type:
-            type_key = provider_type.value if isinstance(
-                provider_type, ProviderType) else provider_type
+            type_key = (
+                provider_type.value
+                if isinstance(provider_type, ProviderType)
+                else provider_type
+            )
             types_to_check = [type_key]
         else:
             types_to_check = list(cls._providers.keys())
 
         for type_key in types_to_check:
             for name, meta in cls._metadata.get(type_key, {}).items():
-                result.append({
-                    "type": type_key,
-                    "name": name,
-                    **meta,
-                })
+                result.append(
+                    {
+                        "type": type_key,
+                        "name": name,
+                        **meta,
+                    }
+                )
 
         return result
 
@@ -220,57 +238,69 @@ class ProviderRegistry:
 
 # Register email providers
 ProviderRegistry.register(
-    ProviderType.EMAIL, "brevo", BrevoEmailProvider,
+    ProviderType.EMAIL,
+    "brevo",
+    BrevoEmailProvider,
     metadata={
         "display_name": "Brevo (Sendinblue)",
         "description": "Transactional and marketing email service",
         "website": "https://www.brevo.com",
-    }
+    },
 )
 
 ProviderRegistry.register(
-    ProviderType.EMAIL, "sendgrid", SendGridEmailProvider,
+    ProviderType.EMAIL,
+    "sendgrid",
+    SendGridEmailProvider,
     metadata={
         "display_name": "SendGrid",
         "description": "Email delivery and marketing platform",
         "website": "https://sendgrid.com",
-    }
+    },
 )
 
 ProviderRegistry.register(
-    ProviderType.EMAIL, "mailgun", MailgunEmailProvider,
+    ProviderType.EMAIL,
+    "mailgun",
+    MailgunEmailProvider,
     metadata={
         "display_name": "Mailgun",
         "description": "Email API service for developers",
         "website": "https://www.mailgun.com",
-    }
+    },
 )
 
 ProviderRegistry.register(
-    ProviderType.EMAIL, "ses", SESEmailProvider,
+    ProviderType.EMAIL,
+    "ses",
+    SESEmailProvider,
     metadata={
         "display_name": "AWS SES",
         "description": "Amazon Simple Email Service",
         "website": "https://aws.amazon.com/ses/",
-    }
+    },
 )
 
 ProviderRegistry.register(
-    ProviderType.EMAIL, "postmark", PostmarkEmailProvider,
+    ProviderType.EMAIL,
+    "postmark",
+    PostmarkEmailProvider,
     metadata={
         "display_name": "Postmark",
         "description": "Fast and reliable email delivery",
         "website": "https://postmarkapp.com",
-    }
+    },
 )
 
 ProviderRegistry.register(
-    ProviderType.EMAIL, "smtp", SMTPEmailProvider,
+    ProviderType.EMAIL,
+    "smtp",
+    SMTPEmailProvider,
     metadata={
         "display_name": "Custom SMTP",
         "description": "Any SMTP server",
         "website": "",
-    }
+    },
 )
 
 
@@ -282,48 +312,58 @@ ProviderRegistry.register(
 
 # Register SMS providers
 ProviderRegistry.register(
-    ProviderType.SMS, "twilio", TwilioSMSProvider,
+    ProviderType.SMS,
+    "twilio",
+    TwilioSMSProvider,
     metadata={
         "display_name": "Twilio",
         "description": "Cloud communications platform for SMS and Voice",
         "website": "https://www.twilio.com",
-    }
+    },
 )
 
 ProviderRegistry.register(
-    ProviderType.SMS, "messagebird", MessageBirdSMSProvider,
+    ProviderType.SMS,
+    "messagebird",
+    MessageBirdSMSProvider,
     metadata={
         "display_name": "MessageBird",
         "description": "Cloud communications API platform",
         "website": "https://messagebird.com",
-    }
+    },
 )
 
 ProviderRegistry.register(
-    ProviderType.SMS, "vonage", VonageSMSProvider,
+    ProviderType.SMS,
+    "vonage",
+    VonageSMSProvider,
     metadata={
         "display_name": "Vonage (Nexmo)",
         "description": "Cloud communications and messaging API",
         "website": "https://www.vonage.com",
-    }
+    },
 )
 
 ProviderRegistry.register(
-    ProviderType.SMS, "plivo", PlivoSMSProvider,
+    ProviderType.SMS,
+    "plivo",
+    PlivoSMSProvider,
     metadata={
         "display_name": "Plivo",
         "description": "Cloud communication platform",
         "website": "https://www.plivo.com",
-    }
+    },
 )
 
 ProviderRegistry.register(
-    ProviderType.SMS, "sinch", SinchSMSProvider,
+    ProviderType.SMS,
+    "sinch",
+    SinchSMSProvider,
     metadata={
         "display_name": "Sinch",
         "description": "Cloud communications for messaging and voice",
         "website": "https://www.sinch.com",
-    }
+    },
 )
 
 
@@ -333,21 +373,25 @@ ProviderRegistry.register(
 
 
 ProviderRegistry.register(
-    ProviderType.VOICE, "twilio", TwilioVoiceProvider,
+    ProviderType.VOICE,
+    "twilio",
+    TwilioVoiceProvider,
     metadata={
         "display_name": "Twilio Voice",
         "description": "Programmable voice API",
         "website": "https://www.twilio.com/voice",
-    }
+    },
 )
 
 ProviderRegistry.register(
-    ProviderType.VOICE, "vonage", VonageVoiceProvider,
+    ProviderType.VOICE,
+    "vonage",
+    VonageVoiceProvider,
     metadata={
         "display_name": "Vonage Voice",
         "description": "Voice API for calls and more",
         "website": "https://www.vonage.com/voice/",
-    }
+    },
 )
 
 
@@ -357,28 +401,34 @@ ProviderRegistry.register(
 
 
 ProviderRegistry.register(
-    ProviderType.CHAT, "slack", SlackChatProvider,
+    ProviderType.CHAT,
+    "slack",
+    SlackChatProvider,
     metadata={
         "display_name": "Slack",
         "description": "Business communication platform",
         "website": "https://slack.com",
-    }
+    },
 )
 
 ProviderRegistry.register(
-    ProviderType.CHAT, "discord", DiscordChatProvider,
+    ProviderType.CHAT,
+    "discord",
+    DiscordChatProvider,
     metadata={
         "display_name": "Discord",
         "description": "Chat and community platform",
         "website": "https://discord.com",
-    }
+    },
 )
 
 ProviderRegistry.register(
-    ProviderType.CHAT, "teams", TeamsChatProvider,
+    ProviderType.CHAT,
+    "teams",
+    TeamsChatProvider,
     metadata={
         "display_name": "Microsoft Teams",
         "description": "Microsoft collaboration platform",
         "website": "https://teams.microsoft.com",
-    }
+    },
 )

@@ -53,7 +53,11 @@ VALID_REVIEW_ACTIONS = {"approved", "rejected", "needs_revision"}
 
 # Valid training statuses for filtering
 VALID_STATUSES = {
-    "queued_for_review", "approved", "rejected", "in_dataset", "archived",
+    "queued_for_review",
+    "approved",
+    "rejected",
+    "in_dataset",
+    "archived",
 }
 
 # PII patterns for inline redaction (lightweight, BC-010)
@@ -100,8 +104,7 @@ def _redact_dict(data: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
             redacted[key] = _redact_dict(value)
         elif isinstance(value, list):
             redacted[key] = [
-                _redact_pii(item) if isinstance(item, str) else item
-                for item in value
+                _redact_pii(item) if isinstance(item, str) else item for item in value
             ]
         else:
             redacted[key] = value
@@ -148,10 +151,14 @@ def create_training_point(
         from app.models.system_health import ErrorLog, TrainingDataPoint
 
         # 1. Fetch the source error
-        error = db.query(ErrorLog).filter(
-            ErrorLog.id == error_id,
-            ErrorLog.company_id == company_id,
-        ).first()
+        error = (
+            db.query(ErrorLog)
+            .filter(
+                ErrorLog.id == error_id,
+                ErrorLog.company_id == company_id,
+            )
+            .first()
+        )
 
         if not error:
             return {
@@ -160,46 +167,55 @@ def create_training_point(
             }
 
         # 2. Deduplication check
-        existing = db.query(TrainingDataPoint).filter(
-            TrainingDataPoint.company_id == company_id,
-            TrainingDataPoint.error_id == error_id,
-            TrainingDataPoint.ticket_id == ticket_id,
-        ).first()
+        existing = (
+            db.query(TrainingDataPoint)
+            .filter(
+                TrainingDataPoint.company_id == company_id,
+                TrainingDataPoint.error_id == error_id,
+                TrainingDataPoint.ticket_id == ticket_id,
+            )
+            .first()
+        )
 
         if existing:
             return {
                 "message": "Training point already exists for this error+ticket combination",
-                "training_point_id": str(
-                    existing.id),
+                "training_point_id": str(existing.id),
                 "status": existing.status,
                 "error_id": error_id,
                 "ticket_id": ticket_id,
             }
 
         # 3. Auto-extract context from error
-        input_context = json.dumps({
-            "error_type": error.error_type,
-            "error_message": error.message,
-            "subsystem": error.subsystem,
-            "severity": error.severity,
-            "affected_ticket_id": error.affected_ticket_id,
-            "affected_agent_id": error.affected_agent_id,
-        })
+        input_context = json.dumps(
+            {
+                "error_type": error.error_type,
+                "error_message": error.message,
+                "subsystem": error.subsystem,
+                "severity": error.severity,
+                "affected_ticket_id": error.affected_ticket_id,
+                "affected_agent_id": error.affected_agent_id,
+            }
+        )
 
         # Get AI response if this error was ticket-related
         ai_response = None
         if error.affected_ticket_id:
             ai_response = _extract_ai_response(
-                company_id, error.affected_ticket_id, db,
+                company_id,
+                error.affected_ticket_id,
+                db,
             )
 
         # 4. PII-redact all text fields (BC-010)
         safe_input_context = _redact_pii(input_context)
         safe_ai_response = _redact_pii(ai_response) if ai_response else None
-        safe_expected_response = _redact_pii(
-            expected_response) if expected_response else None
-        safe_correction_notes = _redact_pii(
-            correction_notes) if correction_notes else None
+        safe_expected_response = (
+            _redact_pii(expected_response) if expected_response else None
+        )
+        safe_correction_notes = (
+            _redact_pii(correction_notes) if correction_notes else None
+        )
 
         # 5. Determine intent label from error type
         intent_label = _infer_intent_label(error.error_type, error.message)
@@ -241,7 +257,8 @@ def create_training_point(
             "created_by": created_by,
             "created_at": (
                 training_point.created_at.isoformat()
-                if training_point.created_at else None
+                if training_point.created_at
+                else None
             ),
             "pii_redacted": True,
         }
@@ -296,8 +313,7 @@ def get_training_points(
 
         effective_limit = min(max(limit, 1), MAX_LIMIT)
         points = (
-            query
-            .order_by(TrainingDataPoint.created_at.desc())
+            query.order_by(TrainingDataPoint.created_at.desc())
             .offset(offset)
             .limit(effective_limit)
             .all()
@@ -381,10 +397,14 @@ def review_training_point(
     try:
         from app.models.system_health import TrainingDataPoint
 
-        tp = db.query(TrainingDataPoint).filter(
-            TrainingDataPoint.id == training_point_id,
-            TrainingDataPoint.company_id == company_id,
-        ).first()
+        tp = (
+            db.query(TrainingDataPoint)
+            .filter(
+                TrainingDataPoint.id == training_point_id,
+                TrainingDataPoint.company_id == company_id,
+            )
+            .first()
+        )
 
         if not tp:
             return {
@@ -417,7 +437,9 @@ def review_training_point(
             safe_notes = _redact_pii(review_notes)
             existing_notes = tp.correction_notes or ""
             separator = "\n---\n" if existing_notes else ""
-            tp.correction_notes = f"{existing_notes}{separator}[REVIEW by {reviewer_id}]: {safe_notes}"
+            tp.correction_notes = (
+                f"{existing_notes}{separator}[REVIEW by {reviewer_id}]: {safe_notes}"
+            )
 
         db.flush()
 
@@ -438,9 +460,7 @@ def review_training_point(
             "new_status": tp.status,
             "action": action,
             "reviewed_by": reviewer_id,
-            "reviewed_at": (
-                tp.reviewed_at.isoformat() if tp.reviewed_at else None
-            ),
+            "reviewed_at": (tp.reviewed_at.isoformat() if tp.reviewed_at else None),
         }
 
     except Exception as exc:
@@ -477,49 +497,76 @@ def get_training_stats(
         from sqlalchemy import func
 
         # Total count
-        total = db.query(func.count(TrainingDataPoint.id)).filter(
-            TrainingDataPoint.company_id == company_id,
-        ).scalar() or 0
+        total = (
+            db.query(func.count(TrainingDataPoint.id))
+            .filter(
+                TrainingDataPoint.company_id == company_id,
+            )
+            .scalar()
+            or 0
+        )
 
         # By status
-        status_counts = db.query(
-            TrainingDataPoint.status, func.count(TrainingDataPoint.id),
-        ).filter(
-            TrainingDataPoint.company_id == company_id,
-        ).group_by(TrainingDataPoint.status).all()
+        status_counts = (
+            db.query(
+                TrainingDataPoint.status,
+                func.count(TrainingDataPoint.id),
+            )
+            .filter(
+                TrainingDataPoint.company_id == company_id,
+            )
+            .group_by(TrainingDataPoint.status)
+            .all()
+        )
 
         by_status = {row[0]: row[1] for row in status_counts}
 
         # By source
-        source_counts = db.query(
-            TrainingDataPoint.source, func.count(TrainingDataPoint.id),
-        ).filter(
-            TrainingDataPoint.company_id == company_id,
-        ).group_by(TrainingDataPoint.source).all()
+        source_counts = (
+            db.query(
+                TrainingDataPoint.source,
+                func.count(TrainingDataPoint.id),
+            )
+            .filter(
+                TrainingDataPoint.company_id == company_id,
+            )
+            .group_by(TrainingDataPoint.source)
+            .all()
+        )
 
         by_source = {row[0]: row[1] for row in source_counts}
 
         # By intent label (top 10)
-        intent_counts = db.query(
-            TrainingDataPoint.intent_label, func.count(TrainingDataPoint.id),
-        ).filter(
-            TrainingDataPoint.company_id == company_id,
-            TrainingDataPoint.intent_label.isnot(None),
-        ).group_by(TrainingDataPoint.intent_label).order_by(
-            func.count(TrainingDataPoint.id).desc(),
-        ).limit(10).all()
+        intent_counts = (
+            db.query(
+                TrainingDataPoint.intent_label,
+                func.count(TrainingDataPoint.id),
+            )
+            .filter(
+                TrainingDataPoint.company_id == company_id,
+                TrainingDataPoint.intent_label.isnot(None),
+            )
+            .group_by(TrainingDataPoint.intent_label)
+            .order_by(
+                func.count(TrainingDataPoint.id).desc(),
+            )
+            .limit(10)
+            .all()
+        )
 
-        by_intent = [
-            {"intent": row[0], "count": row[1]}
-            for row in intent_counts
-        ]
+        by_intent = [{"intent": row[0], "count": row[1]} for row in intent_counts]
 
         # Recently reviewed (last 24 hours)
         since = datetime.now(timezone.utc) - timedelta(hours=24)
-        recent_reviews = db.query(func.count(TrainingDataPoint.id)).filter(
-            TrainingDataPoint.company_id == company_id,
-            TrainingDataPoint.reviewed_at >= since,
-        ).scalar() or 0
+        recent_reviews = (
+            db.query(func.count(TrainingDataPoint.id))
+            .filter(
+                TrainingDataPoint.company_id == company_id,
+                TrainingDataPoint.reviewed_at >= since,
+            )
+            .scalar()
+            or 0
+        )
 
         # Ready for dataset (approved)
         ready_for_dataset = by_status.get("approved", 0)
@@ -567,11 +614,16 @@ def _extract_ai_response(
         from database.models.tickets import TicketMessage
 
         # Check if TicketMessage model exists
-        msg = db.query(TicketMessage).filter(
-            TicketMessage.ticket_id == ticket_id,
-            TicketMessage.company_id == company_id,
-            TicketMessage.sender_type == "ai",
-        ).order_by(TicketMessage.created_at.desc()).first()
+        msg = (
+            db.query(TicketMessage)
+            .filter(
+                TicketMessage.ticket_id == ticket_id,
+                TicketMessage.company_id == company_id,
+                TicketMessage.sender_type == "ai",
+            )
+            .order_by(TicketMessage.created_at.desc())
+            .first()
+        )
 
         if msg:
             return getattr(msg, "content", None) or getattr(msg, "body", None)
@@ -598,22 +650,11 @@ def _infer_intent_label(error_type: str, message: str) -> str:
         return "classification_error"
 
     # Response generation errors
-    if any(
-        kw in text for kw in (
-            "generation",
-            "response",
-            "ai_response",
-            "llm")):
+    if any(kw in text for kw in ("generation", "response", "ai_response", "llm")):
         return "response_generation_error"
 
     # Integration errors
-    if any(
-        kw in text for kw in (
-            "integration",
-            "webhook",
-            "api",
-            "paddle",
-            "brevo")):
+    if any(kw in text for kw in ("integration", "webhook", "api", "paddle", "brevo")):
         return "integration_error"
 
     # Auth errors
@@ -621,13 +662,7 @@ def _infer_intent_label(error_type: str, message: str) -> str:
         return "authentication_error"
 
     # Database errors
-    if any(
-        kw in text for kw in (
-            "database",
-            "db",
-            "sql",
-            "query",
-            "postgres")):
+    if any(kw in text for kw in ("database", "db", "sql", "query", "postgres")):
         return "database_error"
 
     # Timeout errors

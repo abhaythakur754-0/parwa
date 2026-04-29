@@ -150,10 +150,14 @@ class InstructionWorkflowService:
         merged = {**DEFAULT_INSTRUCTIONS, **instructions}
 
         # Calculate version number based on existing sets for this agent
-        existing_count = db.query(InstructionSet).filter(
-            InstructionSet.company_id == self.company_id,
-            InstructionSet.agent_id == agent_id,
-        ).count()
+        existing_count = (
+            db.query(InstructionSet)
+            .filter(
+                InstructionSet.company_id == self.company_id,
+                InstructionSet.agent_id == agent_id,
+            )
+            .count()
+        )
 
         instruction_set = InstructionSet(
             company_id=self.company_id,
@@ -212,9 +216,14 @@ class InstructionWorkflowService:
             query = query.filter(InstructionSet.status == status_filter)
 
         total = query.count()
-        sets = query.order_by(
-            InstructionSet.created_at.desc(),
-        ).offset(offset).limit(limit).all()
+        sets = (
+            query.order_by(
+                InstructionSet.created_at.desc(),
+            )
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
 
         return {
             "sets": [self._serialize_instruction_set(s) for s in sets],
@@ -239,13 +248,18 @@ class InstructionWorkflowService:
         """
         from database.models.agent import InstructionSet
 
-        instruction_set = db.query(InstructionSet).filter(
-            InstructionSet.id == set_id,
-            InstructionSet.company_id == self.company_id,
-        ).first()
+        instruction_set = (
+            db.query(InstructionSet)
+            .filter(
+                InstructionSet.id == set_id,
+                InstructionSet.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not instruction_set:
             from app.exceptions import NotFoundError
+
             raise NotFoundError(
                 message="Instruction set not found",
                 details={"set_id": set_id},
@@ -275,13 +289,18 @@ class InstructionWorkflowService:
         """
         from database.models.agent import InstructionSet
 
-        instruction_set = db.query(InstructionSet).filter(
-            InstructionSet.id == set_id,
-            InstructionSet.company_id == self.company_id,
-        ).first()
+        instruction_set = (
+            db.query(InstructionSet)
+            .filter(
+                InstructionSet.id == set_id,
+                InstructionSet.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not instruction_set:
             from app.exceptions import NotFoundError
+
             raise NotFoundError(
                 message="Instruction set not found",
                 details={"set_id": set_id},
@@ -289,6 +308,7 @@ class InstructionWorkflowService:
 
         if instruction_set.status != "draft":
             from app.exceptions import ValidationError
+
             raise ValidationError(
                 message="Only draft instruction sets can be updated",
                 details={
@@ -343,16 +363,22 @@ class InstructionWorkflowService:
             Publish result with version info.
         """
         from database.models.agent import (
-            InstructionSet, InstructionVersion,
+            InstructionSet,
+            InstructionVersion,
         )
 
-        instruction_set = db.query(InstructionSet).filter(
-            InstructionSet.id == set_id,
-            InstructionSet.company_id == self.company_id,
-        ).first()
+        instruction_set = (
+            db.query(InstructionSet)
+            .filter(
+                InstructionSet.id == set_id,
+                InstructionSet.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not instruction_set:
             from app.exceptions import NotFoundError
+
             raise NotFoundError(
                 message="Instruction set not found",
                 details={"set_id": set_id},
@@ -427,13 +453,18 @@ class InstructionWorkflowService:
         """
         from database.models.agent import InstructionSet
 
-        instruction_set = db.query(InstructionSet).filter(
-            InstructionSet.id == set_id,
-            InstructionSet.company_id == self.company_id,
-        ).first()
+        instruction_set = (
+            db.query(InstructionSet)
+            .filter(
+                InstructionSet.id == set_id,
+                InstructionSet.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not instruction_set:
             from app.exceptions import NotFoundError
+
             raise NotFoundError(
                 message="Instruction set not found",
                 details={"set_id": set_id},
@@ -470,30 +501,39 @@ class InstructionWorkflowService:
             Version history with all snapshots.
         """
         from database.models.agent import (
-            InstructionSet, InstructionVersion,
+            InstructionSet,
+            InstructionVersion,
         )
 
-        instruction_set = db.query(InstructionSet).filter(
-            InstructionSet.id == set_id,
-            InstructionSet.company_id == self.company_id,
-        ).first()
+        instruction_set = (
+            db.query(InstructionSet)
+            .filter(
+                InstructionSet.id == set_id,
+                InstructionSet.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not instruction_set:
             from app.exceptions import NotFoundError
+
             raise NotFoundError(
                 message="Instruction set not found",
                 details={"set_id": set_id},
             )
 
-        versions = db.query(InstructionVersion).filter(
-            InstructionVersion.set_id == set_id,
-        ).order_by(InstructionVersion.version.desc()).all()
+        versions = (
+            db.query(InstructionVersion)
+            .filter(
+                InstructionVersion.set_id == set_id,
+            )
+            .order_by(InstructionVersion.version.desc())
+            .all()
+        )
 
         return {
             "set_id": set_id,
-            "versions": [
-                self._serialize_version(v) for v in versions
-            ],
+            "versions": [self._serialize_version(v) for v in versions],
             "total": len(versions),
         }
 
@@ -518,17 +558,23 @@ class InstructionWorkflowService:
         from database.models.agent import InstructionVersion
 
         # Find the target version
-        target = db.query(InstructionVersion).filter(
-            InstructionVersion.set_id == set_id,
-            InstructionVersion.company_id == self.company_id,
-            InstructionVersion.version == version,
-        ).first()
+        target = (
+            db.query(InstructionVersion)
+            .filter(
+                InstructionVersion.set_id == set_id,
+                InstructionVersion.company_id == self.company_id,
+                InstructionVersion.version == version,
+            )
+            .first()
+        )
 
         if not target:
             from app.exceptions import NotFoundError
+
             raise NotFoundError(
-                message=f"Version {version} not found for this instruction set", details={
-                    "set_id": set_id, "target_version": version}, )
+                message=f"Version {version} not found for this instruction set",
+                details={"set_id": set_id, "target_version": version},
+            )
 
         # Restore the instructions from the target version
         update_result = self.update_instruction_set(
@@ -601,25 +647,35 @@ class InstructionWorkflowService:
         from database.models.agent import InstructionABTest, InstructionSet
 
         # Validate sets exist and belong to the same agent
-        set_a = db.query(InstructionSet).filter(
-            InstructionSet.id == set_a_id,
-            InstructionSet.company_id == self.company_id,
-            InstructionSet.agent_id == agent_id,
-        ).first()
+        set_a = (
+            db.query(InstructionSet)
+            .filter(
+                InstructionSet.id == set_a_id,
+                InstructionSet.company_id == self.company_id,
+                InstructionSet.agent_id == agent_id,
+            )
+            .first()
+        )
         if not set_a:
             from app.exceptions import NotFoundError
+
             raise NotFoundError(
                 message="Instruction set A not found",
                 details={"set_a_id": set_a_id},
             )
 
-        set_b = db.query(InstructionSet).filter(
-            InstructionSet.id == set_b_id,
-            InstructionSet.company_id == self.company_id,
-            InstructionSet.agent_id == agent_id,
-        ).first()
+        set_b = (
+            db.query(InstructionSet)
+            .filter(
+                InstructionSet.id == set_b_id,
+                InstructionSet.company_id == self.company_id,
+                InstructionSet.agent_id == agent_id,
+            )
+            .first()
+        )
         if not set_b:
             from app.exceptions import NotFoundError
+
             raise NotFoundError(
                 message="Instruction set B not found",
                 details={"set_b_id": set_b_id},
@@ -627,19 +683,25 @@ class InstructionWorkflowService:
 
         if set_a_id == set_b_id:
             from app.exceptions import ValidationError
+
             raise ValidationError(
                 message="Set A and Set B must be different instruction sets",
                 details={"set_a_id": set_a_id, "set_b_id": set_b_id},
             )
 
         # Check for existing active test on this agent
-        existing_test = db.query(InstructionABTest).filter(
-            InstructionABTest.company_id == self.company_id,
-            InstructionABTest.agent_id == agent_id,
-            InstructionABTest.status == "running",
-        ).first()
+        existing_test = (
+            db.query(InstructionABTest)
+            .filter(
+                InstructionABTest.company_id == self.company_id,
+                InstructionABTest.agent_id == agent_id,
+                InstructionABTest.status == "running",
+            )
+            .first()
+        )
         if existing_test:
             from app.exceptions import ValidationError as VE
+
             raise VE(
                 message="An active A/B test already exists for this agent",
                 details={
@@ -652,6 +714,7 @@ class InstructionWorkflowService:
         # Validate success metric
         if success_metric not in VALID_SUCCESS_METRICS:
             from app.exceptions import ValidationError
+
             raise ValidationError(
                 message=f"Invalid success metric: {success_metric}",
                 details={
@@ -702,16 +765,22 @@ class InstructionWorkflowService:
             Detailed A/B test data.
         """
         from database.models.agent import (
-            InstructionABTest, InstructionSet,
+            InstructionABTest,
+            InstructionSet,
         )
 
-        ab_test = db.query(InstructionABTest).filter(
-            InstructionABTest.id == test_id,
-            InstructionABTest.company_id == self.company_id,
-        ).first()
+        ab_test = (
+            db.query(InstructionABTest)
+            .filter(
+                InstructionABTest.id == test_id,
+                InstructionABTest.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ab_test:
             from app.exceptions import NotFoundError
+
             raise NotFoundError(
                 message="A/B test not found",
                 details={"test_id": test_id},
@@ -720,20 +789,32 @@ class InstructionWorkflowService:
         result = self._serialize_ab_test(ab_test)
 
         # Add set names
-        set_a = db.query(InstructionSet).filter(
-            InstructionSet.id == ab_test.set_a_id,
-        ).first()
-        set_b = db.query(InstructionSet).filter(
-            InstructionSet.id == ab_test.set_b_id,
-        ).first()
+        set_a = (
+            db.query(InstructionSet)
+            .filter(
+                InstructionSet.id == ab_test.set_a_id,
+            )
+            .first()
+        )
+        set_b = (
+            db.query(InstructionSet)
+            .filter(
+                InstructionSet.id == ab_test.set_b_id,
+            )
+            .first()
+        )
 
         result["set_a_name"] = set_a.name if set_a else None
         result["set_b_name"] = set_b.name if set_b else None
 
         if ab_test.winner_id:
-            winner = db.query(InstructionSet).filter(
-                InstructionSet.id == ab_test.winner_id,
-            ).first()
+            winner = (
+                db.query(InstructionSet)
+                .filter(
+                    InstructionSet.id == ab_test.winner_id,
+                )
+                .first()
+            )
             result["winner_name"] = winner.name if winner else None
 
         # Run evaluation if test is running
@@ -773,9 +854,14 @@ class InstructionWorkflowService:
             query = query.filter(InstructionABTest.status == status_filter)
 
         total = query.count()
-        tests = query.order_by(
-            InstructionABTest.created_at.desc(),
-        ).offset(offset).limit(limit).all()
+        tests = (
+            query.order_by(
+                InstructionABTest.created_at.desc(),
+            )
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
 
         return {
             "tests": [self._serialize_ab_test(t) for t in tests],
@@ -802,13 +888,18 @@ class InstructionWorkflowService:
         """
         from database.models.agent import InstructionABTest
 
-        ab_test = db.query(InstructionABTest).filter(
-            InstructionABTest.id == test_id,
-            InstructionABTest.company_id == self.company_id,
-        ).first()
+        ab_test = (
+            db.query(InstructionABTest)
+            .filter(
+                InstructionABTest.id == test_id,
+                InstructionABTest.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ab_test:
             from app.exceptions import NotFoundError
+
             raise NotFoundError(
                 message="A/B test not found",
                 details={"test_id": test_id},
@@ -816,6 +907,7 @@ class InstructionWorkflowService:
 
         if ab_test.status != "running":
             from app.exceptions import ValidationError
+
             raise ValidationError(
                 message=f"A/B test is already '{ab_test.status}'",
                 details={"test_id": test_id, "current_status": ab_test.status},
@@ -827,6 +919,7 @@ class InstructionWorkflowService:
         if winner_id:
             if winner_id not in (ab_test.set_a_id, ab_test.set_b_id):
                 from app.exceptions import ValidationError
+
                 raise ValidationError(
                     message="Winner must be either set A or set B",
                     details={
@@ -850,6 +943,7 @@ class InstructionWorkflowService:
         # If winner selected, activate it
         if ab_test.winner_id:
             from database.models.agent import InstructionSet
+
             db.query(InstructionSet).filter(
                 InstructionSet.company_id == self.company_id,
                 InstructionSet.agent_id == ab_test.agent_id,
@@ -878,9 +972,7 @@ class InstructionWorkflowService:
         return {
             "test_id": test_id,
             "status": "completed",
-            "winner_id": (
-                str(ab_test.winner_id) if ab_test.winner_id else None
-            ),
+            "winner_id": (str(ab_test.winner_id) if ab_test.winner_id else None),
             "evaluation": self.evaluate_ab_test(test_id, db),
             "message": "A/B test stopped successfully",
         }
@@ -904,25 +996,35 @@ class InstructionWorkflowService:
             Statistical evaluation result.
         """
         from database.models.agent import (
-            InstructionABTest, InstructionABAssignment,
+            InstructionABTest,
+            InstructionABAssignment,
         )
 
-        ab_test = db.query(InstructionABTest).filter(
-            InstructionABTest.id == test_id,
-            InstructionABTest.company_id == self.company_id,
-        ).first()
+        ab_test = (
+            db.query(InstructionABTest)
+            .filter(
+                InstructionABTest.id == test_id,
+                InstructionABTest.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ab_test:
             from app.exceptions import NotFoundError
+
             raise NotFoundError(
                 message="A/B test not found",
                 details={"test_id": test_id},
             )
 
         # Calculate metrics from assignments
-        assignments = db.query(InstructionABAssignment).filter(
-            InstructionABAssignment.test_id == test_id,
-        ).all()
+        assignments = (
+            db.query(InstructionABAssignment)
+            .filter(
+                InstructionABAssignment.test_id == test_id,
+            )
+            .all()
+        )
 
         tickets_a = 0
         tickets_b = 0
@@ -952,25 +1054,17 @@ class InstructionWorkflowService:
         # Update test metrics
         ab_test.tickets_a = tickets_a
         ab_test.tickets_b = tickets_b
-        ab_test.resolution_a = (
-            float(resolved_a / tickets_a) if tickets_a > 0 else None
-        )
-        ab_test.resolution_b = (
-            float(resolved_b / tickets_b) if tickets_b > 0 else None
-        )
-        ab_test.csat_a = (
-            float(csat_sum_a / csat_count_a)
-            if csat_count_a > 0 else None
-        )
-        ab_test.csat_b = (
-            float(csat_sum_b / csat_count_b)
-            if csat_count_b > 0 else None
-        )
+        ab_test.resolution_a = float(resolved_a / tickets_a) if tickets_a > 0 else None
+        ab_test.resolution_b = float(resolved_b / tickets_b) if tickets_b > 0 else None
+        ab_test.csat_a = float(csat_sum_a / csat_count_a) if csat_count_a > 0 else None
+        ab_test.csat_b = float(csat_sum_b / csat_count_b) if csat_count_b > 0 else None
         db.flush()
 
         # Check if we have enough data
-        if tickets_a < MIN_TICKETS_FOR_EVALUATION or \
-           tickets_b < MIN_TICKETS_FOR_EVALUATION:
+        if (
+            tickets_a < MIN_TICKETS_FOR_EVALUATION
+            or tickets_b < MIN_TICKETS_FOR_EVALUATION
+        ):
             return {
                 "test_id": test_id,
                 "is_significant": False,
@@ -989,8 +1083,10 @@ class InstructionWorkflowService:
         # H0: No difference between variants
         # H1: Significant difference exists
         p_value = self._chi_squared_test(
-            resolved_a, tickets_a - resolved_a,
-            resolved_b, tickets_b - resolved_b,
+            resolved_a,
+            tickets_a - resolved_a,
+            resolved_b,
+            tickets_b - resolved_b,
         )
 
         is_significant = p_value < SIGNIFICANCE_THRESHOLD
@@ -1059,15 +1155,20 @@ class InstructionWorkflowService:
             Active instructions or A/B test info.
         """
         from database.models.agent import (
-            InstructionABTest, InstructionSet,
+            InstructionABTest,
+            InstructionSet,
         )
 
         # Check for active A/B test
-        ab_test = db.query(InstructionABTest).filter(
-            InstructionABTest.company_id == self.company_id,
-            InstructionABTest.agent_id == agent_id,
-            InstructionABTest.status == "running",
-        ).first()
+        ab_test = (
+            db.query(InstructionABTest)
+            .filter(
+                InstructionABTest.company_id == self.company_id,
+                InstructionABTest.agent_id == agent_id,
+                InstructionABTest.status == "running",
+            )
+            .first()
+        )
 
         if ab_test:
             return {
@@ -1084,11 +1185,15 @@ class InstructionWorkflowService:
             }
 
         # Get active instruction set
-        active_set = db.query(InstructionSet).filter(
-            InstructionSet.company_id == self.company_id,
-            InstructionSet.agent_id == agent_id,
-            InstructionSet.status == "active",
-        ).first()
+        active_set = (
+            db.query(InstructionSet)
+            .filter(
+                InstructionSet.company_id == self.company_id,
+                InstructionSet.agent_id == agent_id,
+                InstructionSet.status == "active",
+            )
+            .first()
+        )
 
         if not active_set:
             return {
@@ -1138,15 +1243,20 @@ class InstructionWorkflowService:
             Assignment result with variant and set ID.
         """
         from database.models.agent import (
-            InstructionABTest, InstructionABAssignment,
+            InstructionABTest,
+            InstructionABAssignment,
         )
 
         # Check for active A/B test
-        ab_test = db.query(InstructionABTest).filter(
-            InstructionABTest.company_id == self.company_id,
-            InstructionABTest.agent_id == agent_id,
-            InstructionABTest.status == "running",
-        ).first()
+        ab_test = (
+            db.query(InstructionABTest)
+            .filter(
+                InstructionABTest.company_id == self.company_id,
+                InstructionABTest.agent_id == agent_id,
+                InstructionABTest.status == "running",
+            )
+            .first()
+        )
 
         if not ab_test:
             # No active test — return the active instruction set
@@ -1162,7 +1272,8 @@ class InstructionWorkflowService:
         # Deterministic routing based on ticket_id hash
         hash_input = f"{ab_test.id}:{ticket_id}"
         hash_val = int(
-            hashlib.md5(hash_input.encode()).hexdigest(), 16,
+            hashlib.md5(hash_input.encode()).hexdigest(),
+            16,
         )
         normalized = (hash_val % 10000) / 10000.0
 
@@ -1191,8 +1302,10 @@ class InstructionWorkflowService:
 
     @staticmethod
     def _chi_squared_test(
-        a_success: int, a_failure: int,
-        b_success: int, b_failure: int,
+        a_success: int,
+        a_failure: int,
+        b_success: int,
+        b_failure: int,
     ) -> float:
         """Perform chi-squared test for independence.
 
@@ -1255,8 +1368,7 @@ class InstructionWorkflowService:
     ) -> Dict[str, Any]:
         """Serialize an InstructionSet ORM object to dict."""
         instructions = {}
-        if hasattr(instruction_set, "instructions") and \
-           instruction_set.instructions:
+        if hasattr(instruction_set, "instructions") and instruction_set.instructions:
             try:
                 instructions = json.loads(instruction_set.instructions)
             except (json.JSONDecodeError, TypeError):
@@ -1272,25 +1384,28 @@ class InstructionWorkflowService:
             "instructions": instructions,
             "is_default": instruction_set.is_default,
             "created_by": (
-                str(instruction_set.created_by)
-                if instruction_set.created_by else None
+                str(instruction_set.created_by) if instruction_set.created_by else None
             ),
             "published_by": (
                 str(instruction_set.published_by)
-                if instruction_set.published_by else None
+                if instruction_set.published_by
+                else None
             ),
             "published_at": (
                 instruction_set.published_at.isoformat()
-                if instruction_set.published_at else None
+                if instruction_set.published_at
+                else None
             ),
             "change_summary": instruction_set.change_summary,
             "created_at": (
                 instruction_set.created_at.isoformat()
-                if instruction_set.created_at else None
+                if instruction_set.created_at
+                else None
             ),
             "updated_at": (
                 instruction_set.updated_at.isoformat()
-                if instruction_set.updated_at else None
+                if instruction_set.updated_at
+                else None
             ),
         }
 
@@ -1312,16 +1427,13 @@ class InstructionWorkflowService:
             "instructions": instructions,
             "change_summary": version.change_summary,
             "published_by": (
-                str(version.published_by)
-                if version.published_by else None
+                str(version.published_by) if version.published_by else None
             ),
             "published_at": (
-                version.published_at.isoformat()
-                if version.published_at else None
+                version.published_at.isoformat() if version.published_at else None
             ),
             "created_at": (
-                version.created_at.isoformat()
-                if version.created_at else None
+                version.created_at.isoformat() if version.created_at else None
             ),
         }
 
@@ -1338,41 +1450,32 @@ class InstructionWorkflowService:
             "success_metric": ab_test.success_metric,
             "duration_days": ab_test.duration_days,
             "status": ab_test.status,
-            "winner_id": (
-                str(ab_test.winner_id) if ab_test.winner_id else None
-            ),
+            "winner_id": (str(ab_test.winner_id) if ab_test.winner_id else None),
             "tickets_a": ab_test.tickets_a,
             "tickets_b": ab_test.tickets_b,
-            "csat_a": (
-                float(ab_test.csat_a)
-                if ab_test.csat_a is not None else None
-            ),
-            "csat_b": (
-                float(ab_test.csat_b)
-                if ab_test.csat_b is not None else None
-            ),
+            "csat_a": (float(ab_test.csat_a) if ab_test.csat_a is not None else None),
+            "csat_b": (float(ab_test.csat_b) if ab_test.csat_b is not None else None),
             "resolution_a": (
                 float(ab_test.resolution_a)
-                if ab_test.resolution_a is not None else None
+                if ab_test.resolution_a is not None
+                else None
             ),
             "resolution_b": (
                 float(ab_test.resolution_b)
-                if ab_test.resolution_b is not None else None
+                if ab_test.resolution_b is not None
+                else None
             ),
             "started_at": (
-                ab_test.started_at.isoformat()
-                if ab_test.started_at else None
+                ab_test.started_at.isoformat() if ab_test.started_at else None
             ),
-            "ended_at": (
-                ab_test.ended_at.isoformat()
-                if ab_test.ended_at else None
-            ),
+            "ended_at": (ab_test.ended_at.isoformat() if ab_test.ended_at else None),
         }
 
 
 # ══════════════════════════════════════════════════════════════════
 # STATISTICAL HELPERS
 # ══════════════════════════════════════════════════════════════════
+
 
 def _chi_squared_p_value(chi_sq: float, df: int = 1) -> float:
     """Approximate the p-value from a chi-squared distribution.
@@ -1434,8 +1537,9 @@ def _normal_sf(z: float) -> float:
     sign = 1.0
     x = abs(z)
     t = 1.0 / (1.0 + p * x)
-    y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * \
-        math.exp(-x * x / 2.0)
+    y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * math.exp(
+        -x * x / 2.0
+    )
 
     result = sign * y
     return result

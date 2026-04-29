@@ -66,11 +66,7 @@ def configure_logging(environment: str = "development") -> None:
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
     root_logger.addHandler(handler)
-    level = (
-        logging.DEBUG
-        if environment != "production"
-        else logging.INFO
-    )
+    level = logging.DEBUG if environment != "production" else logging.INFO
     root_logger.setLevel(level)
 
 

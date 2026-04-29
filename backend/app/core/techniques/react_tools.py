@@ -24,7 +24,6 @@ import json
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
-
 # ── Base Tool ──────────────────────────────────────────────────────
 
 
@@ -110,6 +109,7 @@ class KnowledgeBaseSearchTool(BaseTool):
         if db is not None:
             try:
                 from database.models.knowledge_base import KnowledgeBaseArticle
+
                 rows = (
                     db.query(KnowledgeBaseArticle)
                     .filter(
@@ -183,21 +183,28 @@ class CustomerLookupTool(BaseTool):
             "name": None,
             "email": None,
             "tier": None,
-            "status": None}
+            "status": None,
+        }
         if db is not None and customer_id:
             try:
                 from database.models.tickets import Customer
+
                 row = (
-                    db.query(Customer) .filter(
-                        Customer.id == customer_id,
-                        Customer.company_id == company_id) .first())
+                    db.query(Customer)
+                    .filter(
+                        Customer.id == customer_id, Customer.company_id == company_id
+                    )
+                    .first()
+                )
                 if row is not None:
-                    customer_data.update({
-                        "name": getattr(row, "name", None),
-                        "email": getattr(row, "email", None),
-                        "tier": getattr(row, "tier", None),
-                        "status": getattr(row, "status", None),
-                    })
+                    customer_data.update(
+                        {
+                            "name": getattr(row, "name", None),
+                            "email": getattr(row, "email", None),
+                            "tier": getattr(row, "tier", None),
+                            "status": getattr(row, "status", None),
+                        }
+                    )
             except Exception:
                 pass
 
@@ -257,6 +264,7 @@ class TicketHistorySearchTool(BaseTool):
         if db is not None and query:
             try:
                 from database.models.tickets import Ticket
+
                 pattern = f"%{query}%"
                 rows = (
                     db.query(Ticket)
@@ -273,7 +281,9 @@ class TicketHistorySearchTool(BaseTool):
                         "id": r.id,
                         "subject": r.subject,
                         "status": r.status,
-                        "created_at": r.created_at.isoformat() if r.created_at else None,
+                        "created_at": (
+                            r.created_at.isoformat() if r.created_at else None
+                        ),
                     }
                     for r in rows
                 ]
@@ -334,24 +344,29 @@ class OrderStatusCheckTool(BaseTool):
             "order_id": order_id,
             "status": None,
             "tracking_number": None,
-            "estimated_delivery": None}
+            "estimated_delivery": None,
+        }
         if db is not None and order_id:
             try:
                 from database.models.orders import Order
+
                 row = (
-                    db.query(Order) .filter(
-                        Order.id == order_id,
-                        Order.company_id == company_id) .first())
+                    db.query(Order)
+                    .filter(Order.id == order_id, Order.company_id == company_id)
+                    .first()
+                )
                 if row is not None:
-                    order_data.update({
-                        "status": getattr(row, "status", None),
-                        "tracking_number": getattr(row, "tracking_number", None),
-                        "estimated_delivery": (
-                            row.estimated_delivery.isoformat()
-                            if getattr(row, "estimated_delivery", None)
-                            else None
-                        ),
-                    })
+                    order_data.update(
+                        {
+                            "status": getattr(row, "status", None),
+                            "tracking_number": getattr(row, "tracking_number", None),
+                            "estimated_delivery": (
+                                row.estimated_delivery.isoformat()
+                                if getattr(row, "estimated_delivery", None)
+                                else None
+                            ),
+                        }
+                    )
             except Exception:
                 pass
 
@@ -433,9 +448,7 @@ class ToolRegistry:
         except asyncio.TimeoutError:
             return {
                 "success": False,
-                "error": (
-                    f"Tool '{name}' timed out after {timeout:.1f}s"
-                ),
+                "error": (f"Tool '{name}' timed out after {timeout:.1f}s"),
             }
         except Exception as exc:
             return {

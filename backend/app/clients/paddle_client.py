@@ -121,8 +121,7 @@ class PaddleClient:
         now = time.time()
         # Remove requests outside the window
         self._request_times = [
-            t for t in self._request_times
-            if now - t < RATE_LIMIT_WINDOW
+            t for t in self._request_times if now - t < RATE_LIMIT_WINDOW
         ]
         if len(self._request_times) >= RATE_LIMIT_REQUESTS:
             # Mark that we need to wait — actual wait in _request()
@@ -175,27 +174,22 @@ class PaddleClient:
                 if response.status_code == 422:
                     error_data = response.json()
                     raise PaddleValidationError(
-                        error_data.get(
-                            "error", {}).get(
-                            "message", "Validation failed"))
+                        error_data.get("error", {}).get("message", "Validation failed")
+                    )
                 if response.status_code == 429:
                     # Rate limited - wait and retry (non-blocking)
                     retry_after = int(
-                        response.headers.get(
-                            "Retry-After",
-                            RETRY_BASE_DELAY))
-                    logger.warning(
-                        "paddle_rate_limited retry_after=%d", retry_after)
+                        response.headers.get("Retry-After", RETRY_BASE_DELAY)
+                    )
+                    logger.warning("paddle_rate_limited retry_after=%d", retry_after)
                     await asyncio.sleep(retry_after)
                     continue
 
                 # Other errors - retry for 5xx
                 if response.status_code >= 500:
-                    last_error = PaddleError(
-                        f"Server error: {response.status_code}")
+                    last_error = PaddleError(f"Server error: {response.status_code}")
                 else:
-                    last_error = PaddleError(
-                        f"API error: {response.status_code}")
+                    last_error = PaddleError(f"API error: {response.status_code}")
 
             except httpx.TimeoutException as e:
                 last_error = PaddleError(f"Request timeout: {e}")
@@ -204,7 +198,7 @@ class PaddleClient:
 
             # Exponential backoff before retry (non-blocking)
             if attempt < MAX_RETRIES - 1:
-                delay = min(RETRY_BASE_DELAY * (2 ** attempt), RETRY_MAX_DELAY)
+                delay = min(RETRY_BASE_DELAY * (2**attempt), RETRY_MAX_DELAY)
                 logger.warning(
                     "paddle_retry attempt=%d delay=%d error=%s",
                     attempt + 1,
@@ -325,8 +319,7 @@ class PaddleClient:
             "POST", f"/subscriptions/{subscription_id}/pause", json=data
         )
 
-    async def resume_subscription(
-            self, subscription_id: str) -> Dict[str, Any]:
+    async def resume_subscription(self, subscription_id: str) -> Dict[str, Any]:
         """
         Resume a paused subscription.
 
@@ -611,7 +604,9 @@ class PaddleClient:
             if abs(current_time - ts) > 300:  # 5 minutes
                 logger.warning(
                     "paddle_webhook_expired ts=%d current=%d diff=%d",
-                    ts, current_time, abs(current_time - ts),
+                    ts,
+                    current_time,
+                    abs(current_time - ts),
                 )
                 return False
 

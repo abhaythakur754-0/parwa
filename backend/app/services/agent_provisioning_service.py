@@ -45,8 +45,15 @@ logger = get_logger("agent_provisioning_f099")
 # ══════════════════════════════════════════════════════════════════
 
 VALID_SPECIALTIES = {
-    "billing", "returns", "technical", "general", "sales",
-    "onboarding", "vip", "feedback", "custom",
+    "billing",
+    "returns",
+    "technical",
+    "general",
+    "sales",
+    "onboarding",
+    "vip",
+    "feedback",
+    "custom",
 }
 
 VALID_CHANNELS = {"chat", "email", "sms", "voice", "slack", "webchat"}
@@ -56,7 +63,11 @@ PAYMENT_TIMEOUT_HOURS = 24
 MAX_PROVISIONING_RETRIES = 3
 
 PROVISIONING_STATUSES = (
-    "awaiting_payment", "provisioning", "training", "active", "failed",
+    "awaiting_payment",
+    "provisioning",
+    "training",
+    "active",
+    "failed",
 )
 
 PAYMENT_STATUSES = ("pending", "paid", "failed", "refunded", "expired")
@@ -221,9 +232,13 @@ class AgentProvisioningService:
             ValidationError: Invalid event type.
         """
         # ── Idempotency check (BC-003 Rule 6) ──
-        existing = self.db.query(PendingAgent).filter(
-            PendingAgent.paddle_event_id == event_id,
-        ).first()
+        existing = (
+            self.db.query(PendingAgent)
+            .filter(
+                PendingAgent.paddle_event_id == event_id,
+            )
+            .first()
+        )
 
         if existing:
             logger.info(
@@ -258,13 +273,18 @@ class AgentProvisioningService:
 
         # ── Find matching pending agent ──
         # Look for pending agents awaiting payment for this company
-        pending = self.db.query(PendingAgent).filter(
-            and_(
-                PendingAgent.company_id == company_id,
-                PendingAgent.payment_status == "pending",
-                PendingAgent.expires_at > datetime.utcnow(),
-            ),
-        ).order_by(PendingAgent.created_at.asc()).first()
+        pending = (
+            self.db.query(PendingAgent)
+            .filter(
+                and_(
+                    PendingAgent.company_id == company_id,
+                    PendingAgent.payment_status == "pending",
+                    PendingAgent.expires_at > datetime.utcnow(),
+                ),
+            )
+            .order_by(PendingAgent.created_at.asc())
+            .first()
+        )
 
         if not pending:
             logger.warning(
@@ -347,12 +367,16 @@ class AgentProvisioningService:
             InternalError: DB error during provisioning.
         """
         # ── Find and validate PendingAgent ──
-        pending = self.db.query(PendingAgent).filter(
-            and_(
-                PendingAgent.id == pending_agent_id,
-                PendingAgent.company_id == company_id,
-            ),
-        ).first()
+        pending = (
+            self.db.query(PendingAgent)
+            .filter(
+                and_(
+                    PendingAgent.id == pending_agent_id,
+                    PendingAgent.company_id == company_id,
+                ),
+            )
+            .first()
+        )
 
         if not pending:
             raise NotFoundError(
@@ -399,14 +423,19 @@ class AgentProvisioningService:
                 specialty=pending.specialty,
                 status="training",
                 channels=json.dumps({"channels": channels_list}),
-                permissions=json.dumps({
-                    "level": "standard",
-                    "permissions": [
-                        "read_tickets", "respond_tickets",
-                        "view_customers", "escalate_tickets",
-                        "tag_tickets", "assign_tickets",
-                    ],
-                }),
+                permissions=json.dumps(
+                    {
+                        "level": "standard",
+                        "permissions": [
+                            "read_tickets",
+                            "respond_tickets",
+                            "view_customers",
+                            "escalate_tickets",
+                            "tag_tickets",
+                            "assign_tickets",
+                        ],
+                    }
+                ),
                 created_at=now,
             )
 
@@ -456,9 +485,7 @@ class AgentProvisioningService:
         except Exception as exc:
             # BC-002: Rollback on failure
             pending.provisioning_status = "failed"
-            pending.error_message = (
-                f"Provisioning failed: {str(exc)[:500]}"
-            )
+            pending.error_message = f"Provisioning failed: {str(exc)[:500]}"
             self.db.flush()
 
             logger.error(
@@ -489,12 +516,16 @@ class AgentProvisioningService:
         Raises:
             NotFoundError: PendingAgent not found.
         """
-        pending = self.db.query(PendingAgent).filter(
-            and_(
-                PendingAgent.id == pending_agent_id,
-                PendingAgent.company_id == company_id,
-            ),
-        ).first()
+        pending = (
+            self.db.query(PendingAgent)
+            .filter(
+                and_(
+                    PendingAgent.id == pending_agent_id,
+                    PendingAgent.company_id == company_id,
+                ),
+            )
+            .first()
+        )
 
         if not pending:
             raise NotFoundError(
@@ -510,12 +541,10 @@ class AgentProvisioningService:
             "payment_status": pending.payment_status,
             "provisioning_status": pending.provisioning_status,
             "created_at": (
-                pending.created_at.isoformat() if pending.created_at
-                else None
+                pending.created_at.isoformat() if pending.created_at else None
             ),
             "provisioned_at": (
-                pending.provisioned_at.isoformat() if pending.provisioned_at
-                else None
+                pending.provisioned_at.isoformat() if pending.provisioned_at else None
             ),
             "error_message": pending.error_message,
         }
@@ -533,12 +562,16 @@ class AgentProvisioningService:
         """
         now = datetime.utcnow()
 
-        stale = self.db.query(PendingAgent).filter(
-            and_(
-                PendingAgent.payment_status == "pending",
-                PendingAgent.expires_at < now,
-            ),
-        ).all()
+        stale = (
+            self.db.query(PendingAgent)
+            .filter(
+                and_(
+                    PendingAgent.payment_status == "pending",
+                    PendingAgent.expires_at < now,
+                ),
+            )
+            .all()
+        )
 
         count = 0
         for pending in stale:
@@ -645,9 +678,13 @@ class AgentProvisioningService:
         """
         from database.models.core import Company
 
-        company = self.db.query(Company).filter(
-            Company.id == company_id,
-        ).first()
+        company = (
+            self.db.query(Company)
+            .filter(
+                Company.id == company_id,
+            )
+            .first()
+        )
 
         if company and hasattr(company, "subscription_tier"):
             return company.subscription_tier or "mini_parwa"
@@ -750,9 +787,7 @@ class AgentProvisioningService:
             )
             if not checkout_url:
                 # Transaction created but no checkout URL in response
-                checkout_url = (
-                    f"https://checkout.paddle.com/agent/{pending_id}"
-                )
+                checkout_url = f"https://checkout.paddle.com/agent/{pending_id}"
             return checkout_url
 
         except RuntimeError as exc:
@@ -761,6 +796,7 @@ class AgentProvisioningService:
             # async). Fall back to creating a new thread.
             if "asyncio.run() cannot be called" in str(exc):
                 import concurrent.futures
+
                 with concurrent.futures.ThreadPoolExecutor(
                     max_workers=1,
                 ) as executor:
@@ -768,10 +804,12 @@ class AgentProvisioningService:
                         asyncio.run,
                         client.create_transaction(
                             customer_id=paddle_customer_id,
-                            items=[{
-                                "price_id": price_id,
-                                "quantity": 1,
-                            }],
+                            items=[
+                                {
+                                    "price_id": price_id,
+                                    "quantity": 1,
+                                }
+                            ],
                         ),
                     )
                     result = future.result(timeout=30)
@@ -780,8 +818,7 @@ class AgentProvisioningService:
                     )
                     if not checkout_url:
                         checkout_url = (
-                            "https://checkout.paddle.com/"
-                            f"agent/{pending_id}"
+                            "https://checkout.paddle.com/" f"agent/{pending_id}"
                         )
                     return checkout_url
             raise
@@ -789,14 +826,13 @@ class AgentProvisioningService:
         except Exception as exc:
             logger.error(
                 "paddle_checkout_async_failed pending_id=%s error=%s",
-                pending_id, str(exc),
+                pending_id,
+                str(exc),
             )
             # Return a synthetic URL so the caller can proceed with
             # the PendingAgent record. The webhook will reconcile
             # once Paddle processes the payment.
-            return (
-                f"https://checkout.paddle.com/agent/{pending_id}"
-            )
+            return f"https://checkout.paddle.com/agent/{pending_id}"
 
     @staticmethod
     def _get_paddle_price_id(specialty: str) -> str:
@@ -807,6 +843,7 @@ class AgentProvisioningService:
         # Try loading from PaddleService price IDs
         try:
             from app.services.paddle_service import _PRICE_IDS
+
             key = f"{specialty}_agent"
             if key in _PRICE_IDS:
                 return _PRICE_IDS[key]

@@ -48,6 +48,7 @@ logger = get_logger("react")
 
 class ActionType(str, Enum):
     """Types of actions the ReAct loop can take."""
+
     TOOL_CALL = "tool_call"
     WAIT = "wait"
     DELEGATE = "delegate"
@@ -113,8 +114,7 @@ _COMPILED_CUSTOMER = [re.compile(p, re.I) for p in _CUSTOMER_PATTERNS]
 _COMPILED_BILLING = [re.compile(p, re.I) for p in _BILLING_PATTERNS]
 _COMPILED_TECHNICAL = [re.compile(p, re.I) for p in _TECHNICAL_PATTERNS]
 _COMPILED_KNOWLEDGE = [re.compile(p, re.I) for p in _KNOWLEDGE_PATTERNS]
-_COMPILED_TICKET_HISTORY = [re.compile(p, re.I)
-                            for p in _TICKET_HISTORY_PATTERNS]
+_COMPILED_TICKET_HISTORY = [re.compile(p, re.I) for p in _TICKET_HISTORY_PATTERNS]
 
 
 # ── Tool Selection Mapping ─────────────────────────────────────────
@@ -337,17 +337,17 @@ class ReActProcessor:
             if tool and tool not in tools_needed:
                 tools_needed.append(tool)
 
-        thought = (
-            f"Analyzing query: '{query}'. " f"Detected information needs: {
+        thought = f"Analyzing query: '{query}'. " f"Detected information needs: {
                 ', '.join(needs)}. " f"Tools to consult: {
-                ', '.join(tools_needed) if tools_needed else 'none identified'}.")
+                ', '.join(tools_needed) if tools_needed else 'none identified'}."
 
         return thought
 
     # ── Step 2: Action — Tool Selection ─────────────────────────────
 
     def _select_tools_for_categories(
-        self, categories: List[str],
+        self,
+        categories: List[str],
     ) -> List[Dict[str, Any]]:
         """
         Map detected query categories to tool calls.
@@ -366,14 +366,20 @@ class ReActProcessor:
             params: Dict[str, Any] = {}
 
             if tool_name == "order_status_check":
-                params["order_id"] = self._extract_order_id(
-                    self._last_query,
-                ) or "unknown"
+                params["order_id"] = (
+                    self._extract_order_id(
+                        self._last_query,
+                    )
+                    or "unknown"
+                )
 
             elif tool_name == "customer_lookup":
-                params["customer_id"] = self._extract_customer_id(
-                    self._last_query,
-                ) or "unknown"
+                params["customer_id"] = (
+                    self._extract_customer_id(
+                        self._last_query,
+                    )
+                    or "unknown"
+                )
 
             elif tool_name == "knowledge_base_search":
                 params["query"] = self._last_query or ""
@@ -383,17 +389,21 @@ class ReActProcessor:
                 params["query"] = self._last_query or ""
                 params["limit"] = 5
 
-            tool_calls.append({
-                "tool_name": tool_name,
-                "params": params,
-            })
+            tool_calls.append(
+                {
+                    "tool_name": tool_name,
+                    "params": params,
+                }
+            )
 
         # If no categories matched, default to knowledge base search
         if not tool_calls:
-            tool_calls.append({
-                "tool_name": "knowledge_base_search",
-                "params": {"query": self._last_query or "", "max_results": 5},
-            })
+            tool_calls.append(
+                {
+                    "tool_name": "knowledge_base_search",
+                    "params": {"query": self._last_query or "", "max_results": 5},
+                }
+            )
 
         return tool_calls
 
@@ -426,7 +436,9 @@ class ReActProcessor:
         return None
 
     async def select_action(
-        self, query: str, categories: List[str],
+        self,
+        query: str,
+        categories: List[str],
     ) -> Dict[str, Any]:
         """
         Select the appropriate action and tool for the current step.
@@ -487,7 +499,9 @@ class ReActProcessor:
                 observation = (
                     "Knowledge base search returned 0 results. "
                     "No matching articles found. "
-                    f"{message}" if message else ""
+                    f"{message}"
+                    if message
+                    else ""
                 ).strip()
 
         elif tool_from_result == "customer_lookup":
@@ -674,10 +688,7 @@ class ReActProcessor:
                 "here's what I can help with regarding your issue. "
             )
         elif "account_reference" in categories:
-            answer = (
-                "Based on your account information, "
-                "here's what I found. "
-            )
+            answer = "Based on your account information, " "here's what I found. "
         elif "past_issue" in categories:
             answer = (
                 "Based on your past ticket history, "
@@ -694,15 +705,10 @@ class ReActProcessor:
             answer += f"{observations[0]} "
         else:
             answer += "Key findings: "
-            answer += " | ".join(
-                obs[:200] for obs in observations[:3]
-            )
+            answer += " | ".join(obs[:200] for obs in observations[:3])
             answer += " "
 
-        answer += (
-            "Is there anything specific you'd like me to "
-            "clarify further?"
-        )
+        answer += "Is there anything specific you'd like me to " "clarify further?"
 
         return answer
 
@@ -740,12 +746,14 @@ class ReActProcessor:
             steps_applied.append("thought_analysis")
 
             step_num = 1
-            all_steps.append(ReActStep(
-                step_number=step_num,
-                step_type="thought",
-                content=thought,
-                reasoning=f"Categories: {categories}",
-            ))
+            all_steps.append(
+                ReActStep(
+                    step_number=step_num,
+                    step_type="thought",
+                    content=thought,
+                    reasoning=f"Categories: {categories}",
+                )
+            )
 
             # Steps 2-5: Action/Observation loop
             tools_already_used: Set[str] = set()
@@ -762,14 +770,16 @@ class ReActProcessor:
                 actions_taken.append(action_type)
 
                 step_num += 1
-                all_steps.append(ReActStep(
-                    step_number=step_num,
-                    step_type="action",
-                    content=f"Action: {action_type} using {tool_name}",
-                    tool_name=tool_name,
-                    tool_params=tool_params,
-                    reasoning=f"Iteration {iteration}",
-                ))
+                all_steps.append(
+                    ReActStep(
+                        step_number=step_num,
+                        step_type="action",
+                        content=f"Action: {action_type} using {tool_name}",
+                        tool_name=tool_name,
+                        tool_params=tool_params,
+                        reasoning=f"Iteration {iteration}",
+                    )
+                )
 
                 if action_type == ActionType.TOOL_CALL.value and tool_name:
                     steps_applied.append("action_tool_call")
@@ -784,7 +794,8 @@ class ReActProcessor:
 
                     # Step 3: Observation — Process results
                     observation = await self.process_observation(
-                        tool_name, tool_result,
+                        tool_name,
+                        tool_result,
                     )
                     observations.append(observation)
                     tools_already_used.add(tool_name)
@@ -792,36 +803,45 @@ class ReActProcessor:
                         tools_used.append(tool_name)
 
                     step_num += 1
-                    all_steps.append(ReActStep(
-                        step_number=step_num,
-                        step_type="observation",
-                        content=observation,
-                        tool_name=tool_name,
-                        tool_result=tool_result,
-                        reasoning="Processed tool output",
-                    ))
+                    all_steps.append(
+                        ReActStep(
+                            step_number=step_num,
+                            step_type="observation",
+                            content=observation,
+                            tool_name=tool_name,
+                            tool_result=tool_result,
+                            reasoning="Processed tool output",
+                        )
+                    )
 
                     steps_applied.append("observation_processing")
 
                     # Step 4: Thought — Reason about observation
                     thought = await self.reason_about_observation(
-                        query, observation, categories, iteration,
+                        query,
+                        observation,
+                        categories,
+                        iteration,
                     )
                     thought_chain.append(thought)
 
                     step_num += 1
-                    all_steps.append(ReActStep(
-                        step_number=step_num,
-                        step_type="thought",
-                        content=thought,
-                        reasoning=f"Iteration {iteration} reasoning",
-                    ))
+                    all_steps.append(
+                        ReActStep(
+                            step_number=step_num,
+                            step_type="thought",
+                            content=thought,
+                            reasoning=f"Iteration {iteration} reasoning",
+                        )
+                    )
 
                     steps_applied.append("thought_reasoning")
 
                     # Check if we should continue the loop
                     if not self._should_continue(
-                        thought, iteration, categories,
+                        thought,
+                        iteration,
+                        categories,
                         tools_already_used,
                     ):
                         break
@@ -843,7 +863,10 @@ class ReActProcessor:
 
             # Step 6: Final Answer — Synthesize
             final_answer = await self.synthesize_final_answer(
-                query, all_steps, observations, categories,
+                query,
+                all_steps,
+                observations,
+                categories,
             )
             steps_applied.append("final_answer_synthesis")
 
@@ -859,9 +882,12 @@ class ReActProcessor:
                 actions_taken=actions_taken,
                 observations=observations,
                 final_answer="",
-                iterations_used=iteration if 'iteration' in dir() else 0,
-                steps_applied=(steps_applied + ["error_fallback"])
-                if 'steps_applied' in dir() else ["error_fallback"],
+                iterations_used=iteration if "iteration" in dir() else 0,
+                steps_applied=(
+                    (steps_applied + ["error_fallback"])
+                    if "steps_applied" in dir()
+                    else ["error_fallback"]
+                ),
                 tools_used=tools_used,
             )
 
@@ -870,7 +896,7 @@ class ReActProcessor:
             actions_taken=actions_taken,
             observations=observations,
             final_answer=final_answer,
-            iterations_used=iteration if 'iteration' in dir() else 0,
+            iterations_used=iteration if "iteration" in dir() else 0,
             steps_applied=steps_applied,
             tools_used=tools_used,
         )

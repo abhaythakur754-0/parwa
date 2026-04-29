@@ -108,45 +108,45 @@ class TicketStateMachine:
         (TicketStatus.open, TicketStatus.queued): ["variant_down", "ps13"],
         (TicketStatus.open, TicketStatus.frozen): ["account_suspended", "ps07"],
         (TicketStatus.open, TicketStatus.closed): ["spam", "invalid", "duplicate"],
-
         # assigned → *
         (TicketStatus.assigned, TicketStatus.in_progress): ["agent_started"],
-        (TicketStatus.assigned, TicketStatus.awaiting_client): ["need_client_input", "ps08"],
+        (TicketStatus.assigned, TicketStatus.awaiting_client): [
+            "need_client_input",
+            "ps08",
+        ],
         (TicketStatus.assigned, TicketStatus.awaiting_human): ["ai_cant_solve", "ps02"],
         (TicketStatus.assigned, TicketStatus.open): ["unassigned"],
-
         # in_progress → *
-        (TicketStatus.in_progress, TicketStatus.awaiting_client): ["need_client_input", "ps08"],
-        (TicketStatus.in_progress, TicketStatus.awaiting_human): ["escalated", "ps02", "ps03"],
+        (TicketStatus.in_progress, TicketStatus.awaiting_client): [
+            "need_client_input",
+            "ps08",
+        ],
+        (TicketStatus.in_progress, TicketStatus.awaiting_human): [
+            "escalated",
+            "ps02",
+            "ps03",
+        ],
         (TicketStatus.in_progress, TicketStatus.resolved): ["issue_fixed"],
-
         # awaiting_client → *
         (TicketStatus.awaiting_client, TicketStatus.in_progress): ["client_responded"],
         (TicketStatus.awaiting_client, TicketStatus.stale): ["no_response", "ps06"],
         (TicketStatus.awaiting_client, TicketStatus.resolved): ["client_confirmed"],
-
         # awaiting_human → *
         (TicketStatus.awaiting_human, TicketStatus.in_progress): ["human_picked_up"],
         (TicketStatus.awaiting_human, TicketStatus.resolved): ["human_resolved"],
-
         # resolved → *
         (TicketStatus.resolved, TicketStatus.closed): ["client_satisfied", "timeout"],
         (TicketStatus.resolved, TicketStatus.reopened): ["client_disputed", "ps04"],
-
         # reopened → *
         (TicketStatus.reopened, TicketStatus.in_progress): ["work_resumed"],
         (TicketStatus.reopened, TicketStatus.awaiting_human): ["auto_escalate", "ps04"],
-
         # closed → *
         (TicketStatus.closed, TicketStatus.reopened): ["within_reopen_window", "ps04"],
-
         # frozen → *
         (TicketStatus.frozen, TicketStatus.open): ["account_reactivated", "ps07"],
         (TicketStatus.frozen, TicketStatus.closed): ["frozen_timeout", "ps07"],
-
         # queued → *
         (TicketStatus.queued, TicketStatus.open): ["variant_back_online", "ps13"],
-
         # stale → *
         (TicketStatus.stale, TicketStatus.in_progress): ["agent_picked_up"],
         (TicketStatus.stale, TicketStatus.closed): ["double_timeout", "ps06"],
@@ -155,8 +155,9 @@ class TicketStateMachine:
     def __init__(self, db: Session, company_id: str):
         self.db = db
         self.company_id = company_id
-        self._transition_hooks: Dict[Tuple[TicketStatus,
-                                           TicketStatus], List[Callable]] = {}
+        self._transition_hooks: Dict[
+            Tuple[TicketStatus, TicketStatus], List[Callable]
+        ] = {}
 
     def can_transition(
         self,
@@ -173,10 +174,11 @@ class TicketStateMachine:
         Returns:
             Tuple of (can_transition, error_message)
         """
-        current_status = TicketStatus(
-            ticket.status) if isinstance(
-            ticket.status,
-            str) else ticket.status
+        current_status = (
+            TicketStatus(ticket.status)
+            if isinstance(ticket.status, str)
+            else ticket.status
+        )
 
         # Check if transition is valid
         valid_targets = self.VALID_TRANSITIONS.get(current_status, [])
@@ -187,8 +189,7 @@ class TicketStateMachine:
                 to_status.value}"
 
         # Check additional constraints
-        constraint_error = self._check_constraints(
-            ticket, current_status, to_status)
+        constraint_error = self._check_constraints(ticket, current_status, to_status)
         if constraint_error:
             return False, constraint_error
 
@@ -215,10 +216,11 @@ class TicketStateMachine:
         Returns:
             Updated ticket
         """
-        current_status = TicketStatus(
-            ticket.status) if isinstance(
-            ticket.status,
-            str) else ticket.status
+        current_status = (
+            TicketStatus(ticket.status)
+            if isinstance(ticket.status, str)
+            else ticket.status
+        )
 
         # Validate transition
         can_trans, error = self.can_transition(ticket, to_status)
@@ -229,8 +231,7 @@ class TicketStateMachine:
         transition_key = (current_status, to_status)
         valid_reasons = self.TRANSITION_REASONS.get(transition_key, [])
         if valid_reasons and reason not in valid_reasons:
-            raise ValidationError(
-                f"Invalid reason '{reason}' for transition {
+            raise ValidationError(f"Invalid reason '{reason}' for transition {
                     current_status.value} → {
                     to_status.value}. " f"Valid reasons: {valid_reasons}")
 
@@ -238,22 +239,18 @@ class TicketStateMachine:
         old_status = current_status
 
         # Execute transition
-        ticket.status = to_status.value if isinstance(
-            to_status, TicketStatus) else to_status
+        ticket.status = (
+            to_status.value if isinstance(to_status, TicketStatus) else to_status
+        )
         ticket.updated_at = datetime.now(timezone.utc)
 
         # Handle status-specific side effects
-        self._handle_side_effects(
-            ticket, old_status, to_status, reason, metadata)
+        self._handle_side_effects(ticket, old_status, to_status, reason, metadata)
 
         # Run transition hooks
         self._run_transition_hooks(
-            ticket,
-            old_status,
-            to_status,
-            reason,
-            actor_id,
-            metadata)
+            ticket, old_status, to_status, reason, actor_id, metadata
+        )
 
         self.db.flush()
 
@@ -272,9 +269,8 @@ class TicketStateMachine:
             # Check if within reopen window (7 days)
             if ticket.resolved_at:
                 days_since_resolved = (
-                    datetime.now(
-                        timezone.utc)
-                    - ticket.resolved_at).days
+                    datetime.now(timezone.utc) - ticket.resolved_at
+                ).days
                 if days_since_resolved > 7:
                     return "Reopen window has expired (7 days)"
 
@@ -282,25 +278,22 @@ class TicketStateMachine:
         if from_status == TicketStatus.closed and to_status == TicketStatus.reopened:
             # Check if within reopen window
             if ticket.closed_at:
-                days_since_closed = (
-                    datetime.now(
-                        timezone.utc)
-                    - ticket.closed_at).days
+                days_since_closed = (datetime.now(timezone.utc) - ticket.closed_at).days
                 if days_since_closed > 7:
                     return "Reopen window has expired (7 days after closing)"
 
         # PS04: Auto-escalate on multiple reopens
-        if from_status == TicketStatus.reopened and to_status == TicketStatus.awaiting_human:
+        if (
+            from_status == TicketStatus.reopened
+            and to_status == TicketStatus.awaiting_human
+        ):
             if ticket.reopen_count and ticket.reopen_count < 2:
                 return "Auto-escalation requires at least 2 reopens"
 
         # PS07: Frozen timeout
         if from_status == TicketStatus.frozen and to_status == TicketStatus.closed:
             if ticket.frozen_at:
-                days_frozen = (
-                    datetime.now(
-                        timezone.utc)
-                    - ticket.frozen_at).days
+                days_frozen = (datetime.now(timezone.utc) - ticket.frozen_at).days
                 if days_frozen < 30:
                     return "Frozen tickets can only be closed after 30 days"
 
@@ -394,10 +387,11 @@ class TicketStateMachine:
 
     def get_valid_transitions(self, ticket: Ticket) -> List[TicketStatus]:
         """Get list of valid target statuses for a ticket."""
-        current_status = TicketStatus(
-            ticket.status) if isinstance(
-            ticket.status,
-            str) else ticket.status
+        current_status = (
+            TicketStatus(ticket.status)
+            if isinstance(ticket.status, str)
+            else ticket.status
+        )
         return self.VALID_TRANSITIONS.get(current_status, [])
 
     def get_valid_reasons(
@@ -453,9 +447,7 @@ class TicketStateMachine:
                 for c in changes
             ]
         except Exception:
-            logger.exception(
-                "get_transition_history_failed ticket_id=%s", ticket_id
-            )
+            logger.exception("get_transition_history_failed ticket_id=%s", ticket_id)
             return []
 
 
@@ -466,8 +458,9 @@ class TransitionValidator:
     def validate_reopen(ticket: Ticket) -> Tuple[bool, Optional[str]]:
         """PS04: Validate if a ticket can be reopened."""
         if ticket.status not in [
-                TicketStatus.resolved.value,
-                TicketStatus.closed.value]:
+            TicketStatus.resolved.value,
+            TicketStatus.closed.value,
+        ]:
             return False, "Only resolved or closed tickets can be reopened"
 
         # Check reopen window

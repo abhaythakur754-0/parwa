@@ -104,7 +104,10 @@ async def parse_jarvis_command(
         # Auto-execute if requested and eligible
         if auto_execute and parser.should_auto_execute(parsed):
             exec_result = await _execute_command(
-                parsed, company_id, user, db,
+                parsed,
+                company_id,
+                user,
+                db,
             )
             result["executed"] = True
             result["executed_at"] = datetime.now(
@@ -526,12 +529,14 @@ async def _execute_command(
             from app.services.system_status_service import (
                 get_system_status_service,
             )
+
             service = get_system_status_service(company_id)
             return await service.get_system_status()
 
         # Ticket commands
         if cmd_type == "list_tickets":
             from app.services.ticket_service import TicketService
+
             svc = TicketService(db, company_id)
             tickets = svc.list_tickets(
                 status=params.get("status"),
@@ -542,6 +547,7 @@ async def _execute_command(
         if cmd_type == "get_ticket":
             tid = params.get("ticket_id", "")
             from app.services.ticket_service import TicketService
+
             svc = TicketService(db, company_id)
             ticket = svc.get_ticket(tid)
             return {"ticket_id": str(ticket.id), "status": str(ticket.status)}
@@ -550,6 +556,7 @@ async def _execute_command(
         if cmd_type == "list_agents":
             try:
                 from database.models.core import User
+
                 members = (
                     db.query(User)
                     .filter(
@@ -580,13 +587,13 @@ async def _execute_command(
         if cmd_type == "list_queues":
             try:
                 from app.tasks.celery_app import app as celery_app
+
                 inspect = celery_app.control.inspect()
                 active = inspect.active_queues() or {}
                 queues = {}
                 for worker_name, queue_list in active.items():
                     queues[worker_name] = [
-                        {"name": q.get("name"),
-                         "routing_key": q.get("routing_key")}
+                        {"name": q.get("name"), "routing_key": q.get("routing_key")}
                         for q in queue_list
                     ]
                 return {"queues": queues, "workers": list(queues.keys())}
@@ -603,6 +610,7 @@ async def _execute_command(
             from app.services.system_status_service import (
                 get_system_status_service,
             )
+
             service = get_system_status_service(company_id)
             return await service.get_active_incidents()
 
@@ -612,6 +620,7 @@ async def _execute_command(
                 from app.services.analytics_service import (
                     get_billing_analytics_service,
                 )
+
                 analytics_svc = get_billing_analytics_service()
                 summary = analytics_svc.get_spending_summary(company_id)
                 budget = analytics_svc.get_budget_alert(company_id)
@@ -630,6 +639,7 @@ async def _execute_command(
                 try:
                     from sqlalchemy import func
                     from database.models.ticket import Ticket
+
                     status_counts = (
                         db.query(Ticket.status, func.count(Ticket.id))
                         .filter(Ticket.company_id == company_id)
@@ -649,6 +659,7 @@ async def _execute_command(
         # Help
         if cmd_type == "help":
             from app.core.jarvis_command_parser import get_command_parser
+
             parser = get_command_parser()
             commands = parser.get_available_commands()
             return {

@@ -20,24 +20,20 @@ from app.services.notification_template_service import NotificationTemplateServi
 from app.services.notification_preference_service import NotificationPreferenceService
 from database.models.core import User
 
-
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
 # ── Request/Response Schemas ────────────────────────────────────────────
 
+
 class NotificationSendRequest(BaseModel):
     """Request to send a notification."""
-    event_type: str = Field(...,
-                            description="Event type triggering notification")
+
+    event_type: str = Field(..., description="Event type triggering notification")
     recipient_ids: List[str] = Field(..., description="User IDs to notify")
-    data: Dict[str, Any] = Field(
-        default_factory=dict, description="Event data")
-    channels: Optional[List[str]] = Field(
-        None, description="Override channels")
-    priority: str = Field(
-        default="medium",
-        description="Notification priority")
+    data: Dict[str, Any] = Field(default_factory=dict, description="Event data")
+    channels: Optional[List[str]] = Field(None, description="Override channels")
+    priority: str = Field(default="medium", description="Notification priority")
     ticket_id: Optional[str] = Field(None, description="Related ticket ID")
     cc: Optional[List[str]] = Field(None, description="CC email addresses")
     bcc: Optional[List[str]] = Field(None, description="BCC email addresses")
@@ -45,50 +41,51 @@ class NotificationSendRequest(BaseModel):
 
 class NotificationMarkReadRequest(BaseModel):
     """Request to mark notifications as read."""
+
     notification_ids: Optional[List[str]] = Field(
-        None, description="Specific notification IDs")
+        None, description="Specific notification IDs"
+    )
     mark_all: bool = Field(default=False, description="Mark all as read")
 
 
 class PreferenceUpdateRequest(BaseModel):
     """Request to update notification preference."""
-    enabled: Optional[bool] = Field(
-        None, description="Whether notifications enabled")
+
+    enabled: Optional[bool] = Field(None, description="Whether notifications enabled")
     channels: Optional[List[str]] = Field(None, description="Channels to use")
-    priority_threshold: Optional[str] = Field(
-        None, description="Minimum priority")
+    priority_threshold: Optional[str] = Field(None, description="Minimum priority")
 
 
 class PreferencesBulkUpdateRequest(BaseModel):
     """Request to update multiple preferences."""
-    preferences: Dict[str, Dict[str, Any]
-                      ] = Field(..., description="Event type -> settings")
+
+    preferences: Dict[str, Dict[str, Any]] = Field(
+        ..., description="Event type -> settings"
+    )
 
 
 class DigestSettingsRequest(BaseModel):
     """Request to set digest settings."""
+
     frequency: str = Field(..., description="'none', 'daily', or 'weekly'")
-    digest_time: str = Field(
-        default="09:00",
-        description="Time for digest (HH:MM)")
+    digest_time: str = Field(default="09:00", description="Time for digest (HH:MM)")
 
 
 class TemplateCreateRequest(BaseModel):
     """Request to create a notification template."""
+
     event_type: str = Field(..., description="Event type for template")
     channel: str = Field(..., description="Channel: email, in_app, push")
     subject_template: str = Field(..., description="Subject template")
     body_template: str = Field(..., description="Body template")
     name: Optional[str] = Field(None, description="Template name")
-    description: Optional[str] = Field(
-        None, description="Template description")
-    is_active: bool = Field(
-        default=True,
-        description="Whether template is active")
+    description: Optional[str] = Field(None, description="Template description")
+    is_active: bool = Field(default=True, description="Whether template is active")
 
 
 class TemplateUpdateRequest(BaseModel):
     """Request to update a notification template."""
+
     subject_template: Optional[str] = Field(None)
     body_template: Optional[str] = Field(None)
     name: Optional[str] = Field(None)
@@ -98,11 +95,14 @@ class TemplateUpdateRequest(BaseModel):
 
 class TemplatePreviewRequest(BaseModel):
     """Request to preview a template."""
+
     sample_data: Optional[Dict[str, Any]] = Field(
-        None, description="Sample data for preview")
+        None, description="Sample data for preview"
+    )
 
 
 # ── Notification Endpoints ──────────────────────────────────────────────
+
 
 @router.get("")
 async def list_notifications(
@@ -178,14 +178,13 @@ async def mark_notifications_read(
     if not request.notification_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Either notification_ids or mark_all required"
+            detail="Either notification_ids or mark_all required",
         )
 
     marked = []
     for notification_id in request.notification_ids:
         try:
-            notification = service.mark_as_read(
-                notification_id, current_user.id)
+            notification = service.mark_as_read(notification_id, current_user.id)
             marked.append(notification.id)
         except Exception:
             pass
@@ -237,6 +236,7 @@ async def create_digest(
 
 
 # ── Template Endpoints ──────────────────────────────────────────────────
+
 
 @router.get("/templates")
 async def list_templates(
@@ -311,10 +311,7 @@ async def create_template(
             "version": template.version,
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.get("/templates/{template_id}")
@@ -340,14 +337,15 @@ async def get_template(
             "body_template": template.body_template,
             "is_active": template.is_active,
             "version": template.version,
-            "created_at": template.created_at.isoformat() if template.created_at else None,
-            "updated_at": template.updated_at.isoformat() if template.updated_at else None,
+            "created_at": (
+                template.created_at.isoformat() if template.created_at else None
+            ),
+            "updated_at": (
+                template.updated_at.isoformat() if template.updated_at else None
+            ),
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.put("/templates/{template_id}")
@@ -375,13 +373,12 @@ async def update_template(
             "id": template.id,
             "name": template.name,
             "is_active": template.is_active,
-            "updated_at": template.updated_at.isoformat() if template.updated_at else None,
+            "updated_at": (
+                template.updated_at.isoformat() if template.updated_at else None
+            ),
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.delete("/templates/{template_id}")
@@ -398,10 +395,7 @@ async def delete_template(
         service.delete_template(template_id)
         return {"success": True}
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.post("/templates/{template_id}/preview")
@@ -423,10 +417,7 @@ async def preview_template(
 
         return preview
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.get("/templates/variables/{event_type}")
@@ -448,6 +439,7 @@ async def get_template_variables(
 
 
 # ── Preference Endpoints ────────────────────────────────────────────────
+
 
 @router.get("/preferences")
 async def get_preferences(
@@ -488,10 +480,7 @@ async def update_preference(
             "priority_threshold": preference.priority_threshold,
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.put("/preferences")
@@ -531,10 +520,7 @@ async def set_digest_settings(
 
         return result
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.post("/preferences/reset")

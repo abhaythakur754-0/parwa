@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # SECTION 1: DASHBOARD ↔ PARWA CONNECTION TESTS
 # =============================================================================
 
+
 class TestDashboardToParwaConnection:
     """Test if Dashboard is properly connected to PARWA backend."""
 
@@ -44,7 +45,9 @@ class TestDashboardToParwaConnection:
 
     def test_dashboard_service_exists(self):
         """Dashboard service must exist for business logic."""
-        service_path = "/home/z/my-project/parwa/backend/app/services/dashboard_service.py"
+        service_path = (
+            "/home/z/my-project/parwa/backend/app/services/dashboard_service.py"
+        )
         assert os.path.exists(service_path), "Dashboard service file missing"
 
     def test_dashboard_can_fetch_tickets(self):
@@ -53,10 +56,10 @@ class TestDashboardToParwaConnection:
         dashboard_response = {
             "tickets": [
                 {"id": "ticket_1", "status": "open", "priority": "high"},
-                {"id": "ticket_2", "status": "pending", "priority": "medium"}
+                {"id": "ticket_2", "status": "pending", "priority": "medium"},
             ],
             "total": 2,
-            "page": 1
+            "page": 1,
         }
 
         assert "tickets" in dashboard_response
@@ -67,7 +70,7 @@ class TestDashboardToParwaConnection:
         command_flow = {
             "dashboard_command": "analyze_ticket",
             "ai_engine_received": True,
-            "response": {"analysis": "refund_eligible", "confidence": 0.95}
+            "response": {"analysis": "refund_eligible", "confidence": 0.95},
         }
 
         assert command_flow["ai_engine_received"] is True
@@ -85,17 +88,21 @@ class TestDashboardToParwaConnection:
             "ai_recommendation": "APPROVE",
             "confidence_score": 0.93,
             "reasoning": "Customer eligible per 30-day policy",
-            "displayed_on_dashboard": True
+            "displayed_on_dashboard": True,
         }
 
         assert recommendation_display["displayed_on_dashboard"] is True
         assert recommendation_display["ai_recommendation"] in [
-            "APPROVE", "DENY", "REVIEW"]
+            "APPROVE",
+            "DENY",
+            "REVIEW",
+        ]
 
 
 # =============================================================================
 # SECTION 2: JARVIS ↔ PARWA COMMAND TESTS
 # =============================================================================
+
 
 class TestJarvisToParwaCommands:
     """Test if Jarvis can command PARWA through dashboard."""
@@ -103,14 +110,19 @@ class TestJarvisToParwaCommands:
     def test_jarvis_api_endpoint_exists(self):
         """Jarvis must have API endpoint for commands."""
         jarvis_api_path = "/home/z/my-project/parwa/backend/app/api/jarvis.py"
-        jarvis_control_path = "/home/z/my-project/parwa/backend/app/api/jarvis_control.py"
+        jarvis_control_path = (
+            "/home/z/my-project/parwa/backend/app/api/jarvis_control.py"
+        )
 
         assert os.path.exists(jarvis_api_path) or os.path.exists(
-            jarvis_control_path), "Jarvis API endpoint missing"
+            jarvis_control_path
+        ), "Jarvis API endpoint missing"
 
     def test_jarvis_service_exists(self):
         """Jarvis service must exist for command processing."""
-        jarvis_service_path = "/home/z/my-project/parwa/backend/app/services/jarvis_service.py"
+        jarvis_service_path = (
+            "/home/z/my-project/parwa/backend/app/services/jarvis_service.py"
+        )
         assert os.path.exists(jarvis_service_path), "Jarvis service missing"
 
     def test_jarvis_can_pause_ai(self):
@@ -119,7 +131,7 @@ class TestJarvisToParwaCommands:
             "command": "pause_ai",
             "source": "jarvis",
             "executed": True,
-            "ai_status": "paused"
+            "ai_status": "paused",
         }
 
         assert command_result["executed"] is True
@@ -131,7 +143,7 @@ class TestJarvisToParwaCommands:
             "command": "resume_ai",
             "source": "jarvis",
             "executed": True,
-            "ai_status": "active"
+            "ai_status": "active",
         }
 
         assert command_result["executed"] is True
@@ -144,7 +156,7 @@ class TestJarvisToParwaCommands:
             "ticket_id": "ticket_123",
             "amount": Decimal("99.99"),
             "executed": True,
-            "approval_status": "approved"
+            "approval_status": "approved",
         }
 
         assert approval_result["executed"] is True
@@ -157,7 +169,7 @@ class TestJarvisToParwaCommands:
             "ticket_id": "ticket_456",
             "reason": "Outside policy window",
             "executed": True,
-            "approval_status": "denied"
+            "approval_status": "denied",
         }
 
         assert denial_result["executed"] is True
@@ -171,24 +183,29 @@ class TestJarvisToParwaCommands:
                 "mode": "supervised",
                 "tickets_processed": 150,
                 "pending_approvals": 5,
-                "confidence_avg": 0.92
-            }
+                "confidence_avg": 0.92,
+            },
         }
 
         assert "ai_state" in state_result
-        assert state_result["ai_state"]["mode"] in [
-            "shadow", "supervised", "graduated"]
+        assert state_result["ai_state"]["mode"] in ["shadow", "supervised", "graduated"]
 
     def test_jarvis_natural_language_parsing(self):
         """Jarvis can parse natural language commands."""
         parsed_commands = [
             {
-                "input": "pause all refunds", "parsed": {
-                    "action": "pause", "target": "refunds"}}, {
-                "input": "show me today's tickets", "parsed": {
-                    "action": "show", "target": "tickets", "filter": "today"}}, {
-                        "input": "what's the system status", "parsed": {
-                            "action": "status", "target": "system"}}, ]
+                "input": "pause all refunds",
+                "parsed": {"action": "pause", "target": "refunds"},
+            },
+            {
+                "input": "show me today's tickets",
+                "parsed": {"action": "show", "target": "tickets", "filter": "today"},
+            },
+            {
+                "input": "what's the system status",
+                "parsed": {"action": "status", "target": "system"},
+            },
+        ]
 
         for cmd in parsed_commands:
             assert "parsed" in cmd
@@ -198,6 +215,7 @@ class TestJarvisToParwaCommands:
 # =============================================================================
 # SECTION 3: AI ENGINE ↔ BACKEND CONNECTION TESTS
 # =============================================================================
+
 
 class TestAIEngineToBackendConnection:
     """Test if AI Engine is properly connected to backend services."""
@@ -225,8 +243,8 @@ class TestAIEngineToBackendConnection:
                 "intent": "refund_request",
                 "category": "billing",
                 "priority": "high",
-                "confidence": 0.94
-            }
+                "confidence": 0.94,
+            },
         }
 
         assert classification_result["classification"]["intent"] == "refund_request"
@@ -236,11 +254,7 @@ class TestAIEngineToBackendConnection:
         """AI engine can analyze customer sentiment."""
         sentiment_result = {
             "message": "I'm very frustrated with this service!",
-            "sentiment": {
-                "label": "negative",
-                "score": 0.92,
-                "should_escalate": True
-            }
+            "sentiment": {"label": "negative", "score": 0.92, "should_escalate": True},
         }
 
         assert sentiment_result["sentiment"]["label"] == "negative"
@@ -254,8 +268,8 @@ class TestAIEngineToBackendConnection:
                 "eligible": True,
                 "policy": "30_day_refund",
                 "days_since_purchase": 15,
-                "reason": "Within 30-day window"
-            }
+                "reason": "Within 30-day window",
+            },
         }
 
         assert policy_result["policy_check"]["eligible"] is True
@@ -266,14 +280,12 @@ class TestAIEngineToBackendConnection:
             "ticket_id": "ticket_456",
             "fraud_check": {
                 "risk_level": "high",
-                "indicators": [
-                    "multiple_refunds",
-                    "new_account",
-                    "high_value"],
-                "score": 0.85}}
+                "indicators": ["multiple_refunds", "new_account", "high_value"],
+                "score": 0.85,
+            },
+        }
 
-        assert fraud_result["fraud_check"]["risk_level"] in [
-            "low", "medium", "high"]
+        assert fraud_result["fraud_check"]["risk_level"] in ["low", "medium", "high"]
 
     def test_ai_generates_confidence_score(self):
         """AI generates confidence score for every decision."""
@@ -284,9 +296,9 @@ class TestAIEngineToBackendConnection:
                 "factors": {
                     "policy_match": 0.95,
                     "history_check": 0.90,
-                    "fraud_check": 0.98
-                }
-            }
+                    "fraud_check": 0.98,
+                },
+            },
         }
 
         assert 0 <= confidence_result["confidence"]["score"] <= 1
@@ -295,6 +307,7 @@ class TestAIEngineToBackendConnection:
 # =============================================================================
 # SECTION 4: DATABASE ↔ SERVICES CONNECTION TESTS
 # =============================================================================
+
 
 class TestDatabaseToServicesConnection:
     """Test if database is properly connected to all services."""
@@ -307,19 +320,22 @@ class TestDatabaseToServicesConnection:
     def test_database_config_exists(self):
         """Database configuration must exist."""
         # Check for database configuration in config
-        config_exists = os.path.exists(
-            "/home/z/my-project/parwa/backend/app/config.py")
+        config_exists = os.path.exists("/home/z/my-project/parwa/backend/app/config.py")
         assert config_exists, "Database config missing"
 
     def test_ticket_model_exists(self):
         """Ticket model must exist for database operations."""
         # Check if ticket-related files exist
-        ticket_service = "/home/z/my-project/parwa/backend/app/services/ticket_service.py"
+        ticket_service = (
+            "/home/z/my-project/parwa/backend/app/services/ticket_service.py"
+        )
         assert os.path.exists(ticket_service), "Ticket service missing"
 
     def test_company_model_exists(self):
         """Company model must exist for multi-tenant operations."""
-        company_service = "/home/z/my-project/parwa/backend/app/services/company_service.py"
+        company_service = (
+            "/home/z/my-project/parwa/backend/app/services/company_service.py"
+        )
         assert os.path.exists(company_service), "Company service missing"
 
     def test_audit_trail_model_exists(self):
@@ -337,44 +353,61 @@ class TestDatabaseToServicesConnection:
 # SECTION 5: CHANNEL INTEGRATION TESTS
 # =============================================================================
 
+
 class TestChannelIntegration:
     """Test if all channels are properly integrated."""
 
     def test_email_channel_exists(self):
         """Email channel must be implemented."""
         email_channel_path = "/home/z/my-project/parwa/backend/app/api/email_channel.py"
-        email_service_path = "/home/z/my-project/parwa/backend/app/services/email_channel_service.py"
+        email_service_path = (
+            "/home/z/my-project/parwa/backend/app/services/email_channel_service.py"
+        )
 
         assert os.path.exists(email_channel_path) or os.path.exists(
-            email_service_path), "Email channel missing"
+            email_service_path
+        ), "Email channel missing"
 
     def test_sms_channel_exists(self):
         """SMS channel must be implemented."""
         sms_channel_path = "/home/z/my-project/parwa/backend/app/api/sms_channel.py"
-        sms_service_path = "/home/z/my-project/parwa/backend/app/services/sms_channel_service.py"
+        sms_service_path = (
+            "/home/z/my-project/parwa/backend/app/services/sms_channel_service.py"
+        )
 
         assert os.path.exists(sms_channel_path) or os.path.exists(
-            sms_service_path), "SMS channel missing"
+            sms_service_path
+        ), "SMS channel missing"
 
     def test_chat_widget_exists(self):
         """Chat widget must be implemented."""
         chat_widget_api = "/home/z/my-project/parwa/backend/app/api/chat_widget.py"
-        chat_widget_service = "/home/z/my-project/parwa/backend/app/services/chat_widget_service.py"
+        chat_widget_service = (
+            "/home/z/my-project/parwa/backend/app/services/chat_widget_service.py"
+        )
 
         assert os.path.exists(chat_widget_api) or os.path.exists(
-            chat_widget_service), "Chat widget missing"
+            chat_widget_service
+        ), "Chat widget missing"
 
     def test_voice_channel_exists(self):
         """Voice channel must be implemented."""
-        voice_channel_path = "/home/z/my-project/parwa/backend/app/api/twilio_channels.py"
-        voice_provider_path = "/home/z/my-project/parwa/backend/app/providers/voice/twilio_voice.py"
+        voice_channel_path = (
+            "/home/z/my-project/parwa/backend/app/api/twilio_channels.py"
+        )
+        voice_provider_path = (
+            "/home/z/my-project/parwa/backend/app/providers/voice/twilio_voice.py"
+        )
 
         assert os.path.exists(voice_channel_path) or os.path.exists(
-            voice_provider_path), "Voice channel missing"
+            voice_provider_path
+        ), "Voice channel missing"
 
     def test_channel_dispatcher_exists(self):
         """Channel dispatcher must exist for routing."""
-        dispatcher_path = "/home/z/my-project/parwa/backend/app/core/channel_dispatcher.py"
+        dispatcher_path = (
+            "/home/z/my-project/parwa/backend/app/core/channel_dispatcher.py"
+        )
         assert os.path.exists(dispatcher_path), "Channel dispatcher missing"
 
     def test_omnichannel_memory(self):
@@ -385,9 +418,9 @@ class TestChannelIntegration:
             "unified_context": {
                 "issue": "refund_request",
                 "order_id": "order_456",
-                "sentiment": "frustrated"
+                "sentiment": "frustrated",
             },
-            "memory_preserved": True
+            "memory_preserved": True,
         }
 
         assert omnichannel_result["memory_preserved"] is True
@@ -397,6 +430,7 @@ class TestChannelIntegration:
 # =============================================================================
 # SECTION 6: APPROVAL WORKFLOW INTEGRATION TESTS
 # =============================================================================
+
 
 class TestApprovalWorkflowIntegration:
     """Test if approval workflow is properly integrated."""
@@ -425,7 +459,7 @@ class TestApprovalWorkflowIntegration:
             "action": "refund_approved",
             "approved_by": "manager_001",
             "timestamp": datetime.utcnow().isoformat(),
-            "audit_logged": True
+            "audit_logged": True,
         }
 
         assert approval_audit["audit_logged"] is True
@@ -437,8 +471,8 @@ class TestApprovalWorkflowIntegration:
             "notification": {
                 "sent": True,
                 "channel": "email",
-                "recipient": "customer@example.com"
-            }
+                "recipient": "customer@example.com",
+            },
         }
 
         assert notification_result["notification"]["sent"] is True
@@ -450,7 +484,7 @@ class TestApprovalWorkflowIntegration:
             "tickets": ["ticket_1", "ticket_2", "ticket_3"],
             "action": "approve_all",
             "executed": True,
-            "count": 3
+            "count": 3,
         }
 
         assert batch_result["executed"] is True
@@ -461,16 +495,20 @@ class TestApprovalWorkflowIntegration:
 # SECTION 7: TRAINING PIPELINE INTEGRATION TESTS
 # =============================================================================
 
+
 class TestTrainingPipelineIntegration:
     """Test if training pipeline is properly integrated."""
 
     def test_training_api_exists(self):
         """Training API must exist."""
         training_path = "/home/z/my-project/parwa/backend/app/api/training.py"
-        training_advanced_path = "/home/z/my-project/parwa/backend/app/api/training_advanced.py"
+        training_advanced_path = (
+            "/home/z/my-project/parwa/backend/app/api/training_advanced.py"
+        )
 
         assert os.path.exists(training_path) or os.path.exists(
-            training_advanced_path), "Training API missing"
+            training_advanced_path
+        ), "Training API missing"
 
     def test_training_service_exists(self):
         """Training service must exist."""
@@ -491,7 +529,7 @@ class TestTrainingPipelineIntegration:
             "ai_response": "APPROVE",
             "correct_response": "DENY",
             "logged": True,
-            "logged_at": datetime.utcnow().isoformat()
+            "logged_at": datetime.utcnow().isoformat(),
         }
 
         assert mistake_log["logged"] is True
@@ -502,7 +540,7 @@ class TestTrainingPipelineIntegration:
             "company_id": "comp_123",
             "mistake_count": 50,
             "training_triggered": True,
-            "training_job_id": "job_001"
+            "training_job_id": "job_001",
         }
 
         assert training_trigger["training_triggered"] is True
@@ -512,7 +550,7 @@ class TestTrainingPipelineIntegration:
         training_isolation = {
             "company_id": "comp_123",
             "data_source": "own_interactions_only",
-            "cross_company_sharing": False
+            "cross_company_sharing": False,
         }
 
         assert training_isolation["cross_company_sharing"] is False
@@ -521,6 +559,7 @@ class TestTrainingPipelineIntegration:
 # =============================================================================
 # SECTION 8: BILLING INTEGRATION TESTS
 # =============================================================================
+
 
 class TestBillingIntegration:
     """Test if billing is properly integrated."""
@@ -532,7 +571,9 @@ class TestBillingIntegration:
 
     def test_billing_service_exists(self):
         """Billing service must exist."""
-        billing_service = "/home/z/my-project/parwa/backend/app/services/paddle_service.py"
+        billing_service = (
+            "/home/z/my-project/parwa/backend/app/services/paddle_service.py"
+        )
         assert os.path.exists(billing_service), "Billing service missing"
 
     def test_subscription_tracking(self):
@@ -542,7 +583,7 @@ class TestBillingIntegration:
             "plan": "parwa_growth",
             "status": "active",
             "tickets_used": 1500,
-            "tickets_limit": 5000
+            "tickets_limit": 5000,
         }
 
         assert subscription["status"] == "active"
@@ -554,7 +595,7 @@ class TestBillingIntegration:
             "company_id": "comp_123",
             "overage_tickets": 100,
             "overage_charge": Decimal("100.00"),
-            "tracked": True
+            "tracked": True,
         }
 
         assert overage["tracked"] is True
@@ -563,6 +604,7 @@ class TestBillingIntegration:
 # =============================================================================
 # SECTION 9: SECURITY INTEGRATION TESTS
 # =============================================================================
+
 
 class TestSecurityIntegration:
     """Test if security is properly integrated."""
@@ -577,16 +619,22 @@ class TestSecurityIntegration:
         mfa_path = "/home/z/my-project/parwa/backend/app/api/mfa.py"
         mfa_service = "/home/z/my-project/parwa/backend/app/services/mfa_service.py"
 
-        assert os.path.exists(mfa_path) or os.path.exists(mfa_service), \
-            "MFA implementation missing"
+        assert os.path.exists(mfa_path) or os.path.exists(
+            mfa_service
+        ), "MFA implementation missing"
 
     def test_rate_limiting_exists(self):
         """Rate limiting must be implemented."""
-        rate_limit_path = "/home/z/my-project/parwa/backend/app/middleware/rate_limit.py"
-        rate_limit_service = "/home/z/my-project/parwa/backend/app/services/rate_limit_service.py"
+        rate_limit_path = (
+            "/home/z/my-project/parwa/backend/app/middleware/rate_limit.py"
+        )
+        rate_limit_service = (
+            "/home/z/my-project/parwa/backend/app/services/rate_limit_service.py"
+        )
 
         assert os.path.exists(rate_limit_path) or os.path.exists(
-            rate_limit_service), "Rate limiting missing"
+            rate_limit_service
+        ), "Rate limiting missing"
 
     def test_tenant_middleware_exists(self):
         """Tenant middleware must exist for multi-tenant isolation."""
@@ -598,13 +646,15 @@ class TestSecurityIntegration:
         hmac_path = "/home/z/my-project/parwa/backend/app/security/hmac_verification.py"
         hmac_core = "/home/z/my-project/parwa/backend/app/core/hmac_verify.py"
 
-        assert os.path.exists(hmac_path) or os.path.exists(hmac_core), \
-            "HMAC verification missing"
+        assert os.path.exists(hmac_path) or os.path.exists(
+            hmac_core
+        ), "HMAC verification missing"
 
 
 # =============================================================================
 # SECTION 10: FRONTEND CONNECTIVITY TESTS
 # =============================================================================
+
 
 class TestFrontendConnectivity:
     """Test if frontend can connect to backend."""
@@ -620,8 +670,9 @@ class TestFrontendConnectivity:
         assert os.path.exists(api_path), "API directory missing"
 
         # Count API route files
-        api_files = [f for f in os.listdir(
-            api_path) if f.endswith('.py') and f != '__init__.py']
+        api_files = [
+            f for f in os.listdir(api_path) if f.endswith(".py") and f != "__init__.py"
+        ]
         assert len(api_files) > 20, f"Not enough API files: {len(api_files)}"
 
     def test_cors_configured(self):
@@ -629,7 +680,7 @@ class TestFrontendConnectivity:
         # Check main.py for CORS
         main_path = "/home/z/my-project/parwa/backend/app/main.py"
         if os.path.exists(main_path):
-            with open(main_path, 'r') as f:
+            with open(main_path, "r") as f:
                 content = f.read()
             assert "CORS" in content or "cors" in content, "CORS not configured"
 
@@ -642,6 +693,7 @@ class TestFrontendConnectivity:
 # =============================================================================
 # SECTION 11: REAL-TIME COMMUNICATION TESTS
 # =============================================================================
+
 
 class TestRealTimeCommunication:
     """Test real-time communication capabilities."""
@@ -658,7 +710,9 @@ class TestRealTimeCommunication:
 
     def test_event_emitter_exists(self):
         """Event emitter must exist."""
-        event_emitter_path = "/home/z/my-project/parwa/backend/app/core/event_emitter.py"
+        event_emitter_path = (
+            "/home/z/my-project/parwa/backend/app/core/event_emitter.py"
+        )
         assert os.path.exists(event_emitter_path), "Event emitter missing"
 
     def test_real_time_ticket_updates(self):
@@ -669,7 +723,7 @@ class TestRealTimeCommunication:
             "old_status": "open",
             "new_status": "in_progress",
             "broadcast_via_socket": True,
-            "room": "tenant_comp_123"
+            "room": "tenant_comp_123",
         }
 
         assert ticket_update["broadcast_via_socket"] is True
@@ -679,6 +733,7 @@ class TestRealTimeCommunication:
 # SECTION 12: CRITICAL GAP TESTS
 # =============================================================================
 
+
 class TestCriticalGaps:
     """Test for critical integration gaps."""
 
@@ -687,31 +742,41 @@ class TestCriticalGaps:
         # Check if there's a way for dashboard to trigger AI
         ai_engine_api = "/home/z/my-project/parwa/backend/app/api/ai_engine.py"
         assert os.path.exists(
-            ai_engine_api), "AI Engine API missing - Dashboard can't trigger AI"
+            ai_engine_api
+        ), "AI Engine API missing - Dashboard can't trigger AI"
 
     def test_gap_jarvis_to_approval(self):
         """GAP: Jarvis must be able to trigger approval workflow."""
         jarvis_control = "/home/z/my-project/parwa/backend/app/api/jarvis_control.py"
         approvals = "/home/z/my-project/parwa/backend/app/api/approvals.py"
 
-        assert os.path.exists(jarvis_control) and os.path.exists(approvals), \
-            "Jarvis ↔ Approval connection missing"
+        assert os.path.exists(jarvis_control) and os.path.exists(
+            approvals
+        ), "Jarvis ↔ Approval connection missing"
 
     def test_gap_ticket_to_ai_connection(self):
         """GAP: Tickets must be processed by AI."""
-        ticket_service = "/home/z/my-project/parwa/backend/app/services/ticket_service.py"
+        ticket_service = (
+            "/home/z/my-project/parwa/backend/app/services/ticket_service.py"
+        )
         ai_pipeline = "/home/z/my-project/parwa/backend/app/core/ai_pipeline.py"
 
         assert os.path.exists(ticket_service) and os.path.exists(
-            ai_pipeline), "Ticket → AI connection missing"
+            ai_pipeline
+        ), "Ticket → AI connection missing"
 
     def test_gap_channel_to_ticket(self):
         """GAP: Channels must create tickets."""
-        channel_dispatcher = "/home/z/my-project/parwa/backend/app/core/channel_dispatcher.py"
-        ticket_service = "/home/z/my-project/parwa/backend/app/services/ticket_service.py"
+        channel_dispatcher = (
+            "/home/z/my-project/parwa/backend/app/core/channel_dispatcher.py"
+        )
+        ticket_service = (
+            "/home/z/my-project/parwa/backend/app/services/ticket_service.py"
+        )
 
         assert os.path.exists(channel_dispatcher) and os.path.exists(
-            ticket_service), "Channel → Ticket connection missing"
+            ticket_service
+        ), "Channel → Ticket connection missing"
 
     def test_gap_approval_to_audit(self):
         """GAP: Approvals must create audit entries."""
@@ -719,31 +784,43 @@ class TestCriticalGaps:
         audit_service = "/home/z/my-project/parwa/backend/app/services/audit_service.py"
 
         assert os.path.exists(approvals_api) and os.path.exists(
-            audit_service), "Approval → Audit connection missing"
+            audit_service
+        ), "Approval → Audit connection missing"
 
     def test_gap_billing_to_company(self):
         """GAP: Billing must update company subscription."""
-        billing_service = "/home/z/my-project/parwa/backend/app/services/paddle_service.py"
-        company_service = "/home/z/my-project/parwa/backend/app/services/company_service.py"
+        billing_service = (
+            "/home/z/my-project/parwa/backend/app/services/paddle_service.py"
+        )
+        company_service = (
+            "/home/z/my-project/parwa/backend/app/services/company_service.py"
+        )
 
         assert os.path.exists(billing_service) and os.path.exists(
-            company_service), "Billing → Company connection missing"
+            company_service
+        ), "Billing → Company connection missing"
 
     def test_gap_webhook_to_ticket(self):
         """GAP: Webhooks must create/update tickets."""
         webhook_handlers = "/home/z/my-project/parwa/backend/app/webhooks"
-        ticket_service = "/home/z/my-project/parwa/backend/app/services/ticket_service.py"
+        ticket_service = (
+            "/home/z/my-project/parwa/backend/app/services/ticket_service.py"
+        )
 
         assert os.path.exists(webhook_handlers) and os.path.exists(
-            ticket_service), "Webhook → Ticket connection missing"
+            ticket_service
+        ), "Webhook → Ticket connection missing"
 
     def test_gap_ai_to_notification(self):
         """GAP: AI decisions must trigger notifications."""
-        notification_service = "/home/z/my-project/parwa/backend/app/services/notification_service.py"
+        notification_service = (
+            "/home/z/my-project/parwa/backend/app/services/notification_service.py"
+        )
         ai_pipeline = "/home/z/my-project/parwa/backend/app/core/ai_pipeline.py"
 
         assert os.path.exists(notification_service) and os.path.exists(
-            ai_pipeline), "AI → Notification connection missing"
+            ai_pipeline
+        ), "AI → Notification connection missing"
 
 
 # =============================================================================

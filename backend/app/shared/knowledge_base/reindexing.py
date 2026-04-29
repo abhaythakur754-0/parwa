@@ -112,9 +112,7 @@ class ReindexingManager:
                 company_id=company_id,
             )
             return False
-        if job.status in (
-                ReindexStatus.PENDING.value,
-                ReindexStatus.RUNNING.value):
+        if job.status in (ReindexStatus.PENDING.value, ReindexStatus.RUNNING.value):
             job.status = ReindexStatus.CANCELLED.value
             job.completed_at = time.time()
             return True
@@ -126,10 +124,7 @@ class ReindexingManager:
         status: Optional[str] = None,
     ) -> List[ReindexJob]:
         """List reindexing jobs for a company."""
-        jobs = [
-            j for j in self._jobs.values()
-            if j.company_id == company_id
-        ]
+        jobs = [j for j in self._jobs.values() if j.company_id == company_id]
         if status:
             jobs = [j for j in jobs if j.status == status]
         return sorted(jobs, key=lambda j: j.created_at, reverse=True)

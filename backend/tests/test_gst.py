@@ -33,7 +33,6 @@ from app.core.techniques.gst import (
     _DEFAULT_WEIGHTS,
 )
 
-
 # ── Fixtures ────────────────────────────────────────────────────────
 
 
@@ -137,8 +136,12 @@ class TestDecisionScope:
 
     def test_all_scopes(self):
         expected = {
-            "contract_modification", "feature_request", "policy_change",
-            "escalation", "pricing", "general",
+            "contract_modification",
+            "feature_request",
+            "policy_change",
+            "escalation",
+            "pricing",
+            "general",
         }
         actual = {s.value for s in DecisionScope}
         assert actual == expected
@@ -274,7 +277,8 @@ class TestGSTOption:
             "description",
             "impact_scores",
             "risks",
-            "total_score"}
+            "total_score",
+        }
         assert set(d.keys()) == expected_keys
 
     def test_to_dict_total_score_rounded(self):
@@ -308,15 +312,18 @@ class TestGSTResult:
         )
         assert len(result.options) == 1
         assert len(result.checkpoints) == 1
-        assert result.steps_applied == [
-            "problem_definition", "option_generation"]
+        assert result.steps_applied == ["problem_definition", "option_generation"]
 
     def test_to_dict_keys(self):
         result = GSTResult()
         d = result.to_dict()
         expected_keys = {
-            "problem_definition", "options", "recommendation",
-            "checkpoints", "steps_applied", "risk_summary",
+            "problem_definition",
+            "options",
+            "recommendation",
+            "checkpoints",
+            "steps_applied",
+            "risk_summary",
         }
         assert set(d.keys()) == expected_keys
 
@@ -356,6 +363,7 @@ class TestGSTNode:
 
     def test_tier_3(self, node):
         from app.core.technique_router import TechniqueTier
+
         assert node.technique_info.tier == TechniqueTier.TIER_3
 
     def test_node_with_custom_config(self):
@@ -378,8 +386,7 @@ class TestShouldActivate:
         assert await node.should_activate(strategic_state) is True
 
     @pytest.mark.asyncio
-    async def test_non_strategic_does_not_activate(
-            self, node, non_strategic_state):
+    async def test_non_strategic_does_not_activate(self, node, non_strategic_state):
         assert await node.should_activate(non_strategic_state) is False
 
     @pytest.mark.asyncio
@@ -512,8 +519,9 @@ class TestGenerateOptions:
         )
         assert len(options) >= 2
         assert all(isinstance(o, GSTOption) for o in options)
-        assert all(o.option_id.startswith("contract_modification_opt_")
-                   for o in options)
+        assert all(
+            o.option_id.startswith("contract_modification_opt_") for o in options
+        )
 
     @pytest.mark.asyncio
     async def test_feature_options(self, processor):
@@ -670,7 +678,8 @@ class TestAnalyzeImpact:
             "customer_satisfaction": 1.0,
             "cost_impact": 0.0,
             "policy_compliance": 0.0,
-            "implementation_feasibility": 0.0}
+            "implementation_feasibility": 0.0,
+        }
         result = await processor.analyze_impact(options, weights=custom_weights)
         assert result[0].total_score == pytest.approx(1.0)
 
@@ -711,7 +720,8 @@ class TestAnalyzeImpact:
         assert result[0].total_score > 0.0
         # Only customer_satisfaction contributes
         assert result[0].total_score == pytest.approx(
-            0.5 * _DEFAULT_WEIGHTS["customer_satisfaction"])
+            0.5 * _DEFAULT_WEIGHTS["customer_satisfaction"]
+        )
 
     @pytest.mark.asyncio
     async def test_empty_options(self, processor):
@@ -746,7 +756,12 @@ class TestAssessRisks:
         options = [
             GSTOption(
                 option_id="opt_1",
-                risks=[{"category": RiskCategory.FINANCIAL, "severity": RiskSeverity.MEDIUM}],
+                risks=[
+                    {
+                        "category": RiskCategory.FINANCIAL,
+                        "severity": RiskSeverity.MEDIUM,
+                    }
+                ],
             ),
         ]
         result = await processor.assess_risks(options)
@@ -879,9 +894,8 @@ class TestRecommend:
             GSTOption(
                 option_id="opt_1",
                 total_score=0.7,
-                impact_scores={
-                    "customer_satisfaction": 0.8,
-                    "cost_impact": 0.6}),
+                impact_scores={"customer_satisfaction": 0.8, "cost_impact": 0.6},
+            ),
         ]
         risk_summary = {
             "per_option": [{"option_id": "opt_1", "risk_score": 0.0}],
@@ -956,8 +970,11 @@ class TestRecommend:
     @pytest.mark.asyncio
     async def test_rationale_includes_score(self, processor):
         options = [
-            GSTOption(option_id="opt_1", total_score=0.75,
-                      impact_scores={"customer_satisfaction": 0.9}),
+            GSTOption(
+                option_id="opt_1",
+                total_score=0.75,
+                impact_scores={"customer_satisfaction": 0.9},
+            ),
         ]
         risk_summary = {
             "per_option": [{"option_id": "opt_1", "risk_score": 0.1}],
@@ -1074,8 +1091,7 @@ class TestFullPipeline:
     async def test_recommendation_has_selected_option(self, processor):
         result = await processor.process("We need to change the pricing")
         assert result.recommendation.get("selected_option") is not None
-        assert result.recommendation["selected_option"].get(
-            "option_id") is not None
+        assert result.recommendation["selected_option"].get("option_id") is not None
 
     @pytest.mark.asyncio
     async def test_risk_summary_has_structure(self, processor):
@@ -1098,69 +1114,79 @@ class TestClassifyScope:
     """Tests for the _classify_scope() utility method."""
 
     def test_contract_scope(self):
-        assert GSTProcessor._classify_scope(
-            "modify the contract terms"
-        ) == DecisionScope.CONTRACT_MODIFICATION
+        assert (
+            GSTProcessor._classify_scope("modify the contract terms")
+            == DecisionScope.CONTRACT_MODIFICATION
+        )
 
     def test_feature_scope(self):
-        assert GSTProcessor._classify_scope(
-            "request a new feature for the dashboard"
-        ) == DecisionScope.FEATURE_REQUEST
+        assert (
+            GSTProcessor._classify_scope("request a new feature for the dashboard")
+            == DecisionScope.FEATURE_REQUEST
+        )
 
     def test_policy_scope(self):
-        assert GSTProcessor._classify_scope(
-            "change the refund policy"
-        ) == DecisionScope.POLICY_CHANGE
+        assert (
+            GSTProcessor._classify_scope("change the refund policy")
+            == DecisionScope.POLICY_CHANGE
+        )
 
     def test_escalation_scope(self):
-        assert GSTProcessor._classify_scope(
-            "escalate this to management immediately"
-        ) == DecisionScope.ESCALATION
+        assert (
+            GSTProcessor._classify_scope("escalate this to management immediately")
+            == DecisionScope.ESCALATION
+        )
 
     def test_pricing_scope(self):
-        assert GSTProcessor._classify_scope(
-            "adjust the pricing for our plan"
-        ) == DecisionScope.PRICING
+        assert (
+            GSTProcessor._classify_scope("adjust the pricing for our plan")
+            == DecisionScope.PRICING
+        )
 
     def test_general_scope(self):
-        assert GSTProcessor._classify_scope(
-            "how should we handle this"
-        ) == DecisionScope.GENERAL
+        assert (
+            GSTProcessor._classify_scope("how should we handle this")
+            == DecisionScope.GENERAL
+        )
 
     def test_case_insensitive(self):
-        assert GSTProcessor._classify_scope(
-            "MODIFY THE CONTRACT"
-        ) == DecisionScope.CONTRACT_MODIFICATION
+        assert (
+            GSTProcessor._classify_scope("MODIFY THE CONTRACT")
+            == DecisionScope.CONTRACT_MODIFICATION
+        )
 
     def test_empty_query(self):
-        assert GSTProcessor._classify_scope(
-            ""
-        ) == DecisionScope.GENERAL
+        assert GSTProcessor._classify_scope("") == DecisionScope.GENERAL
 
     def test_amendment_triggers_contract(self):
-        assert GSTProcessor._classify_scope(
-            "contract amendment needed"
-        ) == DecisionScope.CONTRACT_MODIFICATION
+        assert (
+            GSTProcessor._classify_scope("contract amendment needed")
+            == DecisionScope.CONTRACT_MODIFICATION
+        )
 
     def test_enhancement_triggers_feature(self):
-        assert GSTProcessor._classify_scope(
-            "enhancement request for reporting"
-        ) == DecisionScope.FEATURE_REQUEST
+        assert (
+            GSTProcessor._classify_scope("enhancement request for reporting")
+            == DecisionScope.FEATURE_REQUEST
+        )
 
     def test_regulation_triggers_policy(self):
-        assert GSTProcessor._classify_scope(
-            "regulation requires policy update"
-        ) == DecisionScope.POLICY_CHANGE
+        assert (
+            GSTProcessor._classify_scope("regulation requires policy update")
+            == DecisionScope.POLICY_CHANGE
+        )
 
     def test_urgent_triggers_escalation(self):
-        assert GSTProcessor._classify_scope(
-            "urgent priority issue"
-        ) == DecisionScope.ESCALATION
+        assert (
+            GSTProcessor._classify_scope("urgent priority issue")
+            == DecisionScope.ESCALATION
+        )
 
     def test_discount_triggers_pricing(self):
-        assert GSTProcessor._classify_scope(
-            "apply a discount to the account"
-        ) == DecisionScope.PRICING
+        assert (
+            GSTProcessor._classify_scope("apply a discount to the account")
+            == DecisionScope.PRICING
+        )
 
 
 # ── Node execute() Tests ─────────────────────────────────────────────
@@ -1242,11 +1268,11 @@ class TestErrorFallback:
     """BC-008: Never crash — return original state on error."""
 
     @pytest.mark.asyncio
-    async def test_execute_returns_original_on_exception(
-            self, node, strategic_state):
+    async def test_execute_returns_original_on_exception(self, node, strategic_state):
         """Force an exception inside execute() and verify original state returned."""
         with patch.object(
-            node._processor, 'process',
+            node._processor,
+            "process",
             side_effect=RuntimeError("boom"),
         ):
             result = await node.execute(strategic_state)
@@ -1256,7 +1282,8 @@ class TestErrorFallback:
     async def test_process_returns_fallback_on_internal_error(self, processor):
         """Force an exception inside process() pipeline."""
         with patch.object(
-            processor, 'define_problem',
+            processor,
+            "define_problem",
             side_effect=RuntimeError("pipeline error"),
         ):
             result = await processor.process("strategic query")
@@ -1266,7 +1293,8 @@ class TestErrorFallback:
     async def test_processor_error_logs_warning(self, processor):
         """Error should be logged as warning, not crash."""
         with patch.object(
-            processor, 'define_problem',
+            processor,
+            "define_problem",
             side_effect=ValueError("error"),
         ):
             result = await processor.process("test query")
@@ -1275,7 +1303,8 @@ class TestErrorFallback:
     @pytest.mark.asyncio
     async def test_error_in_option_generation(self, processor):
         with patch.object(
-            processor, 'generate_options',
+            processor,
+            "generate_options",
             side_effect=Exception("option gen fail"),
         ):
             result = await processor.process("strategic decision")
@@ -1285,7 +1314,8 @@ class TestErrorFallback:
     @pytest.mark.asyncio
     async def test_error_in_impact_analysis(self, processor):
         with patch.object(
-            processor, 'analyze_impact',
+            processor,
+            "analyze_impact",
             side_effect=Exception("impact fail"),
         ):
             result = await processor.process("modify contract")
@@ -1294,7 +1324,8 @@ class TestErrorFallback:
     @pytest.mark.asyncio
     async def test_error_in_risk_assessment(self, processor):
         with patch.object(
-            processor, 'assess_risks',
+            processor,
+            "assess_risks",
             side_effect=Exception("risk fail"),
         ):
             result = await processor.process("modify contract")
@@ -1349,6 +1380,7 @@ class TestEdgeCases:
     async def test_concurrent_processing(self, processor):
         """Two concurrent process calls should not interfere."""
         import asyncio
+
         r1, r2 = await asyncio.gather(
             processor.process("modify contract"),
             processor.process("change pricing"),
@@ -1385,17 +1417,21 @@ class TestScopeTemplateIntegrity:
                 assert "description" in tmpl
                 assert "base_scores" in tmpl
                 assert "risks" in tmpl
-                for dim in ("customer_satisfaction", "cost_impact",
-                            "policy_compliance", "implementation_feasibility"):
+                for dim in (
+                    "customer_satisfaction",
+                    "cost_impact",
+                    "policy_compliance",
+                    "implementation_feasibility",
+                ):
                     assert dim in tmpl["base_scores"], f"Missing {dim} for {scope}"
 
     def test_option_scores_in_range(self):
         for scope, templates in _SCOPE_OPTIONS.items():
             for tmpl in templates:
                 for dim, score in tmpl["base_scores"].items():
-                    assert 0.0 <= score <= 1.0, (
-                        f"{scope}: {dim} score {score} out of range"
-                    )
+                    assert (
+                        0.0 <= score <= 1.0
+                    ), f"{scope}: {dim} score {score} out of range"
 
     def test_risks_have_required_fields(self):
         for scope, templates in _SCOPE_OPTIONS.items():
@@ -1406,9 +1442,9 @@ class TestScopeTemplateIntegrity:
 
     def test_minimum_options_per_scope(self):
         for scope, templates in _SCOPE_OPTIONS.items():
-            assert len(templates) >= 2, (
-                f"Scope {scope} has only {len(templates)} options (need >= 2)"
-            )
+            assert (
+                len(templates) >= 2
+            ), f"Scope {scope} has only {len(templates)} options (need >= 2)"
 
     def test_default_weights_sum(self):
         total = sum(_DEFAULT_WEIGHTS.values())

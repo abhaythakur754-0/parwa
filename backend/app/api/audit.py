@@ -45,39 +45,26 @@ router = APIRouter(prefix="/api/audit", tags=["Audit"])
 
 @router.get("/trail")
 async def get_audit_trail(
-        actor_type: Optional[str] = Query(
-            None,
-            description="Filter by actor type (user, system, api_key)"),
-    action: Optional[str] = Query(
-            None,
-            description="Filter by action name"),
-        resource_type: Optional[str] = Query(
-            None,
-            description="Filter by resource type"),
-        resource_id: Optional[str] = Query(
-            None,
-            description="Filter by specific resource ID"),
-        actor_id: Optional[str] = Query(
-            None,
-            description="Filter by actor ID"),
-        date_from: Optional[str] = Query(
-            None,
-            description="ISO datetime string for start date"),
-        date_to: Optional[str] = Query(
-            None,
-            description="ISO datetime string for end date"),
-        offset: int = Query(
-            0,
-            ge=0,
-            description="Pagination offset"),
-        limit: int = Query(
-            20,
-            ge=1,
-            le=100,
-            description="Pagination limit"),
-        db: Session = Depends(get_db),
-        company_id: str = Depends(get_company_id),
-        current_user: User = Depends(get_current_user),
+    actor_type: Optional[str] = Query(
+        None, description="Filter by actor type (user, system, api_key)"
+    ),
+    action: Optional[str] = Query(None, description="Filter by action name"),
+    resource_type: Optional[str] = Query(None, description="Filter by resource type"),
+    resource_id: Optional[str] = Query(
+        None, description="Filter by specific resource ID"
+    ),
+    actor_id: Optional[str] = Query(None, description="Filter by actor ID"),
+    date_from: Optional[str] = Query(
+        None, description="ISO datetime string for start date"
+    ),
+    date_to: Optional[str] = Query(
+        None, description="ISO datetime string for end date"
+    ),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    limit: int = Query(20, ge=1, le=100, description="Pagination limit"),
+    db: Session = Depends(get_db),
+    company_id: str = Depends(get_company_id),
+    current_user: User = Depends(get_current_user),
 ):
     """Query the audit trail with filters and pagination.
 
@@ -132,11 +119,7 @@ async def get_audit_trail(
 
 @router.get("/stats")
 async def get_stats(
-        days: int = Query(
-            30,
-            ge=1,
-            le=365,
-            description="Look-back period in days"),
+    days: int = Query(30, ge=1, le=365, description="Look-back period in days"),
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
     current_user: User = Depends(get_current_user),
@@ -156,21 +139,16 @@ async def get_stats(
 
 @router.get("/export")
 async def export_audit(
-        date_from: Optional[str] = Query(
-            None,
-            description="ISO datetime string for start date"),
+    date_from: Optional[str] = Query(
+        None, description="ISO datetime string for start date"
+    ),
     date_to: Optional[str] = Query(
-            None,
-            description="ISO datetime string for end date"),
-        format: str = Query(
-            "json",
-            description="Export format (json)"),
-        db: Session = Depends(get_db),
-        company_id: str = Depends(get_company_id),
-        current_user: User = Depends(
-            require_roles(
-                "owner",
-                "admin")),
+        None, description="ISO datetime string for end date"
+    ),
+    format: str = Query("json", description="Export format (json)"),
+    db: Session = Depends(get_db),
+    company_id: str = Depends(get_company_id),
+    current_user: User = Depends(require_roles("owner", "admin")),
 ):
     """Export audit trail entries for compliance reporting.
 

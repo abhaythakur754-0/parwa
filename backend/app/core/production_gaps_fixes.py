@@ -28,6 +28,7 @@ logger = get_logger("production_gaps")
 # GAP-002: Payment Failure Distributed Lock
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class PaymentFailureLock:
     """
     Distributed lock for payment failure state transitions.
@@ -67,18 +68,21 @@ class PaymentFailureLock:
             if self._acquired:
                 logger.info(
                     "payment_failure_lock_acquired company_id=%s lock_key=%s",
-                    self.company_id, self.lock_key,
+                    self.company_id,
+                    self.lock_key,
                 )
             else:
                 logger.warning(
                     "payment_failure_lock_failed company_id=%s lock_key=%s",
-                    self.company_id, self.lock_key,
+                    self.company_id,
+                    self.lock_key,
                 )
             return self._acquired
         except Exception as e:
             logger.error(
                 "payment_failure_lock_error company_id=%s error=%s",
-                self.company_id, str(e),
+                self.company_id,
+                str(e),
             )
             return False
 
@@ -101,7 +105,8 @@ class PaymentFailureLock:
         except Exception as e:
             logger.error(
                 "payment_failure_lock_release_error company_id=%s error=%s",
-                self.company_id, str(e),
+                self.company_id,
+                str(e),
             )
             return False
 
@@ -116,9 +121,11 @@ class PaymentFailureLock:
 # GAP-003: Chunked Content PII Detection
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class PIIChunkResult:
     """Result of PII detection on chunked content."""
+
     has_pii: bool
     pii_types: List[str]
     locations: List[Dict[str, Any]]
@@ -143,13 +150,11 @@ class ChunkAwarePIIDetector:
 
     # PII patterns
     PATTERNS = {
-        "ssn": re.compile(r'\b\d{3}[-\s]\d{2}[-\s]\d{4}\b'),
-        "credit_card": re.compile(r'\b(?:\d{4}[-\s]?){3}\d{4}\b'),
-        "email": re.compile(r'\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b'),
-        "phone": re.compile(
-            r'\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b'
-        ),
-        "ip_address": re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b'),
+        "ssn": re.compile(r"\b\d{3}[-\s]\d{2}[-\s]\d{4}\b"),
+        "credit_card": re.compile(r"\b(?:\d{4}[-\s]?){3}\d{4}\b"),
+        "email": re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"),
+        "phone": re.compile(r"\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b"),
+        "ip_address": re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),
     }
 
     def __init__(self, overlap_size: int = None):
@@ -185,18 +190,23 @@ class ChunkAwarePIIDetector:
                     is_cross_boundary = match.start() < len(previous_tail)
 
                     all_pii_types.add(pii_type)
-                    all_locations.append({
-                        "type": pii_type,
-                        "value": match.group(),
-                        "chunk_index": i,
-                        "is_cross_boundary": is_cross_boundary,
-                        "start": match.start(),
-                        "end": match.end(),
-                    })
+                    all_locations.append(
+                        {
+                            "type": pii_type,
+                            "value": match.group(),
+                            "chunk_index": i,
+                            "is_cross_boundary": is_cross_boundary,
+                            "start": match.start(),
+                            "end": match.end(),
+                        }
+                    )
 
             # Store tail for next iteration
-            previous_tail = chunk[-self.overlap_size:] if len(
-                chunk) >= self.overlap_size else chunk
+            previous_tail = (
+                chunk[-self.overlap_size :]
+                if len(chunk) >= self.overlap_size
+                else chunk
+            )
 
         return PIIChunkResult(
             has_pii=len(all_pii_types) > 0,
@@ -213,6 +223,7 @@ class ChunkAwarePIIDetector:
 # GAP-004: Confidence Score Optimistic Locking
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class ConfidenceScore:
     """
@@ -220,6 +231,7 @@ class ConfidenceScore:
 
     Includes version field for detecting concurrent modifications.
     """
+
     score: float
     version: int = 0
     components: Dict[str, float] = field(default_factory=dict)
@@ -278,7 +290,9 @@ class ConfidenceScoreManager:
                 logger.warning(
                     "confidence_score_version_mismatch entity_id=%s "
                     "expected=%s actual=%s",
-                    entity_id, expected_version, current.version,
+                    entity_id,
+                    expected_version,
+                    current.version,
                 )
                 return False, current
 
@@ -294,7 +308,9 @@ class ConfidenceScoreManager:
 
             logger.info(
                 "confidence_score_updated entity_id=%s score=%s version=%s",
-                entity_id, new_score, new_version,
+                entity_id,
+                new_score,
+                new_version,
             )
 
             return True, new_confidence
@@ -320,6 +336,7 @@ class ConfidenceScoreManager:
 # GAP-005: Training Data Tenant Isolation
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class VectorSearchFilters:
     """
@@ -327,6 +344,7 @@ class VectorSearchFilters:
 
     Ensures tenant and variant isolation in vector index queries.
     """
+
     company_id: str
     variant_id: Optional[str] = None
     additional_filters: Dict[str, Any] = field(default_factory=dict)
@@ -383,6 +401,7 @@ def build_training_record(
 # GAP-006: Tier Transition Usage Freeze
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TierTransitionLock:
     """
     Lock for tier transitions to freeze usage counting during upgrade/downgrade.
@@ -435,7 +454,8 @@ class TierTransitionLock:
         except Exception as e:
             logger.error(
                 "tier_transition_lock_error company_id=%s error=%s",
-                self.company_id, str(e),
+                self.company_id,
+                str(e),
             )
             return False
 
@@ -448,13 +468,15 @@ class TierTransitionLock:
             await self.redis.delete(self.lock_key)
             self._acquired = False
             logger.info(
-                "tier_transition_lock_released company_id=%s", self.company_id,
+                "tier_transition_lock_released company_id=%s",
+                self.company_id,
             )
             return True
         except Exception as e:
             logger.error(
                 "tier_transition_lock_release_error company_id=%s error=%s",
-                self.company_id, str(e),
+                self.company_id,
+                str(e),
             )
             return False
 
@@ -466,8 +488,7 @@ class TierTransitionLock:
         await self.release()
 
 
-async def check_usage_allowed_during_transition(
-        redis_client, company_id: str) -> bool:
+async def check_usage_allowed_during_transition(redis_client, company_id: str) -> bool:
     """
     Check if usage operations are allowed (not frozen during tier transition).
 
@@ -481,6 +502,7 @@ async def check_usage_allowed_during_transition(
 # ═══════════════════════════════════════════════════════════════════════════════
 # GAP-013: Tenant Cache Invalidation
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 async def delete_all_tenant_redis_keys(redis_client, company_id: str) -> int:
     """
@@ -517,7 +539,8 @@ async def delete_all_tenant_redis_keys(redis_client, company_id: str) -> int:
 
         logger.info(
             "tenant_cache_invalidated company_id=%s keys_deleted=%s",
-            company_id, deleted_count,
+            company_id,
+            deleted_count,
         )
 
         return deleted_count
@@ -525,7 +548,8 @@ async def delete_all_tenant_redis_keys(redis_client, company_id: str) -> int:
     except Exception as e:
         logger.error(
             "tenant_cache_invalidation_error company_id=%s error=%s",
-            company_id, str(e),
+            company_id,
+            str(e),
         )
         raise
 

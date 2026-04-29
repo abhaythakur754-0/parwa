@@ -112,7 +112,9 @@ _TICKET_ID_PATTERN = r"(?P<ticket_id>TKT[-\w]+|ticket[-\w]+|[0-9a-f]{8}-[0-9a-f]
 # Agent ID pattern (agent name or ID)
 _AGENT_ID_PATTERN = r"(?P<agent_id>\S+)"
 # Incident ID pattern
-_INCIDENT_ID_PATTERN = r"(?P<incident_id>INC[-\w]+|incident[-\w]+|[0-9a-f]{8}-[0-9a-f]{4})"
+_INCIDENT_ID_PATTERN = (
+    r"(?P<incident_id>INC[-\w]+|incident[-\w]+|[0-9a-f]{8}-[0-9a-f]{4})"
+)
 # Integration name pattern
 _INTEGRATION_PATTERN = r"(?P<name>[\w\s-]+?)(?=\s+(?:enable|disable|check|status)|$)"
 # Config key pattern
@@ -128,130 +130,148 @@ def _register_command(cmd: CommandDefinition) -> None:
 
 # ── System Operations ────────────────────────────────────────────
 
-_register_command(CommandDefinition(
-    command_type="show_status",
-    description="Show overall system health status",
-    category="system",
-    patterns=[
-        r"^(?:show\s+)?(?:system\s+)?status$",
-        r"^how\s+(?:is\s+)?(?:the\s+)?system(?:\s+doing)?\??$",
-        r"^health\s+(?:check|status)?$",
-    ],
-    aliases=["status", "system status", "health", "health check", "ping"],
-    examples=["show status", "system status", "health check"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="show_status",
+        description="Show overall system health status",
+        category="system",
+        patterns=[
+            r"^(?:show\s+)?(?:system\s+)?status$",
+            r"^how\s+(?:is\s+)?(?:the\s+)?system(?:\s+doing)?\??$",
+            r"^health\s+(?:check|status)?$",
+        ],
+        aliases=["status", "system status", "health", "health check", "ping"],
+        examples=["show status", "system status", "health check"],
+    )
+)
 
-_register_command(CommandDefinition(
-    command_type="list_errors",
-    description="List recent system errors and exceptions",
-    category="system",
-    patterns=[
-        r"^(?:show|list|get)\s+(?:recent\s+)?(?:system\s+)?errors?$",
-        r"^what\s+(?:are\s+)?(?:the\s+)?(?:recent\s+)?errors\??$",
-        r"^(?:show|list)\s+exceptions?$",
-    ],
-    aliases=["errors", "show errors", "list errors", "exceptions"],
-    params={"limit": r"(?:last|past|recent)\s+(?P<limit>\d+)"},
-    examples=["list errors", "show recent errors", "list exceptions"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="list_errors",
+        description="List recent system errors and exceptions",
+        category="system",
+        patterns=[
+            r"^(?:show|list|get)\s+(?:recent\s+)?(?:system\s+)?errors?$",
+            r"^what\s+(?:are\s+)?(?:the\s+)?(?:recent\s+)?errors\??$",
+            r"^(?:show|list)\s+exceptions?$",
+        ],
+        aliases=["errors", "show errors", "list errors", "exceptions"],
+        params={"limit": r"(?:last|past|recent)\s+(?P<limit>\d+)"},
+        examples=["list errors", "show recent errors", "list exceptions"],
+    )
+)
 
-_register_command(CommandDefinition(
-    command_type="uptime",
-    description="Show system uptime",
-    category="system",
-    patterns=[
-        r"^uptime$",
-        r"^(?:show|get)\s+uptime$",
-        r"^how\s+long\s+(?:has\s+)?(?:the\s+)?system\s+been\s+(?:up|running)\??$",
-    ],
-    aliases=["show uptime", "get uptime"],
-    examples=["uptime", "show uptime"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="uptime",
+        description="Show system uptime",
+        category="system",
+        patterns=[
+            r"^uptime$",
+            r"^(?:show|get)\s+uptime$",
+            r"^how\s+long\s+(?:has\s+)?(?:the\s+)?system\s+been\s+(?:up|running)\??$",
+        ],
+        aliases=["show uptime", "get uptime"],
+        examples=["uptime", "show uptime"],
+    )
+)
 
-_register_command(CommandDefinition(
-    command_type="show_config",
-    description="Show system configuration",
-    category="system",
-    patterns=[
-        r"^(?:show|get|display)\s+(?:system\s+)?config(?:uration)?$",
-        r"^config(?:uration)?\s+(?:show|get|display)?$",
-    ],
-    aliases=["config", "configuration", "show config"],
-    params={"key": _CONFIG_KEY_PATTERN},
-    examples=["show config", "config", "show config ai.model"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="show_config",
+        description="Show system configuration",
+        category="system",
+        patterns=[
+            r"^(?:show|get|display)\s+(?:system\s+)?config(?:uration)?$",
+            r"^config(?:uration)?\s+(?:show|get|display)?$",
+        ],
+        aliases=["config", "configuration", "show config"],
+        params={"key": _CONFIG_KEY_PATTERN},
+        examples=["show config", "config", "show config ai.model"],
+    )
+)
 
-_register_command(CommandDefinition(
-    command_type="set_config",
-    description="Update a system configuration value",
-    category="system",
-    patterns=[
-        r"^set\s+config(?:uration)?\s+(?P<key>[\w.]+)\s+(?P<value>.+)$",
-        r"^(?:update|change)\s+(?P<key>[\w.]+)\s+(?:to|=>|=)\s*(?P<value>.+)$",
-    ],
-    aliases=["update config", "change config"],
-    requires_confirmation=True,
-    is_destructive=True,
-    examples=["set config ai.temperature 0.7", "update max_retries to 5"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="set_config",
+        description="Update a system configuration value",
+        category="system",
+        patterns=[
+            r"^set\s+config(?:uration)?\s+(?P<key>[\w.]+)\s+(?P<value>.+)$",
+            r"^(?:update|change)\s+(?P<key>[\w.]+)\s+(?:to|=>|=)\s*(?P<value>.+)$",
+        ],
+        aliases=["update config", "change config"],
+        requires_confirmation=True,
+        is_destructive=True,
+        examples=["set config ai.temperature 0.7", "update max_retries to 5"],
+    )
+)
 
-_register_command(CommandDefinition(
-    command_type="show_logs",
-    description="Show recent system logs",
-    category="system",
-    patterns=[
-        r"^(?:show|get|view|tail)\s+(?:recent\s+)?logs?$",
-        r"^(?:show|get)\s+(?:the\s+)?(?:system\s+)?(?:activity\s+)?logs?$",
-    ],
-    aliases=["logs", "show logs", "get logs", "tail logs"],
-    params={
-        "limit": r"(?:last|past|recent)\s+(?P<limit>\d+)",
-        "level": r"(?P<level>error|warn|warning|info|debug)",
-    },
-    examples=["show logs", "show last 50 logs", "show error logs"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="show_logs",
+        description="Show recent system logs",
+        category="system",
+        patterns=[
+            r"^(?:show|get|view|tail)\s+(?:recent\s+)?logs?$",
+            r"^(?:show|get)\s+(?:the\s+)?(?:system\s+)?(?:activity\s+)?logs?$",
+        ],
+        aliases=["logs", "show logs", "get logs", "tail logs"],
+        params={
+            "limit": r"(?:last|past|recent)\s+(?P<limit>\d+)",
+            "level": r"(?P<level>error|warn|warning|info|debug)",
+        },
+        examples=["show logs", "show last 50 logs", "show error logs"],
+    )
+)
 
-_register_command(CommandDefinition(
-    command_type="export_logs",
-    description="Export system logs",
-    category="system",
-    patterns=[
-        r"^export\s+logs?$",
-        r"^download\s+(?:system\s+)?logs?$",
-    ],
-    aliases=["download logs"],
-    params={"format": r"(?P<format>json|csv|txt)"},
-    examples=["export logs", "export logs json"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="export_logs",
+        description="Export system logs",
+        category="system",
+        patterns=[
+            r"^export\s+logs?$",
+            r"^download\s+(?:system\s+)?logs?$",
+        ],
+        aliases=["download logs"],
+        params={"format": r"(?P<format>json|csv|txt)"},
+        examples=["export logs", "export logs json"],
+    )
+)
 
 # ── Agent Management ────────────────────────────────────────────
 
-_register_command(CommandDefinition(
-    command_type="list_agents",
-    description="List all AI agents and their status",
-    category="agents",
-    patterns=[
-        r"^(?:show|list|get)\s+(?:all\s+)?agents?$",
-        r"^agents?(?:\s+list)?$",
-    ],
-    aliases=["agents", "show agents", "list agents"],
-    examples=["list agents", "show agents"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="list_agents",
+        description="List all AI agents and their status",
+        category="agents",
+        patterns=[
+            r"^(?:show|list|get)\s+(?:all\s+)?agents?$",
+            r"^agents?(?:\s+list)?$",
+        ],
+        aliases=["agents", "show agents", "list agents"],
+        examples=["list agents", "show agents"],
+    )
+)
 
-_register_command(CommandDefinition(
-    command_type="restart_agent",
-    description="Restart a specific AI agent",
-    category="agents",
-    patterns=[
-        r"^restart\s+agent\s+" + _AGENT_ID_PATTERN + r"$",
-        r"^(?:restart|reload)\s+" + _AGENT_ID_PATTERN + r"$",
-    ],
-    aliases=["restart agent", "reload agent"],
-    requires_confirmation=True,
-    is_destructive=True,
-    params={"agent_id": _AGENT_ID_PATTERN},
-    examples=["restart agent jarvis-primary", "restart agent X"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="restart_agent",
+        description="Restart a specific AI agent",
+        category="agents",
+        patterns=[
+            r"^restart\s+agent\s+" + _AGENT_ID_PATTERN + r"$",
+            r"^(?:restart|reload)\s+" + _AGENT_ID_PATTERN + r"$",
+        ],
+        aliases=["restart agent", "reload agent"],
+        requires_confirmation=True,
+        is_destructive=True,
+        params={"agent_id": _AGENT_ID_PATTERN},
+        examples=["restart agent jarvis-primary", "restart agent X"],
+    )
+)
 
 _register_command(
     CommandDefinition(
@@ -272,25 +292,28 @@ _register_command(
             "ticket_id": _TICKET_ID_PATTERN,
         },
         examples=["assign agent jarvis-primary to ticket TKT-123"],
-    ))
+    )
+)
 
 # ── Ticket Operations ────────────────────────────────────────────
 
-_register_command(CommandDefinition(
-    command_type="list_tickets",
-    description="List tickets with optional filters",
-    category="tickets",
-    patterns=[
-        r"^(?:show|list|get)\s+(?:all\s+)?tickets?$",
-        r"^tickets?(?:\s+list)?$",
-    ],
-    aliases=["tickets", "show tickets", "list tickets"],
-    params={
-        "status": r"(?P<status>open|closed|pending|escalated|all)",
-        "limit": r"(?:last|past|recent)\s+(?P<limit>\d+)",
-    },
-    examples=["list tickets", "list open tickets", "show last 20 tickets"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="list_tickets",
+        description="List tickets with optional filters",
+        category="tickets",
+        patterns=[
+            r"^(?:show|list|get)\s+(?:all\s+)?tickets?$",
+            r"^tickets?(?:\s+list)?$",
+        ],
+        aliases=["tickets", "show tickets", "list tickets"],
+        params={
+            "status": r"(?P<status>open|closed|pending|escalated|all)",
+            "limit": r"(?:last|past|recent)\s+(?P<limit>\d+)",
+        },
+        examples=["list tickets", "list open tickets", "show last 20 tickets"],
+    )
+)
 
 _register_command(
     CommandDefinition(
@@ -301,19 +324,13 @@ _register_command(
             r"^(?:show|get|view|details?\s+(?:of\s+)?)ticket\s+"
             + _TICKET_ID_PATTERN
             + r"$",
-            r"^ticket\s+"
-            + _TICKET_ID_PATTERN
-            + r"$",
+            r"^ticket\s+" + _TICKET_ID_PATTERN + r"$",
         ],
-        aliases=[
-            "ticket details",
-            "show ticket"],
-        params={
-            "ticket_id": _TICKET_ID_PATTERN},
-        examples=[
-            "get ticket TKT-123",
-            "show ticket TKT-456"],
-    ))
+        aliases=["ticket details", "show ticket"],
+        params={"ticket_id": _TICKET_ID_PATTERN},
+        examples=["get ticket TKT-123", "show ticket TKT-456"],
+    )
+)
 
 _register_command(
     CommandDefinition(
@@ -321,24 +338,17 @@ _register_command(
         description="Escalate a ticket to a human agent",
         category="tickets",
         patterns=[
-            r"^escalate\s+(?:ticket\s+)?"
-            + _TICKET_ID_PATTERN
-            + r"$",
+            r"^escalate\s+(?:ticket\s+)?" + _TICKET_ID_PATTERN + r"$",
             r"^(?:assign|handoff)\s+(?:ticket\s+)?"
             + _TICKET_ID_PATTERN
             + r"\s+to\s+human$",
         ],
-        aliases=[
-            "escalate",
-            "escalate ticket",
-            "handoff to human"],
-        params={
-            "ticket_id": _TICKET_ID_PATTERN},
+        aliases=["escalate", "escalate ticket", "handoff to human"],
+        params={"ticket_id": _TICKET_ID_PATTERN},
         requires_confirmation=True,
-        examples=[
-            "escalate ticket TKT-123",
-            "escalate TKT-456"],
-    ))
+        examples=["escalate ticket TKT-123", "escalate TKT-456"],
+    )
+)
 
 _register_command(
     CommandDefinition(
@@ -346,35 +356,33 @@ _register_command(
         description="Close a ticket",
         category="tickets",
         patterns=[
-            r"^close\s+(?:ticket\s+)?"
-            + _TICKET_ID_PATTERN
-            + r"$",
+            r"^close\s+(?:ticket\s+)?" + _TICKET_ID_PATTERN + r"$",
             r"^(?:resolve|mark\s+as\s+resolved)\s+(?:ticket\s+)?"
             + _TICKET_ID_PATTERN
             + r"$",
         ],
-        aliases=[
-            "close ticket",
-            "resolve ticket"],
-        params={
-            "ticket_id": _TICKET_ID_PATTERN},
+        aliases=["close ticket", "resolve ticket"],
+        params={"ticket_id": _TICKET_ID_PATTERN},
         requires_confirmation=True,
         is_destructive=True,
         examples=["close ticket TKT-123"],
-    ))
+    )
+)
 
-_register_command(CommandDefinition(
-    command_type="reopen_ticket",
-    description="Reopen a closed ticket",
-    category="tickets",
-    patterns=[
-        r"^reopen\s+(?:ticket\s+)?" + _TICKET_ID_PATTERN + r"$",
-    ],
-    aliases=["reopen ticket"],
-    params={"ticket_id": _TICKET_ID_PATTERN},
-    requires_confirmation=False,
-    examples=["reopen ticket TKT-123"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="reopen_ticket",
+        description="Reopen a closed ticket",
+        category="tickets",
+        patterns=[
+            r"^reopen\s+(?:ticket\s+)?" + _TICKET_ID_PATTERN + r"$",
+        ],
+        aliases=["reopen ticket"],
+        params={"ticket_id": _TICKET_ID_PATTERN},
+        requires_confirmation=False,
+        examples=["reopen ticket TKT-123"],
+    )
+)
 
 # ── Analytics ────────────────────────────────────────────────────
 
@@ -387,34 +395,35 @@ _register_command(
             r"^(?:show|get|display)\s+(?:the\s+)?analytics?$",
             r"^analytics?(?:\s+dashboard)?$",
         ],
-        aliases=[
-            "analytics",
-            "dashboard",
-            "show analytics"],
+        aliases=["analytics", "dashboard", "show analytics"],
         params={
-            "period": r"(?:for\s+(?:the\s+)?)?(?:last|past)\s+"
-            + _DURATION_PATTERN,
+            "period": r"(?:for\s+(?:the\s+)?)?(?:last|past)\s+" + _DURATION_PATTERN,
+        },
+        examples=["show analytics", "analytics for last 7 days"],
+    )
+)
+
+_register_command(
+    CommandDefinition(
+        command_type="query_analytics",
+        description="Query specific analytics metrics",
+        category="analytics",
+        patterns=[
+            r"^(?:show|get|query)\s+(?:analytics\s+)?(?P<metric>response_time|resolution_rate|csat|first_response|avg_handle|volume|backlog|sla_compliance)",
+            r"^(?:what\s+is\s+the\s+)?(?P<metric>response_time|resolution_rate|csat|first_response|avg_handle|volume|backlog|sla_compliance)\??",
+        ],
+        aliases=["query analytics"],
+        params={
+            "metric": r"(?P<metric>response_time|resolution_rate|csat|first_response|avg_handle|volume|backlog|sla_compliance)",
+            "period": r"(?:for\s+(?:the\s+)?)?(?:last|past)\s+" + _DURATION_PATTERN,
         },
         examples=[
-            "show analytics",
-            "analytics for last 7 days"],
-    ))
-
-_register_command(CommandDefinition(
-    command_type="query_analytics",
-    description="Query specific analytics metrics",
-    category="analytics",
-    patterns=[
-        r"^(?:show|get|query)\s+(?:analytics\s+)?(?P<metric>response_time|resolution_rate|csat|first_response|avg_handle|volume|backlog|sla_compliance)",
-        r"^(?:what\s+is\s+the\s+)?(?P<metric>response_time|resolution_rate|csat|first_response|avg_handle|volume|backlog|sla_compliance)\??",
-    ],
-    aliases=["query analytics"],
-    params={
-        "metric": r"(?P<metric>response_time|resolution_rate|csat|first_response|avg_handle|volume|backlog|sla_compliance)",
-        "period": r"(?:for\s+(?:the\s+)?)?(?:last|past)\s+" + _DURATION_PATTERN,
-    },
-    examples=["show response_time", "what is the csat", "show resolution_rate for last 30 days"],
-))
+            "show response_time",
+            "what is the csat",
+            "show resolution_rate for last 30 days",
+        ],
+    )
+)
 
 # ── Usage & Cost ────────────────────────────────────────────────
 
@@ -427,35 +436,30 @@ _register_command(
             r"^(?:show|get|display)\s+(?:current\s+)?(?:usage|cost)s?$",
             r"^(?:usage|cost)\s+(?:summary|report|dashboard)?$",
         ],
-        aliases=[
-            "usage",
-            "cost",
-            "show usage",
-            "cost report",
-            "usage summary"],
+        aliases=["usage", "cost", "show usage", "cost report", "usage summary"],
         params={
             "period": r"(?:for\s+(?:the\s+)?)?(?:last|past|this)\s+"
             + _DURATION_PATTERN,
         },
-        examples=[
-            "show usage",
-            "cost report",
-            "show usage for last 7 days"],
-    ))
+        examples=["show usage", "cost report", "show usage for last 7 days"],
+    )
+)
 
 # ── Integrations ────────────────────────────────────────────────
 
-_register_command(CommandDefinition(
-    command_type="list_integrations",
-    description="List all configured integrations",
-    category="integrations",
-    patterns=[
-        r"^(?:show|list|get)\s+(?:all\s+)?integrations?$",
-        r"^integrations?(?:\s+list)?$",
-    ],
-    aliases=["integrations", "show integrations", "list integrations"],
-    examples=["list integrations", "show integrations"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="list_integrations",
+        description="List all configured integrations",
+        category="integrations",
+        patterns=[
+            r"^(?:show|list|get)\s+(?:all\s+)?integrations?$",
+            r"^integrations?(?:\s+list)?$",
+        ],
+        aliases=["integrations", "show integrations", "list integrations"],
+        examples=["list integrations", "show integrations"],
+    )
+)
 
 _register_command(
     CommandDefinition(
@@ -467,98 +471,106 @@ _register_command(
             + _INTEGRATION_PATTERN
             + r"\s*(?:health|status)?$",
         ],
-        aliases=[
-            "check integration",
-            "integration health"],
-        params={
-            "name": _INTEGRATION_PATTERN},
-        examples=[
-            "check integration paddle",
-            "check brevo health"],
-    ))
+        aliases=["check integration", "integration health"],
+        params={"name": _INTEGRATION_PATTERN},
+        examples=["check integration paddle", "check brevo health"],
+    )
+)
 
-_register_command(CommandDefinition(
-    command_type="enable_integration",
-    description="Enable an integration",
-    category="integrations",
-    patterns=[
-        r"^enable\s+(?:integration\s+)?" + _INTEGRATION_PATTERN + r"$",
-    ],
-    aliases=["enable integration"],
-    params={"name": _INTEGRATION_PATTERN},
-    requires_confirmation=True,
-    examples=["enable integration paddle"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="enable_integration",
+        description="Enable an integration",
+        category="integrations",
+        patterns=[
+            r"^enable\s+(?:integration\s+)?" + _INTEGRATION_PATTERN + r"$",
+        ],
+        aliases=["enable integration"],
+        params={"name": _INTEGRATION_PATTERN},
+        requires_confirmation=True,
+        examples=["enable integration paddle"],
+    )
+)
 
-_register_command(CommandDefinition(
-    command_type="disable_integration",
-    description="Disable an integration",
-    category="integrations",
-    patterns=[
-        r"^disable\s+(?:integration\s+)?" + _INTEGRATION_PATTERN + r"$",
-    ],
-    aliases=["disable integration"],
-    params={"name": _INTEGRATION_PATTERN},
-    requires_confirmation=True,
-    is_destructive=True,
-    examples=["disable integration twilio"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="disable_integration",
+        description="Disable an integration",
+        category="integrations",
+        patterns=[
+            r"^disable\s+(?:integration\s+)?" + _INTEGRATION_PATTERN + r"$",
+        ],
+        aliases=["disable integration"],
+        params={"name": _INTEGRATION_PATTERN},
+        requires_confirmation=True,
+        is_destructive=True,
+        examples=["disable integration twilio"],
+    )
+)
 
 # ── Queue Management ────────────────────────────────────────────
 
-_register_command(CommandDefinition(
-    command_type="list_queues",
-    description="Show Celery queue depths and status",
-    category="queues",
-    patterns=[
-        r"^(?:show|list|get)\s+(?:celery\s+)?queues?$",
-        r"^queues?(?:\s+(?:status|depth|list))?$",
-    ],
-    aliases=["queues", "show queues", "list queues", "queue status"],
-    examples=["list queues", "show queue depths"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="list_queues",
+        description="Show Celery queue depths and status",
+        category="queues",
+        patterns=[
+            r"^(?:show|list|get)\s+(?:celery\s+)?queues?$",
+            r"^queues?(?:\s+(?:status|depth|list))?$",
+        ],
+        aliases=["queues", "show queues", "list queues", "queue status"],
+        examples=["list queues", "show queue depths"],
+    )
+)
 
-_register_command(CommandDefinition(
-    command_type="purge_queue",
-    description="Purge all messages from a queue",
-    category="queues",
-    patterns=[
-        r"^purge\s+(?:queue\s+)?(?P<queue_name>\w+)$",
-        r"^(?:clear|flush|empty)\s+(?:queue\s+)?(?P<queue_name>\w+)$",
-    ],
-    aliases=["purge queue", "clear queue"],
-    params={"queue_name": r"(?P<queue_name>\w+)"},
-    requires_confirmation=True,
-    is_destructive=True,
-    examples=["purge queue default", "clear queue ai_heavy"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="purge_queue",
+        description="Purge all messages from a queue",
+        category="queues",
+        patterns=[
+            r"^purge\s+(?:queue\s+)?(?P<queue_name>\w+)$",
+            r"^(?:clear|flush|empty)\s+(?:queue\s+)?(?P<queue_name>\w+)$",
+        ],
+        aliases=["purge queue", "clear queue"],
+        params={"queue_name": r"(?P<queue_name>\w+)"},
+        requires_confirmation=True,
+        is_destructive=True,
+        examples=["purge queue default", "clear queue ai_heavy"],
+    )
+)
 
 # ── Incident Management ─────────────────────────────────────────
 
-_register_command(CommandDefinition(
-    command_type="list_incidents",
-    description="List active system incidents",
-    category="incidents",
-    patterns=[
-        r"^(?:show|list|get)\s+(?:active\s+)?incidents?$",
-        r"^incidents?(?:\s+list)?$",
-    ],
-    aliases=["incidents", "show incidents", "list incidents"],
-    examples=["list incidents", "show active incidents"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="list_incidents",
+        description="List active system incidents",
+        category="incidents",
+        patterns=[
+            r"^(?:show|list|get)\s+(?:active\s+)?incidents?$",
+            r"^incidents?(?:\s+list)?$",
+        ],
+        aliases=["incidents", "show incidents", "list incidents"],
+        examples=["list incidents", "show active incidents"],
+    )
+)
 
-_register_command(CommandDefinition(
-    command_type="resolve_incident",
-    description="Resolve a system incident",
-    category="incidents",
-    patterns=[
-        r"^resolve\s+(?:incident\s+)?" + _INCIDENT_ID_PATTERN + r"$",
-    ],
-    aliases=["resolve incident"],
-    params={"incident_id": _INCIDENT_ID_PATTERN},
-    requires_confirmation=True,
-    examples=["resolve incident INC-001"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="resolve_incident",
+        description="Resolve a system incident",
+        category="incidents",
+        patterns=[
+            r"^resolve\s+(?:incident\s+)?" + _INCIDENT_ID_PATTERN + r"$",
+        ],
+        aliases=["resolve incident"],
+        params={"incident_id": _INCIDENT_ID_PATTERN},
+        requires_confirmation=True,
+        examples=["resolve incident INC-001"],
+    )
+)
 
 # ── Training ─────────────────────────────────────────────────────
 
@@ -578,85 +590,94 @@ _register_command(
             "retrain",
             "fine-tune",
             "train from error",
-            "train from errors"],
-        examples=[
             "train from errors",
-            "retrain model",
-            "fine-tune"],
-    ))
+        ],
+        examples=["train from errors", "retrain model", "fine-tune"],
+    )
+)
 
-_register_command(CommandDefinition(
-    command_type="evaluate_model",
-    description="Run model evaluation metrics",
-    category="training",
-    patterns=[
-        r"^evaluate\s+(?:model|performance)?$",
-        r"^(?:show|get)\s+model\s+(?:metrics?|evaluation|performance)$",
-    ],
-    aliases=["evaluate", "evaluate model", "model metrics"],
-    examples=["evaluate model", "show model metrics"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="evaluate_model",
+        description="Run model evaluation metrics",
+        category="training",
+        patterns=[
+            r"^evaluate\s+(?:model|performance)?$",
+            r"^(?:show|get)\s+model\s+(?:metrics?|evaluation|performance)$",
+        ],
+        aliases=["evaluate", "evaluate model", "model metrics"],
+        examples=["evaluate model", "show model metrics"],
+    )
+)
 
 # ── Deployment ───────────────────────────────────────────────────
 
-_register_command(CommandDefinition(
-    command_type="restart_service",
-    description="Restart a backend service",
-    category="deployment",
-    patterns=[
-        r"^restart\s+(?P<service>\w+(?:\s+\w+)?)$",
-        r"^(?:reload|bounce)\s+(?P<service>\w+(?:\s+\w+)?)$",
-    ],
-    aliases=["restart service", "restart celery", "restart worker"],
-    requires_confirmation=True,
-    is_destructive=True,
-    params={"service": r"(?P<service>celery|worker|api|all)"},
-    examples=["restart celery", "restart worker", "restart all"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="restart_service",
+        description="Restart a backend service",
+        category="deployment",
+        patterns=[
+            r"^restart\s+(?P<service>\w+(?:\s+\w+)?)$",
+            r"^(?:reload|bounce)\s+(?P<service>\w+(?:\s+\w+)?)$",
+        ],
+        aliases=["restart service", "restart celery", "restart worker"],
+        requires_confirmation=True,
+        is_destructive=True,
+        params={"service": r"(?P<service>celery|worker|api|all)"},
+        examples=["restart celery", "restart worker", "restart all"],
+    )
+)
 
-_register_command(CommandDefinition(
-    command_type="deploy",
-    description="Deploy a new version",
-    category="deployment",
-    patterns=[
-        r"^deploy(?:\s+(?P<version>v?\d+\.\d+\.\d+))?$",
-        r"^release\s+(?P<version>v?\d+\.\d+\.\d+)?$",
-    ],
-    aliases=["deploy", "release"],
-    params={"version": r"(?P<version>v?\d+\.\d+\.\d+)"},
-    requires_confirmation=True,
-    is_destructive=True,
-    examples=["deploy", "deploy v1.5.0"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="deploy",
+        description="Deploy a new version",
+        category="deployment",
+        patterns=[
+            r"^deploy(?:\s+(?P<version>v?\d+\.\d+\.\d+))?$",
+            r"^release\s+(?P<version>v?\d+\.\d+\.\d+)?$",
+        ],
+        aliases=["deploy", "release"],
+        params={"version": r"(?P<version>v?\d+\.\d+\.\d+)"},
+        requires_confirmation=True,
+        is_destructive=True,
+        examples=["deploy", "deploy v1.5.0"],
+    )
+)
 
-_register_command(CommandDefinition(
-    command_type="rollback",
-    description="Rollback to the previous version",
-    category="deployment",
-    patterns=[
-        r"^rollback(?:\s+(?:to\s+)?(?P<version>v?\d+\.\d+\.\d+))?$",
-        r"^revert(?:\s+(?:to\s+)?(?P<version>v?\d+\.\d+\.\d+))?$",
-    ],
-    aliases=["rollback", "revert"],
-    params={"version": r"(?:to\s+)?(?P<version>v?\d+\.\d+\.\d+)"},
-    requires_confirmation=True,
-    is_destructive=True,
-    examples=["rollback", "rollback to v1.4.0"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="rollback",
+        description="Rollback to the previous version",
+        category="deployment",
+        patterns=[
+            r"^rollback(?:\s+(?:to\s+)?(?P<version>v?\d+\.\d+\.\d+))?$",
+            r"^revert(?:\s+(?:to\s+)?(?P<version>v?\d+\.\d+\.\d+))?$",
+        ],
+        aliases=["rollback", "revert"],
+        params={"version": r"(?:to\s+)?(?P<version>v?\d+\.\d+\.\d+)"},
+        requires_confirmation=True,
+        is_destructive=True,
+        examples=["rollback", "rollback to v1.4.0"],
+    )
+)
 
 # ── Help ─────────────────────────────────────────────────────────
 
-_register_command(CommandDefinition(
-    command_type="help",
-    description="Show available commands and help",
-    category="meta",
-    patterns=[
-        r"^(?:help|commands|list\s+commands|\?)$",
-        r"^what\s+(?:can|commands?\s+(?:can|are)|jarvis\s+can)\s+(?:i\s+)?(?:you\s+)?do\??$",
-    ],
-    aliases=["help", "commands", "list commands", "?", "what can you do"],
-    examples=["help", "commands", "what can you do?"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="help",
+        description="Show available commands and help",
+        category="meta",
+        patterns=[
+            r"^(?:help|commands|list\s+commands|\?)$",
+            r"^what\s+(?:can|commands?\s+(?:can|are)|jarvis\s+can)\s+(?:i\s+)?(?:you\s+)?do\??$",
+        ],
+        aliases=["help", "commands", "list commands", "?", "what can you do"],
+        examples=["help", "commands", "what can you do?"],
+    )
+)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -677,7 +698,8 @@ class JarvisCommandParser:
 
     # Commands that need confirmation
     CONFIRMATION_REQUIRED_CATEGORIES = {
-        "deployment", "training",
+        "deployment",
+        "training",
     }
 
     # Confidence threshold for auto-execution
@@ -714,8 +736,9 @@ class JarvisCommandParser:
             alias_count=len(self._alias_index),
         )
 
-    def parse(self, command: str,
-              context: Optional[Dict[str, Any]] = None) -> ParsedCommand:
+    def parse(
+        self, command: str, context: Optional[Dict[str, Any]] = None
+    ) -> ParsedCommand:
         """Parse a natural language command into a structured action.
 
         Resolution order:
@@ -786,23 +809,23 @@ class JarvisCommandParser:
             cat = cmd_def.category
             if cat not in categories:
                 categories[cat] = []
-            categories[cat].append({
-                "command_type": cmd_def.command_type,
-                "description": cmd_def.description,
-                "category": cmd_def.category,
-                "aliases": cmd_def.aliases,
-                "params": list(cmd_def.params.keys()),
-                "requires_confirmation": cmd_def.requires_confirmation or cmd_def.is_destructive,
-                "examples": cmd_def.examples,
-            })
+            categories[cat].append(
+                {
+                    "command_type": cmd_def.command_type,
+                    "description": cmd_def.description,
+                    "category": cmd_def.category,
+                    "aliases": cmd_def.aliases,
+                    "params": list(cmd_def.params.keys()),
+                    "requires_confirmation": cmd_def.requires_confirmation
+                    or cmd_def.is_destructive,
+                    "examples": cmd_def.examples,
+                }
+            )
 
         # Flatten into sorted list
         result = []
         for cat in sorted(categories.keys()):
-            result.extend(
-                sorted(
-                    categories[cat],
-                    key=lambda x: x["command_type"]))
+            result.extend(sorted(categories[cat], key=lambda x: x["command_type"]))
 
         return result
 
@@ -832,7 +855,9 @@ class JarvisCommandParser:
         return re.sub(r"\s+", " ", text.strip().lower())
 
     def _try_alias_match(
-        self, normalized: str, original: str,
+        self,
+        normalized: str,
+        original: str,
     ) -> Optional[ParsedCommand]:
         """Try exact alias lookup."""
 
@@ -849,7 +874,8 @@ class JarvisCommandParser:
                     None,
                 ),
                 confidence=1.0,
-                requires_confirmation=cmd_def.requires_confirmation or cmd_def.is_destructive,
+                requires_confirmation=cmd_def.requires_confirmation
+                or cmd_def.is_destructive,
                 execution_summary=f"Execute: {
                     cmd_def.description}",
                 aliases_matched=[normalized],
@@ -873,15 +899,19 @@ class JarvisCommandParser:
                     params = []
                     for group_name, group_value in match.groupdict().items():
                         if group_value is not None:
-                            params.append({
-                                "name": group_name,
-                                "value": group_value.strip(),
-                                "confidence": 1.0,
-                            })
+                            params.append(
+                                {
+                                    "name": group_name,
+                                    "value": group_value.strip(),
+                                    "confidence": 1.0,
+                                }
+                            )
 
                     # Also extract from param definitions
                     extra_params = self._extract_params_from_context(
-                        cmd_def, command, match,
+                        cmd_def,
+                        command,
+                        match,
                     )
                     for ep in extra_params:
                         if not any(p["name"] == ep["name"] for p in params):
@@ -895,7 +925,8 @@ class JarvisCommandParser:
                             original_command=command,
                             params=params,
                             confidence=confidence,
-                            requires_confirmation=cmd_def.requires_confirmation or cmd_def.is_destructive,
+                            requires_confirmation=cmd_def.requires_confirmation
+                            or cmd_def.is_destructive,
                             execution_summary=f"Execute: {
                                 cmd_def.description}",
                         )
@@ -921,10 +952,13 @@ class JarvisCommandParser:
                             command_type=cmd_type,
                             original_command=normalized,
                             params=self._extract_params_from_context(
-                                cmd_def, normalized, None,
+                                cmd_def,
+                                normalized,
+                                None,
                             ),
                             confidence=round(score, 2),
-                            requires_confirmation=cmd_def.requires_confirmation or cmd_def.is_destructive,
+                            requires_confirmation=cmd_def.requires_confirmation
+                            or cmd_def.is_destructive,
                             execution_summary=(
                                 f"Execute: {cmd_def.description} "
                                 f"(fuzzy match, confidence={score:.0%})"
@@ -951,13 +985,14 @@ class JarvisCommandParser:
             try:
                 p = re.compile(param_pattern, re.IGNORECASE)
                 m = p.search(command)
-                if m and param_name in m.groupdict() and m.groupdict()[
-                        param_name]:
-                    params.append({
-                        "name": param_name,
-                        "value": m.groupdict()[param_name].strip(),
-                        "confidence": 0.9,
-                    })
+                if m and param_name in m.groupdict() and m.groupdict()[param_name]:
+                    params.append(
+                        {
+                            "name": param_name,
+                            "value": m.groupdict()[param_name].strip(),
+                            "confidence": 0.9,
+                        }
+                    )
             except re.error:
                 continue
 

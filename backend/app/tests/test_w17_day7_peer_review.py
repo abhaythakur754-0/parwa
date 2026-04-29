@@ -31,6 +31,7 @@ class TestPeerReviewService:
     def service(self, mock_db):
         """Create PeerReviewService instance."""
         from app.services.peer_review_service import PeerReviewService
+
         return PeerReviewService(mock_db)
 
     def test_escalation_constants_exist(self):
@@ -163,8 +164,7 @@ class TestPeerReviewService:
         mock_senior.tier = "senior"
         mock_senior.status = "active"
 
-        mock_db.query.return_value.filter.return_value.all.return_value = [
-            mock_senior]
+        mock_db.query.return_value.filter.return_value.all.return_value = [mock_senior]
 
         result = service.get_senior_workload("company-123")
 
@@ -188,6 +188,7 @@ class TestPeerReviewService:
 # ─────────────────────────────────────────────────────────────────────────────
 # Training Pipeline Integration Tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestFullTrainingPipeline:
     """Tests for the full training pipeline integration."""
@@ -246,7 +247,8 @@ class TestFullTrainingPipeline:
             "description",
             "common_queries",
             "responses",
-            "knowledge_topics"]
+            "knowledge_topics",
+        ]
 
         for industry, template in INDUSTRY_TEMPLATES.items():
             for field in required_fields:
@@ -298,6 +300,7 @@ class TestFullTrainingPipeline:
 # Model Tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestPeerReviewModel:
     """Tests for PeerReview model."""
 
@@ -305,19 +308,19 @@ class TestPeerReviewModel:
         """Test PeerReview model has all required fields."""
         from database.models.training import PeerReview
 
-        assert hasattr(PeerReview, 'company_id')
-        assert hasattr(PeerReview, 'junior_agent_id')
-        assert hasattr(PeerReview, 'senior_agent_id')
-        assert hasattr(PeerReview, 'ticket_id')
-        assert hasattr(PeerReview, 'reason')
-        assert hasattr(PeerReview, 'status')
-        assert hasattr(PeerReview, 'priority')
-        assert hasattr(PeerReview, 'original_response')
-        assert hasattr(PeerReview, 'reviewed_response')
-        assert hasattr(PeerReview, 'feedback')
-        assert hasattr(PeerReview, 'confidence_score')
-        assert hasattr(PeerReview, 'approved')
-        assert hasattr(PeerReview, 'used_for_training')
+        assert hasattr(PeerReview, "company_id")
+        assert hasattr(PeerReview, "junior_agent_id")
+        assert hasattr(PeerReview, "senior_agent_id")
+        assert hasattr(PeerReview, "ticket_id")
+        assert hasattr(PeerReview, "reason")
+        assert hasattr(PeerReview, "status")
+        assert hasattr(PeerReview, "priority")
+        assert hasattr(PeerReview, "original_response")
+        assert hasattr(PeerReview, "reviewed_response")
+        assert hasattr(PeerReview, "feedback")
+        assert hasattr(PeerReview, "confidence_score")
+        assert hasattr(PeerReview, "approved")
+        assert hasattr(PeerReview, "used_for_training")
 
     def test_peer_review_model_table_name(self):
         """Test PeerReview model table name."""
@@ -329,6 +332,7 @@ class TestPeerReviewModel:
 # ─────────────────────────────────────────────────────────────────────────────
 # API Endpoint Tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestPeerReviewAPIEndpoints:
     """Tests for Peer Review API endpoints."""

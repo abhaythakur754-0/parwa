@@ -25,12 +25,12 @@ logger = get_logger("rate_limiter")
 class LockoutLevel(enum.IntEnum):
     """Progressive lockout levels - cooldown doubles each time."""
 
-    NONE = 0       # No lockout
-    LEVEL_1 = 1    # 60 seconds
-    LEVEL_2 = 2    # 120 seconds
-    LEVEL_3 = 3    # 240 seconds
-    LEVEL_4 = 4    # 480 seconds
-    LEVEL_5 = 5    # 900 seconds (15 minutes, max)
+    NONE = 0  # No lockout
+    LEVEL_1 = 1  # 60 seconds
+    LEVEL_2 = 2  # 120 seconds
+    LEVEL_3 = 3  # 240 seconds
+    LEVEL_4 = 4  # 480 seconds
+    LEVEL_5 = 5  # 900 seconds (15 minutes, max)
 
 
 # Cooldown durations in seconds per lockout level
@@ -129,8 +129,7 @@ class SlidingWindowCounter:
 
         # Clean up expired windows
         self._windows[key] = [
-            (ts, count) for ts, count in self._windows[key]
-            if ts > window_start
+            (ts, count) for ts, count in self._windows[key] if ts > window_start
         ]
 
         # Count requests in current window
@@ -174,9 +173,7 @@ class SlidingWindowCounter:
         special characters. BC-001: Tenant-isolated rate limiting.
         """
         raw = f"{company_id}\x00{client_ip}"
-        hash_part = hashlib.sha256(
-            raw.encode("utf-8")
-        ).hexdigest()[:16]
+        hash_part = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
         return f"{RATE_LIMIT_PREFIX}{hash_part}"
 
 
@@ -197,9 +194,7 @@ class ProgressiveLockout:
         # In-memory store: {key: {"level": int, "last_violation": float}}
         self._violations: dict = {}
 
-    def record_violation(
-        self, company_id: str, client_ip: str = ""
-    ) -> int:
+    def record_violation(self, company_id: str, client_ip: str = "") -> int:
         """Record a rate limit violation and return the lockout level.
 
         Args:
@@ -230,9 +225,7 @@ class ProgressiveLockout:
 
         return record["level"]
 
-    def get_lockout_remaining(
-        self, company_id: str, client_ip: str = ""
-    ) -> int:
+    def get_lockout_remaining(self, company_id: str, client_ip: str = "") -> int:
         """Get remaining lockout time in seconds.
 
         Args:
@@ -267,9 +260,7 @@ class ProgressiveLockout:
 
         return int(remaining)
 
-    def is_locked_out(
-        self, company_id: str, client_ip: str = ""
-    ) -> bool:
+    def is_locked_out(self, company_id: str, client_ip: str = "") -> bool:
         """Check if a client is currently locked out."""
         return self.get_lockout_remaining(company_id, client_ip) > 0
 
@@ -282,9 +273,7 @@ class ProgressiveLockout:
     def _make_key(self, company_id: str, client_ip: str) -> str:
         """Build lockout key using SHA-256 hash (BC-001)."""
         raw = f"{company_id}\x00{client_ip}"
-        hash_part = hashlib.sha256(
-            raw.encode("utf-8")
-        ).hexdigest()[:16]
+        hash_part = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
         return f"{RATE_LIMIT_PREFIX}lockout:{hash_part}"
 
 
@@ -306,9 +295,7 @@ class RateLimiter:
             requests_per_window=requests_per_window,
             window_seconds=window_seconds,
         )
-        self.lockout = ProgressiveLockout(
-            max_level=max_lockout_level
-        )
+        self.lockout = ProgressiveLockout(max_level=max_lockout_level)
 
     def check(
         self,
@@ -329,15 +316,9 @@ class RateLimiter:
         """
         # Check progressive lockout first
         if self.lockout.is_locked_out(company_id, client_ip):
-            remaining = self.lockout.get_lockout_remaining(
-                company_id, client_ip
-            )
-            lockout_key = self.lockout._make_key(
-                company_id, client_ip
-            )
-            level = self.lockout._violations.get(
-                lockout_key, {}
-            ).get("level", 1)
+            remaining = self.lockout.get_lockout_remaining(company_id, client_ip)
+            lockout_key = self.lockout._make_key(company_id, client_ip)
+            level = self.lockout._violations.get(lockout_key, {}).get("level", 1)
             return RateLimitResult(
                 allowed=False,
                 remaining=0,
@@ -352,9 +333,7 @@ class RateLimiter:
 
         if not result.allowed:
             # Record violation for progressive lockout
-            level = self.lockout.record_violation(
-                company_id, client_ip
-            )
+            level = self.lockout.record_violation(company_id, client_ip)
             result.lockout_level = level
 
         return result

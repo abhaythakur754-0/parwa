@@ -14,7 +14,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # Module-level stubs
 ConversationTrendAnalyzer = None  # type: ignore[assignment,misc]
 EmotionClassifier = None  # type: ignore[assignment,misc]
@@ -39,6 +38,7 @@ UrgencyScorer = None  # type: ignore[assignment,misc]
 # Fixtures — import source modules with mocked logger
 # ═══════════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture(autouse=True)
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
@@ -61,30 +61,34 @@ def _mock_logger():
             UrgencyLevel,
             UrgencyScorer,
         )
-        globals().update({
-            "ConversationTrendAnalyzer": ConversationTrendAnalyzer,
-            "EmotionClassifier": EmotionClassifier,
-            "EmotionType": EmotionType,
-            "EMPATHY_PATTERNS": EMPATHY_PATTERNS,
-            "EmpathySignalDetector": EmpathySignalDetector,
-            "FRUSTRATION_MILD": FRUSTRATION_MILD,
-            "FRUSTRATION_MODERATE": FRUSTRATION_MODERATE,
-            "FRUSTRATION_STRONG": FRUSTRATION_STRONG,
-            "FrustrationDetector": FrustrationDetector,
-            "POSITIVE_WORDS": POSITIVE_WORDS,
-            "SentimentAnalyzer": SentimentAnalyzer,
-            "SentimentResult": SentimentResult,
-            "ToneAdvisor": ToneAdvisor,
-            "ToneRecommendation": ToneRecommendation,
-            "TrendDirection": TrendDirection,
-            "UrgencyLevel": UrgencyLevel,
-            "UrgencyScorer": UrgencyScorer,
-        })
+
+        globals().update(
+            {
+                "ConversationTrendAnalyzer": ConversationTrendAnalyzer,
+                "EmotionClassifier": EmotionClassifier,
+                "EmotionType": EmotionType,
+                "EMPATHY_PATTERNS": EMPATHY_PATTERNS,
+                "EmpathySignalDetector": EmpathySignalDetector,
+                "FRUSTRATION_MILD": FRUSTRATION_MILD,
+                "FRUSTRATION_MODERATE": FRUSTRATION_MODERATE,
+                "FRUSTRATION_STRONG": FRUSTRATION_STRONG,
+                "FrustrationDetector": FrustrationDetector,
+                "POSITIVE_WORDS": POSITIVE_WORDS,
+                "SentimentAnalyzer": SentimentAnalyzer,
+                "SentimentResult": SentimentResult,
+                "ToneAdvisor": ToneAdvisor,
+                "ToneRecommendation": ToneRecommendation,
+                "TrendDirection": TrendDirection,
+                "UrgencyLevel": UrgencyLevel,
+                "UrgencyScorer": UrgencyScorer,
+            }
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # 1. FrustrationDetector — detect() (25 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestFrustrationDetector:
     def setup_method(self):
@@ -102,12 +106,14 @@ class TestFrustrationDetector:
 
     def test_moderate_frustration_medium_score(self):
         score = self.detector.detect(
-            "I am very annoyed and frustrated with this terrible service")
+            "I am very annoyed and frustrated with this terrible service"
+        )
         assert score > 10
 
     def test_strong_frustration_high_score(self):
         score = self.detector.detect(
-            "This is absolutely unacceptable and furious disgusting!")
+            "This is absolutely unacceptable and furious disgusting!"
+        )
         assert score > 20
 
     def test_all_caps_boosts_score(self):
@@ -146,7 +152,8 @@ class TestFrustrationDetector:
     def test_intensifiers_increase_score(self):
         normal = self.detector.detect("I am upset")
         intensified = self.detector.detect(
-            "I am very extremely upset and completely terrible")
+            "I am very extremely upset and completely terrible"
+        )
         assert intensified >= normal
 
     def test_question_marks_increase_score(self):
@@ -161,8 +168,7 @@ class TestFrustrationDetector:
         assert score > 0
 
     def test_lexicon_moderate_words(self):
-        score = self.detector._lexicon_score(
-            "I am angry and annoyed and frustrated")
+        score = self.detector._lexicon_score("I am angry and annoyed and frustrated")
         assert score > 0
 
     def test_lexicon_mild_words(self):
@@ -177,24 +183,20 @@ class TestFrustrationDetector:
 
     def test_gap03_mild_word_boundary_no_false_positive(self):
         """G9-GAP-03: 'issue' in 'tissue' should NOT trigger mild frustration."""
-        score_tissue = self.detector._lexicon_score(
-            "I need a tissue for my nose")
-        score_issue = self.detector._lexicon_score(
-            "I have an issue with my order")
+        score_tissue = self.detector._lexicon_score("I need a tissue for my nose")
+        score_issue = self.detector._lexicon_score("I have an issue with my order")
         assert score_tissue < score_issue
 
     def test_gap03_bad_in_badge_no_false_positive(self):
         """G9-GAP-03: 'bad' in 'badge' should NOT trigger mild frustration."""
-        score_badge = self.detector._lexicon_score(
-            "He wore a badge on his shirt")
+        score_badge = self.detector._lexicon_score("He wore a badge on his shirt")
         score_bad = self.detector._lexicon_score("This is a bad experience")
         assert score_badge <= score_bad
 
     def test_gap03_error_in_terrain_no_false_positive(self):
         """G9-GAP-03: 'error' in 'terrain' should NOT trigger."""
         score_terrain = self.detector._lexicon_score("We crossed the terrain")
-        score_error = self.detector._lexicon_score(
-            "There is an error in the system")
+        score_error = self.detector._lexicon_score("There is an error in the system")
         assert score_terrain <= score_error
 
     # -- _caps_score --
@@ -257,8 +259,7 @@ class TestFrustrationDetector:
         assert score > 0
 
     def test_intensifier_multi_word(self):
-        score = self.detector._intensifier_score(
-            "this is completely unacceptable")
+        score = self.detector._intensifier_score("this is completely unacceptable")
         assert score > 0
 
     def test_intensifier_capped_at_5(self):
@@ -271,37 +272,40 @@ class TestFrustrationDetector:
 # 2. EmpathySignalDetector (12 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestEmpathySignalDetector:
     def setup_method(self):
         self.detector = EmpathySignalDetector()
 
     def test_apology_expectation(self):
-        signals = self.detector.detect(
-            "you should be ashamed and apologize to me")
+        signals = self.detector.detect("you should be ashamed and apologize to me")
         assert "apology_expectation" in signals
 
     def test_timeline_pressure(self):
         signals = self.detector.detect(
-            "I need this fixed immediately, it is urgent and an emergency")
+            "I need this fixed immediately, it is urgent and an emergency"
+        )
         assert "timeline_pressure" in signals
 
     def test_financial_impact(self):
         signals = self.detector.detect(
-            "I lost money and was overcharged, I want a refund")
+            "I lost money and was overcharged, I want a refund"
+        )
         assert "financial_impact" in signals
 
     def test_personal_impact(self):
         signals = self.detector.detect(
-            "This ruined my reputation and caused me anxiety and stress")
+            "This ruined my reputation and caused me anxiety and stress"
+        )
         assert "personal_impact" in signals
 
     def test_repeated_contacts_with_history(self):
         history = [
             "please help me with my account",
             "I need help with my account please",
-            "please help me with my account now"]
-        signals = self.detector.detect(
-            "please help me with my account", history)
+            "please help me with my account now",
+        ]
+        signals = self.detector.detect("please help me with my account", history)
         assert "repeated_contacts" in signals
 
     def test_no_signals(self):
@@ -340,53 +344,53 @@ class TestEmpathySignalDetector:
 # 3. EmotionClassifier (12 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestEmotionClassifier:
     def setup_method(self):
         self.classifier = EmotionClassifier()
 
     def test_classify_angry(self):
         emotion, breakdown = self.classifier.classify(
-            "I am furious and enraged and hate this")
+            "I am furious and enraged and hate this"
+        )
         assert emotion == "angry"
 
     def test_classify_frustrated(self):
         emotion, breakdown = self.classifier.classify(
-            "I am frustrated and annoyed and irritated")
+            "I am frustrated and annoyed and irritated"
+        )
         assert emotion == "frustrated"
 
     def test_classify_disappointed(self):
-        emotion, breakdown = self.classifier.classify(
-            "I am disappointed and let down")
+        emotion, breakdown = self.classifier.classify("I am disappointed and let down")
         assert emotion == "disappointed"
 
     def test_classify_neutral(self):
-        emotion, breakdown = self.classifier.classify(
-            "What time does the store open?")
+        emotion, breakdown = self.classifier.classify("What time does the store open?")
         assert emotion == "neutral"
 
     def test_classify_happy(self):
-        emotion, breakdown = self.classifier.classify(
-            "I am happy and glad, thank you")
+        emotion, breakdown = self.classifier.classify("I am happy and glad, thank you")
         assert emotion == "happy"
 
     def test_classify_delighted(self):
         emotion, breakdown = self.classifier.classify(
-            "I am delighted and amazed, outstanding excellent!")
+            "I am delighted and amazed, outstanding excellent!"
+        )
         assert emotion == "delighted"
 
     def test_frustration_boosts_angry(self):
-        emotion_high, _ = self.classifier.classify(
-            "this is okay", frustration_score=90)
+        emotion_high, _ = self.classifier.classify("this is okay", frustration_score=90)
         assert emotion_high == "angry"
 
     def test_frustration_boosts_frustrated(self):
         emotion_mid, _ = self.classifier.classify(
-            "I am frustrated and this is annoying", frustration_score=50)
+            "I am frustrated and this is annoying", frustration_score=50
+        )
         assert emotion_mid == "frustrated"
 
     def test_positive_boosts_happy(self):
-        emotion, _ = self.classifier.classify(
-            "awesome brilliant excellent fantastic")
+        emotion, _ = self.classifier.classify("awesome brilliant excellent fantastic")
         assert emotion in ("happy", "delighted")
 
     def test_empty_query(self):
@@ -406,7 +410,8 @@ class TestEmotionClassifier:
             "disappointed",
             "neutral",
             "happy",
-            "delighted"}
+            "delighted",
+        }
         assert set(breakdown.keys()) == expected
         # Scores should sum to ~1.0
         total = sum(breakdown.values())
@@ -416,6 +421,7 @@ class TestEmotionClassifier:
 # ═══════════════════════════════════════════════════════════════════════
 # 4. UrgencyScorer (12 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestUrgencyScorer:
     def setup_method(self):
@@ -434,8 +440,7 @@ class TestUrgencyScorer:
         assert level in (UrgencyLevel.HIGH, UrgencyLevel.CRITICAL)
 
     def test_critical_urgency(self):
-        level = self.scorer.score(
-            "emergency breach security data loss critical!")
+        level = self.scorer.score("emergency breach security data loss critical!")
         assert level == UrgencyLevel.CRITICAL
 
     def test_empty_query(self):
@@ -478,6 +483,7 @@ class TestUrgencyScorer:
 # ═══════════════════════════════════════════════════════════════════════
 # 5. ToneAdvisor (10 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestToneAdvisor:
     def setup_method(self):
@@ -528,6 +534,7 @@ class TestToneAdvisor:
 # ═══════════════════════════════════════════════════════════════════════
 # 6. ConversationTrendAnalyzer (8 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestConversationTrendAnalyzer:
     def setup_method(self):
@@ -601,15 +608,20 @@ class TestConversationTrendAnalyzer:
 # 7. SentimentAnalyzer — full pipeline (15 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestSentimentAnalyzer:
     def setup_method(self):
         self.analyzer = SentimentAnalyzer()
 
     @pytest.mark.asyncio
     async def test_full_analysis_neutral(self):
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
-                result = await self.analyzer.analyze("Hello, how are you?", company_id="c1")
+                result = await self.analyzer.analyze(
+                    "Hello, how are you?", company_id="c1"
+                )
         assert isinstance(result, SentimentResult)
         assert result.emotion == "neutral"
         assert 0.0 <= result.frustration_score < 50
@@ -617,7 +629,9 @@ class TestSentimentAnalyzer:
 
     @pytest.mark.asyncio
     async def test_full_analysis_frustrated(self):
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.analyzer.analyze(
                     "I am very angry and frustrated with this terrible service!",
@@ -628,7 +642,9 @@ class TestSentimentAnalyzer:
 
     @pytest.mark.asyncio
     async def test_empty_query_returns_default(self):
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.analyzer.analyze("", company_id="c1")
         assert result.frustration_score == 0.0
@@ -637,7 +653,9 @@ class TestSentimentAnalyzer:
 
     @pytest.mark.asyncio
     async def test_none_query_returns_default(self):
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.analyzer.analyze(None, company_id="c1")
         assert result.frustration_score == 0.0
@@ -657,11 +675,14 @@ class TestSentimentAnalyzer:
                 "neutral": 0.2,
                 "disappointed": 0.1,
                 "happy": 0.05,
-                "delighted": 0.05},
+                "delighted": 0.05,
+            },
             "processing_time_ms": 5.0,
             "conversation_trend": "stable",
         }
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.analyzer.analyze("test query", company_id="c1")
         assert result.cached is True
@@ -669,14 +690,20 @@ class TestSentimentAnalyzer:
 
     @pytest.mark.asyncio
     async def test_cache_miss(self):
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.analyzer.analyze("I have an issue", company_id="c1")
         assert result.cached is False
 
     @pytest.mark.asyncio
     async def test_cache_fail_open(self):
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, side_effect=Exception("Redis down")):
+        with patch(
+            "app.core.redis.cache_get",
+            new_callable=AsyncMock,
+            side_effect=Exception("Redis down"),
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.analyzer.analyze("hello", company_id="c1")
         assert result.cached is False
@@ -684,8 +711,14 @@ class TestSentimentAnalyzer:
 
     @pytest.mark.asyncio
     async def test_cache_write_fail_open(self):
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("app.core.redis.cache_set", new_callable=AsyncMock, side_effect=Exception("write fail")):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
+            with patch(
+                "app.core.redis.cache_set",
+                new_callable=AsyncMock,
+                side_effect=Exception("write fail"),
+            ):
                 result = await self.analyzer.analyze("hello", company_id="c1")
         assert isinstance(result, SentimentResult)
 
@@ -719,27 +752,34 @@ class TestSentimentAnalyzer:
 
     @pytest.mark.asyncio
     async def test_with_conversation_history(self):
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.analyzer.analyze(
                     "This is frustrating",
                     company_id="c1",
                     conversation_history=["hello", "how are you", "I need help"],
                 )
-        assert result.conversation_trend in (
-            "improving", "stable", "worsening")
+        assert result.conversation_trend in ("improving", "stable", "worsening")
 
     @pytest.mark.asyncio
     async def test_variant_type_preserved(self):
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock) as mock_set:
-                await self.analyzer.analyze("test", company_id="c1", variant_type="mini_parwa")
+                await self.analyzer.analyze(
+                    "test", company_id="c1", variant_type="mini_parwa"
+                )
                 # Verify cache_set was called
                 mock_set.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_whitespace_query_returns_default(self):
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.analyzer.analyze("   ", company_id="c1")
         assert result.frustration_score == 0.0
@@ -748,6 +788,7 @@ class TestSentimentAnalyzer:
 # ═══════════════════════════════════════════════════════════════════════
 # 8. Data Classes (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestDataClasses:
     def test_sentiment_result_to_dict(self):
@@ -801,6 +842,7 @@ class TestDataClasses:
 # 9. Additional Edge / Integration tests
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestSentimentEdgeCases:
     def setup_method(self):
         self.detector = FrustrationDetector()
@@ -826,8 +868,7 @@ class TestSentimentEdgeCases:
         assert isinstance(score, float)
 
     def test_mixed_language(self):
-        emotion, breakdown = self.classifier.classify(
-            "je suis très content et happy")
+        emotion, breakdown = self.classifier.classify("je suis très content et happy")
         assert emotion in ("happy", "delighted", "neutral", "frustrated")
 
     def test_numbers_only(self):
@@ -840,20 +881,23 @@ class TestSentimentEdgeCases:
 
     def test_sentiment_score_inverse_frustration(self):
         # High frustration → low sentiment score
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 import asyncio
+
                 analyzer = SentimentAnalyzer()
-                result = asyncio.get_event_loop().run_until_complete(analyzer.analyze(
-                    "I am furious and absolutely unacceptable", company_id="c1"))
+                result = asyncio.get_event_loop().run_until_complete(
+                    analyzer.analyze(
+                        "I am furious and absolutely unacceptable", company_id="c1"
+                    )
+                )
         assert result.sentiment_score > 0.5
 
     def test_empathy_signals_with_metadata(self):
         detector = EmpathySignalDetector()
-        signals = detector.detect(
-            "I lost money",
-            customer_metadata={
-                "vip": True})
+        signals = detector.detect("I lost money", customer_metadata={"vip": True})
         assert "financial_impact" in signals
 
     def test_query_hash_deterministic(self):

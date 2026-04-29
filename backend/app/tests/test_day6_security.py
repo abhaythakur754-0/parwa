@@ -51,8 +51,7 @@ else:
     sys.modules["app"] = _pkg_app
 
 # Ensure "app.shared" exists
-if "app.shared" in sys.modules and hasattr(
-        sys.modules["app.shared"], "__path__"):
+if "app.shared" in sys.modules and hasattr(sys.modules["app.shared"], "__path__"):
     _pkg_shared = sys.modules["app.shared"]
 else:
     _pkg_shared = _types.ModuleType("app.shared")
@@ -63,7 +62,8 @@ else:
 # Ensure "app.shared.knowledge_base" exists (empty package to
 # bypass __init__.py which imports sqlalchemy)
 if "app.shared.knowledge_base" in sys.modules and hasattr(
-        sys.modules["app.shared.knowledge_base"], "__path__"):
+    sys.modules["app.shared.knowledge_base"], "__path__"
+):
     _pkg_kb = sys.modules["app.shared.knowledge_base"]
 else:
     _pkg_kb = _types.ModuleType("app.shared.knowledge_base")
@@ -75,7 +75,8 @@ else:
 _vs_path = os.path.join(_kb_dir, "vector_search.py")
 if "app.shared.knowledge_base.vector_search" not in sys.modules:
     _spec = importlib.util.spec_from_file_location(
-        "app.shared.knowledge_base.vector_search", _vs_path,
+        "app.shared.knowledge_base.vector_search",
+        _vs_path,
     )
     assert _spec is not None and _spec.loader is not None
     _vs_mod = importlib.util.module_from_spec(_spec)
@@ -103,6 +104,7 @@ EMBEDDING_DIMENSION = _vs_mod.EMBEDDING_DIMENSION
 def _make_unit_vector(seed: int = 42, dim: int = 768) -> List[float]:
     """Generate a deterministic pseudo-random unit vector for testing."""
     import hashlib
+
     text = f"seed-{seed}-test-vector"
     h = hashlib.sha256(text.encode("utf-8")).digest()
     vec: List[float] = []
@@ -118,11 +120,13 @@ def _sample_chunks(count: int = 5) -> List[Dict[str, Any]]:
     """Generate sample document chunks for testing."""
     chunks = []
     for i in range(count):
-        chunks.append({
-            "chunk_id": f"chunk_{i}",
-            "content": f"This is sample content chunk number {i} about topic area.",
-            "metadata": {"section": f"section_{i % 3}", "index": i},
-        })
+        chunks.append(
+            {
+                "chunk_id": f"chunk_{i}",
+                "content": f"This is sample content chunk number {i} about topic area.",
+                "metadata": {"section": f"section_{i % 3}", "index": i},
+            }
+        )
     return chunks
 
 
@@ -302,16 +306,16 @@ class TestInMemoryVectorStore:
     def test_multiple_companies(self):
         """Documents from multiple companies are isolated."""
         store = InMemoryVectorStore()
-        store.add_document("shared_name",
-                           [{"chunk_id": "a1",
-                             "content": "A data",
-                             "metadata": {}}],
-                           company_id="co_1")
-        store.add_document("shared_name",
-                           [{"chunk_id": "b1",
-                             "content": "B data",
-                             "metadata": {}}],
-                           company_id="co_2")
+        store.add_document(
+            "shared_name",
+            [{"chunk_id": "a1", "content": "A data", "metadata": {}}],
+            company_id="co_1",
+        )
+        store.add_document(
+            "shared_name",
+            [{"chunk_id": "b1", "content": "B data", "metadata": {}}],
+            company_id="co_2",
+        )
 
         results_a = store.search(_make_unit_vector(1), company_id="co_1")
         results_b = store.search(_make_unit_vector(1), company_id="co_2")

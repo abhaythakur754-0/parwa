@@ -43,12 +43,7 @@ COOLING_OFF_AUTO_APPROVE_THRESHOLD = Decimal("1000.00")
 
 # ── Valid refund statuses ───────────────────────────────────────────────────
 
-VALID_REFUND_STATUSES = {
-    "pending",
-    "approved",
-    "rejected",
-    "processed",
-    "failed"}
+VALID_REFUND_STATUSES = {"pending", "approved", "rejected", "processed", "failed"}
 
 # ── Valid refund types ─────────────────────────────────────────────────────
 
@@ -60,11 +55,7 @@ VALID_CREDIT_SOURCES = {"refund", "promo", "goodwill", "cooling_off"}
 
 # ── Valid credit statuses ──────────────────────────────────────────────────
 
-VALID_CREDIT_STATUSES = {
-    "available",
-    "partially_used",
-    "fully_used",
-    "expired"}
+VALID_CREDIT_STATUSES = {"available", "partially_used", "fully_used", "expired"}
 
 
 # ── Exceptions ──────────────────────────────────────────────────────────────
@@ -161,9 +152,7 @@ class RefundService:
 
         with SessionLocal() as db:
             # BC-001: Validate company exists
-            company = db.query(Company).filter(
-                Company.id == str(company_id)
-            ).first()
+            company = db.query(Company).filter(Company.id == str(company_id)).first()
 
             if not company:
                 raise RefundError(f"Company {company_id} not found (BC-001)")
@@ -172,15 +161,19 @@ class RefundService:
 
             # For cooling_off type, validate the window
             if refund_type == "cooling_off":
-                subscription = db.query(Subscription).filter(
-                    Subscription.company_id == str(company_id),
-                ).order_by(Subscription.created_at.desc()).first()
+                subscription = (
+                    db.query(Subscription)
+                    .filter(
+                        Subscription.company_id == str(company_id),
+                    )
+                    .order_by(Subscription.created_at.desc())
+                    .first()
+                )
 
                 if subscription and subscription.current_period_start:
                     period_start = subscription.current_period_start
                     if period_start.tzinfo is None:
-                        period_start = period_start.replace(
-                            tzinfo=timezone.utc)
+                        period_start = period_start.replace(tzinfo=timezone.utc)
 
                     elapsed_hours = (now - period_start).total_seconds() / 3600
                     if elapsed_hours > COOLING_OFF_HOURS:
@@ -252,9 +245,13 @@ class RefundService:
             raise RefundError("refund_id is required")
 
         with SessionLocal() as db:
-            refund = db.query(RefundAudit).filter(
-                RefundAudit.id == refund_id,
-            ).first()
+            refund = (
+                db.query(RefundAudit)
+                .filter(
+                    RefundAudit.id == refund_id,
+                )
+                .first()
+            )
 
             if not refund:
                 raise RefundNotFoundError(f"Refund {refund_id} not found")
@@ -299,9 +296,7 @@ class RefundService:
             elif refund.status == "approved":
                 # This is the second approval (dual approval flow)
                 if not needs_dual:
-                    raise RefundError(
-                        "This refund does not require dual approval"
-                    )
+                    raise RefundError("This refund does not require dual approval")
 
                 if str(approver_id) == refund.approver_id:
                     raise RefundError(
@@ -353,9 +348,13 @@ class RefundService:
             raise RefundError("Rejection reason is required")
 
         with SessionLocal() as db:
-            refund = db.query(RefundAudit).filter(
-                RefundAudit.id == refund_id,
-            ).first()
+            refund = (
+                db.query(RefundAudit)
+                .filter(
+                    RefundAudit.id == refund_id,
+                )
+                .first()
+            )
 
             if not refund:
                 raise RefundNotFoundError(f"Refund {refund_id} not found")
@@ -424,9 +423,13 @@ class RefundService:
             raise RefundError("refund_id is required")
 
         with SessionLocal() as db:
-            refund = db.query(RefundAudit).filter(
-                RefundAudit.id == refund_id,
-            ).first()
+            refund = (
+                db.query(RefundAudit)
+                .filter(
+                    RefundAudit.id == refund_id,
+                )
+                .first()
+            )
 
             if not refund:
                 raise RefundNotFoundError(f"Refund {refund_id} not found")
@@ -469,14 +472,13 @@ class RefundService:
                 credit_balance_id = self.create_credit_balance(
                     company_id=UUID(company_id),
                     amount=amount,
-                    source="refund" if refund.refund_type == "credit" else "cooling_off",
+                    source=(
+                        "refund" if refund.refund_type == "credit" else "cooling_off"
+                    ),
                     description=f"Credit from {
                         refund.refund_type} refund: {
                         refund.reason}",
-                    expires_at=now
-                    + timedelta(
-                        days=CREDIT_DEFAULT_EXPIRY_MONTHS
-                        * 30),
+                    expires_at=now + timedelta(days=CREDIT_DEFAULT_EXPIRY_MONTHS * 30),
                 ).get("id")
 
                 # Link credit to refund audit
@@ -487,8 +489,7 @@ class RefundService:
                 company_id=company_id,
                 # Negative for refund
                 amount=-amount.quantize(Decimal("0.01")),
-                currency=refund.currency if hasattr(
-                    refund, "currency") else "USD",
+                currency=refund.currency if hasattr(refund, "currency") else "USD",
                 status="completed",
                 transaction_type="refund",
                 description=f"Refund ({refund.refund_type}): {refund.reason}",
@@ -519,8 +520,13 @@ class RefundService:
                 "credit_balance_id": credit_balance_id,
                 "transaction_id": transaction.id,
                 "message": (
-                    f"Refund of {amount} processed successfully." + (
-                        f" Credit balance {credit_balance_id} created." if credit_balance_id else "")),
+                    f"Refund of {amount} processed successfully."
+                    + (
+                        f" Credit balance {credit_balance_id} created."
+                        if credit_balance_id
+                        else ""
+                    )
+                ),
             }
 
     # ═══════════════════════════════════════════════════════════════════
@@ -576,9 +582,7 @@ class RefundService:
 
         with SessionLocal() as db:
             # BC-001: Validate company exists
-            company = db.query(Company).filter(
-                Company.id == str(company_id)
-            ).first()
+            company = db.query(Company).filter(Company.id == str(company_id)).first()
 
             if not company:
                 raise RefundError(f"Company {company_id} not found (BC-001)")
@@ -640,10 +644,14 @@ class RefundService:
 
         with SessionLocal() as db:
             # Validate credit
-            credit = db.query(CreditBalance).filter(
-                CreditBalance.id == credit_id,
-                CreditBalance.company_id == str(company_id),
-            ).first()
+            credit = (
+                db.query(CreditBalance)
+                .filter(
+                    CreditBalance.id == credit_id,
+                    CreditBalance.company_id == str(company_id),
+                )
+                .first()
+            )
 
             if not credit:
                 raise RefundError(
@@ -651,8 +659,7 @@ class RefundService:
                 )
 
             if credit.status in ("fully_used", "expired"):
-                raise InsufficientCreditsError(
-                    f"Credit {credit_id} is {
+                raise InsufficientCreditsError(f"Credit {credit_id} is {
                         credit.status} and cannot be applied")
 
             # Check expiry
@@ -670,10 +677,14 @@ class RefundService:
                     )
 
             # Validate invoice
-            invoice = db.query(Invoice).filter(
-                Invoice.id == invoice_id,
-                Invoice.company_id == str(company_id),
-            ).first()
+            invoice = (
+                db.query(Invoice)
+                .filter(
+                    Invoice.id == invoice_id,
+                    Invoice.company_id == str(company_id),
+                )
+                .first()
+            )
 
             if not invoice:
                 raise RefundError(
@@ -724,7 +735,11 @@ class RefundService:
                 "applied_amount": str(applied_amount.quantize(Decimal("0.01"))),
                 "message": (
                     f"Applied {applied_amount} credit to invoice {invoice_id}."
-                    + (f" {credit.amount} remaining on credit." if Decimal(str(credit.amount)) > 0 else "")
+                    + (
+                        f" {credit.amount} remaining on credit."
+                        if Decimal(str(credit.amount)) > 0
+                        else ""
+                    )
                 ),
             }
 
@@ -750,17 +765,23 @@ class RefundService:
         with SessionLocal() as db:
             now = datetime.now(timezone.utc)
 
-            credits = db.query(CreditBalance).filter(
-                CreditBalance.company_id == str(company_id),
-                CreditBalance.status.in_(["available", "partially_used"]),
-                CreditBalance.amount > Decimal("0.00"),
-            ).filter(
-                # Not expired
-                (CreditBalance.expires_at.is_(None))
-                | (CreditBalance.expires_at > now)
-            ).order_by(
-                CreditBalance.expires_at.asc().nulls_last()  # FIFO: soonest expiry first
-            ).all()
+            credits = (
+                db.query(CreditBalance)
+                .filter(
+                    CreditBalance.company_id == str(company_id),
+                    CreditBalance.status.in_(["available", "partially_used"]),
+                    CreditBalance.amount > Decimal("0.00"),
+                )
+                .filter(
+                    # Not expired
+                    (CreditBalance.expires_at.is_(None))
+                    | (CreditBalance.expires_at > now)
+                )
+                .order_by(
+                    CreditBalance.expires_at.asc().nulls_last()  # FIFO: soonest expiry first
+                )
+                .all()
+            )
 
             return [self._credit_to_dict(c) for c in credits]
 
@@ -802,14 +823,17 @@ class RefundService:
 
         with SessionLocal() as db:
             # Get the latest subscription
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-            ).order_by(Subscription.created_at.desc()).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                )
+                .order_by(Subscription.created_at.desc())
+                .first()
+            )
 
             if not subscription:
-                raise RefundError(
-                    f"No subscription found for company {company_id}"
-                )
+                raise RefundError(f"No subscription found for company {company_id}")
 
             # Validate cooling-off window
             now = datetime.now(timezone.utc)
@@ -830,6 +854,7 @@ class RefundService:
             # Use the billing_extended helper to get variant limits
             try:
                 from database.models.billing_extended import get_variant_limits
+
                 limits = get_variant_limits(subscription.tier)
                 if limits:
                     refund_amount = limits["price_monthly"]
@@ -839,8 +864,7 @@ class RefundService:
                 refund_amount = Decimal("0.00")
 
             if refund_amount <= 0:
-                raise RefundError(
-                    f"Cannot determine refund amount for tier '{
+                raise RefundError(f"Cannot determine refund amount for tier '{
                         subscription.tier}'")
 
             now = datetime.now(timezone.utc)
@@ -913,10 +937,14 @@ class RefundService:
             raise RefundError("company_id is required (BC-001)")
 
         with SessionLocal() as db:
-            refund = db.query(RefundAudit).filter(
-                RefundAudit.id == refund_id,
-                RefundAudit.company_id == str(company_id),
-            ).first()
+            refund = (
+                db.query(RefundAudit)
+                .filter(
+                    RefundAudit.id == refund_id,
+                    RefundAudit.company_id == str(company_id),
+                )
+                .first()
+            )
 
             if not refund:
                 raise RefundNotFoundError(
@@ -962,9 +990,7 @@ class RefundService:
 
             refunds = query.order_by(RefundAudit.created_at.desc()).all()
 
-            return [
-                self._refund_audit_to_dict(
-                    r, include_meta=True) for r in refunds]
+            return [self._refund_audit_to_dict(r, include_meta=True) for r in refunds]
 
     # ═══════════════════════════════════════════════════════════════════
     # Internal Helpers
@@ -995,11 +1021,16 @@ class RefundService:
             return None
 
         # Find the most recent transaction for the company
-        transaction = db.query(Transaction).filter(
-            Transaction.company_id == refund.company_id,
-            Transaction.paddle_transaction_id.isnot(None),
-            Transaction.status == "completed",
-        ).order_by(Transaction.created_at.desc()).first()
+        transaction = (
+            db.query(Transaction)
+            .filter(
+                Transaction.company_id == refund.company_id,
+                Transaction.paddle_transaction_id.isnot(None),
+                Transaction.status == "completed",
+            )
+            .order_by(Transaction.created_at.desc())
+            .first()
+        )
 
         if not transaction or not transaction.paddle_transaction_id:
             logger.info(
@@ -1064,8 +1095,7 @@ class RefundService:
                 "has_first_approval": has_first,
                 "has_second_approval": has_second,
                 "fully_approved": (
-                    (has_first and not needs_dual)
-                    or (has_first and has_second)
+                    (has_first and not needs_dual) or (has_first and has_second)
                 ),
                 "dual_approval_threshold": str(DUAL_APPROVAL_THRESHOLD),
             }

@@ -9,7 +9,6 @@ import re
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ── F-015: MFA Setup ──────────────────────────────────────────────
 
 TOTP_CODE_REGEX = re.compile(r"^\d{6}$")
@@ -29,9 +28,7 @@ class MFASetupVerifyRequest(BaseModel):
     @classmethod
     def code_must_be_digits(cls, v: str) -> str:
         if not TOTP_CODE_REGEX.match(v):
-            raise ValueError(
-                "MFA code must be exactly 6 digits"
-            )
+            raise ValueError("MFA code must be exactly 6 digits")
         return v
 
 
@@ -44,9 +41,7 @@ class MFALoginVerifyRequest(BaseModel):
     @classmethod
     def code_must_be_digits(cls, v: str) -> str:
         if not TOTP_CODE_REGEX.match(v):
-            raise ValueError(
-                "MFA code must be exactly 6 digits"
-            )
+            raise ValueError("MFA code must be exactly 6 digits")
         return v
 
 
@@ -90,9 +85,7 @@ class BackupCodeRegenerateRequest(BaseModel):
     @classmethod
     def code_must_be_digits(cls, v: str) -> str:
         if not TOTP_CODE_REGEX.match(v):
-            raise ValueError(
-                "MFA code must be exactly 6 digits"
-            )
+            raise ValueError("MFA code must be exactly 6 digits")
         return v
 
 

@@ -96,9 +96,7 @@ def register_user(
         ValidationError: If email already registered.
     """
     # Check if email already exists
-    existing = db.query(User).filter(
-        User.email == email.lower().strip()
-    ).first()
+    existing = db.query(User).filter(User.email == email.lower().strip()).first()
     if existing:
         raise ValidationError(
             message="Email already registered",
@@ -141,6 +139,7 @@ def register_user(
         from app.services.verification_service import (
             send_verification_on_register,
         )
+
         send_verification_on_register(db, user)
         db.commit()
     except Exception:
@@ -157,9 +156,7 @@ def register_user(
         email=user.email,
     )
 
-    return _build_auth_response(
-        user, company, tokens, is_new_user=True
-    )
+    return _build_auth_response(user, company, tokens, is_new_user=True)
 
 
 def authenticate_user(
@@ -185,27 +182,23 @@ def authenticate_user(
         AuthenticationError: If credentials are invalid or
             account is locked.
     """
-    user = db.query(User).filter(
-        User.email == email.lower().strip()
-    ).first()
+    user = db.query(User).filter(User.email == email.lower().strip()).first()
 
     if not user:
         # Don't reveal whether email exists (BC-011)
-        raise AuthenticationError(
-            message="Invalid email or password"
-        )
+        raise AuthenticationError(message="Invalid email or password")
 
     # L11: Check if account is locked
     if user.locked_until:
         locked_until = user.locked_until
         if locked_until.tzinfo is None:
             from datetime import timezone as tz
+
             locked_until = locked_until.replace(tzinfo=tz.utc)
         now = datetime.now(timezone.utc)
         if locked_until > now:
             raise AuthenticationError(
-                message="Account temporarily locked. "
-                        "Try again later.",
+                message="Account temporarily locked. " "Try again later.",
                 details={"locked": True},
             )
         # Lockout expired — reset
@@ -214,15 +207,11 @@ def authenticate_user(
         db.flush()
 
     if not user.is_active:
-        raise AuthenticationError(
-            message="Account is disabled"
-        )
+        raise AuthenticationError(message="Account is disabled")
 
     if not verify_password(password, user.password_hash):
         # L11: Increment failed login count
-        user.failed_login_count = (
-            user.failed_login_count or 0
-        ) + 1
+        user.failed_login_count = (user.failed_login_count or 0) + 1
         user.last_failed_login_at = datetime.now(timezone.utc)
         db.flush()
 
@@ -240,19 +229,14 @@ def authenticate_user(
                 failed_count=user.failed_login_count,
             )
             raise AuthenticationError(
-                message=(
-                    "Account temporarily locked. "
-                    "Try again later."
-                ),
+                message=("Account temporarily locked. " "Try again later."),
                 details={
                     "locked": True,
                 },
             )
 
         db.commit()
-        raise AuthenticationError(
-            message="Invalid email or password"
-        )
+        raise AuthenticationError(message="Invalid email or password")
 
     # L11: Progressive delay before success response
     attempt = user.failed_login_count or 0
@@ -265,9 +249,7 @@ def authenticate_user(
     user.last_failed_login_at = None
     db.flush()
 
-    company = db.query(Company).filter(
-        Company.id == user.company_id
-    ).first()
+    company = db.query(Company).filter(Company.id == user.company_id).first()
 
     # Generate tokens
     tokens = _create_token_pair(db, user, company)
@@ -280,9 +262,7 @@ def authenticate_user(
         company_id=user.company_id,
     )
 
-    return _build_auth_response(
-        user, company, tokens, is_new_user=False
-    )
+    return _build_auth_response(user, company, tokens, is_new_user=False)
 
 
 def refresh_tokens(
@@ -306,47 +286,38 @@ def refresh_tokens(
         AuthenticationError: If token is invalid or expired.
     """
     token_hash = hash_refresh_token(raw_token)
-    stored = db.query(RefreshToken).filter(
-        RefreshToken.token_hash == token_hash
-    ).first()
+    stored = (
+        db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).first()
+    )
 
     if not stored:
-        raise AuthenticationError(
-            message="Invalid refresh token"
-        )
+        raise AuthenticationError(message="Invalid refresh token")
 
     now = datetime.now(timezone.utc)
     # Handle naive datetimes from SQLite
     expires_at = stored.expires_at
     if expires_at.tzinfo is None:
         from datetime import timezone as tz
+
         expires_at = expires_at.replace(tzinfo=tz.utc)
     if expires_at < now:
         # L07: Token expired — invalidate ALL user tokens
         _invalidate_all_tokens(db, stored.user_id)
         db.commit()
-        raise AuthenticationError(
-            message="Refresh token expired"
-        )
+        raise AuthenticationError(message="Refresh token expired")
 
-    user = db.query(User).filter(
-        User.id == stored.user_id
-    ).first()
+    user = db.query(User).filter(User.id == stored.user_id).first()
 
     if not user or not user.is_active:
         _invalidate_all_tokens(db, stored.user_id)
         db.commit()
-        raise AuthenticationError(
-            message="User not found or disabled"
-        )
+        raise AuthenticationError(message="User not found or disabled")
 
     # Delete old token (rotation)
     db.delete(stored)
 
     # Create new token pair
-    company = db.query(Company).filter(
-        Company.id == user.company_id
-    ).first()
+    company = db.query(Company).filter(Company.id == user.company_id).first()
     tokens = _create_token_pair(db, user, company)
     db.commit()
 
@@ -370,9 +341,9 @@ def logout_user(
         raw_token: The raw refresh token string.
     """
     token_hash = hash_refresh_token(raw_token)
-    stored = db.query(RefreshToken).filter(
-        RefreshToken.token_hash == token_hash
-    ).first()
+    stored = (
+        db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).first()
+    )
 
     if stored:
         db.delete(stored)
@@ -422,19 +393,19 @@ def google_auth(
         )
 
     # Check if OAuth account already exists
-    oauth_account = db.query(OAuthAccount).filter(
-        OAuthAccount.provider == "google",
-        OAuthAccount.provider_account_id == google_sub,
-    ).first()
+    oauth_account = (
+        db.query(OAuthAccount)
+        .filter(
+            OAuthAccount.provider == "google",
+            OAuthAccount.provider_account_id == google_sub,
+        )
+        .first()
+    )
 
     if oauth_account:
-        user = db.query(User).filter(
-            User.id == oauth_account.user_id
-        ).first()
+        user = db.query(User).filter(User.id == oauth_account.user_id).first()
         if user and user.is_active:
-            company = db.query(Company).filter(
-                Company.id == user.company_id
-            ).first()
+            company = db.query(Company).filter(Company.id == user.company_id).first()
             tokens = _create_token_pair(db, user, company)
             db.commit()
             db.refresh(user)
@@ -443,26 +414,16 @@ def google_auth(
                 user_id=user.id,
                 company_id=user.company_id,
             )
-            return _build_auth_response(
-                user, company, tokens, is_new_user=False
-            )
-        raise AuthenticationError(
-            message="Google account linked to disabled user"
-        )
+            return _build_auth_response(user, company, tokens, is_new_user=False)
+        raise AuthenticationError(message="Google account linked to disabled user")
 
     # Check if user exists with same email
-    user = db.query(User).filter(
-        User.email == google_email
-    ).first()
+    user = db.query(User).filter(User.email == google_email).first()
 
     if user:
         # Link Google account to existing user
-        _link_google_account(
-            db, user, google_sub, google_email
-        )
-        company = db.query(Company).filter(
-            Company.id == user.company_id
-        ).first()
+        _link_google_account(db, user, google_sub, google_email)
+        company = db.query(Company).filter(Company.id == user.company_id).first()
         tokens = _create_token_pair(db, user, company)
         db.commit()
         db.refresh(user)
@@ -471,9 +432,7 @@ def google_auth(
             user_id=user.id,
             company_id=user.company_id,
         )
-        return _build_auth_response(
-            user, company, tokens, is_new_user=False
-        )
+        return _build_auth_response(user, company, tokens, is_new_user=False)
 
     # New user — create company + user + oauth link
     company = Company(
@@ -502,9 +461,7 @@ def google_auth(
     db.add(user)
     db.flush()
 
-    _link_google_account(
-        db, user, google_sub, google_email
-    )
+    _link_google_account(db, user, google_sub, google_email)
 
     tokens = _create_token_pair(db, user, company)
     db.commit()
@@ -518,9 +475,7 @@ def google_auth(
         email=google_email,
     )
 
-    return _build_auth_response(
-        user, company, tokens, is_new_user=True
-    )
+    return _build_auth_response(user, company, tokens, is_new_user=True)
 
 
 def check_email_availability(
@@ -539,15 +494,11 @@ def check_email_availability(
         True if email is available, False if taken.
     """
     email = email.strip().lower()
-    existing = db.query(User).filter(
-        User.email == email
-    ).first()
+    existing = db.query(User).filter(User.email == email).first()
     return existing is None
 
 
-def get_user_by_id(
-    db: Session, user_id: str
-) -> Optional[User]:
+def get_user_by_id(db: Session, user_id: str) -> Optional[User]:
     """Fetch a user by ID.
 
     Args:
@@ -577,28 +528,23 @@ def _create_token_pair(
     settings = get_settings()
 
     # Enforce max sessions (BC-011)
-    existing_tokens = db.query(RefreshToken).filter(
-        RefreshToken.user_id == user.id
-    ).order_by(
-        RefreshToken.created_at.asc()
-    ).all()
+    existing_tokens = (
+        db.query(RefreshToken)
+        .filter(RefreshToken.user_id == user.id)
+        .order_by(RefreshToken.created_at.asc())
+        .all()
+    )
 
     if len(existing_tokens) >= settings.MAX_SESSIONS_PER_USER:
         # Remove oldest tokens to make room
-        excess = (
-            len(existing_tokens)
-            - settings.MAX_SESSIONS_PER_USER
-            + 1
-        )
+        excess = len(existing_tokens) - settings.MAX_SESSIONS_PER_USER + 1
         for old_token in existing_tokens[:excess]:
             db.delete(old_token)
 
     # Get plan from company (L13)
     plan = "mini_parwa"
     if company:
-        plan = getattr(
-            company, "subscription_tier", "mini_parwa"
-        ) or "mini_parwa"
+        plan = getattr(company, "subscription_tier", "mini_parwa") or "mini_parwa"
 
     # Create access token (JWT with plan claim)
     access_token = create_access_token(
@@ -654,10 +600,7 @@ def _build_auth_response(
         is_verified=user.is_verified,
         company_id=user.company_id,
         company_name=company.name if company else None,
-        created_at=(
-            user.created_at.isoformat()
-            if user.created_at else None
-        ),
+        created_at=(user.created_at.isoformat() if user.created_at else None),
     )
     return AuthResponse(
         user=user_response,
@@ -666,16 +609,12 @@ def _build_auth_response(
     )
 
 
-def _invalidate_all_tokens(
-    db: Session, user_id: str
-) -> None:
+def _invalidate_all_tokens(db: Session, user_id: str) -> None:
     """L07: Invalidate ALL refresh tokens for a user.
 
     Called when token reuse or expiry is detected.
     """
-    tokens = db.query(RefreshToken).filter(
-        RefreshToken.user_id == user_id
-    ).all()
+    tokens = db.query(RefreshToken).filter(RefreshToken.user_id == user_id).all()
     for t in tokens:
         db.delete(t)
     logger.warning(
@@ -706,10 +645,7 @@ def _verify_google_token(id_token: str) -> dict:
         # in the request body instead of GET with query param.
         # GET can leak the token in access logs, proxies, and Referer
         # headers. Migrate to POST when Google fully supports it.
-        url = (
-            "https://oauth2.googleapis.com/tokeninfo"
-            f"?id_token={id_token}"
-        )
+        url = "https://oauth2.googleapis.com/tokeninfo" f"?id_token={id_token}"
         resp = httpx.get(url, timeout=10.0)
         data = resp.json()
 
@@ -721,26 +657,17 @@ def _verify_google_token(id_token: str) -> dict:
 
         # Verify audience (ensure token is for our app)
         settings = get_settings()
-        if (
-            settings.GOOGLE_CLIENT_ID
-            and data.get("aud") != settings.GOOGLE_CLIENT_ID
-        ):
-            raise AuthenticationError(
-                message="Google token audience mismatch"
-            )
+        if settings.GOOGLE_CLIENT_ID and data.get("aud") != settings.GOOGLE_CLIENT_ID:
+            raise AuthenticationError(message="Google token audience mismatch")
 
         # Check email is verified
         if not data.get("email_verified", False):
-            raise AuthenticationError(
-                message="Google email not verified"
-            )
+            raise AuthenticationError(message="Google email not verified")
 
         return data
 
     except TimeoutException:
-        raise AuthenticationError(
-            message="Google verification timed out"
-        )
+        raise AuthenticationError(message="Google verification timed out")
     except HTTPError as exc:
         raise AuthenticationError(
             message="Google verification failed",

@@ -29,6 +29,7 @@ with patch("app.logger.get_logger", return_value=MagicMock()):
 
 # ── Helpers ────────────────────────────────────────────────────────
 
+
 def make_chunk(
     chunk_id: str = "c1",
     document_id: str = "doc1",
@@ -49,6 +50,7 @@ def make_chunk(
 # ═══════════════════════════════════════════════════════════════════
 # MetadataFilter Tests
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestMetadataFilter:
     """Tests for MetadataFilter.filter_chunks and _chunk_matches."""
@@ -159,9 +161,7 @@ class TestMetadataFilter:
             make_chunk("c1", metadata={"tags": ["billing", "support"]}),
             make_chunk("c2", metadata={"tags": ["billing"]}),
         ]
-        result = MetadataFilter.filter_chunks(
-            chunks, {"tags": ["billing", "support"]}
-        )
+        result = MetadataFilter.filter_chunks(chunks, {"tags": ["billing", "support"]})
         assert len(result) == 1
         assert result[0].chunk_id == "c1"
 
@@ -230,17 +230,13 @@ class TestMetadataFilter:
     def test_malformed_date_does_not_filter_out(self):
         """BC-008: Malformed date is lenient, doesn't filter out chunk."""
         chunks = [make_chunk("c1", metadata={"date": "not-a-date"})]
-        result = MetadataFilter.filter_chunks(
-            chunks, {"date_from": "2024-01-01"}
-        )
+        result = MetadataFilter.filter_chunks(chunks, {"date_from": "2024-01-01"})
         assert len(result) == 1
 
     def test_chunk_with_no_metadata_date(self):
         """Chunks without date pass date filters."""
         chunks = [make_chunk("c1", metadata={})]
-        result = MetadataFilter.filter_chunks(
-            chunks, {"date_from": "2024-01-01"}
-        )
+        result = MetadataFilter.filter_chunks(chunks, {"date_from": "2024-01-01"})
         assert len(result) == 1
 
     def test_supported_keys_set(self):
@@ -256,6 +252,7 @@ class TestMetadataFilter:
 # ═══════════════════════════════════════════════════════════════════
 # QueryRewriter Tests
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestQueryRewriter:
     """Tests for QueryRewriter.rewrite, _tokenise, _build_term_scores."""
@@ -279,7 +276,8 @@ class TestQueryRewriter:
     async def test_rewrite_adds_expansion_terms(self):
         chunks = [
             make_chunk(
-                content="Machine learning algorithms process data structures and neural networks for classification tasks"),
+                content="Machine learning algorithms process data structures and neural networks for classification tasks"
+            ),
         ]
         result = await QueryRewriter.rewrite("data algorithms", chunks, "co1")
         assert "data algorithms" in result
@@ -290,7 +288,9 @@ class TestQueryRewriter:
     async def test_rewrite_respects_max_expansion_terms(self):
         chunks = [
             make_chunk(
-                content="alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma tau")]
+                content="alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma tau"
+            )
+        ]
         result = await QueryRewriter.rewrite("alpha", chunks, "co1")
         added = result.replace("alpha", "").strip()
         added_terms = added.split() if added else []
@@ -301,7 +301,9 @@ class TestQueryRewriter:
         query = "specific_keyword"
         chunks = [
             make_chunk(
-                content="specific_keyword appears multiple times specific_keyword")]
+                content="specific_keyword appears multiple times specific_keyword"
+            )
+        ]
         result = await QueryRewriter.rewrite(query, chunks, "co1")
         # Count occurrences of the query term
         count = result.lower().split().count("specific_keyword")
@@ -367,17 +369,15 @@ class TestQueryRewriter:
         with patch.object(
             QueryRewriter, "_build_term_scores", side_effect=RuntimeError("boom")
         ):
-            result = await QueryRewriter.rewrite(
-                "test query", [make_chunk()], "co1"
-            )
+            result = await QueryRewriter.rewrite("test query", [make_chunk()], "co1")
         assert result == "test query"
 
     @pytest.mark.asyncio
     async def test_rewrite_chunks_limited_to_5(self):
         """Only first 5 chunks are used for corpus."""
         chunks = [
-            make_chunk(
-                content=f"unique_word_{i} content here") for i in range(10)]
+            make_chunk(content=f"unique_word_{i} content here") for i in range(10)
+        ]
         result = await QueryRewriter.rewrite("query", chunks, "co1")
         # Should still work with 10 chunks but only use first 5
         assert "query" in result
@@ -385,9 +385,7 @@ class TestQueryRewriter:
     @pytest.mark.asyncio
     async def test_min_term_score_threshold(self):
         """Terms below _MIN_TERM_SCORE are not added."""
-        chunks = [
-            make_chunk(
-                content="common word appears many times common word")]
+        chunks = [make_chunk(content="common word appears many times common word")]
         result = await QueryRewriter.rewrite("appears", chunks, "co1")
         added = result.replace("appears", "").strip()
         added_terms = added.split() if added else []
@@ -399,6 +397,7 @@ class TestQueryRewriter:
 # ═══════════════════════════════════════════════════════════════════
 # ContextWindowAssembler Tests
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestContextWindowAssembler:
     """Tests for ContextWindowAssembler.assemble and _smart_truncate."""
@@ -563,6 +562,7 @@ class TestContextWindowAssembler:
 # CitationTracker Tests
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestCitationTracker:
     """Tests for CitationTracker.track_citations."""
 
@@ -579,12 +579,13 @@ class TestCitationTracker:
     def test_single_citation_enriched(self):
         chunk = make_chunk("c1", metadata={"source": "PDF", "page": 5})
         citation = Citation(
-            chunk_id="c1", document_id="doc1",
-            relevance_score=0.9, position_in_context=0, excerpt="test"
+            chunk_id="c1",
+            document_id="doc1",
+            relevance_score=0.9,
+            position_in_context=0,
+            excerpt="test",
         )
-        ctx = AssembledContext(
-            chunks_used=[chunk], citations=[citation]
-        )
+        ctx = AssembledContext(chunks_used=[chunk], citations=[citation])
         result = CitationTracker.track_citations([chunk], ctx)
         assert len(result) == 1
         assert "[Source: PDF]" in result[0].excerpt
@@ -593,12 +594,13 @@ class TestCitationTracker:
     def test_citation_with_section_metadata(self):
         chunk = make_chunk("c1", metadata={"source": "KB", "section": "Intro"})
         citation = Citation(
-            chunk_id="c1", document_id="doc1",
-            relevance_score=0.8, position_in_context=0, excerpt="intro text"
+            chunk_id="c1",
+            document_id="doc1",
+            relevance_score=0.8,
+            position_in_context=0,
+            excerpt="intro text",
         )
-        ctx = AssembledContext(
-            chunks_used=[chunk], citations=[citation]
-        )
+        ctx = AssembledContext(chunks_used=[chunk], citations=[citation])
         result = CitationTracker.track_citations([chunk], ctx)
         assert "Intro" in result[0].excerpt
 
@@ -606,12 +608,13 @@ class TestCitationTracker:
         """Default 'Knowledge Base' source with no page/section uses original."""
         chunk = make_chunk("c1", metadata={"source": "Knowledge Base"})
         citation = Citation(
-            chunk_id="c1", document_id="doc1",
-            relevance_score=0.8, position_in_context=0, excerpt="original"
+            chunk_id="c1",
+            document_id="doc1",
+            relevance_score=0.8,
+            position_in_context=0,
+            excerpt="original",
         )
-        ctx = AssembledContext(
-            chunks_used=[chunk], citations=[citation]
-        )
+        ctx = AssembledContext(chunks_used=[chunk], citations=[citation])
         result = CitationTracker.track_citations([chunk], ctx)
         assert result[0].excerpt == "original"
 
@@ -619,33 +622,28 @@ class TestCitationTracker:
         """Duplicate chunk_ids in citations are deduplicated."""
         chunk = make_chunk("c1")
         c1 = Citation(
-            chunk_id="c1",
-            document_id="d1",
-            relevance_score=0.9,
-            position_in_context=0)
-        c2 = Citation(
-            chunk_id="c1",
-            document_id="d1",
-            relevance_score=0.8,
-            position_in_context=10)
-        ctx = AssembledContext(
-            chunks_used=[chunk], citations=[c1, c2]
+            chunk_id="c1", document_id="d1", relevance_score=0.9, position_in_context=0
         )
+        c2 = Citation(
+            chunk_id="c1", document_id="d1", relevance_score=0.8, position_in_context=10
+        )
+        ctx = AssembledContext(chunks_used=[chunk], citations=[c1, c2])
         result = CitationTracker.track_citations([chunk], ctx)
         assert len(result) == 1
 
     def test_citation_chunk_not_in_lookup_keeps_original(self):
         """If chunk not in lookup but chunks_used is populated, citation is returned as-is."""
         citation = Citation(
-            chunk_id="missing", document_id="d1",
-            relevance_score=0.8, position_in_context=0, excerpt="test"
+            chunk_id="missing",
+            document_id="d1",
+            relevance_score=0.8,
+            position_in_context=0,
+            excerpt="test",
         )
         # Need a chunk in chunks_used so track_citations doesn't short-circuit
         # to []
         chunk = make_chunk("other_chunk", metadata={"source": "Doc"})
-        ctx = AssembledContext(
-            chunks_used=[chunk], citations=[citation]
-        )
+        ctx = AssembledContext(chunks_used=[chunk], citations=[citation])
         # Pass empty chunks list so "missing" won't be in lookup
         result = CitationTracker.track_citations([], ctx)
         assert len(result) == 1
@@ -653,18 +651,16 @@ class TestCitationTracker:
 
     def test_citation_with_page_and_section(self):
         chunk = make_chunk(
-            "c1",
-            metadata={
-                "source": "Doc",
-                "page": 10,
-                "section": "Chapter 1"})
+            "c1", metadata={"source": "Doc", "page": 10, "section": "Chapter 1"}
+        )
         citation = Citation(
-            chunk_id="c1", document_id="d1",
-            relevance_score=0.9, position_in_context=0, excerpt="content"
+            chunk_id="c1",
+            document_id="d1",
+            relevance_score=0.9,
+            position_in_context=0,
+            excerpt="content",
         )
-        ctx = AssembledContext(
-            chunks_used=[chunk], citations=[citation]
-        )
+        ctx = AssembledContext(chunks_used=[chunk], citations=[citation])
         result = CitationTracker.track_citations([chunk], ctx)
         assert "Chapter 1" in result[0].excerpt
         assert "p. 10" in result[0].excerpt
@@ -673,6 +669,7 @@ class TestCitationTracker:
 # ═══════════════════════════════════════════════════════════════════
 # CrossEncoderReranker Tests
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestCrossEncoderReranker:
     """Tests for CrossEncoderReranker.rerank and scoring methods."""
@@ -689,7 +686,9 @@ class TestCrossEncoderReranker:
     @pytest.mark.asyncio
     async def test_unknown_variant_defaults_to_parwa(self):
         chunks = [make_chunk(score=0.7)]
-        result = await self.reranker.rerank(chunks, "query", "co1", variant_type="unknown")
+        result = await self.reranker.rerank(
+            chunks, "query", "co1", variant_type="unknown"
+        )
         assert result.variant_tier_used == "parwa"
 
     @pytest.mark.asyncio
@@ -711,14 +710,10 @@ class TestCrossEncoderReranker:
     async def test_parwa_cross_encoder_reranking(self):
         """parwa variant applies cross-encoder reranking."""
         chunks = [
+            make_chunk("c1", content="database query optimization indexing", score=0.6),
             make_chunk(
-                "c1",
-                content="database query optimization indexing",
-                score=0.6),
-            make_chunk(
-                "c2",
-                content="query optimization techniques for databases",
-                score=0.8),
+                "c2", content="query optimization techniques for databases", score=0.8
+            ),
         ]
         result = await self.reranker.rerank(
             chunks, "database query", "co1", variant_type="parwa"
@@ -733,10 +728,9 @@ class TestCrossEncoderReranker:
         chunks = [
             make_chunk(
                 "c1",
-                content="machine learning neural networks deep learning algorithms"),
-            make_chunk(
-                "c2",
-                content="neural network training data processing"),
+                content="machine learning neural networks deep learning algorithms",
+            ),
+            make_chunk("c2", content="neural network training data processing"),
         ]
         result = await self.reranker.rerank(
             chunks, "ML algorithms", "co1", variant_type="parwa_high"
@@ -768,8 +762,7 @@ class TestCrossEncoderReranker:
             make_chunk("c2", score=0.5),
         ]
         with patch.object(
-            self.reranker, "_execute_with_guard",
-            side_effect=RuntimeError("test error")
+            self.reranker, "_execute_with_guard", side_effect=RuntimeError("test error")
         ):
             result = await self.reranker.rerank(
                 chunks, "query", "co1", variant_type="parwa"
@@ -788,7 +781,9 @@ class TestCrossEncoderReranker:
             make_chunk("c2", metadata={"source_type": "web"}),
         ]
         result = await self.reranker.rerank(
-            chunks, "query", "co1",
+            chunks,
+            "query",
+            "co1",
             variant_type="parwa_high",
             filters={"source_type": "pdf"},
         )
@@ -811,8 +806,7 @@ class TestCrossEncoderReranker:
 
     def test_cross_encoder_score_only_stop_words(self):
         chunks = [make_chunk()]
-        result = self.reranker._cross_encoder_score(
-            chunks, "the a an is", "co1")
+        result = self.reranker._cross_encoder_score(chunks, "the a an is", "co1")
         assert len(result) == 1
 
     def test_cross_encoder_score_sorted_descending(self):
@@ -831,7 +825,8 @@ class TestCrossEncoderReranker:
             make_chunk("c2", content="completely different topic"),
         ]
         result = self.reranker._cross_encoder_score(
-            chunks, "database query optimization", "co1")
+            chunks, "database query optimization", "co1"
+        )
         c1_score = next((c.score for c in result if c.chunk_id == "c1"), 0)
         c2_score = next((c.score for c in result if c.chunk_id == "c2"), 0)
         assert c1_score > c2_score
@@ -904,13 +899,19 @@ class TestCrossEncoderReranker:
 
     def test_variant_config_strategies(self):
         assert VARIANT_RERANK_CONFIG["mini_parwa"]["strategy"] == RerankStrategy.SKIP
-        assert VARIANT_RERANK_CONFIG["parwa"]["strategy"] == RerankStrategy.CROSS_ENCODER
-        assert VARIANT_RERANK_CONFIG["parwa_high"]["strategy"] == RerankStrategy.REWRITE_RERANK
+        assert (
+            VARIANT_RERANK_CONFIG["parwa"]["strategy"] == RerankStrategy.CROSS_ENCODER
+        )
+        assert (
+            VARIANT_RERANK_CONFIG["parwa_high"]["strategy"]
+            == RerankStrategy.REWRITE_RERANK
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════
 # Data Classes Tests
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestDataClasses:
     """Tests for AssembledContext, Citation, RerankStrategy."""
@@ -924,9 +925,7 @@ class TestDataClasses:
         assert ctx.truncated is False
 
     def test_assembled_context_to_dict(self):
-        ctx = AssembledContext(
-            context_string="test", total_tokens=5, truncated=True
-        )
+        ctx = AssembledContext(context_string="test", total_tokens=5, truncated=True)
         d = ctx.to_dict()
         assert d["context_string"] == "test"
         assert d["total_tokens"] == 5
@@ -935,16 +934,17 @@ class TestDataClasses:
 
     def test_citation_defaults(self):
         c = Citation(
-            chunk_id="c1", document_id="d1",
-            relevance_score=0.9, position_in_context=0
+            chunk_id="c1", document_id="d1", relevance_score=0.9, position_in_context=0
         )
         assert c.excerpt == ""
 
     def test_citation_to_dict(self):
         c = Citation(
-            chunk_id="c1", document_id="d1",
-            relevance_score=0.9123456, position_in_context=10,
-            excerpt="test excerpt"
+            chunk_id="c1",
+            document_id="d1",
+            relevance_score=0.9123456,
+            position_in_context=10,
+            excerpt="test excerpt",
         )
         d = c.to_dict()
         assert d["chunk_id"] == "c1"
@@ -957,9 +957,12 @@ class TestDataClasses:
 
     def test_rag_chunk_creation(self):
         chunk = RAGChunk(
-            chunk_id="c1", document_id="d1",
-            content="test", score=0.95,
-            metadata={"key": "val"}, citation="cite1"
+            chunk_id="c1",
+            document_id="d1",
+            content="test",
+            score=0.95,
+            metadata={"key": "val"},
+            citation="cite1",
         )
         assert chunk.chunk_id == "c1"
         assert chunk.document_id == "d1"

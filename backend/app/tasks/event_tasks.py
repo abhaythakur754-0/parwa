@@ -91,7 +91,8 @@ def fanout_event_task(
             error=str(exc),
         )
         raise fanout_event_task.retry(
-            exc=exc, countdown=2 ** fanout_event_task.request.retries)
+            exc=exc, countdown=2**fanout_event_task.request.retries
+        )
 
 
 @celery_app.task(
@@ -123,6 +124,7 @@ def cleanup_event_buffer_task(company_id: str) -> Dict[str, Any]:
 
     async def _cleanup():
         from app.core.event_buffer import cleanup_old_events
+
         return await cleanup_old_events(company_id)
 
     try:

@@ -11,34 +11,39 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ── Inbound Email Schemas ──────────────────────────────────────
+
 
 class InboundEmailCreate(BaseModel):
     """Schema for creating an inbound email record from webhook data."""
 
-    sender_email: str = Field(..., max_length=254,
-                              description="Sender email address")
+    sender_email: str = Field(..., max_length=254, description="Sender email address")
     sender_name: Optional[str] = Field(
-        None, max_length=200, description="Sender display name")
-    recipient_email: str = Field(...,
-                                 max_length=254,
-                                 description="Recipient email address")
+        None, max_length=200, description="Sender display name"
+    )
+    recipient_email: str = Field(
+        ..., max_length=254, description="Recipient email address"
+    )
     subject: Optional[str] = Field(
-        None, max_length=500, description="Email subject line")
+        None, max_length=500, description="Email subject line"
+    )
     body_html: Optional[str] = Field(None, description="HTML body content")
-    body_text: Optional[str] = Field(
-        None, description="Plain text body content")
+    body_text: Optional[str] = Field(None, description="Plain text body content")
     message_id: Optional[str] = Field(
-        None, max_length=255, description="RFC 2822 Message-ID header")
+        None, max_length=255, description="RFC 2822 Message-ID header"
+    )
     in_reply_to: Optional[str] = Field(
-        None, max_length=255, description="In-Reply-To header")
+        None, max_length=255, description="In-Reply-To header"
+    )
     references: Optional[str] = Field(
-        None, description="References header (Message-ID chain)")
+        None, description="References header (Message-ID chain)"
+    )
     attachments: Optional[List[dict]] = Field(
-        default_factory=list, description="Attachment metadata list")
+        default_factory=list, description="Attachment metadata list"
+    )
     headers_json: Optional[str] = Field(
-        "{}", description="All email headers as JSON string")
+        "{}", description="All email headers as JSON string"
+    )
 
 
 class InboundEmailResponse(BaseModel):
@@ -76,6 +81,7 @@ class InboundEmailListResponse(BaseModel):
 
 # ── Email Thread Schemas ───────────────────────────────────────
 
+
 class EmailThreadResponse(BaseModel):
     """Schema for email thread data."""
 
@@ -94,6 +100,7 @@ class EmailThreadResponse(BaseModel):
 
 # ── Detection Result Schemas ───────────────────────────────────
 
+
 class EmailLoopDetection(BaseModel):
     """Result of email loop detection check."""
 
@@ -102,7 +109,7 @@ class EmailLoopDetection(BaseModel):
     loop_type: Optional[str] = Field(
         None,
         description="Type of loop detected: self_sent, x_loop_header, "
-                    "already_processed, depth_exceeded"
+        "already_processed, depth_exceeded",
     )
 
 
@@ -112,8 +119,7 @@ class AutoReplyDetection(BaseModel):
     is_auto_reply: bool = False
     reason: Optional[str] = None
     detection_source: Optional[str] = Field(
-        None,
-        description="Where the auto-reply was detected: header or body"
+        None, description="Where the auto-reply was detected: header or body"
     )
 
 
@@ -123,8 +129,8 @@ class EmailProcessResult(BaseModel):
     status: str = Field(
         ...,
         description="Result status: created_ticket, added_to_thread, "
-                    "skipped_auto_reply, skipped_loop, skipped_duplicate, "
-                    "rate_limited, validation_error, error"
+        "skipped_auto_reply, skipped_loop, skipped_duplicate, "
+        "rate_limited, validation_error, error",
     )
     ticket_id: Optional[str] = None
     thread_id: Optional[str] = None

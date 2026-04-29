@@ -45,9 +45,21 @@ def upgrade() -> None:
         sa.Column("body_text", sa.Text(), nullable=True),
         sa.Column("headers_json", sa.Text(), server_default="{}"),
         # Processing state
-        sa.Column("is_auto_reply", sa.Boolean(), server_default=sa.text("false"), nullable=False),
-        sa.Column("is_loop", sa.Boolean(), server_default=sa.text("false"), nullable=False),
-        sa.Column("is_processed", sa.Boolean(), server_default=sa.text("false"), nullable=False),
+        sa.Column(
+            "is_auto_reply",
+            sa.Boolean(),
+            server_default=sa.text("false"),
+            nullable=False,
+        ),
+        sa.Column(
+            "is_loop", sa.Boolean(), server_default=sa.text("false"), nullable=False
+        ),
+        sa.Column(
+            "is_processed",
+            sa.Boolean(),
+            server_default=sa.text("false"),
+            nullable=False,
+        ),
         sa.Column(
             "ticket_id",
             sa.String(36),
@@ -55,7 +67,9 @@ def upgrade() -> None:
             nullable=True,
         ),
         sa.Column("processing_error", sa.Text(), nullable=True),
-        sa.Column("raw_size_bytes", sa.Integer(), server_default=sa.text("0"), nullable=False),
+        sa.Column(
+            "raw_size_bytes", sa.Integer(), server_default=sa.text("0"), nullable=False
+        ),
         sa.Column(
             "created_at",
             sa.DateTime(),
@@ -84,7 +98,9 @@ def upgrade() -> None:
         # Thread tracking
         sa.Column("thread_message_id", sa.String(255), nullable=False, index=True),
         sa.Column("latest_message_id", sa.String(255), nullable=True),
-        sa.Column("message_count", sa.Integer(), server_default=sa.text("1"), nullable=False),
+        sa.Column(
+            "message_count", sa.Integer(), server_default=sa.text("1"), nullable=False
+        ),
         sa.Column("participants_json", sa.Text(), server_default="[]"),
         sa.Column(
             "created_at",

@@ -13,7 +13,6 @@ Building Codes: BC-001 (tenant isolation), BC-010 (GDPR),
                BC-011 (auth), BC-012 (error handling)
 """
 
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -64,10 +63,7 @@ async def create_export(
     except Exception:
         raise ValidationError(
             message="Invalid JSON body",
-            details={
-                "expected": {
-                    "report_type": "string",
-                    "format": "string"}},
+            details={"expected": {"report_type": "string", "format": "string"}},
         )
 
     report_type = body.get("report_type", "summary")

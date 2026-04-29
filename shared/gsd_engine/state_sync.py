@@ -188,7 +188,9 @@ class GSDStateSync:
         if state.current_state != from_state:
             logger.warning(
                 "State mismatch for %s: expected %s, got %s",
-                conversation_id, from_state, state.current_state,
+                conversation_id,
+                from_state,
+                state.current_state,
             )
             return False
 
@@ -253,11 +255,13 @@ class GSDStateSync:
             await self._redis.hset(
                 escalation_key,
                 conversation_id,
-                json.dumps({
-                    "escalated_to": escalated_to,
-                    "reason": reason,
-                    "timestamp": now,
-                }),
+                json.dumps(
+                    {
+                        "escalated_to": escalated_to,
+                        "reason": reason,
+                        "timestamp": now,
+                    }
+                ),
             )
             # Escalation records persist for 24 hours
             await self._redis.expire(escalation_key, 86400)
@@ -328,7 +332,11 @@ class GSDStateSync:
                         handler = self._event_handlers.get(event.event_type)
 
                         if handler:
-                            await handler(event) if asyncio.iscoroutinefunction(handler) else handler(event)
+                            (
+                                await handler(event)
+                                if asyncio.iscoroutinefunction(handler)
+                                else handler(event)
+                            )
 
                     except Exception as e:
                         logger.warning("Failed to process event: %s", e)

@@ -47,14 +47,10 @@ def _generate_token() -> str:
 
 def _hash_token(token: str) -> str:
     """Hash a reset token for DB storage (SHA-256)."""
-    return hashlib.sha256(
-        token.encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def initiate_password_reset(
-    db: Session, email: str
-) -> dict:
+def initiate_password_reset(db: Session, email: str) -> dict:
     """Start the password reset flow.
 
     F-014: Generic response prevents account enumeration.
@@ -67,32 +63,32 @@ def initiate_password_reset(
     Returns:
         Dict with status message (always generic).
     """
-    user = db.query(User).filter(
-        User.email == email.lower().strip()
-    ).first()
+    user = db.query(User).filter(User.email == email.lower().strip()).first()
 
     if not user:
         # F-014: Generic response, no info leakage
         return {
             "status": "success",
             "message": (
-                "If an account exists with this email, "
-                "a reset link has been sent."
+                "If an account exists with this email, " "a reset link has been sent."
             ),
         }
 
     # Rate limit check
-    since_utc = datetime.now(timezone.utc) - timedelta(
-        seconds=RESET_WINDOW_SECONDS
-    )
+    since_utc = datetime.now(timezone.utc) - timedelta(seconds=RESET_WINDOW_SECONDS)
     recent_count = 0
-    recent_tokens = db.query(PasswordResetToken).filter(
-        PasswordResetToken.user_id == user.id,
-    ).all()
+    recent_tokens = (
+        db.query(PasswordResetToken)
+        .filter(
+            PasswordResetToken.user_id == user.id,
+        )
+        .all()
+    )
     for t in recent_tokens:
         t_created = t.created_at
         if t_created.tzinfo is None:
             from datetime import timezone as tz
+
             t_created = t_created.replace(tzinfo=tz.utc)
         if t_created >= since_utc:
             recent_count += 1
@@ -100,10 +96,7 @@ def initiate_password_reset(
     if recent_count >= MAX_RESETS_PER_HOUR:
         return {
             "status": "error",
-            "message": (
-                "Too many reset requests. "
-                "Please wait before trying again."
-            ),
+            "message": ("Too many reset requests. " "Please wait before trying again."),
             "retry_after_seconds": RESET_WINDOW_SECONDS,
         }
 
@@ -117,8 +110,7 @@ def initiate_password_reset(
         token_hash=token_hash,
         is_used=False,
         expires_at=(
-            datetime.now(timezone.utc)
-            + timedelta(minutes=TOKEN_EXPIRE_MINUTES)
+            datetime.now(timezone.utc) + timedelta(minutes=TOKEN_EXPIRE_MINUTES)
         ),
     )
     db.add(reset_token)
@@ -135,13 +127,8 @@ def initiate_password_reset(
     import os
 
     # E7: Use FRONTEND_URL env var instead of hardcoded URL
-    frontend_url = os.environ.get(
-        "FRONTEND_URL", "https://parwa.ai"
-    )
-    reset_url = (
-        f"{frontend_url}/reset-password?"
-        f"token={raw_token}"
-    )
+    frontend_url = os.environ.get("FRONTEND_URL", "https://parwa.ai")
+    reset_url = f"{frontend_url}/reset-password?" f"token={raw_token}"
     sent = send_password_reset_email(
         user_email=user.email,
         user_name=user.full_name or "User",
@@ -158,8 +145,7 @@ def initiate_password_reset(
     return {
         "status": "success",
         "message": (
-            "If an account exists with this email, "
-            "a reset link has been sent."
+            "If an account exists with this email, " "a reset link has been sent."
         ),
     }
 
@@ -187,9 +173,11 @@ def reset_password(
         ValidationError: If token invalid/expired/used.
     """
     token_hash = _hash_token(token)
-    stored = db.query(PasswordResetToken).filter(
-        PasswordResetToken.token_hash == token_hash
-    ).first()
+    stored = (
+        db.query(PasswordResetToken)
+        .filter(PasswordResetToken.token_hash == token_hash)
+        .first()
+    )
 
     if not stored:
         raise NotFoundError(
@@ -206,6 +194,7 @@ def reset_password(
     expires_at = stored.expires_at
     if expires_at.tzinfo is None:
         from datetime import timezone as tz
+
         expires_at = expires_at.replace(tzinfo=tz.utc)
     if expires_at < now:
         raise AuthenticationError(
@@ -213,9 +202,7 @@ def reset_password(
         )
 
     # Find user
-    user = db.query(User).filter(
-        User.id == stored.user_id
-    ).first()
+    user = db.query(User).filter(User.id == stored.user_id).first()
 
     if not user or not user.is_active:
         raise NotFoundError(
@@ -250,19 +237,13 @@ def reset_password(
     }
 
 
-def _invalidate_all_sessions(
-    db: Session, user_id: str
-) -> None:
+def _invalidate_all_sessions(db: Session, user_id: str) -> None:
     """BC-011: Delete all refresh tokens for a user.
 
     Called on password reset to force re-login.
     """
-    count = db.query(RefreshToken).filter(
-        RefreshToken.user_id == user_id
-    ).count()
-    db.query(RefreshToken).filter(
-        RefreshToken.user_id == user_id
-    ).delete()
+    count = db.query(RefreshToken).filter(RefreshToken.user_id == user_id).count()
+    db.query(RefreshToken).filter(RefreshToken.user_id == user_id).delete()
     logger.info(
         "sessions_invalidated",
         user_id=user_id,

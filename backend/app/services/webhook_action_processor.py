@@ -75,7 +75,8 @@ def process_webhook_action(
 
     logger.info(
         "webhook_action_no_handler provider=%s action=%s",
-        provider, action,
+        provider,
+        action,
         extra={"company_id": company_id},
     )
 
@@ -107,10 +108,10 @@ def _process_brevo_inbound_email(
         with get_db_context() as db:
             service = EmailChannelService(db)
             result = service.process_inbound_email(
-                company_id=company_id, email_data=email_data,
+                company_id=company_id,
+                email_data=email_data,
             )
-            ticket_id = result.get("ticket_id") if isinstance(
-                result, dict) else result
+            ticket_id = result.get("ticket_id") if isinstance(result, dict) else result
 
             if ticket_id:
                 logger.info(

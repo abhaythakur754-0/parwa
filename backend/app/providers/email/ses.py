@@ -49,6 +49,7 @@ class SESEmailProvider(EmailProvider):
     def test_connection(self) -> ProviderResult:
         try:
             import boto3
+
             client = boto3.client(
                 "ses",
                 aws_access_key_id=self.access_key,
@@ -86,6 +87,7 @@ class SESEmailProvider(EmailProvider):
     def send_email(self, message: EmailMessage) -> ProviderResult:
         try:
             import boto3
+
             client = boto3.client(
                 "ses",
                 aws_access_key_id=self.access_key,
@@ -100,7 +102,11 @@ class SESEmailProvider(EmailProvider):
                     "Subject": {"Data": message.subject},
                     "Body": {
                         "Html": {"Data": message.html_content},
-                        **({"Text": {"Data": message.text_content}} if message.text_content else {}),
+                        **(
+                            {"Text": {"Data": message.text_content}}
+                            if message.text_content
+                            else {}
+                        ),
                     },
                 },
             )
@@ -126,14 +132,13 @@ class SESEmailProvider(EmailProvider):
                 error_message=str(e)[:200],
             )
 
-    def send_template_email(self,
-                            template_id: str,
-                            to: str,
-                            variables: Dict[str,
-                                            Any]) -> ProviderResult:
+    def send_template_email(
+        self, template_id: str, to: str, variables: Dict[str, Any]
+    ) -> ProviderResult:
         try:
             import boto3
             import json
+
             client = boto3.client(
                 "ses",
                 aws_access_key_id=self.access_key,

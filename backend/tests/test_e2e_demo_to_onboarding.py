@@ -41,7 +41,7 @@ class TestDemoFlow:
             db=db,
             user_id=user_id,
             entry_source="landing_page",
-            entry_params={"industry": "ecommerce"}
+            entry_params={"industry": "ecommerce"},
         )
 
         assert session is not None
@@ -75,11 +75,14 @@ class TestDemoFlow:
             db=db,
             session_id=str(session.id),
             user_id=user_id,
-            user_message="Hello Jarvis, I run an e-commerce store. How can you help me?"
+            user_message="Hello Jarvis, I run an e-commerce store. How can you help me?",
         )
 
         assert user_msg is not None
-        assert user_msg.content == "Hello Jarvis, I run an e-commerce store. How can you help me?"
+        assert (
+            user_msg.content
+            == "Hello Jarvis, I run an e-commerce store. How can you help me?"
+        )
 
         # AI should respond
         assert ai_msg is not None
@@ -124,7 +127,7 @@ class TestDemoFlow:
         )
 
         # Mock Paddle for testing
-        with patch('app.services.jarvis_service.get_paddle_service') as mock_paddle:
+        with patch("app.services.jarvis_service.get_paddle_service") as mock_paddle:
             mock_paddle.return_value.create_demo_pack_checkout = MagicMock(
                 return_value={
                     "checkout_url": "https://checkout.paddle.com/demo",
@@ -156,7 +159,7 @@ class TestSignupFlow:
         password = "SecurePassword123!"
 
         # Mock the password hashing
-        with patch('app.services.auth_service.hash_password', return_value="hashed_pw"):
+        with patch("app.services.auth_service.hash_password", return_value="hashed_pw"):
             user = register_user(
                 db=db,
                 email=email,
@@ -180,7 +183,7 @@ class TestSignupFlow:
         session = create_or_resume_session(db=db, user_id=user_id)
 
         # Send OTP
-        with patch('app.services.jarvis_service.send_email', return_value=True):
+        with patch("app.services.jarvis_service.send_email", return_value=True):
             result = send_business_otp(
                 db=db,
                 session_id=str(session.id),
@@ -226,7 +229,7 @@ class TestLoginFlow:
         db.commit()
 
         # Mock password verification
-        with patch('app.services.auth_service.verify_password', return_value=True):
+        with patch("app.services.auth_service.verify_password", return_value=True):
             authenticated = authenticate_user(
                 db=db,
                 email=user.email,
@@ -293,10 +296,17 @@ class TestOnboardingFlow:
 
         # Step 5: AI Activation
         # Mock the AI greeting generation
-        with patch('app.services.onboarding_service._generate_ai_greeting',
-                   return_value="Hello! I'm Jarvis, ready to help!"):
-            with patch('app.services.onboarding_service._send_welcome_email', return_value=True):
-                with patch('app.services.onboarding_service._send_onboarding_sms', return_value=True):
+        with patch(
+            "app.services.onboarding_service._generate_ai_greeting",
+            return_value="Hello! I'm Jarvis, ready to help!",
+        ):
+            with patch(
+                "app.services.onboarding_service._send_welcome_email", return_value=True
+            ):
+                with patch(
+                    "app.services.onboarding_service._send_onboarding_sms",
+                    return_value=True,
+                ):
                     activation_result = activate_ai(
                         db=db,
                         user_id=user_id,
@@ -315,9 +325,7 @@ class TestOnboardingFlow:
 
         # Test fallback greeting (SDK may not be available in tests)
         greeting = _generate_ai_greeting(
-            ai_name="TestBot",
-            ai_tone="friendly",
-            company_name="Test Company"
+            ai_name="TestBot", ai_tone="friendly", company_name="Test Company"
         )
 
         assert greeting is not None
@@ -382,10 +390,12 @@ class TestDashboardAnalytics:
 
 # ── Test Fixtures ─────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def db():
     """Create a test database session."""
     from database.base import SessionLocal
+
     session = SessionLocal()
     try:
         yield session

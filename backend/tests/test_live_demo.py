@@ -17,7 +17,7 @@ import uuid
 from datetime import datetime
 
 # Add backend to path
-sys.path.insert(0, '/home/z/my-project/parwa/backend')
+sys.path.insert(0, "/home/z/my-project/parwa/backend")
 
 
 def test_ai_sdk_direct():
@@ -28,10 +28,18 @@ def test_ai_sdk_direct():
 
     import subprocess
 
-    messages = json.dumps([
-        {"role": "system", "content": "You are Jarvis, a helpful AI assistant for PARWA customer support."},
-        {"role": "user", "content": "Hello! I'm testing the PARWA demo. Can you help me understand how you can assist my e-commerce business?"}
-    ])
+    messages = json.dumps(
+        [
+            {
+                "role": "system",
+                "content": "You are Jarvis, a helpful AI assistant for PARWA customer support.",
+            },
+            {
+                "role": "user",
+                "content": "Hello! I'm testing the PARWA demo. Can you help me understand how you can assist my e-commerce business?",
+            },
+        ]
+    )
 
     node_script = """
 const ZAI = require('z-ai-web-dev-sdk').default;
@@ -51,7 +59,7 @@ const ZAI = require('z-ai-web-dev-sdk').default;
         capture_output=True,
         text=True,
         timeout=30,
-        cwd="/home/z/my-project/parwa"
+        cwd="/home/z/my-project/parwa",
     )
 
     if result.returncode == 0:
@@ -90,7 +98,7 @@ const ZAI = require('z-ai-web-dev-sdk').default;
         capture_output=True,
         text=True,
         timeout=60,
-        cwd="/home/z/my-project/parwa"
+        cwd="/home/z/my-project/parwa",
     )
 
     if result.returncode == 0:
@@ -127,7 +135,7 @@ const ZAI = require('z-ai-web-dev-sdk').default;
         capture_output=True,
         text=True,
         timeout=30,
-        cwd="/home/z/my-project/parwa"
+        cwd="/home/z/my-project/parwa",
     )
 
     if result.returncode == 0:
@@ -163,7 +171,7 @@ def test_demo_chat_flow():
             db=db,
             user_id=user_id,
             entry_source="landing_page",
-            entry_params={"industry": "ecommerce", "variant": "parwa"}
+            entry_params={"industry": "ecommerce", "variant": "parwa"},
         )
 
         print(f"✅ Session created: {str(session.id)[:8]}...")
@@ -182,7 +190,7 @@ def test_demo_chat_flow():
             db=db,
             session_id=str(session.id),
             user_id=user_id,
-            user_message="Hi Jarvis! I'm interested in PARWA for my e-commerce store. Can you tell me about the features?"
+            user_message="Hi Jarvis! I'm interested in PARWA for my e-commerce store. Can you tell me about the features?",
         )
 
         print(f"\n📝 User: {user_msg.content}")
@@ -238,9 +246,7 @@ def test_onboarding_integration():
         # Test AI greeting generation
         print("\n🤖 Testing AI Greeting Generation...")
         greeting = _generate_ai_greeting(
-            ai_name="Jarvis",
-            ai_tone="professional",
-            company_name="Demo Company"
+            ai_name="Jarvis", ai_tone="professional", company_name="Demo Company"
         )
         print(f"   Generated Greeting: {greeting}")
 
@@ -263,9 +269,18 @@ def test_onboarding_integration():
         # Test activation (with mocks for communications)
         print("\n🚀 Testing AI Activation...")
         import unittest.mock as mock
-        with mock.patch('app.services.onboarding_service._send_welcome_email', return_value=True):
-            with mock.patch('app.services.onboarding_service._send_onboarding_sms', return_value=True):
-                with mock.patch('app.services.onboarding_service._generate_ai_greeting', return_value=greeting):
+
+        with mock.patch(
+            "app.services.onboarding_service._send_welcome_email", return_value=True
+        ):
+            with mock.patch(
+                "app.services.onboarding_service._send_onboarding_sms",
+                return_value=True,
+            ):
+                with mock.patch(
+                    "app.services.onboarding_service._generate_ai_greeting",
+                    return_value=greeting,
+                ):
                     result = activate_ai(
                         db=db,
                         user_id=user_id,
@@ -285,6 +300,7 @@ def test_onboarding_integration():
     except Exception as e:
         print(f"❌ Onboarding Test Failed: {str(e)}")
         import traceback
+
         traceback.print_exc()
         return False
 

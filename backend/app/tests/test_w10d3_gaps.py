@@ -23,7 +23,6 @@ from app.core.shared_gsd import SharedGSDManager
 from app.core.capacity_monitor import CapacityMonitor
 from app.core.dspy_integration import DSPyIntegration, StubModule, StubOptimizer
 
-
 # ═══════════════════════════════════════════════════════════════════
 # MODULE 1: technique_metrics.py (Gaps 1-8)
 # ═══════════════════════════════════════════════════════════════════
@@ -37,8 +36,7 @@ class TestTechniqueMetricsGaps:
 
     # -- Gap 1 (HIGH): Variant stats treat timeout+error as "failure" --
 
-    def test_gap01_variant_summary_timeout_and_error_increment_failure_count(
-            self):
+    def test_gap01_variant_summary_timeout_and_error_increment_failure_count(self):
         """Verify that TIMEOUT and ERROR statuses both increment variant_summary.failure_count.
 
         The _update_variant_stats method only checks SUCCESS vs non-SUCCESS,
@@ -46,16 +44,24 @@ class TestTechniqueMetricsGaps:
         """
         variant = "parwa"
         self.collector.record_execution(
-            technique_id="clara", variant=variant, status="timeout",
+            technique_id="clara",
+            variant=variant,
+            status="timeout",
         )
         self.collector.record_execution(
-            technique_id="clara", variant=variant, status="error",
+            technique_id="clara",
+            variant=variant,
+            status="error",
         )
         self.collector.record_execution(
-            technique_id="clara", variant=variant, status="failure",
+            technique_id="clara",
+            variant=variant,
+            status="failure",
         )
         self.collector.record_execution(
-            technique_id="clara", variant=variant, status="success",
+            technique_id="clara",
+            variant=variant,
+            status="success",
         )
 
         summary = self.collector.get_variant_summary(variant)
@@ -98,7 +104,9 @@ class TestTechniqueMetricsGaps:
         string collects no values, yielding zero percentiles.
         """
         self.collector.record_execution(
-            technique_id="clara", exec_time_ms=100.0, tokens_used=50,
+            technique_id="clara",
+            exec_time_ms=100.0,
+            tokens_used=50,
         )
 
         result = self.collector.get_percentiles(metric="foo_bar")
@@ -106,8 +114,7 @@ class TestTechniqueMetricsGaps:
 
     # -- Gap 4 (LOW): get_time_windowed_stats with unrecognized window key --
 
-    def test_gap04_time_windowed_stats_unrecognized_window_defaults_to_300s(
-            self):
+    def test_gap04_time_windowed_stats_unrecognized_window_defaults_to_300s(self):
         """Verify an unrecognized window key silently defaults to 300 seconds.
 
         TIME_WINDOWS_SECONDS only has '1min', '5min', '15min', '1hr'.
@@ -115,22 +122,20 @@ class TestTechniqueMetricsGaps:
         """
         # Record something that will be within any reasonable window
         self.collector.record_execution(
-            technique_id="clara", exec_time_ms=50.0,
+            technique_id="clara",
+            exec_time_ms=50.0,
         )
 
         # Both recognized and unrecognized windows should return the record
-        stats_5min = self.collector.get_time_windowed_stats(
-            "clara", window="5min")
-        stats_10min = self.collector.get_time_windowed_stats(
-            "clara", window="10min")
+        stats_5min = self.collector.get_time_windowed_stats("clara", window="5min")
+        stats_10min = self.collector.get_time_windowed_stats("clara", window="10min")
 
         # Both should find the same record since default is 300s for both
         assert stats_5min.total_executions == stats_10min.total_executions
 
     # -- Gap 5 (MEDIUM): Returned TechniqueStats exec_times list mutation immunity --
 
-    def test_gap05_mutating_returned_stats_does_not_affect_internal_state(
-            self):
+    def test_gap05_mutating_returned_stats_does_not_affect_internal_state(self):
         """Verify that mutating the returned TechniqueStats exec_times list
         does not alter the collector's internal state.
 
@@ -138,10 +143,12 @@ class TestTechniqueMetricsGaps:
         builds a new TechniqueStats from scratch. Both should be immune.
         """
         self.collector.record_execution(
-            technique_id="clara", exec_time_ms=10.0,
+            technique_id="clara",
+            exec_time_ms=10.0,
         )
         self.collector.record_execution(
-            technique_id="clara", exec_time_ms=20.0,
+            technique_id="clara",
+            exec_time_ms=20.0,
         )
 
         stats = self.collector.get_technique_stats("clara")
@@ -163,8 +170,7 @@ class TestTechniqueMetricsGaps:
 
     def test_gap06_leaderboard_limit_zero_returns_empty_list(self):
         """Verify get_leaderboard with limit=0 returns an empty list."""
-        self.collector.record_execution(
-            technique_id="clara", exec_time_ms=10.0)
+        self.collector.record_execution(technique_id="clara", exec_time_ms=10.0)
         self.collector.record_execution(technique_id="crp", exec_time_ms=20.0)
 
         entries = self.collector.get_leaderboard(limit=0)
@@ -179,8 +185,7 @@ class TestTechniqueMetricsGaps:
         slightly before now are removed (timestamp >= cutoff check).
         A tiny sleep ensures timestamps are strictly before cutoff.
         """
-        self.collector.record_execution(
-            technique_id="clara", exec_time_ms=10.0)
+        self.collector.record_execution(technique_id="clara", exec_time_ms=10.0)
         self.collector.record_execution(technique_id="crp", exec_time_ms=20.0)
         assert self.collector.get_record_count() == 2
 
@@ -197,7 +202,8 @@ class TestTechniqueMetricsGaps:
         """Verify p50==p95==p99 when all values are identical."""
         for _ in range(10):
             self.collector.record_execution(
-                technique_id="clara", exec_time_ms=42.0,
+                technique_id="clara",
+                exec_time_ms=42.0,
             )
 
         result = self.collector.get_percentiles(metric="exec_time_ms")
@@ -373,7 +379,8 @@ class TestTechniqueCachingGaps:
 
         # Prefix that matches no technique_id
         removed = self.cache.invalidate_pattern(
-            company_id="co1", technique_prefix="zzz_nonexistent",
+            company_id="co1",
+            technique_prefix="zzz_nonexistent",
         )
         assert removed == 0
 
@@ -390,7 +397,10 @@ class TestTechniqueCachingGaps:
         """
         # Special characters
         key1 = TechniqueCache.make_cache_key(
-            "clara", "q!@#$%^&*()", "s<>{}[]|\\", "co_1",
+            "clara",
+            "q!@#$%^&*()",
+            "s<>{}[]|\\",
+            "co_1",
         )
         assert isinstance(key1, str)
         assert len(key1) == 64  # SHA-256 hex digest
@@ -398,14 +408,20 @@ class TestTechniqueCachingGaps:
         # Very long strings
         long_str = "x" * 10000
         key2 = TechniqueCache.make_cache_key(
-            long_str, long_str, long_str, long_str,
+            long_str,
+            long_str,
+            long_str,
+            long_str,
         )
         assert isinstance(key2, str)
         assert len(key2) == 64
 
         # Different inputs produce different keys
         key3 = TechniqueCache.make_cache_key(
-            "clara", "q1", "s1", "co1",
+            "clara",
+            "q1",
+            "s1",
+            "co1",
         )
         assert key1 != key2
         assert key2 != key3
@@ -470,7 +486,8 @@ class TestPerTenantConfigGaps:
             # This should not deadlock because RLock allows reentrant
             # acquisition
             self.mgr.update_config(
-                company_id, "model",
+                company_id,
+                "model",
                 {"temperature": 0.9},
             )
             inner_update_done.set()
@@ -479,7 +496,8 @@ class TestPerTenantConfigGaps:
 
         # This triggers the callback while holding the lock
         result = self.mgr.update_config(
-            "co_test", "workflow",
+            "co_test",
+            "workflow",
             {"max_concurrent_workflows": 10},
         )
 
@@ -505,21 +523,23 @@ class TestPerTenantConfigGaps:
         assert any("max_tokens must be positive" in e for e in result.errors)
 
         # compression.preserve_recent_n = 0 → should PASS (check is < 0)
-        result = self.mgr.validate_config(
-            "compression", {"preserve_recent_n": 0})
+        result = self.mgr.validate_config("compression", {"preserve_recent_n": 0})
         assert result.valid, "preserve_recent_n=0 should be valid (check is < 0)"
 
         # workflow.max_concurrent_workflows = 0 → should fail (<= 0)
         result = self.mgr.validate_config(
-            "workflow", {"max_concurrent_workflows": 0},
+            "workflow",
+            {"max_concurrent_workflows": 0},
         )
         assert not result.valid
         assert any(
-            "max_concurrent_workflows must be positive" in e for e in result.errors)
+            "max_concurrent_workflows must be positive" in e for e in result.errors
+        )
 
         # workflow.checkpoint_timeout_seconds = 0 → should fail (<= 0)
         result = self.mgr.validate_config(
-            "workflow", {"checkpoint_timeout_seconds": 0},
+            "workflow",
+            {"checkpoint_timeout_seconds": 0},
         )
         assert not result.valid
 
@@ -545,7 +565,8 @@ class TestPerTenantConfigGaps:
         def do_update():
             try:
                 self.mgr.update_config(
-                    "co_concurrent", "compression",
+                    "co_concurrent",
+                    "compression",
                     {"strategy": "hybrid", "level": "light"},
                 )
             except Exception as exc:
@@ -561,8 +582,7 @@ class TestPerTenantConfigGaps:
         for t in threads:
             t.join()
 
-        assert len(
-            errors) == 0, f"Concurrent operations raised errors: {errors}"
+        assert len(errors) == 0, f"Concurrent operations raised errors: {errors}"
         # Config should exist for the tenant (one of the operations set it)
         config = self.mgr.get_config("co_concurrent")
         assert config is not None
@@ -585,14 +605,18 @@ class TestPerTenantConfigGaps:
 
         validate_config checks: if key not in schema → error.
         """
-        result = self.mgr.validate_config("compression", {
-            "strategy": "hybrid",
-            "level": "moderate",
-            "extra_field_not_in_schema": 42,  # int, but not in schema
-        })
+        result = self.mgr.validate_config(
+            "compression",
+            {
+                "strategy": "hybrid",
+                "level": "moderate",
+                "extra_field_not_in_schema": 42,  # int, but not in schema
+            },
+        )
         assert not result.valid
-        assert any("Unknown field 'extra_field_not_in_schema'" in e
-                   for e in result.errors)
+        assert any(
+            "Unknown field 'extra_field_not_in_schema'" in e for e in result.errors
+        )
 
     # -- Gap 21 (MEDIUM): Callback receives original config_dict reference --
 
@@ -693,8 +717,7 @@ class TestStateMigrationGaps:
         for t in threads:
             t.join()
 
-        assert len(
-            errors) == 0, f"Concurrent migrations raised errors: {errors}"
+        assert len(errors) == 0, f"Concurrent migrations raised errors: {errors}"
         assert len(results) == 10
 
     # -- Gap 24 (HIGH): migrate_state mutates original dict when dry_run=False --
@@ -708,8 +731,7 @@ class TestStateMigrationGaps:
         state = self._make_v1_state()
         original_id = id(state)
 
-        result = self.migrator.migrate_state(
-            state, target_version=6, dry_run=False)
+        result = self.migrator.migrate_state(state, target_version=6, dry_run=False)
 
         assert result.success
         assert result.state_after is not None
@@ -758,13 +780,14 @@ class TestStateMigrationGaps:
         assert result.success
         # 2.0 is float, not int — should fall through to 'new'
         assert state["gsd_state"] == "new"
-        assert any("unexpected type" in w.lower() or "float" in w.lower()
-                   for w in result.warnings)
+        assert any(
+            "unexpected type" in w.lower() or "float" in w.lower()
+            for w in result.warnings
+        )
 
     # -- Gap 27 (MEDIUM): Rollback v5_to_v4 with unknown string gsd_state --
 
-    def test_gap27_rollback_v5_to_v4_unknown_gsd_string_falls_back_to_zero(
-            self):
+    def test_gap27_rollback_v5_to_v4_unknown_gsd_string_falls_back_to_zero(self):
         """Verify that rollback v5→v4 with an unknown gsd_state string
         falls back to int 0."""
         state = self._make_v1_state(gsd_state="unknown_invalid_state")
@@ -777,8 +800,10 @@ class TestStateMigrationGaps:
         assert result.success
         assert state["gsd_state"] == 0
         assert state["_version"] == 4
-        assert any("Unknown gsd_state" in c or "fallback" in c.lower()
-                   for c in result.changes_made)
+        assert any(
+            "Unknown gsd_state" in c or "fallback" in c.lower()
+            for c in result.changes_made
+        )
 
     # -- Gap 28 (MEDIUM): Multi-step rollback (v6 to v3) --
 
@@ -842,6 +867,7 @@ class TestStateMigrationGaps:
     def test_gap30_custom_migration_exception_returns_failure(self):
         """Verify that a custom migration function raising an exception
         results in a failed MigrationResult without crashing."""
+
         def bad_migration(state):
             raise RuntimeError("Custom migration blew up")
 
@@ -862,8 +888,9 @@ class TestStateMigrationGaps:
         result = self.migrator.migrate_state(state, target_version=7)
         assert not result.success
         assert result.from_version == 6
-        assert any("failed" in w.lower() or "blew up" in w.lower()
-                   for w in result.warnings)
+        assert any(
+            "failed" in w.lower() or "blew up" in w.lower() for w in result.warnings
+        )
 
     # -- Gap 31 (LOW): validate_state with version=0 or negative version --
 
@@ -912,17 +939,13 @@ class TestSharedGSDGaps:
             except Exception as exc:
                 errors.append(str(exc))
 
-        threads = [
-            threading.Thread(
-                target=record, args=(
-                    i,)) for i in range(50)]
+        threads = [threading.Thread(target=record, args=(i,)) for i in range(50)]
         for t in threads:
             t.start()
         for t in threads:
             t.join()
 
-        assert len(
-            errors) == 0, f"Concurrent transitions raised errors: {errors}"
+        assert len(errors) == 0, f"Concurrent transitions raised errors: {errors}"
 
     # -- Gap 33 (HIGH): clear_ticket_data now cleans _transition_counts (FIXED) --
 
@@ -951,9 +974,9 @@ class TestSharedGSDGaps:
             "FIXED: clear_ticket_data now rebuilds _transition_counts, "
             "so heatmap only shows remaining tickets' transitions"
         )
-        assert heatmap_after.get("greeting", {}).get("diagnosis", 0) == 0, (
-            "FIXED: tkt_A's greeting->diagnosis transition should be gone"
-        )
+        assert (
+            heatmap_after.get("greeting", {}).get("diagnosis", 0) == 0
+        ), "FIXED: tkt_A's greeting->diagnosis transition should be gone"
 
     # -- Gap 34 (MEDIUM): get_state_duration for state entered multiple times --
 
@@ -985,9 +1008,7 @@ class TestSharedGSDGaps:
         self.mgr.record_transition("co1", "tkt_1", "new", "diagnosis")
 
         # Directly manipulate entered_at to simulate 301s in state
-        self.mgr._current_states["co1"]["tkt_1"]["entered_at"] = (
-            time.time() - 301
-        )
+        self.mgr._current_states["co1"]["tkt_1"]["entered_at"] = time.time() - 301
 
         suggestions = self.mgr.suggest_recovery("co1", "tkt_1")
         # Should suggest review_state (medium priority) but NOT
@@ -997,9 +1018,7 @@ class TestSharedGSDGaps:
         assert "escalate_to_human" not in actions
 
         # Test at CRITICAL threshold (>600s)
-        self.mgr._current_states["co1"]["tkt_1"]["entered_at"] = (
-            time.time() - 601
-        )
+        self.mgr._current_states["co1"]["tkt_1"]["entered_at"] = time.time() - 601
 
         suggestions = self.mgr.suggest_recovery("co1", "tkt_1")
         actions = [s["action"] for s in suggestions]
@@ -1010,6 +1029,7 @@ class TestSharedGSDGaps:
     def test_gap36_remove_non_registered_event_listener(self):
         """Verify that removing a callback that was never registered
         does not raise an error (silent no-op)."""
+
         def never_registered(entry):
             pass
 
@@ -1082,8 +1102,9 @@ class TestCapacityMonitorGaps:
             except Exception as exc:
                 errors.append(str(exc))
 
-        threads = [threading.Thread(target=acquire_release, args=(i,))
-                   for i in range(50)]
+        threads = [
+            threading.Thread(target=acquire_release, args=(i,)) for i in range(50)
+        ]
         for t in threads:
             t.start()
         for t in threads:
@@ -1103,7 +1124,10 @@ class TestCapacityMonitorGaps:
         """
         # First acquire
         got1 = self.monitor.acquire_slot(
-            "co1", "parwa", "tkt_1", metadata={"round": 1},
+            "co1",
+            "parwa",
+            "tkt_1",
+            metadata={"round": 1},
         )
         assert got1 is True
 
@@ -1112,7 +1136,10 @@ class TestCapacityMonitorGaps:
 
         # Second acquire without release — overwrites
         got2 = self.monitor.acquire_slot(
-            "co1", "parwa", "tkt_1", metadata={"round": 2},
+            "co1",
+            "parwa",
+            "tkt_1",
+            metadata={"round": 2},
         )
         assert got2 is True  # Still succeeds because slot count is still 1
 
@@ -1224,14 +1251,20 @@ class TestCapacityMonitorGaps:
 
         # Queue with negative priority
         got = self.monitor.acquire_slot(
-            "co1", "parwa", "tkt_neg", priority=-5,
+            "co1",
+            "parwa",
+            "tkt_neg",
+            priority=-5,
         )
         assert got is False  # Should be queued
         assert self.monitor.get_queue_size("co1", "parwa") >= 1
 
         # Queue with positive priority
         got = self.monitor.acquire_slot(
-            "co1", "parwa", "tkt_pos", priority=10,
+            "co1",
+            "parwa",
+            "tkt_pos",
+            priority=10,
         )
         assert got is False  # Should be queued
 
@@ -1266,9 +1299,9 @@ class TestCapacityMonitorGaps:
         self.monitor.acquire_slot("co1", "parwa", "tkt_dup")
 
         queue_size = self.monitor.get_queue_size("co1", "parwa")
-        assert queue_size == 1, (
-            "FIXED: Duplicate ticket_id should only appear once in queue"
-        )
+        assert (
+            queue_size == 1
+        ), "FIXED: Duplicate ticket_id should only appear once in queue"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1295,14 +1328,11 @@ class TestDSPyIntegrationGaps:
 
         def run_execute(i):
             try:
-                self.dspy.execute(
-                    module, {"customer_query": f"query {i}"}
-                )
+                self.dspy.execute(module, {"customer_query": f"query {i}"})
             except Exception as exc:
                 errors.append(str(exc))
 
-        threads = [threading.Thread(target=run_execute, args=(i,))
-                   for i in range(50)]
+        threads = [threading.Thread(target=run_execute, args=(i,)) for i in range(50)]
         for t in threads:
             t.start()
         for t in threads:
@@ -1317,6 +1347,7 @@ class TestDSPyIntegrationGaps:
     def test_gap48_execute_exception_falls_back_to_stub(self):
         """Verify that execute() catches exceptions from modules and falls
         back to stub execution, returning a valid result dict."""
+
         # Create a module that raises on call
         class BrokenModule:
             task_type = "broken"
@@ -1325,7 +1356,8 @@ class TestDSPyIntegrationGaps:
                 raise RuntimeError("Module execution failed")
 
         result = self.dspy.execute(
-            BrokenModule(), {"customer_query": "test"},
+            BrokenModule(),
+            {"customer_query": "test"},
         )
         # Should return stub fallback result
         assert isinstance(result, dict)
@@ -1365,12 +1397,15 @@ class TestDSPyIntegrationGaps:
             self.dspy.configure("co1", {"num_threads": -5})
 
         # Valid values should still work
-        config = self.dspy.configure("co1", {
-            "max_tokens": 4096,
-            "temperature": 0.7,
-            "model_name": "gpt-4",
-            "num_threads": 4,
-        })
+        config = self.dspy.configure(
+            "co1",
+            {
+                "max_tokens": 4096,
+                "temperature": 0.7,
+                "model_name": "gpt-4",
+                "num_threads": 4,
+            },
+        )
         assert config is not None
         retrieved = self.dspy.get_config("co1")
         assert retrieved.max_tokens == 4096
@@ -1402,9 +1437,7 @@ class TestDSPyIntegrationGaps:
         for _ in range(3):
             self.dspy.execute(module_respond, {"customer_query": "test"})
         for _ in range(2):
-            self.dspy.execute(
-                module_summarize, {
-                    "conversation_history": "test"})
+            self.dspy.execute(module_summarize, {"conversation_history": "test"})
 
         metrics = self.dspy.get_metrics()
         by_task = metrics["by_task_type"]
@@ -1448,9 +1481,12 @@ class TestDSPyIntegrationGaps:
             "conciseness": 0.1,
             "safety": 0.1,
         }
-        config = self.dspy.configure("co1", {
-            "metric_weights": custom_weights,
-        })
+        config = self.dspy.configure(
+            "co1",
+            {
+                "metric_weights": custom_weights,
+            },
+        )
         assert config.metric_weights == custom_weights
 
         retrieved = self.dspy.get_config("co1")
@@ -1467,14 +1503,17 @@ class TestDSPyIntegrationGaps:
         """Verify that _stub_execute truncates queries longer than 100 chars."""
         long_query = "x" * 200
         result = DSPyIntegration._stub_execute(
-            StubModule(), {"customer_query": long_query},
+            StubModule(),
+            {"customer_query": long_query},
         )
         assert isinstance(result, dict)
         assert "[Fallback]" in result["response"]
         # Long query should be truncated to 100 chars
         assert "..." in result["response"]
-        assert len(result["response"].split(": ", 1)[
-                   1].rstrip(".").rstrip("…").strip()) <= 103
+        assert (
+            len(result["response"].split(": ", 1)[1].rstrip(".").rstrip("…").strip())
+            <= 103
+        )
 
     # -- Gap 55 (LOW): StubOptimizer.compile() behavior --
 

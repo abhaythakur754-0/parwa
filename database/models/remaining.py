@@ -14,8 +14,16 @@ from datetime import datetime
 import uuid
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Integer, Numeric, String, Text, ForeignKey,
-    UniqueConstraint, Index,
+    Boolean,
+    Column,
+    DateTime,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    ForeignKey,
+    UniqueConstraint,
+    Index,
 )
 from sqlalchemy.orm import relationship
 
@@ -28,13 +36,16 @@ def _uuid() -> str:
 
 # ── Response Templates (Week 9: F-065 auto-response generation) ────
 
+
 class ResponseTemplate(Base):
     __tablename__ = "response_templates"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name = Column(String(255), nullable=False)
     intent_type = Column(String(100))
@@ -50,20 +61,27 @@ class ResponseTemplate(Base):
 
 # ── Email Logs (Week 5/13 email tracking) ──────────────────────────
 
+
 class EmailLog(Base):
     __tablename__ = "email_logs"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     recipient = Column(String(255), nullable=False)
     subject = Column(String(500))
-    email_type = Column(String(50), nullable=False)  # verification, reset, notification, marketing
+    email_type = Column(
+        String(50), nullable=False
+    )  # verification, reset, notification, marketing
     provider = Column(String(50), default="brevo")
     provider_message_id = Column(String(255))
-    status = Column(String(50), default="pending")  # pending, sent, delivered, bounced, failed
+    status = Column(
+        String(50), default="pending"
+    )  # pending, sent, delivered, bounced, failed
     error_message = Column(Text)
     retries = Column(Integer, default=0)
     sent_at = Column(DateTime)
@@ -72,13 +90,16 @@ class EmailLog(Base):
 
 # ── Rate Limit Counters (distributed rate limiting) ────────────────
 
+
 class RateLimitCounter(Base):
     __tablename__ = "rate_limit_counters"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     # Identifier for what's being rate limited (user_id, ip_hash, etc.)
     identifier = Column(String(255), nullable=False)
@@ -96,20 +117,25 @@ class RateLimitCounter(Base):
     __table_args__ = (
         Index(
             "ix_rlc_identifier_category_window",
-            "identifier", "category", "window_start",
+            "identifier",
+            "category",
+            "window_start",
         ),
     )
 
 
 # ── Feature Flags (feature access control) ─────────────────────────
 
+
 class FeatureFlag(Base):
     __tablename__ = "feature_flags"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     flag_key = Column(String(100), nullable=False)
     flag_value = Column(Text, default="false")
@@ -123,7 +149,8 @@ class FeatureFlag(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "company_id", "flag_key",
+            "company_id",
+            "flag_key",
             name="uq_feature_flags_company_key",
         ),
     )
@@ -131,13 +158,16 @@ class FeatureFlag(Base):
 
 # ── Classification Log (Week 8: F-062 AI classification) ──────────
 
+
 class ClassificationLog(Base):
     __tablename__ = "classification_log"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     session_id = Column(String(36), ForeignKey("tickets.id"))
     interaction_id = Column(String(36))
@@ -153,13 +183,16 @@ class ClassificationLog(Base):
 
 # ── Guardrails Audit Log (Week 8: F-057) ──────────────────────────
 
+
 class GuardrailsAuditLog(Base):
     __tablename__ = "guardrails_audit_log"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     session_id = Column(String(36), ForeignKey("tickets.id"))
     # audit, policy_violation, escalation, manual_review
@@ -177,20 +210,25 @@ class GuardrailsAuditLog(Base):
 
 # ── Guardrails Blocked Queue (Week 8: F-057, F-058) ───────────────
 
+
 class GuardrailsBlockedQueue(Base):
     __tablename__ = "guardrails_blocked_queue"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     session_id = Column(String(36), ForeignKey("tickets.id"))
     block_type = Column(String(50), nullable=False)
     original_response = Column(Text)
     block_reason = Column(Text)
     severity = Column(String(20), default="medium")
-    status = Column(String(50), default="pending_review")  # pending_review, resolved, escalated
+    status = Column(
+        String(50), default="pending_review"
+    )  # pending_review, resolved, escalated
     auto_resolved = Column(Boolean, default=False)
     resolved_by = Column(String(36), ForeignKey("users.id"))
     resolved_at = Column(DateTime)
@@ -200,17 +238,22 @@ class GuardrailsBlockedQueue(Base):
 
 # ── AI Response Feedback (Week 9: F-065 confidence scoring) ───────
 
+
 class AIResponseFeedback(Base):
     __tablename__ = "ai_response_feedback"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     session_id = Column(String(36), ForeignKey("tickets.id"))
     interaction_id = Column(String(36))
-    feedback_type = Column(String(50), nullable=False)  # thumbs_up, thumbs_down, correction
+    feedback_type = Column(
+        String(50), nullable=False
+    )  # thumbs_up, thumbs_down, correction
     feedback_text = Column(Text)
     ai_response_text = Column(Text)
     confidence_at_time = Column(Numeric(5, 2))
@@ -220,13 +263,16 @@ class AIResponseFeedback(Base):
 
 # ── Confidence Thresholds (Week 8: F-059) ─────────────────────────
 
+
 class ConfidenceThreshold(Base):
     __tablename__ = "confidence_thresholds"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     intent_type = Column(String(100), nullable=False)
     # auto_respond, human_escalate, guardrail_block
@@ -239,7 +285,9 @@ class ConfidenceThreshold(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "company_id", "intent_type", "action_type",
+            "company_id",
+            "intent_type",
+            "action_type",
             name="uq_conf_thresh_company_intent_action",
         ),
     )
@@ -247,13 +295,16 @@ class ConfidenceThreshold(Base):
 
 # ── Human Corrections (Week 19: F-101 training data) ───────────────
 
+
 class HumanCorrection(Base):
     __tablename__ = "human_corrections"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     session_id = Column(String(36), ForeignKey("tickets.id"))
     interaction_id = Column(String(36))
@@ -269,13 +320,16 @@ class HumanCorrection(Base):
 
 # ── Approval Batches (Week 7: batch approval processing) ──────────
 
+
 class ApprovalBatch(Base):
     __tablename__ = "approval_batches"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     # pending, approved, partially_approved, rejected
     batch_status = Column(String(50), default="pending")
@@ -291,13 +345,16 @@ class ApprovalBatch(Base):
 
 # ── Notifications (Week 7+: in-app notifications) ──────────────────
 
+
 class Notification(Base):
     __tablename__ = "notifications"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     # Event type: ticket_created, ticket_assigned, sla_warning, etc.
@@ -325,13 +382,16 @@ class Notification(Base):
 
 # ── Notification Preferences (Day 31: MF05) ────────────────────────
 
+
 class NotificationPreference(Base):
     __tablename__ = "notification_preferences"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     # Event type: ticket_created, ticket_assigned, sla_warning, etc.
@@ -347,7 +407,9 @@ class NotificationPreference(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "company_id", "user_id", "event_type",
+            "company_id",
+            "user_id",
+            "event_type",
             name="uq_notification_prefs_company_user_event",
         ),
     )
@@ -355,13 +417,16 @@ class NotificationPreference(Base):
 
 # ── Notification Logs (Day 31: MF05) ───────────────────────────────
 
+
 class NotificationLog(Base):
     __tablename__ = "notification_logs"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     notification_id = Column(String(36), ForeignKey("notifications.id"))
@@ -383,13 +448,16 @@ class NotificationLog(Base):
 
 # ── First Victories (Week 6: customer onboarding milestones) ──────
 
+
 class FirstVictory(Base):
     __tablename__ = "first_victories"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     # first_ticket_resolved, first_agent_created, first_integration_connected,
@@ -404,7 +472,9 @@ class FirstVictory(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "company_id", "user_id", "milestone_type",
+            "company_id",
+            "user_id",
+            "milestone_type",
             name="uq_first_victories_company_user_milestone",
         ),
     )

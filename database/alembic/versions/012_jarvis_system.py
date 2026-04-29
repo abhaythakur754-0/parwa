@@ -31,23 +31,31 @@ def upgrade() -> None:
         "jarvis_sessions",
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column(
-            "user_id", sa.String(36),
+            "user_id",
+            sa.String(36),
             sa.ForeignKey("users.id", ondelete="CASCADE"),
-            nullable=False, index=True,
+            nullable=False,
+            index=True,
         ),
         sa.Column(
-            "company_id", sa.String(36),
+            "company_id",
+            sa.String(36),
             sa.ForeignKey("companies.id", ondelete="CASCADE"),
-            nullable=True, index=True,
+            nullable=True,
+            index=True,
         ),
         # 'onboarding' before purchase, 'customer_care' after handoff
         sa.Column("type", sa.String(20), nullable=False, server_default="onboarding"),
         # Full journey memory: pages visited, variants, ROI, concerns, etc.
         sa.Column("context_json", sa.Text, server_default="{}"),
         # Message limits
-        sa.Column("message_count_today", sa.Integer, nullable=False, server_default="0"),
+        sa.Column(
+            "message_count_today", sa.Integer, nullable=False, server_default="0"
+        ),
         sa.Column("last_message_date", sa.Date, nullable=True),
-        sa.Column("total_message_count", sa.Integer, nullable=False, server_default="0"),
+        sa.Column(
+            "total_message_count", sa.Integer, nullable=False, server_default="0"
+        ),
         # Monetization: 'free' (20/day) or 'demo' (500 + 3-min call, 24h)
         sa.Column("pack_type", sa.String(10), nullable=False, server_default="free"),
         sa.Column("pack_expiry", sa.DateTime, nullable=True),
@@ -55,7 +63,9 @@ def upgrade() -> None:
         # Session state
         sa.Column("is_active", sa.Boolean, nullable=False, server_default="1"),
         # Payment: none → pending → completed / failed
-        sa.Column("payment_status", sa.String(15), nullable=False, server_default="none"),
+        sa.Column(
+            "payment_status", sa.String(15), nullable=False, server_default="none"
+        ),
         sa.Column("handoff_completed", sa.Boolean, nullable=False, server_default="0"),
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime, server_default=sa.func.now()),
@@ -83,11 +93,13 @@ def upgrade() -> None:
     )
     # Named indexes
     op.create_index(
-        "ix_jarvis_sess_user_active", "jarvis_sessions",
+        "ix_jarvis_sess_user_active",
+        "jarvis_sessions",
         ["user_id", "is_active"],
     )
     op.create_index(
-        "ix_jarvis_sess_company", "jarvis_sessions",
+        "ix_jarvis_sess_company",
+        "jarvis_sessions",
         ["company_id"],
     )
 
@@ -97,9 +109,11 @@ def upgrade() -> None:
         "jarvis_messages",
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column(
-            "session_id", sa.String(36),
+            "session_id",
+            sa.String(36),
             sa.ForeignKey("jarvis_sessions.id", ondelete="CASCADE"),
-            nullable=False, index=True,
+            nullable=False,
+            index=True,
         ),
         # 'user', 'jarvis', 'system'
         sa.Column("role", sa.String(10), nullable=False),
@@ -127,7 +141,8 @@ def upgrade() -> None:
     )
     # Named indexes
     op.create_index(
-        "ix_jarvis_msg_session_ts", "jarvis_messages",
+        "ix_jarvis_msg_session_ts",
+        "jarvis_messages",
         ["session_id", "created_at"],
     )
 
@@ -137,9 +152,11 @@ def upgrade() -> None:
         "jarvis_knowledge_used",
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column(
-            "message_id", sa.String(36),
+            "message_id",
+            sa.String(36),
             sa.ForeignKey("jarvis_messages.id", ondelete="CASCADE"),
-            nullable=False, index=True,
+            nullable=False,
+            index=True,
         ),
         # e.g. '01_pricing_tiers.json', '07_objection_handling.json'
         sa.Column("knowledge_file", sa.String(100), nullable=False),
@@ -152,7 +169,8 @@ def upgrade() -> None:
         ),
     )
     op.create_index(
-        "ix_jarvis_ku_message", "jarvis_knowledge_used",
+        "ix_jarvis_ku_message",
+        "jarvis_knowledge_used",
         ["message_id"],
     )
 
@@ -162,13 +180,16 @@ def upgrade() -> None:
         "jarvis_action_tickets",
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column(
-            "session_id", sa.String(36),
+            "session_id",
+            sa.String(36),
             sa.ForeignKey("jarvis_sessions.id", ondelete="CASCADE"),
-            nullable=False, index=True,
+            nullable=False,
+            index=True,
         ),
         # Links to the in-chat message that rendered this ticket
         sa.Column(
-            "message_id", sa.String(36),
+            "message_id",
+            sa.String(36),
             sa.ForeignKey("jarvis_messages.id", ondelete="SET NULL"),
             nullable=True,
         ),
@@ -201,11 +222,13 @@ def upgrade() -> None:
     )
     # Named indexes
     op.create_index(
-        "ix_jarvis_ticket_session", "jarvis_action_tickets",
+        "ix_jarvis_ticket_session",
+        "jarvis_action_tickets",
         ["session_id"],
     )
     op.create_index(
-        "ix_jarvis_ticket_sess_status", "jarvis_action_tickets",
+        "ix_jarvis_ticket_sess_status",
+        "jarvis_action_tickets",
         ["session_id", "status"],
     )
 

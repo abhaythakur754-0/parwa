@@ -48,7 +48,6 @@ from app.services.sentiment_technique_mapper import (
 from shared.knowledge_base.vector_search import MockVectorStore
 from shared.knowledge_base.reindexing import ReindexingManager
 
-
 # =========================================================================
 # GAP 1 (HIGH): RAG Empty Query Validation — BC-008
 # File: backend/app/core/rag_retrieval.py
@@ -69,7 +68,9 @@ class TestGap1_RAGEmptyQuery:
     async def test_empty_string_returns_empty_result(self):
         """Empty string query returns empty RAGResult with no errors."""
         result = await self.retriever.retrieve(
-            query="", company_id="c1", variant_type="parwa",
+            query="",
+            company_id="c1",
+            variant_type="parwa",
         )
         assert isinstance(result, RAGResult)
         assert result.chunks == []
@@ -79,7 +80,9 @@ class TestGap1_RAGEmptyQuery:
     async def test_whitespace_only_returns_empty_result(self):
         """Whitespace-only query returns empty RAGResult."""
         result = await self.retriever.retrieve(
-            query="   \t\n  ", company_id="c1", variant_type="parwa",
+            query="   \t\n  ",
+            company_id="c1",
+            variant_type="parwa",
         )
         assert isinstance(result, RAGResult)
         assert result.chunks == []
@@ -88,7 +91,9 @@ class TestGap1_RAGEmptyQuery:
     async def test_none_query_returns_empty_result(self):
         """None query returns empty RAGResult without crashing."""
         result = await self.retriever.retrieve(
-            query=None, company_id="c1", variant_type="parwa",
+            query=None,
+            company_id="c1",
+            variant_type="parwa",
         )
         assert isinstance(result, RAGResult)
         assert result.chunks == []
@@ -97,7 +102,9 @@ class TestGap1_RAGEmptyQuery:
     async def test_integer_query_returns_empty_result(self):
         """Integer (non-string) query returns empty RAGResult."""
         result = await self.retriever.retrieve(
-            query=42, company_id="c1", variant_type="parwa",
+            query=42,
+            company_id="c1",
+            variant_type="parwa",
         )
         assert isinstance(result, RAGResult)
         assert result.chunks == []
@@ -106,7 +113,9 @@ class TestGap1_RAGEmptyQuery:
     async def test_list_query_returns_empty_result(self):
         """List (non-string) query returns empty RAGResult."""
         result = await self.retriever.retrieve(
-            query=["refund", "order"], company_id="c1", variant_type="parwa",
+            query=["refund", "order"],
+            company_id="c1",
+            variant_type="parwa",
         )
         assert isinstance(result, RAGResult)
         assert result.chunks == []
@@ -115,7 +124,9 @@ class TestGap1_RAGEmptyQuery:
     async def test_dict_query_returns_empty_result(self):
         """Dict (non-string) query returns empty RAGResult."""
         result = await self.retriever.retrieve(
-            query={"text": "refund"}, company_id="c1", variant_type="parwa",
+            query={"text": "refund"},
+            company_id="c1",
+            variant_type="parwa",
         )
         assert isinstance(result, RAGResult)
         assert result.chunks == []
@@ -124,7 +135,9 @@ class TestGap1_RAGEmptyQuery:
     async def test_empty_string_variant_tier_recorded(self):
         """Empty query still records the variant_tier_used."""
         result = await self.retriever.retrieve(
-            query="", company_id="c1", variant_type="high_parwa",
+            query="",
+            company_id="c1",
+            variant_type="high_parwa",
         )
         assert result.variant_tier_used == "high_parwa"
 
@@ -133,7 +146,8 @@ class TestGap1_RAGEmptyQuery:
         """Empty query never raises an exception."""
         for query in ["", "  ", None, 123, [], {}]:
             result = await self.retriever.retrieve(
-                query=query, company_id="c1",
+                query=query,
+                company_id="c1",
             )
             assert isinstance(result, RAGResult)
 
@@ -176,7 +190,9 @@ class TestGap2_SentimentCacheHistory:
             "Working now, thanks!",
             "Great, all fixed!",
         ]
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result_worse = await self.analyzer.analyze(
                     "How do I check my order status?",
@@ -207,8 +223,14 @@ class TestGap2_SentimentCacheHistory:
             "tone_recommendation": "standard",
             "empathy_signals": [],
             "sentiment_score": 0.9,
-            "emotion_breakdown": {"neutral": 0.9, "angry": 0.0, "frustrated": 0.0,
-                                  "disappointed": 0.0, "happy": 0.1, "delighted": 0.0},
+            "emotion_breakdown": {
+                "neutral": 0.9,
+                "angry": 0.0,
+                "frustrated": 0.0,
+                "disappointed": 0.0,
+                "happy": 0.1,
+                "delighted": 0.0,
+            },
             "processing_time_ms": 2.0,
             "conversation_trend": "worsening",  # Cached with worsening trend
         }
@@ -219,8 +241,9 @@ class TestGap2_SentimentCacheHistory:
             "Great service",
             "Wonderful!",
         ]
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock,
-                   return_value=cached_data):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data
+        ):
             result = await self.analyzer.analyze(
                 "How do I check my order status?",
                 company_id="c1",
@@ -244,20 +267,32 @@ class TestGap2_SentimentCacheHistory:
     async def test_no_cache_two_calls_different_trends(self):
         """Two fresh calls (no cache) with different histories yield different trends."""
         worsening = [
-            "Fine", "Getting annoying", "This is TERRIBLE!",
-            "FURIOUS!!!", "UNACCEPTABLE!!!",
+            "Fine",
+            "Getting annoying",
+            "This is TERRIBLE!",
+            "FURIOUS!!!",
+            "UNACCEPTABLE!!!",
         ]
         stable = [
-            "Hello", "How are you?", "Thanks",
-            "That works", "Great.",
+            "Hello",
+            "How are you?",
+            "Thanks",
+            "That works",
+            "Great.",
         ]
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 r1 = await self.analyzer.analyze(
-                    "help", company_id="c1", conversation_history=worsening,
+                    "help",
+                    company_id="c1",
+                    conversation_history=worsening,
                 )
                 r2 = await self.analyzer.analyze(
-                    "help", company_id="c1", conversation_history=stable,
+                    "help",
+                    company_id="c1",
+                    conversation_history=stable,
                 )
         assert r1.cached is False
         assert r2.cached is False
@@ -299,8 +334,7 @@ class TestGap3_FrustrationSubstrings:
 
     def test_badge_should_not_trigger_bad_frustration(self):
         """'badge' contains 'bad' as substring — known false positive."""
-        score_badge = self.detector.detect(
-            "I received my employee badge today")
+        score_badge = self.detector.detect("I received my employee badge today")
         # 'bad' is in 'badge' — mild false positive
         assert isinstance(score_badge, float)
 
@@ -329,9 +363,7 @@ class TestGap3_FrustrationSubstrings:
         clear_frustration = self.detector.detect(
             "This service is terrible! I have a problem and error with my account!"
         )
-        false_positive = self.detector.detect(
-            "I need a tissue and my badge is ready"
-        )
+        false_positive = self.detector.detect("I need a tissue and my badge is ready")
         # Clear frustration should be notably higher
         assert clear_frustration > false_positive
 
@@ -534,11 +566,7 @@ class TestGap5_SignatureFormatter:
 
     def test_best_regards_sign_off_not_duplicated(self):
         """Existing 'Best regards' should prevent adding another."""
-        response = (
-            "I've resolved your issue.\n\n"
-            "Best regards,\n"
-            "Support Team"
-        )
+        response = "I've resolved your issue.\n\n" "Best regards,\n" "Support Team"
         result = self.formatter.format(response, self.ctx)
         # Should not add a second signature
         # Count "Best regards" occurrences
@@ -764,7 +792,8 @@ class TestGap8_ReindexingDeduplication:
     async def test_deduplicate_duplicate_ids(self):
         """mark_for_reindex with duplicates only queues unique documents."""
         count = await self.manager.mark_for_reindex(
-            "c1", ["doc1", "doc2", "doc1", "doc1"],
+            "c1",
+            ["doc1", "doc2", "doc1", "doc1"],
         )
         assert count == 2
 
@@ -772,7 +801,8 @@ class TestGap8_ReindexingDeduplication:
     async def test_deduplicate_all_same_id(self):
         """All same IDs should only queue 1 job."""
         count = await self.manager.mark_for_reindex(
-            "c1", ["doc1", "doc1", "doc1", "doc1", "doc1"],
+            "c1",
+            ["doc1", "doc1", "doc1", "doc1", "doc1"],
         )
         assert count == 1
 
@@ -786,7 +816,8 @@ class TestGap8_ReindexingDeduplication:
     async def test_deduplicate_no_duplicates(self):
         """No duplicates queues all items."""
         count = await self.manager.mark_for_reindex(
-            "c1", ["doc1", "doc2", "doc3"],
+            "c1",
+            ["doc1", "doc2", "doc3"],
         )
         assert count == 3
 
@@ -794,7 +825,8 @@ class TestGap8_ReindexingDeduplication:
     async def test_process_only_unique_documents(self):
         """Processing should only handle unique documents."""
         await self.manager.mark_for_reindex(
-            "c1", ["doc1", "doc2", "doc1", "doc1"],
+            "c1",
+            ["doc1", "doc2", "doc1", "doc1"],
         )
         status = self.manager.get_reindex_status("c1")
         # Queue should have 2 unique jobs (deduplication in mark_for_reindex)
@@ -844,7 +876,8 @@ class TestGap9_UrgencyKeywordFalsePositives:
             UrgencyLevel.LOW,
             UrgencyLevel.MEDIUM,
             UrgencyLevel.HIGH,
-            UrgencyLevel.CRITICAL)
+            UrgencyLevel.CRITICAL,
+        )
 
     def test_happy_hours_triggers_urgency(self):
         """'We had happy hours at the event' — 'hours' triggers urgency.
@@ -868,7 +901,8 @@ class TestGap9_UrgencyKeywordFalsePositives:
         """Clear urgency should score higher than false positive contexts."""
         clear = self.scorer.score("EMERGENCY! The system is down!")
         false_positive = self.scorer.score(
-            "The system is never down during happy hours")
+            "The system is never down during happy hours"
+        )
         # Clear urgency has more keywords + caps + exclamation
         # False positive may or may not be higher due to 'down' + 'hours'
         assert isinstance(clear, str)
@@ -888,8 +922,12 @@ class TestGap9_UrgencyKeywordFalsePositives:
             "download upload downstream",
         ]:
             level = self.scorer.score(query)
-            assert level in (UrgencyLevel.LOW, UrgencyLevel.MEDIUM,
-                             UrgencyLevel.HIGH, UrgencyLevel.CRITICAL)
+            assert level in (
+                UrgencyLevel.LOW,
+                UrgencyLevel.MEDIUM,
+                UrgencyLevel.HIGH,
+                UrgencyLevel.CRITICAL,
+            )
 
 
 # =========================================================================
@@ -914,6 +952,7 @@ class TestGap10_LanguagePipelineCache:
         # Import here to avoid import errors if language_pipeline has heavy
         # deps
         from app.core.language_pipeline import LanguagePipeline
+
         self.pipeline = LanguagePipeline()
 
     @pytest.mark.asyncio
@@ -932,10 +971,16 @@ class TestGap10_LanguagePipelineCache:
     @pytest.mark.asyncio
     async def test_cache_does_not_crash(self):
         """Cache operations should not crash the pipeline."""
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock,
-                   side_effect=Exception("Redis down")):
-            with patch("app.core.redis.cache_set", new_callable=AsyncMock,
-                       side_effect=Exception("Redis down")):
+        with patch(
+            "app.core.redis.cache_get",
+            new_callable=AsyncMock,
+            side_effect=Exception("Redis down"),
+        ):
+            with patch(
+                "app.core.redis.cache_set",
+                new_callable=AsyncMock,
+                side_effect=Exception("Redis down"),
+            ):
                 result = await self.pipeline.process(
                     "Hola, necesito ayuda",
                     company_id="c1",
@@ -946,8 +991,9 @@ class TestGap10_LanguagePipelineCache:
     @pytest.mark.asyncio
     async def test_same_query_different_tenant_lang_no_crash(self):
         """Same query with different tenant_language should not crash."""
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock,
-                   return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             r1 = await self.pipeline.process(
                 "hola gracias",
                 company_id="c1",

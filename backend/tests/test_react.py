@@ -45,9 +45,7 @@ os.environ.setdefault("SECRET_KEY", "test_secret")
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET_KEY", "test_jwt")
-os.environ.setdefault(
-    "DATA_ENCRYPTION_KEY",
-    "12345678901234567890123456789012")
+os.environ.setdefault("DATA_ENCRYPTION_KEY", "12345678901234567890123456789012")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -393,8 +391,7 @@ class TestQueryCategoryDetection:
         assert "order_reference" in cats
 
     def test_order_reference_word_order(self, processor):
-        cats = processor._detect_query_categories(
-            "What is my order number 456?")
+        cats = processor._detect_query_categories("What is my order number 456?")
         assert "order_reference" in cats
 
     def test_customer_reference(self, processor):
@@ -434,8 +431,7 @@ class TestQueryCategoryDetection:
         assert "technical_issue" in cats
 
     def test_policy_faq(self, processor):
-        cats = processor._detect_query_categories(
-            "What is your return policy?")
+        cats = processor._detect_query_categories("What is your return policy?")
         assert "policy_faq" in cats
 
     def test_policy_how_to(self, processor):
@@ -447,8 +443,7 @@ class TestQueryCategoryDetection:
         assert "past_issue" in cats
 
     def test_past_issue_ticket(self, processor):
-        cats = processor._detect_query_categories(
-            "Ticket #456 was not resolved")
+        cats = processor._detect_query_categories("Ticket #456 was not resolved")
         assert "past_issue" in cats
 
     def test_multiple_categories(self, processor):
@@ -468,8 +463,7 @@ class TestQueryCategoryDetection:
         assert cats == []
 
     def test_none_query(self, processor):
-        cats = processor._detect_query_categories(
-            "")  # None becomes empty handled
+        cats = processor._detect_query_categories("")  # None becomes empty handled
         assert cats == []
 
 
@@ -509,7 +503,9 @@ class TestThoughtGeneration:
 
     @pytest.mark.asyncio
     async def test_past_issue_thought(self, processor):
-        thought = await processor.generate_thought("This happened before with ticket #123")
+        thought = await processor.generate_thought(
+            "This happened before with ticket #123"
+        )
         assert "past" in thought.lower() or "ticket" in thought.lower()
 
     @pytest.mark.asyncio
@@ -746,14 +742,19 @@ class TestReasoningAboutObservations:
     @pytest.mark.asyncio
     async def test_error_observation_continues(self, processor):
         thought = await processor.reason_about_observation(
-            "query", "Tool reported an error.", ["billing"], 0,
+            "query",
+            "Tool reported an error.",
+            ["billing"],
+            0,
         )
         assert "alternative" in thought.lower() or "different" in thought.lower()
 
     @pytest.mark.asyncio
     async def test_error_observation_final_iteration(self, processor):
         thought = await processor.reason_about_observation(
-            "query", "Tool reported an error.", ["billing"],
+            "query",
+            "Tool reported an error.",
+            ["billing"],
             processor.config.max_iterations - 1,
         )
         assert "synthesize" in thought.lower() or "best possible" in thought.lower()
@@ -761,29 +762,42 @@ class TestReasoningAboutObservations:
     @pytest.mark.asyncio
     async def test_no_results_continues(self, processor):
         thought = await processor.reason_about_observation(
-            "query", "returned 0 results.", ["policy_faq"], 0,
+            "query",
+            "returned 0 results.",
+            ["policy_faq"],
+            0,
         )
         assert "broaden" in thought.lower() or "different" in thought.lower()
 
     @pytest.mark.asyncio
     async def test_useful_data_more_categories(self, processor):
         thought = await processor.reason_about_observation(
-            "query", "Knowledge base returned 5 results.",
-            ["policy_faq", "billing_query"], 0,
+            "query",
+            "Knowledge base returned 5 results.",
+            ["policy_faq", "billing_query"],
+            0,
         )
-        assert "additional categories" in thought.lower() or "more data" in thought.lower()
+        assert (
+            "additional categories" in thought.lower() or "more data" in thought.lower()
+        )
 
     @pytest.mark.asyncio
     async def test_sufficient_data_ready(self, processor):
         thought = await processor.reason_about_observation(
-            "query", "Order found: shipped via FedEx.", ["order_reference"], 1,
+            "query",
+            "Order found: shipped via FedEx.",
+            ["order_reference"],
+            1,
         )
         assert "sufficient" in thought.lower() or "synthesize" in thought.lower()
 
     @pytest.mark.asyncio
     async def test_empty_observation(self, processor):
         thought = await processor.reason_about_observation(
-            "query", "", ["billing"], 0,
+            "query",
+            "",
+            ["billing"],
+            0,
         )
         assert "error" in thought.lower() or "limited" in thought.lower()
 
@@ -859,7 +873,10 @@ class TestFinalAnswerSynthesis:
     @pytest.mark.asyncio
     async def test_no_observations(self, processor):
         answer = await processor.synthesize_final_answer(
-            "Some query", [], [], [],
+            "Some query",
+            [],
+            [],
+            [],
         )
         assert "help" in answer.lower() or "search" in answer.lower()
 
@@ -940,41 +957,75 @@ class TestLoopContinuation:
 
     def test_max_iterations_reached(self, processor):
         thought = "Need more info"
-        assert processor._should_continue(
-            thought, 3, ["billing"], set(),
-        ) is False
+        assert (
+            processor._should_continue(
+                thought,
+                3,
+                ["billing"],
+                set(),
+            )
+            is False
+        )
 
     def test_max_iterations_custom(self, custom_config, mock_registry):
-        proc = ReActProcessor(
-            config=custom_config,
-            tool_registry=mock_registry)
-        assert proc._should_continue(
-            "Need more info", 2, ["billing"], set(),
-        ) is False
+        proc = ReActProcessor(config=custom_config, tool_registry=mock_registry)
+        assert (
+            proc._should_continue(
+                "Need more info",
+                2,
+                ["billing"],
+                set(),
+            )
+            is False
+        )
 
     def test_sufficient_thought_continues(self, processor):
         thought = "Sufficient information gathered. Ready to synthesize."
-        assert processor._should_continue(
-            thought, 0, ["billing"], {"knowledge_base_search"},
-        ) is True
+        assert (
+            processor._should_continue(
+                thought,
+                0,
+                ["billing"],
+                {"knowledge_base_search"},
+            )
+            is True
+        )
 
     def test_remaining_tools_continues(self, processor):
         thought = "Need more context"
-        assert processor._should_continue(
-            thought, 0, ["billing", "past_issue"], {"knowledge_base_search"},
-        ) is True
+        assert (
+            processor._should_continue(
+                thought,
+                0,
+                ["billing", "past_issue"],
+                {"knowledge_base_search"},
+            )
+            is True
+        )
 
     def test_no_remaining_tools_stops(self, processor):
         thought = "Need more context"
-        assert processor._should_continue(
-            thought, 0, ["billing"], {"knowledge_base_search"},
-        ) is False
+        assert (
+            processor._should_continue(
+                thought,
+                0,
+                ["billing"],
+                {"knowledge_base_search"},
+            )
+            is False
+        )
 
     def test_within_max_iterations_with_tools(self, processor):
         thought = "Need more data"
-        assert processor._should_continue(
-            thought, 0, ["billing", "order_reference"], set(),
-        ) is True
+        assert (
+            processor._should_continue(
+                thought,
+                0,
+                ["billing", "order_reference"],
+                set(),
+            )
+            is True
+        )
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1072,14 +1123,14 @@ class TestMaxIterations:
 
     @pytest.mark.asyncio
     async def test_default_max_iterations(self, processor):
-        result = await processor.process("Complex multi-faceted query with orders billing and past issues")
+        result = await processor.process(
+            "Complex multi-faceted query with orders billing and past issues"
+        )
         assert result.iterations_used <= 3
 
     @pytest.mark.asyncio
     async def test_custom_max_iterations(self, custom_config, mock_registry):
-        proc = ReActProcessor(
-            config=custom_config,
-            tool_registry=mock_registry)
+        proc = ReActProcessor(config=custom_config, tool_registry=mock_registry)
         result = await proc.process("Order ORD-1 and billing question")
         assert result.iterations_used <= 2
 
@@ -1240,8 +1291,7 @@ class TestErrorFallback:
         assert result.iterations_used >= 1
 
     @pytest.mark.asyncio
-    async def test_processor_handles_exception_in_process(
-            self, default_config):
+    async def test_processor_handles_exception_in_process(self, default_config):
         """Processor catches internal exceptions."""
         registry = ToolRegistry()
         registry.execute_tool = AsyncMock(
@@ -1279,8 +1329,7 @@ class TestErrorFallback:
         )
         state = _make_state(query="Where is ORD-123?")
         result_state = await node.execute(state)
-        react_result = result_state.technique_results.get(
-            TechniqueID.REACT.value)
+        react_result = result_state.technique_results.get(TechniqueID.REACT.value)
         # Either error recording or skip recording
         assert react_result is not None
 
@@ -1329,9 +1378,7 @@ class TestEdgeCases:
     async def test_no_tools_in_registry(self, default_config):
         """Processor handles empty tool registry."""
         empty_registry = ToolRegistry()
-        proc = ReActProcessor(
-            config=default_config,
-            tool_registry=empty_registry)
+        proc = ReActProcessor(config=default_config, tool_registry=empty_registry)
         result = await proc.process("Where is ORD-123?")
         assert result.iterations_used >= 1
 
@@ -1350,6 +1397,7 @@ class TestEdgeCases:
     async def test_tool_timeout(self, default_config):
         """Processor handles tool timeout."""
         import asyncio
+
         registry = ToolRegistry()
         registry.execute_tool = AsyncMock(
             side_effect=asyncio.TimeoutError(),
@@ -1364,8 +1412,9 @@ class TestEdgeCases:
         """Multiple process calls don't interfere."""
         r1 = await processor.process("Where is ORD-1?")
         r2 = await processor.process("Why was I charged?")
-        assert r1.tools_used != r2.tools_used or len(
-            r1.tools_used) == len(r2.tools_used)
+        assert r1.tools_used != r2.tools_used or len(r1.tools_used) == len(
+            r2.tools_used
+        )
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1428,8 +1477,7 @@ class TestToolSelectionMapping:
             ["billing_query", "technical_issue"],
         )
         # Both map to knowledge_base_search, should only appear once
-        kb_count = sum(
-            1 for c in calls if c["tool_name"] == "knowledge_base_search")
+        kb_count = sum(1 for c in calls if c["tool_name"] == "knowledge_base_search")
         assert kb_count == 1
 
     def test_order_params_have_order_id(self, processor):

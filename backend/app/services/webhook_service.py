@@ -95,24 +95,26 @@ def _dispatch_celery_task(
     """
     try:
         from app.tasks.celery_app import app
+
         app.send_task(
-            "app.tasks.webhook_tasks."
-            "process_webhook_event",
+            "app.tasks.webhook_tasks." "process_webhook_event",
             args=[company_id, event_db_id],
             queue="webhook",
         )
         logger.info(
-            "webhook_task_dispatched provider=%s "
-            "event_db_id=%s company_id=%s",
-            provider, event_db_id, company_id,
+            "webhook_task_dispatched provider=%s " "event_db_id=%s company_id=%s",
+            provider,
+            event_db_id,
+            company_id,
         )
     except Exception as exc:
         # Log but don't raise — the event is already persisted
         # and can be retried manually
         logger.warning(
-            "webhook_task_dispatch_failed provider=%s "
-            "event_db_id=%s error=%s",
-            provider, event_db_id, exc,
+            "webhook_task_dispatch_failed provider=%s " "event_db_id=%s error=%s",
+            provider,
+            event_db_id,
+            exc,
         )
 
 
@@ -157,19 +159,15 @@ def process_webhook(
 
     if not _validate_provider(provider):
         raise ValueError(
-            "Invalid provider: must be one of "
-            "paddle, twilio, shopify, brevo"
+            "Invalid provider: must be one of " "paddle, twilio, shopify, brevo"
         )
 
     if not event_id or not isinstance(event_id, str):
-        raise ValueError(
-            "event_id is required and must be a string"
-        )
+        raise ValueError("event_id is required and must be a string")
 
     if not _validate_event_type(event_type):
         raise ValueError(
-            "event_type must be non-empty, max 200 chars, "
-            "no control characters"
+            "event_type must be non-empty, max 200 chars, " "no control characters"
         )
 
     db: Session = SessionLocal()
@@ -180,10 +178,14 @@ def process_webhook(
         # regardless of status (including 'pending').
         # Previous code fell through for pending events,
         # causing IntegrityError on duplicate INSERT.
-        existing = db.query(WebhookEvent).filter_by(
-            provider=provider,
-            event_id=event_id,
-        ).first()
+        existing = (
+            db.query(WebhookEvent)
+            .filter_by(
+                provider=provider,
+                event_id=event_id,
+            )
+            .first()
+        )
 
         if existing:
             return {
@@ -207,7 +209,9 @@ def process_webhook(
 
         # Dispatch to Celery (non-blocking)
         _dispatch_celery_task(
-            company_id, record.id, provider,
+            company_id,
+            record.id,
+            provider,
         )
 
         return {
@@ -243,14 +247,17 @@ def get_webhook_event(event_db_id: str) -> dict:
     db: Session = SessionLocal()
     try:
         from database.models.webhook_event import WebhookEvent
-        record = db.query(WebhookEvent).filter_by(
-            id=event_db_id,
-        ).first()
+
+        record = (
+            db.query(WebhookEvent)
+            .filter_by(
+                id=event_db_id,
+            )
+            .first()
+        )
 
         if not record:
-            raise ValueError(
-                f"Webhook event {event_db_id} not found"
-            )
+            raise ValueError(f"Webhook event {event_db_id} not found")
 
         return {
             "id": record.id,
@@ -260,29 +267,21 @@ def get_webhook_event(event_db_id: str) -> dict:
             "event_type": record.event_type,
             "payload": record.payload,
             "status": record.status,
-            "processing_attempts": (
-                record.processing_attempts
-            ),
+            "processing_attempts": (record.processing_attempts),
             "processing_started_at": (
                 record.processing_started_at.isoformat()
                 if record.processing_started_at
                 else None
             ),
             "completed_at": (
-                record.completed_at.isoformat()
-                if record.completed_at
-                else None
+                record.completed_at.isoformat() if record.completed_at else None
             ),
             "error_message": record.error_message,
             "created_at": (
-                record.created_at.isoformat()
-                if record.created_at
-                else None
+                record.created_at.isoformat() if record.created_at else None
             ),
             "updated_at": (
-                record.updated_at.isoformat()
-                if record.updated_at
-                else None
+                record.updated_at.isoformat() if record.updated_at else None
             ),
         }
     finally:
@@ -311,19 +310,20 @@ def retry_failed_webhook(event_db_id: str) -> dict:
     db: Session = SessionLocal()
     try:
         from database.models.webhook_event import WebhookEvent
-        record = db.query(WebhookEvent).filter_by(
-            id=event_db_id,
-        ).first()
+
+        record = (
+            db.query(WebhookEvent)
+            .filter_by(
+                id=event_db_id,
+            )
+            .first()
+        )
 
         if not record:
-            raise ValueError(
-                f"Webhook event {event_db_id} not found"
-            )
+            raise ValueError(f"Webhook event {event_db_id} not found")
 
         if record.status not in ("failed",):
-            raise ValueError(
-                "Can only retry failed events"
-            )
+            raise ValueError("Can only retry failed events")
 
         # FIX L32: Max retry cap to prevent infinite retries
         if (record.processing_attempts or 0) >= MAX_RETRY_ATTEMPTS:
@@ -338,9 +338,7 @@ def retry_failed_webhook(event_db_id: str) -> dict:
         record.completed_at = None
         record.processing_started_at = None
         record.error_message = None
-        record.processing_attempts = (
-            (record.processing_attempts or 0) + 1
-        )
+        record.processing_attempts = (record.processing_attempts or 0) + 1
         db.commit()
         db.refresh(record)
 
@@ -354,9 +352,7 @@ def retry_failed_webhook(event_db_id: str) -> dict:
         return {
             "id": record.id,
             "status": record.status,
-            "processing_attempts": (
-                record.processing_attempts
-            ),
+            "processing_attempts": (record.processing_attempts),
             "duplicate": False,
         }
     except ValueError:
@@ -389,23 +385,24 @@ def mark_webhook_processed(
     """
     valid_statuses = ("processed", "failed")
     if status not in valid_statuses:
-        raise ValueError(
-            f"status must be one of {valid_statuses}"
-        )
+        raise ValueError(f"status must be one of {valid_statuses}")
     if not event_db_id:
         raise ValueError("event_db_id is required")
 
     db: Session = SessionLocal()
     try:
         from database.models.webhook_event import WebhookEvent
-        record = db.query(WebhookEvent).filter_by(
-            id=event_db_id,
-        ).first()
+
+        record = (
+            db.query(WebhookEvent)
+            .filter_by(
+                id=event_db_id,
+            )
+            .first()
+        )
 
         if not record:
-            raise ValueError(
-                f"Webhook event {event_db_id} not found"
-            )
+            raise ValueError(f"Webhook event {event_db_id} not found")
 
         now = datetime.now(timezone.utc)
         record.status = status
@@ -423,9 +420,7 @@ def mark_webhook_processed(
             "id": record.id,
             "status": record.status,
             "completed_at": (
-                record.completed_at.isoformat()
-                if record.completed_at
-                else None
+                record.completed_at.isoformat() if record.completed_at else None
             ),
             "error_message": record.error_message,
         }

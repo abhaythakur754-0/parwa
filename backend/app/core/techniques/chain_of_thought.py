@@ -38,6 +38,7 @@ logger = get_logger("chain_of_thought")
 
 class QueryType(str, Enum):
     """Types of queries detectable by pattern matching."""
+
     MULTI_PART = "multi_part"
     SEQUENTIAL = "sequential"
     COMPARISON = "comparison"
@@ -49,18 +50,39 @@ class QueryType(str, Enum):
 
 
 # Conjunctions that indicate multi-part queries
-_CONJUNCTIONS: FrozenSet[str] = frozenset({
-    " and ", " also ", " plus ", " additionally ",
-    " furthermore ", " moreover ", " as well as ",
-    " besides ", " what about ", " how about ",
-})
+_CONJUNCTIONS: FrozenSet[str] = frozenset(
+    {
+        " and ",
+        " also ",
+        " plus ",
+        " additionally ",
+        " furthermore ",
+        " moreover ",
+        " as well as ",
+        " besides ",
+        " what about ",
+        " how about ",
+    }
+)
 
 # Sequential keywords that indicate multi-step processes
-_SEQUENTIAL_KEYWORDS: FrozenSet[str] = frozenset({
-    "first", "then", "after that", "next", "afterwards",
-    "subsequently", "before", "finally", "lastly",
-    "secondly", "thirdly", "step 1", "step 2",
-})
+_SEQUENTIAL_KEYWORDS: FrozenSet[str] = frozenset(
+    {
+        "first",
+        "then",
+        "after that",
+        "next",
+        "afterwards",
+        "subsequently",
+        "before",
+        "finally",
+        "lastly",
+        "secondly",
+        "thirdly",
+        "step 1",
+        "step 2",
+    }
+)
 
 # Comparison patterns
 _COMPARISON_PATTERNS: Tuple[str, ...] = (
@@ -177,19 +199,80 @@ _SYNTHESIS_TEMPLATES: Dict[QueryType, str] = {
 }
 
 # Stop words for key term extraction
-_STOP_WORDS: FrozenSet[str] = frozenset({
-    "i", "me", "my", "we", "you", "your", "it", "its",
-    "is", "am", "are", "was", "were", "be", "been",
-    "have", "has", "had", "do", "does", "did",
-    "will", "would", "could", "should", "may", "might",
-    "shall", "can", "to", "o", "in", "for", "on",
-    "with", "at", "by", "from", "as", "into",
-    "the", "a", "an", "and", "or", "but", "if",
-    "not", "no", "this", "that", "these", "those",
-    "what", "how", "when", "where", "why", "who",
-    "which", "about", "up", "out", "just", "so",
-    "than", "too", "very", "also", "then",
-})
+_STOP_WORDS: FrozenSet[str] = frozenset(
+    {
+        "i",
+        "me",
+        "my",
+        "we",
+        "you",
+        "your",
+        "it",
+        "its",
+        "is",
+        "am",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "shall",
+        "can",
+        "to",
+        "o",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "into",
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "if",
+        "not",
+        "no",
+        "this",
+        "that",
+        "these",
+        "those",
+        "what",
+        "how",
+        "when",
+        "where",
+        "why",
+        "who",
+        "which",
+        "about",
+        "up",
+        "out",
+        "just",
+        "so",
+        "than",
+        "too",
+        "very",
+        "also",
+        "then",
+    }
+)
 
 
 # ── Data Structures ──────────────────────────────────────────────────
@@ -295,7 +378,8 @@ class ChainOfThoughtProcessor:
     """
 
     def __init__(
-        self, config: Optional[CoTConfig] = None,
+        self,
+        config: Optional[CoTConfig] = None,
     ):
         self.config = config or CoTConfig()
 
@@ -334,9 +418,7 @@ class ChainOfThoughtProcessor:
                 return QueryType.CAUSAL
 
         # 3. Check for multi-part queries (conjunctions + question markers)
-        conjunction_count = sum(
-            1 for c in _CONJUNCTIONS if c in query_lower
-        )
+        conjunction_count = sum(1 for c in _CONJUNCTIONS if c in query_lower)
         question_matches = _QUESTION_PATTERN.findall(query)
 
         # Count distinct question markers (avoid double-counting "?" that
@@ -349,8 +431,9 @@ class ChainOfThoughtProcessor:
             if match:
                 for pos in range(match.start(), match.end()):
                     matched_positions.add(pos)
-        extra_question_marks = sum(1 for i, ch in enumerate(
-            query) if ch == "?" and i not in matched_positions)
+        extra_question_marks = sum(
+            1 for i, ch in enumerate(query) if ch == "?" and i not in matched_positions
+        )
         question_count += extra_question_marks
 
         if conjunction_count >= 2 or question_count >= 3:
@@ -362,9 +445,7 @@ class ChainOfThoughtProcessor:
             return QueryType.MULTI_PART
 
         # 4. Check for sequential keywords
-        sequential_count = sum(
-            1 for kw in _SEQUENTIAL_KEYWORDS if kw in query_lower
-        )
+        sequential_count = sum(1 for kw in _SEQUENTIAL_KEYWORDS if kw in query_lower)
         if sequential_count >= 2:
             return QueryType.SEQUENTIAL
 
@@ -377,7 +458,9 @@ class ChainOfThoughtProcessor:
     # ── Step 1: Decomposition ──────────────────────────────────────
 
     async def decompose_query(
-        self, query: str, query_type: Optional[QueryType] = None,
+        self,
+        query: str,
+        query_type: Optional[QueryType] = None,
     ) -> List[CoTStep]:
         """
         Break a query into sequential logical steps.
@@ -427,24 +510,28 @@ class ChainOfThoughtProcessor:
             for i, part in enumerate(parts):
                 part = part.strip()
                 if part:
-                    steps.append(CoTStep(
-                        step_number=i + 1,
-                        step_type=QueryType.MULTI_PART.value,
-                        description=part,
-                        key_terms=self._extract_key_terms(part),
-                    ))
+                    steps.append(
+                        CoTStep(
+                            step_number=i + 1,
+                            step_type=QueryType.MULTI_PART.value,
+                            description=part,
+                            key_terms=self._extract_key_terms(part),
+                        )
+                    )
         else:
             # Split by conjunctions
             split = _CONJUNCTION_SPLIT_PATTERN.split(query)
             for i, part in enumerate(split):
                 part = part.strip()
                 if part:
-                    steps.append(CoTStep(
-                        step_number=i + 1,
-                        step_type=QueryType.MULTI_PART.value,
-                        description=part,
-                        key_terms=self._extract_key_terms(part),
-                    ))
+                    steps.append(
+                        CoTStep(
+                            step_number=i + 1,
+                            step_type=QueryType.MULTI_PART.value,
+                            description=part,
+                            key_terms=self._extract_key_terms(part),
+                        )
+                    )
 
         return steps
 
@@ -457,9 +544,7 @@ class ChainOfThoughtProcessor:
         sorted_keywords = sorted(_SEQUENTIAL_KEYWORDS, key=len, reverse=True)
 
         # Build a regex to split on sequential keywords
-        keyword_pattern = "|".join(
-            re.escape(kw) for kw in sorted_keywords
-        )
+        keyword_pattern = "|".join(re.escape(kw) for kw in sorted_keywords)
         split_pattern = re.compile(
             rf"(?:^|\s)(?:{keyword_pattern})(?:\s|\.|,|$)",
             re.I,
@@ -469,12 +554,14 @@ class ChainOfThoughtProcessor:
         for i, part in enumerate(parts):
             part = part.strip().strip(",").strip(".").strip()
             if part and len(part) > 2:
-                steps.append(CoTStep(
-                    step_number=len(steps) + 1,
-                    step_type=QueryType.SEQUENTIAL.value,
-                    description=part,
-                    key_terms=self._extract_key_terms(part),
-                ))
+                steps.append(
+                    CoTStep(
+                        step_number=len(steps) + 1,
+                        step_type=QueryType.SEQUENTIAL.value,
+                        description=part,
+                        key_terms=self._extract_key_terms(part),
+                    )
+                )
 
         return steps
 
@@ -489,18 +576,22 @@ class ChainOfThoughtProcessor:
         subjects = self._extract_comparison_subjects(query)
 
         if len(subjects) >= 2:
-            steps.append(CoTStep(
-                step_number=1,
-                step_type=QueryType.COMPARISON.value,
-                description=f"Identify key features of: {subjects[0]}",
-                key_terms=self._extract_key_terms(subjects[0]),
-            ))
-            steps.append(CoTStep(
-                step_number=2,
-                step_type=QueryType.COMPARISON.value,
-                description=f"Identify key features of: {subjects[1]}",
-                key_terms=self._extract_key_terms(subjects[1]),
-            ))
+            steps.append(
+                CoTStep(
+                    step_number=1,
+                    step_type=QueryType.COMPARISON.value,
+                    description=f"Identify key features of: {subjects[0]}",
+                    key_terms=self._extract_key_terms(subjects[0]),
+                )
+            )
+            steps.append(
+                CoTStep(
+                    step_number=2,
+                    step_type=QueryType.COMPARISON.value,
+                    description=f"Identify key features of: {subjects[1]}",
+                    key_terms=self._extract_key_terms(subjects[1]),
+                )
+            )
             steps.append(
                 CoTStep(
                     step_number=3,
@@ -509,27 +600,34 @@ class ChainOfThoughtProcessor:
                         subjects[0]} and {
                         subjects[1]} across identified dimensions",
                     key_terms=self._extract_key_terms(query),
-                ))
+                )
+            )
         else:
             # Fallback: generic comparison decomposition
-            steps.append(CoTStep(
-                step_number=1,
-                step_type=QueryType.COMPARISON.value,
-                description="Identify the subjects being compared",
-                key_terms=self._extract_key_terms(query),
-            ))
-            steps.append(CoTStep(
-                step_number=2,
-                step_type=QueryType.COMPARISON.value,
-                description="Evaluate similarities between subjects",
-                key_terms=self._extract_key_terms(query),
-            ))
-            steps.append(CoTStep(
-                step_number=3,
-                step_type=QueryType.COMPARISON.value,
-                description="Evaluate differences between subjects",
-                key_terms=self._extract_key_terms(query),
-            ))
+            steps.append(
+                CoTStep(
+                    step_number=1,
+                    step_type=QueryType.COMPARISON.value,
+                    description="Identify the subjects being compared",
+                    key_terms=self._extract_key_terms(query),
+                )
+            )
+            steps.append(
+                CoTStep(
+                    step_number=2,
+                    step_type=QueryType.COMPARISON.value,
+                    description="Evaluate similarities between subjects",
+                    key_terms=self._extract_key_terms(query),
+                )
+            )
+            steps.append(
+                CoTStep(
+                    step_number=3,
+                    step_type=QueryType.COMPARISON.value,
+                    description="Evaluate differences between subjects",
+                    key_terms=self._extract_key_terms(query),
+                )
+            )
 
         return steps
 
@@ -537,25 +635,30 @@ class ChainOfThoughtProcessor:
         """Decompose a causal query into cause investigation steps."""
         steps: List[CoTStep] = []
 
-        steps.append(CoTStep(
-            step_number=1,
-            step_type=QueryType.CAUSAL.value,
-            description="Identify the observed effect or outcome",
-            key_terms=self._extract_key_terms(query),
-        ))
-        steps.append(CoTStep(
-            step_number=2,
-            step_type=QueryType.CAUSAL.value,
-            description="Enumerate potential causes and contributing factors",
-            key_terms=self._extract_key_terms(query),
-        ))
+        steps.append(
+            CoTStep(
+                step_number=1,
+                step_type=QueryType.CAUSAL.value,
+                description="Identify the observed effect or outcome",
+                key_terms=self._extract_key_terms(query),
+            )
+        )
+        steps.append(
+            CoTStep(
+                step_number=2,
+                step_type=QueryType.CAUSAL.value,
+                description="Enumerate potential causes and contributing factors",
+                key_terms=self._extract_key_terms(query),
+            )
+        )
         steps.append(
             CoTStep(
                 step_number=3,
                 step_type=QueryType.CAUSAL.value,
                 description="Evaluate most likely root cause based on available evidence",
                 key_terms=self._extract_key_terms(query),
-            ))
+            )
+        )
 
         return steps
 
@@ -613,7 +716,8 @@ class ChainOfThoughtProcessor:
     # ── Step 2: Step-by-Step Reasoning ─────────────────────────────
 
     async def generate_reasoning(
-        self, steps: List[CoTStep],
+        self,
+        steps: List[CoTStep],
     ) -> List[CoTStep]:
         """
         Generate reasoning for each decomposed step using templates.
@@ -629,14 +733,17 @@ class ChainOfThoughtProcessor:
 
         updated: List[CoTStep] = []
         for step in steps:
-            query_type = QueryType(
-                step.step_type) if step.step_type else QueryType.SINGLE
+            query_type = (
+                QueryType(step.step_type) if step.step_type else QueryType.SINGLE
+            )
             template_data = _REASONING_TEMPLATES.get(
-                query_type, _REASONING_TEMPLATES[QueryType.SINGLE],
+                query_type,
+                _REASONING_TEMPLATES[QueryType.SINGLE],
             )
 
-            key_terms_str = ", ".join(
-                step.key_terms) if step.key_terms else "general context"
+            key_terms_str = (
+                ", ".join(step.key_terms) if step.key_terms else "general context"
+            )
 
             reasoning = template_data["template"].format(
                 description=step.description,
@@ -644,21 +751,24 @@ class ChainOfThoughtProcessor:
                 key_terms=key_terms_str,
             )
 
-            updated.append(CoTStep(
-                step_number=step.step_number,
-                step_type=step.step_type,
-                description=step.description,
-                reasoning=reasoning,
-                validation_status="",
-                key_terms=list(step.key_terms),
-            ))
+            updated.append(
+                CoTStep(
+                    step_number=step.step_number,
+                    step_type=step.step_type,
+                    description=step.description,
+                    reasoning=reasoning,
+                    validation_status="",
+                    key_terms=list(step.key_terms),
+                )
+            )
 
         return updated
 
     # ── Step 3: Intermediate Validation ────────────────────────────
 
     async def validate_steps(
-        self, steps: List[CoTStep],
+        self,
+        steps: List[CoTStep],
     ) -> Tuple[List[CoTStep], str]:
         """
         Validate each step's output for quality and completeness.
@@ -705,14 +815,16 @@ class ChainOfThoughtProcessor:
             else:
                 passed += 1
 
-            updated.append(CoTStep(
-                step_number=step.step_number,
-                step_type=step.step_type,
-                description=step.description,
-                reasoning=step.reasoning,
-                validation_status=status,
-                key_terms=list(step.key_terms),
-            ))
+            updated.append(
+                CoTStep(
+                    step_number=step.step_number,
+                    step_type=step.step_type,
+                    description=step.description,
+                    reasoning=step.reasoning,
+                    validation_status=status,
+                    key_terms=list(step.key_terms),
+                )
+            )
 
         # Build validation summary
         summary_parts = [
@@ -770,7 +882,8 @@ class ChainOfThoughtProcessor:
         )
 
         template = _SYNTHESIS_TEMPLATES.get(
-            query_type, _SYNTHESIS_TEMPLATES[QueryType.SINGLE],
+            query_type,
+            _SYNTHESIS_TEMPLATES[QueryType.SINGLE],
         )
 
         synthesis = template.format(
@@ -783,7 +896,8 @@ class ChainOfThoughtProcessor:
     # ── Full Pipeline ──────────────────────────────────────────────
 
     async def process(
-        self, query: str,
+        self,
+        query: str,
     ) -> CoTResult:
         """
         Run the full 4-step Chain of Thought pipeline.
@@ -826,7 +940,8 @@ class ChainOfThoughtProcessor:
                 )
                 steps_applied.append("validation")
                 passed_count = sum(
-                    1 for s in validated_steps if s.validation_status == "passed")
+                    1 for s in validated_steps if s.validation_status == "passed"
+                )
                 total_count = len(validated_steps)
                 if total_count > 0 and passed_count == total_count:
                     confidence_boost += 0.1
@@ -848,9 +963,7 @@ class ChainOfThoughtProcessor:
             # Build reasoning chain
             chain_parts: List[str] = []
             for step in validated_steps:
-                chain_parts.append(
-                    f"Step {step.step_number}: {step.reasoning}"
-                )
+                chain_parts.append(f"Step {step.step_number}: {step.reasoning}")
             reasoning_chain = "\n".join(chain_parts)
 
         except Exception as exc:
@@ -862,8 +975,11 @@ class ChainOfThoughtProcessor:
             )
             return CoTResult(
                 reasoning_chain=reasoning_chain if "reasoning_chain" in dir() else "",
-                steps_applied=steps_applied + ["error_fallback"]
-                if "steps_applied" in dir() else ["error_fallback"],
+                steps_applied=(
+                    steps_applied + ["error_fallback"]
+                    if "steps_applied" in dir()
+                    else ["error_fallback"]
+                ),
                 confidence_boost=0.0,
             )
 
@@ -924,7 +1040,8 @@ class ChainOfThoughtNode(BaseTechniqueNode):
     """
 
     def __init__(
-        self, config: Optional[CoTConfig] = None,
+        self,
+        config: Optional[CoTConfig] = None,
     ):
         self._config = config or CoTConfig()
         self._processor = ChainOfThoughtProcessor(config=self._config)

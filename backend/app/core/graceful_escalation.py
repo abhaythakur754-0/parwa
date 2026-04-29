@@ -58,6 +58,7 @@ class EscalationTrigger(str, Enum):
         CAPACITY_OVERFLOW: System capacity exceeded.
         PARTIAL_FAILURE_CRITICAL: Critical partial failure in pipeline.
     """
+
     HIGH_FRUSTRATION = "high_frustration"
     LEGAL_SENSITIVE = "legal_sensitive"
     MULTIPLE_FAILURES = "multiple_failures"
@@ -81,6 +82,7 @@ class EscalationSeverity(str, Enum):
         HIGH: Urgent, immediate attention required.
         CRITICAL: System issue, page on-call.
     """
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -98,6 +100,7 @@ class EscalationChannel(str, Enum):
         SMS: SMS text message.
         PAGERDUTY: PagerDuty alert.
     """
+
     IN_APP = "in_app"
     EMAIL = "email"
     WEBHOOK = "webhook"
@@ -117,6 +120,7 @@ class EscalationOutcome(str, Enum):
         EXPIRED: Escalation expired without action.
         REASSIGNED: Escalation was reassigned to another agent/team.
     """
+
     RESOLVED = "resolved"
     HUMAN_TOOK_OVER = "human_took_over"
     AUTO_RESOLVED = "auto_resolved"
@@ -154,6 +158,7 @@ class EscalationContext:
         conversation_turns: Number of turns in the conversation.
         metadata: Arbitrary additional context data.
     """
+
     company_id: str
     ticket_id: str
     trigger: str
@@ -196,6 +201,7 @@ class EscalationRecord:
         cooldown_until: UTC ISO-8601 cooldown expiry timestamp.
         metadata: Additional data attached to the record.
     """
+
     escalation_id: str
     company_id: str
     ticket_id: str
@@ -235,6 +241,7 @@ class EscalationRule:
         priority: Rule priority (lower = higher priority).
         enabled: Whether the rule is active.
     """
+
     name: str
     trigger: str
     severity: str
@@ -267,6 +274,7 @@ class EscalationConfig:
         on_call_enabled: Whether on-call paging is enabled.
         on_call_webhook_url: Webhook URL for on-call notifications.
     """
+
     company_id: str = ""
     default_severity: str = "medium"
     default_channel: str = "in_app"
@@ -296,9 +304,14 @@ _SEVERITY_ORDER: Dict[str, int] = {
 _VIP_TIERS: frozenset = frozenset({"enterprise", "vip", "premium"})
 
 # Valid escalation statuses
-_VALID_STATUSES: frozenset = frozenset({
-    "pending", "acknowledged", "in_progress", "resolved",
-})
+_VALID_STATUSES: frozenset = frozenset(
+    {
+        "pending",
+        "acknowledged",
+        "in_progress",
+        "resolved",
+    }
+)
 
 # Maximum notification log entries retained in memory
 _MAX_NOTIFICATION_LOG: int = 500
@@ -401,8 +414,7 @@ class GracefulEscalationManager:
         # Company escalation index: {company_id: [escalation_ids]}
         self._company_escalations: Dict[str, List[str]] = defaultdict(list)
         # Ticket escalation index: {(company_id, ticket_id): [escalation_ids]}
-        self._ticket_escalations: Dict[Tuple[str,
-                                             str], List[str]] = defaultdict(list)
+        self._ticket_escalations: Dict[Tuple[str, str], List[str]] = defaultdict(list)
         # Escalation rules: {rule_name: EscalationRule}
         self._rules: Dict[str, EscalationRule] = {}
         # Company configs: {company_id: EscalationConfig}
@@ -412,8 +424,7 @@ class GracefulEscalationManager:
         # Cooldown tracking: {(company_id, ticket_id, trigger): expires_at}
         self._cooldowns: Dict[Tuple[str, str, str], str] = {}
         # Notification dispatch log: {company_id: [notification dicts]}
-        self._notification_log: Dict[str,
-                                     List[Dict[str, Any]]] = defaultdict(list)
+        self._notification_log: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
         # Event listeners
         self._listeners: List[Callable] = []
         # Max notification log entries
@@ -655,10 +666,7 @@ class GracefulEscalationManager:
         """
         try:
             with self._lock:
-                active = [
-                    rule for rule in self._rules.values()
-                    if rule.enabled
-                ]
+                active = [rule for rule in self._rules.values() if rule.enabled]
                 active.sort(key=lambda r: r.priority)
                 return active
         except Exception:
@@ -711,7 +719,9 @@ class GracefulEscalationManager:
                 is_vip_customer = _is_vip(context.customer_tier)
                 if not is_vip_customer:
                     cooldown_active = self.check_cooldown(
-                        company_id, context.ticket_id, context.trigger,
+                        company_id,
+                        context.ticket_id,
+                        context.trigger,
                     )
                     if cooldown_active:
                         continue
@@ -723,7 +733,8 @@ class GracefulEscalationManager:
                 # Rule matches
                 matched_rules.append(rule)
                 result_severity = _higher_severity(
-                    result_severity, rule.severity,
+                    result_severity,
+                    rule.severity,
                 )
 
             should_escalate = len(matched_rules) > 0
@@ -770,7 +781,9 @@ class GracefulEscalationManager:
             return False, [], "low"
 
     def _check_rule_conditions(
-        self, rule: EscalationRule, context: EscalationContext,
+        self,
+        rule: EscalationRule,
+        context: EscalationContext,
     ) -> bool:
         """Check if a rule's conditions are satisfied by the context.
 
@@ -830,7 +843,9 @@ class GracefulEscalationManager:
         return True
 
     def _check_rule_rate_limit(
-        self, company_id: str, rule: EscalationRule,
+        self,
+        company_id: str,
+        rule: EscalationRule,
     ) -> bool:
         """Check per-rule rate limit for a company.
 
@@ -901,7 +916,8 @@ class GracefulEscalationManager:
             if not channel_override:
                 # Use highest-priority matching rule's channel
                 _, matched_rules, _ = self.evaluate_escalation(
-                    company_id, context,
+                    company_id,
+                    context,
                 )
                 if matched_rules:
                     channel = matched_rules[0].channel
@@ -915,7 +931,8 @@ class GracefulEscalationManager:
             if is_vip_customer:
                 cooldown_seconds = cooldown_seconds * config.vip_multiplier
             cooldown_dt = datetime.fromtimestamp(
-                time.time() + cooldown_seconds, tz=timezone.utc,
+                time.time() + cooldown_seconds,
+                tz=timezone.utc,
             )
 
             record = EscalationRecord(
@@ -939,9 +956,9 @@ class GracefulEscalationManager:
                 # Store record
                 self._escalations[escalation_id] = record
                 self._company_escalations[company_id].append(escalation_id)
-                self._ticket_escalations[
-                    (company_id, context.ticket_id)
-                ].append(escalation_id)
+                self._ticket_escalations[(company_id, context.ticket_id)].append(
+                    escalation_id
+                )
 
                 # Set cooldown
                 cooldown_key = (company_id, context.ticket_id, context.trigger)
@@ -953,19 +970,25 @@ class GracefulEscalationManager:
 
             # Log notification dispatch
             self._log_notification(
-                company_id, escalation_id, channel, context,
+                company_id,
+                escalation_id,
+                channel,
+                context,
             )
 
             # Emit event to listeners
-            self._emit_event("escalation_created", {
-                "escalation_id": escalation_id,
-                "company_id": company_id,
-                "ticket_id": context.ticket_id,
-                "trigger": context.trigger,
-                "severity": context.severity,
-                "channel": channel,
-                "is_vip": is_vip_customer,
-            })
+            self._emit_event(
+                "escalation_created",
+                {
+                    "escalation_id": escalation_id,
+                    "company_id": company_id,
+                    "ticket_id": context.ticket_id,
+                    "trigger": context.trigger,
+                    "severity": context.severity,
+                    "channel": channel,
+                    "is_vip": is_vip_customer,
+                },
+            )
 
             logger.warning(
                 "escalation_created",
@@ -1030,11 +1053,14 @@ class GracefulEscalationManager:
                 record.acknowledged_at = _now_utc()
                 record.assigned_to = acknowledged_by
 
-            self._emit_event("escalation_acknowledged", {
-                "escalation_id": escalation_id,
-                "company_id": company_id,
-                "acknowledged_by": acknowledged_by,
-            })
+            self._emit_event(
+                "escalation_acknowledged",
+                {
+                    "escalation_id": escalation_id,
+                    "company_id": company_id,
+                    "acknowledged_by": acknowledged_by,
+                },
+            )
 
             logger.info(
                 "escalation_acknowledged",
@@ -1101,13 +1127,16 @@ class GracefulEscalationManager:
                 record.outcome = outcome
                 record.response_message = response_message
 
-            self._emit_event("escalation_resolved", {
-                "escalation_id": escalation_id,
-                "company_id": company_id,
-                "ticket_id": record.ticket_id,
-                "outcome": outcome,
-                "resolved_by": resolved_by,
-            })
+            self._emit_event(
+                "escalation_resolved",
+                {
+                    "escalation_id": escalation_id,
+                    "company_id": company_id,
+                    "ticket_id": record.ticket_id,
+                    "outcome": outcome,
+                    "resolved_by": resolved_by,
+                },
+            )
 
             logger.info(
                 "escalation_resolved",
@@ -1195,12 +1224,15 @@ class GracefulEscalationManager:
                 record.metadata["reassigned_from"] = previous_assignee
                 record.metadata["reassigned_at"] = _now_utc()
 
-            self._emit_event("escalation_reassigned", {
-                "escalation_id": escalation_id,
-                "company_id": company_id,
-                "previous_assignee": previous_assignee,
-                "new_assignee": assigned_to,
-            })
+            self._emit_event(
+                "escalation_reassigned",
+                {
+                    "escalation_id": escalation_id,
+                    "company_id": company_id,
+                    "previous_assignee": previous_assignee,
+                    "new_assignee": assigned_to,
+                },
+            )
 
             logger.info(
                 "escalation_reassigned",
@@ -1251,7 +1283,8 @@ class GracefulEscalationManager:
             return None
 
     def get_active_escalations(
-        self, company_id: str,
+        self,
+        company_id: str,
     ) -> List[EscalationRecord]:
         """List all active (non-resolved) escalations for a company.
 
@@ -1271,13 +1304,16 @@ class GracefulEscalationManager:
                 for eid in escalation_ids:
                     record = self._escalations.get(eid)
                     if record and record.status in (
-                        "pending", "acknowledged", "in_progress",
+                        "pending",
+                        "acknowledged",
+                        "in_progress",
                     ):
                         active.append(record)
 
                 # Sort by creation time (most recent first)
                 active.sort(
-                    key=lambda r: r.created_at, reverse=True,
+                    key=lambda r: r.created_at,
+                    reverse=True,
                 )
                 return active
         except Exception:
@@ -1315,7 +1351,8 @@ class GracefulEscalationManager:
                         records.append(record)
 
                 records.sort(
-                    key=lambda r: r.created_at, reverse=True,
+                    key=lambda r: r.created_at,
+                    reverse=True,
                 )
                 return records
         except Exception:
@@ -1344,10 +1381,7 @@ class GracefulEscalationManager:
         """
         try:
             active = self.get_active_escalations(company_id)
-            return [
-                r for r in active
-                if r.severity == severity
-            ]
+            return [r for r in active if r.severity == severity]
         except Exception:
             logger.exception(
                 "get_escalations_by_severity_crashed",
@@ -1433,7 +1467,8 @@ class GracefulEscalationManager:
         """
         try:
             expires_dt = datetime.fromtimestamp(
-                time.time() + seconds, tz=timezone.utc,
+                time.time() + seconds,
+                tz=timezone.utc,
             )
             cooldown_key = (company_id, ticket_id, trigger)
 
@@ -1520,7 +1555,8 @@ class GracefulEscalationManager:
 
                 # Per-record auto-resolve override
                 auto_resolve_seconds = record.metadata.get(
-                    "auto_resolve_after", config.auto_resolve_after_seconds,
+                    "auto_resolve_after",
+                    config.auto_resolve_after_seconds,
                 )
 
                 elapsed = (now - created_at).total_seconds()
@@ -1624,7 +1660,8 @@ class GracefulEscalationManager:
 
             avg_resolution = (
                 sum(resolution_times) / len(resolution_times)
-                if resolution_times else 0.0
+                if resolution_times
+                else 0.0
             )
 
             # Cooldown active count
@@ -1633,8 +1670,7 @@ class GracefulEscalationManager:
                 for key, expires_at_str in self._cooldowns.items():
                     if key[0] == company_id:
                         expires_at = _parse_iso(expires_at_str)
-                        if expires_at and expires_at > datetime.now(
-                                timezone.utc):
+                        if expires_at and expires_at > datetime.now(timezone.utc):
                             cooldown_count += 1
 
             # Current rate limit count
@@ -1642,9 +1678,7 @@ class GracefulEscalationManager:
             cutoff = now - 3600.0
             with self._lock:
                 company_timestamps = self._rate_limit_log.get(company_id, [])
-                rate_current = sum(
-                    1 for ts in company_timestamps if ts > cutoff
-                )
+                rate_current = sum(1 for ts in company_timestamps if ts > cutoff)
 
             return {
                 "company_id": company_id,
@@ -1739,12 +1773,20 @@ class GracefulEscalationManager:
 
             lines: List[str] = [
                 f"{severity_emoji} Escalation Alert [{
-                    record.severity.upper()}]", "", f"Trigger: {trigger_label}", f"Ticket: {
-                    record.ticket_id}", f"Escalation ID: {
-                    record.escalation_id}", f"Channel: {channel_label}", f"Status: {
+                    record.severity.upper()}]",
+                "",
+                f"Trigger: {trigger_label}",
+                f"Ticket: {
+                    record.ticket_id}",
+                f"Escalation ID: {
+                    record.escalation_id}",
+                f"Channel: {channel_label}",
+                f"Status: {
                     record.status.replace(
-                        '_', ' ').title()}", f"Created: {
-                            record.created_at}", ]
+                        '_', ' ').title()}",
+                f"Created: {
+                            record.created_at}",
+            ]
 
             # Add context details if available
             if ctx:
@@ -1796,8 +1838,7 @@ class GracefulEscalationManager:
                 company_id=company_id,
                 escalation_id=getattr(record, "escalation_id", ""),
             )
-            return (
-                f"Escalation Alert: {
+            return f"Escalation Alert: {
                     getattr(
                         record,
                         'escalation_id',
@@ -1809,7 +1850,7 @@ class GracefulEscalationManager:
                     getattr(
                         record,
                         'ticket_id',
-                        'unknown')}")
+                        'unknown')}"
 
     def _log_notification(
         self,
@@ -1844,7 +1885,7 @@ class GracefulEscalationManager:
                 # Trim to max size
                 if len(log) > self._max_notification_log:
                     self._notification_log[company_id] = log[
-                        -self._max_notification_log:
+                        -self._max_notification_log :
                     ]
         except Exception:
             logger.exception(
@@ -1894,7 +1935,9 @@ class GracefulEscalationManager:
             logger.exception("remove_event_listener_crashed")
 
     def _emit_event(
-        self, event_name: str, event_data: Dict[str, Any],
+        self,
+        event_name: str,
+        event_data: Dict[str, Any],
     ) -> None:
         """Emit an event to all registered listeners.
 
@@ -1936,7 +1979,8 @@ class GracefulEscalationManager:
             with self._lock:
                 # Collect escalation IDs to remove
                 escalation_ids = self._company_escalations.pop(
-                    company_id, [],
+                    company_id,
+                    [],
                 )
 
                 # Remove each escalation record
@@ -1945,8 +1989,7 @@ class GracefulEscalationManager:
 
                 # Remove ticket indexes for this company
                 keys_to_remove = [
-                    k for k in self._ticket_escalations
-                    if k[0] == company_id
+                    k for k in self._ticket_escalations if k[0] == company_id
                 ]
                 for key in keys_to_remove:
                     del self._ticket_escalations[key]
@@ -1956,8 +1999,7 @@ class GracefulEscalationManager:
 
                 # Clear cooldowns for this company
                 cooldown_keys_to_remove = [
-                    k for k in self._cooldowns
-                    if k[0] == company_id
+                    k for k in self._cooldowns if k[0] == company_id
                 ]
                 for key in cooldown_keys_to_remove:
                     del self._cooldowns[key]

@@ -38,6 +38,7 @@ logger = logging.getLogger("parwa.temp_agent_expiry")
 
 # ── Configuration (frozen defaults) ─────────────────────────────────
 
+
 @dataclass(frozen=True)
 class TempAgentConfig:
     """Immutable configuration for TempAgentExpiryService.
@@ -62,6 +63,7 @@ DEFAULT_CONFIG = TempAgentConfig()
 
 # ── Data classes ─────────────────────────────────────────────────────
 
+
 @dataclass
 class TempAgentRecord:
     """Record for a temporary agent with expiry tracking.
@@ -82,9 +84,7 @@ class TempAgentRecord:
     expires_at: datetime
     assigned_tickets: Set[str] = field(default_factory=set)
     status: str = "active"
-    created_at: datetime = field(
-        default_factory=lambda: datetime.now(
-            timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
     def is_expired(self) -> bool:
@@ -118,9 +118,7 @@ class ExpiryResult:
     tickets_reassigned: int = 0
     tickets_failed: int = 0
     reassigned_to: Dict[str, str] = field(default_factory=dict)
-    timestamp: datetime = field(
-        default_factory=lambda: datetime.now(
-            timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
@@ -144,6 +142,7 @@ class ReassignmentResult:
 
 
 # ── Service ──────────────────────────────────────────────────────────
+
 
 class TempAgentExpiryService:
     """Service for managing temporary agent lifecycle.
@@ -203,14 +202,14 @@ class TempAgentExpiryService:
                 raise ValueError("duration_hours must be a positive integer")
             if duration_hours > self._config.max_duration_hours:
                 raise ValueError(
-                    "duration_hours cannot exceed "
-                    f"{self._config.max_duration_hours}"
+                    "duration_hours cannot exceed " f"{self._config.max_duration_hours}"
                 )
 
             with self._lock:
                 if agent_id in self._agents:
                     raise ValueError(
-                        f"Agent '{agent_id}' is already registered as a temp agent")
+                        f"Agent '{agent_id}' is already registered as a temp agent"
+                    )
 
                 now = datetime.now(timezone.utc)
                 record = TempAgentRecord(
@@ -241,13 +240,9 @@ class TempAgentExpiryService:
                 agent_id,
                 exc,
             )
-            raise RuntimeError(
-                f"Failed to register temp agent: {exc}"
-            ) from exc
+            raise RuntimeError(f"Failed to register temp agent: {exc}") from exc
 
-    def register_permanent_agent(
-        self, agent_id: str, company_id: str
-    ) -> None:
+    def register_permanent_agent(self, agent_id: str, company_id: str) -> None:
         """Register a permanent agent as eligible for ticket reassignment.
 
         Permanent agents are the targets for round-robin reassignment
@@ -281,9 +276,7 @@ class TempAgentExpiryService:
                 agent_id,
                 exc,
             )
-            raise RuntimeError(
-                f"Failed to register permanent agent: {exc}"
-            ) from exc
+            raise RuntimeError(f"Failed to register permanent agent: {exc}") from exc
 
     # ── Expiry checks ────────────────────────────────────────────
 
@@ -392,9 +385,7 @@ class TempAgentExpiryService:
                 agent_id,
                 exc,
             )
-            raise RuntimeError(
-                f"Failed to expire temp agent: {exc}"
-            ) from exc
+            raise RuntimeError(f"Failed to expire temp agent: {exc}") from exc
 
     def check_all_expiries(self) -> List[ExpiryResult]:
         """Check and expire all temp agents that have passed their expiry.
@@ -475,9 +466,7 @@ class TempAgentExpiryService:
                 record.assigned_tickets.clear()
 
                 # Get permanent agents for this company
-                perm_agents = list(
-                    self._permanent_agents.get(company_id, [])
-                )
+                perm_agents = list(self._permanent_agents.get(company_id, []))
 
             if not tickets:
                 return ReassignmentResult(
@@ -531,9 +520,7 @@ class TempAgentExpiryService:
 
                 for i, ticket_id in enumerate(tickets):
                     try:
-                        target = perm_agents[
-                            (counter + i) % len(perm_agents)
-                        ]
+                        target = perm_agents[(counter + i) % len(perm_agents)]
                         # In production, this would update the DB.
                         reassigned += 1
                         reassignment_map[ticket_id] = target
@@ -542,9 +529,9 @@ class TempAgentExpiryService:
                         failed_ids.append(ticket_id)
 
                 with self._lock:
-                    self._rr_counters[company_id] = (
-                        counter + len(tickets)
-                    ) % max(len(perm_agents), 1)
+                    self._rr_counters[company_id] = (counter + len(tickets)) % max(
+                        len(perm_agents), 1
+                    )
 
                 logger.info(
                     "reassign_tickets round_robin agent_id=%s "
@@ -621,9 +608,7 @@ class TempAgentExpiryService:
             with self._lock:
                 return self._agents.get(agent_id)
         except Exception as exc:
-            logger.error(
-                "get_temp_agent error agent_id=%s: %s", agent_id, exc
-            )
+            logger.error("get_temp_agent error agent_id=%s: %s", agent_id, exc)
             return None  # BC-008
 
     def get_all_temp_agents(self) -> List[TempAgentRecord]:
@@ -644,9 +629,7 @@ class TempAgentExpiryService:
 
     # ── Extension ────────────────────────────────────────────────
 
-    def extend_agent(
-        self, agent_id: str, additional_hours: int
-    ) -> TempAgentRecord:
+    def extend_agent(self, agent_id: str, additional_hours: int) -> TempAgentRecord:
         """Extend the expiry time of an active temp agent.
 
         Args:
@@ -663,9 +646,7 @@ class TempAgentExpiryService:
             self._validate_id(agent_id, "agent_id")
 
             if not isinstance(additional_hours, int) or additional_hours < 1:
-                raise ValueError(
-                    "additional_hours must be a positive integer"
-                )
+                raise ValueError("additional_hours must be a positive integer")
 
             with self._lock:
                 record = self._agents.get(agent_id)
@@ -676,8 +657,7 @@ class TempAgentExpiryService:
 
                 if record.status != "active":
                     raise ValueError(
-                        f"Agent '{agent_id}' is not active "
-                        f"(status={record.status})"
+                        f"Agent '{agent_id}' is not active " f"(status={record.status})"
                     )
 
                 if record.is_expired:
@@ -686,9 +666,7 @@ class TempAgentExpiryService:
                         "Register a new agent instead."
                     )
 
-                new_expires = record.expires_at + timedelta(
-                    hours=additional_hours
-                )
+                new_expires = record.expires_at + timedelta(hours=additional_hours)
                 # Enforce max duration from original creation
                 max_expires = record.created_at + timedelta(
                     hours=self._config.max_duration_hours
@@ -716,9 +694,7 @@ class TempAgentExpiryService:
                 agent_id,
                 exc,
             )
-            raise RuntimeError(
-                f"Failed to extend temp agent: {exc}"
-            ) from exc
+            raise RuntimeError(f"Failed to extend temp agent: {exc}") from exc
 
     # ── Revocation ───────────────────────────────────────────────
 
@@ -771,8 +747,7 @@ class TempAgentExpiryService:
             )
 
             logger.info(
-                "temp_agent_revoked agent_id=%s company_id=%s "
-                "was_expired=%s",
+                "temp_agent_revoked agent_id=%s company_id=%s " "was_expired=%s",
                 agent_id,
                 record.company_id,
                 was_expired,
@@ -787,9 +762,7 @@ class TempAgentExpiryService:
                 agent_id,
                 exc,
             )
-            raise RuntimeError(
-                f"Failed to revoke temp agent: {exc}"
-            ) from exc
+            raise RuntimeError(f"Failed to revoke temp agent: {exc}") from exc
 
     # ── Internal helpers ─────────────────────────────────────────
 
@@ -797,13 +770,9 @@ class TempAgentExpiryService:
     def _validate_id(value: Any, field_name: str) -> None:
         """Validate that an ID is a non-empty string."""
         if not value or not isinstance(value, str):
-            raise ValueError(
-                f"{field_name} is required and must be a non-empty string"
-            )
+            raise ValueError(f"{field_name} is required and must be a non-empty string")
         if len(value) > 128:
-            raise ValueError(
-                f"{field_name} must not exceed 128 characters"
-            )
+            raise ValueError(f"{field_name} must not exceed 128 characters")
 
     @staticmethod
     def _validate_name(value: Any) -> None:

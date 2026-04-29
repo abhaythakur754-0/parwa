@@ -148,10 +148,14 @@ class TicketService:
         Raises:
             NotFoundError: If ticket not found
         """
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")
@@ -200,9 +204,7 @@ class TicketService:
         Returns:
             Tuple of (tickets list, total count)
         """
-        query = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id
-        )
+        query = self.db.query(Ticket).filter(Ticket.company_id == self.company_id)
 
         # Apply filters
         if status:
@@ -313,10 +315,15 @@ class TicketService:
 
         for attempt in range(retry_count + 1):
             # 1. Read current ticket and its version
-            ticket = self.db.query(Ticket).filter(
-                Ticket.id == ticket_id,
-                Ticket.company_id == self.company_id,
-            ).with_for_update(skip_locked=True).first()
+            ticket = (
+                self.db.query(Ticket)
+                .filter(
+                    Ticket.id == ticket_id,
+                    Ticket.company_id == self.company_id,
+                )
+                .with_for_update(skip_locked=True)
+                .first()
+            )
 
             if not ticket:
                 raise NotFoundError(f"Ticket {ticket_id} not found")
@@ -351,8 +358,7 @@ class TicketService:
                 if status == TicketStatus.closed.value:
                     update_values["closed_at"] = datetime.now(timezone.utc)
                 elif status == TicketStatus.reopened.value:
-                    update_values["reopen_count"] = (
-                        ticket.reopen_count or 0) + 1
+                    update_values["reopen_count"] = (ticket.reopen_count or 0) + 1
 
             if assigned_to is not None:
                 update_values["assigned_to"] = assigned_to
@@ -388,7 +394,7 @@ class TicketService:
                 )
                 self.db.rollback()
                 if attempt < retry_count:
-                    backoff = 0.05 * (2 ** attempt)  # 50ms, 100ms, 200ms
+                    backoff = 0.05 * (2**attempt)  # 50ms, 100ms, 200ms
                     time.sleep(backoff)
                 continue
 
@@ -466,10 +472,14 @@ class TicketService:
             NotFoundError: If ticket not found
             ConflictError: If version mismatch after retries
         """
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")
@@ -622,9 +632,7 @@ class TicketService:
         )
 
         if not allowed:
-            raise AuthorizationError(
-                "Rate limit exceeded. Please try again later."
-            )
+            raise AuthorizationError("Rate limit exceeded. Please try again later.")
 
     def _check_account_suspended(self) -> None:
         """PS07: Check if account is suspended.
@@ -632,15 +640,10 @@ class TicketService:
         Raises:
             AuthorizationError: If account is suspended
         """
-        company = self.db.query(Company).filter(
-            Company.id == self.company_id
-        ).first()
+        company = self.db.query(Company).filter(Company.id == self.company_id).first()
 
-        if company and hasattr(company,
-                               'is_suspended') and company.is_suspended:
-            raise AuthorizationError(
-                "Account is suspended. Cannot create new tickets."
-            )
+        if company and hasattr(company, "is_suspended") and company.is_suspended:
+            raise AuthorizationError("Account is suspended. Cannot create new tickets.")
 
     def _validate_customer(self, customer_id: str) -> Customer:
         """Validate customer exists and belongs to company.
@@ -654,10 +657,14 @@ class TicketService:
         Raises:
             ValidationError: If customer not found
         """
-        customer = self.db.query(Customer).filter(
-            Customer.id == customer_id,
-            Customer.company_id == self.company_id,
-        ).first()
+        customer = (
+            self.db.query(Customer)
+            .filter(
+                Customer.id == customer_id,
+                Customer.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not customer:
             raise ValidationError(f"Customer {customer_id} not found")
@@ -703,22 +710,27 @@ class TicketService:
         # Look for recent open tickets from same customer with similar subject
         recent_threshold = datetime.now(timezone.utc) - timedelta(hours=24)
 
-        similar_tickets = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.customer_id == customer_id,
-            Ticket.status.in_([
-                TicketStatus.open.value,
-                TicketStatus.assigned.value,
-                TicketStatus.in_progress.value,
-            ]),
-            Ticket.created_at >= recent_threshold,
-        ).all()
+        similar_tickets = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.customer_id == customer_id,
+                Ticket.status.in_(
+                    [
+                        TicketStatus.open.value,
+                        TicketStatus.assigned.value,
+                        TicketStatus.in_progress.value,
+                    ]
+                ),
+                Ticket.created_at >= recent_threshold,
+            )
+            .all()
+        )
 
         for ticket in similar_tickets:
             if ticket.subject:
                 similarity = self._calculate_similarity(
-                    subject.lower(),
-                    ticket.subject.lower()
+                    subject.lower(), ticket.subject.lower()
                 )
                 if similarity >= self.DUPLICATE_SIMILARITY_THRESHOLD:
                     return ticket.id
@@ -883,10 +895,12 @@ class TicketService:
                 )
                 success_count += 1
             except Exception as e:
-                failures.append({
-                    "ticket_id": ticket_id,
-                    "error": str(e),
-                })
+                failures.append(
+                    {
+                        "ticket_id": ticket_id,
+                        "error": str(e),
+                    }
+                )
 
         return success_count, failures
 
@@ -924,10 +938,12 @@ class TicketService:
                 )
                 success_count += 1
             except Exception as e:
-                failures.append({
-                    "ticket_id": ticket_id,
-                    "error": str(e),
-                })
+                failures.append(
+                    {
+                        "ticket_id": ticket_id,
+                        "error": str(e),
+                    }
+                )
 
         return success_count, failures
 
@@ -1069,8 +1085,7 @@ class TicketService:
 
             shadow_service = ShadowModeService()
 
-            if evaluation["requires_approval"] and not evaluation.get(
-                    "auto_execute"):
+            if evaluation["requires_approval"] and not evaluation.get("auto_execute"):
                 # Log to shadow_log and set pending
                 log_result = shadow_service.log_shadow_action(
                     company_id=self.company_id,
@@ -1241,7 +1256,9 @@ class TicketService:
                 "ticket_id": ticket_id,
                 "shadow_status": "approved",
                 "approved_by": manager_id,
-                "approved_at": ticket.approved_at.isoformat() if ticket.approved_at else None,
+                "approved_at": (
+                    ticket.approved_at.isoformat() if ticket.approved_at else None
+                ),
                 "shadow_log": shadow_result,
                 "message": "Ticket resolution approved",
             }
@@ -1374,18 +1391,23 @@ class TicketService:
             result = {
                 "ticket_id": ticket_id,
                 "shadow_status": ticket.shadow_status or "none",
-                "risk_score": float(
-                    ticket.risk_score) if ticket.risk_score else None,
+                "risk_score": float(ticket.risk_score) if ticket.risk_score else None,
                 "approved_by": ticket.approved_by,
-                "approved_at": ticket.approved_at.isoformat() if ticket.approved_at else None,
+                "approved_at": (
+                    ticket.approved_at.isoformat() if ticket.approved_at else None
+                ),
                 "shadow_log_id": ticket.shadow_log_id,
             }
 
             # Fetch shadow log entry if exists
             if ticket.shadow_log_id:
-                shadow_log = self.db.query(ShadowLog).filter(
-                    ShadowLog.id == ticket.shadow_log_id,
-                ).first()
+                shadow_log = (
+                    self.db.query(ShadowLog)
+                    .filter(
+                        ShadowLog.id == ticket.shadow_log_id,
+                    )
+                    .first()
+                )
 
                 if shadow_log:
                     result["shadow_log"] = {
@@ -1395,8 +1417,16 @@ class TicketService:
                         "risk_score": shadow_log.jarvis_risk_score,
                         "manager_decision": shadow_log.manager_decision,
                         "manager_note": shadow_log.manager_note,
-                        "resolved_at": shadow_log.resolved_at.isoformat() if shadow_log.resolved_at else None,
-                        "created_at": shadow_log.created_at.isoformat() if shadow_log.created_at else None,
+                        "resolved_at": (
+                            shadow_log.resolved_at.isoformat()
+                            if shadow_log.resolved_at
+                            else None
+                        ),
+                        "created_at": (
+                            shadow_log.created_at.isoformat()
+                            if shadow_log.created_at
+                            else None
+                        ),
                     }
 
             return result

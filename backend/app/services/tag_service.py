@@ -30,18 +30,15 @@ class TagService:
         "mobile": [r"\bmobile\b", r"\bios\b", r"\bandroid\b", r"\bapp\b"],
         "integration": [r"\bintegration\b", r"\bconnect\b", r"\bsync\b"],
         "webhook": [r"\bwebhook\b", r"\bcallback\b"],
-
         # Issue type tags
         "bug": [r"\bbug\b", r"\berror\b", r"\bcrash\b", r"\bbroken\b"],
         "performance": [r"\bslow\b", r"\bperformance\b", r"\btimeout\b", r"\blag\b"],
         "security": [r"\bsecurity\b", r"\bvulnerability\b", r"\bbreach\b"],
         "data-loss": [r"\bdata loss\b", r"\bmissing data\b", r"\bdeleted\b"],
-
         # Customer type tags
         "enterprise": [r"\benterprise\b", r"\bcontract\b"],
         "trial": [r"\btrial\b", r"\bdemo\b", r"\bfree\b"],
         "vip": [r"\bvip\b", r"\bexecutive\b", r"\bmanager\b"],
-
         # Status tags
         "blocked": [r"\bblocked\b", r"\bstuck\b", r"\bcannot proceed\b"],
         "urgent": [r"\burgent\b", r"\bcritical\b", r"\basap\b"],
@@ -109,10 +106,14 @@ class TagService:
         clean_tags = self._clean_tags(tags)
 
         # Get ticket
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             return [], []
@@ -150,10 +151,14 @@ class TagService:
             Tuple of (current_tags, removed_tags)
         """
         # Get ticket
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             return [], []
@@ -190,13 +195,17 @@ class TagService:
             Updated tags list
         """
         # Validate and clean tags
-        clean_tags = self._clean_tags(tags)[:self.MAX_TAGS_PER_TICKET]
+        clean_tags = self._clean_tags(tags)[: self.MAX_TAGS_PER_TICKET]
 
         # Get ticket
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             return []
@@ -223,9 +232,13 @@ class TagService:
             List of (tag, count) tuples
         """
         # Get all ticket tags
-        tickets = self.db.query(Ticket.tags).filter(
-            Ticket.company_id == self.company_id,
-        ).all()
+        tickets = (
+            self.db.query(Ticket.tags)
+            .filter(
+                Ticket.company_id == self.company_id,
+            )
+            .all()
+        )
 
         # Count tags
         tag_counts: Dict[str, int] = {}
@@ -286,10 +299,7 @@ class TagService:
 
         return tickets, total
 
-    def suggest_tags(
-            self,
-            text: str,
-            existing_tags: List[str] = None) -> List[str]:
+    def suggest_tags(self, text: str, existing_tags: List[str] = None) -> List[str]:
         """Suggest tags based on text content.
 
         Args:

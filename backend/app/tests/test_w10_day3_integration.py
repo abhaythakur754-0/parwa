@@ -26,7 +26,6 @@ from app.core.dspy_integration import DSPyIntegration
 from app.core.technique_router import TechniqueID, QuerySignals
 from app.core.techniques.base import ConversationState, GSDState
 
-
 # ════════════════════════════════════════════════════════════════════
 # HELPERS
 # ════════════════════════════════════════════════════════════════════
@@ -127,14 +126,12 @@ class TestWorkflowPipelineIntegration:
 
         # First execution: cache miss → set cache
         self.cache.set(tid, query_hash, signals_hash, company_id, result)
-        self.metrics.record_execution(
-            tid, "parwa", company_id, "success", 50, 10)
+        self.metrics.record_execution(tid, "parwa", company_id, "success", 50, 10)
 
         # Second execution: cache hit → still record metric with shorter time
         cached = self.cache.get(tid, query_hash, signals_hash, company_id)
         assert cached == result
-        self.metrics.record_execution(
-            tid, "parwa", company_id, "success", 5, 2)
+        self.metrics.record_execution(tid, "parwa", company_id, "success", 5, 2)
 
         stats = self.metrics.get_technique_stats(tid)
         assert stats.total_executions == 2
@@ -147,8 +144,7 @@ class TestWorkflowPipelineIntegration:
         assert self.capacity.acquire_slot("co1", "parwa", "t1") is True
 
         # Second ticket should fail to acquire and get queued
-        assert self.capacity.acquire_slot(
-            "co1", "parwa", "t2", priority=0) is False
+        assert self.capacity.acquire_slot("co1", "parwa", "t2", priority=0) is False
 
         # Release first ticket — auto-activates queued t2
         self.capacity.release_slot("co1", "parwa", "t1")
@@ -196,7 +192,7 @@ class TestTenantConfigMetricsIntegration:
         defaults = self.config.get_defaults("parwa")
         assert defaults is not None
         # Defaults should contain technique config (TenantFullConfig dataclass)
-        assert hasattr(defaults, 'technique')
+        assert hasattr(defaults, "technique")
         assert len(defaults.technique.enabled_techniques) > 0
 
     def test_custom_config_reflected_in_metrics_company_isolation(self):
@@ -209,9 +205,11 @@ class TestTenantConfigMetricsIntegration:
         )
 
         stats_a = self.metrics.get_technique_stats(
-            TechniqueID.CLARA.value, company_id="co_A")
+            TechniqueID.CLARA.value, company_id="co_A"
+        )
         stats_b = self.metrics.get_technique_stats(
-            TechniqueID.CLARA.value, company_id="co_B")
+            TechniqueID.CLARA.value, company_id="co_B"
+        )
 
         assert stats_a.total_executions == 1
         assert stats_b.total_executions == 1
@@ -221,12 +219,9 @@ class TestTenantConfigMetricsIntegration:
     def test_config_versioning_tracks_changes(self):
         """Config changes are tracked in version history."""
         self.config.update_config(
-            "co1", "technique", {
-                "enabled_techniques": [
-                    "clara", "crp"]})
-        self.config.update_config(
-            "co1", "technique", {
-                "enabled_techniques": ["clara"]})
+            "co1", "technique", {"enabled_techniques": ["clara", "crp"]}
+        )
+        self.config.update_config("co1", "technique", {"enabled_techniques": ["clara"]})
 
         history = self.config.get_version_history("co1")
         assert len(history) >= 2
@@ -236,13 +231,10 @@ class TestTenantConfigMetricsIntegration:
         notifications = []
 
         def on_change(company_id, category, changes_dict):
-            notifications.append(
-                {"company_id": company_id, "category": category})
+            notifications.append({"company_id": company_id, "category": category})
 
         self.config.on_config_change(on_change)
-        self.config.update_config(
-            "co1", "technique", {
-                "token_budget_override": 2000})
+        self.config.update_config("co1", "technique", {"token_budget_override": 2000})
 
         assert len(notifications) >= 1
         assert notifications[0]["company_id"] == "co1"
@@ -375,8 +367,7 @@ class TestCapacityTenantConfigIntegration:
         alerts = self.capacity.get_alerts("co1")
         # Should have at least a warning
         if alerts:
-            assert any("warning" in str(a).lower() or "70" in str(a)
-                       for a in alerts)
+            assert any("warning" in str(a).lower() or "70" in str(a) for a in alerts)
 
     def test_overflow_status_across_variants(self):
         """Overall overflow status considers all variants."""
@@ -500,8 +491,7 @@ class TestEndToEndFullPipeline:
         pipeline_result["steps"].append("capacity_acquired")
 
         # Step 3: Check cache
-        cache_key_parts = (TechniqueID.CLARA.value,
-                           query[:20], variant, company_id)
+        cache_key_parts = (TechniqueID.CLARA.value, query[:20], variant, company_id)
         cached = self.cache.get(*cache_key_parts)
         if cached:
             pipeline_result["steps"].append("cache_hit")
@@ -531,8 +521,7 @@ class TestEndToEndFullPipeline:
 
         # Step 7: GSD transition
         self.gsd.record_transition(company_id, ticket_id, "new", "greeting")
-        self.gsd.record_transition(
-            company_id, ticket_id, "greeting", "diagnosis")
+        self.gsd.record_transition(company_id, ticket_id, "greeting", "diagnosis")
         pipeline_result["steps"].append("gsd_transitioned")
 
         # Step 8: Release capacity
@@ -558,8 +547,7 @@ class TestEndToEndFullPipeline:
         results = []
         for co in ["co_A", "co_B", "co_C"]:
             for i in range(3):
-                r = self._simulate_pipeline(
-                    co, f"{co}_t{i}", f"Query {i} from {co}")
+                r = self._simulate_pipeline(co, f"{co}_t{i}", f"Query {i} from {co}")
                 results.append(r)
 
         # All should succeed
@@ -570,8 +558,7 @@ class TestEndToEndFullPipeline:
         """All three variant types work through the pipeline."""
         for variant in ["mini_parwa", "parwa", "high_parwa"]:
             self.capacity.configure_limits("co1", variant, 5)
-            r = self._simulate_pipeline(
-                "co1", f"{variant}_t1", "test query", variant)
+            r = self._simulate_pipeline("co1", f"{variant}_t1", "test query", variant)
             assert r["capacity_acquired"] is True
             assert r["response"] is not None
 
@@ -591,7 +578,8 @@ class TestEndToEndFullPipeline:
             self._simulate_pipeline("co1", f"t_met_{i}", f"query {i}")
 
         stats = self.metrics.get_technique_stats(
-            TechniqueID.CLARA.value, company_id="co1")
+            TechniqueID.CLARA.value, company_id="co1"
+        )
         assert stats.total_executions == 10
         assert stats.success_count == 10
 
@@ -696,8 +684,7 @@ class TestCrossModuleEdgeCases:
         )
 
         # Should have 1 execution regardless of DSPy availability
-        stats = self.metrics.get_technique_stats(
-            TechniqueID.CHAIN_OF_THOUGHT.value)
+        stats = self.metrics.get_technique_stats(TechniqueID.CHAIN_OF_THOUGHT.value)
         assert stats.total_executions == 1
 
     def test_concurrent_multi_tenant_simulation(self):
@@ -714,13 +701,15 @@ class TestCrossModuleEdgeCases:
                     company_id, "parwa", f"{company_id}_t{i}"
                 )
                 self.metrics.record_execution(
-                    TechniqueID.GSD.value, "parwa", company_id, "success", 20, 30)
+                    TechniqueID.GSD.value, "parwa", company_id, "success", 20, 30
+                )
                 self.gsd.record_transition(
                     company_id, f"{company_id}_t{i}", "new", "greeting"
                 )
                 if acquired:
                     self.capacity.release_slot(
-                        company_id, "parwa", f"{company_id}_t{i}")
+                        company_id, "parwa", f"{company_id}_t{i}"
+                    )
                 results.append({"acquired": acquired})
 
             results_by_company[company_id] = results
@@ -785,10 +774,14 @@ class TestCrossModuleEdgeCases:
 
     def test_config_export_import_roundtrip(self):
         """Config survives export → import roundtrip."""
-        self.config.update_config("co1", "technique", {
-            "enabled_techniques": ["clara", "crp", "gsd"],
-            "token_budget_override": 2000,
-        })
+        self.config.update_config(
+            "co1",
+            "technique",
+            {
+                "enabled_techniques": ["clara", "crp", "gsd"],
+                "token_budget_override": 2000,
+            },
+        )
 
         exported = self.config.export_config("co1")
         assert exported is not None
@@ -816,12 +809,8 @@ class TestCrossModuleEdgeCases:
             )
         for _ in range(2):
             self.metrics.record_execution(
-                TechniqueID.CHAIN_OF_THOUGHT.value,
-                "parwa",
-                "co1",
-                "success",
-                350,
-                200)
+                TechniqueID.CHAIN_OF_THOUGHT.value, "parwa", "co1", "success", 350, 200
+            )
 
         leaderboard = self.metrics.get_leaderboard(sort_by="count", limit=3)
         assert len(leaderboard) >= 3
@@ -867,8 +856,7 @@ class TestCrossModuleEdgeCases:
 
         # Verify entries are cached
         for i in range(10):
-            cached = self.cache.get(
-                "clara", f"q_warm_{i}", f"s_warm_{i}", "co1")
+            cached = self.cache.get("clara", f"q_warm_{i}", f"s_warm_{i}", "co1")
             assert cached is not None
             assert cached["response"] == f"warm_{i}"
 

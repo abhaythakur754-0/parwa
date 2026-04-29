@@ -101,9 +101,7 @@ class OutboundEmailService:
         # Step 1: Load ticket + customer
         ticket = self._get_ticket(company_id, ticket_id)
         if not ticket:
-            return {
-                "status": "error",
-                "error": f"Ticket {ticket_id} not found"}
+            return {"status": "error", "error": f"Ticket {ticket_id} not found"}
 
         if ticket.channel != "email":
             return {
@@ -117,7 +115,8 @@ class OutboundEmailService:
 
         # Step 2: Check outbound BC-006 rate limit
         rate_error = self._check_outbound_rate_limit(
-            company_id, ticket_id,
+            company_id,
+            ticket_id,
         )
         if rate_error:
             logger.warning(
@@ -141,9 +140,7 @@ class OutboundEmailService:
                     "customer_email": customer.email,
                 },
             )
-            return {
-                "status": "skipped",
-                "error": "Customer has opted out of emails"}
+            return {"status": "skipped", "error": "Customer has opted out of emails"}
 
         # Step 3b: Check suppression list (F-124 — bounced/complained emails)
         if self._is_email_suppressed(company_id, customer.email):
@@ -157,7 +154,8 @@ class OutboundEmailService:
             )
             return {
                 "status": "skipped",
-                "error": "Customer email is suppressed (bounced/complained)"}
+                "error": "Customer email is suppressed (bounced/complained)",
+            }
 
         # Step 3c: Check OOO status — don't send if customer is OOO (F-122)
         if self._is_customer_ooo(company_id, customer.email):
@@ -171,7 +169,8 @@ class OutboundEmailService:
             )
             return {
                 "status": "skipped",
-                "error": "Customer has active out-of-office status"}
+                "error": "Customer has active out-of-office status",
+            }
 
         # Step 4: Check BC-003 idempotency (G-13)
         dedup_id = f"outbound:{ticket_id}:{hash(ai_response_html) % 100000}"
@@ -184,9 +183,7 @@ class OutboundEmailService:
                     "dedup_id": dedup_id,
                 },
             )
-            return {
-                "status": "duplicate",
-                "error": "Idempotent: reply already sent"}
+            return {"status": "duplicate", "error": "Idempotent: reply already sent"}
 
         # Step 5: Build threading headers (G-09: full chain)
         email_thread = self._get_email_thread(company_id, ticket_id)
@@ -216,8 +213,9 @@ class OutboundEmailService:
         # Step 9: Generate plain-text fallback (G-14)
         text_content = ai_response_text or strip_html(ai_response_html)
         if original_quote_html:
-            text_content += "\n\n--- Original Message ---\n" + \
-                strip_html(original_quote_html)
+            text_content += "\n\n--- Original Message ---\n" + strip_html(
+                original_quote_html
+            )
 
         # Step 10: Create DB records BEFORE dispatching (G-03 race fix)
         message = TicketMessage(
@@ -226,15 +224,17 @@ class OutboundEmailService:
             role="ai",
             channel="email",
             content=text_content,
-            metadata_json=json.dumps({
-                "source": "ai_response",
-                "email_reply_to": reply_to_msg_id,
-                "email_references": references,
-                "model_used": model_used,
-                "sender_name": sender_name,
-                "confidence": confidence,
-                "dedup_id": dedup_id,
-            }),
+            metadata_json=json.dumps(
+                {
+                    "source": "ai_response",
+                    "email_reply_to": reply_to_msg_id,
+                    "email_references": references,
+                    "model_used": model_used,
+                    "sender_name": sender_name,
+                    "confidence": confidence,
+                    "dedup_id": dedup_id,
+                }
+            ),
         )
         self.db.add(message)
 
@@ -278,6 +278,7 @@ class OutboundEmailService:
         send_error = None
         try:
             from app.tasks.email_tasks import send_email as send_email_task
+
             send_email_task.delay(
                 company_id=company_id,
                 to=customer.email,
@@ -303,6 +304,7 @@ class OutboundEmailService:
             # Fall back to synchronous send
             try:
                 from app.services.email_service import send_email_tracked
+
                 result = send_email_tracked(
                     to=customer.email,
                     subject=subject,
@@ -319,8 +321,10 @@ class OutboundEmailService:
                     outbound.delivery_status = "failed"
                     outbound.error_message = send_error
                     self.db.commit()
-                    return {"status": "error",
-                            "error": f"Email send failed: {send_error}"}
+                    return {
+                        "status": "error",
+                        "error": f"Email send failed: {send_error}",
+                    }
                 else:
                     # Update outbound with tracking info
                     outbound.delivery_status = "sent"
@@ -339,6 +343,7 @@ class OutboundEmailService:
         # Step 13: Emit Socket.io event via run_async_coro (G-02 fix)
         try:
             from app.core.event_emitter import emit_ticket_event
+
             run_async_coro(
                 emit_ticket_event(
                     company_id=company_id,
@@ -396,7 +401,9 @@ class OutboundEmailService:
         )
 
     def _get_customer(
-        self, company_id: str, customer_id: Optional[str],
+        self,
+        company_id: str,
+        customer_id: Optional[str],
     ) -> Optional[Customer]:
         """Get customer by ID with company isolation (BC-001)."""
         if not customer_id:
@@ -411,7 +418,9 @@ class OutboundEmailService:
         )
 
     def _get_email_thread(
-        self, company_id: str, ticket_id: str,
+        self,
+        company_id: str,
+        ticket_id: str,
     ) -> Optional[EmailThread]:
         """Get email thread for a ticket (BC-001)."""
         return (
@@ -424,7 +433,9 @@ class OutboundEmailService:
         )
 
     def _check_outbound_rate_limit(
-        self, company_id: str, ticket_id: str,
+        self,
+        company_id: str,
+        ticket_id: str,
     ) -> Optional[str]:
         """Check BC-006 outbound rate limit: max 5 AI replies/thread/24h.
 
@@ -497,11 +508,7 @@ class OutboundEmailService:
         # Check notification preferences if available
         if hasattr(customer, "notification_preferences"):
             prefs = customer.notification_preferences
-            if isinstance(
-                    prefs,
-                    dict) and prefs.get(
-                    "email",
-                    {}).get("opted_out"):
+            if isinstance(prefs, dict) and prefs.get("email", {}).get("opted_out"):
                 return True
             if isinstance(prefs, str):
                 try:
@@ -513,7 +520,10 @@ class OutboundEmailService:
         return False
 
     def _is_duplicate_send(
-        self, company_id: str, ticket_id: str, dedup_id: str,
+        self,
+        company_id: str,
+        ticket_id: str,
+        dedup_id: str,
     ) -> bool:
         """Check BC-003: whether this exact reply was already sent.
 
@@ -544,7 +554,9 @@ class OutboundEmailService:
         return count > 0
 
     def _build_references_chain(
-        self, email_thread: EmailThread, company_id: str,
+        self,
+        email_thread: EmailThread,
+        company_id: str,
     ) -> Optional[str]:
         """Build the References header from email thread history.
 
@@ -579,15 +591,11 @@ class OutboundEmailService:
             if mid and mid not in ids:
                 ids.append(mid)
         # Add the latest message ID if not already present
-        if (
-            email_thread.latest_message_id
-            and email_thread.latest_message_id not in ids
-        ):
+        if email_thread.latest_message_id and email_thread.latest_message_id not in ids:
             ids.append(email_thread.latest_message_id)
         if not ids:
             return None
-        return " ".join(f"<{mid}>" if not mid.startswith(
-            "<") else mid for mid in ids)
+        return " ".join(f"<{mid}>" if not mid.startswith("<") else mid for mid in ids)
 
     def _build_reply_subject(self, original_subject: str) -> str:
         """Build reply subject with Re: prefix.
@@ -612,7 +620,9 @@ class OutboundEmailService:
         return f"Re: {cleaned}"
 
     def _build_inline_quote(
-        self, company_id: str, ticket_id: str,
+        self,
+        company_id: str,
+        ticket_id: str,
     ) -> Optional[str]:
         """Build an inline quote of the original customer email (G-12).
 
@@ -656,9 +666,9 @@ class OutboundEmailService:
                 '<div style="border-left:3px solid #ccc;padding-left:12px;'
                 'margin:16px 0;color:#666;font-size:13px">'
                 '<p style="margin:0 0 4px;color:#999">'
-                f'On {date_str}, {sender} wrote:</p>'
+                f"On {date_str}, {sender} wrote:</p>"
                 '<pre style="margin:0;white-space:pre-wrap;font-family:inherit">'
-                f'{quoted}</pre></div>'
+                f"{quoted}</pre></div>"
             )
         else:
             # HTML quote
@@ -666,7 +676,7 @@ class OutboundEmailService:
                 '<div style="border-left:3px solid #ccc;padding-left:12px;'
                 'margin:16px 0;color:#666;font-size:13px">'
                 '<p style="margin:0 0 4px;color:#999">'
-                f'On {date_str}, {sender} wrote:</p>'
+                f"On {date_str}, {sender} wrote:</p>"
                 f'<div style="margin:0">{body}</div></div>'
             )
 
@@ -696,6 +706,7 @@ class OutboundEmailService:
         """
         try:
             from app.core.email_renderer import render_email_template
+
             return render_email_template(
                 "ai_response_email.html",
                 {
@@ -751,6 +762,7 @@ class OutboundEmailService:
         """
         try:
             from app.services.bounce_complaint_service import BounceComplaintService
+
             svc = BounceComplaintService(self.db)
             return svc.is_email_suppressed(company_id, email)
         except Exception:
@@ -771,6 +783,7 @@ class OutboundEmailService:
         """
         try:
             from app.services.ooo_detection_service import OOODetectionService
+
             svc = OOODetectionService(self.db)
             result = svc.is_customer_ooo(company_id, email)
             return result is not None

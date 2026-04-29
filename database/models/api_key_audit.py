@@ -8,7 +8,10 @@ created, rotated, revoked, used.
 from datetime import datetime
 
 from sqlalchemy import (
-    Column, String, DateTime, ForeignKey,
+    Column,
+    String,
+    DateTime,
+    ForeignKey,
 )
 
 from database.base import Base

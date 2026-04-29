@@ -40,8 +40,10 @@ logger = get_logger("demo_service")
 
 # ── Enums ────────────────────────────────────────────────────────────────
 
+
 class DemoVariant(str, Enum):
     """Demo variant types for pre-purchase testing."""
+
     MINI_PARWA = "mini_parwa"
     PARWA = "parwa"
     HIGH_PARWA = "high_parwa"
@@ -49,6 +51,7 @@ class DemoVariant(str, Enum):
 
 class DemoStatus(str, Enum):
     """Demo session status."""
+
     ACTIVE = "active"
     COMPLETED = "completed"
     EXPIRED = "expired"
@@ -89,9 +92,15 @@ VARIANT_DEMO_CAPABILITIES = {
             "Knowledge Base",
         ],
         "demo_scenarios": [
-            "basic_faq", "order_tracking", "simple_refund",
-            "complex_refund", "billing_dispute", "product_recommendation",
-            "technical_support", "shipping_inquiry", "payment_issues",
+            "basic_faq",
+            "order_tracking",
+            "simple_refund",
+            "complex_refund",
+            "billing_dispute",
+            "product_recommendation",
+            "technical_support",
+            "shipping_inquiry",
+            "payment_issues",
             "account_management",
         ],
         "ai_model_tier": "medium",
@@ -117,13 +126,26 @@ VARIANT_DEMO_CAPABILITIES = {
             "Brand Voice",
         ],
         "demo_scenarios": [
-            "basic_faq", "order_tracking", "simple_refund",
-            "complex_refund", "billing_dispute", "product_recommendation",
-            "technical_support", "shipping_inquiry", "payment_issues",
-            "account_management", "gdpr_request", "api_troubleshooting",
-            "international_shipping", "customs_inquiry", "fleet_management",
-            "inventory_check", "prescription_refill", "insurance_verification",
-            "appointment_scheduling", "telehealth_setup",
+            "basic_faq",
+            "order_tracking",
+            "simple_refund",
+            "complex_refund",
+            "billing_dispute",
+            "product_recommendation",
+            "technical_support",
+            "shipping_inquiry",
+            "payment_issues",
+            "account_management",
+            "gdpr_request",
+            "api_troubleshooting",
+            "international_shipping",
+            "customs_inquiry",
+            "fleet_management",
+            "inventory_check",
+            "prescription_refill",
+            "insurance_verification",
+            "appointment_scheduling",
+            "telehealth_setup",
         ],
         "ai_model_tier": "heavy",
         "rag_depth": 10,
@@ -136,9 +158,11 @@ VARIANT_DEMO_CAPABILITIES = {
 
 # ── Data Classes ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class DemoSession:
     """Demo session for pre-purchase testing."""
+
     session_id: str
     visitor_email: Optional[str] = None
     visitor_phone: Optional[str] = None
@@ -148,9 +172,7 @@ class DemoSession:
     message_count: int = 0
     messages: List[Dict[str, Any]] = field(default_factory=list)
     scenarios_completed: List[str] = field(default_factory=list)
-    created_at: datetime = field(
-        default_factory=lambda: datetime.now(
-            timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: Optional[datetime] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -160,13 +182,14 @@ class DemoSession:
         # Set expiry based on variant (30 minutes from now)
         if self.expires_at is None:
             from datetime import timedelta
-            self.expires_at = datetime.now(
-                timezone.utc) + timedelta(minutes=30)
+
+            self.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
 
 
 @dataclass
 class DemoResult:
     """Result of a demo interaction."""
+
     success: bool
     message: str = ""
     ai_response: str = ""
@@ -177,6 +200,7 @@ class DemoResult:
 
 
 # ── AI Integration ─────────────────────────────────────────────────────────
+
 
 def _get_ai_response(
     message: str,
@@ -200,7 +224,6 @@ Industry context: {industry}
 Keep responses concise and focused on FAQ handling and simple tasks.
 For complex issues, recommend upgrading to Parwa or High Parwa.
 Max response length: 200 characters.""",
-
         DemoVariant.PARWA: """You are an advanced AI assistant for PARWA demo.
 You are demonstrating the Parwa tier capabilities.
 Industry context: {industry}
@@ -208,7 +231,6 @@ Industry context: {industry}
 Provide detailed, helpful responses with knowledge base integration.
 You can handle multi-step issues and provide personalized recommendations.
 Max response length: 500 characters.""",
-
         DemoVariant.HIGH_PARWA: """You are a premium AI assistant for PARWA demo.
 You are demonstrating the High Parwa tier capabilities.
 Industry context: {industry}
@@ -219,8 +241,7 @@ Apply brand voice and custom guardrails.
 Max response length: 1000 characters.""",
     }
 
-    system_prompt = system_prompts.get(
-        variant, system_prompts[DemoVariant.PARWA])
+    system_prompt = system_prompts.get(variant, system_prompts[DemoVariant.PARWA])
 
     # Build messages for AI
     messages = [{"role": "system", "content": system_prompt}]
@@ -248,7 +269,7 @@ const ZAI = require('z-ai-web-dev-sdk').default;
             capture_output=True,
             text=True,
             timeout=30,
-            cwd="/home/z/my-project/parwa"
+            cwd="/home/z/my-project/parwa",
         )
 
         if result.returncode == 0 and result.stdout.strip():
@@ -286,7 +307,7 @@ const ZAI = require('z-ai-web-dev-sdk').default;
             capture_output=True,
             text=True,
             timeout=30,
-            cwd="/home/z/my-project/parwa"
+            cwd="/home/z/my-project/parwa",
         )
 
         if result.returncode == 0 and result.stdout.strip():
@@ -299,6 +320,7 @@ const ZAI = require('z-ai-web-dev-sdk').default;
 
 
 # ── Demo Service ──────────────────────────────────────────────────────────
+
 
 class DemoService:
     """Variant-aware demo service for pre-purchase testing."""
@@ -361,8 +383,10 @@ class DemoService:
 
         if session.status != DemoStatus.ACTIVE:
             return DemoResult(
-                success=False, message=f"Demo session is {
-                    session.status.value}. Please start a new demo.", )
+                success=False,
+                message=f"Demo session is {
+                    session.status.value}. Please start a new demo.",
+            )
 
         capabilities = VARIANT_DEMO_CAPABILITIES.get(session.variant, {})
         max_messages = capabilities.get("max_demo_messages", 20)
@@ -401,25 +425,29 @@ class DemoService:
         web_search_enabled = capabilities.get("web_search_enabled", False)
         web_results = []
         if web_search_enabled and any(
-            kw in message.lower() for kw in [
-                "search", "find", "lookup", "compare"]):
+            kw in message.lower() for kw in ["search", "find", "lookup", "compare"]
+        ):
             web_results = _get_web_search_results(message)
             if web_results:
                 features_used.append("web_search")
 
         # Update session
         session.message_count += 1
-        session.messages.append({
-            "role": "user",
-            "content": message,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
-        session.messages.append({
-            "role": "assistant",
-            "content": ai_response,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "latency_ms": latency_ms,
-        })
+        session.messages.append(
+            {
+                "role": "user",
+                "content": message,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        session.messages.append(
+            {
+                "role": "assistant",
+                "content": ai_response,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "latency_ms": latency_ms,
+            }
+        )
 
         # Calculate confidence based on variant
         confidence_scores = {
@@ -470,15 +498,20 @@ class DemoService:
         filtered = []
         for scenario in all_scenarios:
             if industry in ["ecommerce", "saas", "logistics", "healthcare"]:
-                if scenario.get("industry") == industry or scenario.get(
-                        "industry") == "ecommerce":
-                    filtered.append({
-                        "id": scenario.get("id"),
-                        "title": scenario.get("title"),
-                        "difficulty": scenario.get("difficulty"),
-                        "preview": scenario.get("customer_message", "")[:100] + "...",
-                        "talking_points": scenario.get("talking_points", [])[:2],
-                    })
+                if (
+                    scenario.get("industry") == industry
+                    or scenario.get("industry") == "ecommerce"
+                ):
+                    filtered.append(
+                        {
+                            "id": scenario.get("id"),
+                            "title": scenario.get("title"),
+                            "difficulty": scenario.get("difficulty"),
+                            "preview": scenario.get("customer_message", "")[:100]
+                            + "...",
+                            "talking_points": scenario.get("talking_points", [])[:2],
+                        }
+                    )
 
         # Limit by variant
         max_scenarios = len(scenario_ids) if scenario_ids else 5
@@ -542,20 +575,25 @@ class DemoService:
                 "variant_tested": session.variant.value,
                 "variant_display_name": capabilities.get("display_name", "Parwa"),
                 "messages_sent": session.message_count,
-                "features_tested": list(set(
-                    feature
-                    for msg in session.messages
-                    if msg["role"] == "assistant"
-                    for feature in ["ai_chat"]  # Could extract from metadata
-                )),
+                "features_tested": list(
+                    set(
+                        feature
+                        for msg in session.messages
+                        if msg["role"] == "assistant"
+                        for feature in ["ai_chat"]  # Could extract from metadata
+                    )
+                ),
                 "upgrade_options": [
                     {
                         "variant": v.value,
-                        "display_name": VARIANT_DEMO_CAPABILITIES[v].get("display_name"),
+                        "display_name": VARIANT_DEMO_CAPABILITIES[v].get(
+                            "display_name"
+                        ),
                         "price": str(VARIANT_DEMO_CAPABILITIES[v].get("price_monthly")),
                     }
                     for v in DemoVariant
-                    if VARIANT_DEMO_CAPABILITIES[v].get("price_monthly", 0) > capabilities.get("price_monthly", 0)
+                    if VARIANT_DEMO_CAPABILITIES[v].get("price_monthly", 0)
+                    > capabilities.get("price_monthly", 0)
                 ],
             },
         }
@@ -618,8 +656,7 @@ class DemoService:
             display_name = capabilities.get("display_name", "Parwa")
 
             url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
-            auth = base64.b64encode(
-                f"{account_sid}:{auth_token}".encode()).decode()
+            auth = base64.b64encode(f"{account_sid}:{auth_token}".encode()).decode()
 
             body = f"Thanks for trying PARWA {display_name}! Ready to transform your customer support? Sign up at parwa.ai/pricing"
 

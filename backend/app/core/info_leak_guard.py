@@ -58,7 +58,9 @@ _RE_ROUTING_STRATEGY = re.compile(
     r"|(?:model (?:selection|routing|switching|fallback) (?:is|was|happens))"
     r"|(?:we (?:use|employ|have) a (?:smart|intelligent|tiered) (?:router|routing))"
     r"|(?:GPT-\d|Claude|Llama)\b.*?(?:based on|chosen|selected|routed)\b"
-    r"|(?:chosen|selected|routed)\s+(?:GPT-\d|Claude|Llama)\b", re.IGNORECASE, )
+    r"|(?:chosen|selected|routed)\s+(?:GPT-\d|Claude|Llama)\b",
+    re.IGNORECASE,
+)
 
 # ── Category 3: Internal Workflow Disclosure ──
 _RE_WORKFLOW_DETAILS = re.compile(
@@ -67,7 +69,9 @@ _RE_WORKFLOW_DETAILS = re.compile(
     r"|(?:we process your (?:request|query|message) (?:through|via|using))"
     r"|(?:our (?:prompt|system) (?:template|chain|engineering|architecture))"
     r"|(?:RAG|retrieval.augmented|knowledge base|vector (?:search|store|database))"
-    r"|(?:our (?:guardrails?|safety (?:layer|check|system)))\b", re.IGNORECASE, )
+    r"|(?:our (?:guardrails?|safety (?:layer|check|system)))\b",
+    re.IGNORECASE,
+)
 
 # ── Category 4: System Prompt Disclosure ──
 _RE_SYSTEM_PROMPT = re.compile(
@@ -103,9 +107,7 @@ _RE_INTERNAL_METRICS = re.compile(
 # CONSTANTS
 # ══════════════════════════════════════════════════════════════════
 
-CANNED_REFUSAL_RESPONSE: str = (
-    "I cannot discuss PARWA's internal systems."
-)
+CANNED_REFUSAL_RESPONSE: str = "I cannot discuss PARWA's internal systems."
 
 # All detection patterns in order of check priority
 _ALL_INFO_LEAK_PATTERNS: List[Dict[str, Any]] = [
@@ -156,6 +158,7 @@ _ALL_INFO_LEAK_PATTERNS: List[Dict[str, Any]] = [
 @dataclass
 class InfoLeakMatch:
     """Describes a single detected information leak."""
+
     category: str
     severity: str
     confidence: float
@@ -166,6 +169,7 @@ class InfoLeakMatch:
 @dataclass
 class InfoLeakScanResult:
     """Result of an information leak scan."""
+
     has_leak: bool
     matches: List[InfoLeakMatch]
     action: str  # "allow" or "block"
@@ -286,14 +290,10 @@ class InfoLeakGuard:
             )
 
         # Determine action: block on critical/high, optionally on medium
-        should_block = any(
-            m.severity in self._BLOCK_SEVERITIES
-            for m in all_matches
-        )
+        should_block = any(m.severity in self._BLOCK_SEVERITIES for m in all_matches)
         if block_on_medium:
             should_block = should_block or any(
-                m.severity == "medium"
-                for m in all_matches
+                m.severity == "medium" for m in all_matches
             )
 
         if should_block:

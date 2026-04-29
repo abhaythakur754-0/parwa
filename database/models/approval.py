@@ -11,9 +11,7 @@ from datetime import datetime
 
 import uuid
 
-from sqlalchemy import (
-    Boolean, Column, DateTime, Numeric, String, Text, ForeignKey
-)
+from sqlalchemy import Boolean, Column, DateTime, Numeric, String, Text, ForeignKey
 
 from database.base import Base
 
@@ -27,8 +25,10 @@ class ApprovalQueue(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     session_id = Column(String(36), ForeignKey("tickets.id"))
     action_type = Column(String(100), nullable=False)
@@ -49,8 +49,10 @@ class AutoApproveRule(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     action_type = Column(String(100), nullable=False)
     min_confidence = Column(Numeric(5, 2), nullable=False)
@@ -58,7 +60,9 @@ class AutoApproveRule(Base):
     risk_levels = Column(Text, default="low")
     is_active = Column(Boolean, default=False)
     created_by = Column(
-        String(36), ForeignKey("users.id"), nullable=False,
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
     )
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(DateTime, default=lambda: datetime.utcnow())
@@ -69,12 +73,15 @@ class ExecutedAction(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     session_id = Column(String(36), ForeignKey("tickets.id"))
     approval_id = Column(
-        String(36), ForeignKey("approval_queues.id"),
+        String(36),
+        ForeignKey("approval_queues.id"),
     )
     action_type = Column(String(100), nullable=False)
     action_data = Column(Text)
@@ -89,11 +96,14 @@ class UndoLog(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     executed_action_id = Column(
-        String(36), ForeignKey("executed_actions.id"),
+        String(36),
+        ForeignKey("executed_actions.id"),
         nullable=False,
     )
     # reversal, email_recall

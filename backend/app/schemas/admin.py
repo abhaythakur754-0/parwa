@@ -138,24 +138,13 @@ class PasswordChangeRequest(BaseModel):
     def password_strength(cls, v: str) -> str:
         """L02: uppercase, lowercase, digit, special char."""
         if not re.search(r"[A-Z]", v):
-            raise ValueError(
-                "Password must contain at least one "
-                "uppercase letter"
-            )
+            raise ValueError("Password must contain at least one " "uppercase letter")
         if not re.search(r"[a-z]", v):
-            raise ValueError(
-                "Password must contain at least one "
-                "lowercase letter"
-            )
+            raise ValueError("Password must contain at least one " "lowercase letter")
         if not re.search(r"\d", v):
-            raise ValueError(
-                "Password must contain at least one digit"
-            )
+            raise ValueError("Password must contain at least one digit")
         if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v):
-            raise ValueError(
-                "Password must contain at least one "
-                "special character"
-            )
+            raise ValueError("Password must contain at least one " "special character")
         return v
 
 
@@ -188,7 +177,9 @@ class APIProviderCreate(BaseModel):
 class APIProviderUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     provider_type: Optional[str] = Field(
-        None, min_length=1, max_length=50,
+        None,
+        min_length=1,
+        max_length=50,
     )
     description: Optional[str] = None
     required_fields: Optional[List[str]] = None

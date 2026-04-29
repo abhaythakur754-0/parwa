@@ -45,14 +45,16 @@ class TestShadowModeServiceDay1:
     def shadow_service(self):
         """Create a ShadowModeService instance."""
         from app.services.shadow_mode_service import ShadowModeService
+
         return ShadowModeService()
 
-    def test_evaluate_action_risk_low_risk_action(
-            self, shadow_service, mock_company):
+    def test_evaluate_action_risk_low_risk_action(self, shadow_service, mock_company):
         """Test Layer 1: Low risk actions have low risk scores."""
-        with patch.object(shadow_service, '_get_avg_risk_score', return_value=None):
-            with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
-                mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = mock_company
+        with patch.object(shadow_service, "_get_avg_risk_score", return_value=None):
+            with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
+                mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+                    mock_company
+                )
 
                 result = shadow_service.evaluate_action_risk(
                     company_id=mock_company.id,
@@ -65,12 +67,13 @@ class TestShadowModeServiceDay1:
                 assert "mode" in result
                 assert "layers" in result
 
-    def test_evaluate_action_risk_high_risk_action(
-            self, shadow_service, mock_company):
+    def test_evaluate_action_risk_high_risk_action(self, shadow_service, mock_company):
         """Test Layer 1: High risk actions have high risk scores."""
-        with patch.object(shadow_service, '_get_avg_risk_score', return_value=None):
-            with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
-                mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = mock_company
+        with patch.object(shadow_service, "_get_avg_risk_score", return_value=None):
+            with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
+                mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+                    mock_company
+                )
 
                 result = shadow_service.evaluate_action_risk(
                     company_id=mock_company.id,
@@ -83,12 +86,13 @@ class TestShadowModeServiceDay1:
                 assert result["mode"] == "supervised"
                 assert result["requires_approval"] is True
 
-    def test_evaluate_action_risk_hard_safety_floor(
-            self, shadow_service, mock_company):
+    def test_evaluate_action_risk_hard_safety_floor(self, shadow_service, mock_company):
         """Test Layer 4: Hard safety floor for critical actions."""
-        with patch.object(shadow_service, '_get_avg_risk_score', return_value=None):
-            with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
-                mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = mock_company
+        with patch.object(shadow_service, "_get_avg_risk_score", return_value=None):
+            with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
+                mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+                    mock_company
+                )
 
                 # Account delete should ALWAYS require approval
                 result = shadow_service.evaluate_action_risk(
@@ -102,12 +106,15 @@ class TestShadowModeServiceDay1:
                 assert result["layers"]["layer4_safety_floor"]["hard_safety"] is True
 
     def test_evaluate_action_risk_stage_0_forces_shadow(
-            self, shadow_service, mock_company):
+        self, shadow_service, mock_company
+    ):
         """Test Stage 0 onboarding: Forces shadow mode for new clients."""
         mock_company.shadow_actions_remaining = 10
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
-            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = mock_company
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
+            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+                mock_company
+            )
 
             result = shadow_service.evaluate_action_risk(
                 company_id=mock_company.id,
@@ -121,13 +128,16 @@ class TestShadowModeServiceDay1:
             assert result["shadow_actions_remaining"] == 10
 
     def test_evaluate_action_risk_graduated_mode_auto_execute(
-            self, shadow_service, mock_company):
+        self, shadow_service, mock_company
+    ):
         """Test graduated mode with low risk allows auto-execute."""
         mock_company.system_mode = "graduated"
 
-        with patch.object(shadow_service, '_get_avg_risk_score', return_value=None):
-            with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
-                mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = mock_company
+        with patch.object(shadow_service, "_get_avg_risk_score", return_value=None):
+            with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
+                mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+                    mock_company
+                )
 
                 result = shadow_service.evaluate_action_risk(
                     company_id=mock_company.id,
@@ -140,11 +150,14 @@ class TestShadowModeServiceDay1:
                 # Note: auto_execute depends on risk_score < 0.3
 
     def test_evaluate_action_risk_refund_amount_adjustment(
-            self, shadow_service, mock_company):
+        self, shadow_service, mock_company
+    ):
         """Test Layer 1: High refund amounts increase risk score."""
-        with patch.object(shadow_service, '_get_avg_risk_score', return_value=None):
-            with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
-                mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = mock_company
+        with patch.object(shadow_service, "_get_avg_risk_score", return_value=None):
+            with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
+                mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+                    mock_company
+                )
 
                 # Small refund
                 result_small = shadow_service.evaluate_action_risk(
@@ -166,8 +179,10 @@ class TestShadowModeServiceDay1:
 
     def test_get_company_mode_default(self, shadow_service):
         """Test get_company_mode returns supervised as default."""
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
-            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = None
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
+            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+                None
+            )
 
             result = shadow_service.get_company_mode("non-existent-id")
 
@@ -175,8 +190,10 @@ class TestShadowModeServiceDay1:
 
     def test_set_company_mode_valid(self, shadow_service, mock_company):
         """Test setting company mode."""
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
-            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = mock_company
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
+            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+                mock_company
+            )
 
             result = shadow_service.set_company_mode(
                 company_id=mock_company.id,
@@ -212,14 +229,16 @@ class TestShadowModeServiceDay1:
         mock_entry.resolved_at = None
         mock_entry.created_at = datetime.utcnow()
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
             mock_session.return_value.__enter__.return_value.add = MagicMock()
             mock_session.return_value.__enter__.return_value.commit = MagicMock()
             mock_session.return_value.__enter__.return_value.refresh = MagicMock()
-            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = None
+            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+                None
+            )
 
             # Create a new entry
-            with patch('app.services.shadow_mode_service.ShadowLog') as MockShadowLog:
+            with patch("app.services.shadow_mode_service.ShadowLog") as MockShadowLog:
                 MockShadowLog.return_value = mock_entry
                 result = shadow_service.log_shadow_action(
                     company_id=mock_company.id,
@@ -240,8 +259,10 @@ class TestShadowModeServiceDay1:
         mock_entry.manager_decision = None
         mock_entry.action_payload = {"amount": 100}
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
-            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = mock_entry
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
+            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+                mock_entry
+            )
             mock_session.return_value.__enter__.return_value.commit = MagicMock()
             mock_session.return_value.__enter__.return_value.refresh = MagicMock()
 
@@ -262,8 +283,10 @@ class TestShadowModeServiceDay1:
         mock_entry.manager_decision = None
         mock_entry.action_payload = {"amount": 100}
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
-            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = mock_entry
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
+            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+                mock_entry
+            )
             mock_session.return_value.__enter__.return_value.commit = MagicMock()
             mock_session.return_value.__enter__.return_value.refresh = MagicMock()
 
@@ -284,8 +307,10 @@ class TestShadowModeServiceDay1:
         mock_entry.manager_decision = None
         mock_entry.action_payload = {"message": "Test message"}
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
-            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = mock_entry
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
+            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+                mock_entry
+            )
             mock_session.return_value.__enter__.return_value.add = MagicMock()
             mock_session.return_value.__enter__.return_value.flush = MagicMock()
             mock_session.return_value.__enter__.return_value.commit = MagicMock()
@@ -302,9 +327,13 @@ class TestShadowModeServiceDay1:
 
     def test_get_shadow_stats(self, shadow_service, mock_company):
         """Test getting shadow mode statistics."""
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
-            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.scalar.return_value = 10
-            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.group_by.return_value.all.return_value = []
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
+            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.scalar.return_value = (
+                10
+            )
+            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.group_by.return_value.all.return_value = (
+                []
+            )
 
             result = shadow_service.get_shadow_stats(mock_company.id)
 
@@ -326,8 +355,10 @@ class TestShadowModeServiceDay1:
             entry.manager_decision = None
             mock_entries.append(entry)
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
-            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.all.return_value = mock_entries
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
+            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.all.return_value = (
+                mock_entries
+            )
             mock_session.return_value.__enter__.return_value.commit = MagicMock()
 
             result = shadow_service.batch_resolve(
@@ -348,6 +379,7 @@ class TestShadowPreferencesDay1:
     @pytest.fixture
     def shadow_service(self):
         from app.services.shadow_mode_service import ShadowModeService
+
         return ShadowModeService()
 
     def test_set_shadow_preference(self, shadow_service):
@@ -362,13 +394,15 @@ class TestShadowPreferencesDay1:
         mock_pref.set_via = "ui"
         mock_pref.updated_at = datetime.utcnow()
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
-            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = None
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
+            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+                None
+            )
             mock_session.return_value.__enter__.return_value.add = MagicMock()
             mock_session.return_value.__enter__.return_value.commit = MagicMock()
             mock_session.return_value.__enter__.return_value.refresh = MagicMock()
 
-            with patch('app.services.shadow_mode_service.ShadowPreference') as MockPref:
+            with patch("app.services.shadow_mode_service.ShadowPreference") as MockPref:
                 MockPref.return_value = mock_pref
                 result = shadow_service.set_shadow_preference(
                     company_id=company_id,
@@ -384,8 +418,10 @@ class TestShadowPreferencesDay1:
         """Test deleting a shadow preference."""
         company_id = str(uuid.uuid4())
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
-            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.delete.return_value = 1
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
+            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.delete.return_value = (
+                1
+            )
             mock_session.return_value.__enter__.return_value.commit = MagicMock()
 
             result = shadow_service.delete_shadow_preference(
@@ -406,11 +442,14 @@ class TestEmailShadowInterceptorDay2:
 
     def test_evaluate_email_shadow_low_risk(self):
         """Test email evaluation for low-risk content."""
-        from app.interceptors.email_shadow import evaluate_email_shadow, EmailShadowResult
+        from app.interceptors.email_shadow import (
+            evaluate_email_shadow,
+            EmailShadowResult,
+        )
 
         company_id = str(uuid.uuid4())
 
-        with patch('app.interceptors.email_shadow.ShadowModeService') as MockService:
+        with patch("app.interceptors.email_shadow.ShadowModeService") as MockService:
             mock_service = MockService.return_value
             mock_service.evaluate_action_risk.return_value = {
                 "requires_approval": False,
@@ -421,8 +460,7 @@ class TestEmailShadowInterceptorDay2:
                 "layers": {},
                 "company_mode": "graduated",
             }
-            mock_service.log_shadow_action.return_value = {
-                "id": str(uuid.uuid4())}
+            mock_service.log_shadow_action.return_value = {"id": str(uuid.uuid4())}
 
             result = evaluate_email_shadow(
                 company_id=company_id,
@@ -444,7 +482,7 @@ class TestEmailShadowInterceptorDay2:
 
         company_id = str(uuid.uuid4())
 
-        with patch('app.interceptors.email_shadow.ShadowModeService') as MockService:
+        with patch("app.interceptors.email_shadow.ShadowModeService") as MockService:
             mock_service = MockService.return_value
             mock_service.evaluate_action_risk.return_value = {
                 "requires_approval": True,
@@ -455,8 +493,7 @@ class TestEmailShadowInterceptorDay2:
                 "layers": {},
                 "company_mode": "shadow",
             }
-            mock_service.log_shadow_action.return_value = {
-                "id": str(uuid.uuid4())}
+            mock_service.log_shadow_action.return_value = {"id": str(uuid.uuid4())}
 
             result = evaluate_email_shadow(
                 company_id=company_id,
@@ -477,17 +514,17 @@ class TestEmailShadowInterceptorDay2:
 
         company_id = str(uuid.uuid4())
 
-        with patch('app.interceptors.email_shadow.ShadowModeService') as MockService:
+        with patch("app.interceptors.email_shadow.ShadowModeService") as MockService:
             mock_service = MockService.return_value
-            mock_service.evaluate_action_risk.side_effect = Exception(
-                "Database error")
+            mock_service.evaluate_action_risk.side_effect = Exception("Database error")
 
             result = evaluate_email_shadow(
                 company_id=company_id,
                 email_payload={
                     "to": "test@example.com",
                     "subject": "Test",
-                    "body": "Test"},
+                    "body": "Test",
+                },
                 shadow_service=mock_service,
             )
 
@@ -509,8 +546,10 @@ class TestEmailShadowInterceptorDay2:
             "body": "Approved content",
         }
 
-        with patch('app.interceptors.email_shadow.SessionLocal') as mock_session:
-            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = mock_entry
+        with patch("app.interceptors.email_shadow.SessionLocal") as mock_session:
+            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+                mock_entry
+            )
 
             result = process_email_after_approval(
                 company_id=company_id,
@@ -530,7 +569,7 @@ class TestSMSShadowInterceptorDay2:
 
         company_id = str(uuid.uuid4())
 
-        with patch('app.interceptors.sms_shadow.ShadowModeService') as MockService:
+        with patch("app.interceptors.sms_shadow.ShadowModeService") as MockService:
             mock_service = MockService.return_value
             mock_service.evaluate_action_risk.return_value = {
                 "requires_approval": False,
@@ -541,8 +580,7 @@ class TestSMSShadowInterceptorDay2:
                 "layers": {},
                 "company_mode": "graduated",
             }
-            mock_service.log_shadow_action.return_value = {
-                "id": str(uuid.uuid4())}
+            mock_service.log_shadow_action.return_value = {"id": str(uuid.uuid4())}
 
             result = evaluate_sms_shadow(
                 company_id=company_id,
@@ -562,7 +600,7 @@ class TestSMSShadowInterceptorDay2:
 
         company_id = str(uuid.uuid4())
 
-        with patch('app.interceptors.sms_shadow.ShadowModeService') as MockService:
+        with patch("app.interceptors.sms_shadow.ShadowModeService") as MockService:
             mock_service = MockService.return_value
             mock_service.evaluate_action_risk.return_value = {
                 "requires_approval": True,
@@ -573,8 +611,7 @@ class TestSMSShadowInterceptorDay2:
                 "layers": {},
                 "company_mode": "shadow",
             }
-            mock_service.log_shadow_action.return_value = {
-                "id": str(uuid.uuid4())}
+            mock_service.log_shadow_action.return_value = {"id": str(uuid.uuid4())}
 
             result = evaluate_sms_shadow(
                 company_id=company_id,
@@ -593,11 +630,14 @@ class TestVoiceShadowInterceptorDay2:
 
     def test_evaluate_voice_shadow(self):
         """Test voice/TTS evaluation."""
-        from app.interceptors.voice_shadow import evaluate_voice_shadow, VoiceShadowResult
+        from app.interceptors.voice_shadow import (
+            evaluate_voice_shadow,
+            VoiceShadowResult,
+        )
 
         company_id = str(uuid.uuid4())
 
-        with patch('app.interceptors.voice_shadow.ShadowModeService') as MockService:
+        with patch("app.interceptors.voice_shadow.ShadowModeService") as MockService:
             mock_service = MockService.return_value
             mock_service.evaluate_action_risk.return_value = {
                 "requires_approval": True,
@@ -608,8 +648,7 @@ class TestVoiceShadowInterceptorDay2:
                 "layers": {},
                 "company_mode": "shadow",
             }
-            mock_service.log_shadow_action.return_value = {
-                "id": str(uuid.uuid4())}
+            mock_service.log_shadow_action.return_value = {"id": str(uuid.uuid4())}
 
             result = evaluate_voice_shadow(
                 company_id=company_id,
@@ -632,8 +671,9 @@ class TestVoiceShadowInterceptorDay2:
 
         # Simple greeting - should not intercept
         result = should_intercept_voice(
-            company_id=company_id, call_data={
-                "message": "Thank you for calling. How can I help you?"}, )
+            company_id=company_id,
+            call_data={"message": "Thank you for calling. How can I help you?"},
+        )
 
         assert result is False
 
@@ -645,8 +685,9 @@ class TestVoiceShadowInterceptorDay2:
 
         # Content message - should intercept
         result = should_intercept_voice(
-            company_id=company_id, call_data={
-                "message": "Your refund has been processed to your account."}, )
+            company_id=company_id,
+            call_data={"message": "Your refund has been processed to your account."},
+        )
 
         assert result is True
 
@@ -670,7 +711,7 @@ class TestChatShadowInterceptorDay2:
         interceptor = ChatShadowInterceptor()
         company_id = str(uuid.uuid4())
 
-        with patch.object(interceptor, 'evaluate_shadow') as mock_eval:
+        with patch.object(interceptor, "evaluate_shadow") as mock_eval:
             mock_eval.return_value = {
                 "requires_hold": True,
                 "risk_score": 0.7,
@@ -680,11 +721,11 @@ class TestChatShadowInterceptorDay2:
                 "reason": "Chat requires approval",
             }
 
-            with patch.object(interceptor, '_queue_chat_message') as mock_queue:
+            with patch.object(interceptor, "_queue_chat_message") as mock_queue:
                 mock_queue.return_value = {
-                    "queue_id": str(
-                        uuid.uuid4()),
-                    "status": "queued"}
+                    "queue_id": str(uuid.uuid4()),
+                    "status": "queued",
+                }
 
                 result = interceptor.intercept_outbound_chat(
                     company_id=company_id,
@@ -704,7 +745,7 @@ class TestChatShadowInterceptorDay2:
         interceptor = ChatShadowInterceptor()
         company_id = str(uuid.uuid4())
 
-        with patch.object(interceptor, 'evaluate_shadow') as mock_eval:
+        with patch.object(interceptor, "evaluate_shadow") as mock_eval:
             mock_eval.return_value = {
                 "requires_hold": False,
                 "risk_score": 0.2,
@@ -714,12 +755,13 @@ class TestChatShadowInterceptorDay2:
                 "reason": "Auto-approved",
             }
 
-            with patch.object(interceptor, '_send_chat_message') as mock_send:
+            with patch.object(interceptor, "_send_chat_message") as mock_send:
                 mock_send.return_value = {
-                    "success": True, "message_uuid": str(
-                        uuid.uuid4())}
+                    "success": True,
+                    "message_uuid": str(uuid.uuid4()),
+                }
 
-                with patch.object(interceptor, '_log_to_undo_queue') as mock_undo:
+                with patch.object(interceptor, "_log_to_undo_queue") as mock_undo:
                     mock_undo.return_value = str(uuid.uuid4())
 
                     result = interceptor.intercept_outbound_chat(
@@ -756,6 +798,7 @@ class TestTicketShadowIntegrationDay3:
     def ticket_service(self, mock_db, mock_company_id):
         """Create a TicketService instance."""
         from app.services.ticket_service import TicketService
+
         return TicketService(mock_db, mock_company_id)
 
     def test_evaluate_ticket_shadow(self, ticket_service):
@@ -771,8 +814,8 @@ class TestTicketShadowIntegrationDay3:
         mock_ticket.escalation_level = 1
         mock_ticket.sla_breached = False
 
-        with patch.object(ticket_service, 'get_ticket', return_value=mock_ticket):
-            with patch('app.services.ticket_service.ShadowModeService') as MockService:
+        with patch.object(ticket_service, "get_ticket", return_value=mock_ticket):
+            with patch("app.services.ticket_service.ShadowModeService") as MockService:
                 mock_shadow = MockService.return_value
                 mock_shadow.evaluate_action_risk.return_value = {
                     "requires_approval": True,
@@ -802,8 +845,8 @@ class TestTicketShadowIntegrationDay3:
         mock_ticket.shadow_log_id = None
         mock_ticket.risk_score = None
 
-        with patch.object(ticket_service, 'get_ticket', return_value=mock_ticket):
-            with patch.object(ticket_service, 'evaluate_ticket_shadow') as mock_eval:
+        with patch.object(ticket_service, "get_ticket", return_value=mock_ticket):
+            with patch.object(ticket_service, "evaluate_ticket_shadow") as mock_eval:
                 mock_eval.return_value = {
                     "requires_approval": True,
                     "risk_score": 0.8,
@@ -811,10 +854,13 @@ class TestTicketShadowIntegrationDay3:
                     "auto_execute": False,
                 }
 
-                with patch('app.services.ticket_service.ShadowModeService') as MockService:
+                with patch(
+                    "app.services.ticket_service.ShadowModeService"
+                ) as MockService:
                     mock_shadow = MockService.return_value
                     mock_shadow.log_shadow_action.return_value = {
-                        "id": str(uuid.uuid4())}
+                        "id": str(uuid.uuid4())
+                    }
 
                     result = ticket_service.resolve_ticket_with_shadow(
                         ticket_id=ticket_id,
@@ -834,8 +880,8 @@ class TestTicketShadowIntegrationDay3:
         mock_ticket.status = "in_progress"
         mock_ticket.shadow_status = "none"
 
-        with patch.object(ticket_service, 'get_ticket', return_value=mock_ticket):
-            with patch.object(ticket_service, 'evaluate_ticket_shadow') as mock_eval:
+        with patch.object(ticket_service, "get_ticket", return_value=mock_ticket):
+            with patch.object(ticket_service, "evaluate_ticket_shadow") as mock_eval:
                 mock_eval.return_value = {
                     "requires_approval": False,
                     "risk_score": 0.2,
@@ -843,12 +889,16 @@ class TestTicketShadowIntegrationDay3:
                     "auto_execute": True,
                 }
 
-                with patch('app.services.ticket_service.ShadowModeService') as MockService:
+                with patch(
+                    "app.services.ticket_service.ShadowModeService"
+                ) as MockService:
                     mock_shadow = MockService.return_value
                     mock_shadow.log_shadow_action.return_value = {
-                        "id": str(uuid.uuid4())}
+                        "id": str(uuid.uuid4())
+                    }
                     mock_shadow.approve_shadow_action.return_value = {
-                        "id": str(uuid.uuid4())}
+                        "id": str(uuid.uuid4())
+                    }
 
                     result = ticket_service.resolve_ticket_with_shadow(
                         ticket_id=ticket_id,
@@ -870,12 +920,15 @@ class TestTicketShadowIntegrationDay3:
         mock_ticket.shadow_log_id = str(uuid.uuid4())
         mock_ticket.status = "in_progress"
 
-        with patch.object(ticket_service, 'get_ticket', return_value=mock_ticket):
-            with patch.object(ticket_service, '_record_status_change'):
-                with patch('app.services.ticket_service.ShadowModeService') as MockService:
+        with patch.object(ticket_service, "get_ticket", return_value=mock_ticket):
+            with patch.object(ticket_service, "_record_status_change"):
+                with patch(
+                    "app.services.ticket_service.ShadowModeService"
+                ) as MockService:
                     mock_shadow = MockService.return_value
                     mock_shadow.approve_shadow_action.return_value = {
-                        "id": str(uuid.uuid4())}
+                        "id": str(uuid.uuid4())
+                    }
 
                     result = ticket_service.approve_ticket_resolution(
                         ticket_id=ticket_id,
@@ -894,7 +947,7 @@ class TestTicketShadowIntegrationDay3:
         mock_ticket.id = ticket_id
         mock_ticket.shadow_status = "approved"  # Already approved
 
-        with patch.object(ticket_service, 'get_ticket', return_value=mock_ticket):
+        with patch.object(ticket_service, "get_ticket", return_value=mock_ticket):
             result = ticket_service.approve_ticket_resolution(
                 ticket_id=ticket_id,
                 manager_id=str(uuid.uuid4()),
@@ -914,12 +967,15 @@ class TestTicketShadowIntegrationDay3:
         mock_ticket.shadow_log_id = str(uuid.uuid4())
         mock_ticket.status = "resolved"
 
-        with patch.object(ticket_service, 'get_ticket', return_value=mock_ticket):
-            with patch.object(ticket_service, '_record_status_change'):
-                with patch('app.services.ticket_service.ShadowModeService') as MockService:
+        with patch.object(ticket_service, "get_ticket", return_value=mock_ticket):
+            with patch.object(ticket_service, "_record_status_change"):
+                with patch(
+                    "app.services.ticket_service.ShadowModeService"
+                ) as MockService:
                     mock_shadow = MockService.return_value
                     mock_shadow.undo_auto_approved_action.return_value = {
-                        "undo_id": str(uuid.uuid4())}
+                        "undo_id": str(uuid.uuid4())
+                    }
 
                     result = ticket_service.undo_ticket_resolution(
                         ticket_id=ticket_id,
@@ -938,7 +994,7 @@ class TestTicketShadowIntegrationDay3:
         mock_ticket.id = ticket_id
         mock_ticket.shadow_status = "pending_approval"  # Not yet approved
 
-        with patch.object(ticket_service, 'get_ticket', return_value=mock_ticket):
+        with patch.object(ticket_service, "get_ticket", return_value=mock_ticket):
             result = ticket_service.undo_ticket_resolution(
                 ticket_id=ticket_id,
                 reason="Cannot undo pending",
@@ -1022,12 +1078,14 @@ class TestShadowModeEdgeCases:
 
         service = ShadowModeService()
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
             mock_company = MagicMock()
             mock_company.system_mode = "supervised"
             mock_company.shadow_actions_remaining = None
 
-            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = mock_company
+            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+                mock_company
+            )
 
             result = service.evaluate_action_risk(
                 company_id=str(uuid.uuid4()),
@@ -1044,8 +1102,10 @@ class TestShadowModeEdgeCases:
 
         service = ShadowModeService()
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
-            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = None
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
+            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+                None
+            )
 
             # Should return supervised mode as fallback
             result = service.evaluate_action_risk(

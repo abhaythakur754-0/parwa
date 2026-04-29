@@ -47,9 +47,9 @@ AI_OVERLOAD_FLAG: str = "AI_OVERLOAD"
 
 # Ordered escalation chain — lowest to highest variant tier.
 ESCALATION_CHAIN: List[str] = [
-    "mini_parwa",   # Tier 1 — Starter
-    "parwa",        # Tier 2 — Growth
-    "high_parwa",   # Tier 3 — High
+    "mini_parwa",  # Tier 1 — Starter
+    "parwa",  # Tier 2 — Growth
+    "high_parwa",  # Tier 3 — High
 ]
 
 VALID_VARIANTS: set = set(ESCALATION_CHAIN)
@@ -231,11 +231,13 @@ class CrossVariantRouter:
         """
         try:
             variant, _priority = DEFAULT_CHANNEL_MAPPINGS.get(
-                channel.value, ("parwa", 0),
+                channel.value,
+                ("parwa", 0),
             )
             logger.debug(
                 "Channel %s → default variant %s",
-                channel.value, variant,
+                channel.value,
+                variant,
             )
             return variant
         except Exception:
@@ -259,7 +261,8 @@ class CrossVariantRouter:
                 return mapping
 
         default_variant, priority = DEFAULT_CHANNEL_MAPPINGS.get(
-            channel.value, ("parwa", 0),
+            channel.value,
+            ("parwa", 0),
         )
         return ChannelMapping(
             channel=channel,
@@ -284,7 +287,10 @@ class CrossVariantRouter:
                 logger.warning(
                     "register_channel_mapping: invalid variant '%s' for "
                     "company_id=%s, channel=%s.  Valid variants: %s",
-                    variant, company_id, channel.value, VALID_VARIANTS,
+                    variant,
+                    company_id,
+                    channel.value,
+                    VALID_VARIANTS,
                 )
                 return
 
@@ -301,13 +307,18 @@ class CrossVariantRouter:
             logger.info(
                 "Registered channel mapping: company_id=%s, channel=%s → "
                 "variant=%s (priority=%d)",
-                company_id, channel.value, variant, priority,
+                company_id,
+                channel.value,
+                variant,
+                priority,
             )
         except Exception:
             logger.exception(
                 "register_channel_mapping failed for company_id=%s, "
                 "channel=%s, variant=%s",
-                company_id, channel.value, variant,
+                company_id,
+                channel.value,
+                variant,
             )
 
     # ── Capacity Management ──────────────────────────────────────
@@ -334,7 +345,8 @@ class CrossVariantRouter:
             logger.debug(
                 "No capacity data for company_id=%s, variant=%s — "
                 "returning zero-load default",
-                company_id, variant_type,
+                company_id,
+                variant_type,
             )
             return CapacitySnapshot(
                 variant_type=variant_type,
@@ -346,7 +358,8 @@ class CrossVariantRouter:
             logger.exception(
                 "get_capacity failed for company_id=%s, variant=%s — "
                 "returning safe zero-load default",
-                company_id, variant_type,
+                company_id,
+                variant_type,
             )
             return CapacitySnapshot(
                 variant_type=variant_type,
@@ -372,7 +385,9 @@ class CrossVariantRouter:
                 logger.warning(
                     "update_capacity: max_capacity must be > 0, got %d "
                     "for company_id=%s, variant=%s — ignoring",
-                    max_capacity, company_id, variant_type,
+                    max_capacity,
+                    company_id,
+                    variant_type,
                 )
                 return
 
@@ -390,14 +405,18 @@ class CrossVariantRouter:
                 self._capacity[company_id][variant_type] = snapshot
 
             logger.info(
-                "Capacity updated: company_id=%s, variant=%s — "
-                "load=%d/%d (%.1f%%)",
-                company_id, variant_type, load, max_capacity, pct,
+                "Capacity updated: company_id=%s, variant=%s — " "load=%d/%d (%.1f%%)",
+                company_id,
+                variant_type,
+                load,
+                max_capacity,
+                pct,
             )
         except Exception:
             logger.exception(
                 "update_capacity failed for company_id=%s, variant=%s",
-                company_id, variant_type,
+                company_id,
+                variant_type,
             )
 
     def get_variant_load_summary(
@@ -458,12 +477,14 @@ class CrossVariantRouter:
 
             logger.info(
                 "Capacity reset: company_id=%s, variant=%s",
-                company_id, variant_type or "(all)",
+                company_id,
+                variant_type or "(all)",
             )
         except Exception:
             logger.exception(
                 "reset_capacity failed for company_id=%s, variant=%s",
-                company_id, variant_type,
+                company_id,
+                variant_type,
             )
 
     # ── Escalation Chain Helpers ─────────────────────────────────
@@ -474,14 +495,18 @@ class CrossVariantRouter:
         Returns ``None`` if *variant_type* is already the highest tier.
         """
         try:
-            idx = ESCALATION_CHAIN.index(
-                variant_type) if variant_type in ESCALATION_CHAIN else -1
+            idx = (
+                ESCALATION_CHAIN.index(variant_type)
+                if variant_type in ESCALATION_CHAIN
+                else -1
+            )
             if idx >= 0 and idx < len(ESCALATION_CHAIN) - 1:
                 return ESCALATION_CHAIN[idx + 1]
             return None
         except Exception:
             logger.exception(
-                "get_next_variant failed for variant=%s", variant_type,
+                "get_next_variant failed for variant=%s",
+                variant_type,
             )
             return None
 
@@ -531,8 +556,7 @@ class CrossVariantRouter:
             complexity_trigger = False
 
             # Complexity escalation only for lower variants
-            if complexity_score > 0.8 and variant_type in (
-                    "mini_parwa", "parwa"):
+            if complexity_score > 0.8 and variant_type in ("mini_parwa", "parwa"):
                 complexity_trigger = True
 
             if not (capacity_trigger or complexity_trigger):
@@ -545,28 +569,32 @@ class CrossVariantRouter:
                     "Escalation needed (capacity=%.1f%%, complexity=%.2f) "
                     "but variant=%s is already highest tier for "
                     "company_id=%s",
-                    snapshot.utilization_pct, complexity_score,
-                    variant_type, company_id,
+                    snapshot.utilization_pct,
+                    complexity_score,
+                    variant_type,
+                    company_id,
                 )
                 return True, None  # should_escalate but no target
 
             reason_parts: List[str] = []
             if capacity_trigger:
-                reason_parts.append(
-                    f"capacity at {
+                reason_parts.append(f"capacity at {
                         snapshot.utilization_pct:.1f}%")
             if complexity_trigger:
                 reason_parts.append(f"complexity score {complexity_score:.2f}")
             logger.info(
-                "Escalation recommended for company_id=%s: variant=%s → %s "
-                "(%s)",
-                company_id, variant_type, target, ", ".join(reason_parts),
+                "Escalation recommended for company_id=%s: variant=%s → %s " "(%s)",
+                company_id,
+                variant_type,
+                target,
+                ", ".join(reason_parts),
             )
             return True, target
         except Exception:
             logger.exception(
                 "should_escalate failed for company_id=%s, variant=%s",
-                company_id, variant_type,
+                company_id,
+                variant_type,
             )
             return False, None
 
@@ -600,7 +628,9 @@ class CrossVariantRouter:
                 original_variant = force_variant
                 logger.info(
                     "Forced variant for company_id=%s, ticket=%s: %s",
-                    company_id, ticket_id, force_variant,
+                    company_id,
+                    ticket_id,
+                    force_variant,
                 )
             else:
                 mapping = self._resolve_channel_mapping(company_id, channel)
@@ -610,7 +640,9 @@ class CrossVariantRouter:
 
             # Step 2 — check if escalation is needed
             should_esc, next_variant = self.should_escalate(
-                company_id, original_variant, complexity_score,
+                company_id,
+                original_variant,
+                complexity_score,
             )
 
             if not should_esc:
@@ -630,7 +662,10 @@ class CrossVariantRouter:
                 self._record_routing(company_id, ticket_id, result)
                 logger.info(
                     "Ticket %s routed to %s (company_id=%s, channel=%s)",
-                    ticket_id, original_variant, company_id, channel.value,
+                    ticket_id,
+                    original_variant,
+                    company_id,
+                    channel.value,
                 )
                 return result
 
@@ -661,8 +696,11 @@ class CrossVariantRouter:
                 if target_cap.utilization_pct <= CAPACITY_THRESHOLD_PCT:
                     # Found a variant with capacity
                     self._record_escalation(
-                        company_id, ticket_id,
-                        original_variant, target, reason,
+                        company_id,
+                        ticket_id,
+                        original_variant,
+                        target,
+                        reason,
                     )
                     result = RoutingResult(
                         ticket_id=ticket_id,
@@ -679,7 +717,10 @@ class CrossVariantRouter:
                     self._record_routing(company_id, ticket_id, result)
                     logger.info(
                         "Ticket %s escalated %s → %s (company_id=%s)",
-                        ticket_id, original_variant, target, company_id,
+                        ticket_id,
+                        original_variant,
+                        target,
+                        company_id,
                     )
                     return result
 
@@ -708,7 +749,8 @@ class CrossVariantRouter:
             logger.exception(
                 "route_ticket failed for company_id=%s, ticket=%s — "
                 "returning safe human-override fallback",
-                company_id, ticket_id,
+                company_id,
+                ticket_id,
             )
             return RoutingResult(
                 ticket_id=ticket_id,
@@ -748,7 +790,11 @@ class CrossVariantRouter:
                 logger.warning(
                     "Invalid escalation direction: %s → %s is not in "
                     "chain %s (company_id=%s, ticket=%s)",
-                    from_variant, to_variant, chain, company_id, ticket_id,
+                    from_variant,
+                    to_variant,
+                    chain,
+                    company_id,
+                    ticket_id,
                 )
                 return RoutingResult(
                     ticket_id=ticket_id,
@@ -777,8 +823,11 @@ class CrossVariantRouter:
                 )
 
             self._record_escalation(
-                company_id, ticket_id,
-                from_variant, to_variant, reason,
+                company_id,
+                ticket_id,
+                from_variant,
+                to_variant,
+                reason,
             )
 
             result = RoutingResult(
@@ -795,16 +844,19 @@ class CrossVariantRouter:
             self._record_routing(company_id, ticket_id, result)
 
             logger.info(
-                "Explicit escalation: ticket %s, %s → %s, reason=%s "
-                "(company_id=%s)",
-                ticket_id, from_variant, to_variant, reason.value,
+                "Explicit escalation: ticket %s, %s → %s, reason=%s " "(company_id=%s)",
+                ticket_id,
+                from_variant,
+                to_variant,
+                reason.value,
                 company_id,
             )
             return result
         except Exception:
             logger.exception(
                 "escalate_ticket failed for company_id=%s, ticket=%s",
-                company_id, ticket_id,
+                company_id,
+                ticket_id,
             )
             return RoutingResult(
                 ticket_id=ticket_id,
@@ -850,14 +902,20 @@ class CrossVariantRouter:
                 if next_cap.utilization_pct <= CAPACITY_THRESHOLD_PCT:
                     # Next tier has room — go there directly
                     self._record_escalation(
-                        company_id, ticket_id,
-                        original_variant, next_tier, reason,
+                        company_id,
+                        ticket_id,
+                        original_variant,
+                        next_tier,
+                        reason,
                     )
                     logger.info(
                         "W9-GAP-015: Bypassed queued variant %s, "
                         "routed ticket %s to next tier %s "
                         "(company_id=%s)",
-                        fallback_variant, ticket_id, next_tier, company_id,
+                        fallback_variant,
+                        ticket_id,
+                        next_tier,
+                        company_id,
                     )
                     return RoutingResult(
                         ticket_id=ticket_id,
@@ -891,8 +949,10 @@ class CrossVariantRouter:
                 "W9-GAP-015: Ticket %s queued (all targets at capacity). "
                 "Fallback timer=%ds, fallback_variant=%s, "
                 "company_id=%s",
-                ticket_id, ESCALATION_FALLBACK_SECONDS,
-                queued.fallback_variant, company_id,
+                ticket_id,
+                ESCALATION_FALLBACK_SECONDS,
+                queued.fallback_variant,
+                company_id,
             )
             return RoutingResult(
                 ticket_id=ticket_id,
@@ -945,7 +1005,10 @@ class CrossVariantRouter:
             "AI_OVERLOAD: Ticket %s cannot be handled by any variant "
             "(company_id=%s, original_variant=%s, reason=%s). "
             "Assigning to human queue.",
-            ticket_id, company_id, original_variant, reason,
+            ticket_id,
+            company_id,
+            original_variant,
+            reason,
         )
         return RoutingResult(
             ticket_id=ticket_id,
@@ -962,9 +1025,7 @@ class CrossVariantRouter:
 
     # ── Pending Queue Management (W9-GAP-015) ────────────────────
 
-    def process_pending_queue(
-            self,
-            company_id: str = "") -> List[RoutingResult]:
+    def process_pending_queue(self, company_id: str = "") -> List[RoutingResult]:
         """Process tickets in the pending queue whose fallback timer
         has expired.
 
@@ -1000,8 +1061,11 @@ class CrossVariantRouter:
                     cap = self.get_capacity(qt.company_id, next_variant)
                     if cap.utilization_pct <= CAPACITY_THRESHOLD_PCT:
                         self._record_escalation(
-                            qt.company_id, qt.ticket_id,
-                            qt.fallback_variant, next_variant, qt.reason,
+                            qt.company_id,
+                            qt.ticket_id,
+                            qt.fallback_variant,
+                            next_variant,
+                            qt.reason,
                         )
                         result = RoutingResult(
                             ticket_id=qt.ticket_id,
@@ -1021,7 +1085,9 @@ class CrossVariantRouter:
                         logger.info(
                             "W9-GAP-015: Queued ticket %s picked up by %s "
                             "after %.1fs (company_id=%s)",
-                            qt.ticket_id, next_variant, elapsed,
+                            qt.ticket_id,
+                            next_variant,
+                            elapsed,
                             qt.company_id,
                         )
                         continue
@@ -1044,9 +1110,9 @@ class CrossVariantRouter:
 
             if results:
                 logger.info(
-                    "process_pending_queue: processed %d tickets "
-                    "(%d still queued)",
-                    len(results), len(still_pending),
+                    "process_pending_queue: processed %d tickets " "(%d still queued)",
+                    len(results),
+                    len(still_pending),
                 )
             return results
         except Exception:
@@ -1080,17 +1146,22 @@ class CrossVariantRouter:
             # Check target variant is known
             if target_variant and target_variant not in VALID_VARIANTS:
                 reasons.append(
-                    f"target_variant '{target_variant}' is not a known variant", )
+                    f"target_variant '{target_variant}' is not a known variant",
+                )
 
             # Check original variant is known
             if original_variant not in VALID_VARIANTS:
                 reasons.append(
-                    f"original_variant '{original_variant}' is not a known variant", )
+                    f"original_variant '{original_variant}' is not a known variant",
+                )
 
             # Check escalation direction (must be same-tier or higher)
-            if (target_variant and original_variant
-                    and target_variant in VALID_VARIANTS
-                    and original_variant in VALID_VARIANTS):
+            if (
+                target_variant
+                and original_variant
+                and target_variant in VALID_VARIANTS
+                and original_variant in VALID_VARIANTS
+            ):
                 chain = self.get_escalation_chain(original_variant)
                 if target_variant not in chain:
                     reasons.append(
@@ -1112,7 +1183,10 @@ class CrossVariantRouter:
             logger.debug(
                 "Routing validation for ticket %s: valid=%s, "
                 "reasons=%s, warnings=%s",
-                ticket_id, is_valid, reasons, warnings,
+                ticket_id,
+                is_valid,
+                reasons,
+                warnings,
             )
             return {
                 "valid": is_valid,
@@ -1122,7 +1196,8 @@ class CrossVariantRouter:
         except Exception:
             logger.exception(
                 "validate_routing failed for company_id=%s, ticket=%s",
-                company_id, ticket_id,
+                company_id,
+                ticket_id,
             )
             return {
                 "valid": False,
@@ -1146,13 +1221,15 @@ class CrossVariantRouter:
                 history = self._routing_history.get(ticket_id, [])
             logger.debug(
                 "Routing history for ticket %s: %d entries",
-                ticket_id, len(history),
+                ticket_id,
+                len(history),
             )
             return list(history)
         except Exception:
             logger.exception(
                 "get_routing_history failed for company_id=%s, ticket=%s",
-                company_id, ticket_id,
+                company_id,
+                ticket_id,
             )
             return []
 
@@ -1182,11 +1259,15 @@ class CrossVariantRouter:
 
             logger.info(
                 "Escalation recorded: ticket %s, %s → %s, reason=%s",
-                ticket_id, from_variant, to_variant, reason.value,
+                ticket_id,
+                from_variant,
+                to_variant,
+                reason.value,
             )
         except Exception:
             logger.exception(
-                "_record_escalation failed for ticket=%s", ticket_id,
+                "_record_escalation failed for ticket=%s",
+                ticket_id,
             )
 
     def _record_routing(
@@ -1211,12 +1292,15 @@ class CrossVariantRouter:
             logger.debug(
                 "Routing decision recorded: ticket=%s, decision=%s, "
                 "target=%s, company_id=%s",
-                ticket_id, result.decision.value, result.target_variant,
+                ticket_id,
+                result.decision.value,
+                result.target_variant,
                 company_id,
             )
         except Exception:
             logger.exception(
-                "_record_routing failed for ticket=%s", ticket_id,
+                "_record_routing failed for ticket=%s",
+                ticket_id,
             )
 
     # ── Diagnostics ──────────────────────────────────────────────
@@ -1230,8 +1314,7 @@ class CrossVariantRouter:
             with self._lock:
                 queue = self._pending_queue
                 if company_id:
-                    return sum(
-                        1 for qt in queue if qt.company_id == company_id)
+                    return sum(1 for qt in queue if qt.company_id == company_id)
                 return len(queue)
         except Exception:
             logger.exception("get_pending_queue_size failed")
@@ -1246,8 +1329,7 @@ class CrossVariantRouter:
             with self._lock:
                 total_routed = len(self._routing_history)
                 escalated_count = sum(
-                    1 for paths in self._routing_history.values()
-                    for p in paths
+                    1 for paths in self._routing_history.values() for p in paths
                 )
                 queue_size = len(self._pending_queue)
 

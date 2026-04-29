@@ -112,14 +112,14 @@ class ResponseGenerationRequest:
     # D5-1 FIX: Pre-computed sentiment fields from pipeline Stage 5.
     # When provided, generate() skips its internal sentiment analysis
     # (saves ~1-2s latency per request by avoiding duplicate work).
-    frustration_score: float = 0.0          # 0-100 from SentimentAnalyzer
-    sentiment_score: float = 0.5            # 0.0-1.0 from SentimentAnalyzer
+    frustration_score: float = 0.0  # 0-100 from SentimentAnalyzer
+    sentiment_score: float = 0.5  # 0.0-1.0 from SentimentAnalyzer
     # angry/frustrated/disappointed/neutral/happy/delighted
     emotion: str = "neutral"
-    urgency_level: str = "low"              # low/medium/high/critical
+    urgency_level: str = "low"  # low/medium/high/critical
     # empathetic/urgent/de-escalation/standard
     tone_recommendation: str = "standard"
-    selected_model: Optional[str] = None    # from Smart Router Stage 6
+    selected_model: Optional[str] = None  # from Smart Router Stage 6
     selected_technique: Optional[str] = None  # from Technique Router Stage 7
 
 
@@ -342,7 +342,8 @@ class ResponseGenerator:
 
         try:
             top_k = _VARIANT_RAG_TOP_K.get(
-                request.variant_type, _VARIANT_RAG_TOP_K["parwa"],
+                request.variant_type,
+                _VARIANT_RAG_TOP_K["parwa"],
             )
 
             rag_result = await self.rag_retriever.retrieve(
@@ -375,7 +376,8 @@ class ResponseGenerator:
 
                 # ── Step 4: Context Assembly ────────────────────────
                 context_tokens = _VARIANT_CONTEXT_TOKENS.get(
-                    request.variant_type, _VARIANT_CONTEXT_TOKENS["parwa"],
+                    request.variant_type,
+                    _VARIANT_CONTEXT_TOKENS["parwa"],
                 )
                 try:
                     assembled = self.assembler.assemble(
@@ -384,9 +386,7 @@ class ResponseGenerator:
                         query=request.query,
                     )
                     rag_context_string = assembled.context_string
-                    citations = [
-                        c.to_dict() for c in assembled.citations
-                    ]
+                    citations = [c.to_dict() for c in assembled.citations]
                 except Exception as exc:
                     logger.warning(
                         "response_gen_context_assembly_failed",
@@ -429,7 +429,8 @@ class ResponseGenerator:
             query_tokens = len(request.query) // _CHARS_PER_TOKEN
             context_tokens_est = len(rag_context_string) // _CHARS_PER_TOKEN
             max_response_tokens = _VARIANT_MAX_RESPONSE_TOKENS.get(
-                request.variant_type, 512,
+                request.variant_type,
+                512,
             )
             estimated_tokens = query_tokens + context_tokens_est + max_response_tokens
 
@@ -540,7 +541,8 @@ class ResponseGenerator:
             )
 
             max_tokens = _VARIANT_MAX_RESPONSE_TOKENS.get(
-                request.variant_type, 512,
+                request.variant_type,
+                512,
             )
 
             llm_result = await asyncio.wait_for(
@@ -559,8 +561,7 @@ class ResponseGenerator:
 
             # Track actual tokens used (approximate)
             actual_tokens = (
-                len(generated_response) // _CHARS_PER_TOKEN
-                + estimated_tokens
+                len(generated_response) // _CHARS_PER_TOKEN + estimated_tokens
             )
             tokens_used = actual_tokens
 
@@ -631,12 +632,24 @@ class ResponseGenerator:
                 customer_sentiment=sentiment_score,
                 context={
                     "rag_context_used": rag_context_used,
-                    "brand_config_tone": getattr(
-                        brand_config, "tone", "professional",
-                    ) if brand_config else "professional",
-                    "formality_level": getattr(
-                        brand_config, "formality_level", 0.5,
-                    ) if brand_config else 0.5,
+                    "brand_config_tone": (
+                        getattr(
+                            brand_config,
+                            "tone",
+                            "professional",
+                        )
+                        if brand_config
+                        else "professional"
+                    ),
+                    "formality_level": (
+                        getattr(
+                            brand_config,
+                            "formality_level",
+                            0.5,
+                        )
+                        if brand_config
+                        else 0.5
+                    ),
                 },
             )
 
@@ -645,11 +658,7 @@ class ResponseGenerator:
 
             # Collect quality issues from failed stages
             for stage_output in clara_result.stages:
-                if hasattr(
-                        stage_output,
-                        "result") and hasattr(
-                        stage_output,
-                        "issues"):
+                if hasattr(stage_output, "result") and hasattr(stage_output, "issues"):
                     if stage_output.result.value in ("fail", "error"):
                         quality_issues.extend(stage_output.issues)
 
@@ -706,21 +715,32 @@ class ResponseGenerator:
             formatting_context = FormattingContext(
                 company_id=request.company_id,
                 variant_type=request.variant_type,
-                brand_voice=getattr(brand_config, "tone", "professional")
-                if brand_config else "professional",
+                brand_voice=(
+                    getattr(brand_config, "tone", "professional")
+                    if brand_config
+                    else "professional"
+                ),
                 model_tier="medium",
-                customer_tier=request.customer_metadata.get("tier", "free")
-                if request.customer_metadata else "free",
+                customer_tier=(
+                    request.customer_metadata.get("tier", "free")
+                    if request.customer_metadata
+                    else "free"
+                ),
                 intent_type=request.intent_type,
                 sentiment_score=sentiment_score,
                 formality_level=(
-                    "high"
-                    if getattr(brand_config, "formality_level", 0.5) > 0.7
+                    (
+                        "high"
+                        if getattr(brand_config, "formality_level", 0.5) > 0.7
+                        else (
+                            "medium"
+                            if getattr(brand_config, "formality_level", 0.5) > 0.3
+                            else "low"
+                        )
+                    )
+                    if brand_config
                     else "medium"
-                    if getattr(brand_config, "formality_level", 0.5) > 0.3
-                    else "low"
-                )
-                if brand_config else "medium",
+                ),
             )
 
             format_result = registry.apply_all(
@@ -785,7 +805,8 @@ class ResponseGenerator:
 
         # ── Build final result ─────────────────────────────────────
         generation_time_ms = round(
-            (time.monotonic() - pipeline_start) * 1000, 2,
+            (time.monotonic() - pipeline_start) * 1000,
+            2,
         )
 
         logger.info(
@@ -860,14 +881,16 @@ class ResponseGenerator:
             hourly_count = await self.redis_client.incr(hour_key)
             if hourly_count == 1:
                 await self.redis_client.expire(
-                    hour_key, 3600,
+                    hour_key,
+                    3600,
                 )
 
             # Increment daily counter
             daily_count = await self.redis_client.incr(day_key)
             if daily_count == 1:
                 await self.redis_client.expire(
-                    day_key, _RATE_LIMIT_TTL_SECONDS,
+                    day_key,
+                    _RATE_LIMIT_TTL_SECONDS,
                 )
 
             hourly_allowed = hourly_count <= RATE_LIMIT_HOURLY_MAX
@@ -877,10 +900,10 @@ class ResponseGenerator:
             reason: str = ""
             if not hourly_allowed:
                 reason = (
-                    f"Hourly limit exceeded: {hourly_count}/{RATE_LIMIT_HOURLY_MAX}")
+                    f"Hourly limit exceeded: {hourly_count}/{RATE_LIMIT_HOURLY_MAX}"
+                )
             elif not daily_allowed:
-                reason = (
-                    f"Daily limit exceeded: {daily_count}/{RATE_LIMIT_DAILY_MAX}")
+                reason = f"Daily limit exceeded: {daily_count}/{RATE_LIMIT_DAILY_MAX}"
 
             if not allowed:
                 logger.info(
@@ -1010,7 +1033,9 @@ class ResponseGenerator:
             tone = getattr(brand_config, "tone", tone)
             formality_level = getattr(brand_config, "formality_level", 0.5)
             if formality_level > 0.7:
-                formality_desc = "high formality — avoid contractions, use precise language"
+                formality_desc = (
+                    "high formality — avoid contractions, use precise language"
+                )
             elif formality_level > 0.4:
                 formality_desc = "medium formality — be polite but approachable"
             else:
@@ -1021,7 +1046,9 @@ class ResponseGenerator:
         # ── Response length ───────────────────────────────────────
         if brand_config:
             length_pref = getattr(
-                brand_config, "response_length_preference", "standard",
+                brand_config,
+                "response_length_preference",
+                "standard",
             )
             max_sentences = getattr(brand_config, "max_response_sentences", 6)
             min_sentences = getattr(brand_config, "min_response_sentences", 2)
@@ -1036,9 +1063,7 @@ class ResponseGenerator:
             prohibited = getattr(brand_config, "prohibited_words", [])
             if prohibited:
                 words_str = ", ".join(f'"{w}"' for w in prohibited)
-                parts.append(
-                    f"\n**PROHIBITED WORDS** (never use these): {words_str}"
-                )
+                parts.append(f"\n**PROHIBITED WORDS** (never use these): {words_str}")
 
         # ── Custom instructions ───────────────────────────────────
         if brand_config:
@@ -1051,13 +1076,19 @@ class ResponseGenerator:
             frustration = getattr(sentiment_result, "frustration_score", 0)
             emotion = getattr(sentiment_result, "emotion", "neutral")
             tone_rec = getattr(
-                sentiment_result, "tone_recommendation", "standard",
+                sentiment_result,
+                "tone_recommendation",
+                "standard",
             )
             trend = getattr(
-                sentiment_result, "conversation_trend", "stable",
+                sentiment_result,
+                "conversation_trend",
+                "stable",
             )
             empathy_signals = getattr(
-                sentiment_result, "empathy_signals", [],
+                sentiment_result,
+                "empathy_signals",
+                [],
             )
 
             if frustration >= 70:
@@ -1124,8 +1155,7 @@ class ResponseGenerator:
                     )
                 if signal_handling:
                     parts.append(
-                        "\n**Empathy signals detected:**\n"
-                        + "\n".join(signal_handling)
+                        "\n**Empathy signals detected:**\n" + "\n".join(signal_handling)
                     )
 
         # ── RAG context instructions ──────────────────────────────
@@ -1148,9 +1178,7 @@ class ResponseGenerator:
 
         # ── Language instruction ──────────────────────────────────
         if request.language and request.language != "en":
-            parts.append(
-                f"\n**Language:** Respond in {request.language}."
-            )
+            parts.append(f"\n**Language:** Respond in {request.language}.")
 
         # ── General quality rules ─────────────────────────────────
         parts.append(
@@ -1191,8 +1219,7 @@ class ResponseGenerator:
         messages.append({"role": "system", "content": system_prompt})
 
         # Conversation history (last 10 messages)
-        history_to_include = conversation_history[-10:] if conversation_history else [
-        ]
+        history_to_include = conversation_history[-10:] if conversation_history else []
         for msg in history_to_include:
             if not isinstance(msg, dict):
                 continue
@@ -1209,10 +1236,12 @@ class ResponseGenerator:
 
         # RAG context as a follow-up system message
         if rag_context and rag_context.strip():
-            messages.append({
-                "role": "system",
-                "content": f"Relevant knowledge base context:\n\n{rag_context}",
-            })
+            messages.append(
+                {
+                    "role": "system",
+                    "content": f"Relevant knowledge base context:\n\n{rag_context}",
+                }
+            )
 
         return messages
 
@@ -1256,7 +1285,8 @@ class ResponseGenerator:
 
             if request.customer_metadata:
                 customer_name = request.customer_metadata.get(
-                    "name", customer_name,
+                    "name",
+                    customer_name,
                 )
 
             # Try to get brand name from brand config
@@ -1265,13 +1295,16 @@ class ResponseGenerator:
                     company_id=request.company_id,
                 )
                 company_name = getattr(
-                    brand_config, "brand_name", company_name,
+                    brand_config,
+                    "brand_name",
+                    company_name,
                 )
             except Exception as exc:
                 logger.debug(
                     "brand_config_fetch_failed",
                     error=str(exc),
-                    company_id=request.company_id)
+                    company_id=request.company_id,
+                )
 
             variables = {
                 "customer_name": customer_name,
@@ -1303,6 +1336,7 @@ class ResponseGenerator:
                     FormattingContext,
                     create_default_registry,
                 )
+
                 registry = create_default_registry()
                 fmt_ctx = FormattingContext(
                     company_id=request.company_id,
@@ -1311,7 +1345,8 @@ class ResponseGenerator:
                     intent_type=request.intent_type,
                 )
                 fmt_result = registry.apply_all(
-                    response=rendered, context=fmt_ctx,
+                    response=rendered,
+                    context=fmt_ctx,
                 )
                 rendered = fmt_result.formatted_text
                 formatters_applied = fmt_result.formatters_applied
@@ -1322,7 +1357,8 @@ class ResponseGenerator:
                 )
 
             generation_time_ms = round(
-                (time.monotonic() - pipeline_start) * 1000, 2,
+                (time.monotonic() - pipeline_start) * 1000,
+                2,
             )
 
             logger.info(
@@ -1382,7 +1418,8 @@ class ResponseGenerator:
     ) -> ResponseGenerationResult:
         """Return a safe, minimal result when generation is impossible."""
         generation_time_ms = round(
-            (time.monotonic() - pipeline_start) * 1000, 2,
+            (time.monotonic() - pipeline_start) * 1000,
+            2,
         )
 
         response_text: str = ""

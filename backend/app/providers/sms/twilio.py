@@ -70,10 +70,7 @@ class TwilioSMSProvider(SMSProvider):
                     success=True,
                     provider_name=self.provider_name,
                     operation="test_connection",
-                    metadata={
-                        "friendly_name": data.get(
-                            "friendly_name",
-                            "unknown")},
+                    metadata={"friendly_name": data.get("friendly_name", "unknown")},
                 )
             else:
                 return ProviderResult(
@@ -145,8 +142,13 @@ class TwilioSMSProvider(SMSProvider):
                     },
                 )
             else:
-                data = response.json() if response.headers.get(
-                    "content-type", "").startswith("application/json") else {}
+                data = (
+                    response.json()
+                    if response.headers.get("content-type", "").startswith(
+                        "application/json"
+                    )
+                    else {}
+                )
                 return ProviderResult(
                     success=False,
                     provider_name=self.provider_name,

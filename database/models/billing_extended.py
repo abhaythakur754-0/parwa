@@ -21,7 +21,17 @@ from typing import Optional
 import uuid
 
 from sqlalchemy import (
-    Boolean, Column, Date, DateTime, Integer, JSON, Numeric, String, Text, ForeignKey, Index
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Integer,
+    JSON,
+    Numeric,
+    String,
+    Text,
+    ForeignKey,
+    Index,
 )
 from sqlalchemy.orm import relationship
 
@@ -34,14 +44,16 @@ def _uuid() -> str:
 
 # ── Client Refund Model ─────────────────────────────────────────────────────
 
+
 class ClientRefund(Base):
     """
     PARWA clients refunding THEIR customers.
-    
+
     This is NOT PARWA refunding clients (NO REFUNDS policy).
     Use case: PARWA client has e-commerce store, customer requests refund,
     PARWA AI agent processes refund, we track for analytics.
     """
+
     __tablename__ = "client_refunds"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -71,8 +83,10 @@ class ClientRefund(Base):
 
 # ── Payment Method Model ────────────────────────────────────────────────────
 
+
 class PaymentMethod(Base):
     """Payment method cache from Paddle."""
+
     __tablename__ = "payment_methods"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -102,8 +116,10 @@ class PaymentMethod(Base):
 
 # ── Usage Record Model ──────────────────────────────────────────────────────
 
+
 class UsageRecord(Base):
     """Daily/monthly usage tracking."""
+
     __tablename__ = "usage_records"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -124,7 +140,9 @@ class UsageRecord(Base):
 
     # Unique constraint: one record per company per day
     __table_args__ = (
-        Index("uq_usage_records_company_date", "company_id", "record_date", unique=True),
+        Index(
+            "uq_usage_records_company_date", "company_id", "record_date", unique=True
+        ),
     )
 
     # Relationships
@@ -133,12 +151,16 @@ class UsageRecord(Base):
 
 # ── Variant Limit Model ─────────────────────────────────────────────────────
 
+
 class VariantLimit(Base):
     """Variant feature limits."""
+
     __tablename__ = "variant_limits"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    variant_name = Column(String(50), unique=True, nullable=False)  # starter/growth/high
+    variant_name = Column(
+        String(50), unique=True, nullable=False
+    )  # starter/growth/high
     monthly_tickets = Column(Integer, nullable=False)
     ai_agents = Column(Integer, nullable=False)
     team_members = Column(Integer, nullable=False)
@@ -155,14 +177,18 @@ class VariantLimit(Base):
 
 # ── Idempotency Key Model ──────────────────────────────────────────────────
 
+
 class IdempotencyKey(Base):
     """Webhook idempotency tracking."""
+
     __tablename__ = "idempotency_keys"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(String(36), ForeignKey("companies.id"), nullable=True)
     idempotency_key = Column(String(255), unique=True, nullable=False)
-    resource_type = Column(String(50), nullable=False)  # paddle_webhook, stripe_webhook, etc
+    resource_type = Column(
+        String(50), nullable=False
+    )  # paddle_webhook, stripe_webhook, etc
     resource_id = Column(String(255), nullable=True)
     request_body_hash = Column(String(64), nullable=True)  # SHA-256 hash
     response_status = Column(Integer, nullable=True)
@@ -173,8 +199,10 @@ class IdempotencyKey(Base):
 
 # ── Webhook Sequence Model ──────────────────────────────────────────────────
 
+
 class WebhookSequence(Base):
     """Webhook ordering tracking."""
+
     __tablename__ = "webhook_sequences"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -184,7 +212,9 @@ class WebhookSequence(Base):
     occurred_at = Column(DateTime, nullable=False)
     processed_at = Column(DateTime, nullable=True)
     processing_order = Column(Integer, nullable=True)
-    status = Column(String(20), default="pending")  # pending/processing/processed/failed
+    status = Column(
+        String(20), default="pending"
+    )  # pending/processing/processed/failed
     error_message = Column(Text, nullable=True)
     retry_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
@@ -192,8 +222,10 @@ class WebhookSequence(Base):
 
 # ── Proration Audit Model ───────────────────────────────────────────────────
 
+
 class ProrationAudit(Base):
     """Proration calculation audit trail."""
+
     __tablename__ = "proration_audits"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -224,6 +256,7 @@ class ProrationAudit(Base):
 
 # ── Data Export Model (Day 4: C5) ───────────────────────────────────
 
+
 class DataExport(Base):
     """
     Data export records for canceled subscriptions.
@@ -231,6 +264,7 @@ class DataExport(Base):
     C5: Tracks async data export jobs. When a customer cancels,
     they can export all company data as a ZIP file (JSON + CSV).
     """
+
     __tablename__ = "data_exports"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -240,7 +274,9 @@ class DataExport(Base):
         nullable=False,
         index=True,
     )
-    status = Column(String(20), nullable=False, default="processing")  # processing/completed/failed/expired
+    status = Column(
+        String(20), nullable=False, default="processing"
+    )  # processing/completed/failed/expired
     format = Column(String(20), default="zip")
     file_size_bytes = Column(Integer, nullable=True)
     export_data_json = Column(Text, nullable=True)  # Temporary storage for export data
@@ -256,8 +292,10 @@ class DataExport(Base):
 
 # ── Payment Failure Model ───────────────────────────────────────────────────
 
+
 class PaymentFailure(Base):
     """Payment failure audit log."""
+
     __tablename__ = "payment_failures"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -275,7 +313,9 @@ class PaymentFailure(Base):
     currency = Column(String(3), default="USD")
     service_stopped_at = Column(DateTime, nullable=True)
     service_resumed_at = Column(DateTime, nullable=True)
-    grace_period_ends_at = Column(DateTime, nullable=True)  # 7-day grace period deadline
+    grace_period_ends_at = Column(
+        DateTime, nullable=True
+    )  # 7-day grace period deadline
     notification_sent = Column(Boolean, default=False)
     resolved = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
@@ -285,6 +325,7 @@ class PaymentFailure(Base):
 
 
 # ── Company Variant Add-On Model (Day 3: V1) ──────────────────────────
+
 
 class CompanyVariant(Base):
     """Industry variant add-on for a company.
@@ -299,13 +340,18 @@ class CompanyVariant(Base):
     - Archive: At period end cron, KB data archived (not deleted)
     - Restore: Re-add from archived, creates new Paddle item
     """
+
     __tablename__ = "company_variants"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(String(36), nullable=False, index=True)
-    variant_id = Column(String(50), nullable=False)  # ecommerce, saas, logistics, others
+    variant_id = Column(
+        String(50), nullable=False
+    )  # ecommerce, saas, logistics, others
     display_name = Column(String(100), nullable=False)
-    status = Column(String(20), nullable=False, default="active")  # active, inactive, archived
+    status = Column(
+        String(20), nullable=False, default="active"
+    )  # active, inactive, archived
     price_per_month = Column(Numeric(10, 2), nullable=False)
     tickets_added = Column(Integer, nullable=False, default=0)
     kb_docs_added = Column(Integer, nullable=False, default=0)
@@ -318,11 +364,13 @@ class CompanyVariant(Base):
 
 # ── Chargeback Model (Day 5) ──────────────────────────────────────────────────
 
+
 class Chargeback(Base):
     """Track chargebacks from payment processor.
 
     Status lifecycle: received → under_review → won/lost
     """
+
     __tablename__ = "chargebacks"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -355,12 +403,14 @@ class Chargeback(Base):
 
 # ── Credit Balance Model (Day 5: RF3) ────────────────────────────────────────
 
+
 class CreditBalance(Base):
     """Customer credit balance system.
 
     Sources: refund, promo, goodwill, cooling_off
     Status lifecycle: available → partially_used → fully_used/expired
     """
+
     __tablename__ = "credit_balances"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -377,7 +427,9 @@ class CreditBalance(Base):
     expires_at = Column(DateTime, nullable=True)
     applied_to_invoice_id = Column(String(36), nullable=True)
     applied_at = Column(DateTime, nullable=True)
-    status = Column(String(20), default="available")  # available/partially_used/fully_used/expired
+    status = Column(
+        String(20), default="available"
+    )  # available/partially_used/fully_used/expired
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(
         DateTime,
@@ -391,12 +443,14 @@ class CreditBalance(Base):
 
 # ── Spending Cap Model (Day 5: SC1) ──────────────────────────────────────────
 
+
 class SpendingCap(Base):
     """Customer-configurable overage spending caps.
 
     NULL max_overage_amount means no cap (default).
     Alert thresholds stored as JSON string, e.g. '[50,75,90]'.
     """
+
     __tablename__ = "spending_caps"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -424,12 +478,14 @@ class SpendingCap(Base):
 
 # ── Dead Letter Webhook Model (Day 5: WH3) ───────────────────────────────────
 
+
 class DeadLetterWebhook(Base):
     """Failed webhook processing queue.
 
     Stores webhooks that failed processing for later retry or manual inspection.
     Status lifecycle: pending → retrying → processed/discarded
     """
+
     __tablename__ = "dead_letter_webhooks"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -439,7 +495,9 @@ class DeadLetterWebhook(Base):
     event_type = Column(String(100), nullable=True)
     payload = Column(JSON, nullable=True)
     error_message = Column(Text, nullable=True)
-    status = Column(String(20), default="pending")  # pending/retrying/processed/discarded
+    status = Column(
+        String(20), default="pending"
+    )  # pending/retrying/processed/discarded
     retry_count = Column(Integer, default=0)
     max_retries = Column(Integer, default=3)
     next_retry_at = Column(DateTime, nullable=True)
@@ -455,11 +513,13 @@ class DeadLetterWebhook(Base):
 
 # ── Webhook Health Stat Model (Day 5: WH2) ──────────────────────────────────
 
+
 class WebhookHealthStat(Base):
     """Webhook health monitoring.
 
     Daily aggregation of webhook processing metrics per provider.
     """
+
     __tablename__ = "webhook_health_stats"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -475,12 +535,14 @@ class WebhookHealthStat(Base):
 
 # ── Refund Audit Model (Day 5: RF5) ──────────────────────────────────────────
 
+
 class RefundAudit(Base):
     """Refund audit trail.
 
     Tracks all refund requests with dual-approval for amounts > $500.
     Status lifecycle: pending → approved/rejected → processed/failed
     """
+
     __tablename__ = "refund_audits"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -500,7 +562,9 @@ class RefundAudit(Base):
     second_approver_name = Column(String(255), nullable=True)
     paddle_refund_id = Column(String(255), nullable=True)
     credit_balance_id = Column(String(36), nullable=True)
-    status = Column(String(20), default="pending")  # pending/approved/rejected/processed/failed
+    status = Column(
+        String(20), default="pending"
+    )  # pending/approved/rejected/processed/failed
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
     # Relationships
@@ -514,8 +578,10 @@ class RefundAudit(Base):
 
 # ── Promo Code Model (Day 6: MF3) ──────────────────────────────────────
 
+
 class PromoCode(Base):
     """MF3: Discount/promo code system."""
+
     __tablename__ = "promo_codes"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -526,7 +592,9 @@ class PromoCode(Base):
     used_count = Column(Integer, default=0)
     valid_from = Column(DateTime(timezone=True), nullable=True)
     valid_until = Column(DateTime(timezone=True), nullable=True)
-    applies_to_tiers = Column(JSON, nullable=True)  # list of tier codes, null = all tiers
+    applies_to_tiers = Column(
+        JSON, nullable=True
+    )  # list of tier codes, null = all tiers
     created_by = Column(String, nullable=True)  # admin user id
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.utcnow())
@@ -535,8 +603,10 @@ class PromoCode(Base):
 
 # ── Company Promo Use Model (Day 6: MF3) ──────────────────────────────
 
+
 class CompanyPromoUse(Base):
     """MF3: Track which companies used which promo codes."""
+
     __tablename__ = "company_promo_uses"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -549,8 +619,10 @@ class CompanyPromoUse(Base):
 
 # ── Invoice Amendment Model (Day 6: MF7) ──────────────────────────────
 
+
 class InvoiceAmendment(Base):
     """MF7: Invoice amendment records."""
+
     __tablename__ = "invoice_amendments"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -558,7 +630,9 @@ class InvoiceAmendment(Base):
     company_id = Column(String(36), nullable=False, index=True)
     original_amount = Column(Numeric(10, 2), nullable=False)
     new_amount = Column(Numeric(10, 2), nullable=False)
-    amendment_type = Column(String(20), nullable=False)  # 'credit' or 'additional_charge'
+    amendment_type = Column(
+        String(20), nullable=False
+    )  # 'credit' or 'additional_charge'
     reason = Column(Text, nullable=False)
     approved_by = Column(String(36), nullable=True)  # admin who approved
     paddle_credit_note_id = Column(String(255), nullable=True)
@@ -567,8 +641,10 @@ class InvoiceAmendment(Base):
 
 # ── Pause Record Model (Day 6: MF2) ──────────────────────────────────
 
+
 class PauseRecord(Base):
     """MF2: Subscription pause/resume tracking."""
+
     __tablename__ = "pause_records"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -584,10 +660,11 @@ class PauseRecord(Base):
 
 # ── Convenience Functions ───────────────────────────────────────────────────
 
+
 def get_variant_limits(variant_name: str) -> Optional[dict]:
     """
     Get variant limits by name.
-    
+
     Returns dict with limits or None if not found.
     """
     # Hardcoded fallback (matches migration data)
@@ -599,7 +676,9 @@ def get_variant_limits(variant_name: str) -> Optional[dict]:
             "voice_slots": 0,
             "kb_docs": 100,
             "price_monthly": Decimal("999.00"),
-            "price_yearly": Decimal("9590.40"),  # 999 * 12 * 0.80 = 9590.40 (20% discount)
+            "price_yearly": Decimal(
+                "9590.40"
+            ),  # 999 * 12 * 0.80 = 9590.40 (20% discount)
         },
         "parwa": {
             "monthly_tickets": 5000,
@@ -608,7 +687,9 @@ def get_variant_limits(variant_name: str) -> Optional[dict]:
             "voice_slots": 2,
             "kb_docs": 500,
             "price_monthly": Decimal("2499.00"),
-            "price_yearly": Decimal("23990.40"),  # 2499 * 12 * 0.80 = 23990.40 (20% discount)
+            "price_yearly": Decimal(
+                "23990.40"
+            ),  # 2499 * 12 * 0.80 = 23990.40 (20% discount)
         },
         "high_parwa": {
             "monthly_tickets": 15000,
@@ -617,7 +698,9 @@ def get_variant_limits(variant_name: str) -> Optional[dict]:
             "voice_slots": 5,
             "kb_docs": 2000,
             "price_monthly": Decimal("3999.00"),
-            "price_yearly": Decimal("38390.40"),  # 3999 * 12 * 0.80 = 38390.40 (20% discount)
+            "price_yearly": Decimal(
+                "38390.40"
+            ),  # 3999 * 12 * 0.80 = 38390.40 (20% discount)
         },
     }
     return LIMITS.get(variant_name.lower())
@@ -626,14 +709,14 @@ def get_variant_limits(variant_name: str) -> Optional[dict]:
 def calculate_overage(tickets_used: int, ticket_limit: int) -> dict:
     """
     Calculate overage charges.
-    
+
     Overage rate: $0.10/ticket over limit
-    
+
     Returns dict with overage_tickets and overage_charges.
     """
     overage_tickets = max(0, tickets_used - ticket_limit)
     overage_charges = Decimal(str(overage_tickets)) * Decimal("0.10")
-    
+
     return {
         "overage_tickets": overage_tickets,
         "overage_charges": overage_charges,

@@ -49,6 +49,7 @@ _PRIORITY_WEIGHT_ENTITY: float = 0.3
 
 class CompressionStrategy(str, Enum):
     """Available compression algorithms."""
+
     EXTRACTIVE = "extractive"
     ABSTRACTIVE = "abstractive"
     HYBRID = "hybrid"
@@ -58,6 +59,7 @@ class CompressionStrategy(str, Enum):
 
 class CompressionLevel(str, Enum):
     """Per-variant compression aggressiveness."""
+
     NONE = "none"
     LIGHT = "light"
     AGGRESSIVE = "aggressive"
@@ -79,6 +81,7 @@ _VARIANT_COMPRESSION_LEVELS: Dict[str, CompressionLevel] = {
 @dataclass
 class CompressionInput:
     """Input data for a compression operation."""
+
     content: List[str] = field(default_factory=list)
     token_counts: List[int] = field(default_factory=list)
     priorities: List[float] = field(default_factory=list)
@@ -88,6 +91,7 @@ class CompressionInput:
 @dataclass
 class CompressionOutput:
     """Result of a compression operation."""
+
     compressed_content: List[str] = field(default_factory=list)
     original_token_count: int = 0
     compressed_token_count: int = 0
@@ -101,6 +105,7 @@ class CompressionOutput:
 @dataclass
 class CompressionConfig:
     """Configuration for the ContextCompressor."""
+
     company_id: str = ""
     variant_type: str = "parwa"
     strategy: CompressionStrategy = CompressionStrategy.HYBRID
@@ -149,7 +154,8 @@ class ContextCompressor:
     """
 
     def __init__(
-        self, config: Optional[CompressionConfig] = None,
+        self,
+        config: Optional[CompressionConfig] = None,
     ) -> None:
         self._config = config or CompressionConfig()
         self._stats: Dict[str, Dict[str, Any]] = {}
@@ -204,10 +210,7 @@ class ContextCompressor:
             if not token_counts or len(token_counts) != len(
                 input_data.content,
             ):
-                token_counts = [
-                    self._estimate_tokens(c)
-                    for c in input_data.content
-                ]
+                token_counts = [self._estimate_tokens(c) for c in input_data.content]
 
             # Sync priorities if not provided
             priorities = input_data.priorities
@@ -238,53 +241,57 @@ class ContextCompressor:
             target_tokens = int(original_tokens * target_reduction)
             target_tokens = max(
                 target_tokens,
-                int(
-                    original_tokens
-                    * self._config.min_compression_ratio
-                ),
+                int(original_tokens * self._config.min_compression_ratio),
             )
 
             # Select strategy
             strategy = self._config.strategy
             if strategy == CompressionStrategy.SLIDING_WINDOW:
                 output = self._apply_sliding_window(
-                    input_data, target_tokens,
+                    input_data,
+                    target_tokens,
                 )
             elif strategy == CompressionStrategy.PRIORITY_BASED:
                 output = self._apply_priority_based(
-                    input_data, target_tokens,
+                    input_data,
+                    target_tokens,
                 )
             elif strategy == CompressionStrategy.EXTRACTIVE:
                 output = self._apply_extractive(
-                    input_data, target_tokens,
+                    input_data,
+                    target_tokens,
                 )
             elif strategy == CompressionStrategy.ABSTRACTIVE:
                 output = self._apply_abstractive(
-                    input_data, target_tokens,
+                    input_data,
+                    target_tokens,
                 )
             else:
                 output = self._apply_hybrid(
-                    input_data, target_tokens,
+                    input_data,
+                    target_tokens,
                 )
 
             # Recalculate compression ratio
             compressed_tokens = sum(
-                self._estimate_tokens(c)
-                for c in output.compressed_content
+                self._estimate_tokens(c) for c in output.compressed_content
             )
             if original_tokens > 0:
                 output.compression_ratio = round(
-                    compressed_tokens / original_tokens, 4,
+                    compressed_tokens / original_tokens,
+                    4,
                 )
             output.original_token_count = original_tokens
             output.compressed_token_count = compressed_tokens
             output.processing_time_ms = round(
-                (time.monotonic() - start_time) * 1000, 2,
+                (time.monotonic() - start_time) * 1000,
+                2,
             )
 
             # Update stats
             self._update_stats(
-                company_id, output,
+                company_id,
+                output,
             )
 
             logger.info(
@@ -308,10 +315,7 @@ class ContextCompressor:
                 company_id=company_id,
             )
             elapsed_ms = (time.monotonic() - start_time) * 1000
-            original_tokens = sum(
-                self._estimate_tokens(c)
-                for c in input_data.content
-            )
+            original_tokens = sum(self._estimate_tokens(c) for c in input_data.content)
             return CompressionOutput(
                 compressed_content=list(input_data.content),
                 original_token_count=original_tokens,
@@ -351,10 +355,7 @@ class ContextCompressor:
         candidate_priorities.sort(key=lambda x: x[0], reverse=True)
 
         selected_indices = set(recent_indices)
-        running_tokens = sum(
-            self._estimate_tokens(content[i])
-            for i in recent_indices
-        )
+        running_tokens = sum(self._estimate_tokens(content[i]) for i in recent_indices)
 
         for priority, idx in candidate_priorities:
             if running_tokens >= target_tokens:
@@ -426,12 +427,8 @@ class ContextCompressor:
 
         # Pair index + priority, filter by threshold
         indexed = [(i, priorities[i]) for i in range(n)]
-        high_priority = [
-            (i, p) for i, p in indexed if p >= threshold
-        ]
-        low_priority = [
-            (i, p) for i, p in indexed if p < threshold
-        ]
+        high_priority = [(i, p) for i, p in indexed if p >= threshold]
+        low_priority = [(i, p) for i, p in indexed if p < threshold]
 
         # Sort high priority by priority descending
         high_priority.sort(key=lambda x: x[1], reverse=True)
@@ -504,12 +501,11 @@ class ContextCompressor:
             result_content.append(f"[Earlier context: {summary}]")
 
         # Trim if still over budget
-        result_tokens = sum(
-            self._estimate_tokens(c) for c in result_content
-        )
+        result_tokens = sum(self._estimate_tokens(c) for c in result_content)
         if result_tokens > target_tokens:
             result_content = self._trim_to_budget(
-                result_content, target_tokens,
+                result_content,
+                target_tokens,
             )
 
         return CompressionOutput(
@@ -544,9 +540,7 @@ class ContextCompressor:
                 low_chunks.append(content[i])
 
         # Sort high-priority by priority descending
-        high_with_pri = [
-            (i, priorities[i]) for i in high_indices
-        ]
+        high_with_pri = [(i, priorities[i]) for i in high_indices]
         high_with_pri.sort(key=lambda x: x[1], reverse=True)
 
         # Budget allocation: 70% for high-priority, 30% for summary
@@ -601,7 +595,8 @@ class ContextCompressor:
         return max(1, len(text) // 4)
 
     def _get_reduction_target(
-        self, level: CompressionLevel,
+        self,
+        level: CompressionLevel,
     ) -> float:
         """Get the target ratio (compressed/original) for a level.
 
@@ -637,13 +632,12 @@ class ContextCompressor:
         if len(sentences) <= 3:
             return " ".join(sentences)
 
-        return (
-            "; ".join(sentences[:3])
-            + f" (and {len(sentences) - 3} more items)"
-        )
+        return "; ".join(sentences[:3]) + f" (and {len(sentences) - 3} more items)"
 
     def _trim_to_budget(
-        self, chunks: List[str], target_tokens: int,
+        self,
+        chunks: List[str],
+        target_tokens: int,
     ) -> List[str]:
         """Trim chunk list to fit within token budget.
 
@@ -662,7 +656,9 @@ class ContextCompressor:
         return result
 
     def _update_stats(
-        self, company_id: str, output: CompressionOutput,
+        self,
+        company_id: str,
+        output: CompressionOutput,
     ) -> None:
         """Update cumulative compression statistics."""
         if company_id not in self._stats:
@@ -675,37 +671,34 @@ class ContextCompressor:
             }
         stats = self._stats[company_id]
         stats["total_compressions"] += 1
-        stats["total_original_tokens"] += (
-            output.original_token_count
-        )
-        stats["total_compressed_tokens"] += (
-            output.compressed_token_count
-        )
+        stats["total_original_tokens"] += output.original_token_count
+        stats["total_compressed_tokens"] += output.compressed_token_count
         stats["total_chunks_removed"] += output.chunks_removed
         n = stats["total_compressions"]
         stats["avg_compression_ratio"] = round(
-            (
-                stats["avg_compression_ratio"] * (n - 1)
-                + output.compression_ratio
-            ) / n,
+            (stats["avg_compression_ratio"] * (n - 1) + output.compression_ratio) / n,
             4,
         )
 
     # ── Query Methods ──────────────────────────────────────────
 
     def get_compression_stats(
-        self, company_id: str = "",
+        self,
+        company_id: str = "",
     ) -> Dict[str, Any]:
         """Return cumulative compression statistics."""
         try:
             return dict(
-                self._stats.get(company_id, {
-                    "total_compressions": 0,
-                    "total_original_tokens": 0,
-                    "total_compressed_tokens": 0,
-                    "total_chunks_removed": 0,
-                    "avg_compression_ratio": 0.0,
-                }),
+                self._stats.get(
+                    company_id,
+                    {
+                        "total_compressions": 0,
+                        "total_original_tokens": 0,
+                        "total_compressed_tokens": 0,
+                        "total_chunks_removed": 0,
+                        "avg_compression_ratio": 0.0,
+                    },
+                ),
             )
         except Exception as exc:
             logger.warning(
@@ -729,7 +722,8 @@ class ContextCompressor:
         high_parwa -> AGGRESSIVE
         """
         return _VARIANT_COMPRESSION_LEVELS.get(
-            variant_type, CompressionLevel.LIGHT,
+            variant_type,
+            CompressionLevel.LIGHT,
         )
 
     def get_config(self) -> CompressionConfig:

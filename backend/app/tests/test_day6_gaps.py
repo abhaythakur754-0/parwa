@@ -34,7 +34,6 @@ from app.core.clara_quality_gate import (
 from app.services.intent_technique_mapper import IntentTechniqueMapper
 from app.core.technique_router import TechniqueID
 
-
 # =========================================================================
 # CATEGORY 1: UNIT GAPS — Edge cases not covered
 # =========================================================================
@@ -123,9 +122,7 @@ class TestVeryLongInput:
     @pytest.mark.asyncio
     async def test_signal_extraction_10k_chars(self):
         """Signal extraction handles 10,000+ character queries."""
-        long_query = (
-            "I have a billing problem with my account. "
-            * 400)  # ~12,000 chars
+        long_query = "I have a billing problem with my account. " * 400  # ~12,000 chars
         req = SignalExtractionRequest(
             query=long_query,
             company_id="c1",
@@ -140,7 +137,7 @@ class TestVeryLongInput:
     @pytest.mark.asyncio
     async def test_signal_extraction_50k_chars(self):
         """Signal extraction handles 50,000+ character queries without timeout."""
-        long_query = ("problem error bug issue " * 3000)  # ~60,000 chars
+        long_query = "problem error bug issue " * 3000  # ~60,000 chars
         req = SignalExtractionRequest(
             query=long_query,
             company_id="c1",
@@ -155,7 +152,7 @@ class TestVeryLongInput:
     @pytest.mark.asyncio
     async def test_classification_10k_chars(self):
         """Classification handles very long input."""
-        long_text = ("I want a refund for my order. " * 800)  # ~12,000 chars
+        long_text = "I want a refund for my order. " * 800  # ~12,000 chars
         result = await self.engine.classify(long_text, use_ai=False)
         assert result.primary_intent == "refund"
         assert result.processing_time_ms >= 0
@@ -163,15 +160,14 @@ class TestVeryLongInput:
     @pytest.mark.asyncio
     async def test_clara_10k_chars(self):
         """CLARA handles very long response text."""
-        long_response = (
-            "Thank you for contacting support. "
-            * 800)  # ~12,000 chars
+        long_response = "Thank you for contacting support. " * 800  # ~12,000 chars
         result = await self.gate.evaluate(
             response=long_response,
             query="refund",
         )
-        structure = next(s for s in result.stages if s.stage
-                         == CLARAStage.STRUCTURE_CHECK)
+        structure = next(
+            s for s in result.stages if s.stage == CLARAStage.STRUCTURE_CHECK
+        )
         assert structure.result == StageResult.FAIL  # >500 words
 
 
@@ -195,15 +191,13 @@ class TestMonetaryEdgeCases:
 
     def test_very_large_amount(self):
         """Very large monetary values like $1,000,000.00."""
-        value, currency = self.extractor._extract_monetary_value(
-            "$1,000,000.00")
+        value, currency = self.extractor._extract_monetary_value("$1,000,000.00")
         assert value == 1_000_000.00
         assert currency == "$"
 
     def test_negative_dollar_sign_prefix(self):
         """Text says '-$50' (negative context)."""
-        value, currency = self.extractor._extract_monetary_value(
-            "I lost -$50 on this")
+        value, currency = self.extractor._extract_monetary_value("I lost -$50 on this")
         # The regex matches $50, not -$50 (the regex doesn't capture the minus)
         assert value == 50.0
         assert currency == "$"
@@ -249,8 +243,7 @@ class TestSafeIntentFromStringNone:
 
     def test_dict_input(self):
         """Dict input should return 'general'."""
-        result = ClassificationEngine._safe_intent_from_string(
-            {"primary": "refund"})
+        result = ClassificationEngine._safe_intent_from_string({"primary": "refund"})
         assert result == "general"
 
 
@@ -391,7 +384,8 @@ class TestAIResponseExtraFields:
             "content": (
                 '{"primary": "refund", '
                 '"secondary": [{"intent": "billing", "confidence": 0.3, "note": "also"}], '
-                '"confidences": {"refund": 0.85, "billing": 0.3}}'),
+                '"confidences": {"refund": 0.85, "billing": 0.3}}'
+            ),
             "model_used": "test",
         }
         result = engine._parse_ai_response(response, "c1", "parwa", 0.0)
@@ -427,18 +421,20 @@ class TestVariantWeightDifferences:
         parwa_weights = self.extractor.get_variant_weights("parwa")
         high_parwa_weights = self.extractor.get_variant_weights("high_parwa")
 
-        mini_complexity = self.extractor._extract_complexity(
-            query, mini_weights)
-        parwa_complexity = self.extractor._extract_complexity(
-            query, parwa_weights)
+        mini_complexity = self.extractor._extract_complexity(query, mini_weights)
+        parwa_complexity = self.extractor._extract_complexity(query, parwa_weights)
         high_parwa_complexity = self.extractor._extract_complexity(
-            query, high_parwa_weights)
+            query, high_parwa_weights
+        )
 
         # All should be valid
         for c in [mini_complexity, parwa_complexity, high_parwa_complexity]:
             assert 0.0 <= c <= 1.0
         # Different weights should produce different results
-        assert mini_complexity != parwa_complexity or parwa_complexity != high_parwa_complexity
+        assert (
+            mini_complexity != parwa_complexity
+            or parwa_complexity != high_parwa_complexity
+        )
 
 
 class TestConversationHistoryNoneItems:
@@ -471,7 +467,8 @@ class TestConversationHistoryNoneItems:
                 None,
                 "refund my order now please",
                 None,
-                "refund my order now please"],
+                "refund my order now please",
+            ],
         )
         result = await self.extractor.extract(req)
         assert result.intent == "refund"
@@ -517,7 +514,9 @@ class TestSignalExtractionToClassification:
         # Both should identify refund-related intent
         assert signals.intent == "refund"
         assert classification.primary_intent in (
-            "refund", "complaint")  # "terrible" boosts complaint
+            "refund",
+            "complaint",
+        )  # "terrible" boosts complaint
 
     @pytest.mark.asyncio
     async def test_extracted_sentiment_used_in_clara(self):
@@ -541,8 +540,7 @@ class TestSignalExtractionToClassification:
             query=query,
             customer_sentiment=signals.sentiment,
         )
-        tone_stage = next(
-            s for s in result.stages if s.stage == CLARAStage.TONE_CHECK)
+        tone_stage = next(s for s in result.stages if s.stage == CLARAStage.TONE_CHECK)
         # Cold tone for negative sentiment customer should fail
         assert tone_stage.result == StageResult.FAIL
 
@@ -573,25 +571,20 @@ class TestClassificationToTechniqueMapping:
 
         for intent_value, query in intent_keywords_map.items():
             result = engine._keyword_classifier.classify(query)
-            mapping = mapper.map_intent(
-                result.primary_intent, variant_type="parwa")
+            mapping = mapper.map_intent(result.primary_intent, variant_type="parwa")
             # Even "general" has a mapping
             assert isinstance(mapping.selected_techniques, list)
 
     def test_technique_mapping_respects_variant_for_all_intents(self):
         """All intents filtered through mini_parwa should only have T1 techniques."""
         mapper = IntentTechniqueMapper()
-        tier1_techniques = {
-            TechniqueID.CLARA,
-            TechniqueID.CRP,
-            TechniqueID.GSD}
+        tier1_techniques = {TechniqueID.CLARA, TechniqueID.CRP, TechniqueID.GSD}
 
         for intent in mapper.get_supported_intents():
-            result = mapper.map_intent(
-                intent=intent, variant_type="mini_parwa")
+            result = mapper.map_intent(intent=intent, variant_type="mini_parwa")
             for tech in result.selected_techniques:
-                assert tech in tier1_techniques, (f"Intent '{intent}' got {
-                    tech.value} which is not Tier 1 for mini_parwa")
+                assert tech in tier1_techniques, f"Intent '{intent}' got {
+                    tech.value} which is not Tier 1 for mini_parwa"
 
 
 class TestFullPipelineSignalToTechnique:
@@ -602,7 +595,9 @@ class TestFullPipelineSignalToTechnique:
         """Full pipeline for refund query."""
         query = "I want a refund for my $500 order"
         req = SignalExtractionRequest(
-            query=query, company_id="c1", variant_type="parwa",
+            query=query,
+            company_id="c1",
+            variant_type="parwa",
         )
 
         # Step 1: Signal Extraction
@@ -618,9 +613,7 @@ class TestFullPipelineSignalToTechnique:
 
         # Step 3: Technique Mapping
         mapper = IntentTechniqueMapper()
-        mapping = mapper.map_intent(
-            classification.primary_intent,
-            variant_type="parwa")
+        mapping = mapper.map_intent(classification.primary_intent, variant_type="parwa")
         assert len(mapping.selected_techniques) > 0
 
     @pytest.mark.asyncio
@@ -628,7 +621,9 @@ class TestFullPipelineSignalToTechnique:
         """Full pipeline for technical query."""
         query = "The API endpoint returns a 500 error and the server is down"
         req = SignalExtractionRequest(
-            query=query, company_id="c1", variant_type="parwa",
+            query=query,
+            company_id="c1",
+            variant_type="parwa",
         )
 
         extractor = SignalExtractor()
@@ -638,9 +633,7 @@ class TestFullPipelineSignalToTechnique:
         classification = await engine.classify(query, use_ai=False)
 
         mapper = IntentTechniqueMapper()
-        mapping = mapper.map_intent(
-            classification.primary_intent,
-            variant_type="parwa")
+        mapping = mapper.map_intent(classification.primary_intent, variant_type="parwa")
 
         assert classification.primary_intent == "technical"
         assert TechniqueID.CHAIN_OF_THOUGHT in mapping.selected_techniques
@@ -650,19 +643,23 @@ class TestFullPipelineSignalToTechnique:
         """Mini PARWA pipeline should never select T3 techniques."""
         query = "I want a refund for my $1000 order, this is unacceptable!"
         req = SignalExtractionRequest(
-            query=query, company_id="c1", variant_type="mini_parwa",
+            query=query,
+            company_id="c1",
+            variant_type="mini_parwa",
         )
 
         extractor = SignalExtractor()
         signals = await extractor.extract(req)
 
         engine = ClassificationEngine()
-        classification = await engine.classify(query, use_ai=False, variant_type="mini_parwa")
+        classification = await engine.classify(
+            query, use_ai=False, variant_type="mini_parwa"
+        )
 
         mapper = IntentTechniqueMapper()
         mapping = mapper.map_intent(
-            classification.primary_intent,
-            variant_type="mini_parwa")
+            classification.primary_intent, variant_type="mini_parwa"
+        )
 
         tier1 = {TechniqueID.CLARA, TechniqueID.CRP, TechniqueID.GSD}
         for tech in mapping.selected_techniques:
@@ -673,7 +670,9 @@ class TestFullPipelineSignalToTechnique:
         """Pipeline with unrecognized intent should not crash."""
         query = "xyzzy plugh frobozz"  # gibberish
         req = SignalExtractionRequest(
-            query=query, company_id="c1", variant_type="parwa",
+            query=query,
+            company_id="c1",
+            variant_type="parwa",
         )
 
         extractor = SignalExtractor()
@@ -684,9 +683,7 @@ class TestFullPipelineSignalToTechnique:
 
         mapper = IntentTechniqueMapper()
         # This won't crash even if intent has no mapping
-        mapping = mapper.map_intent(
-            classification.primary_intent,
-            variant_type="parwa")
+        mapping = mapper.map_intent(classification.primary_intent, variant_type="parwa")
 
         assert isinstance(mapping.selected_techniques, list)
 
@@ -698,11 +695,16 @@ class TestSignalExtractionToQuerySignalsToMapping:
         """ExtractedSignals converts to QuerySignals for technique router."""
         extractor = SignalExtractor()
         signals = ExtractedSignals(
-            intent="refund", sentiment=0.3, complexity=0.6,
-            monetary_value=500.0, monetary_currency="$",
-            customer_tier="vip", turn_count=3,
+            intent="refund",
+            sentiment=0.3,
+            complexity=0.6,
+            monetary_value=500.0,
+            monetary_currency="$",
+            customer_tier="vip",
+            turn_count=3,
             previous_response_status="rejected",
-            reasoning_loop_detected=True, resolution_path_count=4,
+            reasoning_loop_detected=True,
+            resolution_path_count=4,
             query_breadth=0.7,
         )
         qs = extractor.to_query_signals(signals)
@@ -728,7 +730,9 @@ class TestFullEndToEndFlow:
 
         # Step 1: Extract signals
         req = SignalExtractionRequest(
-            query=query, company_id=company_id, variant_type=variant_type,
+            query=query,
+            company_id=company_id,
+            variant_type=variant_type,
         )
         extractor = SignalExtractor()
         signals = await extractor.extract(req)
@@ -740,8 +744,8 @@ class TestFullEndToEndFlow:
         # Step 3: Map to techniques
         mapper = IntentTechniqueMapper()
         mapping = mapper.map_intent(
-            classification.primary_intent,
-            variant_type=variant_type)
+            classification.primary_intent, variant_type=variant_type
+        )
 
         # Step 4: Generate a response (simulated) and run CLARA
         # Simulate an empathetic response based on negative sentiment
@@ -769,8 +773,7 @@ class TestFullEndToEndFlow:
         assert len(mapping.selected_techniques) > 0
         assert len(clara_result.stages) == 5
         # Empathetic response should pass tone check
-        tone = next(s for s in clara_result.stages if s.stage
-                    == CLARAStage.TONE_CHECK)
+        tone = next(s for s in clara_result.stages if s.stage == CLARAStage.TONE_CHECK)
         assert tone.result == StageResult.PASS
 
     @pytest.mark.asyncio
@@ -798,13 +801,15 @@ class TestFullEndToEndFlow:
 
         for intent, query in queries.items():
             req = SignalExtractionRequest(
-                query=query, company_id="c1", variant_type="parwa",
+                query=query,
+                company_id="c1",
+                variant_type="parwa",
             )
             signals = await extractor.extract(req)
             classification = await engine.classify(query, use_ai=False)
             mapping = mapper.map_intent(
-                classification.primary_intent,
-                variant_type="parwa")
+                classification.primary_intent, variant_type="parwa"
+            )
 
             assert signals.intent == intent, f"Expected '{intent}', got '{
                 signals.intent}'"
@@ -894,12 +899,14 @@ class TestCLARAAllStagesFailing:
     @pytest.mark.asyncio
     async def test_all_stages_fail(self):
         """A deliberately terrible response should fail multiple stages."""
-        gate = CLARAQualityGate(brand_voice=BrandVoiceConfig(
-            prohibited_words=["stupid", "idiot"],
-            max_length=10,
-            required_sign_off=True,
-            formality="high",
-        ))
+        gate = CLARAQualityGate(
+            brand_voice=BrandVoiceConfig(
+                prohibited_words=["stupid", "idiot"],
+                max_length=10,
+                required_sign_off=True,
+                formality="high",
+            )
+        )
 
         terrible_response = "Ok"  # < 5 words
 
@@ -910,13 +917,13 @@ class TestCLARAAllStagesFailing:
         )
 
         # Structure should fail (too short)
-        structure = next(s for s in result.stages if s.stage
-                         == CLARAStage.STRUCTURE_CHECK)
+        structure = next(
+            s for s in result.stages if s.stage == CLARAStage.STRUCTURE_CHECK
+        )
         assert structure.result == StageResult.FAIL
 
         # Tone should fail (no empathy for angry customer)
-        tone = next(s for s in result.stages if s.stage
-                    == CLARAStage.TONE_CHECK)
+        tone = next(s for s in result.stages if s.stage == CLARAStage.TONE_CHECK)
         assert tone.result == StageResult.FAIL
 
     @pytest.mark.asyncio
@@ -929,12 +936,12 @@ class TestCLARAAllStagesFailing:
             customer_sentiment=0.2,
         )
 
-        delivery = next(s for s in result.stages if s.stage
-                        == CLARAStage.DELIVERY_CHECK)
+        delivery = next(
+            s for s in result.stages if s.stage == CLARAStage.DELIVERY_CHECK
+        )
         assert delivery.result == StageResult.FAIL
 
-        tone = next(s for s in result.stages if s.stage
-                    == CLARAStage.TONE_CHECK)
+        tone = next(s for s in result.stages if s.stage == CLARAStage.TONE_CHECK)
         assert tone.result == StageResult.FAIL
 
         # Overall should fail
@@ -1037,7 +1044,9 @@ class TestNumericBoundaryConditions:
     async def test_turn_count_zero(self):
         """turn_count=0 should work."""
         req = SignalExtractionRequest(
-            query="help", company_id="c1", turn_count=0,
+            query="help",
+            company_id="c1",
+            turn_count=0,
         )
         result = await self.extractor.extract(req)
         assert result.turn_count == 0
@@ -1046,7 +1055,9 @@ class TestNumericBoundaryConditions:
     async def test_turn_count_very_large(self):
         """Very large turn_count should work."""
         req = SignalExtractionRequest(
-            query="help", company_id="c1", turn_count=999999,
+            query="help",
+            company_id="c1",
+            turn_count=999999,
         )
         result = await self.extractor.extract(req)
         assert result.turn_count == 999999
@@ -1082,12 +1093,20 @@ class TestResolutionPathCapping:
         """All intents should produce 1-5 resolution paths."""
         extractor = SignalExtractor()
         for intent in [
-            "general", "inquiry", "feedback", "account", "shipping",
-            "technical", "billing", "feature_request", "refund",
-            "cancellation", "complaint", "escalation",
+            "general",
+            "inquiry",
+            "feedback",
+            "account",
+            "shipping",
+            "technical",
+            "billing",
+            "feature_request",
+            "refund",
+            "cancellation",
+            "complaint",
+            "escalation",
         ]:
-            paths = extractor._count_resolution_paths(
-                "test query here", intent)
+            paths = extractor._count_resolution_paths("test query here", intent)
             assert 1 <= paths <= 5, f"{intent}: {paths} paths"
 
 
@@ -1116,8 +1135,7 @@ class TestCLARADeliveryCheckEdgeCases:
         """Emojis spread across paragraphs should be checked per paragraph."""
         gate = CLARAQualityGate()
         result = await gate._delivery_check(
-            "First paragraph with 😊🎉😃.\n\n"
-            "Second paragraph with 🤔😊😃🌟."
+            "First paragraph with 😊🎉😃.\n\n" "Second paragraph with 🤔😊😃🌟."
         )
         # First para: 3 emojis (OK), second para: 4 emojis (FAIL)
         assert result.result == StageResult.FAIL
@@ -1126,7 +1144,9 @@ class TestCLARADeliveryCheckEdgeCases:
     async def test_broken_markdown_valid_link_ok(self):
         """Valid markdown links should pass."""
         gate = CLARAQualityGate()
-        result = await gate._delivery_check("Click [here](https://example.com) for info.")
+        result = await gate._delivery_check(
+            "Click [here](https://example.com) for info."
+        )
         assert result.result == StageResult.PASS
 
 
@@ -1136,25 +1156,28 @@ class TestIntentToCategoryMapCompleteness:
     def test_all_intents_mapped(self):
         """All 12 IntentType values should have a category mapping."""
         from app.core.classification_engine import INTENT_TO_CATEGORY_MAP
+
         for intent in IntentType:
-            assert intent.value in INTENT_TO_CATEGORY_MAP, (
-                f"Missing category mapping for {intent.value}"
-            )
+            assert (
+                intent.value in INTENT_TO_CATEGORY_MAP
+            ), f"Missing category mapping for {intent.value}"
 
     def test_all_categories_valid(self):
         """All mapped categories should be known categories."""
         from app.core.classification_engine import INTENT_TO_CATEGORY_MAP
+
         valid_categories = {
             "refund",
             "technical",
             "billing",
             "complaint",
             "feature_request",
-            "general"}
+            "general",
+        }
         for intent, category in INTENT_TO_CATEGORY_MAP.items():
-            assert category in valid_categories, (
-                f"Invalid category '{category}' for intent '{intent}'"
-            )
+            assert (
+                category in valid_categories
+            ), f"Invalid category '{category}' for intent '{intent}'"
 
 
 class TestCacheIsolationAcrossVariants:
@@ -1167,17 +1190,25 @@ class TestCacheIsolationAcrossVariants:
         extractor = SignalExtractor()
 
         req_mini = SignalExtractionRequest(
-            query=query, company_id="c1", variant_type="mini_parwa",
+            query=query,
+            company_id="c1",
+            variant_type="mini_parwa",
         )
         req_parwa = SignalExtractionRequest(
-            query=query, company_id="c1", variant_type="parwa",
+            query=query,
+            company_id="c1",
+            variant_type="parwa",
         )
         req_high = SignalExtractionRequest(
-            query=query, company_id="c1", variant_type="high_parwa",
+            query=query,
+            company_id="c1",
+            variant_type="high_parwa",
         )
 
         # Extract with all 3 variants (no cache mocking - fresh extraction)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result_mini = await extractor.extract(req_mini)
                 result_parwa = await extractor.extract(req_parwa)

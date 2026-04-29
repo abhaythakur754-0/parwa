@@ -82,6 +82,7 @@ class TenantWarmupState:
 @dataclass
 class PREWARM_COMBO:
     """A model+technique combination to pre-warm."""
+
     model_id: str
     provider: str
     tier: str
@@ -195,8 +196,7 @@ class ColdStartService:
         # P8 FIX: Use OrderedDict for LRU eviction instead of plain dict.
         # Plain dict preserves insertion order (Python 3.7+), which means
         # oldest SIGNUPS get evicted, not least-recently-used tenants.
-        self._tenant_states: OrderedDict[str,
-                                         TenantWarmupState] = OrderedDict()
+        self._tenant_states: OrderedDict[str, TenantWarmupState] = OrderedDict()
         self._max_tenant_states = max_tenant_states
         # P7: Track last accessed time for each tenant for LRU eviction
         # and for future persistence/recovery on restart.
@@ -207,9 +207,7 @@ class ColdStartService:
 
     # ── Public API ───────────────────────────────────────────────────
 
-    def get_tenant_status(
-            self,
-            company_id: str) -> Optional[TenantWarmupState]:
+    def get_tenant_status(self, company_id: str) -> Optional[TenantWarmupState]:
         """Get warmup status for a tenant. BC-001: company_id is second param."""
         if not company_id:
             return None
@@ -240,9 +238,7 @@ class ColdStartService:
         """Is at least LIGHT ready?"""
         return self.is_ready(company_id, tier="light")
 
-    def warmup_tenant(
-        self, company_id: str, variant_type: str
-    ) -> TenantWarmupState:
+    def warmup_tenant(self, company_id: str, variant_type: str) -> TenantWarmupState:
         """
         Start warmup for all relevant models based on variant_type.
         BC-001: company_id is second parameter.
@@ -266,9 +262,7 @@ class ColdStartService:
         tiers_to_warm = VARIANT_TIER_MAP[variant_type]
 
         # Get combos for the tiers this variant supports
-        combos = [
-            c for c in PREWARM_COMBOS if c.tier in tiers_to_warm
-        ]
+        combos = [c for c in PREWARM_COMBOS if c.tier in tiers_to_warm]
 
         state = TenantWarmupState(
             company_id=company_id,
@@ -303,11 +297,12 @@ class ColdStartService:
             # BC-008: Enforce Heavy tier 5s timeout
             effective_timeout = combo.max_acceptable_latency_ms
             if combo.tier == "heavy":
-                effective_timeout = min(
-                    effective_timeout, HEAVY_WARMUP_TIMEOUT_MS)
+                effective_timeout = min(effective_timeout, HEAVY_WARMUP_TIMEOUT_MS)
 
             model_state = self._warmup_single_model(
-                company_id, combo, timeout_ms=effective_timeout,
+                company_id,
+                combo,
+                timeout_ms=effective_timeout,
             )
             key = f"{combo.provider}:{combo.model_id}"
             state.models_warmed[key] = model_state
@@ -327,12 +322,8 @@ class ColdStartService:
         state.completed_at = _utcnow()
 
         # Determine overall status
-        any_success = any(
-            ms.warmup_success for ms in state.models_warmed.values()
-        )
-        all_success = all(
-            ms.warmup_success for ms in state.models_warmed.values()
-        )
+        any_success = any(ms.warmup_success for ms in state.models_warmed.values())
+        all_success = all(ms.warmup_success for ms in state.models_warmed.values())
 
         if all_success:
             state.overall_status = WarmupStatus.warm
@@ -356,8 +347,9 @@ class ColdStartService:
         now = time.monotonic()
         with self._prewarm_lock:
             if now - self._last_prewarm_time < _PREWARM_COOLDOWN_SECONDS:
-                remaining = int(_PREWARM_COOLDOWN_SECONDS
-                                - (now - self._last_prewarm_time))
+                remaining = int(
+                    _PREWARM_COOLDOWN_SECONDS - (now - self._last_prewarm_time)
+                )
                 return {
                     "status": "cooldown",
                     "message": f"Prewarm on cooldown. Retry in {remaining}s.",
@@ -393,9 +385,7 @@ class ColdStartService:
 
         return results
 
-    def check_model_readiness(
-        self, provider: str, model_id: str
-    ) -> ModelWarmupState:
+    def check_model_readiness(self, provider: str, model_id: str) -> ModelWarmupState:
         """Check if a specific model is warm across all tenants."""
         latest_state: Optional[ModelWarmupState] = None
 
@@ -419,9 +409,7 @@ class ColdStartService:
             status=WarmupStatus.cold,
         )
 
-    def get_cold_fallback_model(
-        self, company_id: str, variant_type: str
-    ) -> dict:
+    def get_cold_fallback_model(self, company_id: str, variant_type: str) -> dict:
         """
         Get the fastest available model as fallback (BC-008).
         Returns {provider, model_id, tier, reason}.
@@ -473,9 +461,8 @@ class ColdStartService:
     # P7: Recovery — find tenants marked completed but without warmup state.
     # Call this on startup to re-warm active tenants after deploy/restart.
     def recover_tenant_warmup(
-            self,
-            company_id: str,
-            variant_type: str) -> Optional[TenantWarmupState]:
+        self, company_id: str, variant_type: str
+    ) -> Optional[TenantWarmupState]:
         """
         Re-trigger warmup for a tenant that should be warm but isn't
         (e.g., after server restart). Call from startup recovery.
@@ -491,10 +478,10 @@ class ColdStartService:
             result[cid] = {
                 "variant_type": state.variant_type,
                 "overall_status": state.overall_status.value,
-                "models_count": len(
-                    state.models_warmed),
+                "models_count": len(state.models_warmed),
                 "models_ready": sum(
-                    1 for ms in state.models_warmed.values() if ms.warmup_success),
+                    1 for ms in state.models_warmed.values() if ms.warmup_success
+                ),
                 "time_to_warm_ms": state.time_to_warm_ms,
                 "fallback_used": state.fallback_used,
                 "started_at": state.started_at,
@@ -505,7 +492,9 @@ class ColdStartService:
     # ── Private Methods ──────────────────────────────────────────────
 
     def _warmup_single_model(
-        self, company_id: str, combo: PREWARM_COMBO,
+        self,
+        company_id: str,
+        combo: PREWARM_COMBO,
         timeout_ms: Optional[int] = None,
     ) -> ModelWarmupState:
         """
@@ -540,8 +529,7 @@ class ColdStartService:
             else:
                 model_state.status = WarmupStatus.cooling
                 model_state.warmup_success = False
-                model_state.error_message = result.get(
-                    "error", "Unknown error")
+                model_state.error_message = result.get("error", "Unknown error")
 
         except Exception as exc:
             # BC-008: Never crash
@@ -580,6 +568,7 @@ class ColdStartService:
         Returns dict with keys: success (bool), response (str), error (str).
         """
         from app.config import get_settings
+
         try:
             settings = get_settings()
         except Exception:
@@ -623,15 +612,19 @@ class ColdStartService:
                 headers["x-goog-api-key"] = api_key
 
         if provider == "google":
-            payload = json.dumps({
-                "contents": [{"parts": [{"text": query}]}],
-            }).encode("utf-8")
+            payload = json.dumps(
+                {
+                    "contents": [{"parts": [{"text": query}]}],
+                }
+            ).encode("utf-8")
         else:
-            payload = json.dumps({
-                "model": model_id,
-                "messages": [{"role": "user", "content": query}],
-                "max_tokens": 10,
-            }).encode("utf-8")
+            payload = json.dumps(
+                {
+                    "model": model_id,
+                    "messages": [{"role": "user", "content": query}],
+                    "max_tokens": 10,
+                }
+            ).encode("utf-8")
 
         req = urllib.request.Request(
             url,

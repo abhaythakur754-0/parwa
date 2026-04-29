@@ -9,7 +9,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # Module-level stubs
 BurstSeverity = None  # type: ignore[assignment,misc]
 BurstAction = None  # type: ignore[assignment,misc]
@@ -25,6 +24,7 @@ UsageBurstProtectionService = None  # type: ignore[assignment,misc]
 def _mock_logger_and_lock():
     with patch("app.logger.get_logger", return_value=MagicMock()):
         import app.services.usage_burst_protection as _svc_mod
+
         _orig_lock = _svc_mod.threading.Lock
         _svc_mod.threading.Lock = _svc_mod.threading.RLock
         try:
@@ -38,16 +38,19 @@ def _mock_logger_and_lock():
                 BurstProtectionError,
                 UsageBurstProtectionService,
             )
-            globals().update({
-                "BurstSeverity": BurstSeverity,
-                "BurstAction": BurstAction,
-                "UsageMetrics": UsageMetrics,
-                "BurstDetection": BurstDetection,
-                "ThrottleDecision": ThrottleDecision,
-                "BurstProtectionConfig": BurstProtectionConfig,
-                "BurstProtectionError": BurstProtectionError,
-                "UsageBurstProtectionService": UsageBurstProtectionService,
-            })
+
+            globals().update(
+                {
+                    "BurstSeverity": BurstSeverity,
+                    "BurstAction": BurstAction,
+                    "UsageMetrics": UsageMetrics,
+                    "BurstDetection": BurstDetection,
+                    "ThrottleDecision": ThrottleDecision,
+                    "BurstProtectionConfig": BurstProtectionConfig,
+                    "BurstProtectionError": BurstProtectionError,
+                    "UsageBurstProtectionService": UsageBurstProtectionService,
+                }
+            )
             yield
         finally:
             _svc_mod.threading.Lock = _orig_lock
@@ -91,9 +94,7 @@ class TestBurstSeverity:
 
     def test_order_low_before_critical(self):
         members = list(BurstSeverity)
-        assert members.index(
-            BurstSeverity.LOW) < members.index(
-            BurstSeverity.CRITICAL)
+        assert members.index(BurstSeverity.LOW) < members.index(BurstSeverity.CRITICAL)
 
 
 class TestBurstAction:
@@ -202,10 +203,8 @@ class TestBurstProtectionConfig:
 
     def test_custom_max_concurrent_requests(self):
         cfg = BurstProtectionConfig(
-            max_concurrent_requests={
-                "mini_parwa": 1,
-                "parwa": 5,
-                "parwa_high": 50})
+            max_concurrent_requests={"mini_parwa": 1, "parwa": 5, "parwa_high": 50}
+        )
         assert cfg.max_concurrent_requests["mini_parwa"] == 1
 
     def test_custom_error_rate_threshold(self):
@@ -218,18 +217,12 @@ class TestBurstProtectionConfig:
 
     def test_custom_all_parameters(self):
         cfg = BurstProtectionConfig(
-            rpm_thresholds={
-                "mini_parwa": 10,
-                "parwa": 50,
-                "parwa_high": 100},
+            rpm_thresholds={"mini_parwa": 10, "parwa": 50, "parwa_high": 100},
             burst_multiplier_threshold=2.0,
             window_seconds=30,
             throttle_duration_seconds=10,
             block_duration_seconds=60,
-            max_concurrent_requests={
-                "mini_parwa": 1,
-                "parwa": 5,
-                "parwa_high": 10},
+            max_concurrent_requests={"mini_parwa": 1, "parwa": 5, "parwa_high": 10},
             error_rate_threshold_pct=90.0,
             alert_cooldown_seconds=10,
         )
@@ -240,6 +233,7 @@ class TestBurstProtectionConfig:
 
     def test_is_dataclass(self):
         from dataclasses import is_dataclass
+
         assert is_dataclass(BurstProtectionConfig)
 
 
@@ -301,6 +295,7 @@ class TestUsageMetricsDataclass:
 
     def test_is_dataclass(self):
         from dataclasses import is_dataclass
+
         assert is_dataclass(UsageMetrics)
 
 
@@ -366,6 +361,7 @@ class TestBurstDetectionDataclass:
 
     def test_is_dataclass(self):
         from dataclasses import is_dataclass
+
         assert is_dataclass(BurstDetection)
 
 
@@ -410,6 +406,7 @@ class TestThrottleDecisionDataclass:
 
     def test_is_dataclass(self):
         from dataclasses import is_dataclass
+
         assert is_dataclass(ThrottleDecision)
 
 
@@ -433,9 +430,7 @@ class TestBurstProtectionError:
         assert err.message == "test msg"
 
     def test_has_status_code(self):
-        err = BurstProtectionError(
-            error_code="TEST", message="test", status_code=400
-        )
+        err = BurstProtectionError(error_code="TEST", message="test", status_code=400)
         assert err.status_code == 400
 
 
@@ -451,6 +446,7 @@ class TestValidation:
         from app.services.usage_burst_protection import (
             _validate_company_id,
         )
+
         with pytest.raises(BurstProtectionError) as exc_info:
             _validate_company_id("")
         assert exc_info.value.error_code == "INVALID_COMPANY_ID"
@@ -459,6 +455,7 @@ class TestValidation:
         from app.services.usage_burst_protection import (
             _validate_company_id,
         )
+
         with pytest.raises(BurstProtectionError) as exc_info:
             _validate_company_id("   ")
         assert exc_info.value.error_code == "INVALID_COMPANY_ID"
@@ -467,6 +464,7 @@ class TestValidation:
         from app.services.usage_burst_protection import (
             _validate_company_id,
         )
+
         with pytest.raises(BurstProtectionError):
             _validate_company_id(None)
 
@@ -474,12 +472,14 @@ class TestValidation:
         from app.services.usage_burst_protection import (
             _validate_company_id,
         )
+
         _validate_company_id("valid-company")  # should not raise
 
     def test_invalid_variant_type_raises(self):
         from app.services.usage_burst_protection import (
             _validate_variant_type,
         )
+
         with pytest.raises(BurstProtectionError) as exc_info:
             _validate_variant_type("invalid_variant")
         assert exc_info.value.error_code == "INVALID_VARIANT_TYPE"
@@ -488,6 +488,7 @@ class TestValidation:
         from app.services.usage_burst_protection import (
             _validate_variant_type,
         )
+
         with pytest.raises(BurstProtectionError):
             _validate_variant_type("")
 
@@ -495,18 +496,21 @@ class TestValidation:
         from app.services.usage_burst_protection import (
             _validate_variant_type,
         )
+
         _validate_variant_type("mini_parwa")  # should not raise
 
     def test_valid_variant_parwa(self):
         from app.services.usage_burst_protection import (
             _validate_variant_type,
         )
+
         _validate_variant_type("parwa")  # should not raise
 
     def test_valid_variant_parwa_high(self):
         from app.services.usage_burst_protection import (
             _validate_variant_type,
         )
+
         _validate_variant_type("parwa_high")  # should not raise
 
 
@@ -1014,8 +1018,10 @@ class TestUpgradeSeverity:
         )
 
     def test_critical_stays_critical(self):
-        assert (UsageBurstProtectionService._upgrade_severity(
-            BurstSeverity.CRITICAL) == BurstSeverity.CRITICAL)
+        assert (
+            UsageBurstProtectionService._upgrade_severity(BurstSeverity.CRITICAL)
+            == BurstSeverity.CRITICAL
+        )
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1380,9 +1386,7 @@ class TestReset:
     def test_reset_clears_alerts(self):
         svc = UsageBurstProtectionService()
         svc.reset("co-1")
-        svc._create_alert(
-            "co-1", BurstSeverity.HIGH, BurstAction.THROTTLE, "test"
-        )
+        svc._create_alert("co-1", BurstSeverity.HIGH, BurstAction.THROTTLE, "test")
         assert len(svc.get_alerts("co-1")) > 0
         svc.reset("co-1")
         assert svc.get_alerts("co-1") == []
@@ -1564,12 +1568,8 @@ class TestAlertCreation:
     def test_alert_cooldown_respected(self):
         svc = UsageBurstProtectionService()
         svc.reset("co-1")
-        svc._create_alert(
-            "co-1", BurstSeverity.HIGH, BurstAction.THROTTLE, "first"
-        )
-        svc._create_alert(
-            "co-1", BurstSeverity.CRITICAL, BurstAction.BLOCK, "second"
-        )
+        svc._create_alert("co-1", BurstSeverity.HIGH, BurstAction.THROTTLE, "first")
+        svc._create_alert("co-1", BurstSeverity.CRITICAL, BurstAction.BLOCK, "second")
         # Cooldown is 300s, so second should return the first alert
         alerts = svc.get_alerts("co-1")
         assert len(alerts) == 1
@@ -1589,18 +1589,15 @@ class TestAlertCreation:
         cfg = BurstProtectionConfig(alert_cooldown_seconds=0)
         svc = UsageBurstProtectionService(config=cfg)
         svc.reset("co-1")
-        svc._create_alert(
-            "co-1", BurstSeverity.HIGH, BurstAction.THROTTLE, "first"
-        )
-        svc._create_alert(
-            "co-1", BurstSeverity.CRITICAL, BurstAction.BLOCK, "second"
-        )
+        svc._create_alert("co-1", BurstSeverity.HIGH, BurstAction.THROTTLE, "first")
+        svc._create_alert("co-1", BurstSeverity.CRITICAL, BurstAction.BLOCK, "second")
         alerts = svc.get_alerts("co-1")
         assert len(alerts) == 2
 
     def test_alert_cap_enforced(self):
         """Alerts capped at _MAX_ALERTS_PER_COMPANY."""
         from app.services.usage_burst_protection import _MAX_ALERTS_PER_COMPANY
+
         cfg = BurstProtectionConfig(alert_cooldown_seconds=0)
         svc = UsageBurstProtectionService(config=cfg)
         svc.reset("co-1")
@@ -1668,7 +1665,8 @@ class TestBC008GracefulDegradation:
         # UsageMetrics doesn't support (known source issue), so we
         # verify the method attempts graceful handling.
         with patch.object(
-            svc, "_get_request_history",
+            svc,
+            "_get_request_history",
             side_effect=RuntimeError("boom"),
         ):
             try:
@@ -1699,7 +1697,8 @@ class TestBC008GracefulDegradation:
         svc = UsageBurstProtectionService()
         svc.reset("co-1")
         with patch.object(
-            svc, "config",
+            svc,
+            "config",
             property(lambda self: (_ for _ in ()).throw(RuntimeError("boom"))),
         ):
             result = svc.get_variant_config("co-1", "parwa")
@@ -1779,9 +1778,7 @@ class TestThreadSafety:
         svc.reset("co-1")
         threads = []
         for _ in range(50):
-            t = threading.Thread(
-                target=svc.record_request, args=("co-1", "parwa")
-            )
+            t = threading.Thread(target=svc.record_request, args=("co-1", "parwa"))
             threads.append(t)
             t.start()
         for t in threads:
@@ -1796,9 +1793,7 @@ class TestThreadSafety:
             svc.record_request("co-1", "parwa")
         threads = []
         for _ in range(20):
-            t = threading.Thread(
-                target=svc.decrement_concurrent, args=("co-1",)
-            )
+            t = threading.Thread(target=svc.decrement_concurrent, args=("co-1",))
             threads.append(t)
             t.start()
         for t in threads:

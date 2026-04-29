@@ -34,55 +34,109 @@ class NotificationTemplateService:
     # Valid template variables by event type
     TEMPLATE_VARIABLES = {
         "ticket_created": [
-            "ticket_id", "ticket_subject", "customer_name", "customer_email",
-            "priority", "category", "channel", "created_at",
+            "ticket_id",
+            "ticket_subject",
+            "customer_name",
+            "customer_email",
+            "priority",
+            "category",
+            "channel",
+            "created_at",
         ],
         "ticket_updated": [
-            "ticket_id", "ticket_subject", "updated_fields", "updated_by",
-            "old_values", "new_values", "updated_at",
+            "ticket_id",
+            "ticket_subject",
+            "updated_fields",
+            "updated_by",
+            "old_values",
+            "new_values",
+            "updated_at",
         ],
         "ticket_assigned": [
-            "ticket_id", "ticket_subject", "assignee_name", "assignee_type",
-            "assigned_by", "assigned_at",
+            "ticket_id",
+            "ticket_subject",
+            "assignee_name",
+            "assignee_type",
+            "assigned_by",
+            "assigned_at",
         ],
         "ticket_resolved": [
-            "ticket_id", "ticket_subject", "resolved_by", "resolution_time",
-            "resolved_at", "resolution_notes",
+            "ticket_id",
+            "ticket_subject",
+            "resolved_by",
+            "resolution_time",
+            "resolved_at",
+            "resolution_notes",
         ],
         "ticket_closed": [
-            "ticket_id", "ticket_subject", "closed_by", "closed_at",
-            "resolution_summary", "csat_rating",
+            "ticket_id",
+            "ticket_subject",
+            "closed_by",
+            "closed_at",
+            "resolution_summary",
+            "csat_rating",
         ],
         "ticket_reopened": [
-            "ticket_id", "ticket_subject", "reopened_by", "reopen_reason",
-            "reopen_count", "reopened_at",
+            "ticket_id",
+            "ticket_subject",
+            "reopened_by",
+            "reopen_reason",
+            "reopen_count",
+            "reopened_at",
         ],
         "sla_warning": [
-            "ticket_id", "ticket_subject", "time_remaining", "sla_type",
-            "deadline", "warning_level",
+            "ticket_id",
+            "ticket_subject",
+            "time_remaining",
+            "sla_type",
+            "deadline",
+            "warning_level",
         ],
         "sla_breached": [
-            "ticket_id", "ticket_subject", "breached_at", "breach_type",
-            "time_elapsed", "escalation_level",
+            "ticket_id",
+            "ticket_subject",
+            "breached_at",
+            "breach_type",
+            "time_elapsed",
+            "escalation_level",
         ],
         "ticket_escalated": [
-            "ticket_id", "ticket_subject", "escalation_reason", "escalated_to",
-            "ai_summary", "escalated_at",
+            "ticket_id",
+            "ticket_subject",
+            "escalation_reason",
+            "escalated_to",
+            "ai_summary",
+            "escalated_at",
         ],
         "mention": [
-            "ticket_id", "ticket_subject", "mentioned_by", "excerpt",
-            "mention_context", "mentioned_at",
+            "ticket_id",
+            "ticket_subject",
+            "mentioned_by",
+            "excerpt",
+            "mention_context",
+            "mentioned_at",
         ],
         "bulk_action_completed": [
-            "action_type", "success_count", "failure_count", "total_count",
-            "undo_token", "completed_at",
+            "action_type",
+            "success_count",
+            "failure_count",
+            "total_count",
+            "undo_token",
+            "completed_at",
         ],
         "incident_created": [
-            "incident_id", "incident_title", "status_update", "affected_services",
-            "created_at", "estimated_resolution",
+            "incident_id",
+            "incident_title",
+            "status_update",
+            "affected_services",
+            "created_at",
+            "estimated_resolution",
         ],
         "incident_resolved": [
-            "incident_id", "incident_title", "resolution_summary", "duration",
+            "incident_id",
+            "incident_title",
+            "resolution_summary",
+            "duration",
             "resolved_at",
         ],
     }
@@ -136,16 +190,19 @@ class NotificationTemplateService:
             raise ValidationError(f"Invalid channel: {channel}")
 
         # Validate template variables
-        self._validate_template_variables(
-            event_type, subject_template, "subject")
+        self._validate_template_variables(event_type, subject_template, "subject")
         self._validate_template_variables(event_type, body_template, "body")
 
         # Check for existing template
-        existing = self.db.query(NotificationTemplate).filter(
-            NotificationTemplate.company_id == self.company_id,
-            NotificationTemplate.event_type == event_type,
-            NotificationTemplate.channel == channel,
-        ).first()
+        existing = (
+            self.db.query(NotificationTemplate)
+            .filter(
+                NotificationTemplate.company_id == self.company_id,
+                NotificationTemplate.event_type == event_type,
+                NotificationTemplate.channel == channel,
+            )
+            .first()
+        )
 
         if existing:
             # Create new version
@@ -175,10 +232,14 @@ class NotificationTemplateService:
 
     def get_template(self, template_id: str) -> NotificationTemplate:
         """Get template by ID."""
-        template = self.db.query(NotificationTemplate).filter(
-            NotificationTemplate.id == template_id,
-            NotificationTemplate.company_id == self.company_id,
-        ).first()
+        template = (
+            self.db.query(NotificationTemplate)
+            .filter(
+                NotificationTemplate.id == template_id,
+                NotificationTemplate.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not template:
             raise NotFoundError(f"Template {template_id} not found")
@@ -191,12 +252,16 @@ class NotificationTemplateService:
         channel: str = "email",
     ) -> Optional[NotificationTemplate]:
         """Get active template for event type and channel."""
-        return self.db.query(NotificationTemplate).filter(
-            NotificationTemplate.company_id == self.company_id,
-            NotificationTemplate.event_type == event_type,
-            NotificationTemplate.channel == channel,
-            NotificationTemplate.is_active,
-        ).first()
+        return (
+            self.db.query(NotificationTemplate)
+            .filter(
+                NotificationTemplate.company_id == self.company_id,
+                NotificationTemplate.event_type == event_type,
+                NotificationTemplate.channel == channel,
+                NotificationTemplate.is_active,
+            )
+            .first()
+        )
 
     def list_templates(
         self,
@@ -234,9 +299,12 @@ class NotificationTemplateService:
 
         total = query.count()
 
-        templates = query.order_by(
-            desc(NotificationTemplate.updated_at)
-        ).offset(offset).limit(limit).all()
+        templates = (
+            query.order_by(desc(NotificationTemplate.updated_at))
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
 
         return templates, total
 
@@ -333,11 +401,16 @@ class NotificationTemplateService:
         channel: str,
     ) -> List[NotificationTemplate]:
         """Get all versions of a template."""
-        return self.db.query(NotificationTemplate).filter(
-            NotificationTemplate.company_id == self.company_id,
-            NotificationTemplate.event_type == event_type,
-            NotificationTemplate.channel == channel,
-        ).order_by(desc(NotificationTemplate.version)).all()
+        return (
+            self.db.query(NotificationTemplate)
+            .filter(
+                NotificationTemplate.company_id == self.company_id,
+                NotificationTemplate.event_type == event_type,
+                NotificationTemplate.channel == channel,
+            )
+            .order_by(desc(NotificationTemplate.version))
+            .all()
+        )
 
     def restore_version(self, template_id: str) -> NotificationTemplate:
         """Restore a previous version as active."""
@@ -388,14 +461,13 @@ class NotificationTemplateService:
         valid_vars = set(self.TEMPLATE_VARIABLES.get(event_type, []))
 
         # Extract variables from template
-        pattern = r'\{\{(\w+)\}\}'
+        pattern = r"\{\{(\w+)\}\}"
         found_vars = set(re.findall(pattern, template))
 
         invalid_vars = found_vars - valid_vars
 
         if invalid_vars:
-            raise ValidationError(
-                f"Invalid variables in {field_name}: {
+            raise ValidationError(f"Invalid variables in {field_name}: {
                     ', '.join(invalid_vars)}. " f"Valid variables: {
                     ', '.join(valid_vars)}")
 
@@ -478,9 +550,7 @@ class NotificationTemplateService:
             },
         }
 
-        return samples.get(
-            event_type, {
-                "message": "Sample notification content"})
+        return samples.get(event_type, {"message": "Sample notification content"})
 
     def seed_default_templates(self) -> int:
         """Seed default templates for all event types."""

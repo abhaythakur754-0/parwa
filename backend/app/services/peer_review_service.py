@@ -474,15 +474,17 @@ class PeerReviewService:
 
         workload = []
         for agent in senior_agents:
-            workload.append({
-                "agent_id": str(agent.id),
-                "agent_name": agent.name,
-                "tier": agent.tier,
-                "pending_reviews": 0,  # Would query actual count
-                "completed_today": 0,
-                "average_review_time_minutes": 0,
-                "capacity_available": True,
-            })
+            workload.append(
+                {
+                    "agent_id": str(agent.id),
+                    "agent_name": agent.name,
+                    "tier": agent.tier,
+                    "pending_reviews": 0,  # Would query actual count
+                    "completed_today": 0,
+                    "average_review_time_minutes": 0,
+                    "capacity_available": True,
+                }
+            )
 
         return workload
 
@@ -533,12 +535,14 @@ class PeerReviewService:
     ) -> str:
         """Create escalation record in database."""
         import uuid
+
         return str(uuid.uuid4())
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Training Pipeline Integration Test
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def run_full_training_pipeline_test(company_id: str, db: Session) -> Dict:
     """Run full training pipeline integration test (F-108).
@@ -577,6 +581,7 @@ def run_full_training_pipeline_test(company_id: str, db: Session) -> Dict:
     # Test 1: Cold Start
     try:
         from app.services.cold_start_service import ColdStartService
+
         cold_start = ColdStartService(db)
         # Test cold start detection
         results["tests"]["cold_start"] = {"status": "passed"}
@@ -589,13 +594,15 @@ def run_full_training_pipeline_test(company_id: str, db: Session) -> Dict:
     # Test 2: Mistake Threshold
     try:
         from app.services.mistake_threshold_service import MISTAKE_THRESHOLD
+
         assert MISTAKE_THRESHOLD == 50, "Threshold should be 50"
         results["tests"]["mistake_threshold"] = {
-            "status": "passed", "threshold": MISTAKE_THRESHOLD}
+            "status": "passed",
+            "threshold": MISTAKE_THRESHOLD,
+        }
         results["passed"] += 1
     except Exception as e:
-        results["tests"]["mistake_threshold"] = {
-            "status": "failed", "error": str(e)}
+        results["tests"]["mistake_threshold"] = {"status": "failed", "error": str(e)}
         results["failed"] += 1
         results["errors"].append(f"Mistake threshold: {str(e)}")
 
@@ -604,8 +611,7 @@ def run_full_training_pipeline_test(company_id: str, db: Session) -> Dict:
         results["tests"]["training_service"] = {"status": "passed"}
         results["passed"] += 1
     except Exception as e:
-        results["tests"]["training_service"] = {
-            "status": "failed", "error": str(e)}
+        results["tests"]["training_service"] = {"status": "failed", "error": str(e)}
         results["failed"] += 1
         results["errors"].append(f"Training service: {str(e)}")
 
@@ -614,8 +620,7 @@ def run_full_training_pipeline_test(company_id: str, db: Session) -> Dict:
         results["tests"]["dataset_preparation"] = {"status": "passed"}
         results["passed"] += 1
     except Exception as e:
-        results["tests"]["dataset_preparation"] = {
-            "status": "failed", "error": str(e)}
+        results["tests"]["dataset_preparation"] = {"status": "failed", "error": str(e)}
         results["failed"] += 1
         results["errors"].append(f"Dataset preparation: {str(e)}")
 
@@ -624,8 +629,7 @@ def run_full_training_pipeline_test(company_id: str, db: Session) -> Dict:
         results["tests"]["gpu_provider"] = {"status": "passed"}
         results["passed"] += 1
     except Exception as e:
-        results["tests"]["gpu_provider"] = {
-            "status": "failed", "error": str(e)}
+        results["tests"]["gpu_provider"] = {"status": "failed", "error": str(e)}
         results["failed"] += 1
         results["errors"].append(f"GPU provider: {str(e)}")
 
@@ -634,8 +638,7 @@ def run_full_training_pipeline_test(company_id: str, db: Session) -> Dict:
         results["tests"]["model_validation"] = {"status": "passed"}
         results["passed"] += 1
     except Exception as e:
-        results["tests"]["model_validation"] = {
-            "status": "failed", "error": str(e)}
+        results["tests"]["model_validation"] = {"status": "failed", "error": str(e)}
         results["failed"] += 1
         results["errors"].append(f"Model validation: {str(e)}")
 
@@ -644,35 +647,37 @@ def run_full_training_pipeline_test(company_id: str, db: Session) -> Dict:
         results["tests"]["model_deployment"] = {"status": "passed"}
         results["passed"] += 1
     except Exception as e:
-        results["tests"]["model_deployment"] = {
-            "status": "failed", "error": str(e)}
+        results["tests"]["model_deployment"] = {"status": "failed", "error": str(e)}
         results["failed"] += 1
         results["errors"].append(f"Model deployment: {str(e)}")
 
     # Test 8: Fallback Training
     try:
         from app.services.fallback_training_service import RETRAINING_INTERVAL_DAYS
+
         assert RETRAINING_INTERVAL_DAYS == 14, "Retraining interval should be 14 days"
         results["tests"]["fallback_training"] = {
-            "status": "passed", "interval_days": RETRAINING_INTERVAL_DAYS}
+            "status": "passed",
+            "interval_days": RETRAINING_INTERVAL_DAYS,
+        }
         results["passed"] += 1
     except Exception as e:
-        results["tests"]["fallback_training"] = {
-            "status": "failed", "error": str(e)}
+        results["tests"]["fallback_training"] = {"status": "failed", "error": str(e)}
         results["failed"] += 1
         results["errors"].append(f"Fallback training: {str(e)}")
 
     # Test 9: Industry Templates
     try:
         from app.services.cold_start_service import INDUSTRY_TEMPLATES
-        assert len(
-            INDUSTRY_TEMPLATES) >= 9, "Should have at least 9 industry templates"
+
+        assert len(INDUSTRY_TEMPLATES) >= 9, "Should have at least 9 industry templates"
         results["tests"]["industry_templates"] = {
-            "status": "passed", "count": len(INDUSTRY_TEMPLATES)}
+            "status": "passed",
+            "count": len(INDUSTRY_TEMPLATES),
+        }
         results["passed"] += 1
     except Exception as e:
-        results["tests"]["industry_templates"] = {
-            "status": "failed", "error": str(e)}
+        results["tests"]["industry_templates"] = {"status": "failed", "error": str(e)}
         results["failed"] += 1
         results["errors"].append(f"Industry templates: {str(e)}")
 

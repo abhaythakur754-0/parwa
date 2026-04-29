@@ -12,9 +12,7 @@ from datetime import datetime
 
 import uuid
 
-from sqlalchemy import (
-    Boolean, Column, DateTime, Integer, String, Text, ForeignKey
-)
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, ForeignKey
 
 from database.base import Base
 
@@ -29,15 +27,20 @@ class OnboardingSession(Base):
     Week 6: Tracks user progress through 5-step onboarding wizard.
     BC-001: company_id for tenant isolation.
     """
+
     __tablename__ = "onboarding_sessions"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     user_id = Column(
-        String(36), ForeignKey("users.id"), nullable=False,
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
     )
     # Wizard progress (1-5)
     current_step = Column(Integer, default=1)
@@ -59,7 +62,9 @@ class OnboardingSession(Base):
 
     # Week 6: AI personality config (Step 5)
     ai_name = Column(String(50), default="Jarvis")
-    ai_tone = Column(String(20), default="professional")  # professional, friendly, casual
+    ai_tone = Column(
+        String(20), default="professional"
+    )  # professional, friendly, casual
     ai_response_style = Column(String(20), default="concise")  # concise, detailed
     ai_greeting = Column(Text)
 
@@ -78,11 +83,15 @@ class ConsentRecord(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     user_id = Column(
-        String(36), ForeignKey("users.id"), nullable=False,
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
     )
     # tcpa, gdpr, call_recording
     consent_type = Column(String(50), nullable=False)
@@ -98,8 +107,10 @@ class KnowledgeDocument(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     filename = Column(String(255), nullable=False)
     file_type = Column(String(50))
@@ -128,11 +139,14 @@ class DocumentChunk(Base):
     document_id = Column(
         String(36),
         ForeignKey("knowledge_documents.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     content = Column(Text, nullable=False)
     # PostgreSQL: VECTOR(1536) via pgvector extension
@@ -151,7 +165,9 @@ class DemoSession(Base):
     guest_name = Column(String(255))
     guest_phone = Column(String(50))
     session_token = Column(
-        String(255), nullable=False, unique=True,
+        String(255),
+        nullable=False,
+        unique=True,
     )
     messages_count = Column(Integer, default=0)
     max_messages = Column(Integer, default=10)

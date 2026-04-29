@@ -50,6 +50,7 @@ class MailgunEmailProvider(EmailProvider):
     def test_connection(self) -> ProviderResult:
         try:
             import base64
+
             auth = base64.b64encode(f"api:{self.api_key}".encode()).decode()
 
             response = httpx.get(
@@ -88,6 +89,7 @@ class MailgunEmailProvider(EmailProvider):
 
     def send_email(self, message: EmailMessage) -> ProviderResult:
         import base64
+
         auth = base64.b64encode(f"api:{self.api_key}".encode()).decode()
 
         data = {
@@ -134,11 +136,9 @@ class MailgunEmailProvider(EmailProvider):
                 error_message=str(e)[:200],
             )
 
-    def send_template_email(self,
-                            template_id: str,
-                            to: str,
-                            variables: Dict[str,
-                                            Any]) -> ProviderResult:
+    def send_template_email(
+        self, template_id: str, to: str, variables: Dict[str, Any]
+    ) -> ProviderResult:
         # Mailgun uses different template approach
         return ProviderResult(
             success=False,

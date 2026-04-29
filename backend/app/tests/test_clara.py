@@ -17,7 +17,6 @@ from app.core.clara_quality_gate import (
     StageResult,
 )
 
-
 # ── BrandVoiceConfig ─────────────────────────────────────────────────
 
 
@@ -94,7 +93,9 @@ class TestStructureCheck:
     @pytest.mark.asyncio
     async def test_repeated_phrases(self):
         gate = CLARAQualityGate()
-        text = "This is a problem. This is a problem. This is a problem. Let me help you."
+        text = (
+            "This is a problem. This is a problem. This is a problem. Let me help you."
+        )
         result = await gate._structure_check(text, "query")
         assert any("repeated" in i.lower() for i in result.issues)
 
@@ -179,7 +180,9 @@ class TestBrandCheck:
     async def test_sign_off_present(self):
         bv = BrandVoiceConfig(required_sign_off=True)
         gate = CLARAQualityGate(brand_voice=bv)
-        result = await gate._brand_check("Here is your info. Best regards, Support team.")
+        result = await gate._brand_check(
+            "Here is your info. Best regards, Support team."
+        )
         assert result.result == StageResult.PASS
 
     @pytest.mark.asyncio
@@ -288,8 +291,7 @@ class TestDeliveryCheck:
             "Please contact us at support@example.com for more help."
         )
         assert result.result == StageResult.FAIL
-        assert any("pii" in i.lower() or "email" in i.lower()
-                   for i in result.issues)
+        assert any("pii" in i.lower() or "email" in i.lower() for i in result.issues)
 
     @pytest.mark.asyncio
     async def test_phone_pii(self):
@@ -385,9 +387,8 @@ class TestFullPipeline:
             query="help",
         )
         scored = [
-            s for s in result.stages if s.result in (
-                StageResult.PASS,
-                StageResult.FAIL)]
+            s for s in result.stages if s.result in (StageResult.PASS, StageResult.FAIL)
+        ]
         if scored:
             expected_avg = sum(s.score for s in scored) / len(scored)
             assert abs(result.overall_score - expected_avg) < 0.01
@@ -430,6 +431,7 @@ class TestTimeoutGAP002:
                 suggestions=[],
                 processing_time_ms=0,
             )
+
         result = await gate._run_stage(CLARAStage.LOGIC_CHECK, slow_stage)
         assert result.result == StageResult.TIMEOUT_PASS
         assert result.score == 0.5
@@ -451,8 +453,11 @@ class TestTimeoutGAP002:
                 stage=CLARAStage.LOGIC_CHECK,
                 result=StageResult.PASS,
                 score=0.9,
-                issues=[], suggestions=[], processing_time_ms=0,
+                issues=[],
+                suggestions=[],
+                processing_time_ms=0,
             )
+
         result = await gate._run_stage(CLARAStage.LOGIC_CHECK, slow_stage)
         assert result.result == StageResult.TIMEOUT_PASS
         assert result.score == 0.5
@@ -462,8 +467,8 @@ class TestTimeoutGAP002:
     async def test_timeout_pass_doesnt_fail_overall(self):
         """GAP-002: TIMEOUT_PASS stages don't cause overall failure."""
         gate = CLARAQualityGate(
-            stage_timeout_seconds=0.001,
-            pipeline_timeout_seconds=0.01)
+            stage_timeout_seconds=0.001, pipeline_timeout_seconds=0.01
+        )
         result = await gate.evaluate(
             response="A reasonable response for testing.",
             query="help",
@@ -471,9 +476,9 @@ class TestTimeoutGAP002:
         # TIMEOUT_PASS stages are excluded from scoring, so overall should pass
         # if no actual FAIL stages exist
         timeout_stages = [
-            s for s in result.stages if s.result == StageResult.TIMEOUT_PASS]
-        fail_stages = [
-            s for s in result.stages if s.result == StageResult.FAIL]
+            s for s in result.stages if s.result == StageResult.TIMEOUT_PASS
+        ]
+        fail_stages = [s for s in result.stages if s.result == StageResult.FAIL]
         if not fail_stages:
             assert result.overall_pass is True
 
@@ -481,7 +486,9 @@ class TestTimeoutGAP002:
     async def test_normal_stage_completes(self):
         """Non-slow stages complete normally."""
         gate = CLARAQualityGate(stage_timeout_seconds=5.0)
-        result = await gate._structure_check("A good response about the topic.", "query")
+        result = await gate._structure_check(
+            "A good response about the topic.", "query"
+        )
         assert result.result in (StageResult.PASS, StageResult.FAIL)
         assert result.metadata.get("timeout") is None
 
@@ -545,7 +552,8 @@ class TestOverallScoring:
     async def test_processing_time(self):
         gate = CLARAQualityGate()
         result = await gate.evaluate(
-            response="Response text.", query="query",
+            response="Response text.",
+            query="query",
         )
         assert result.total_processing_time_ms >= 0
 
@@ -564,7 +572,8 @@ class TestEdgeCases:
     async def test_special_chars(self):
         gate = CLARAQualityGate()
         result = await gate.evaluate(
-            response="Here's the info: @#$%^&*()", query="query",
+            response="Here's the info: @#$%^&*()",
+            query="query",
         )
         assert isinstance(result.overall_pass, bool)
 

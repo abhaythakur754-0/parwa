@@ -103,9 +103,7 @@ class ParwaTask(Task):
                 "task_no_tenant_context",
                 extra={
                     "task_name": self.name,
-                    "has_headers": bool(
-                        self._safe_request_attr("headers")
-                    ),
+                    "has_headers": bool(self._safe_request_attr("headers")),
                     "warning": (
                         "No company_id found in task headers or args. "
                         "Use set_task_tenant_header() when dispatching tasks."
@@ -218,9 +216,7 @@ def with_company_id(func: Callable) -> Callable:
     def wrapper(*args, **kwargs):
         # Check positional args
         if not args:
-            raise ValueError(
-                "company_id is required as the first parameter (BC-001)"
-            )
+            raise ValueError("company_id is required as the first parameter (BC-001)")
 
         # For bound methods (bind=True), first arg is 'self' (task instance)
         # Check if first arg is a Task instance
@@ -237,9 +233,7 @@ def with_company_id(func: Callable) -> Callable:
             company_id = first_arg
 
         if not isinstance(company_id, str) or not company_id.strip():
-            raise ValueError(
-                "company_id must be a non-empty string (BC-001)"
-            )
+            raise ValueError("company_id must be a non-empty string (BC-001)")
         return func(*args, **kwargs)
 
     return wrapper
@@ -315,12 +309,8 @@ def set_task_tenant_header(company_id: str) -> Dict[str, str]:
         ValueError: If company_id is empty or invalid.
     """
     if not company_id or not isinstance(company_id, str):
-        raise ValueError(
-            "company_id is required for task tenant header (BC-001)"
-        )
+        raise ValueError("company_id is required for task tenant header (BC-001)")
     if not company_id.strip():
-        raise ValueError(
-            "company_id must not be whitespace-only (BC-001)"
-        )
+        raise ValueError("company_id must not be whitespace-only (BC-001)")
 
     return {TENANT_HEADER_KEY: company_id.strip()}

@@ -103,14 +103,16 @@ class RedisHealthTracker:
         last_reset = await self._redis.get(DAILY_RESET_KEY)
 
         if last_reset:
-            last_reset = last_reset.decode(
-                "utf-8") if isinstance(last_reset, bytes) else last_reset
+            last_reset = (
+                last_reset.decode("utf-8")
+                if isinstance(last_reset, bytes)
+                else last_reset
+            )
 
         if today != last_reset:
             logger.info(
-                "Daily usage reset triggered for %s (was %s)",
-                today,
-                last_reset)
+                "Daily usage reset triggered for %s (was %s)", today, last_reset
+            )
 
             # Use Lua script for atomic reset
             lua_script = """
@@ -153,9 +155,7 @@ class RedisHealthTracker:
 
         return False
 
-    async def get_health_data(
-            self,
-            registry_key: str) -> Optional[ProviderHealthData]:
+    async def get_health_data(self, registry_key: str) -> Optional[ProviderHealthData]:
         """Get health data for a provider+model combo."""
         key = self._get_health_key(registry_key)
         data = await self._redis.hgetall(key)
@@ -168,9 +168,8 @@ class RedisHealthTracker:
         return ProviderHealthData.from_redis_hash(str_data)
 
     async def set_health_data(
-            self,
-            registry_key: str,
-            data: ProviderHealthData) -> None:
+        self, registry_key: str, data: ProviderHealthData
+    ) -> None:
         """Set health data for a provider+model combo."""
         key = self._get_health_key(registry_key)
         await self._redis.hset(key, mapping=data.to_redis_hash())
@@ -267,10 +266,7 @@ class RedisHealthTracker:
                 model_id,
             )
         except Exception as e:
-            logger.error(
-                "Failed to record success for %s: %s",
-                registry_key,
-                e)
+            logger.error("Failed to record success for %s: %s", registry_key, e)
 
     async def record_failure(
         self,
@@ -362,15 +358,14 @@ class RedisHealthTracker:
             else:
                 logger.debug(
                     "Recorded failure for %s (consecutive=%d): %s",
-                    registry_key, consecutive_failures, error_msg,
+                    registry_key,
+                    consecutive_failures,
+                    error_msg,
                 )
                 return False
 
         except Exception as e:
-            logger.error(
-                "Failed to record failure for %s: %s",
-                registry_key,
-                e)
+            logger.error("Failed to record failure for %s: %s", registry_key, e)
             return False
 
     async def record_rate_limit(
@@ -384,7 +379,11 @@ class RedisHealthTracker:
         key = self._get_health_key(registry_key)
 
         cooldown = max(
-            retry_after_seconds if retry_after_seconds > 0 else self.RATE_LIMIT_RETRY_AFTER_DEFAULT,
+            (
+                retry_after_seconds
+                if retry_after_seconds > 0
+                else self.RATE_LIMIT_RETRY_AFTER_DEFAULT
+            ),
             self.RATE_LIMIT_COOLDOWN_SECONDS,
         )
         rate_limited_until = time.time() + cooldown
@@ -401,7 +400,9 @@ class RedisHealthTracker:
 
         logger.warning(
             "Rate limited: %s for %d seconds (retry_after=%d)",
-            registry_key, cooldown, retry_after_seconds,
+            registry_key,
+            cooldown,
+            retry_after_seconds,
         )
 
     async def is_available(self, registry_key: str) -> bool:
@@ -424,7 +425,9 @@ class RedisHealthTracker:
         if data.daily_count >= data.daily_limit:
             logger.debug(
                 "%s: daily limit reached (%d/%d)",
-                registry_key, data.daily_count, data.daily_limit,
+                registry_key,
+                data.daily_count,
+                data.daily_limit,
             )
             return False
 
@@ -437,9 +440,8 @@ class RedisHealthTracker:
         return data.daily_count if data else 0
 
     async def get_daily_remaining(
-            self,
-            registry_key: str,
-            default_limit: int = 14400) -> int:
+        self, registry_key: str, default_limit: int = 14400
+    ) -> int:
         """Get remaining daily requests for a provider+model."""
         await self._reset_daily_if_needed()
         data = await self.get_health_data(registry_key)

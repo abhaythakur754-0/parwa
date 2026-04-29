@@ -240,8 +240,7 @@ class TestVoiceDemoSystem:
         )
 
         # Generate valid payment token
-        token = engine._payment._make_token(
-            session.session_id, engine._payment.amount)
+        token = engine._payment._make_token(session.session_id, engine._payment.amount)
 
         # Activate
         activated = engine.activate_session(session.session_id, token)
@@ -271,8 +270,7 @@ class TestVoiceDemoSystem:
         )
 
         # Activate once
-        token = engine._payment._make_token(
-            session.session_id, engine._payment.amount)
+        token = engine._payment._make_token(session.session_id, engine._payment.amount)
         engine.activate_session(session.session_id, token)
 
         # Try to activate again
@@ -292,7 +290,8 @@ class TestVoiceDemoSystem:
                 phone=f"+1234567890{i}",
             )
             token = engine._payment._make_token(
-                session.session_id, engine._payment.amount)
+                session.session_id, engine._payment.amount
+            )
             engine.activate_session(session.session_id, token)
             sessions.append(session)
 
@@ -302,7 +301,8 @@ class TestVoiceDemoSystem:
             phone="+12345678903",
         )
         token3 = engine._payment._make_token(
-            session3.session_id, engine._payment.amount)
+            session3.session_id, engine._payment.amount
+        )
 
         with pytest.raises(ValueError, match="Max concurrent"):
             engine.activate_session(session3.session_id, token3)
@@ -316,8 +316,7 @@ class TestVoiceDemoSystem:
             email="user@example.com",
             phone="+1234567890",
         )
-        token = engine._payment._make_token(
-            session.session_id, engine._payment.amount)
+        token = engine._payment._make_token(session.session_id, engine._payment.amount)
         engine.activate_session(session.session_id, token)
 
         # End session
@@ -345,8 +344,7 @@ class TestVoiceDemoSystem:
             email="user@example.com",
             phone="+1234567890",
         )
-        token = engine._payment._make_token(
-            session.session_id, engine._payment.amount)
+        token = engine._payment._make_token(session.session_id, engine._payment.amount)
         engine.activate_session(session.session_id, token)
 
         # Process voice input
@@ -379,8 +377,7 @@ class TestVoiceDemoSystem:
             email="user@example.com",
             phone="+1234567890",
         )
-        token = engine._payment._make_token(
-            session.session_id, engine._payment.amount)
+        token = engine._payment._make_token(session.session_id, engine._payment.amount)
         engine.activate_session(session.session_id, token)
 
         # First call should succeed (within duration)
@@ -402,8 +399,7 @@ class TestVoiceDemoSystem:
             email="user@example.com",
             phone="+1234567890",
         )
-        token = engine._payment._make_token(
-            session.session_id, engine._payment.amount)
+        token = engine._payment._make_token(session.session_id, engine._payment.amount)
         engine.activate_session(session.session_id, token)
 
         result = engine.generate_voice_response(
@@ -450,7 +446,8 @@ class TestVoiceDemoSystem:
                     phone=f"+1234567890{i:02d}",
                 )
                 token = engine._payment._make_token(
-                    session.session_id, engine._payment.amount)
+                    session.session_id, engine._payment.amount
+                )
                 engine.activate_session(session.session_id, token)
             except Exception as e:
                 errors.append(str(e))
@@ -551,8 +548,8 @@ class TestSemanticClusteringV2:
 
     def test_cosine_similarity_nan_inf(self):
         """Test cosine similarity handles NaN/Inf (BC-008)."""
-        assert cosine_similarity([float('nan')], [1.0]) == 0.0
-        assert cosine_similarity([1.0], [float('inf')]) == 0.0
+        assert cosine_similarity([float("nan")], [1.0]) == 0.0
+        assert cosine_similarity([1.0], [float("inf")]) == 0.0
 
     def test_cluster_config_validation(self):
         """Test ClusterConfig validation (BC-008)."""
@@ -952,7 +949,8 @@ class TestTechniqueStacking:
         tier_order = {
             TechniqueTier.TIER_1: 0,
             TechniqueTier.TIER_2: 1,
-            TechniqueTier.TIER_3: 2}
+            TechniqueTier.TIER_3: 2,
+        }
 
         for i in range(len(tiers) - 1):
             assert tier_order[tiers[i]] <= tier_order[tiers[i + 1]]
@@ -969,7 +967,8 @@ class TestTechniqueStacking:
 
         # CoT should appear only once
         cot_activations = [
-            a for a in result.activated_techniques
+            a
+            for a in result.activated_techniques
             if a.technique_id == TechniqueID.CHAIN_OF_THOUGHT
         ]
         assert len(cot_activations) == 1
@@ -997,7 +996,9 @@ class TestTechniqueStacking:
         """Test that enabled_techniques restricts activation."""
         # Only allow T1 + specific T2
         enabled = {
-            TechniqueID.CLARA, TechniqueID.CRP, TechniqueID.GSD,
+            TechniqueID.CLARA,
+            TechniqueID.CRP,
+            TechniqueID.GSD,
             TechniqueID.CHAIN_OF_THOUGHT,
         }
         router = TechniqueRouter(enabled_techniques=enabled)
@@ -1027,8 +1028,7 @@ class TestTechniqueStacking:
         assert TechniqueID.GST not in pro
 
         # Enterprise/VIP - all
-        enterprise = TechniqueRouter.get_available_techniques_for_plan(
-            "enterprise")
+        enterprise = TechniqueRouter.get_available_techniques_for_plan("enterprise")
         assert TechniqueID.GST in enterprise
         assert TechniqueID.UNIVERSE_OF_THOUGHTS in enterprise
 
@@ -1138,7 +1138,9 @@ class TestConfidenceThresholdValidation:
 
         for score in borderline_scores:
             auto_respond = score >= threshold
-            assert auto_respond is False, f"Score {score} should not auto-respond for Mini PARWA"
+            assert (
+                auto_respond is False
+            ), f"Score {score} should not auto-respond for Mini PARWA"
 
     def test_parwa_70_percent_resolution_target(self):
         """Test PARWA 85 threshold supports 70% resolution target."""
@@ -1175,6 +1177,7 @@ class TestConfidenceThresholdValidation:
 # INTEGRATION TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestDay26Integration:
     """
     Day 26 Integration Tests
@@ -1195,8 +1198,7 @@ class TestDay26Integration:
             email="test@example.com",
             phone="+1234567890",
         )
-        token = engine._payment._make_token(
-            session.session_id, engine._payment.amount)
+        token = engine._payment._make_token(session.session_id, engine._payment.amount)
         engine.activate_session(session.session_id, token)
 
         # Process voice input through AI pipeline
@@ -1243,8 +1245,7 @@ class TestDay26Integration:
             if cluster.avg_confidence > 0.8:
                 cluster.status = ClusterStatus.APPROVED.value
 
-        approved = [c for c in clusters if c.status
-                    == ClusterStatus.APPROVED.value]
+        approved = [c for c in clusters if c.status == ClusterStatus.APPROVED.value]
         assert len(approved) >= 1
 
     def test_technique_executor_full_pipeline(self):
@@ -1292,24 +1293,26 @@ class TestDay26Integration:
         }
 
         test_cases = [
-            (92, "mini_parwa", False),   # Below threshold
-            (96, "mini_parwa", True),    # Above threshold
-            (83, "parwa", False),        # Below threshold
-            (88, "parwa", True),         # Above threshold
-            (73, "high_parwa", False),   # Below threshold
-            (80, "high_parwa", True),    # Above threshold
+            (92, "mini_parwa", False),  # Below threshold
+            (96, "mini_parwa", True),  # Above threshold
+            (83, "parwa", False),  # Below threshold
+            (88, "parwa", True),  # Above threshold
+            (73, "high_parwa", False),  # Below threshold
+            (80, "high_parwa", True),  # Above threshold
         ]
 
         for score, variant, expected_auto in test_cases:
             threshold = thresholds[variant]
             auto_respond = score >= threshold
-            assert auto_respond == expected_auto, \
-                f"Score {score} for {variant}: expected {expected_auto}, got {auto_respond}"
+            assert (
+                auto_respond == expected_auto
+            ), f"Score {score} for {variant}: expected {expected_auto}, got {auto_respond}"
 
 
 # ══════════════════════════════════════════════════════════════════
 # EDGE CASES AND ERROR HANDLING
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestDay26EdgeCases:
     """
@@ -1322,8 +1325,7 @@ class TestDay26EdgeCases:
         engine = VoiceDemoEngine(config=config)
 
         session = engine.init_demo_session("test@example.com", "+1234567890")
-        token = engine._payment._make_token(
-            session.session_id, engine._payment.amount)
+        token = engine._payment._make_token(session.session_id, engine._payment.amount)
         engine.activate_session(session.session_id, token)
 
         # First call should succeed
@@ -1352,7 +1354,8 @@ class TestDay26EdgeCases:
         ]
 
         clusters = engine.cluster_tickets(
-            "company_similar", tickets, min_similarity=0.9)
+            "company_similar", tickets, min_similarity=0.9
+        )
 
         # Should cluster similar texts together
         assert len(clusters) >= 1

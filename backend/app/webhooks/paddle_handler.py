@@ -73,6 +73,7 @@ REQUIRED_FIELDS = {
 
 # ── Data Extraction Functions ────────────────────────────────────────────────
 
+
 def _extract_subscription_data(payload: dict) -> dict:
     """Extract subscription data from Paddle payload.
 
@@ -85,12 +86,15 @@ def _extract_subscription_data(payload: dict) -> dict:
     items = subscription.get("items", []) or []
 
     return {
-        "subscription_id": subscription.get("id") or subscription.get("subscription_id"),
+        "subscription_id": subscription.get("id")
+        or subscription.get("subscription_id"),
         "customer_id": customer.get("id") or customer.get("customer_id"),
         "status": subscription.get("status", "active"),
-        "plan_id": subscription.get("plan_id") or (items[0].get("price_id") if items else None),
+        "plan_id": subscription.get("plan_id")
+        or (items[0].get("price_id") if items else None),
         "quantity": sum(item.get("quantity", 1) for item in items),
-        "next_billing_date": subscription.get("next_billed_at") or subscription.get("next_billing_date"),
+        "next_billing_date": subscription.get("next_billed_at")
+        or subscription.get("next_billing_date"),
         "trial_end": subscription.get("trial_end"),
         "currency": subscription.get("currency_code", "USD"),
         "items": items,
@@ -113,30 +117,15 @@ def _extract_transaction_data(payload: dict) -> dict:
         "subscription_id": transaction.get("subscription_id"),
         "customer_id": transaction.get("customer_id"),
         "invoice_id": transaction.get("invoice_id"),
-        "status": transaction.get(
-            "status",
-            "pending"),
-        "amount": details.get(
-            "totals",
-            {}).get("total") or transaction.get("total"),
-        "currency": details.get("currency_code") or transaction.get(
-                "currency_code",
-                "USD"),
-        "tax": details.get(
-            "totals",
-            {}).get("tax"),
-        "discount": details.get(
-            "totals",
-            {}).get("discount"),
-        "payment_method": transaction.get(
-            "payment_method",
-            "card"),
-        "error_code": transaction.get(
-            "error",
-            {}).get("code"),
-        "error_detail": transaction.get(
-            "error",
-            {}).get("detail"),
+        "status": transaction.get("status", "pending"),
+        "amount": details.get("totals", {}).get("total") or transaction.get("total"),
+        "currency": details.get("currency_code")
+        or transaction.get("currency_code", "USD"),
+        "tax": details.get("totals", {}).get("tax"),
+        "discount": details.get("totals", {}).get("discount"),
+        "payment_method": transaction.get("payment_method", "card"),
+        "error_code": transaction.get("error", {}).get("code"),
+        "error_detail": transaction.get("error", {}).get("detail"),
         "created_at": transaction.get("created_at"),
         "updated_at": transaction.get("updated_at"),
         "billed_at": transaction.get("billed_at"),
@@ -168,20 +157,18 @@ def _extract_price_data(payload: dict) -> dict:
         "price_id": price.get("id") or price.get("price_id"),
         "product_id": price.get("product_id"),
         "name": price.get("name"),
-        "status": price.get(
-            "status",
-            "active"),
+        "status": price.get("status", "active"),
         "unit_price": price.get("unit_price"),
-        "currency_code": price.get(
-            "unit_price",
-            {}).get("currency_code") if isinstance(
-                price.get("unit_price"),
-                dict) else None,
-        "amount": price.get(
-            "unit_price",
-            {}).get("amount") if isinstance(
-            price.get("unit_price"),
-            dict) else None,
+        "currency_code": (
+            price.get("unit_price", {}).get("currency_code")
+            if isinstance(price.get("unit_price"), dict)
+            else None
+        ),
+        "amount": (
+            price.get("unit_price", {}).get("amount")
+            if isinstance(price.get("unit_price"), dict)
+            else None
+        ),
         "created_at": price.get("created_at"),
         "updated_at": price.get("updated_at"),
     }
@@ -263,19 +250,16 @@ def _extract_chargeback_data(payload: dict) -> dict:
     return {
         "transaction_id": chargeback.get("transaction_id") or chargeback.get("id"),
         "amount": chargeback.get("amount"),
-        "currency": chargeback.get(
-            "currency_code",
-            "USD"),
+        "currency": chargeback.get("currency_code", "USD"),
         "reason": chargeback.get("reason"),
-        "status": chargeback.get(
-            "status",
-            "received"),
+        "status": chargeback.get("status", "received"),
         "created_at": chargeback.get("created_at"),
     }
 
 
 def _validate_required_fields(
-    event_type: str, data: dict,
+    event_type: str,
+    data: dict,
 ) -> Optional[str]:
     """Validate that required fields exist in extracted data.
 
@@ -313,6 +297,7 @@ def _parse_occurred_at(event: dict) -> datetime:
 
 
 # ── Subscription Event Handlers (7 handlers) ────────────────────────────────
+
 
 def handle_subscription_created(event: dict) -> dict:
     """Handle subscription.created event."""
@@ -412,7 +397,8 @@ def handle_subscription_canceled(event: dict) -> dict:
     payload = event.get("payload", {})
     sub_data = _extract_subscription_data(payload)
     sub_data["cancellation_reason"] = payload.get("data", {}).get(
-        "cancellation_reason", "user_requested",
+        "cancellation_reason",
+        "user_requested",
     )
 
     error = _validate_required_fields("subscription.canceled", sub_data)
@@ -516,6 +502,7 @@ def handle_subscription_resumed(event: dict) -> dict:
 
 
 # ── Transaction Event Handlers (5 handlers) ────────────────────────────────
+
 
 def handle_transaction_completed(event: dict) -> dict:
     """Handle transaction.completed event."""
@@ -670,6 +657,7 @@ def handle_transaction_updated(event: dict) -> dict:
 
 # ── Customer Event Handlers (3 handlers) ───────────────────────────────────
 
+
 def handle_customer_created(event: dict) -> dict:
     """Handle customer.created event."""
     payload = event.get("payload", {})
@@ -754,6 +742,7 @@ def handle_customer_deleted(event: dict) -> dict:
 
 # ── Price Event Handlers (3 handlers) ──────────────────────────────────────
 
+
 def handle_price_created(event: dict) -> dict:
     """Handle price.created event."""
     payload = event.get("payload", {})
@@ -835,6 +824,7 @@ def handle_price_deleted(event: dict) -> dict:
 
 # ── Discount Event Handlers (3 handlers) ───────────────────────────────────
 
+
 def handle_discount_created(event: dict) -> dict:
     """Handle discount.created event."""
     payload = event.get("payload", {})
@@ -915,6 +905,7 @@ def handle_discount_deleted(event: dict) -> dict:
 
 
 # ── Credit Event Handlers (3 handlers) ─────────────────────────────────────
+
 
 def handle_credit_created(event: dict) -> dict:
     """Handle credit.created event."""
@@ -998,6 +989,7 @@ def handle_credit_deleted(event: dict) -> dict:
 
 # ── Adjustment Event Handlers (2 handlers) ─────────────────────────────────
 
+
 def handle_adjustment_created(event: dict) -> dict:
     """Handle adjustment.created event."""
     payload = event.get("payload", {})
@@ -1010,12 +1002,8 @@ def handle_adjustment_created(event: dict) -> dict:
     logger.info(
         "paddle_adjustment_created adjustment_id=%s transaction_id=%s amount=%s",
         adj_data["adjustment_id"],
-        adj_data.get(
-            "transaction_id",
-            ""),
-        adj_data.get(
-            "amount",
-            ""),
+        adj_data.get("transaction_id", ""),
+        adj_data.get("amount", ""),
         extra={
             "company_id": event.get("company_id"),
             "event_id": event.get("event_id"),
@@ -1057,6 +1045,7 @@ def handle_adjustment_updated(event: dict) -> dict:
 
 
 # ── Report Event Handlers (2 handlers) ─────────────────────────────────────
+
 
 def handle_report_created(event: dict) -> dict:
     """Handle report.created event."""
@@ -1114,6 +1103,7 @@ def handle_report_updated(event: dict) -> dict:
 
 # ── Chargeback Event Handlers (1 handler) ───────────────────────────────────
 
+
 def handle_payment_chargeback_created(event: dict) -> dict:
     """Handle payment.chargeback.created event.
 
@@ -1159,6 +1149,7 @@ def handle_payment_chargeback_created(event: dict) -> dict:
 
 # ── Day 3.4: Billing Cycle Sync Helper ────────────────────────────────────
 
+
 def _sync_billing_cycle_dates(company_id: str, sub_data: dict) -> None:
     """
     Day 3.4: Sync Paddle billing cycle dates to local subscription.
@@ -1177,10 +1168,14 @@ def _sync_billing_cycle_dates(company_id: str, sub_data: dict) -> None:
             return
 
         with SessionLocal() as db:
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == company_id,
-                Subscription.paddle_subscription_id == subscription_id,
-            ).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == company_id,
+                    Subscription.paddle_subscription_id == subscription_id,
+                )
+                .first()
+            )
 
             if not subscription:
                 return
@@ -1197,6 +1192,7 @@ def _sync_billing_cycle_dates(company_id: str, sub_data: dict) -> None:
 
             # Calculate period start (30 days before next billing)
             from datetime import timedelta
+
             period_start = next_billing - timedelta(days=30)
 
             # Update subscription
@@ -1223,6 +1219,7 @@ def _sync_billing_cycle_dates(company_id: str, sub_data: dict) -> None:
 
 # ── Chargeback Enforcement Handler ─────────────────────────────────────
 
+
 def _handle_chargeback_actions(
     company_id: str,
     transaction_id: str,
@@ -1244,6 +1241,7 @@ def _handle_chargeback_actions(
             # 1. Create internal high-priority ticket via TicketService
             try:
                 from app.services.ticket_service import TicketService
+
                 ticket_svc = TicketService(db, company_id)
                 ticket_svc.create_ticket(
                     customer_id="system",
@@ -1275,9 +1273,15 @@ def _handle_chargeback_actions(
             # 2. Suspend subscription to "payment_hold"
             try:
                 from database.models.billing import Subscription
-                subscription = db.query(Subscription).filter(
-                    Subscription.company_id == company_id,
-                ).order_by(Subscription.created_at.desc()).first()
+
+                subscription = (
+                    db.query(Subscription)
+                    .filter(
+                        Subscription.company_id == company_id,
+                    )
+                    .order_by(Subscription.created_at.desc())
+                    .first()
+                )
 
                 if subscription and subscription.status != "payment_hold":
                     subscription.status = "payment_hold"
@@ -1310,9 +1314,7 @@ def _handle_chargeback_actions(
                             "amount": str(amount or 0),
                             "currency": currency,
                             "reason": reason,
-                            "timestamp": (
-                                datetime.now(timezone.utc).isoformat()
-                            ),
+                            "timestamp": (datetime.now(timezone.utc).isoformat()),
                         },
                     )
                 )
@@ -1342,6 +1344,7 @@ def _handle_chargeback_actions(
 
 # ── Day 3.5: Payment Failure Handler ─────────────────────────────────────
 
+
 def _trigger_payment_failure_stop(
     company_id: str,
     transaction_id: str,
@@ -1367,8 +1370,7 @@ def _trigger_payment_failure_stop(
 
         # Parse amount to Decimal
         try:
-            amount_decimal = Decimal(
-                str(amount)) if amount else Decimal("0.00")
+            amount_decimal = Decimal(str(amount)) if amount else Decimal("0.00")
         except Exception:
             amount_decimal = Decimal("0.00")
 
@@ -1381,11 +1383,13 @@ def _trigger_payment_failure_stop(
                     company_id=company_id,
                     paddle_transaction_id=transaction_id,
                     failure_code=error_code or "payment_declined",
-                    failure_reason=error_detail or "Payment declined by payment provider",
+                    failure_reason=error_detail
+                    or "Payment declined by payment provider",
                     amount_attempted=amount_decimal,
                     paddle_subscription_id=subscription_id,
                     currency=currency,
-                ))
+                )
+            )
         finally:
             loop.close()
 

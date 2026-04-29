@@ -34,7 +34,6 @@ from app.api.deps import get_db, get_current_user, get_company_id, require_roles
 from app.services.activity_log_service import ActivityLogService
 from app.exceptions import NotFoundError
 
-
 router = APIRouter(
     prefix="/tickets",
     tags=["tickets", "timeline"],
@@ -44,8 +43,10 @@ router = APIRouter(
 
 # ── Request/Response Schemas ───────────────────────────────────────────────
 
+
 class TimelineEvent(BaseModel):
     """Single timeline event."""
+
     id: str
     type: str
     timestamp: datetime
@@ -59,6 +60,7 @@ class TimelineEvent(BaseModel):
 
 class TimelineResponse(BaseModel):
     """Paginated timeline response."""
+
     events: List[TimelineEvent]
     total: int
     page: int
@@ -67,6 +69,7 @@ class TimelineResponse(BaseModel):
 
 class ActivitySummary(BaseModel):
     """Activity summary for a ticket."""
+
     total_activities: int
     activity_counts: Dict[str, int]
     first_response_at: Optional[str]
@@ -79,6 +82,7 @@ class ActivitySummary(BaseModel):
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
 
+
 @router.get("/{ticket_id}/timeline", response_model=TimelineResponse)
 async def get_timeline(
     ticket_id: str,
@@ -86,8 +90,7 @@ async def get_timeline(
     include_notes: bool = Query(default=True),
     include_internal: bool = Query(default=False),
     activity_types: Optional[str] = Query(
-        default=None,
-        description="Comma-separated activity types to filter"
+        default=None, description="Comma-separated activity types to filter"
     ),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),

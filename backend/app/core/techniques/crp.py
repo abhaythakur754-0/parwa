@@ -83,8 +83,7 @@ _EMPATHY_FILLERS: Tuple[str, ...] = (
 # Combined default filler list (includes empathy by default;
 # excluded when keep_empathy=True in CRPConfig)
 DEFAULT_FILLERS: FrozenSet[str] = frozenset(
-    _OPENING_FILLERS + _CLOSING_FILLERS + _TRANSITION_FILLERS
-    + _EMPATHY_FILLERS
+    _OPENING_FILLERS + _CLOSING_FILLERS + _TRANSITION_FILLERS + _EMPATHY_FILLERS
 )
 
 # Empathy patterns as a set for efficient lookup during keep_empathy filtering
@@ -115,16 +114,32 @@ _COMPRESSION_RULES: List[Tuple[re.Pattern, str]] = [
     (re.compile(r"\b(?:In other words|To put it differently)\b", re.I), "i.e."),
     (re.compile(r"\b(?:For example|For instance)\b", re.I), "e.g."),
     (re.compile(r"\b(?:That is|Which is) to say\b", re.I), "Meaning"),
-    (re.compile(r"\b(?:First(?:ly)?|Second(?:ly)?|Third(?:ly)?)\b,\s*", re.I),
-     lambda m: f"{m.group(0).strip().rstrip(',')}. "),
+    (
+        re.compile(r"\b(?:First(?:ly)?|Second(?:ly)?|Third(?:ly)?)\b,\s*", re.I),
+        lambda m: f"{m.group(0).strip().rstrip(',')}. ",
+    ),
 ]
 
 # Reserved phrases never to compress (key facts / critical terms)
-_RESERVED_PHRASES: FrozenSet[str] = frozenset({
-    "refund", "cancellation", "payment", "charge", "invoice",
-    "subscription", "billing", "prorated", "policy", "deadline",
-    "contract", "termination", "credit", "debit", "amount",
-})
+_RESERVED_PHRASES: FrozenSet[str] = frozenset(
+    {
+        "refund",
+        "cancellation",
+        "payment",
+        "charge",
+        "invoice",
+        "subscription",
+        "billing",
+        "prorated",
+        "policy",
+        "deadline",
+        "contract",
+        "termination",
+        "credit",
+        "debit",
+        "amount",
+    }
+)
 
 
 # ── Data Structures ──────────────────────────────────────────────────
@@ -194,9 +209,7 @@ class CRPProcessor:
             try:
                 patterns.append(re.compile(pattern_str, re.I))
             except re.error:
-                logger.warning(
-                    "crp_invalid_filler_pattern",
-                    pattern=pattern_str)
+                logger.warning("crp_invalid_filler_pattern", pattern=pattern_str)
 
         # keep_empathy: when True, exclude empathy fillers so upset
         # customers still receive empathetic language.
@@ -284,7 +297,9 @@ class CRPProcessor:
         return self._join_sentences(kept) if kept else text
 
     async def enforce_token_budget(
-        self, text: str, max_tokens: int,
+        self,
+        text: str,
+        max_tokens: int,
     ) -> str:
         """Truncate text to fit within token budget at sentence boundary."""
         if not text:
@@ -362,7 +377,8 @@ class CRPProcessor:
             # Step 4: Token budget enforcement
             if max_tokens is None:
                 max_tokens = self._calculate_budget(
-                    original_tokens, complexity,
+                    original_tokens,
+                    complexity,
                 )
             result = await self.enforce_token_budget(text, max_tokens)
             if result != text:
@@ -387,11 +403,7 @@ class CRPProcessor:
         processed_tokens = self.estimate_tokens(text)
         reduction = 0.0
         if original_tokens > 0:
-            reduction = (
-                (original_tokens - processed_tokens)
-                / original_tokens
-                * 100.0
-            )
+            reduction = (original_tokens - processed_tokens) / original_tokens * 100.0
 
         return CRPResult(
             processed_text=text,
@@ -461,7 +473,8 @@ class CRPProcessor:
 
     @staticmethod
     def _calculate_budget(
-        original_tokens: int, complexity: float,
+        original_tokens: int,
+        complexity: float,
     ) -> int:
         """Calculate token budget based on complexity level."""
         # Low complexity = aggressive compression (60% of original)

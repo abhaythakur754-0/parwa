@@ -45,71 +45,256 @@ logger = get_logger("thread_of_thought")
 
 class TopicShift(str, Enum):
     """Classification of topic continuity between turns."""
-    NONE = "none"           # No shift — continuing same topic
-    PARTIAL = "partial"     # Partial shift — related but different aspect
-    COMPLETE = "complete"   # Complete shift — entirely new topic
+
+    NONE = "none"  # No shift — continuing same topic
+    PARTIAL = "partial"  # Partial shift — related but different aspect
+    COMPLETE = "complete"  # Complete shift — entirely new topic
 
 
 # ── Stop Words (for content extraction) ──────────────────────────────
 
 
-_STOP_WORDS: FrozenSet[str] = frozenset({
-    "i", "me", "my", "we", "you", "your", "it", "its",
-    "is", "am", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "do", "does", "did",
-    "will", "would", "could", "should", "may", "might", "shall", "can",
-    "to", "o", "in", "for", "on", "with", "at", "by", "from",
-    "as", "into", "through", "during", "before", "after", "above",
-    "below", "between", "and", "but", "or", "nor", "not", "so",
-    "i", "then", "than", "too", "very", "just", "about", "also",
-    "that", "this", "these", "those", "what", "how", "when", "where",
-    "why", "who", "which", "up", "out", "a", "an", "the",
-})
+_STOP_WORDS: FrozenSet[str] = frozenset(
+    {
+        "i",
+        "me",
+        "my",
+        "we",
+        "you",
+        "your",
+        "it",
+        "its",
+        "is",
+        "am",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "shall",
+        "can",
+        "to",
+        "o",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "between",
+        "and",
+        "but",
+        "or",
+        "nor",
+        "not",
+        "so",
+        "i",
+        "then",
+        "than",
+        "too",
+        "very",
+        "just",
+        "about",
+        "also",
+        "that",
+        "this",
+        "these",
+        "those",
+        "what",
+        "how",
+        "when",
+        "where",
+        "why",
+        "who",
+        "which",
+        "up",
+        "out",
+        "a",
+        "an",
+        "the",
+    }
+)
 
 # Negation words useful for contradiction detection
-_NEGATION_WORDS: FrozenSet[str] = frozenset({
-    "not", "no", "never", "neither", "nor", "none", "nothing",
-    "nowhere", "nobody", "cannot", "can't", "don't", "doesn't",
-    "didn't", "won't", "wouldn't", "shouldn't", "couldn't",
-    "isn't", "aren't", "wasn't", "weren't", "hasn't", "haven't",
-})
+_NEGATION_WORDS: FrozenSet[str] = frozenset(
+    {
+        "not",
+        "no",
+        "never",
+        "neither",
+        "nor",
+        "none",
+        "nothing",
+        "nowhere",
+        "nobody",
+        "cannot",
+        "can't",
+        "don't",
+        "doesn't",
+        "didn't",
+        "won't",
+        "wouldn't",
+        "shouldn't",
+        "couldn't",
+        "isn't",
+        "aren't",
+        "wasn't",
+        "weren't",
+        "hasn't",
+        "haven't",
+    }
+)
 
 # Contradiction indicator pairs (word → its antonym cluster)
 _CONTRADICTION_PAIRS: List[Tuple[Set[str], Set[str]]] = [
-    ({"yes", "correct", "right", "true", "confirmed"}, {"no", "incorrect", "wrong", "false", "denied"}),
-    ({"working", "active", "functional", "operational"}, {"broken", "inactive", "defective", "down", "offline"}),
+    (
+        {"yes", "correct", "right", "true", "confirmed"},
+        {"no", "incorrect", "wrong", "false", "denied"},
+    ),
+    (
+        {"working", "active", "functional", "operational"},
+        {"broken", "inactive", "defective", "down", "offline"},
+    ),
     ({"refund", "refunded", "reimbursed"}, {"charge", "charged", "billed", "invoiced"}),
-    ({"increase", "higher", "more", "greater"}, {"decrease", "lower", "less", "smaller"}),
-    ({"approved", "accepted", "confirmed"}, {"rejected", "denied", "declined", "cancelled"}),
-    ({"success", "successful", "completed", "resolved"}, {"fail", "failed", "error", "unresolved"}),
+    (
+        {"increase", "higher", "more", "greater"},
+        {"decrease", "lower", "less", "smaller"},
+    ),
+    (
+        {"approved", "accepted", "confirmed"},
+        {"rejected", "denied", "declined", "cancelled"},
+    ),
+    (
+        {"success", "successful", "completed", "resolved"},
+        {"fail", "failed", "error", "unresolved"},
+    ),
 ]
 
 # Topic domain keywords for shift detection
 _TOPIC_DOMAINS: Dict[str, FrozenSet[str]] = {
-    "billing": frozenset({
-        "bill", "billing", "invoice", "charge", "payment", "fee", "cost",
-        "price", "refund", "credit", "debit", "amount", "subscription",
-        "prorated", "proration", "overdue", "balance", "transaction",
-    }),
-    "technical": frozenset({
-        "bug", "error", "crash", "broken", "not work", "fix", "issue",
-        "slow", "fail", "login", "password", "install", "setup", "config",
-        "connect", "sync", "integration", "api", "webhook", "endpoint",
-        "feature", "update", "deploy", "server", "database",
-    }),
-    "account": frozenset({
-        "account", "profile", "email", "username", "settings", "notification",
-        "pre", "subscription", "plan", "tier", "upgrade", "downgrade",
-        "cancel", "reactivate", "verify", "verification",
-    }),
-    "order": frozenset({
-        "order", "shipment", "shipping", "delivery", "track", "tracking",
-        "package", "item", "product", "return", "exchange", "address",
-    }),
-    "general": frozenset({
-        "help", "support", "contact", "speak", "agent", "representative",
-        "question", "information", "detail", "explain",
-    }),
+    "billing": frozenset(
+        {
+            "bill",
+            "billing",
+            "invoice",
+            "charge",
+            "payment",
+            "fee",
+            "cost",
+            "price",
+            "refund",
+            "credit",
+            "debit",
+            "amount",
+            "subscription",
+            "prorated",
+            "proration",
+            "overdue",
+            "balance",
+            "transaction",
+        }
+    ),
+    "technical": frozenset(
+        {
+            "bug",
+            "error",
+            "crash",
+            "broken",
+            "not work",
+            "fix",
+            "issue",
+            "slow",
+            "fail",
+            "login",
+            "password",
+            "install",
+            "setup",
+            "config",
+            "connect",
+            "sync",
+            "integration",
+            "api",
+            "webhook",
+            "endpoint",
+            "feature",
+            "update",
+            "deploy",
+            "server",
+            "database",
+        }
+    ),
+    "account": frozenset(
+        {
+            "account",
+            "profile",
+            "email",
+            "username",
+            "settings",
+            "notification",
+            "pre",
+            "subscription",
+            "plan",
+            "tier",
+            "upgrade",
+            "downgrade",
+            "cancel",
+            "reactivate",
+            "verify",
+            "verification",
+        }
+    ),
+    "order": frozenset(
+        {
+            "order",
+            "shipment",
+            "shipping",
+            "delivery",
+            "track",
+            "tracking",
+            "package",
+            "item",
+            "product",
+            "return",
+            "exchange",
+            "address",
+        }
+    ),
+    "general": frozenset(
+        {
+            "help",
+            "support",
+            "contact",
+            "speak",
+            "agent",
+            "representative",
+            "question",
+            "information",
+            "detail",
+            "explain",
+        }
+    ),
 }
 
 
@@ -232,14 +417,13 @@ class ThoTProcessor:
             Tuple of (truncated_thread, current_topic, topic_shift).
         """
         # Identify current topic regardless of thread state
-        current_topic = self._identify_topic(
-            [current_query] if current_query else [])
+        current_topic = self._identify_topic([current_query] if current_query else [])
 
         if not reasoning_thread:
             return [], current_topic, TopicShift.NONE
 
         # Truncate to max length (most recent entries)
-        thread = reasoning_thread[-self.config.max_thread_length:]
+        thread = reasoning_thread[-self.config.max_thread_length :]
 
         # Extract previous topic from the last entries
         prev_topic = self._identify_topic(thread)
@@ -362,10 +546,13 @@ class ThoTProcessor:
         repetition_penalty = min(0.2, len(repeated_info) * 0.05)
         loop_penalty = 0.3 if loop_detected else 0.0
 
-        continuity = max(0.0, min(1.0, topic_score
-                                  - contradiction_penalty
-                                  - repetition_penalty
-                                  - loop_penalty), )
+        continuity = max(
+            0.0,
+            min(
+                1.0,
+                topic_score - contradiction_penalty - repetition_penalty - loop_penalty,
+            ),
+        )
 
         return ThreadAnalysis(
             turn_count=turn_count,
@@ -399,12 +586,8 @@ class ThoTProcessor:
         entries_lower = [entry.lower() for entry in thread]
 
         for i in range(len(entries_lower) - 1):
-            current_words = set(
-                re.findall(
-                    r"\b\w+\b",
-                    entries_lower[i])) - _STOP_WORDS
-            next_words = set(re.findall(
-                r"\b\w+\b", entries_lower[i + 1])) - _STOP_WORDS
+            current_words = set(re.findall(r"\b\w+\b", entries_lower[i])) - _STOP_WORDS
+            next_words = set(re.findall(r"\b\w+\b", entries_lower[i + 1])) - _STOP_WORDS
 
             for cluster_a, cluster_b in _CONTRADICTION_PAIRS:
                 a_hits = current_words & cluster_a
@@ -449,18 +632,14 @@ class ThoTProcessor:
             if i == 0:
                 continue
 
-            entry_words = set(
-                re.findall(
-                    r"\b\w+\b",
-                    entry.lower())) - _STOP_WORDS
+            entry_words = set(re.findall(r"\b\w+\b", entry.lower())) - _STOP_WORDS
             if not entry_words:
                 continue
 
             for j in range(i):
-                prev_words = set(
-                    re.findall(
-                        r"\b\w+\b",
-                        thread[j].lower())) - _STOP_WORDS
+                prev_words = (
+                    set(re.findall(r"\b\w+\b", thread[j].lower())) - _STOP_WORDS
+                )
                 if not prev_words:
                     continue
 
@@ -499,7 +678,7 @@ class ThoTProcessor:
         recent = entry_words[-check_window:]
 
         for i in range(len(recent) - 2):
-            group = recent[i:i + 3]
+            group = recent[i : i + 3]
             # All three entries must have some content words
             if any(not g for g in group):
                 continue
@@ -544,8 +723,7 @@ class ThoTProcessor:
         word_counts = Counter(content_words)
         # Get top keywords (excluding very common words)
         top_keywords = [
-            word for word, count in word_counts.most_common(8)
-            if count >= 2
+            word for word, count in word_counts.most_common(8) if count >= 2
         ]
 
         if not top_keywords:
@@ -598,7 +776,8 @@ class ThoTProcessor:
         if analysis.contradictions:
             contradiction_count = len(analysis.contradictions)
             prefix_parts.append(
-                f"[Note: {contradiction_count} contradiction(s) detected in reasoning history]")
+                f"[Note: {contradiction_count} contradiction(s) detected in reasoning history]"
+            )
 
         # Flag loops
         if analysis.loop_detected:
@@ -610,7 +789,8 @@ class ThoTProcessor:
         if analysis.repeated_info:
             repeat_count = len(analysis.repeated_info)
             prefix_parts.append(
-                f"[Note: {repeat_count} repeated information pattern(s) detected]")
+                f"[Note: {repeat_count} repeated information pattern(s) detected]"
+            )
 
         # Handle topic shift
         if topic_shift == TopicShift.COMPLETE:
@@ -623,8 +803,11 @@ class ThoTProcessor:
             )
 
         context_prefix = " ".join(prefix_parts)
-        enhanced_response = f"{context_prefix} {current_query}".strip(
-        ) if context_prefix else current_query
+        enhanced_response = (
+            f"{context_prefix} {current_query}".strip()
+            if context_prefix
+            else current_query
+        )
 
         return context_prefix, enhanced_response
 
@@ -656,21 +839,27 @@ class ThoTProcessor:
         try:
             # Step 1: Thread Extraction
             thread, current_topic, topic_shift = await self.extract_thread(
-                reasoning_thread, current_query,
+                reasoning_thread,
+                current_query,
             )
             if thread or current_query:
                 steps_applied.append("thread_extraction")
 
             # Step 2: Continuity Check
             analysis = await self.check_continuity(
-                thread, current_query, topic_shift,
+                thread,
+                current_query,
+                topic_shift,
             )
             if thread:
                 steps_applied.append("continuity_check")
 
             # Step 3: Context Enhancement
             context_prefix, enhanced_response = await self.enhance_context(
-                analysis, thread, current_query, topic_shift,
+                analysis,
+                thread,
+                current_query,
+                topic_shift,
             )
             if context_prefix:
                 steps_applied.append("context_enhancement")

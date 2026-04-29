@@ -15,7 +15,9 @@ class APIKeyCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     scopes: List[str] = Field(min_length=1)
     expires_days: Optional[int] = Field(
-        default=None, ge=1, le=365,
+        default=None,
+        ge=1,
+        le=365,
     )
 
 

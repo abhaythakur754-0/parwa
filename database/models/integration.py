@@ -11,9 +11,7 @@ from datetime import datetime
 
 import uuid
 
-from sqlalchemy import (
-    Boolean, Column, DateTime, Integer, String, Text, ForeignKey
-)
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, ForeignKey
 
 from database.base import Base
 
@@ -27,8 +25,10 @@ class Integration(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     integration_type = Column(String(100), nullable=False)
     name = Column(String(255))
@@ -46,11 +46,14 @@ class RESTConnector(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     integration_id = Column(
-        String(36), ForeignKey("integrations.id"),
+        String(36),
+        ForeignKey("integrations.id"),
         nullable=False,
     )
     base_url = Column(String(500), nullable=False)
@@ -68,11 +71,14 @@ class WebhookIntegration(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     integration_id = Column(
-        String(36), ForeignKey("integrations.id"),
+        String(36),
+        ForeignKey("integrations.id"),
         nullable=False,
     )
     webhook_url = Column(String(500), nullable=False)
@@ -87,8 +93,10 @@ class MCPConnection(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name = Column(String(255), nullable=False)
     server_url = Column(String(500))
@@ -104,8 +112,10 @@ class DBConnection(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name = Column(String(255), nullable=False)
     # postgresql, mysql, mongodb
@@ -122,8 +132,10 @@ class EventBuffer(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     session_id = Column(String(36), ForeignKey("tickets.id"))
     event_type = Column(String(100), nullable=False)
@@ -138,8 +150,10 @@ class ErrorLog(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     error_type = Column(String(100), nullable=False)
     error_message = Column(Text, nullable=False)
@@ -157,8 +171,10 @@ class AuditTrail(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     actor_id = Column(String(36))
     # user, system, api_key
@@ -178,8 +194,10 @@ class OutgoingWebhook(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name = Column(String(255), nullable=False)
     url = Column(String(500), nullable=False)
@@ -208,8 +226,10 @@ class CustomIntegration(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name = Column(String(255), nullable=False)
     # rest, graphql, webhook_in, webhook_out, database
@@ -246,12 +266,16 @@ class WebhookDeliveryLog(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     custom_integration_id = Column(
-        String(36), ForeignKey("custom_integrations.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("custom_integrations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     # The event that triggered this delivery
     trigger_event = Column(String(100), nullable=False)

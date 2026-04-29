@@ -85,31 +85,30 @@ class KnowledgeRetriever:
         # coverage)
         words = like_term.split()
         if words:
-            conditions = [
-                DocumentChunk.content.ilike(f"%{word}%") for word in words
-            ]
+            conditions = [DocumentChunk.content.ilike(f"%{word}%") for word in words]
             base = base.filter(or_(*conditions))
 
         # Order by most recent (placeholder — pgvector will use cosine
         # similarity)
-        results = base.order_by(
-            desc(DocumentChunk.created_at)).limit(max_results).all()
+        results = base.order_by(desc(DocumentChunk.created_at)).limit(max_results).all()
 
         # Compute a naive relevance score based on word matches
         out: List[Dict[str, Any]] = []
         for chunk, doc_filename, doc_category in results:
             score = _compute_relevance_score(query, chunk.content)
 
-            out.append({
-                "chunk_id": chunk.id,
-                "content": chunk.content,
-                "document_id": chunk.document_id,
-                "document_title": doc_filename,
-                "relevance_score": score,
-                "source": doc_filename,
-                "category": doc_category,
-                "chunk_index": chunk.chunk_index,
-            })
+            out.append(
+                {
+                    "chunk_id": chunk.id,
+                    "content": chunk.content,
+                    "document_id": chunk.document_id,
+                    "document_title": doc_filename,
+                    "relevance_score": score,
+                    "source": doc_filename,
+                    "category": doc_category,
+                    "chunk_index": chunk.chunk_index,
+                }
+            )
 
         # Sort by relevance descending (best first)
         out.sort(key=lambda r: r["relevance_score"], reverse=True)
@@ -141,13 +140,17 @@ class KnowledgeRetriever:
             .all()
         )
 
-        return [{"chunk_id": c.id,
-                 "content": c.content,
-                 "chunk_index": c.chunk_index,
-                 "char_count": len(c.content) if c.content else 0,
-                 "has_embedding": c.embedding is not None,
-                 "created_at": c.created_at.isoformat() if c.created_at else None,
-                 } for c in chunks]
+        return [
+            {
+                "chunk_id": c.id,
+                "content": c.content,
+                "chunk_index": c.chunk_index,
+                "char_count": len(c.content) if c.content else 0,
+                "has_embedding": c.embedding is not None,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+            }
+            for c in chunks
+        ]
 
     def get_stats(self) -> Dict[str, Any]:
         """Get knowledge base statistics for the current tenant.
@@ -194,9 +197,7 @@ class KnowledgeRetriever:
             .all()
         )
 
-        documents_by_status = {
-            row.status: row.count for row in status_rows
-        }
+        documents_by_status = {row.status: row.count for row in status_rows}
 
         return {
             "total_documents": total_documents,

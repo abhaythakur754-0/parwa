@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 
 class ProviderType(str, Enum):
     """Type of provider service."""
+
     EMAIL = "email"
     SMS = "sms"
     VOICE = "voice"
@@ -30,6 +31,7 @@ class ProviderType(str, Enum):
 
 class ProviderCapability(str, Enum):
     """Capabilities that a provider may support."""
+
     # Email capabilities
     SEND_EMAIL = "send_email"
     SEND_TEMPLATE_EMAIL = "send_template_email"
@@ -66,6 +68,7 @@ class ProviderCapability(str, Enum):
 
 class ProviderStatus(str, Enum):
     """Health status of a provider connection."""
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     ERROR = "error"
@@ -77,6 +80,7 @@ class ProviderStatus(str, Enum):
 @dataclass
 class ProviderResult:
     """Result from a provider operation."""
+
     success: bool
     provider_name: str
     operation: str
@@ -84,8 +88,7 @@ class ProviderResult:
     error_code: Optional[str] = None
     error_message: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
-    timestamp: str = field(
-        default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -103,6 +106,7 @@ class ProviderResult:
 @dataclass
 class EmailMessage:
     """Email message data."""
+
     to: str
     subject: str
     html_content: str
@@ -122,6 +126,7 @@ class EmailMessage:
 @dataclass
 class SMSMessage:
     """SMS message data."""
+
     to: str
     body: str
     from_number: Optional[str] = None
@@ -134,6 +139,7 @@ class SMSMessage:
 @dataclass
 class VoiceCall:
     """Voice call data."""
+
     to: str
     from_number: str
     url: Optional[str] = None  # TwiML URL
@@ -148,6 +154,7 @@ class VoiceCall:
 @dataclass
 class ChatMessage:
     """Chat message data."""
+
     channel: str
     channel_id: str
     text: str
@@ -196,8 +203,7 @@ class BaseProvider(ABC):
             ValueError: If required fields are missing.
         """
         missing = [
-            field for field in self.required_config_fields
-            if not self.config.get(field)
+            field for field in self.required_config_fields if not self.config.get(field)
         ]
         if missing:
             raise ValueError(
@@ -249,8 +255,14 @@ class BaseProvider(ABC):
             Config dict with sensitive values masked.
         """
         sensitive_keys = {
-            "api_key", "secret_key", "auth_token", "password",
-            "secret", "token", "private_key", "access_token",
+            "api_key",
+            "secret_key",
+            "auth_token",
+            "password",
+            "secret",
+            "token",
+            "private_key",
+            "access_token",
         }
         masked = {}
         for key, value in self.config.items():

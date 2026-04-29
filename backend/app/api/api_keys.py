@@ -27,7 +27,8 @@ from database.base import get_db
 from database.models.core import User
 
 router = APIRouter(
-    prefix="/api/api-keys", tags=["API Keys"],
+    prefix="/api/api-keys",
+    tags=["API Keys"],
 )
 
 
@@ -69,11 +70,13 @@ def api_key_create(
         db.rollback()
         if "Maximum" in str(exc):
             from fastapi import HTTPException
+
             raise HTTPException(
                 status_code=400,
                 detail=str(exc),
             )
         from fastapi import HTTPException
+
         raise HTTPException(
             status_code=422,
             detail=str(exc),
@@ -104,6 +107,7 @@ def api_key_rotate(
     except ValueError as exc:
         db.rollback()
         from fastapi import HTTPException
+
         raise HTTPException(
             status_code=404,
             detail=str(exc),
@@ -136,6 +140,7 @@ def api_key_revoke(
     except ValueError as exc:
         db.rollback()
         from fastapi import HTTPException
+
         raise HTTPException(
             status_code=404,
             detail=str(exc),
@@ -150,6 +155,7 @@ def api_key_revoke(
 def _to_response(record) -> APIKeyResponse:
     """Convert DB record to APIKeyResponse."""
     import json
+
     scopes = ["read"]
     if record.scopes:
         try:
@@ -164,17 +170,8 @@ def _to_response(record) -> APIKeyResponse:
         name=record.name,
         key_prefix=record.key_prefix,
         scopes=scopes,
-        created_at=(
-            record.created_at.isoformat()
-            if record.created_at else None
-        ),
-        last_used_at=(
-            record.last_used_at.isoformat()
-            if record.last_used_at else None
-        ),
-        expires_at=(
-            record.expires_at.isoformat()
-            if record.expires_at else None
-        ),
+        created_at=(record.created_at.isoformat() if record.created_at else None),
+        last_used_at=(record.last_used_at.isoformat() if record.last_used_at else None),
+        expires_at=(record.expires_at.isoformat() if record.expires_at else None),
         revoked=record.revoked,
     )

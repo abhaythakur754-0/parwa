@@ -112,8 +112,9 @@ def approval_reminder(self, company_id: str) -> dict:
     time_limit=300,
 )
 @with_company_id
-def batch_process(self, company_id: str, approval_ids: list,
-                  action: str = "approve") -> dict:
+def batch_process(
+    self, company_id: str, approval_ids: list, action: str = "approve"
+) -> dict:
     """Process batch approval actions."""
     try:
         processed = 0

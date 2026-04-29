@@ -136,8 +136,9 @@ async def api_upload_document(
         raise ValidationError(
             message=f"File type '{ext}' not allowed. Allowed: {
                 ', '.join(
-                    sorted(ALLOWED_EXTENSIONS))}", details={
-                "allowed_extensions": sorted(ALLOWED_EXTENSIONS)}, )
+                    sorted(ALLOWED_EXTENSIONS))}",
+            details={"allowed_extensions": sorted(ALLOWED_EXTENSIONS)},
+        )
 
     # Read file content
     content = await file.read()
@@ -169,38 +170,31 @@ async def api_upload_document(
             content=content,
             file_name=file.filename,
             content_type=file.content_type or "application/octet-stream",
-            uploaded_by=str(
-                user.id),
-            metadata={
-                "document_id": str(
-                    document.id),
-                "source": "knowledge_base"},
+            uploaded_by=str(user.id),
+            metadata={"document_id": str(document.id), "source": "knowledge_base"},
         )
         # Store file reference on document for Celery task to retrieve
-        document.file_path = storage_result.get(
-            "file_path", storage_result.get("id"))
+        document.file_path = storage_result.get("file_path", storage_result.get("id"))
         document.storage_file_id = storage_result.get("id")
         db.flush()
     except Exception as e:
         logger.error(
-            "kb_file_storage_failed",
-            document_id=str(
-                document.id),
-            error=str(e))
+            "kb_file_storage_failed", document_id=str(document.id), error=str(e)
+        )
         # Continue processing even if storage fails - Celery task will handle
         # gracefully
 
     # Trigger async processing via Celery
     try:
         from app.tasks.knowledge_tasks import process_knowledge_document
+
         process_knowledge_document.delay(str(document.id), user.company_id)
     except Exception:
         # Celery not available — mark for sync processing
         document.status = "pending"
 
     return UploadResponse(
-        id=str(
-            document.id),
+        id=str(document.id),
         filename=filename,
         status=document.status,
         message="Document uploaded successfully. Processing will begin shortly.",
@@ -261,10 +255,14 @@ def api_get_document(
 
     BC-001: Scoped to user's company_id.
     """
-    doc = db.query(KnowledgeDocument).filter(
-        KnowledgeDocument.id == document_id,
-        KnowledgeDocument.company_id == user.company_id,
-    ).first()
+    doc = (
+        db.query(KnowledgeDocument)
+        .filter(
+            KnowledgeDocument.id == document_id,
+            KnowledgeDocument.company_id == user.company_id,
+        )
+        .first()
+    )
 
     if not doc:
         raise HTTPException(
@@ -300,10 +298,14 @@ def api_delete_document(
 
     BC-001: Scoped to user's company_id.
     """
-    doc = db.query(KnowledgeDocument).filter(
-        KnowledgeDocument.id == document_id,
-        KnowledgeDocument.company_id == user.company_id,
-    ).first()
+    doc = (
+        db.query(KnowledgeDocument)
+        .filter(
+            KnowledgeDocument.id == document_id,
+            KnowledgeDocument.company_id == user.company_id,
+        )
+        .first()
+    )
 
     if not doc:
         raise HTTPException(
@@ -313,6 +315,7 @@ def api_delete_document(
 
     # Delete associated chunks
     from database.models.onboarding import DocumentChunk
+
     db.query(DocumentChunk).filter(
         DocumentChunk.document_id == document_id,
         DocumentChunk.company_id == user.company_id,
@@ -403,9 +406,13 @@ def api_kb_stats(
     from database.models.onboarding import DocumentChunk
 
     # Document counts by status
-    docs = db.query(KnowledgeDocument).filter(
-        KnowledgeDocument.company_id == user.company_id,
-    ).all()
+    docs = (
+        db.query(KnowledgeDocument)
+        .filter(
+            KnowledgeDocument.company_id == user.company_id,
+        )
+        .all()
+    )
 
     total = len(docs)
     completed = sum(1 for d in docs if d.status == "completed")
@@ -414,9 +421,14 @@ def api_kb_stats(
     pending = sum(1 for d in docs if d.status == "pending")
 
     # Total chunks
-    total_chunks = db.query(func.count(DocumentChunk.id)).filter(
-        DocumentChunk.company_id == user.company_id,
-    ).scalar() or 0
+    total_chunks = (
+        db.query(func.count(DocumentChunk.id))
+        .filter(
+            DocumentChunk.company_id == user.company_id,
+        )
+        .scalar()
+        or 0
+    )
 
     return KBStatsResponse(
         total_documents=total,
@@ -442,10 +454,14 @@ def api_retry_all_failed(
 
     BC-001: Scoped to user's company_id.
     """
-    failed_docs = db.query(KnowledgeDocument).filter(
-        KnowledgeDocument.company_id == user.company_id,
-        KnowledgeDocument.status == "failed",
-    ).all()
+    failed_docs = (
+        db.query(KnowledgeDocument)
+        .filter(
+            KnowledgeDocument.company_id == user.company_id,
+            KnowledgeDocument.status == "failed",
+        )
+        .all()
+    )
 
     retried = 0
     for doc in failed_docs:
@@ -453,6 +469,7 @@ def api_retry_all_failed(
         if retry_count < 3:
             try:
                 from app.tasks.knowledge_tasks import process_knowledge_document
+
                 process_knowledge_document.delay(str(doc.id), user.company_id)
                 doc.status = "processing"
                 doc.retry_count = retry_count + 1  # type: ignore

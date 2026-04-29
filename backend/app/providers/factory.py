@@ -115,8 +115,7 @@ class ProviderFactory:
             Provider instance.
         """
         # Get provider name from settings
-        provider_name = cls._get_provider_name_from_settings(
-            provider_type, settings)
+        provider_name = cls._get_provider_name_from_settings(provider_type, settings)
 
         # Get config from settings
         config = cls._get_provider_config_from_settings(
@@ -172,8 +171,11 @@ class ProviderFactory:
         Returns:
             Provider name string.
         """
-        type_key = provider_type.value if isinstance(
-            provider_type, ProviderType) else provider_type
+        type_key = (
+            provider_type.value
+            if isinstance(provider_type, ProviderType)
+            else provider_type
+        )
 
         # Map provider types to settings attributes
         settings_map = {
@@ -202,36 +204,24 @@ class ProviderFactory:
         Returns:
             Configuration dict.
         """
-        type_key = provider_type.value if isinstance(
-            provider_type, ProviderType) else provider_type
+        type_key = (
+            provider_type.value
+            if isinstance(provider_type, ProviderType)
+            else provider_type
+        )
 
         # Email providers
         if type_key == "email":
             if provider_name == "brevo":
                 return {
-                    "api_key": getattr(
-                        settings,
-                        "BREVO_API_KEY",
-                        ""),
-                    "from_email": getattr(
-                        settings,
-                        "FROM_EMAIL",
-                        "noreply@parwa.ai"),
-                    "from_name": getattr(
-                        settings,
-                        "FROM_NAME",
-                        "PARWA"),
+                    "api_key": getattr(settings, "BREVO_API_KEY", ""),
+                    "from_email": getattr(settings, "FROM_EMAIL", "noreply@parwa.ai"),
+                    "from_name": getattr(settings, "FROM_NAME", "PARWA"),
                 }
             elif provider_name == "sendgrid":
                 return {
-                    "api_key": getattr(
-                        settings,
-                        "SENDGRID_API_KEY",
-                        ""),
-                    "from_email": getattr(
-                        settings,
-                        "FROM_EMAIL",
-                        "noreply@parwa.ai"),
+                    "api_key": getattr(settings, "SENDGRID_API_KEY", ""),
+                    "from_email": getattr(settings, "FROM_EMAIL", "noreply@parwa.ai"),
                 }
             elif provider_name == "mailgun":
                 return {
@@ -240,24 +230,24 @@ class ProviderFactory:
                 }
             elif provider_name == "ses":
                 return {
-                    "access_key": getattr(
-                        settings, "AWS_ACCESS_KEY_ID", ""), "secret_key": getattr(
-                        settings, "AWS_SECRET_ACCESS_KEY", ""), "region": getattr(
-                        settings, "AWS_REGION", "us-east-1"), }
+                    "access_key": getattr(settings, "AWS_ACCESS_KEY_ID", ""),
+                    "secret_key": getattr(settings, "AWS_SECRET_ACCESS_KEY", ""),
+                    "region": getattr(settings, "AWS_REGION", "us-east-1"),
+                }
 
         # SMS providers
         elif type_key == "sms":
             if provider_name == "twilio":
                 return {
-                    "account_sid": getattr(
-                        settings, "TWILIO_ACCOUNT_SID", ""), "auth_token": getattr(
-                        settings, "TWILIO_AUTH_TOKEN", ""), "phone_number": getattr(
-                        settings, "TWILIO_PHONE_NUMBER", ""), }
+                    "account_sid": getattr(settings, "TWILIO_ACCOUNT_SID", ""),
+                    "auth_token": getattr(settings, "TWILIO_AUTH_TOKEN", ""),
+                    "phone_number": getattr(settings, "TWILIO_PHONE_NUMBER", ""),
+                }
             elif provider_name == "messagebird":
                 return {
-                    "api_key": getattr(
-                        settings, "MESSAGEBIRD_API_KEY", ""), "originator": getattr(
-                        settings, "MESSAGEBIRD_ORIGINATOR", ""), }
+                    "api_key": getattr(settings, "MESSAGEBIRD_API_KEY", ""),
+                    "originator": getattr(settings, "MESSAGEBIRD_ORIGINATOR", ""),
+                }
             elif provider_name == "vonage":
                 return {
                     "api_key": getattr(settings, "VONAGE_API_KEY", ""),
@@ -272,25 +262,25 @@ class ProviderFactory:
                 }
             elif provider_name == "sinch":
                 return {
-                    "service_plan_id": getattr(
-                        settings, "SINCH_SERVICE_PLAN_ID", ""), "api_token": getattr(
-                        settings, "SINCH_API_TOKEN", ""), "from_number": getattr(
-                        settings, "SINCH_FROM_NUMBER", ""), }
+                    "service_plan_id": getattr(settings, "SINCH_SERVICE_PLAN_ID", ""),
+                    "api_token": getattr(settings, "SINCH_API_TOKEN", ""),
+                    "from_number": getattr(settings, "SINCH_FROM_NUMBER", ""),
+                }
 
         # Voice providers
         elif type_key == "voice":
             if provider_name == "twilio":
                 return {
-                    "account_sid": getattr(
-                        settings, "TWILIO_ACCOUNT_SID", ""), "auth_token": getattr(
-                        settings, "TWILIO_AUTH_TOKEN", ""), "phone_number": getattr(
-                        settings, "TWILIO_PHONE_NUMBER", ""), }
+                    "account_sid": getattr(settings, "TWILIO_ACCOUNT_SID", ""),
+                    "auth_token": getattr(settings, "TWILIO_AUTH_TOKEN", ""),
+                    "phone_number": getattr(settings, "TWILIO_PHONE_NUMBER", ""),
+                }
             elif provider_name == "vonage":
                 return {
-                    "api_key": getattr(
-                        settings, "VONAGE_API_KEY", ""), "api_secret": getattr(
-                        settings, "VONAGE_API_SECRET", ""), "application_id": getattr(
-                        settings, "VONAGE_APPLICATION_ID", ""), }
+                    "api_key": getattr(settings, "VONAGE_API_KEY", ""),
+                    "api_secret": getattr(settings, "VONAGE_API_SECRET", ""),
+                    "application_id": getattr(settings, "VONAGE_APPLICATION_ID", ""),
+                }
 
         # Chat providers
         elif type_key == "chat":
@@ -304,11 +294,11 @@ class ProviderFactory:
                 }
             elif provider_name == "teams":
                 return {
-                    "webhook_url": getattr(
-                        settings, "TEAMS_WEBHOOK_URL", ""), "tenant_id": getattr(
-                        settings, "TEAMS_TENANT_ID", ""), "client_id": getattr(
-                        settings, "TEAMS_CLIENT_ID", ""), "client_secret": getattr(
-                        settings, "TEAMS_CLIENT_SECRET", ""), }
+                    "webhook_url": getattr(settings, "TEAMS_WEBHOOK_URL", ""),
+                    "tenant_id": getattr(settings, "TEAMS_TENANT_ID", ""),
+                    "client_id": getattr(settings, "TEAMS_CLIENT_ID", ""),
+                    "client_secret": getattr(settings, "TEAMS_CLIENT_SECRET", ""),
+                }
 
         return {}
 

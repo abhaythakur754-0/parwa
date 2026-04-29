@@ -33,7 +33,7 @@ logger = get_logger("analytics_advanced_service")
 # ══════════════════════════════════════════════════════════════════
 
 # Default cost estimates (BC-002)
-DEFAULT_AI_COST_PER_TICKET = 0.15   # $0.15
+DEFAULT_AI_COST_PER_TICKET = 0.15  # $0.15
 DEFAULT_HUMAN_COST_PER_TICKET = 8.00  # $8.00
 
 # Adaptation tracker defaults
@@ -73,7 +73,10 @@ def get_adaptation_tracker(
             day_end = day_start + timedelta(days=1)
 
             day_data = _get_adaptation_day(
-                db, company_id, day_start, day_end,
+                db,
+                company_id,
+                day_start,
+                day_end,
             )
             day_data["date"] = day_start.strftime("%Y-%m-%d")
             daily_data.append(day_data)
@@ -89,7 +92,9 @@ def get_adaptation_tracker(
         overall_improvement = 0.0
         if starting_accuracy > 0 and current_accuracy > 0:
             overall_improvement = round(
-                ((current_accuracy - starting_accuracy) / starting_accuracy) * 100, 1, )
+                ((current_accuracy - starting_accuracy) / starting_accuracy) * 100,
+                1,
+            )
 
         # Best and worst days
         best_day = None
@@ -146,62 +151,89 @@ def _get_adaptation_day(
     ai_mistakes = 0
 
     # Get AI-resolved ticket CSAT scores
-    ai_csat = db.query(func.avg(TicketFeedback.rating)).join(
-        Ticket, Ticket.id == TicketFeedback.ticket_id,
-    ).join(
-        TicketAssignment,
-        and_(
-            TicketAssignment.ticket_id == Ticket.id,
-            TicketAssignment.assignee_type == "ai",
-        ),
-    ).filter(
-        Ticket.company_id == company_id,
-        TicketFeedback.created_at >= day_start,
-        TicketFeedback.created_at < day_end,
-    ).scalar()
+    ai_csat = (
+        db.query(func.avg(TicketFeedback.rating))
+        .join(
+            Ticket,
+            Ticket.id == TicketFeedback.ticket_id,
+        )
+        .join(
+            TicketAssignment,
+            and_(
+                TicketAssignment.ticket_id == Ticket.id,
+                TicketAssignment.assignee_type == "ai",
+            ),
+        )
+        .filter(
+            Ticket.company_id == company_id,
+            TicketFeedback.created_at >= day_start,
+            TicketFeedback.created_at < day_end,
+        )
+        .scalar()
+    )
 
     if ai_csat is not None:
         ai_accuracy = round(float(ai_csat), 2)
 
     # AI ticket count
-    ai_tickets = db.query(func.count(TicketAssignment.id)).filter(
-        TicketAssignment.company_id == company_id,
-        TicketAssignment.assigned_at >= day_start,
-        TicketAssignment.assigned_at < day_end,
-        TicketAssignment.assignee_type == "ai",
-    ).scalar() or 0
+    ai_tickets = (
+        db.query(func.count(TicketAssignment.id))
+        .filter(
+            TicketAssignment.company_id == company_id,
+            TicketAssignment.assigned_at >= day_start,
+            TicketAssignment.assigned_at < day_end,
+            TicketAssignment.assignee_type == "ai",
+        )
+        .scalar()
+        or 0
+    )
 
     # AI mistakes: low CSAT (1-2 stars) from AI
-    ai_mistakes = db.query(func.count(TicketFeedback.id)).join(
-        Ticket, Ticket.id == TicketFeedback.ticket_id,
-    ).join(
-        TicketAssignment,
-        and_(
-            TicketAssignment.ticket_id == Ticket.id,
-            TicketAssignment.assignee_type == "ai",
-        ),
-    ).filter(
-        Ticket.company_id == company_id,
-        TicketFeedback.created_at >= day_start,
-        TicketFeedback.created_at < day_end,
-        TicketFeedback.rating <= 2,
-    ).scalar() or 0
+    ai_mistakes = (
+        db.query(func.count(TicketFeedback.id))
+        .join(
+            Ticket,
+            Ticket.id == TicketFeedback.ticket_id,
+        )
+        .join(
+            TicketAssignment,
+            and_(
+                TicketAssignment.ticket_id == Ticket.id,
+                TicketAssignment.assignee_type == "ai",
+            ),
+        )
+        .filter(
+            Ticket.company_id == company_id,
+            TicketFeedback.created_at >= day_start,
+            TicketFeedback.created_at < day_end,
+            TicketFeedback.rating <= 2,
+        )
+        .scalar()
+        or 0
+    )
 
     # Human accuracy: average CSAT for human-resolved tickets
     human_accuracy = 0.0
-    human_csat = db.query(func.avg(TicketFeedback.rating)).join(
-        Ticket, Ticket.id == TicketFeedback.ticket_id,
-    ).join(
-        TicketAssignment,
-        and_(
-            TicketAssignment.ticket_id == Ticket.id,
-            TicketAssignment.assignee_type == "human",
-        ),
-    ).filter(
-        Ticket.company_id == company_id,
-        TicketFeedback.created_at >= day_start,
-        TicketFeedback.created_at < day_end,
-    ).scalar()
+    human_csat = (
+        db.query(func.avg(TicketFeedback.rating))
+        .join(
+            Ticket,
+            Ticket.id == TicketFeedback.ticket_id,
+        )
+        .join(
+            TicketAssignment,
+            and_(
+                TicketAssignment.ticket_id == Ticket.id,
+                TicketAssignment.assignee_type == "human",
+            ),
+        )
+        .filter(
+            Ticket.company_id == company_id,
+            TicketFeedback.created_at >= day_start,
+            TicketFeedback.created_at < day_end,
+        )
+        .scalar()
+    )
 
     if human_csat is not None:
         human_accuracy = round(float(human_csat), 2)
@@ -221,31 +253,49 @@ def _get_adaptation_day(
 
 
 def _count_training_runs(
-    db: Session, company_id: str, start: datetime, end: datetime,
+    db: Session,
+    company_id: str,
+    start: datetime,
+    end: datetime,
 ) -> int:
     """Count training runs in date range."""
     try:
         from database.models.analytics import TrainingRun
-        return db.query(func.count(TrainingRun.id)).filter(
-            TrainingRun.company_id == company_id,
-            TrainingRun.created_at >= start,
-            TrainingRun.created_at <= end,
-        ).scalar() or 0
+
+        return (
+            db.query(func.count(TrainingRun.id))
+            .filter(
+                TrainingRun.company_id == company_id,
+                TrainingRun.created_at >= start,
+                TrainingRun.created_at <= end,
+            )
+            .scalar()
+            or 0
+        )
     except Exception:
         return 0
 
 
 def _count_drift_reports(
-    db: Session, company_id: str, start: datetime, end: datetime,
+    db: Session,
+    company_id: str,
+    start: datetime,
+    end: datetime,
 ) -> int:
     """Count drift reports in date range."""
     try:
         from database.models.analytics import DriftReport
-        return db.query(func.count(DriftReport.id)).filter(
-            DriftReport.company_id == company_id,
-            DriftReport.created_at >= start,
-            DriftReport.created_at <= end,
-        ).scalar() or 0
+
+        return (
+            db.query(func.count(DriftReport.id))
+            .filter(
+                DriftReport.company_id == company_id,
+                DriftReport.created_at >= start,
+                DriftReport.created_at <= end,
+            )
+            .scalar()
+            or 0
+        )
     except Exception:
         return 0
 
@@ -277,12 +327,7 @@ def get_savings_counter(
         all_time_savings = 0.0
 
         for i in range(months):
-            month_start = (
-                now.replace(
-                    day=1)
-                - timedelta(
-                    days=30
-                    * i)).replace(
+            month_start = (now.replace(day=1) - timedelta(days=30 * i)).replace(
                 day=1,
                 hour=0,
                 minute=0,
@@ -291,13 +336,15 @@ def get_savings_counter(
             )
             # Calculate next month start
             if month_start.month == 12:
-                month_end = month_start.replace(
-                    year=month_start.year + 1, month=1)
+                month_end = month_start.replace(year=month_start.year + 1, month=1)
             else:
                 month_end = month_start.replace(month=month_start.month + 1)
 
             snapshot = _get_monthly_savings(
-                db, company_id, month_start, month_end,
+                db,
+                company_id,
+                month_start,
+                month_end,
             )
 
             cumulative = all_time_savings + snapshot["savings"]
@@ -311,18 +358,18 @@ def get_savings_counter(
             all_time_savings = cumulative
 
         # Current and previous month
-        current_month = monthly_trend[0] if monthly_trend else _empty_snapshot(
+        current_month = monthly_trend[0] if monthly_trend else _empty_snapshot()
+        previous_month = (
+            monthly_trend[1] if len(monthly_trend) > 1 else _empty_snapshot()
         )
-        previous_month = monthly_trend[1] if len(
-            monthly_trend) > 1 else _empty_snapshot()
 
         # Calculate averages
         total_ai = max(all_time_ai, 1)
         total_human = max(all_time_human, 1)
-        avg_ai_cost = _get_avg_ai_cost(
-            db, company_id, now - timedelta(days=30), now)
+        avg_ai_cost = _get_avg_ai_cost(db, company_id, now - timedelta(days=30), now)
         avg_human_cost = _get_avg_human_cost(
-            db, company_id, now - timedelta(days=30), now)
+            db, company_id, now - timedelta(days=30), now
+        )
 
         savings_pct = 0.0
         if avg_human_cost > 0:
@@ -360,37 +407,37 @@ def _get_monthly_savings(
 ) -> Dict[str, Any]:
     """Get savings data for a single month."""
     # AI-resolved tickets
-    ai_tickets = db.query(func.count(TicketAssignment.id)).filter(
-        TicketAssignment.company_id == company_id,
-        TicketAssignment.assigned_at >= month_start,
-        TicketAssignment.assigned_at < month_end,
-        TicketAssignment.assignee_type == "ai",
-    ).scalar() or 0
+    ai_tickets = (
+        db.query(func.count(TicketAssignment.id))
+        .filter(
+            TicketAssignment.company_id == company_id,
+            TicketAssignment.assigned_at >= month_start,
+            TicketAssignment.assigned_at < month_end,
+            TicketAssignment.assignee_type == "ai",
+        )
+        .scalar()
+        or 0
+    )
 
     # Human-resolved tickets
-    human_tickets = db.query(func.count(TicketAssignment.id)).filter(
-        TicketAssignment.company_id == company_id,
-        TicketAssignment.assigned_at >= month_start,
-        TicketAssignment.assigned_at < month_end,
-        TicketAssignment.assignee_type == "human",
-    ).scalar() or 0
+    human_tickets = (
+        db.query(func.count(TicketAssignment.id))
+        .filter(
+            TicketAssignment.company_id == company_id,
+            TicketAssignment.assigned_at >= month_start,
+            TicketAssignment.assigned_at < month_end,
+            TicketAssignment.assignee_type == "human",
+        )
+        .scalar()
+        or 0
+    )
 
     ai_cost = round(
-        ai_tickets
-        * _get_avg_ai_cost(
-            db,
-            company_id,
-            month_start,
-            month_end),
-        2)
+        ai_tickets * _get_avg_ai_cost(db, company_id, month_start, month_end), 2
+    )
     human_cost = round(
-        human_tickets
-        * _get_avg_human_cost(
-            db,
-            company_id,
-            month_start,
-            month_end),
-        2)
+        human_tickets * _get_avg_human_cost(db, company_id, month_start, month_end), 2
+    )
     savings = round(human_cost - ai_cost, 2)
 
     return {
@@ -404,7 +451,10 @@ def _get_monthly_savings(
 
 
 def _get_avg_ai_cost(
-    db: Session, company_id: str, start: datetime, end: datetime,
+    db: Session,
+    company_id: str,
+    start: datetime,
+    end: datetime,
 ) -> float:
     """Get average cost per AI-resolved ticket.
 
@@ -412,11 +462,16 @@ def _get_avg_ai_cost(
     """
     try:
         from database.models.analytics import ROISnapshot
-        snapshot = db.query(ROISnapshot).filter(
-            ROISnapshot.company_id == company_id,
-            ROISnapshot.snapshot_date >= start,
-            ROISnapshot.snapshot_date <= end,
-        ).first()
+
+        snapshot = (
+            db.query(ROISnapshot)
+            .filter(
+                ROISnapshot.company_id == company_id,
+                ROISnapshot.snapshot_date >= start,
+                ROISnapshot.snapshot_date <= end,
+            )
+            .first()
+        )
         if snapshot and snapshot.avg_ai_cost:
             return float(snapshot.avg_ai_cost)
     except Exception:
@@ -425,16 +480,24 @@ def _get_avg_ai_cost(
 
 
 def _get_avg_human_cost(
-    db: Session, company_id: str, start: datetime, end: datetime,
+    db: Session,
+    company_id: str,
+    start: datetime,
+    end: datetime,
 ) -> float:
     """Get average cost per human-resolved ticket."""
     try:
         from database.models.analytics import ROISnapshot
-        snapshot = db.query(ROISnapshot).filter(
-            ROISnapshot.company_id == company_id,
-            ROISnapshot.snapshot_date >= start,
-            ROISnapshot.snapshot_date <= end,
-        ).first()
+
+        snapshot = (
+            db.query(ROISnapshot)
+            .filter(
+                ROISnapshot.company_id == company_id,
+                ROISnapshot.snapshot_date >= start,
+                ROISnapshot.snapshot_date <= end,
+            )
+            .first()
+        )
         if snapshot and snapshot.avg_human_cost:
             return float(snapshot.avg_human_cost)
     except Exception:
@@ -513,10 +576,10 @@ def get_workforce_allocation(
         by_category = _get_category_split(db, company_id, start, now)
 
         # Resolution rates
-        ai_resolution = _get_resolution_rate_by_type(
-            db, company_id, start, now, "ai")
+        ai_resolution = _get_resolution_rate_by_type(db, company_id, start, now, "ai")
         human_resolution = _get_resolution_rate_by_type(
-            db, company_id, start, now, "human")
+            db, company_id, start, now, "human"
+        )
 
         return {
             "current_split": current_split,
@@ -537,22 +600,35 @@ def get_workforce_allocation(
 
 
 def _get_daily_split(
-    db: Session, company_id: str, start: datetime, end: datetime,
+    db: Session,
+    company_id: str,
+    start: datetime,
+    end: datetime,
 ) -> Dict[str, Any]:
     """Get AI vs human split for a time period."""
-    ai_count = db.query(func.count(TicketAssignment.id)).filter(
-        TicketAssignment.company_id == company_id,
-        TicketAssignment.assigned_at >= start,
-        TicketAssignment.assigned_at < end,
-        TicketAssignment.assignee_type == "ai",
-    ).scalar() or 0
+    ai_count = (
+        db.query(func.count(TicketAssignment.id))
+        .filter(
+            TicketAssignment.company_id == company_id,
+            TicketAssignment.assigned_at >= start,
+            TicketAssignment.assigned_at < end,
+            TicketAssignment.assignee_type == "ai",
+        )
+        .scalar()
+        or 0
+    )
 
-    human_count = db.query(func.count(TicketAssignment.id)).filter(
-        TicketAssignment.company_id == company_id,
-        TicketAssignment.assigned_at >= start,
-        TicketAssignment.assigned_at < end,
-        TicketAssignment.assignee_type == "human",
-    ).scalar() or 0
+    human_count = (
+        db.query(func.count(TicketAssignment.id))
+        .filter(
+            TicketAssignment.company_id == company_id,
+            TicketAssignment.assigned_at >= start,
+            TicketAssignment.assigned_at < end,
+            TicketAssignment.assignee_type == "human",
+        )
+        .scalar()
+        or 0
+    )
 
     total = ai_count + human_count
     return {
@@ -566,7 +642,10 @@ def _get_daily_split(
 
 
 def _get_channel_split(
-    db: Session, company_id: str, start: datetime, end: datetime,
+    db: Session,
+    company_id: str,
+    start: datetime,
+    end: datetime,
 ) -> Dict[str, Dict[str, Any]]:
     """Get AI vs human split by channel."""
     channels = ["email", "chat", "sms", "voice", "slack", "webchat"]
@@ -581,7 +660,11 @@ def _get_channel_split(
 
 
 def _get_channel_type_split(
-    db: Session, company_id: str, start: datetime, end: datetime, channel: str,
+    db: Session,
+    company_id: str,
+    start: datetime,
+    end: datetime,
+    channel: str,
 ) -> Dict[str, Any]:
     """Get AI vs human split for a specific channel."""
     # Get ticket IDs for this channel
@@ -603,19 +686,30 @@ def _get_channel_type_split(
             "human_tickets": 0,
             "ai_pct": 0,
             "human_pct": 0,
-            "total": 0}
+            "total": 0,
+        }
 
-    ai = db.query(func.count(TicketAssignment.id)).filter(
-        TicketAssignment.company_id == company_id,
-        TicketAssignment.ticket_id.in_(ticket_ids),
-        TicketAssignment.assignee_type == "ai",
-    ).scalar() or 0
+    ai = (
+        db.query(func.count(TicketAssignment.id))
+        .filter(
+            TicketAssignment.company_id == company_id,
+            TicketAssignment.ticket_id.in_(ticket_ids),
+            TicketAssignment.assignee_type == "ai",
+        )
+        .scalar()
+        or 0
+    )
 
-    human = db.query(func.count(TicketAssignment.id)).filter(
-        TicketAssignment.company_id == company_id,
-        TicketAssignment.ticket_id.in_(ticket_ids),
-        TicketAssignment.assignee_type == "human",
-    ).scalar() or 0
+    human = (
+        db.query(func.count(TicketAssignment.id))
+        .filter(
+            TicketAssignment.company_id == company_id,
+            TicketAssignment.ticket_id.in_(ticket_ids),
+            TicketAssignment.assignee_type == "human",
+        )
+        .scalar()
+        or 0
+    )
 
     total = ai + human
     return {
@@ -628,53 +722,84 @@ def _get_channel_type_split(
 
 
 def _get_category_split(
-    db: Session, company_id: str, start: datetime, end: datetime,
+    db: Session,
+    company_id: str,
+    start: datetime,
+    end: datetime,
 ) -> List[Dict[str, Any]]:
     """Get AI vs human split by category."""
     try:
-        categories = db.query(Ticket.category, func.count(Ticket.id)).filter(
-            Ticket.company_id == company_id,
-            Ticket.created_at >= start,
-            Ticket.created_at < end,
-            Ticket.category.isnot(None),
-        ).group_by(Ticket.category).order_by(
-            func.count(Ticket.id).desc(),
-        ).limit(10).all()
-
-        result = []
-        for cat, total_count in categories:
-            cat_tickets = db.query(Ticket.id).filter(
+        categories = (
+            db.query(Ticket.category, func.count(Ticket.id))
+            .filter(
                 Ticket.company_id == company_id,
                 Ticket.created_at >= start,
                 Ticket.created_at < end,
-                Ticket.category == cat,
-            ).limit(500).all()
+                Ticket.category.isnot(None),
+            )
+            .group_by(Ticket.category)
+            .order_by(
+                func.count(Ticket.id).desc(),
+            )
+            .limit(10)
+            .all()
+        )
+
+        result = []
+        for cat, total_count in categories:
+            cat_tickets = (
+                db.query(Ticket.id)
+                .filter(
+                    Ticket.company_id == company_id,
+                    Ticket.created_at >= start,
+                    Ticket.created_at < end,
+                    Ticket.category == cat,
+                )
+                .limit(500)
+                .all()
+            )
             ticket_ids = [t.id for t in cat_tickets]
 
             ai = 0
             human = 0
             if ticket_ids:
-                ai = db.query(func.count(TicketAssignment.id)).filter(
-                    TicketAssignment.company_id == company_id,
-                    TicketAssignment.ticket_id.in_(ticket_ids),
-                    TicketAssignment.assignee_type == "ai",
-                ).scalar() or 0
+                ai = (
+                    db.query(func.count(TicketAssignment.id))
+                    .filter(
+                        TicketAssignment.company_id == company_id,
+                        TicketAssignment.ticket_id.in_(ticket_ids),
+                        TicketAssignment.assignee_type == "ai",
+                    )
+                    .scalar()
+                    or 0
+                )
 
-                human = db.query(func.count(TicketAssignment.id)).filter(
-                    TicketAssignment.company_id == company_id,
-                    TicketAssignment.ticket_id.in_(ticket_ids),
-                    TicketAssignment.assignee_type == "human",
-                ).scalar() or 0
+                human = (
+                    db.query(func.count(TicketAssignment.id))
+                    .filter(
+                        TicketAssignment.company_id == company_id,
+                        TicketAssignment.ticket_id.in_(ticket_ids),
+                        TicketAssignment.assignee_type == "human",
+                    )
+                    .scalar()
+                    or 0
+                )
 
             split_total = ai + human
-            result.append({
-                "category": cat,
-                "total_tickets": total_count,
-                "ai_tickets": ai,
-                "human_tickets": human,
-                "ai_pct": round((ai / split_total * 100), 1) if split_total > 0 else 0,
-                "human_pct": round((human / split_total * 100), 1) if split_total > 0 else 0,
-            })
+            result.append(
+                {
+                    "category": cat,
+                    "total_tickets": total_count,
+                    "ai_tickets": ai,
+                    "human_tickets": human,
+                    "ai_pct": (
+                        round((ai / split_total * 100), 1) if split_total > 0 else 0
+                    ),
+                    "human_pct": (
+                        round((human / split_total * 100), 1) if split_total > 0 else 0
+                    ),
+                }
+            )
 
         return result
 
@@ -683,31 +808,47 @@ def _get_category_split(
 
 
 def _get_resolution_rate_by_type(
-    db: Session, company_id: str, start: datetime, end: datetime,
+    db: Session,
+    company_id: str,
+    start: datetime,
+    end: datetime,
     assignee_type: str,
 ) -> float:
     """Get resolution rate for AI or human agents."""
     try:
         # Get ticket IDs assigned to this type
-        assigned_ids = db.query(TicketAssignment.ticket_id).filter(
-            TicketAssignment.company_id == company_id,
-            TicketAssignment.assigned_at >= start,
-            TicketAssignment.assigned_at < end,
-            TicketAssignment.assignee_type == assignee_type,
-        ).distinct().limit(1000).all()
+        assigned_ids = (
+            db.query(TicketAssignment.ticket_id)
+            .filter(
+                TicketAssignment.company_id == company_id,
+                TicketAssignment.assigned_at >= start,
+                TicketAssignment.assigned_at < end,
+                TicketAssignment.assignee_type == assignee_type,
+            )
+            .distinct()
+            .limit(1000)
+            .all()
+        )
 
         if not assigned_ids:
             return 0.0
 
         ticket_ids = [t[0] for t in assigned_ids]
 
-        resolved = db.query(func.count(Ticket.id)).filter(
-            Ticket.id.in_(ticket_ids),
-            Ticket.status.in_([
-                TicketStatus.resolved.value,
-                TicketStatus.closed.value,
-            ]),
-        ).scalar() or 0
+        resolved = (
+            db.query(func.count(Ticket.id))
+            .filter(
+                Ticket.id.in_(ticket_ids),
+                Ticket.status.in_(
+                    [
+                        TicketStatus.resolved.value,
+                        TicketStatus.closed.value,
+                    ]
+                ),
+            )
+            .scalar()
+            or 0
+        )
 
         return (resolved / len(ticket_ids)) * 100 if ticket_ids else 0.0
 

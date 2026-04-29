@@ -61,19 +61,26 @@ def rebalance_workload(self, company_id: Optional[str] = None) -> dict:
                         "task": self.name,
                         "company_id": company_id,
                         "rebalanced_instances": result.get(
-                            "rebalanced_instances", 0,
+                            "rebalanced_instances",
+                            0,
                         ),
                         "migrated_tickets": result.get(
-                            "migrated_tickets", 0,
+                            "migrated_tickets",
+                            0,
                         ),
                     },
                 )
             else:
                 # Rebalance ALL companies
                 from database.models.variant_engine import VariantInstance
-                companies = db.query(
-                    VariantInstance.company_id,
-                ).distinct().all()
+
+                companies = (
+                    db.query(
+                        VariantInstance.company_id,
+                    )
+                    .distinct()
+                    .all()
+                )
 
                 total_rebalanced = 0
                 total_migrated = 0
@@ -81,10 +88,12 @@ def rebalance_workload(self, company_id: Optional[str] = None) -> dict:
                     try:
                         result = _rebalance(db, cid)
                         total_rebalanced += result.get(
-                            "rebalanced_instances", 0,
+                            "rebalanced_instances",
+                            0,
                         )
                         total_migrated += result.get(
-                            "migrated_tickets", 0,
+                            "migrated_tickets",
+                            0,
                         )
                     except Exception as exc:
                         logger.warning(
@@ -154,9 +163,13 @@ def reset_daily_budgets(self) -> dict:
 
         db = SessionLocal()
         try:
-            budgets = db.query(AITokenBudget).filter_by(
-                budget_type="daily",
-            ).all()
+            budgets = (
+                db.query(AITokenBudget)
+                .filter_by(
+                    budget_type="daily",
+                )
+                .all()
+            )
 
             reset_count = 0
             for budget in budgets:
@@ -210,7 +223,9 @@ def reset_daily_budgets(self) -> dict:
 )
 @with_company_id
 def warmup_tenant_models(
-    self, company_id: str, variant_type: str = "mini_parwa",
+    self,
+    company_id: str,
+    variant_type: str = "mini_parwa",
 ) -> dict:
     """Cold start warmup for tenant activation or variant upgrade.
 

@@ -42,13 +42,15 @@ class UpdateThresholdsRequest(BaseModel):
     """Request body for updating agent metric thresholds."""
 
     resolution_rate_min: Optional[float] = Field(
-        None, description="Minimum resolution rate (%)")
+        None, description="Minimum resolution rate (%)"
+    )
     confidence_min: Optional[float] = Field(
-        None, description="Minimum avg confidence (%)")
-    csat_min: Optional[float] = Field(
-        None, description="Minimum avg CSAT (1-5 scale)")
+        None, description="Minimum avg confidence (%)"
+    )
+    csat_min: Optional[float] = Field(None, description="Minimum avg CSAT (1-5 scale)")
     escalation_max_pct: Optional[float] = Field(
-        None, description="Maximum escalation rate (%)")
+        None, description="Maximum escalation rate (%)"
+    )
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -102,6 +104,7 @@ async def get_agent_metrics(
     except (ValidationError, Exception) as exc:
         from app.exceptions import ValidationError as VE
         from app.exceptions import NotFoundError
+
         if isinstance(exc, (ValidationError, VE, NotFoundError)):
             raise
         logger.error(
@@ -148,6 +151,7 @@ async def get_agent_thresholds(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, (ValidationError, NotFoundError)):
             raise
         logger.error(
@@ -216,6 +220,7 @@ async def update_agent_thresholds(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, (ValidationError, NotFoundError)):
             raise
         logger.error(
@@ -277,6 +282,7 @@ async def compare_agent_metrics(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, (ValidationError, NotFoundError)):
             raise
         logger.error(

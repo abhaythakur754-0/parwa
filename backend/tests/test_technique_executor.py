@@ -20,13 +20,13 @@ from app.core.technique_router import (
     TechniqueTier,
 )
 
-
 # ── Fixtures ────────────────────────────────────────────────────────
 
 
 @pytest.fixture
 def basic_state():
     from app.core.techniques.base import ConversationState, GSDState
+
     return ConversationState(
         query="What is my refund status?",
         signals=QuerySignals(query_complexity=0.5),
@@ -38,6 +38,7 @@ def basic_state():
 @pytest.fixture
 def high_complexity_state():
     from app.core.techniques.base import ConversationState, GSDState
+
     return ConversationState(
         query="I was charged $49.99 and $59.99 but my plan is $29.99. Why the extra charges?",
         signals=QuerySignals(
@@ -109,8 +110,7 @@ class TestTechniqueExecutorInit:
 
 class TestBasicPipelineExecution:
     @pytest.mark.asyncio
-    async def test_pipeline_returns_state_and_result(
-            self, executor, basic_state):
+    async def test_pipeline_returns_state_and_result(self, executor, basic_state):
         state, pipeline_result = await executor.execute_pipeline(basic_state)
         assert state is basic_state
         assert isinstance(pipeline_result, PipelineResult)
@@ -119,21 +119,25 @@ class TestBasicPipelineExecution:
     async def test_t1_techniques_executed(self, executor, basic_state):
         _, pipeline_result = await executor.execute_pipeline(basic_state)
         # At minimum, T1 techniques should have results
-        assert "crp" in basic_state.technique_results or "gsd" in basic_state.technique_results
+        assert (
+            "crp" in basic_state.technique_results
+            or "gsd" in basic_state.technique_results
+        )
         assert pipeline_result.techniques_executed >= 1
 
     @pytest.mark.asyncio
     async def test_empty_query(self, executor):
         from app.core.techniques.base import ConversationState
+
         state = ConversationState(query="", company_id="comp_1")
         result_state, _ = await executor.execute_pipeline(state)
         assert result_state is state
 
     @pytest.mark.asyncio
     async def test_execution_has_timing(self, executor, basic_state):
-        start = __import__('time').time()
+        start = __import__("time").time()
         await executor.execute_pipeline(basic_state)
-        elapsed = __import__('time').time() - start
+        elapsed = __import__("time").time() - start
         assert elapsed < 5.0  # should complete in under 5 seconds
 
     @pytest.mark.asyncio
@@ -283,6 +287,7 @@ class TestFallback:
         """Executor with no company_id should not crash."""
         ex = TechniqueExecutor(company_id="")
         from app.core.techniques.base import ConversationState
+
         state = ConversationState(
             query="Help me",
             company_id="",
@@ -295,6 +300,7 @@ class TestFallback:
         """Empty company_id should not crash."""
         ex = TechniqueExecutor(company_id="")
         from app.core.techniques.base import ConversationState
+
         state = ConversationState(query="Test")
         result_state, _ = await ex.execute_pipeline(state)
         assert result_state is state
@@ -309,7 +315,9 @@ class TestFallback:
     @pytest.mark.asyncio
     async def test_router_exception_returns_state(self, executor, basic_state):
         """If router.route() raises, should return original state without crash."""
-        with patch.object(executor.router, 'route', side_effect=RuntimeError("router boom")):
+        with patch.object(
+            executor.router, "route", side_effect=RuntimeError("router boom")
+        ):
             result_state, pr = await executor.execute_pipeline(basic_state)
         assert result_state is basic_state
         assert pr.techniques_executed == 0
@@ -334,8 +342,7 @@ class TestExecuteSingle:
         assert count > 0
 
     @pytest.mark.asyncio
-    async def test_execute_single_unknown_technique(
-            self, executor, basic_state):
+    async def test_execute_single_unknown_technique(self, executor, basic_state):
         """execute_single with unknown technique should not crash."""
         result = await executor.execute_single(TechniqueID.CRP, basic_state)
         assert result is basic_state
@@ -353,13 +360,14 @@ class TestApplyFallback:
             triggered_by=["test"],
             tier=TechniqueTier.TIER_1,
         )
-        with patch('app.core.technique_executor.TECHNIQUE_NODES') as mock_nodes:
+        with patch("app.core.technique_executor.TECHNIQUE_NODES") as mock_nodes:
             mock_node = AsyncMock()
-            mock_node.execute = AsyncMock(
-                side_effect=RuntimeError("CRP failed"))
+            mock_node.execute = AsyncMock(side_effect=RuntimeError("CRP failed"))
             mock_node.check_token_budget = MagicMock(return_value=True)
             mock_nodes.get = MagicMock(return_value=mock_node)
-            detail = await executor._execute_with_infrastructure(activation, basic_state)
+            detail = await executor._execute_with_infrastructure(
+                activation, basic_state
+            )
         assert detail.fallback_applied is False
         assert detail.status == "error"
 
@@ -372,6 +380,7 @@ class TestApplyFallback:
             company_id="comp_fb",
         )
         from app.core.techniques.base import ConversationState, GSDState
+
         state = ConversationState(
             query="Complex query",
             signals=QuerySignals(query_complexity=0.9),
@@ -383,10 +392,9 @@ class TestApplyFallback:
             triggered_by=["r9"],
             tier=TechniqueTier.TIER_3,
         )
-        with patch('app.core.technique_executor.TECHNIQUE_NODES') as mock_nodes:
+        with patch("app.core.technique_executor.TECHNIQUE_NODES") as mock_nodes:
             mock_t3_node = AsyncMock()
-            mock_t3_node.execute = AsyncMock(
-                side_effect=RuntimeError("GST failed"))
+            mock_t3_node.execute = AsyncMock(side_effect=RuntimeError("GST failed"))
             mock_t3_node.check_token_budget = MagicMock(return_value=True)
             mock_nodes.get = MagicMock(return_value=mock_t3_node)
             detail = await ex._execute_with_infrastructure(activation, state)
@@ -399,17 +407,18 @@ class TestApplyFallback:
 
 class TestNodeNotFound:
     @pytest.mark.asyncio
-    async def test_missing_node_returns_error_detail(
-            self, executor, basic_state):
+    async def test_missing_node_returns_error_detail(self, executor, basic_state):
         """If technique_id not in TECHNIQUE_NODES, should return error detail."""
         activation = TechniqueActivation(
             technique_id=TechniqueID.CRP,
             triggered_by=["test"],
             tier=TechniqueTier.TIER_1,
         )
-        with patch('app.core.technique_executor.TECHNIQUE_NODES') as mock_nodes:
+        with patch("app.core.technique_executor.TECHNIQUE_NODES") as mock_nodes:
             mock_nodes.get = MagicMock(return_value=None)
-            detail = await executor._execute_with_infrastructure(activation, basic_state)
+            detail = await executor._execute_with_infrastructure(
+                activation, basic_state
+            )
         assert detail.status == "error"
         assert "technique_node_not_found" in (detail.error or "")
 
@@ -419,20 +428,21 @@ class TestNodeNotFound:
 
 class TestBudgetSkip:
     @pytest.mark.asyncio
-    async def test_budget_exceeded_returns_skipped(
-            self, executor, basic_state):
+    async def test_budget_exceeded_returns_skipped(self, executor, basic_state):
         """When check_token_budget returns False, status should be skipped_budget."""
         activation = TechniqueActivation(
             technique_id=TechniqueID.CRP,
             triggered_by=["test"],
             tier=TechniqueTier.TIER_1,
         )
-        with patch('app.core.technique_executor.TECHNIQUE_NODES') as mock_nodes:
+        with patch("app.core.technique_executor.TECHNIQUE_NODES") as mock_nodes:
             mock_node = AsyncMock()
             mock_node.check_token_budget = MagicMock(return_value=False)
             mock_node.record_skip = MagicMock()
             mock_nodes.get = MagicMock(return_value=mock_node)
-            detail = await executor._execute_with_infrastructure(activation, basic_state)
+            detail = await executor._execute_with_infrastructure(
+                activation, basic_state
+            )
         assert detail.status == "skipped_budget"
 
 
@@ -606,7 +616,9 @@ class TestMetricsRecording:
 class TestHashValue:
     def test_sha256_format(self):
         key = TechniqueExecutor.get_cache_key(
-            TechniqueExecutor(), "crp", "test",
+            TechniqueExecutor(),
+            "crp",
+            "test",
         )
         assert len(key) == 64
 

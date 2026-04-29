@@ -42,8 +42,10 @@ logger = get_logger(__name__)
 # ENUMS
 # ══════════════════════════════════════════════════════════════════
 
+
 class BurstSeverity(str, Enum):
     """Severity levels for burst-detection alerts."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -52,6 +54,7 @@ class BurstSeverity(str, Enum):
 
 class BurstAction(str, Enum):
     """Possible enforcement actions when a burst is detected."""
+
     ALLOW = "allow"
     THROTTLE = "throttle"
     RATE_LIMIT = "rate_limit"
@@ -62,12 +65,14 @@ class BurstAction(str, Enum):
 # DATACLASSES
 # ══════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class UsageMetrics:
     """Snapshot of current API usage for a single company.
 
     All counters reflect the rolling ``window_seconds`` window.
     """
+
     company_id: str
     total_requests: int = 0
     requests_per_minute: float = 0.0
@@ -85,6 +90,7 @@ class BurstDetection:
     Includes the severity, recommended action, and supporting
     data such as the burst multiplier (current / threshold).
     """
+
     company_id: str
     severity: BurstSeverity = BurstSeverity.LOW
     action: BurstAction = BurstAction.ALLOW
@@ -106,6 +112,7 @@ class ThrottleDecision:
     ``allowed`` is ``True`` only when the request may proceed
     without any restriction.
     """
+
     company_id: str
     allowed: bool = True
     throttle_rate: float = 1.0
@@ -127,6 +134,7 @@ class BurstProtectionConfig:
     ``alert_cooldown_seconds`` — minimum interval between consecutive
         alerts for the same company to reduce alert fatigue.
     """
+
     rpm_thresholds: Dict[str, int] = field(
         default_factory=lambda: {
             "mini_parwa": 60,
@@ -153,6 +161,7 @@ class BurstProtectionConfig:
 # CUSTOM ERROR
 # ══════════════════════════════════════════════════════════════════
 
+
 class BurstProtectionError(ParwaBaseError):
     """Raised when a burst-protection policy is violated."""
 
@@ -174,6 +183,7 @@ _MAX_HISTORY_ENTRIES = 10_000
 # ══════════════════════════════════════════════════════════════════
 # VALIDATION HELPERS
 # ══════════════════════════════════════════════════════════════════
+
 
 def _validate_company_id(company_id: str) -> None:
     """BC-001: company_id is required and non-empty."""
@@ -201,6 +211,7 @@ def _validate_variant_type(variant_type: str) -> None:
 # ══════════════════════════════════════════════════════════════════
 # SERVICE
 # ══════════════════════════════════════════════════════════════════
+
 
 class UsageBurstProtectionService:
     """
@@ -308,6 +319,7 @@ class UsageBurstProtectionService:
                 raw = self._redis.zrangebyscore(key, cutoff, now)
                 if raw:
                     import json
+
                     return [json.loads(entry) for entry in raw]
                 return []
             except Exception as exc:
@@ -320,10 +332,7 @@ class UsageBurstProtectionService:
         # ── In-memory fallback ──
         history = self._request_history.get(company_id, [])
         # Prune entries outside the window
-        pruned = [
-            entry for entry in history
-            if entry["timestamp"] >= cutoff
-        ]
+        pruned = [entry for entry in history if entry["timestamp"] >= cutoff]
         with self._lock:
             self._request_history[company_id] = pruned
         return pruned
@@ -389,7 +398,8 @@ class UsageBurstProtectionService:
         """
         try:
             rpm_threshold = self.config.rpm_thresholds.get(
-                variant_type, 200,
+                variant_type,
+                200,
             )
             burst_mult = self.config.burst_multiplier_threshold
             current_rpm = self._calculate_rpm(company_id)
@@ -404,24 +414,27 @@ class UsageBurstProtectionService:
                 error_rate = (error_count / len(history)) * 100.0
 
             # ── Unique user count ──
-            unique_users = len({
-                entry.get("user_id")
-                for entry in history
-                if entry.get("user_id") is not None
-            })
+            unique_users = len(
+                {
+                    entry.get("user_id")
+                    for entry in history
+                    if entry.get("user_id") is not None
+                }
+            )
 
             # ── 1. Concurrent request check ──
             max_concurrent = self.config.max_concurrent_requests.get(
-                variant_type, 20,
+                variant_type,
+                20,
             )
             current_concurrent = self._concurrent_requests.get(
-                company_id, 0,
+                company_id,
+                0,
             )
 
             if current_concurrent > max_concurrent:
                 burst_multiplier_val = (
-                    current_concurrent / max_concurrent
-                    if max_concurrent > 0 else 0.0
+                    current_concurrent / max_concurrent if max_concurrent > 0 else 0.0
                 )
                 return BurstDetection(
                     company_id=company_id,
@@ -707,24 +720,23 @@ class UsageBurstProtectionService:
             if entry.get("response_time_ms", 0) > 0
         ]
         avg_response_time = (
-            sum(response_times) / len(response_times)
-            if response_times else 0.0
+            sum(response_times) / len(response_times) if response_times else 0.0
         )
 
         # Error rate
         error_rate = 0.0
         if history:
-            error_count = sum(
-                1 for entry in history if not entry.get("success", True)
-            )
+            error_count = sum(1 for entry in history if not entry.get("success", True))
             error_rate = (error_count / len(history)) * 100.0
 
         # Unique users
-        unique_users = len({
-            entry.get("user_id")
-            for entry in history
-            if entry.get("user_id") is not None
-        })
+        unique_users = len(
+            {
+                entry.get("user_id")
+                for entry in history
+                if entry.get("user_id") is not None
+            }
+        )
 
         return UsageMetrics(
             company_id=company_id,
@@ -791,13 +803,15 @@ class UsageBurstProtectionService:
             if self._redis is not None:
                 try:
                     import json
+
                     key = self._redis_history_key(company_id)
                     self._redis.zadd(key, {json.dumps(entry): now})
                     # Evict entries outside the rolling window
                     cutoff = now - self.config.window_seconds
                     self._redis.zremrangebyscore(key, "-inf", cutoff)
                     self._redis.expire(
-                        key, self.config.window_seconds * 2,
+                        key,
+                        self.config.window_seconds * 2,
                     )
                 except Exception as exc:
                     logger.warning(
@@ -812,14 +826,10 @@ class UsageBurstProtectionService:
                     self._request_history[company_id] = []
                 self._request_history[company_id].append(entry)
                 # Enforce history cap
-                if (
-                    len(self._request_history[company_id])
-                    > _MAX_HISTORY_ENTRIES
-                ):
-                    self._request_history[company_id] = (
-                        self._request_history[company_id]
-                        [-_MAX_HISTORY_ENTRIES:]
-                    )
+                if len(self._request_history[company_id]) > _MAX_HISTORY_ENTRIES:
+                    self._request_history[company_id] = self._request_history[
+                        company_id
+                    ][-_MAX_HISTORY_ENTRIES:]
 
             # Increment concurrent requests
             with self._lock:
@@ -931,7 +941,8 @@ class UsageBurstProtectionService:
             _validate_variant_type(variant_type)
 
             detection = self._detect_burst_pattern(
-                company_id, variant_type,
+                company_id,
+                variant_type,
             )
 
             if detection is not None:
@@ -963,9 +974,7 @@ class UsageBurstProtectionService:
                 severity=BurstSeverity.LOW,
                 action=BurstAction.ALLOW,
                 current_rpm=self._calculate_rpm(company_id),
-                threshold_rpm=float(
-                    self.config.rpm_thresholds.get(variant_type, 200)
-                ),
+                threshold_rpm=float(self.config.rpm_thresholds.get(variant_type, 200)),
                 reason="Usage within normal thresholds",
             )
 
@@ -1020,20 +1029,15 @@ class UsageBurstProtectionService:
                         throttle_rate=0.0,
                         retry_after_seconds=round(retry_after, 2),
                         reason=(
-                            "Company is blocked. "
-                            f"Retry after {retry_after:.0f}s."
+                            "Company is blocked. " f"Retry after {retry_after:.0f}s."
                         ),
                     )
 
                 if action == "throttle":
                     # Calculate throttle rate based on RPM vs threshold
                     rpm = self._calculate_rpm(company_id)
-                    threshold = float(
-                        self.config.rpm_thresholds.get(variant_type, 200)
-                    )
-                    throttle_rate = (
-                        threshold / rpm if rpm > 0 else 1.0
-                    )
+                    threshold = float(self.config.rpm_thresholds.get(variant_type, 200))
+                    throttle_rate = threshold / rpm if rpm > 0 else 1.0
                     throttle_rate = max(0.1, min(1.0, throttle_rate))
 
                     return ThrottleDecision(
@@ -1069,9 +1073,7 @@ class UsageBurstProtectionService:
                         company_id=company_id,
                         allowed=False,
                         throttle_rate=0.0,
-                        retry_after_seconds=float(
-                            self.config.block_duration_seconds
-                        ),
+                        retry_after_seconds=float(self.config.block_duration_seconds),
                         reason=(
                             f"Burst detected: {burst.reason}. "
                             "Blocked for "
@@ -1094,9 +1096,7 @@ class UsageBurstProtectionService:
                     )
                     rpm = burst.current_rpm
                     threshold = burst.threshold_rpm
-                    throttle_rate = (
-                        threshold / rpm if rpm > 0 else 1.0
-                    )
+                    throttle_rate = threshold / rpm if rpm > 0 else 1.0
                     throttle_rate = max(0.1, min(1.0, throttle_rate))
 
                     return ThrottleDecision(
@@ -1137,9 +1137,7 @@ class UsageBurstProtectionService:
                 allowed=True,
                 throttle_rate=1.0,
                 retry_after_seconds=0.0,
-                reason=(
-                    f"Throttle check error (fail-open): {exc}"
-                ),
+                reason=(f"Throttle check error (fail-open): {exc}"),
             )
 
     def get_usage_metrics(self, company_id: str) -> UsageMetrics:
@@ -1218,9 +1216,7 @@ class UsageBurstProtectionService:
                                 error=str(exc),
                             )
 
-                    logger.info(
-                        "state_reset_for_company",
-                        company_id=company_id)
+                    logger.info("state_reset_for_company", company_id=company_id)
                 else:
                     self._request_history.clear()
                     self._peak_rpm.clear()
@@ -1296,29 +1292,21 @@ class UsageBurstProtectionService:
             return {
                 "variant_type": variant_type,
                 "rpm_threshold": self.config.rpm_thresholds.get(
-                    variant_type, 200,
+                    variant_type,
+                    200,
                 ),
-                "burst_multiplier_threshold": (
-                    self.config.burst_multiplier_threshold
-                ),
+                "burst_multiplier_threshold": (self.config.burst_multiplier_threshold),
                 "window_seconds": self.config.window_seconds,
                 "max_concurrent_requests": (
                     self.config.max_concurrent_requests.get(
-                        variant_type, 20,
+                        variant_type,
+                        20,
                     )
                 ),
-                "throttle_duration_seconds": (
-                    self.config.throttle_duration_seconds
-                ),
-                "block_duration_seconds": (
-                    self.config.block_duration_seconds
-                ),
-                "error_rate_threshold_pct": (
-                    self.config.error_rate_threshold_pct
-                ),
-                "alert_cooldown_seconds": (
-                    self.config.alert_cooldown_seconds
-                ),
+                "throttle_duration_seconds": (self.config.throttle_duration_seconds),
+                "block_duration_seconds": (self.config.block_duration_seconds),
+                "error_rate_threshold_pct": (self.config.error_rate_threshold_pct),
+                "alert_cooldown_seconds": (self.config.alert_cooldown_seconds),
             }
 
         except ParwaBaseError:

@@ -91,9 +91,7 @@ _PAT_CREDIT_CARD = re.compile(
 
 # 3. Email: standard email format (handles a@b.co, user@example.com, etc.)
 #    NOTE: Also catches single-char TLDs that are common (e.g. a@b.c, x@y.io)
-_PAT_EMAIL = re.compile(
-    r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"
-)
+_PAT_EMAIL = re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b")
 # 3b. Short email: catches very short patterns like a@b.co or x@y.z
 _PAT_EMAIL_SHORT = re.compile(
     r"\b[A-Za-z0-9._%+\-]{1,2}@[A-Za-z0-9.\-]{1,10}\.[A-Za-z]{2,3}\b"
@@ -142,7 +140,8 @@ _PAT_DOB_YMD = re.compile(
 )
 _PAT_DOB_DMY = re.compile(
     r"\b(0[1-9]|[12]\d|3[01])[\-](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
-    r"[\-](19|20)\d{2}\b")
+    r"[\-](19|20)\d{2}\b"
+)
 
 # 8. Passport: US passport (9 digits), UK (8 digits + check), EU (2
 # letters + 7 digits)
@@ -152,19 +151,13 @@ _PAT_PASSPORT_EU = re.compile(r"\b[A-Z]{2}\d{7}\b")
 
 # 9. Driver's License: US state patterns (alphanumeric 1-2 letters + 6-12
 # digits)
-_PAT_DL = re.compile(
-    r"\b(?:[A-Z]{1,2}[-\s]?)?\d{6,12}\b"
-)
+_PAT_DL = re.compile(r"\b(?:[A-Z]{1,2}[-\s]?)?\d{6,12}\b")
 
 # 10. IBAN: country code (2 letters) + 2 check digits + up to 30 alphanumeric
-_PAT_IBAN = re.compile(
-    r"\b[A-Z]{2}\d{2}[A-Z0-9]{4,30}\b"
-)
+_PAT_IBAN = re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{4,30}\b")
 
 # 11. Record Number: alphanumeric, 6-12 chars, common prefixes
-_PAT_RECORD = re.compile(
-    r"\b(?:MRN|MR|REC|PT|PAT)[-]?\d{4,10}[A-Z]?\b"
-)
+_PAT_RECORD = re.compile(r"\b(?:MRN|MR|REC|PT|PAT)[-]?\d{4,10}[A-Z]?\b")
 
 # 12. Insurance ID: alphanumeric 11-char MBI pattern and state IDs.
 #     MBI excludes chars S, L, O, I, B, Z.  Dashes are optional in display.
@@ -173,9 +166,7 @@ _PAT_INSURANCE_MBI = re.compile(
     r"[ACDEFGHJKMNPQRTUVWXY]{2}\d"
     r"[ACDEFGHJKMNPQRTUVWXY]{2}\d{2}\b"
 )
-_PAT_INSURANCE_STATE = re.compile(
-    r"\b[A-Z]{2}\d{5,10}\b"
-)
+_PAT_INSURANCE_STATE = re.compile(r"\b[A-Z]{2}\d{5,10}\b")
 
 # 13. Street Address: number + street name (partial match)
 _PAT_STREET_ADDRESS = re.compile(
@@ -184,7 +175,8 @@ _PAT_STREET_ADDRESS = re.compile(
     r"Way|Court|Ct|Place|Pl|Circle|Cir|Crescent|Cres|Trail|Trl|"
     r"Parkway|Pkwy|Highway|Hwy|Terrace|Ter)\b"
     r"(?:[,\s]+(?:#[\w\s]+|(?:Apt|Suite|Ste|Unit|Fl|Floor|Rm|Room)\s*\.?\s*[\w]+))?"
-    r"(?:[,\s]+[A-Za-z\s]{2,25})?")
+    r"(?:[,\s]+[A-Za-z\s]{2,25})?"
+)
 
 # 14. API Keys: sk-..., key_..., ghp_..., csk-..., xox[bpra]-...
 _PAT_API_KEY = re.compile(
@@ -198,14 +190,10 @@ _PAT_API_KEY = re.compile(
 )
 
 # 15. Aadhaar (India): 12 digits, last digit is checksum
-_PAT_AADHAAR = re.compile(
-    r"\b[2-9]\d{3}[\s\-]?\d{4}[\s\-]?\d{4}\b"
-)
+_PAT_AADHAAR = re.compile(r"\b[2-9]\d{3}[\s\-]?\d{4}[\s\-]?\d{4}\b")
 
 # 16. PAN (India): ABCDE1234F (5 letters + 4 digits + 1 letter)
-_PAT_PAN = re.compile(
-    r"\b[A-Z]{5}[0-9]{4}[A-Z]\b"
-)
+_PAT_PAN = re.compile(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b")
 
 # 17. Name-in-context heuristic: common first/last names preceded by titles
 _TITLE_PREFIXES = r"(?:Mr|Mrs|Ms|Miss|Dr|Prof|Sr|Jr|Hon|Rev|Capt|Lt|Gen|Col|Sgt)\.?\s*"
@@ -220,32 +208,192 @@ _PAT_NAME_WITH_ACTION = re.compile(
 )
 # Common first names (top 100 US + global) for contextual detection
 _COMMON_FIRST_NAMES: Set[str] = {
-    "James", "John", "Robert", "Michael", "David", "William", "Richard", "Joseph",
-    "Thomas", "Christopher", "Charles", "Daniel", "Matthew", "Anthony", "Mark",
-    "Donald", "Steven", "Andrew", "Paul", "Joshua", "Kenneth", "Kevin", "Brian",
-    "George", "Timothy", "Ronald", "Edward", "Jason", "Jeffrey", "Ryan", "Jacob",
-    "Gary", "Nicholas", "Eric", "Jonathan", "Stephen", "Larry", "Justin", "Scott",
-    "Brandon", "Benjamin", "Samuel", "Raymond", "Gregory", "Frank", "Alexander",
-    "Mary", "Patricia", "Jennifer", "Linda", "Barbara", "Elizabeth", "Susan",
-    "Jessica", "Sarah", "Karen", "Lisa", "Nancy", "Betty", "Margaret", "Sandra",
-    "Ashley", "Dorothy", "Kimberly", "Emily", "Donna", "Michelle", "Carol", "Amanda",
-    "Melissa", "Deborah", "Stephanie", "Rebecca", "Sharon", "Laura", "Cynthia",
-    "Kathleen", "Amy", "Angela", "Shirley", "Anna", "Brenda", "Pamela", "Emma",
-    "Nicole", "Helen", "Samantha", "Katherine", "Christine", "Debra", "Rachel",
-    "Carolyn", "Janet", "Catherine", "Maria", "Heather", "Diane", "Ruth",
-    "Priya", "Raj", "Wei", "Li", "Yuki", "Hiroshi", "Sanjay", "Amit",
-    "Muhammad", "Omar", "Fatima", "Aisha", "Chen", "Wang", "Zhang", "Liu",
+    "James",
+    "John",
+    "Robert",
+    "Michael",
+    "David",
+    "William",
+    "Richard",
+    "Joseph",
+    "Thomas",
+    "Christopher",
+    "Charles",
+    "Daniel",
+    "Matthew",
+    "Anthony",
+    "Mark",
+    "Donald",
+    "Steven",
+    "Andrew",
+    "Paul",
+    "Joshua",
+    "Kenneth",
+    "Kevin",
+    "Brian",
+    "George",
+    "Timothy",
+    "Ronald",
+    "Edward",
+    "Jason",
+    "Jeffrey",
+    "Ryan",
+    "Jacob",
+    "Gary",
+    "Nicholas",
+    "Eric",
+    "Jonathan",
+    "Stephen",
+    "Larry",
+    "Justin",
+    "Scott",
+    "Brandon",
+    "Benjamin",
+    "Samuel",
+    "Raymond",
+    "Gregory",
+    "Frank",
+    "Alexander",
+    "Mary",
+    "Patricia",
+    "Jennifer",
+    "Linda",
+    "Barbara",
+    "Elizabeth",
+    "Susan",
+    "Jessica",
+    "Sarah",
+    "Karen",
+    "Lisa",
+    "Nancy",
+    "Betty",
+    "Margaret",
+    "Sandra",
+    "Ashley",
+    "Dorothy",
+    "Kimberly",
+    "Emily",
+    "Donna",
+    "Michelle",
+    "Carol",
+    "Amanda",
+    "Melissa",
+    "Deborah",
+    "Stephanie",
+    "Rebecca",
+    "Sharon",
+    "Laura",
+    "Cynthia",
+    "Kathleen",
+    "Amy",
+    "Angela",
+    "Shirley",
+    "Anna",
+    "Brenda",
+    "Pamela",
+    "Emma",
+    "Nicole",
+    "Helen",
+    "Samantha",
+    "Katherine",
+    "Christine",
+    "Debra",
+    "Rachel",
+    "Carolyn",
+    "Janet",
+    "Catherine",
+    "Maria",
+    "Heather",
+    "Diane",
+    "Ruth",
+    "Priya",
+    "Raj",
+    "Wei",
+    "Li",
+    "Yuki",
+    "Hiroshi",
+    "Sanjay",
+    "Amit",
+    "Muhammad",
+    "Omar",
+    "Fatima",
+    "Aisha",
+    "Chen",
+    "Wang",
+    "Zhang",
+    "Liu",
 }
 _COMMON_LAST_NAMES: Set[str] = {
-    "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
-    "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson",
-    "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson",
-    "White", "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker",
-    "Young", "Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill",
-    "Flores", "Green", "Adams", "Nelson", "Baker", "Hall", "Rivera", "Campbell",
-    "Mitchell", "Carter", "Roberts", "Patel", "Shah", "Singh", "Kumar", "Gupta",
-    "Das", "Reddy", "Chen", "Wang", "Zhang", "Liu", "Huang", "Tanaka",
-    "Suzuki", "Watanabe", "Ito", "Kim", "Park", "Choi", "Lee",
+    "Smith",
+    "Johnson",
+    "Williams",
+    "Brown",
+    "Jones",
+    "Garcia",
+    "Miller",
+    "Davis",
+    "Rodriguez",
+    "Martinez",
+    "Hernandez",
+    "Lopez",
+    "Gonzalez",
+    "Wilson",
+    "Anderson",
+    "Thomas",
+    "Taylor",
+    "Moore",
+    "Jackson",
+    "Martin",
+    "Lee",
+    "Perez",
+    "Thompson",
+    "White",
+    "Harris",
+    "Sanchez",
+    "Clark",
+    "Ramirez",
+    "Lewis",
+    "Robinson",
+    "Walker",
+    "Young",
+    "Allen",
+    "King",
+    "Wright",
+    "Scott",
+    "Torres",
+    "Nguyen",
+    "Hill",
+    "Flores",
+    "Green",
+    "Adams",
+    "Nelson",
+    "Baker",
+    "Hall",
+    "Rivera",
+    "Campbell",
+    "Mitchell",
+    "Carter",
+    "Roberts",
+    "Patel",
+    "Shah",
+    "Singh",
+    "Kumar",
+    "Gupta",
+    "Das",
+    "Reddy",
+    "Chen",
+    "Wang",
+    "Zhang",
+    "Liu",
+    "Huang",
+    "Tanaka",
+    "Suzuki",
+    "Watanabe",
+    "Ito",
+    "Kim",
+    "Park",
+    "Choi",
+    "Lee",
 }
 
 # ── Token replacement pattern (for deredaction) ──────────────────
@@ -258,6 +406,7 @@ _TOKEN_PATTERN = re.compile(r"\{\{([A-Z_]+)_[0-9a-f]{8}\}\}")
 @dataclass
 class PIIMatch:
     """Represents a single PII detection match."""
+
     pii_type: str
     value: str
     start: int
@@ -269,6 +418,7 @@ class PIIMatch:
 @dataclass
 class RedactionResult:
     """Complete result of a redaction operation."""
+
     redacted_text: str
     redaction_map: Dict[str, str]
     redaction_id: str
@@ -406,14 +556,16 @@ class PIIDetector:
                 serial = raw[7:11]
                 if group == "00" or serial == "0000":
                     continue
-                matches.append(PIIMatch(
-                    pii_type=PII_SSN,
-                    value=raw,
-                    start=m.start(),
-                    end=m.end(),
-                    confidence=0.95,
-                    pattern_matched="ssn_standard",
-                ))
+                matches.append(
+                    PIIMatch(
+                        pii_type=PII_SSN,
+                        value=raw,
+                        start=m.start(),
+                        end=m.end(),
+                        confidence=0.95,
+                        pattern_matched="ssn_standard",
+                    )
+                )
         return matches
 
     def _detect_credit_card(self, text: str) -> List[PIIMatch]:
@@ -429,12 +581,12 @@ class PIIDetector:
             if digits.startswith("4") and length == 16:
                 card_type = "visa"
                 confidence = 0.92
-            elif (digits.startswith(("51", "52", "53", "54", "55"))
-                  and length == 16):
+            elif digits.startswith(("51", "52", "53", "54", "55")) and length == 16:
                 card_type = "mastercard"
                 confidence = 0.92
-            elif (digits.startswith(("22", "23", "24", "25", "26", "27"))
-                  and length == 16):
+            elif (
+                digits.startswith(("22", "23", "24", "25", "26", "27")) and length == 16
+            ):
                 card_type = "mastercard_2series"
                 confidence = 0.90
             elif digits.startswith(("34", "37")) and length == 15:
@@ -445,14 +597,16 @@ class PIIDetector:
             if self._luhn_check(digits):
                 confidence = min(confidence + 0.07, 1.0)
 
-            matches.append(PIIMatch(
-                pii_type=PII_CREDIT_CARD,
-                value=raw,
-                start=m.start(),
-                end=m.end(),
-                confidence=confidence,
-                pattern_matched=f"credit_card_{card_type}",
-            ))
+            matches.append(
+                PIIMatch(
+                    pii_type=PII_CREDIT_CARD,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=confidence,
+                    pattern_matched=f"credit_card_{card_type}",
+                )
+            )
         return matches
 
     @staticmethod
@@ -486,14 +640,16 @@ class PIIDetector:
                 continue
             else:
                 confidence = 0.97
-            matches.append(PIIMatch(
-                pii_type=PII_EMAIL,
-                value=raw,
-                start=m.start(),
-                end=m.end(),
-                confidence=confidence,
-                pattern_matched="email_standard",
-            ))
+            matches.append(
+                PIIMatch(
+                    pii_type=PII_EMAIL,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=confidence,
+                    pattern_matched="email_standard",
+                )
+            )
         return matches
 
     def _detect_email_short(self, text: str) -> List[PIIMatch]:
@@ -518,14 +674,16 @@ class PIIDetector:
                 continue
             # Only flag if local part is 1-2 chars and domain is short
             if len(local) <= 2:
-                matches.append(PIIMatch(
-                    pii_type=PII_EMAIL_SHORT,
-                    value=raw,
-                    start=m.start(),
-                    end=m.end(),
-                    confidence=0.82,
-                    pattern_matched="email_short",
-                ))
+                matches.append(
+                    PIIMatch(
+                        pii_type=PII_EMAIL_SHORT,
+                        value=raw,
+                        start=m.start(),
+                        end=m.end(),
+                        confidence=0.82,
+                        pattern_matched="email_short",
+                    )
+                )
         return matches
 
     def _detect_phone(self, text: str) -> List[PIIMatch]:
@@ -558,14 +716,16 @@ class PIIDetector:
                 confidence = 0.82
                 pattern_matched = "phone_international"
 
-            matches.append(PIIMatch(
-                pii_type=PII_PHONE,
-                value=raw,
-                start=m.start(),
-                end=m.end(),
-                confidence=confidence,
-                pattern_matched=pattern_matched,
-            ))
+            matches.append(
+                PIIMatch(
+                    pii_type=PII_PHONE,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=confidence,
+                    pattern_matched=pattern_matched,
+                )
+            )
         return matches
 
     def _detect_phone_partial(self, text: str) -> List[PIIMatch]:
@@ -577,14 +737,16 @@ class PIIDetector:
         matches: List[PIIMatch] = []
         for m in _PAT_PHONE_PARTIAL.finditer(text):
             raw = m.group()
-            matches.append(PIIMatch(
-                pii_type=PII_PHONE_PARTIAL,
-                value=raw,
-                start=m.start(),
-                end=m.end(),
-                confidence=0.72,
-                pattern_matched="phone_partial_masked",
-            ))
+            matches.append(
+                PIIMatch(
+                    pii_type=PII_PHONE_PARTIAL,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=0.72,
+                    pattern_matched="phone_partial_masked",
+                )
+            )
         return matches
 
     def _detect_name(self, text: str) -> List[PIIMatch]:
@@ -602,14 +764,16 @@ class PIIDetector:
         for m in _PAT_NAME_IN_CONTEXT.finditer(text):
             if m.span() not in seen_spans:
                 seen_spans.add(m.span())
-                matches.append(PIIMatch(
-                    pii_type=PII_NAME,
-                    value=m.group(),
-                    start=m.start(),
-                    end=m.end(),
-                    confidence=0.88,
-                    pattern_matched="name_with_title",
-                ))
+                matches.append(
+                    PIIMatch(
+                        pii_type=PII_NAME,
+                        value=m.group(),
+                        start=m.start(),
+                        end=m.end(),
+                        confidence=0.88,
+                        pattern_matched="name_with_title",
+                    )
+                )
 
         # Strategy 2: Action-verb + capitalized word ("contact Jane")
         for m in _PAT_NAME_WITH_ACTION.finditer(text):
@@ -619,20 +783,28 @@ class PIIDetector:
                 # Find the capitalized word after the action verb
                 name_match = re.search(
                     r"(?:contact|reach|call|email|ask for|speak to|message|notify)\s+"
-                    r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)", raw, re.IGNORECASE, )
+                    r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
+                    raw,
+                    re.IGNORECASE,
+                )
                 if name_match:
                     name = name_match.group(1)
                     first_word = name.split()[0]
-                    if first_word in _COMMON_FIRST_NAMES or first_word in _COMMON_LAST_NAMES:
+                    if (
+                        first_word in _COMMON_FIRST_NAMES
+                        or first_word in _COMMON_LAST_NAMES
+                    ):
                         seen_spans.add(m.span())
-                        matches.append(PIIMatch(
-                            pii_type=PII_NAME,
-                            value=name,
-                            start=m.start() + name_match.start(1),
-                            end=m.start() + name_match.end(1),
-                            confidence=0.72,
-                            pattern_matched="name_with_action",
-                        ))
+                        matches.append(
+                            PIIMatch(
+                                pii_type=PII_NAME,
+                                value=name,
+                                start=m.start() + name_match.start(1),
+                                end=m.start() + name_match.end(1),
+                                confidence=0.72,
+                                pattern_matched="name_with_action",
+                            )
+                        )
 
         # Strategy 3: Common first+last name pair detection
         # Only when two consecutive capitalized words are both in name lists
@@ -642,14 +814,16 @@ class PIIDetector:
                 first, last = m.group(1), m.group(2)
                 if first in _COMMON_FIRST_NAMES and last in _COMMON_LAST_NAMES:
                     seen_spans.add(m.span())
-                    matches.append(PIIMatch(
-                        pii_type=PII_NAME,
-                        value=m.group(),
-                        start=m.start(),
-                        end=m.end(),
-                        confidence=0.55,
-                        pattern_matched="name_common_pair",
-                    ))
+                    matches.append(
+                        PIIMatch(
+                            pii_type=PII_NAME,
+                            value=m.group(),
+                            start=m.start(),
+                            end=m.end(),
+                            confidence=0.55,
+                            pattern_matched="name_common_pair",
+                        )
+                    )
 
         return matches
 
@@ -664,25 +838,29 @@ class PIIDetector:
                 confidence = 0.50
             else:
                 confidence = 0.93
-            matches.append(PIIMatch(
-                pii_type=PII_IP_ADDRESS,
-                value=raw,
-                start=m.start(),
-                end=m.end(),
-                confidence=confidence,
-                pattern_matched="ipv4",
-            ))
+            matches.append(
+                PIIMatch(
+                    pii_type=PII_IP_ADDRESS,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=confidence,
+                    pattern_matched="ipv4",
+                )
+            )
 
         for m in _PAT_IPV6.finditer(text):
             raw = m.group()
-            matches.append(PIIMatch(
-                pii_type=PII_IP_ADDRESS,
-                value=raw,
-                start=m.start(),
-                end=m.end(),
-                confidence=0.90,
-                pattern_matched="ipv6",
-            ))
+            matches.append(
+                PIIMatch(
+                    pii_type=PII_IP_ADDRESS,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=0.90,
+                    pattern_matched="ipv6",
+                )
+            )
 
         return matches
 
@@ -714,14 +892,16 @@ class PIIDetector:
                 else:
                     confidence = confidence_base
 
-                matches.append(PIIMatch(
-                    pii_type=PII_DATE_OF_BIRTH,
-                    value=raw,
-                    start=m.start(),
-                    end=m.end(),
-                    confidence=min(max(confidence, 0.1), 1.0),
-                    pattern_matched=pat_name,
-                ))
+                matches.append(
+                    PIIMatch(
+                        pii_type=PII_DATE_OF_BIRTH,
+                        value=raw,
+                        start=m.start(),
+                        end=m.end(),
+                        confidence=min(max(confidence, 0.1), 1.0),
+                        pattern_matched=pat_name,
+                    )
+                )
 
         return matches
 
@@ -732,26 +912,30 @@ class PIIDetector:
         # US: 9 digits
         for m in _PAT_PASSPORT_US.finditer(text):
             raw = m.group()
-            matches.append(PIIMatch(
-                pii_type=PII_PASSPORT,
-                value=raw,
-                start=m.start(),
-                end=m.end(),
-                confidence=0.55,
-                pattern_matched="passport_us_heuristic",
-            ))
+            matches.append(
+                PIIMatch(
+                    pii_type=PII_PASSPORT,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=0.55,
+                    pattern_matched="passport_us_heuristic",
+                )
+            )
 
         # UK: 8 digits + 1 check letter
         for m in _PAT_PASSPORT_UK.finditer(text):
             raw = m.group()
-            matches.append(PIIMatch(
-                pii_type=PII_PASSPORT,
-                value=raw,
-                start=m.start(),
-                end=m.end(),
-                confidence=0.70,
-                pattern_matched="passport_uk",
-            ))
+            matches.append(
+                PIIMatch(
+                    pii_type=PII_PASSPORT,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=0.70,
+                    pattern_matched="passport_uk",
+                )
+            )
 
         # EU: 2 letters + 7 digits
         for m in _PAT_PASSPORT_EU.finditer(text):
@@ -759,14 +943,16 @@ class PIIDetector:
             # Exclude common acronyms like "CA1234567" that could be
             # state abbreviations followed by zip
             if len(raw) == 9 and re.match(r"^[A-Z]{2}\d{7}$", raw):
-                matches.append(PIIMatch(
-                    pii_type=PII_PASSPORT,
-                    value=raw,
-                    start=m.start(),
-                    end=m.end(),
-                    confidence=0.60,
-                    pattern_matched="passport_eu_heuristic",
-                ))
+                matches.append(
+                    PIIMatch(
+                        pii_type=PII_PASSPORT,
+                        value=raw,
+                        start=m.start(),
+                        end=m.end(),
+                        confidence=0.60,
+                        pattern_matched="passport_eu_heuristic",
+                    )
+                )
 
         return matches
 
@@ -794,36 +980,37 @@ class PIIDetector:
                 # Only include if not already matched as SSN
                 if re.match(r"^\d{3}[-\s]\d{2}[-\s]\d{4}$", raw):
                     continue
-                matches.append(PIIMatch(
-                    pii_type=PII_DRIVERS_LICENSE,
-                    value=raw,
-                    start=m.start(),
-                    end=m.end(),
-                    confidence=conf,
-                    pattern_matched=f"dl_{state_name}",
-                ))
+                matches.append(
+                    PIIMatch(
+                        pii_type=PII_DRIVERS_LICENSE,
+                        value=raw,
+                        start=m.start(),
+                        end=m.end(),
+                        confidence=conf,
+                        pattern_matched=f"dl_{state_name}",
+                    )
+                )
 
         # Generic DL pattern: alphanumeric 6-12 chars
         for m in _PAT_DL.finditer(text):
             raw = m.group()
             # Skip if already captured by more specific patterns
-            already = any(
-                mm.start == m.start() and mm.end == m.end()
-                for mm in matches
-            )
+            already = any(mm.start == m.start() and mm.end == m.end() for mm in matches)
             if already:
                 continue
             # Skip pure numeric that looks like a year or zip
             if re.match(r"^\d{4,5}$", raw):
                 continue
-            matches.append(PIIMatch(
-                pii_type=PII_DRIVERS_LICENSE,
-                value=raw,
-                start=m.start(),
-                end=m.end(),
-                confidence=0.40,
-                pattern_matched="dl_generic",
-            ))
+            matches.append(
+                PIIMatch(
+                    pii_type=PII_DRIVERS_LICENSE,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=0.40,
+                    pattern_matched="dl_generic",
+                )
+            )
 
         return matches
 
@@ -837,11 +1024,25 @@ class PIIDetector:
 
             # Known IBAN country lengths for confidence boost
             country_lengths: Dict[str, int] = {
-                "DE": 22, "FR": 27, "GB": 22, "IT": 27,
-                "ES": 24, "NL": 18, "BE": 16, "CH": 21,
-                "AT": 20, "PT": 25, "IE": 22, "SE": 24,
-                "NO": 15, "DK": 18, "FI": 18, "PL": 28,
-                "AE": 23, "SA": 24, "IN": 15,
+                "DE": 22,
+                "FR": 27,
+                "GB": 22,
+                "IT": 27,
+                "ES": 24,
+                "NL": 18,
+                "BE": 16,
+                "CH": 21,
+                "AT": 20,
+                "PT": 25,
+                "IE": 22,
+                "SE": 24,
+                "NO": 15,
+                "DK": 18,
+                "FI": 18,
+                "PL": 28,
+                "AE": 23,
+                "SA": 24,
+                "IN": 15,
             }
 
             clean = re.sub(r"[\s\-]", "", raw)
@@ -858,14 +1059,16 @@ class PIIDetector:
             if not re.match(r"^[A-Z]{2}$", country_code):
                 continue
 
-            matches.append(PIIMatch(
-                pii_type=PII_IBAN,
-                value=raw,
-                start=m.start(),
-                end=m.end(),
-                confidence=confidence,
-                pattern_matched=f"iban_{country_code.lower()}",
-            ))
+            matches.append(
+                PIIMatch(
+                    pii_type=PII_IBAN,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=confidence,
+                    pattern_matched=f"iban_{country_code.lower()}",
+                )
+            )
         return matches
 
     def _detect_record_number(self, text: str) -> List[PIIMatch]:
@@ -873,14 +1076,16 @@ class PIIDetector:
         matches: List[PIIMatch] = []
         for m in _PAT_RECORD.finditer(text):
             raw = m.group()
-            matches.append(PIIMatch(
-                pii_type=PII_RECORD_NUMBER,
-                value=raw,
-                start=m.start(),
-                end=m.end(),
-                confidence=0.88,
-                pattern_matched="record_prefixed",
-            ))
+            matches.append(
+                PIIMatch(
+                    pii_type=PII_RECORD_NUMBER,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=0.88,
+                    pattern_matched="record_prefixed",
+                )
+            )
         return matches
 
     def _detect_insurance_id(self, text: str) -> List[PIIMatch]:
@@ -890,30 +1095,33 @@ class PIIDetector:
         # MBI: 11 chars matching the pattern
         for m in _PAT_INSURANCE_MBI.finditer(text):
             raw = m.group()
-            matches.append(PIIMatch(
-                pii_type=PII_INSURANCE_ID,
-                value=raw,
-                start=m.start(),
-                end=m.end(),
-                confidence=0.90,
-                pattern_matched="insurance_mbi",
-            ))
+            matches.append(
+                PIIMatch(
+                    pii_type=PII_INSURANCE_ID,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=0.90,
+                    pattern_matched="insurance_mbi",
+                )
+            )
 
         # State-specific: 2-letter prefix + digits
         for m in _PAT_INSURANCE_STATE.finditer(text):
             raw = m.group()
             # Skip matches already captured by MBI
-            if any(mm.start == m.start() and mm.end == m.end()
-                   for mm in matches):
+            if any(mm.start == m.start() and mm.end == m.end() for mm in matches):
                 continue
-            matches.append(PIIMatch(
-                pii_type=PII_INSURANCE_ID,
-                value=raw,
-                start=m.start(),
-                end=m.end(),
-                confidence=0.65,
-                pattern_matched="insurance_state_heuristic",
-            ))
+            matches.append(
+                PIIMatch(
+                    pii_type=PII_INSURANCE_ID,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=0.65,
+                    pattern_matched="insurance_state_heuristic",
+                )
+            )
 
         return matches
 
@@ -939,14 +1147,16 @@ class PIIDetector:
             if len(raw) < 10:
                 confidence -= 0.20
 
-            matches.append(PIIMatch(
-                pii_type=PII_STREET_ADDRESS,
-                value=raw,
-                start=m.start(),
-                end=m.end(),
-                confidence=max(confidence, 0.10),
-                pattern_matched=pattern_matched,
-            ))
+            matches.append(
+                PIIMatch(
+                    pii_type=PII_STREET_ADDRESS,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=max(confidence, 0.10),
+                    pattern_matched=pattern_matched,
+                )
+            )
         return matches
 
     def _detect_api_key(self, text: str) -> List[PIIMatch]:
@@ -972,14 +1182,16 @@ class PIIDetector:
             elif raw.startswith("hooks."):
                 pattern_matched = "api_key_webhook"
 
-            matches.append(PIIMatch(
-                pii_type=PII_API_KEY,
-                value=raw,
-                start=m.start(),
-                end=m.end(),
-                confidence=confidence,
-                pattern_matched=pattern_matched,
-            ))
+            matches.append(
+                PIIMatch(
+                    pii_type=PII_API_KEY,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=confidence,
+                    pattern_matched=pattern_matched,
+                )
+            )
         return matches
 
     def _detect_aadhaar(self, text: str) -> List[PIIMatch]:
@@ -997,14 +1209,16 @@ class PIIDetector:
             confidence = 0.85
             if " " in raw or "-" in raw:
                 confidence = 0.90  # formatted is more likely intentional
-            matches.append(PIIMatch(
-                pii_type=PII_AADHAAR,
-                value=raw,
-                start=m.start(),
-                end=m.end(),
-                confidence=confidence,
-                pattern_matched="aadhaar_12digit",
-            ))
+            matches.append(
+                PIIMatch(
+                    pii_type=PII_AADHAAR,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=confidence,
+                    pattern_matched="aadhaar_12digit",
+                )
+            )
         return matches
 
     def _detect_pan(self, text: str) -> List[PIIMatch]:
@@ -1025,14 +1239,16 @@ class PIIDetector:
             # Last character (5th position) must be a letter — already ensured
             # by the regex [A-Z]{5}[0-9]{4}[A-Z]
 
-            matches.append(PIIMatch(
-                pii_type=PII_PAN,
-                value=raw,
-                start=m.start(),
-                end=m.end(),
-                confidence=confidence,
-                pattern_matched=pattern_matched,
-            ))
+            matches.append(
+                PIIMatch(
+                    pii_type=PII_PAN,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=confidence,
+                    pattern_matched=pattern_matched,
+                )
+            )
         return matches
 
 
@@ -1308,9 +1524,7 @@ class PIIRedactionCache:
                 )
                 return None
             # Ensure all keys and values are strings
-            return {
-                str(k): str(v) for k, v in result.items()
-            }
+            return {str(k): str(v) for k, v in result.items()}
         except Exception:
             logger.exception(
                 "pii_map_retrieve_failed",

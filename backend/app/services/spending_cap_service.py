@@ -39,6 +39,7 @@ MIN_CAP_AMOUNT: Decimal = Decimal("1.00")
 
 # ── Exception Classes ─────────────────────────────────────────────────────
 
+
 class SpendingCapError(Exception):
     """Base exception for spending cap errors."""
 
@@ -56,18 +57,21 @@ class SpendingCapExceededError(SpendingCapError):
 #           created_at, updated_at
 # The migration file will create the actual table.
 
+
 class _SpendingCapModel:
     """Lightweight stub describing the SpendingCap table schema.
 
     Actual SQLAlchemy model is created via Alembic migration.
     This allows the service to be imported and tested before migration.
     """
+
     __tablename__ = "spending_caps"
 
     # Column stubs (populated at import time from DB if table exists)
 
 
 # ── Service Implementation ───────────────────────────────────────────────
+
 
 class SpendingCapService:
     """
@@ -165,6 +169,7 @@ class SpendingCapService:
         try:
             # Attempt to import — will succeed once migration runs
             from database.models.billing_extended import SpendingCap  # type: ignore
+
             self._table_available = True
             return SpendingCap
         except ImportError:
@@ -198,13 +203,14 @@ class SpendingCapService:
 
         total = (
             db.query(
-                func.coalesce(
-                    func.sum(
-                        UsageRecord.overage_charges),
-                    Decimal("0.00"))) .filter(
+                func.coalesce(func.sum(UsageRecord.overage_charges), Decimal("0.00"))
+            )
+            .filter(
                 UsageRecord.company_id == company_id,
                 UsageRecord.record_month == current_month,
-            ) .scalar())
+            )
+            .scalar()
+        )
 
         return Decimal(str(total or 0))
 
@@ -246,8 +252,7 @@ class SpendingCapService:
         if max_overage_amount is None:
             self.remove_spending_cap(company_id_str)
             logger.info(
-                "spending_cap_removed_no_cap "
-                "company_id=%s reason=explicit_none",
+                "spending_cap_removed_no_cap " "company_id=%s reason=explicit_none",
                 company_id_str,
             )
             return {
@@ -269,9 +274,7 @@ class SpendingCapService:
             )
 
         if cap_decimal < Decimal("0"):
-            raise SpendingCapError(
-                "max_overage_amount must be non-negative"
-            )
+            raise SpendingCapError("max_overage_amount must be non-negative")
 
         # FS1: Enforce global maximum
         if cap_decimal > GLOBAL_MAX_OVERAGE:
@@ -291,9 +294,9 @@ class SpendingCapService:
         if not isinstance(thresholds, list):
             thresholds = DEFAULT_THRESHOLDS
 
-        thresholds = sorted(set(
-            t for t in thresholds if isinstance(t, int) and 0 < t <= 100
-        ))
+        thresholds = sorted(
+            set(t for t in thresholds if isinstance(t, int) and 0 < t <= 100)
+        )
 
         with SessionLocal() as db:
             SpendingCap = self._get_or_create_cap_table(db)
@@ -343,8 +346,7 @@ class SpendingCapService:
             db.commit()
 
             logger.info(
-                "spending_cap_set "
-                "company_id=%s cap=%s thresholds=%s",
+                "spending_cap_set " "company_id=%s cap=%s thresholds=%s",
                 company_id_str,
                 cap_decimal,
                 thresholds,
@@ -404,8 +406,7 @@ class SpendingCapService:
             except (json.JSONDecodeError, TypeError):
                 thresholds = DEFAULT_THRESHOLDS
 
-            current_overage = self._get_current_month_overage(
-                db, company_id_str)
+            current_overage = self._get_current_month_overage(db, company_id_str)
 
             return {
                 "company_id": cap.company_id,
@@ -514,9 +515,7 @@ class SpendingCapService:
         try:
             charge_decimal = Decimal(str(proposed_charge))
         except Exception:
-            raise SpendingCapError(
-                f"Invalid proposed_charge: {proposed_charge}"
-            )
+            raise SpendingCapError(f"Invalid proposed_charge: {proposed_charge}")
 
         if charge_decimal < Decimal("0"):
             raise SpendingCapError("proposed_charge must be non-negative")
@@ -561,8 +560,7 @@ class SpendingCapService:
                 }
 
             max_cap: Decimal = cap.max_overage_amount
-            current_overage = self._get_current_month_overage(
-                db, company_id_str)
+            current_overage = self._get_current_month_overage(db, company_id_str)
 
             # Calculate what would happen with this charge
             new_total = current_overage + charge_decimal
@@ -571,8 +569,7 @@ class SpendingCapService:
             if current_overage >= max_cap:
                 # Already at or over cap
                 logger.warning(
-                    "spending_cap_already_exceeded "
-                    "company_id=%s current=%s cap=%s",
+                    "spending_cap_already_exceeded " "company_id=%s current=%s cap=%s",
                     company_id_str,
                     current_overage,
                     max_cap,
@@ -623,9 +620,7 @@ class SpendingCapService:
             )
             return {
                 "allowed": True,
-                "remaining": str(
-                    self._round_money(remaining - charge_decimal)
-                ),
+                "remaining": str(self._round_money(remaining - charge_decimal)),
                 "would_exceed": False,
                 "current_overage": str(current_overage),
                 "max_overage_amount": str(max_cap),
@@ -704,9 +699,7 @@ class SpendingCapService:
                 }
 
             # Calculate current percentage
-            current_percent = float(
-                self._round_money(overage_decimal / max_cap * 100)
-            )
+            current_percent = float(self._round_money(overage_decimal / max_cap * 100))
 
             # Parse thresholds and already-sent list
             try:
@@ -716,8 +709,7 @@ class SpendingCapService:
 
             # Parse already-sent alerts from the record
             try:
-                soft_cap_sent_field = getattr(
-                    cap, "soft_cap_alerts_sent", None)
+                soft_cap_sent_field = getattr(cap, "soft_cap_alerts_sent", None)
                 if soft_cap_sent_field:
                     already_sent = json.loads(soft_cap_sent_field)
                 else:
@@ -733,17 +725,19 @@ class SpendingCapService:
                 if threshold in already_sent:
                     continue  # Already notified for this threshold
                 if current_percent >= float(threshold):
-                    alerts.append({
-                        "threshold": threshold,
-                        "current_percent": current_percent,
-                        "current_overage": str(overage_decimal),
-                        "max_cap": str(max_cap),
-                        "message": (
-                            f"Overage has reached {threshold}% of your "
-                            f"${max_cap} spending cap "
-                            f"(${overage_decimal} / ${max_cap})."
-                        ),
-                    })
+                    alerts.append(
+                        {
+                            "threshold": threshold,
+                            "current_percent": current_percent,
+                            "current_overage": str(overage_decimal),
+                            "max_cap": str(max_cap),
+                            "message": (
+                                f"Overage has reached {threshold}% of your "
+                                f"${max_cap} spending cap "
+                                f"(${overage_decimal} / ${max_cap})."
+                            ),
+                        }
+                    )
                     newly_sent.append(threshold)
 
             # Update sent list
@@ -836,8 +830,7 @@ class SpendingCapService:
 
             if overage_decimal >= max_cap:
                 logger.warning(
-                    "hard_cap_enforced_block "
-                    "company_id=%s current=%s cap=%s",
+                    "hard_cap_enforced_block " "company_id=%s current=%s cap=%s",
                     company_id_str,
                     overage_decimal,
                     max_cap,

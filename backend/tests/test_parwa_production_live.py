@@ -41,11 +41,15 @@ class ZAILLMClient:
         """Check if z-ai-web-dev-sdk is available."""
         try:
             result = subprocess.run(
-                ["node", "-e", "const ZAI = require('z-ai-web-dev-sdk').default; console.log('ok');"],
+                [
+                    "node",
+                    "-e",
+                    "const ZAI = require('z-ai-web-dev-sdk').default; console.log('ok');",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=10,
-                cwd="/home/z/my-project/parwa"
+                cwd="/home/z/my-project/parwa",
             )
             if result.returncode == 0 and "ok" in result.stdout:
                 self.available = True
@@ -67,7 +71,7 @@ class ZAILLMClient:
         if self.available:
             try:
                 # Create Node.js script for LLM call
-                script = '''
+                script = """
 const ZAI = require('z-ai-web-dev-sdk').default;
 async function main() {{
     try {{
@@ -95,13 +99,13 @@ async function main() {{
     }}
 }}
 main();
-'''
+"""
                 result = subprocess.run(
                     ["node", "-e", script],
                     capture_output=True,
                     text=True,
                     timeout=60,
-                    cwd="/home/z/my-project/parwa"
+                    cwd="/home/z/my-project/parwa",
                 )
 
                 if result.returncode == 0:
@@ -120,9 +124,8 @@ main();
         return self._generate_mock_response(messages, system_prompt)
 
     def _generate_mock_response(
-            self,
-            messages: List[Dict],
-            system_prompt: str = None) -> Dict:
+        self, messages: List[Dict], system_prompt: str = None
+    ) -> Dict:
         """Generate context-aware mock response."""
         last_message = messages[-1]["content"].lower() if messages else ""
         system_lower = (system_prompt or "").lower()
@@ -131,13 +134,22 @@ main();
 
         # Context-aware responses based on message content
         if "order" in last_message and (
-                "arriv" in last_message or "late" in last_message or "delay" in last_message):
+            "arriv" in last_message or "late" in last_message or "delay" in last_message
+        ):
             response_content = "I understand your order hasn't arrived yet. I can see your shipment is currently in transit and I'm escalating this to our shipping team. Let me check the tracking information for you and provide an update on the delivery status."
         elif "refund" in last_message or "cancel" in last_message:
             response_content = "I understand you'd like a refund. I can help process that for you. Let me look up your order details and initiate the refund process. The refund should appear in your account within 3-5 business days."
-        elif "billing" in last_message or "invoice" in last_message or "charged" in last_message:
+        elif (
+            "billing" in last_message
+            or "invoice" in last_message
+            or "charged" in last_message
+        ):
             response_content = "I can help with your billing inquiry. I've located your account and can see your recent invoices. Would you like me to explain any specific charges or help you download an invoice?"
-        elif "technical" in last_message or "error" in last_message or "down" in last_message:
+        elif (
+            "technical" in last_message
+            or "error" in last_message
+            or "down" in last_message
+        ):
             response_content = "I'm sorry to hear you're experiencing technical difficulties. Let me help troubleshoot this issue. Can you describe the error message you're seeing? I can guide you through some steps to resolve this."
         elif "shipping" in last_message or "delivery" in last_message:
             response_content = "I can check the status of your shipment for you. Based on your tracking number, your package is currently in transit and expected to arrive within 2-3 business days."
@@ -152,7 +164,9 @@ main();
             else:
                 response_content = "general"
         elif "escalat" in system_lower or "reject" in system_lower:
-            response_content = "Request escalated for approval. A manager will review this shortly."
+            response_content = (
+                "Request escalated for approval. A manager will review this shortly."
+            )
         elif "approval" in system_lower:
             response_content = "This action requires manager approval. I've submitted the request for review."
         else:
@@ -161,7 +175,7 @@ main();
         return {
             "content": response_content,
             "model": "mock-llm",
-            "usage": {"total_tokens": 100}
+            "usage": {"total_tokens": 100},
         }
 
 
@@ -181,53 +195,51 @@ class ProductionTestResults:
             "variant_tests": {
                 "parwa": {"passed": 0, "failed": 0, "gaps": []},
                 "parwa_high": {"passed": 0, "failed": 0, "gaps": []},
-            }
+            },
         }
         self.start_time = datetime.now(timezone.utc)
 
-    def record_pass(
-            self,
-            test_name: str,
-            variant: str = None,
-            details: str = ""):
-        self.results["passed"].append({
-            "test": test_name,
-            "variant": variant,
-            "details": details,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        })
+    def record_pass(self, test_name: str, variant: str = None, details: str = ""):
+        self.results["passed"].append(
+            {
+                "test": test_name,
+                "variant": variant,
+                "details": details,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
         if variant and variant in self.results["variant_tests"]:
             self.results["variant_tests"][variant]["passed"] += 1
 
     def record_fail(self, test_name: str, error: str, variant: str = None):
-        self.results["failed"].append({
-            "test": test_name,
-            "variant": variant,
-            "error": error,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        })
+        self.results["failed"].append(
+            {
+                "test": test_name,
+                "variant": variant,
+                "error": error,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
         if variant and variant in self.results["variant_tests"]:
             self.results["variant_tests"][variant]["failed"] += 1
 
     def record_gap(
-            self,
-            gap_id: str,
-            description: str,
-            severity: str,
-            variant: str = None):
-        self.results["gaps"].append({
-            "id": gap_id,
-            "description": description,
-            "severity": severity,
-            "variant": variant
-        })
+        self, gap_id: str, description: str, severity: str, variant: str = None
+    ):
+        self.results["gaps"].append(
+            {
+                "id": gap_id,
+                "description": description,
+                "severity": severity,
+                "variant": variant,
+            }
+        )
         if variant and variant in self.results["variant_tests"]:
             self.results["variant_tests"][variant]["gaps"].append(gap_id)
 
     def get_summary(self) -> Dict:
         total = len(self.results["passed"]) + len(self.results["failed"])
-        pass_rate = (len(self.results["passed"])
-                     / total * 100) if total > 0 else 0
+        pass_rate = (len(self.results["passed"]) / total * 100) if total > 0 else 0
 
         return {
             "total_tests": total,
@@ -235,9 +247,13 @@ class ProductionTestResults:
             "failed": len(self.results["failed"]),
             "pass_rate": round(pass_rate, 1),
             "gaps_found": len(self.results["gaps"]),
-            "critical_gaps": len([g for g in self.results["gaps"] if g["severity"] == "critical"]),
+            "critical_gaps": len(
+                [g for g in self.results["gaps"] if g["severity"] == "critical"]
+            ),
             "variant_summary": self.results["variant_tests"],
-            "duration_seconds": (datetime.now(timezone.utc) - self.start_time).total_seconds()
+            "duration_seconds": (
+                datetime.now(timezone.utc) - self.start_time
+            ).total_seconds(),
         }
 
 
@@ -249,6 +265,7 @@ results = ProductionTestResults()
 # PARWA VARIANT TESTS ($2,499/mo)
 # =============================================================================
 
+
 class TestPARWAVariant:
     """Test suite for PARWA variant (full features, $2,499/mo)."""
 
@@ -258,21 +275,25 @@ class TestPARWAVariant:
         test_name = "parwa_ticket_classification"
         try:
             messages = [
-                {"role": "user", "content": "I want to cancel my subscription and get a refund for last month"}
+                {
+                    "role": "user",
+                    "content": "I want to cancel my subscription and get a refund for last month",
+                }
             ]
 
             response = await llm_client.chat_completion(
                 messages=messages,
-                system_prompt="Classify this customer query into exactly one of these categories: billing, technical, general, or escalation. Respond with just the category name, nothing else."
+                system_prompt="Classify this customer query into exactly one of these categories: billing, technical, general, or escalation. Respond with just the category name, nothing else.",
             )
 
             assert response["content"], "Empty response from LLM"
             # Should classify as billing-related
             category = response["content"].strip().lower()
             assert category in [
-                "billing", "general"], f"Unexpected category: {category}"
-            results.record_pass(
-                test_name, "parwa", f"Classified as: {category}")
+                "billing",
+                "general",
+            ], f"Unexpected category: {category}"
+            results.record_pass(test_name, "parwa", f"Classified as: {category}")
 
         except Exception as e:
             results.record_fail(test_name, str(e), "parwa")
@@ -284,31 +305,40 @@ class TestPARWAVariant:
         test_name = "parwa_response_generation"
         try:
             messages = [
-                {"role": "user", "content": "My order hasn't arrived yet, it was supposed to be here 3 days ago."}
+                {
+                    "role": "user",
+                    "content": "My order hasn't arrived yet, it was supposed to be here 3 days ago.",
+                }
             ]
 
             response = await llm_client.chat_completion(
                 messages=messages,
-                system_prompt="You are a helpful customer support agent. Generate a professional response addressing the order delay."
+                system_prompt="You are a helpful customer support agent. Generate a professional response addressing the order delay.",
             )
 
             assert len(response["content"]) > 20, "Response too short"
             content_lower = response["content"].lower()
             # Should address order/shipping concern
             relevant = any(
-                word in content_lower for word in [
+                word in content_lower
+                for word in [
                     "order",
                     "shipping",
                     "delivery",
                     "arriv",
                     "track",
                     "delay",
-                    "ship"])
+                    "ship",
+                ]
+            )
             assert relevant, f"Response not relevant to order inquiry: {
                 response['content']}"
 
             results.record_pass(
-                test_name, "parwa", f"Generated {len(response['content'])} char response")
+                test_name,
+                "parwa",
+                f"Generated {len(response['content'])} char response",
+            )
 
         except Exception as e:
             results.record_fail(test_name, str(e), "parwa")
@@ -321,32 +351,35 @@ class TestPARWAVariant:
         try:
             messages = [
                 {"role": "user", "content": "I have a billing question"},
-                {"role": "assistant", "content": "I'd be happy to help with your billing question. What would you like to know?"},
-                {"role": "user", "content": "I was charged twice for my subscription"}
+                {
+                    "role": "assistant",
+                    "content": "I'd be happy to help with your billing question. What would you like to know?",
+                },
+                {"role": "user", "content": "I was charged twice for my subscription"},
             ]
 
             response = await llm_client.chat_completion(
                 messages=messages,
-                system_prompt="You are a helpful customer support agent handling billing issues."
+                system_prompt="You are a helpful customer support agent handling billing issues.",
             )
 
             assert response["content"], "Empty response in multi-turn"
             content_lower = response["content"].lower()
             relevant = any(
-                word in content_lower for word in [
+                word in content_lower
+                for word in [
                     "charge",
                     "refund",
                     "billing",
                     "subscription",
                     "duplicate",
-                    "help"])
+                    "help",
+                ]
+            )
             assert relevant, f"Response not addressing duplicate charge: {
                 response['content']}"
 
-            results.record_pass(
-                test_name,
-                "parwa",
-                "Multi-turn conversation handled")
+            results.record_pass(test_name, "parwa", "Multi-turn conversation handled")
 
         except Exception as e:
             results.record_fail(test_name, str(e), "parwa")
@@ -359,23 +392,30 @@ class TestPARWAVariant:
         try:
             # Test email channel
             email_response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "Email ticket: Invoice discrepancy - charged $149 instead of $99"}],
-                system_prompt="Determine if this ticket can be handled automatically (respond 'auto') or needs escalation (respond 'escalate')."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Email ticket: Invoice discrepancy - charged $149 instead of $99",
+                    }
+                ],
+                system_prompt="Determine if this ticket can be handled automatically (respond 'auto') or needs escalation (respond 'escalate').",
             )
 
             # Test chat channel
             chat_response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "Chat message: Need help with my account settings"}],
-                system_prompt="Determine if this ticket can be handled automatically (respond 'auto') or needs escalation (respond 'escalate')."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Chat message: Need help with my account settings",
+                    }
+                ],
+                system_prompt="Determine if this ticket can be handled automatically (respond 'auto') or needs escalation (respond 'escalate').",
             )
 
             assert email_response["content"], "Empty response for email channel"
             assert chat_response["content"], "Empty response for chat channel"
 
-            results.record_pass(
-                test_name,
-                "parwa",
-                "Email and chat channels processed")
+            results.record_pass(test_name, "parwa", "Email and chat channels processed")
 
         except Exception as e:
             results.record_fail(test_name, str(e), "parwa")
@@ -389,9 +429,11 @@ class TestPARWAVariant:
             start_time = time.time()
 
             response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "URGENT: My production system is down!"}],
+                messages=[
+                    {"role": "user", "content": "URGENT: My production system is down!"}
+                ],
                 system_prompt="You are a high-priority support agent. Respond quickly with next steps for a production outage.",
-                max_tokens=150
+                max_tokens=150,
             )
 
             response_time = time.time() - start_time
@@ -400,8 +442,7 @@ class TestPARWAVariant:
             assert response_time < 30, f"Response time {response_time}s exceeds SLA"
             assert response["content"], "Empty urgent response"
 
-            results.record_pass(
-                test_name, "parwa", f"Response in {
+            results.record_pass(test_name, "parwa", f"Response in {
                     response_time:.2f}s")
 
         except Exception as e:
@@ -417,22 +458,27 @@ class TestPARWAVariant:
 
             response = await llm_client.chat_completion(
                 messages=[{"role": "user", "content": complex_query}],
-                system_prompt="Analyze this complex query. Identify all issues mentioned and propose solutions for each. List them clearly."
+                system_prompt="Analyze this complex query. Identify all issues mentioned and propose solutions for each. List them clearly.",
             )
 
             content_lower = response["content"].lower()
-            issues_addressed = sum([
-                "missing" in content_lower or "item" in content_lower or "received" in content_lower,
-                "wrong" in content_lower or "size" in content_lower,
-                "return" in content_lower,
-            ])
+            issues_addressed = sum(
+                [
+                    "missing" in content_lower
+                    or "item" in content_lower
+                    or "received" in content_lower,
+                    "wrong" in content_lower or "size" in content_lower,
+                    "return" in content_lower,
+                ]
+            )
 
-            assert issues_addressed >= 2, f"Failed to address multiple issues. Addressed: {issues_addressed}"
+            assert (
+                issues_addressed >= 2
+            ), f"Failed to address multiple issues. Addressed: {issues_addressed}"
 
             results.record_pass(
-                test_name,
-                "parwa",
-                f"Addressed {issues_addressed} issues")
+                test_name, "parwa", f"Addressed {issues_addressed} issues"
+            )
 
         except Exception as e:
             results.record_fail(test_name, str(e), "parwa")
@@ -442,6 +488,7 @@ class TestPARWAVariant:
 # =============================================================================
 # PARWA HIGH VARIANT TESTS ($3,999/mo)
 # =============================================================================
+
 
 class TestPARWAHighVariant:
     """Test suite for PARWA High variant (enterprise, $3,999/mo)."""
@@ -461,17 +508,17 @@ class TestPARWAHighVariant:
             for example in training_examples:
                 response = await llm_client.chat_completion(
                     messages=[{"role": "user", "content": example["query"]}],
-                    system_prompt=f"You are learning from training examples. Provide a helpful response about: {example['expected']}"
+                    system_prompt=f"You are learning from training examples. Provide a helpful response about: {example['expected']}",
                 )
                 if response["content"]:
                     processed += 1
 
             assert processed == len(
-                training_examples), f"Only {processed}/{len(training_examples)} processed"
+                training_examples
+            ), f"Only {processed}/{len(training_examples)} processed"
             results.record_pass(
-                test_name,
-                "parwa_high",
-                f"Processed {processed} training examples")
+                test_name, "parwa_high", f"Processed {processed} training examples"
+            )
 
         except Exception as e:
             results.record_fail(test_name, str(e), "parwa_high")
@@ -490,13 +537,17 @@ class TestPARWAHighVariant:
 
             for instance in instances:
                 response = await llm_client.chat_completion(
-                    messages=[{"role": "user", "content": f"Test message for {instance['specialty']} team"}],
-                    system_prompt=f"You are a {instance['specialty']} specialist. Respond appropriately."
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": f"Test message for {instance['specialty']} team",
+                        }
+                    ],
+                    system_prompt=f"You are a {instance['specialty']} specialist. Respond appropriately.",
                 )
                 assert response["content"], f"Instance {instance['id']} failed"
 
-            results.record_pass(
-                test_name, "parwa_high", f"All {
+            results.record_pass(test_name, "parwa_high", f"All {
                     len(instances)} instances operational")
 
         except Exception as e:
@@ -516,14 +567,18 @@ class TestPARWAHighVariant:
 
             for integration in integrations:
                 response = await llm_client.chat_completion(
-                    messages=[{"role": "user", "content": f"Integrate with {integration['type']} to {integration['action']}"}],
-                    system_prompt="You are an integration specialist. Confirm the integration action was initiated."
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": f"Integrate with {integration['type']} to {integration['action']}",
+                        }
+                    ],
+                    system_prompt="You are an integration specialist. Confirm the integration action was initiated.",
                 )
                 assert response["content"], f"Integration {
                     integration['type']} failed"
 
-            results.record_pass(
-                test_name, "parwa_high", f"All {
+            results.record_pass(test_name, "parwa_high", f"All {
                     len(integrations)} integrations working")
 
         except Exception as e:
@@ -536,18 +591,19 @@ class TestPARWAHighVariant:
         test_name = "parwa_high_advanced_analytics"
         try:
             response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "Generate a summary of customer satisfaction trends for the last 30 days"}],
-                system_prompt="You are an analytics assistant. Provide insights about customer satisfaction trends."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Generate a summary of customer satisfaction trends for the last 30 days",
+                    }
+                ],
+                system_prompt="You are an analytics assistant. Provide insights about customer satisfaction trends.",
             )
 
             assert response["content"], "Empty analytics response"
-            assert len(
-                response["content"]) > 30, "Analytics response too brief"
+            assert len(response["content"]) > 30, "Analytics response too brief"
 
-            results.record_pass(
-                test_name,
-                "parwa_high",
-                "Analytics features working")
+            results.record_pass(test_name, "parwa_high", "Analytics features working")
 
         except Exception as e:
             results.record_fail(test_name, str(e), "parwa_high")
@@ -559,18 +615,25 @@ class TestPARWAHighVariant:
         test_name = "parwa_high_approval_workflow"
         try:
             response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "Process refund request of $500 for defective product"}],
-                system_prompt="You are an approval workflow system. For refunds over $100, you must require manager approval. State this clearly."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Process refund request of $500 for defective product",
+                    }
+                ],
+                system_prompt="You are an approval workflow system. For refunds over $100, you must require manager approval. State this clearly.",
             )
 
             content_lower = response["content"].lower()
-            assert "approval" in content_lower or "manager" in content_lower or "authorize" in content_lower, \
-                f"High-value refund should require approval: {response['content']}"
+            assert (
+                "approval" in content_lower
+                or "manager" in content_lower
+                or "authorize" in content_lower
+            ), f"High-value refund should require approval: {response['content']}"
 
             results.record_pass(
-                test_name,
-                "parwa_high",
-                "Approval workflow triggered correctly")
+                test_name, "parwa_high", "Approval workflow triggered correctly"
+            )
 
         except Exception as e:
             results.record_fail(test_name, str(e), "parwa_high")
@@ -586,9 +649,11 @@ class TestPARWAHighVariant:
 
             for i in range(batch_size):
                 task = llm_client.chat_completion(
-                    messages=[{"role": "user", "content": f"Process ticket #{i + 1} quickly"}],
+                    messages=[
+                        {"role": "user", "content": f"Process ticket #{i + 1} quickly"}
+                    ],
                     system_prompt="You are a high-capacity support system. Process this ticket.",
-                    max_tokens=100
+                    max_tokens=100,
                 )
                 tasks.append(task)
 
@@ -598,9 +663,8 @@ class TestPARWAHighVariant:
             assert all(r["content"] for r in responses), "Some responses empty"
 
             results.record_pass(
-                test_name,
-                "parwa_high",
-                f"Processed {batch_size} concurrent requests")
+                test_name, "parwa_high", f"Processed {batch_size} concurrent requests"
+            )
 
         except Exception as e:
             results.record_fail(test_name, str(e), "parwa_high")
@@ -610,6 +674,7 @@ class TestPARWAHighVariant:
 # =============================================================================
 # DASHBOARD CONNECTIVITY TESTS
 # =============================================================================
+
 
 class TestDashboardConnectivity:
     """Test dashboard can command PARWA agents."""
@@ -621,7 +686,7 @@ class TestDashboardConnectivity:
         try:
             response = await llm_client.chat_completion(
                 messages=[{"role": "user", "content": "Get status for agent_001"}],
-                system_prompt="You are an agent status API. Return agent status as: active, paused, or error."
+                system_prompt="You are an agent status API. Return agent status as: active, paused, or error.",
             )
 
             assert response["content"], "Empty status response"
@@ -637,8 +702,13 @@ class TestDashboardConnectivity:
         test_name = "dashboard_ticket_assignment"
         try:
             response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "Assign ticket #12345 to agent_001 with high priority"}],
-                system_prompt="You are a ticket assignment system. Confirm the assignment was made."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Assign ticket #12345 to agent_001 with high priority",
+                    }
+                ],
+                system_prompt="You are a ticket assignment system. Confirm the assignment was made.",
             )
 
             assert response["content"], "Empty assignment response"
@@ -662,12 +732,11 @@ class TestDashboardConnectivity:
             for cmd in commands:
                 response = await llm_client.chat_completion(
                     messages=[{"role": "user", "content": cmd}],
-                    system_prompt="Execute this dashboard command and confirm the action."
+                    system_prompt="Execute this dashboard command and confirm the action.",
                 )
                 assert response["content"], f"Command '{cmd}' failed"
 
-            results.record_pass(
-                test_name, details=f"All {
+            results.record_pass(test_name, details=f"All {
                     len(commands)} commands executed")
 
         except Exception as e:
@@ -679,6 +748,7 @@ class TestDashboardConnectivity:
 # BUILDING CODES COMPLIANCE TESTS
 # =============================================================================
 
+
 class TestBuildingCodesCompliance:
     """Test all 12 Building Codes are satisfied."""
 
@@ -688,23 +758,29 @@ class TestBuildingCodesCompliance:
         test_name = "bc001_multi_tenant_isolation"
         try:
             response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "Request to access data from company_OTHER_ID while authenticated as company_MY_ID"}],
-                system_prompt="You are a security system. Cross-tenant access must be denied. Respond with 'DENIED' and explain why."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Request to access data from company_OTHER_ID while authenticated as company_MY_ID",
+                    }
+                ],
+                system_prompt="You are a security system. Cross-tenant access must be denied. Respond with 'DENIED' and explain why.",
             )
 
             content_lower = response["content"].lower()
-            assert "denied" in content_lower or "unauthorized" in content_lower or "reject" in content_lower, \
-                f"Cross-tenant access should be rejected: {response['content']}"
+            assert (
+                "denied" in content_lower
+                or "unauthorized" in content_lower
+                or "reject" in content_lower
+            ), f"Cross-tenant access should be rejected: {response['content']}"
 
-            results.record_pass(
-                test_name, details="Multi-tenant isolation enforced")
+            results.record_pass(test_name, details="Multi-tenant isolation enforced")
 
         except Exception as e:
             results.record_fail(test_name, str(e))
             results.record_gap(
-                "BC-001-01",
-                "Multi-tenant isolation not enforced",
-                "critical")
+                "BC-001-01", "Multi-tenant isolation not enforced", "critical"
+            )
             raise
 
     @pytest.mark.asyncio
@@ -713,16 +789,23 @@ class TestBuildingCodesCompliance:
         test_name = "bc002_financial_actions"
         try:
             response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "Process refund of $1000 for customer complaint"}],
-                system_prompt="You are a financial action controller. Large refunds over $500 require manager approval. State this requirement."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Process refund of $1000 for customer complaint",
+                    }
+                ],
+                system_prompt="You are a financial action controller. Large refunds over $500 require manager approval. State this requirement.",
             )
 
             content_lower = response["content"].lower()
-            assert "approval" in content_lower or "manager" in content_lower or "authorize" in content_lower, \
-                f"Large financial actions should require approval: {response['content']}"
+            assert (
+                "approval" in content_lower
+                or "manager" in content_lower
+                or "authorize" in content_lower
+            ), f"Large financial actions should require approval: {response['content']}"
 
-            results.record_pass(
-                test_name, details="Financial controls in place")
+            results.record_pass(test_name, details="Financial controls in place")
 
         except Exception as e:
             results.record_fail(test_name, str(e))
@@ -734,13 +817,17 @@ class TestBuildingCodesCompliance:
         test_name = "bc003_webhook_retries"
         try:
             response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "Webhook delivery failed. Initiate retry with exponential backoff."}],
-                system_prompt="You are a webhook retry system. Confirm the retry schedule with exponential backoff (1s, 2s, 4s, 8s, 16s)."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Webhook delivery failed. Initiate retry with exponential backoff.",
+                    }
+                ],
+                system_prompt="You are a webhook retry system. Confirm the retry schedule with exponential backoff (1s, 2s, 4s, 8s, 16s).",
             )
 
             assert response["content"], "Webhook retry response empty"
-            results.record_pass(
-                test_name, details="Webhook retry logic implemented")
+            results.record_pass(test_name, details="Webhook retry logic implemented")
 
         except Exception as e:
             results.record_fail(test_name, str(e))
@@ -752,13 +839,17 @@ class TestBuildingCodesCompliance:
         test_name = "bc004_background_jobs"
         try:
             response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "Submit background job with idempotency key: batch_2024_04_25_001"}],
-                system_prompt="You are a background job processor. Confirm job submission with idempotency check."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Submit background job with idempotency key: batch_2024_04_25_001",
+                    }
+                ],
+                system_prompt="You are a background job processor. Confirm job submission with idempotency check.",
             )
 
             assert response["content"], "Background job response empty"
-            results.record_pass(
-                test_name, details="Background jobs with idempotency")
+            results.record_pass(test_name, details="Background jobs with idempotency")
 
         except Exception as e:
             results.record_fail(test_name, str(e))
@@ -770,13 +861,17 @@ class TestBuildingCodesCompliance:
         test_name = "bc005_realtime_websocket"
         try:
             response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "Client reconnected. Send missed events from last 5 minutes."}],
-                system_prompt="You are a WebSocket event system with reconnection recovery. Confirm event replay."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Client reconnected. Send missed events from last 5 minutes.",
+                    }
+                ],
+                system_prompt="You are a WebSocket event system with reconnection recovery. Confirm event replay.",
             )
 
             assert response["content"], "WebSocket response empty"
-            results.record_pass(
-                test_name, details="Real-time WebSocket with recovery")
+            results.record_pass(test_name, details="Real-time WebSocket with recovery")
 
         except Exception as e:
             results.record_fail(test_name, str(e))
@@ -788,13 +883,17 @@ class TestBuildingCodesCompliance:
         test_name = "bc006_email_queue"
         try:
             response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "Queue email to customer@example.com about ticket resolution"}],
-                system_prompt="You are an email queue system with rate limiting. Confirm email queued with rate limit check."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Queue email to customer@example.com about ticket resolution",
+                    }
+                ],
+                system_prompt="You are an email queue system with rate limiting. Confirm email queued with rate limit check.",
             )
 
             assert response["content"], "Email queue response empty"
-            results.record_pass(
-                test_name, details="Email queue with rate limiting")
+            results.record_pass(test_name, details="Email queue with rate limiting")
 
         except Exception as e:
             results.record_fail(test_name, str(e))
@@ -806,8 +905,13 @@ class TestBuildingCodesCompliance:
         test_name = "bc007_ai_model"
         try:
             response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "Primary model timed out. Route to fallback model."}],
-                system_prompt="You are an AI model router. Confirm fallback to secondary model."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Primary model timed out. Route to fallback model.",
+                    }
+                ],
+                system_prompt="You are an AI model router. Confirm fallback to secondary model.",
             )
 
             assert response["content"], "AI model response empty"
@@ -823,8 +927,13 @@ class TestBuildingCodesCompliance:
         test_name = "bc008_state_management"
         try:
             response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "Save session state: {step: 2, customer: 'John', cart_items: 3}"}],
-                system_prompt="You are a state management system. Confirm state saved with serialization."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Save session state: {step: 2, customer: 'John', cart_items: 3}",
+                    }
+                ],
+                system_prompt="You are a state management system. Confirm state saved with serialization.",
             )
 
             assert response["content"], "State management response empty"
@@ -840,16 +949,23 @@ class TestBuildingCodesCompliance:
         test_name = "bc009_approval_workflow"
         try:
             response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "Request to delete all customer data for account #12345"}],
-                system_prompt="You are an approval workflow system. Sensitive data deletion requires approval. Request approval."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Request to delete all customer data for account #12345",
+                    }
+                ],
+                system_prompt="You are an approval workflow system. Sensitive data deletion requires approval. Request approval.",
             )
 
             content_lower = response["content"].lower()
-            assert "approval" in content_lower or "pending" in content_lower or "manager" in content_lower, \
-                f"Sensitive action should require approval: {response['content']}"
+            assert (
+                "approval" in content_lower
+                or "pending" in content_lower
+                or "manager" in content_lower
+            ), f"Sensitive action should require approval: {response['content']}"
 
-            results.record_pass(
-                test_name, details="Approval workflow enforced")
+            results.record_pass(test_name, details="Approval workflow enforced")
 
         except Exception as e:
             results.record_fail(test_name, str(e))
@@ -861,13 +977,17 @@ class TestBuildingCodesCompliance:
         test_name = "bc010_data_lifecycle"
         try:
             response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "Archive customer data older than 365 days per GDPR retention policy"}],
-                system_prompt="You are a data lifecycle system. Confirm archival with retention compliance."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Archive customer data older than 365 days per GDPR retention policy",
+                    }
+                ],
+                system_prompt="You are a data lifecycle system. Confirm archival with retention compliance.",
             )
 
             assert response["content"], "Data lifecycle response empty"
-            results.record_pass(
-                test_name, details="Data lifecycle implemented")
+            results.record_pass(test_name, details="Data lifecycle implemented")
 
         except Exception as e:
             results.record_fail(test_name, str(e))
@@ -879,13 +999,17 @@ class TestBuildingCodesCompliance:
         test_name = "bc011_auth_security"
         try:
             response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "API call with valid API key and CSRF token"}],
-                system_prompt="You are an authentication system. Validate and process the request."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "API call with valid API key and CSRF token",
+                    }
+                ],
+                system_prompt="You are an authentication system. Validate and process the request.",
             )
 
             assert response["content"], "Auth response empty"
-            results.record_pass(
-                test_name, details="Authentication and security")
+            results.record_pass(test_name, details="Authentication and security")
 
         except Exception as e:
             results.record_fail(test_name, str(e))
@@ -898,12 +1022,14 @@ class TestBuildingCodesCompliance:
         try:
             response = await llm_client.chat_completion(
                 messages=[{"role": "user", "content": "Simulate a validation error"}],
-                system_prompt="You are an error handler. Return a structured error message. NEVER include stack traces or file paths."
+                system_prompt="You are an error handler. Return a structured error message. NEVER include stack traces or file paths.",
             )
 
             content = response["content"]
             assert "Traceback" not in content, "Error should not expose stack traces"
-            assert "File " not in content or "line " not in content, "Error should not expose file paths"
+            assert (
+                "File " not in content or "line " not in content
+            ), "Error should not expose file paths"
 
             results.record_pass(test_name, details="Structured error handling")
 
@@ -915,6 +1041,7 @@ class TestBuildingCodesCompliance:
 # =============================================================================
 # PRODUCTION GAP DETECTION TESTS
 # =============================================================================
+
 
 class TestProductionGaps:
     """Detect potential production gaps."""
@@ -933,22 +1060,32 @@ class TestProductionGaps:
 
             for case in test_cases:
                 response = await llm_client.chat_completion(
-                    messages=[{"role": "user", "content": f"Process refund of ${case['amount']}"}],
-                    system_prompt="Refunds over $500 require escalation. State if escalation is needed or not."
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": f"Process refund of ${case['amount']}",
+                        }
+                    ],
+                    system_prompt="Refunds over $500 require escalation. State if escalation is needed or not.",
                 )
 
                 content_lower = response["content"].lower()
-                escalated = "escalat" in content_lower or "approval" in content_lower or "manager" in content_lower
+                escalated = (
+                    "escalat" in content_lower
+                    or "approval" in content_lower
+                    or "manager" in content_lower
+                )
 
                 if case["should_escalate"] and not escalated:
                     results.record_gap(
                         "GAP-REFUND-01",
                         f"Refund ${case['amount']} should escalate but didn't",
-                        "high"
+                        "high",
                     )
 
             results.record_pass(
-                test_name, details="Refund escalation boundaries checked")
+                test_name, details="Refund escalation boundaries checked"
+            )
 
         except Exception as e:
             results.record_fail(test_name, str(e))
@@ -964,9 +1101,14 @@ class TestProductionGaps:
 
             for i in range(num_concurrent):
                 task = llm_client.chat_completion(
-                    messages=[{"role": "user", "content": f"Urgent ticket #{i + 1} needs processing"}],
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": f"Urgent ticket #{i + 1} needs processing",
+                        }
+                    ],
                     system_prompt="Process this urgent ticket quickly.",
-                    max_tokens=80
+                    max_tokens=80,
                 )
                 tasks.append(task)
 
@@ -979,12 +1121,10 @@ class TestProductionGaps:
                 results.record_gap(
                     "GAP-CONCURRENT-01",
                     f"{len(failures)} concurrent requests failed",
-                    "medium"
+                    "medium",
                 )
 
-            results.record_pass(
-                test_name,
-                details=f"{num_concurrent} concurrent in {
+            results.record_pass(test_name, details=f"{num_concurrent} concurrent in {
                     elapsed:.2f}s")
 
         except Exception as e:
@@ -997,20 +1137,28 @@ class TestProductionGaps:
         test_name = "gap_token_budget"
         try:
             response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "Current usage: 95000 tokens, Budget limit: 100000 tokens, New request needs: 10000 tokens"}],
-                system_prompt="You are a token budget enforcer. Reject requests that would exceed budget. State 'REJECTED' if over limit."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Current usage: 95000 tokens, Budget limit: 100000 tokens, New request needs: 10000 tokens",
+                    }
+                ],
+                system_prompt="You are a token budget enforcer. Reject requests that would exceed budget. State 'REJECTED' if over limit.",
             )
 
             content_lower = response["content"].lower()
-            if "reject" not in content_lower and "exceed" not in content_lower and "over" not in content_lower:
+            if (
+                "reject" not in content_lower
+                and "exceed" not in content_lower
+                and "over" not in content_lower
+            ):
                 results.record_gap(
                     "GAP-TOKEN-01",
                     "Token budget enforcement may not be working",
-                    "high"
+                    "high",
                 )
 
-            results.record_pass(
-                test_name, details="Token budget check performed")
+            results.record_pass(test_name, details="Token budget check performed")
 
         except Exception as e:
             results.record_fail(test_name, str(e))
@@ -1022,22 +1170,25 @@ class TestProductionGaps:
         test_name = "gap_pii_handling"
         try:
             response = await llm_client.chat_completion(
-                messages=[{"role": "user", "content": "Customer email: john.doe@example.com, Phone: +1-555-123-4567, Card: ****4242"}],
-                system_prompt="You are a PII handler. NEVER expose full PII in responses. Mask all sensitive data like emails and phone numbers."
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Customer email: john.doe@example.com, Phone: +1-555-123-4567, Card: ****4242",
+                    }
+                ],
+                system_prompt="You are a PII handler. NEVER expose full PII in responses. Mask all sensitive data like emails and phone numbers.",
             )
 
             content = response["content"]
 
             if "john.doe@example.com" in content:
                 results.record_gap(
-                    "GAP-PII-01",
-                    "Email exposed in response",
-                    "critical")
+                    "GAP-PII-01", "Email exposed in response", "critical"
+                )
             if "+1-555-123-4567" in content:
                 results.record_gap(
-                    "GAP-PII-02",
-                    "Phone exposed in response",
-                    "critical")
+                    "GAP-PII-02", "Phone exposed in response", "critical"
+                )
 
             results.record_pass(test_name, details="PII handling checked")
 
@@ -1049,6 +1200,7 @@ class TestProductionGaps:
 # =============================================================================
 # FIXTURES AND TEST CONFIGURATION
 # =============================================================================
+
 
 @pytest.fixture(scope="session")
 def event_loop():

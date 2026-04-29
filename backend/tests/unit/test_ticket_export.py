@@ -50,27 +50,39 @@ class TestTicketExportService:
     def test_csv_export_basic(self, mock_db, mock_ticket):
         """Test basic CSV export with tickets."""
         mock_db.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [
-            mock_ticket]
+            mock_ticket
+        ]
 
         # Simulate CSV generation
         output = io.StringIO()
         import csv
+
         writer = csv.writer(output)
 
-        writer.writerow([
-            "Ticket ID", "Subject", "Status", "Priority", "Category",
-            "Channel", "Customer ID", "Assigned To"
-        ])
-        writer.writerow([
-            str(mock_ticket.id),
-            mock_ticket.subject,
-            mock_ticket.status,
-            mock_ticket.priority,
-            mock_ticket.category,
-            mock_ticket.channel,
-            str(mock_ticket.customer_id),
-            str(mock_ticket.assigned_to),
-        ])
+        writer.writerow(
+            [
+                "Ticket ID",
+                "Subject",
+                "Status",
+                "Priority",
+                "Category",
+                "Channel",
+                "Customer ID",
+                "Assigned To",
+            ]
+        )
+        writer.writerow(
+            [
+                str(mock_ticket.id),
+                mock_ticket.subject,
+                mock_ticket.status,
+                mock_ticket.priority,
+                mock_ticket.category,
+                mock_ticket.channel,
+                str(mock_ticket.customer_id),
+                str(mock_ticket.assigned_to),
+            ]
+        )
 
         csv_content = output.getvalue()
         assert "Ticket ID" in csv_content
@@ -82,26 +94,28 @@ class TestTicketExportService:
         """Test CSV export with status filter."""
         # Set up query chain for filtering
         mock_db.query.return_value.filter.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [
-            mock_ticket]
+            mock_ticket
+        ]
 
         # The query should be filtered by status
         # In real implementation, filters are applied from request body
 
     def test_csv_export_empty_result(self, mock_db):
         """Test CSV export when no tickets match."""
-        mock_db.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = []
+        mock_db.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = (
+            []
+        )
 
         # Should return only header row
         output = io.StringIO()
         import csv
+
         writer = csv.writer(output)
 
-        writer.writerow([
-            "Ticket ID", "Subject", "Status", "Priority"
-        ])
+        writer.writerow(["Ticket ID", "Subject", "Status", "Priority"])
 
         csv_content = output.getvalue()
-        lines = csv_content.strip().split('\n')
+        lines = csv_content.strip().split("\n")
         assert len(lines) == 1  # Only header
 
     # ── JSON EXPORT ─────────────────────────────────────────────────────────
@@ -109,7 +123,8 @@ class TestTicketExportService:
     def test_json_export_structure(self, mock_db, mock_ticket):
         """Test JSON export has correct structure."""
         mock_db.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [
-            mock_ticket]
+            mock_ticket
+        ]
 
         # Build export data structure
         export_data = {
@@ -123,9 +138,9 @@ class TestTicketExportService:
                     "status": mock_ticket.status,
                     "priority": mock_ticket.priority,
                     "category": mock_ticket.category,
-                    "messages": []
+                    "messages": [],
                 }
-            ]
+            ],
         }
 
         assert "exported_at" in export_data
@@ -147,7 +162,8 @@ class TestTicketExportService:
         mock_message.ai_confidence = None
 
         mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [
-            mock_message]
+            mock_message
+        ]
 
         # Build message data
         messages_data = [
@@ -174,8 +190,7 @@ class TestDuplicateDetection:
         subject1 = "Unable to login to my account"
         subject2 = "Unable to login to my account"
 
-        similarity = SequenceMatcher(
-            None, subject1.lower(), subject2.lower()).ratio()
+        similarity = SequenceMatcher(None, subject1.lower(), subject2.lower()).ratio()
 
         assert similarity == 1.0  # Exact match
 
@@ -186,8 +201,7 @@ class TestDuplicateDetection:
         subject1 = "Cannot login to my account"
         subject2 = "Can't login to account"
 
-        similarity = SequenceMatcher(
-            None, subject1.lower(), subject2.lower()).ratio()
+        similarity = SequenceMatcher(None, subject1.lower(), subject2.lower()).ratio()
 
         # Should be fairly similar
         assert similarity > 0.5
@@ -199,8 +213,7 @@ class TestDuplicateDetection:
         subject1 = "Billing issue with invoice"
         subject2 = "Cannot login to account"
 
-        similarity = SequenceMatcher(
-            None, subject1.lower(), subject2.lower()).ratio()
+        similarity = SequenceMatcher(None, subject1.lower(), subject2.lower()).ratio()
 
         # Should be low similarity
         assert similarity < 0.5
@@ -212,8 +225,8 @@ class TestDuplicateDetection:
         threshold = 0.7
         pairs = [
             ("Cannot login to my account", "Cannot login to my account"),  # Exact
-            ("Cannot login to my account", "Can't login to account"),      # Similar
-            ("Cannot login to my account", "Billing question"),            # Different
+            ("Cannot login to my account", "Can't login to account"),  # Similar
+            ("Cannot login to my account", "Billing question"),  # Different
         ]
 
         results = []
@@ -285,8 +298,15 @@ class TestExportFormats:
     def test_csv_format_headers(self):
         """Test CSV has proper headers."""
         expected_headers = [
-            "Ticket ID", "Subject", "Status", "Priority", "Category",
-            "Channel", "Customer ID", "Assigned To", "Created At"
+            "Ticket ID",
+            "Subject",
+            "Status",
+            "Priority",
+            "Category",
+            "Channel",
+            "Customer ID",
+            "Assigned To",
+            "Created At",
         ]
 
         # Verify headers are defined correctly
@@ -300,7 +320,7 @@ class TestExportFormats:
             "exported_at": datetime.now(timezone.utc).isoformat(),
             "company_id": "company-123",
             "total_tickets": 0,
-            "tickets": []
+            "tickets": [],
         }
 
         assert "exported_at" in json_structure

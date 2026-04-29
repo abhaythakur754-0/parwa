@@ -44,14 +44,10 @@ class RequestLoggerMiddleware(BaseHTTPMiddleware):
         duration_ms = (time.perf_counter() - start_time) * 1000
 
         # Extract correlation ID if available (from ErrorHandlerMiddleware)
-        correlation_id = getattr(
-            request.state, "correlation_id", "unknown"
-        )
+        correlation_id = getattr(request.state, "correlation_id", "unknown")
 
         # Log the request
-        log_method = (
-            logger.warning if response.status_code >= 500 else logger.info
-        )
+        log_method = logger.warning if response.status_code >= 500 else logger.info
         log_method(
             "request_completed",
             method=request.method,

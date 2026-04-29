@@ -111,6 +111,7 @@ class TestTenantIsolationTicketSearch:
 # GAP-002: Payment Failure State Isolation
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TestPaymentFailureStateIsolation:
     """
     Test that payment failure triggers atomic state transition.
@@ -138,8 +139,7 @@ class TestPaymentFailureStateIsolation:
         db.rollback = MagicMock()
         return db
 
-    def test_payment_failure_creates_lock_before_transition(
-            self, mock_redis, mock_db):
+    def test_payment_failure_creates_lock_before_transition(self, mock_redis, mock_db):
         """Test that a distributed lock is acquired before payment failure transition."""
         company_id = str(uuid.uuid4())
         lock_key = f"parwa:payment_failure_lock:{company_id}"
@@ -159,14 +159,13 @@ class TestPaymentFailureStateIsolation:
 
         # Verify the service exists and has required methods
         service = PaymentFailureService()
-        assert hasattr(
-            service,
-            'handle_payment_failure') or True  # Method exists
+        assert hasattr(service, "handle_payment_failure") or True  # Method exists
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # GAP-003: Guardrail Bypass via Content Chunking
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestGuardrailChunkingBypass:
     """
@@ -186,7 +185,7 @@ class TestGuardrailChunkingBypass:
         combined = chunk1 + chunk2 + chunk3
 
         # Pattern for SSN
-        ssn_pattern = re.compile(r'\d{3}[-\s]\d{2}[-\s]\d{4}')
+        ssn_pattern = re.compile(r"\d{3}[-\s]\d{2}[-\s]\d{4}")
 
         # Individual chunks don't contain full SSN
         assert ssn_pattern.search(chunk1) is None
@@ -197,11 +196,7 @@ class TestGuardrailChunkingBypass:
 
     def test_sliding_window_pii_detection(self):
         """Test sliding window approach for chunk boundary PII detection."""
-        chunks = [
-            "John's SSN is 123",
-            "-45-6789 and email",
-            " is john@example.com"
-        ]
+        chunks = ["John's SSN is 123", "-45-6789 and email", " is john@example.com"]
 
         # Overlap window size (characters to check from previous chunk)
         overlap_size = 20
@@ -214,19 +209,21 @@ class TestGuardrailChunkingBypass:
             combined_with_overlap = previous_tail + chunk
 
             # Detect SSN
-            ssn_pattern = re.compile(r'\d{3}[-\s]\d{2}[-\s]\d{4}')
+            ssn_pattern = re.compile(r"\d{3}[-\s]\d{2}[-\s]\d{4}")
             if ssn_pattern.search(combined_with_overlap):
                 detected_pii.append("SSN")
 
             # Detect email
             email_pattern = re.compile(
-                r'\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b')
+                r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"
+            )
             if email_pattern.search(combined_with_overlap):
                 detected_pii.append("EMAIL")
 
             # Store tail for next iteration
-            previous_tail = chunk[-overlap_size:] if len(
-                chunk) >= overlap_size else chunk
+            previous_tail = (
+                chunk[-overlap_size:] if len(chunk) >= overlap_size else chunk
+            )
 
         # Should detect both SSN and Email when using sliding window
         assert "SSN" in detected_pii
@@ -250,6 +247,7 @@ class TestGuardrailChunkingBypass:
 # ═══════════════════════════════════════════════════════════════════════════════
 # GAP-004: Confidence Score Race Condition
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestConfidenceScoreRaceCondition:
     """
@@ -276,11 +274,13 @@ class TestConfidenceScoreRaceCondition:
                 # Update with version check
                 confidence_state["score"] = new_score
                 confidence_state["version"] = current_version + 1
-                update_log.append({
-                    "agent": agent_id,
-                    "score": new_score,
-                    "version": confidence_state["version"],
-                })
+                update_log.append(
+                    {
+                        "agent": agent_id,
+                        "score": new_score,
+                        "version": confidence_state["version"],
+                    }
+                )
 
         # Run concurrent updates
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -331,6 +331,7 @@ class TestConfidenceScoreRaceCondition:
 # GAP-005: Training Data Cross-Contamination
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TestTrainingDataIsolation:
     """
     Test that training data is properly isolated by tenant and variant.
@@ -379,6 +380,7 @@ class TestTrainingDataIsolation:
 # ═══════════════════════════════════════════════════════════════════════════════
 # GAP-006: Ticket Count Race Condition with Tier Changes
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestTicketCountRaceCondition:
     """
@@ -471,6 +473,7 @@ class TestTicketCountRaceCondition:
 # Additional Integration Tests
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TestEndToEndTenantIsolation:
     """
     End-to-end tests for tenant isolation across all critical paths.
@@ -496,9 +499,7 @@ class TestEndToEndTenantIsolation:
         company_b = str(uuid.uuid4())
 
         # Access check
-        def can_access(
-                resource_company_id: str,
-                request_company_id: str) -> bool:
+        def can_access(resource_company_id: str, request_company_id: str) -> bool:
             return resource_company_id == request_company_id
 
         # Company A can access their own resources

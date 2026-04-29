@@ -39,7 +39,6 @@ from app.core.technique_router import (
     TechniqueID,
 )
 
-
 # =========================================================================
 # SECTION 1: Frustration Detector Tests
 # =========================================================================
@@ -56,8 +55,7 @@ class TestFrustrationDetector:
         assert score < 15
 
     def test_low_frustration(self):
-        score = self.detector.detect(
-            "I have a question about my account settings")
+        score = self.detector.detect("I have a question about my account settings")
         assert 0 <= score < 30
 
     def test_moderate_frustration(self):
@@ -66,15 +64,15 @@ class TestFrustrationDetector:
         assert score >= 10
 
     def test_high_frustration(self):
-        score = self.detector.detect(
-            "I am furious! This is unacceptable and terrible!")
+        score = self.detector.detect("I am furious! This is unacceptable and terrible!")
         # furious(12) + unacceptable(12) + terrible(5) + !(5) = 34+
         assert score >= 30
 
     def test_extreme_frustration(self):
         score = self.detector.detect(
             "I am FURIOUS and ENRAGED! This is UNACCEPTABLE! "
-            "OUTRAGEOUS! DISGUSTING! I hate this terrible awful horrible service!!!")
+            "OUTRAGEOUS! DISGUSTING! I hate this terrible awful horrible service!!!"
+        )
         assert score >= 60
 
     def test_all_caps_detection(self):
@@ -143,8 +141,7 @@ class TestEmotionClassifier:
         self.classifier = EmotionClassifier()
 
     def test_anger_classification(self):
-        emotion, breakdown = self.classifier.classify(
-            "I am furious and outraged")
+        emotion, breakdown = self.classifier.classify("I am furious and outraged")
         assert emotion in ("angry", "frustrated")
         assert "angry" in breakdown
 
@@ -162,8 +159,7 @@ class TestEmotionClassifier:
         assert emotion == "disappointed"
 
     def test_neutral_classification(self):
-        emotion, breakdown = self.classifier.classify(
-            "How do I update my settings?")
+        emotion, breakdown = self.classifier.classify("How do I update my settings?")
         assert emotion == "neutral"
 
     def test_happy_classification(self):
@@ -186,7 +182,8 @@ class TestEmotionClassifier:
             "disappointed",
             "neutral",
             "happy",
-            "delighted"}
+            "delighted",
+        }
         assert set(breakdown.keys()) == expected
 
     def test_breakdown_values_bounded(self):
@@ -243,10 +240,7 @@ class TestUrgencyScorer:
             "This is urgent, the system is down and I am locked out"
         )
         # Multiple urgency keywords may push to critical
-        assert level in (
-            UrgencyLevel.HIGH,
-            UrgencyLevel.MEDIUM,
-            UrgencyLevel.CRITICAL)
+        assert level in (UrgencyLevel.HIGH, UrgencyLevel.MEDIUM, UrgencyLevel.CRITICAL)
 
     def test_critical_urgency(self):
         level = self.scorer.score(
@@ -257,8 +251,12 @@ class TestUrgencyScorer:
     def test_frustration_boosts_urgency(self):
         low_f = self.scorer.score("help me", frustration_score=0)
         high_f = self.scorer.score("help me", frustration_score=90)
-        order = {UrgencyLevel.LOW: 1, UrgencyLevel.MEDIUM: 2,
-                 UrgencyLevel.HIGH: 3, UrgencyLevel.CRITICAL: 4}
+        order = {
+            UrgencyLevel.LOW: 1,
+            UrgencyLevel.MEDIUM: 2,
+            UrgencyLevel.HIGH: 3,
+            UrgencyLevel.CRITICAL: 4,
+        }
         assert order[high_f] >= order[low_f]
 
     def test_empty_string(self):
@@ -282,8 +280,12 @@ class TestUrgencyScorer:
         }
         for query, expected in queries.items():
             level = self.scorer.score(query)
-            assert level in (UrgencyLevel.LOW, UrgencyLevel.MEDIUM,
-                             UrgencyLevel.HIGH, UrgencyLevel.CRITICAL)
+            assert level in (
+                UrgencyLevel.LOW,
+                UrgencyLevel.MEDIUM,
+                UrgencyLevel.HIGH,
+                UrgencyLevel.CRITICAL,
+            )
 
 
 # =========================================================================
@@ -346,38 +348,29 @@ class TestEmpathySignalDetector:
         assert len(signals) == 0
 
     def test_apology_expectation(self):
-        signals = self.detector.detect(
-            "You should be ashamed, I demand an apology!")
+        signals = self.detector.detect("You should be ashamed, I demand an apology!")
         assert "apology_expectation" in signals
 
     def test_timeline_pressure(self):
-        signals = self.detector.detect(
-            "I need this fixed immediately, it's urgent!")
+        signals = self.detector.detect("I need this fixed immediately, it's urgent!")
         assert "timeline_pressure" in signals
 
     def test_financial_impact(self):
-        signals = self.detector.detect(
-            "I was overcharged and lost money on this")
+        signals = self.detector.detect("I was overcharged and lost money on this")
         assert "financial_impact" in signals
 
     def test_personal_impact(self):
-        signals = self.detector.detect(
-            "This ruined my business and caused me stress")
+        signals = self.detector.detect("This ruined my business and caused me stress")
         assert "personal_impact" in signals
 
     def test_repeated_contacts_via_history(self):
-        history = [
-            "refund my order",
-            "please refund my order",
-            "I need a refund"]
-        signals = self.detector.detect(
-            "refund my order", conversation_history=history)
+        history = ["refund my order", "please refund my order", "I need a refund"]
+        signals = self.detector.detect("refund my order", conversation_history=history)
         assert "repeated_contacts" in signals
 
     def test_no_repeated_contacts_short_history(self):
         history = ["hello"]
-        signals = self.detector.detect(
-            "refund my order", conversation_history=history)
+        signals = self.detector.detect("refund my order", conversation_history=history)
         assert "repeated_contacts" not in signals
 
     def test_multiple_signals(self):
@@ -396,8 +389,7 @@ class TestEmpathySignalDetector:
 
     def test_none_history_items(self):
         history = [None, None, "refund my order"]
-        signals = self.detector.detect(
-            "refund my order", conversation_history=history)
+        signals = self.detector.detect("refund my order", conversation_history=history)
         assert isinstance(signals, list)
 
 
@@ -488,7 +480,8 @@ class TestSentimentResult:
                 "neutral": 0.3,
                 "disappointed": 0.0,
                 "happy": 0.0,
-                "delighted": 0.0},
+                "delighted": 0.0,
+            },
             processing_time_ms=5.0,
         )
         assert result.frustration_score == 50.0
@@ -503,9 +496,14 @@ class TestSentimentResult:
             tone_recommendation="de-escalation",
             empathy_signals=["personal_impact"],
             sentiment_score=0.25,
-            emotion_breakdown={"angry": 0.7, "neutral": 0.3,
-                               "frustrated": 0.0, "disappointed": 0.0,
-                               "happy": 0.0, "delighted": 0.0},
+            emotion_breakdown={
+                "angry": 0.7,
+                "neutral": 0.3,
+                "frustrated": 0.0,
+                "disappointed": 0.0,
+                "happy": 0.0,
+                "delighted": 0.0,
+            },
             processing_time_ms=10.5,
             conversation_trend="worsening",
         )
@@ -518,9 +516,14 @@ class TestSentimentResult:
 
     def test_default_cached_false(self):
         result = SentimentResult(
-            frustration_score=0.0, emotion="neutral", urgency_level="low",
-            tone_recommendation="standard", empathy_signals=[],
-            sentiment_score=0.5, emotion_breakdown={}, processing_time_ms=0.0,
+            frustration_score=0.0,
+            emotion="neutral",
+            urgency_level="low",
+            tone_recommendation="standard",
+            empathy_signals=[],
+            sentiment_score=0.5,
+            emotion_breakdown={},
+            processing_time_ms=0.0,
         )
         assert result.cached is False
         assert result.conversation_trend == "stable"
@@ -595,14 +598,17 @@ class TestSentimentAnalyzer:
             "disappointed",
             "neutral",
             "happy",
-            "delighted"}
+            "delighted",
+        }
         assert set(result.emotion_breakdown.keys()) == expected
 
     @pytest.mark.asyncio
     async def test_variant_type_accepted(self):
         for variant in ("mini_parwa", "parwa", "high_parwa"):
             result = await self.analyzer.analyze(
-                "test query", company_id="c1", variant_type=variant,
+                "test query",
+                company_id="c1",
+                variant_type=variant,
             )
             assert isinstance(result, SentimentResult)
 
@@ -660,14 +666,18 @@ class TestGracefulDegradation:
     @pytest.mark.asyncio
     async def test_none_conversation_history(self):
         result = await self.analyzer.analyze(
-            "hello", company_id="c1", conversation_history=None,
+            "hello",
+            company_id="c1",
+            conversation_history=None,
         )
         assert result.conversation_trend == TrendDirection.STABLE
 
     @pytest.mark.asyncio
     async def test_none_customer_metadata(self):
         result = await self.analyzer.analyze(
-            "hello", company_id="c1", customer_metadata=None,
+            "hello",
+            company_id="c1",
+            customer_metadata=None,
         )
         assert isinstance(result, SentimentResult)
 
@@ -704,14 +714,18 @@ class TestCacheBehavior:
                 "neutral": 0.3,
                 "disappointed": 0.05,
                 "happy": 0.0,
-                "delighted": 0.0},
+                "delighted": 0.0,
+            },
             "processing_time_ms": 2.5,
             "conversation_trend": "stable",
         }
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock,
-                   return_value=cached_data):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data
+        ):
             result = await self.analyzer.analyze(
-                "any query", company_id="c1", variant_type="parwa",
+                "any query",
+                company_id="c1",
+                variant_type="parwa",
             )
             assert result.cached is True
             assert result.frustration_score == 42.0
@@ -720,11 +734,14 @@ class TestCacheBehavior:
     @pytest.mark.asyncio
     async def test_cache_miss_computes_result(self):
         """Cache miss computes result and stores it."""
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock,
-                   return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock) as mock_set:
                 result = await self.analyzer.analyze(
-                    "hello", company_id="c1", variant_type="parwa",
+                    "hello",
+                    company_id="c1",
+                    variant_type="parwa",
                 )
                 assert result.cached is False
                 mock_set.assert_called_once()
@@ -732,12 +749,19 @@ class TestCacheBehavior:
     @pytest.mark.asyncio
     async def test_cache_fail_open(self):
         """Redis failure should not crash analysis."""
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock,
-                   side_effect=Exception("Redis down")):
-            with patch("app.core.redis.cache_set", new_callable=AsyncMock,
-                       side_effect=Exception("Redis down")):
+        with patch(
+            "app.core.redis.cache_get",
+            new_callable=AsyncMock,
+            side_effect=Exception("Redis down"),
+        ):
+            with patch(
+                "app.core.redis.cache_set",
+                new_callable=AsyncMock,
+                side_effect=Exception("Redis down"),
+            ):
                 result = await self.analyzer.analyze(
-                    "test query", company_id="c1",
+                    "test query",
+                    company_id="c1",
                 )
                 assert result.cached is False
                 assert isinstance(result, SentimentResult)
@@ -817,7 +841,7 @@ class TestUnicodeAndEdgeCases:
     @pytest.mark.asyncio
     async def test_very_long_input_10k(self):
         """10,000+ character query should not crash."""
-        long_query = ("I have a terrible problem with this service. " * 300)
+        long_query = "I have a terrible problem with this service. " * 300
         assert len(long_query) > 10000
         start = time.monotonic()
         result = await self.analyzer.analyze(long_query, company_id="c1")
@@ -828,7 +852,7 @@ class TestUnicodeAndEdgeCases:
     @pytest.mark.asyncio
     async def test_very_long_input_50k(self):
         """50,000+ character query."""
-        long_query = ("frustrated angry terrible " * 5000)
+        long_query = "frustrated angry terrible " * 5000
         assert len(long_query) > 50000
         result = await self.analyzer.analyze(long_query, company_id="c1")
         assert isinstance(result, SentimentResult)
@@ -893,7 +917,8 @@ class TestConversationTrends:
             "Thanks for the help!",
         ]
         result = await self.analyzer.analyze(
-            "Thanks, that works now!", company_id="c1",
+            "Thanks, that works now!",
+            company_id="c1",
             conversation_history=history,
         )
         assert result.conversation_trend == TrendDirection.IMPROVING
@@ -907,7 +932,8 @@ class TestConversationTrends:
             "I am absolutely furious now!!!",
         ]
         result = await self.analyzer.analyze(
-            "This is UNACCEPTABLE!", company_id="c1",
+            "This is UNACCEPTABLE!",
+            company_id="c1",
             conversation_history=history,
         )
         assert result.conversation_trend == TrendDirection.WORSENING
@@ -920,7 +946,8 @@ class TestConversationTrends:
             "How do I view my invoice?",
         ]
         result = await self.analyzer.analyze(
-            "What is the payment method?", company_id="c1",
+            "What is the payment method?",
+            company_id="c1",
             conversation_history=history,
         )
         assert result.conversation_trend == TrendDirection.STABLE
@@ -928,7 +955,9 @@ class TestConversationTrends:
     @pytest.mark.asyncio
     async def test_no_history_stable(self):
         result = await self.analyzer.analyze(
-            "hello", company_id="c1", conversation_history=None,
+            "hello",
+            company_id="c1",
+            conversation_history=None,
         )
         assert result.conversation_trend == TrendDirection.STABLE
 
@@ -947,8 +976,10 @@ class TestSentimentTechniqueMapper:
     def test_low_frustration_positive(self):
         """Frustration < 30 + positive (>0.7) → CoT or UoT + Step-Back."""
         result = self.mapper.map(
-            frustration_score=10, sentiment_score=0.9,
-            urgency_level="low", customer_tier="free",
+            frustration_score=10,
+            sentiment_score=0.9,
+            urgency_level="low",
+            customer_tier="free",
         )
         assert isinstance(result, SentimentMappingResult)
         assert len(result.recommended_techniques) > 0
@@ -958,8 +989,10 @@ class TestSentimentTechniqueMapper:
     def test_low_frustration_neutral(self):
         """Frustration < 30 + neutral → UoT + Step-Back."""
         result = self.mapper.map(
-            frustration_score=15, sentiment_score=0.5,
-            urgency_level="low", customer_tier="free",
+            frustration_score=15,
+            sentiment_score=0.5,
+            urgency_level="low",
+            customer_tier="free",
         )
         assert len(result.recommended_techniques) > 0
         assert result.escalation_recommended is False
@@ -967,8 +1000,10 @@ class TestSentimentTechniqueMapper:
     def test_moderate_frustration_30_60(self):
         """Frustration 30-60 → Step-Back."""
         result = self.mapper.map(
-            frustration_score=45, sentiment_score=0.55,
-            urgency_level="medium", customer_tier="free",
+            frustration_score=45,
+            sentiment_score=0.55,
+            urgency_level="medium",
+            customer_tier="free",
         )
         assert len(result.recommended_techniques) > 0
         # Step-Back should be recommended
@@ -978,8 +1013,10 @@ class TestSentimentTechniqueMapper:
     def test_high_frustration_60_80(self):
         """Frustration 60-80 → Reflexion + Step-Back."""
         result = self.mapper.map(
-            frustration_score=70, sentiment_score=0.3,
-            urgency_level="high", customer_tier="free",
+            frustration_score=70,
+            sentiment_score=0.3,
+            urgency_level="high",
+            customer_tier="free",
         )
         assert result.escalation_recommended is False
         tech_ids = [t.value for t in result.recommended_techniques]
@@ -989,8 +1026,10 @@ class TestSentimentTechniqueMapper:
     def test_very_high_frustration_80(self):
         """Frustration 80+ → CLARA + Step-Back + escalation."""
         result = self.mapper.map(
-            frustration_score=85, sentiment_score=0.15,
-            urgency_level="high", customer_tier="free",
+            frustration_score=85,
+            sentiment_score=0.15,
+            urgency_level="high",
+            customer_tier="free",
         )
         assert result.escalation_recommended is True
         assert len(result.recommended_techniques) > 0
@@ -1000,8 +1039,10 @@ class TestSentimentTechniqueMapper:
     def test_critical_urgency_bypass(self):
         """Critical urgency → priority_override + escalation."""
         result = self.mapper.map(
-            frustration_score=50, sentiment_score=0.5,
-            urgency_level="critical", customer_tier="free",
+            frustration_score=50,
+            sentiment_score=0.5,
+            urgency_level="critical",
+            customer_tier="free",
         )
         assert result.priority_override is True
         assert result.escalation_recommended is True
@@ -1009,8 +1050,10 @@ class TestSentimentTechniqueMapper:
     def test_vip_low_frustration(self):
         """VIP with low frustration → extra techniques."""
         result = self.mapper.map(
-            frustration_score=20, sentiment_score=0.6,
-            urgency_level="low", customer_tier="vip",
+            frustration_score=20,
+            sentiment_score=0.6,
+            urgency_level="low",
+            customer_tier="vip",
             is_vip=True,
         )
         assert len(result.recommended_techniques) > 0
@@ -1021,8 +1064,10 @@ class TestSentimentTechniqueMapper:
     def test_vip_high_frustration(self):
         """VIP + high frustration → UoT + Reflexion + Step-Back."""
         result = self.mapper.map(
-            frustration_score=85, sentiment_score=0.15,
-            urgency_level="high", customer_tier="vip",
+            frustration_score=85,
+            sentiment_score=0.15,
+            urgency_level="high",
+            customer_tier="vip",
             is_vip=True,
             variant_type="high_parwa",
         )
@@ -1035,47 +1080,62 @@ class TestSentimentTechniqueMapper:
         """Mini PARWA cannot access Tier 3 techniques."""
         tier1 = {TechniqueID.CLARA, TechniqueID.CRP, TechniqueID.GSD}
         result = self.mapper.map(
-            frustration_score=85, sentiment_score=0.1,
-            urgency_level="critical", customer_tier="free",
+            frustration_score=85,
+            sentiment_score=0.1,
+            urgency_level="critical",
+            customer_tier="free",
             variant_type="mini_parwa",
         )
         for tech in result.recommended_techniques:
-            assert tech in tier1, (
-                f"Mini PARWA got {tech.value} which is not Tier 1"
-            )
+            assert tech in tier1, f"Mini PARWA got {tech.value} which is not Tier 1"
 
     def test_parwa_allows_tier2(self):
         """Parwa allows Tier 2 techniques."""
         result = self.mapper.map(
-            frustration_score=45, sentiment_score=0.55,
-            urgency_level="medium", customer_tier="free",
+            frustration_score=45,
+            sentiment_score=0.55,
+            urgency_level="medium",
+            customer_tier="free",
             variant_type="parwa",
         )
         tech_ids = [t.value for t in result.recommended_techniques]
         # Should have at least one Tier 2 technique
-        tier2 = {"chain_of_thought", "reverse_thinking", "react",
-                 "step_back", "thread_of_thought"}
-        assert any(
-            t in tech_ids for t in tier2) or len(
-            result.blocked_techniques) > 0
+        tier2 = {
+            "chain_of_thought",
+            "reverse_thinking",
+            "react",
+            "step_back",
+            "thread_of_thought",
+        }
+        assert any(t in tech_ids for t in tier2) or len(result.blocked_techniques) > 0
 
     def test_high_parwa_allows_tier3(self):
         """Parwa High allows Tier 3 techniques."""
         result = self.mapper.map(
-            frustration_score=85, sentiment_score=0.15,
-            urgency_level="high", customer_tier="vip",
+            frustration_score=85,
+            sentiment_score=0.15,
+            urgency_level="high",
+            customer_tier="vip",
             is_vip=True,
             variant_type="high_parwa",
         )
         tech_ids = [t.value for t in result.recommended_techniques]
-        tier3 = {"gst", "universe_of_thoughts", "tree_of_thoughts",
-                 "self_consistency", "reflexion", "least_to_most"}
+        tier3 = {
+            "gst",
+            "universe_of_thoughts",
+            "tree_of_thoughts",
+            "self_consistency",
+            "reflexion",
+            "least_to_most",
+        }
         assert any(t in tech_ids for t in tier3)
 
     def test_technique_reasons_populated(self):
         result = self.mapper.map(
-            frustration_score=70, sentiment_score=0.3,
-            urgency_level="high", customer_tier="free",
+            frustration_score=70,
+            sentiment_score=0.3,
+            urgency_level="high",
+            customer_tier="free",
         )
         for tech in result.recommended_techniques:
             assert tech.value in result.technique_reasons
@@ -1083,15 +1143,19 @@ class TestSentimentTechniqueMapper:
 
     def test_tone_adjustments_for_escalation(self):
         result = self.mapper.map(
-            frustration_score=90, sentiment_score=0.1,
-            urgency_level="critical", customer_tier="free",
+            frustration_score=90,
+            sentiment_score=0.1,
+            urgency_level="critical",
+            customer_tier="free",
         )
         assert len(result.tone_adjustments) > 0
 
     def test_no_escalation_for_happy(self):
         result = self.mapper.map(
-            frustration_score=5, sentiment_score=0.95,
-            urgency_level="low", customer_tier="free",
+            frustration_score=5,
+            sentiment_score=0.95,
+            urgency_level="low",
+            customer_tier="free",
         )
         assert result.escalation_recommended is False
         assert result.priority_override is False
@@ -1099,8 +1163,10 @@ class TestSentimentTechniqueMapper:
     def test_blocked_techniques_listed(self):
         """Blocked techniques should be in blocked_techniques list."""
         result = self.mapper.map(
-            frustration_score=85, sentiment_score=0.1,
-            urgency_level="high", customer_tier="free",
+            frustration_score=85,
+            sentiment_score=0.1,
+            urgency_level="high",
+            customer_tier="free",
             variant_type="mini_parwa",
         )
         assert isinstance(result.blocked_techniques, list)
@@ -1112,8 +1178,10 @@ class TestSentimentTechniqueMapper:
 
     def test_to_dict(self):
         result = self.mapper.map(
-            frustration_score=50, sentiment_score=0.5,
-            urgency_level="medium", customer_tier="free",
+            frustration_score=50,
+            sentiment_score=0.5,
+            urgency_level="medium",
+            customer_tier="free",
         )
         d = result.to_dict()
         assert "recommended_techniques" in d
@@ -1126,8 +1194,10 @@ class TestSentimentTechniqueMapper:
     def test_unknown_variant_falls_to_tier1(self):
         """Unknown variant type falls back to Tier 1 limit."""
         result = self.mapper.map(
-            frustration_score=85, sentiment_score=0.1,
-            urgency_level="high", customer_tier="free",
+            frustration_score=85,
+            sentiment_score=0.1,
+            urgency_level="high",
+            customer_tier="free",
             variant_type="unknown_variant",
         )
         tier1 = {TechniqueID.CLARA, TechniqueID.CRP, TechniqueID.GSD}
@@ -1137,8 +1207,10 @@ class TestSentimentTechniqueMapper:
     def test_zero_frustration_zero_sentiment(self):
         """Edge case: zero frustration and zero sentiment."""
         result = self.mapper.map(
-            frustration_score=0, sentiment_score=0.0,
-            urgency_level="low", customer_tier="free",
+            frustration_score=0,
+            sentiment_score=0.0,
+            urgency_level="low",
+            customer_tier="free",
         )
         assert isinstance(result, SentimentMappingResult)
         assert len(result.recommended_techniques) > 0
@@ -1146,32 +1218,40 @@ class TestSentimentTechniqueMapper:
     def test_boundary_frustration_30(self):
         """Exact boundary at frustration=30."""
         result = self.mapper.map(
-            frustration_score=30, sentiment_score=0.7,
-            urgency_level="medium", customer_tier="free",
+            frustration_score=30,
+            sentiment_score=0.7,
+            urgency_level="medium",
+            customer_tier="free",
         )
         assert isinstance(result, SentimentMappingResult)
 
     def test_boundary_frustration_60(self):
         """Exact boundary at frustration=60."""
         result = self.mapper.map(
-            frustration_score=60, sentiment_score=0.4,
-            urgency_level="high", customer_tier="free",
+            frustration_score=60,
+            sentiment_score=0.4,
+            urgency_level="high",
+            customer_tier="free",
         )
         assert isinstance(result, SentimentMappingResult)
 
     def test_boundary_frustration_80(self):
         """Exact boundary at frustration=80."""
         result = self.mapper.map(
-            frustration_score=80, sentiment_score=0.2,
-            urgency_level="high", customer_tier="free",
+            frustration_score=80,
+            sentiment_score=0.2,
+            urgency_level="high",
+            customer_tier="free",
         )
         assert result.escalation_recommended is True
 
     def test_positive_sentiment_no_heavy_techniques(self):
         """Positive sentiment with low frustration should use light techniques."""
         result = self.mapper.map(
-            frustration_score=5, sentiment_score=0.8,
-            urgency_level="low", customer_tier="free",
+            frustration_score=5,
+            sentiment_score=0.8,
+            urgency_level="low",
+            customer_tier="free",
             variant_type="high_parwa",
         )
         tech_ids = [t.value for t in result.recommended_techniques]
@@ -1222,14 +1302,17 @@ class TestConcurrentAccess:
         analyzer = SentimentAnalyzer()
         queries = ["test query " + str(i) for i in range(20)]
 
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock,
-                   side_effect=Exception("Redis down")):
-            with patch("app.core.redis.cache_set", new_callable=AsyncMock,
-                       side_effect=Exception("Redis down")):
-                tasks = [
-                    analyzer.analyze(q, company_id="c1")
-                    for q in queries
-                ]
+        with patch(
+            "app.core.redis.cache_get",
+            new_callable=AsyncMock,
+            side_effect=Exception("Redis down"),
+        ):
+            with patch(
+                "app.core.redis.cache_set",
+                new_callable=AsyncMock,
+                side_effect=Exception("Redis down"),
+            ):
+                tasks = [analyzer.analyze(q, company_id="c1") for q in queries]
                 results = await asyncio.gather(*tasks)
 
                 assert len(results) == 20

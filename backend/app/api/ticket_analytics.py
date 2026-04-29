@@ -27,7 +27,6 @@ from app.services.ticket_analytics_service import (
     IntervalType,
 )
 
-
 router = APIRouter(
     prefix="/analytics/tickets",
     tags=["analytics", "tickets"],
@@ -37,14 +36,17 @@ router = APIRouter(
 
 # ── Request/Response Schemas ─────────────────────────────────────────────────
 
+
 class DateRangeParams(BaseModel):
     """Date range parameters."""
+
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
 
 
 class TicketSummaryResponse(BaseModel):
     """Response schema for ticket summary."""
+
     total_tickets: int
     open_tickets: int
     in_progress_tickets: int
@@ -65,6 +67,7 @@ class TicketSummaryResponse(BaseModel):
 
 class TrendPointResponse(BaseModel):
     """Response schema for a single trend point."""
+
     timestamp: datetime
     count: int
     label: str
@@ -72,6 +75,7 @@ class TrendPointResponse(BaseModel):
 
 class CategoryDistributionResponse(BaseModel):
     """Response schema for category distribution."""
+
     category: str
     count: int
     percentage: float
@@ -79,6 +83,7 @@ class CategoryDistributionResponse(BaseModel):
 
 class SLAMetricsResponse(BaseModel):
     """Response schema for SLA metrics."""
+
     total_tickets_with_sla: int
     breached_count: int
     approaching_count: int
@@ -90,6 +95,7 @@ class SLAMetricsResponse(BaseModel):
 
 class AgentMetricsResponse(BaseModel):
     """Response schema for agent metrics."""
+
     agent_id: str
     agent_name: Optional[str] = None
     tickets_assigned: int
@@ -104,6 +110,7 @@ class AgentMetricsResponse(BaseModel):
 
 # ── Helper Functions ─────────────────────────────────────────────────────────
 
+
 def parse_date_range(
     start_date: Optional[datetime],
     end_date: Optional[datetime],
@@ -113,15 +120,10 @@ def parse_date_range(
     if start_date and end_date:
         return DateRange(start_date=start_date, end_date=end_date)
     elif start_date:
-        return DateRange(
-            start_date=start_date,
-            end_date=datetime.now(
-                timezone.utc))
+        return DateRange(start_date=start_date, end_date=datetime.now(timezone.utc))
     elif end_date:
         return DateRange(
-            start_date=end_date
-            - __import__('datetime').timedelta(
-                days=default_days),
+            start_date=end_date - __import__("datetime").timedelta(days=default_days),
             end_date=end_date,
         )
     else:
@@ -137,20 +139,17 @@ def get_company_id_from_user(current_user) -> str:
 
 # ── API Endpoints ────────────────────────────────────────────────────────────
 
+
 @router.get(
     "/summary",
     response_model=TicketSummaryResponse,
     summary="Get ticket summary statistics",
 )
 async def get_ticket_summary(
-        start_date: Optional[datetime] = Query(
-            None,
-            description="Start date for range"),
-    end_date: Optional[datetime] = Query(
-            None,
-            description="End date for range"),
-        db: Session = Depends(get_db),
-        current_user: Dict = Depends(get_current_user),
+    start_date: Optional[datetime] = Query(None, description="Start date for range"),
+    end_date: Optional[datetime] = Query(None, description="End date for range"),
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user),
 ) -> Any:
     """
     Get summary statistics for tickets.
@@ -189,11 +188,13 @@ async def get_ticket_summary(
         resolution_rate=round(summary.resolution_rate, 3),
         avg_resolution_time_hours=(
             round(summary.avg_resolution_time_hours, 2)
-            if summary.avg_resolution_time_hours else None
+            if summary.avg_resolution_time_hours
+            else None
         ),
         avg_first_response_time_hours=(
             round(summary.avg_first_response_time_hours, 2)
-            if summary.avg_first_response_time_hours else None
+            if summary.avg_first_response_time_hours
+            else None
         ),
         start_date=summary.start_date,
         end_date=summary.end_date,
@@ -206,17 +207,11 @@ async def get_ticket_summary(
     summary="Get ticket volume trends",
 )
 async def get_ticket_trends(
-        interval: str = Query(
-            "day",
-            description="Interval: hour, day, week, month"),
-    start_date: Optional[datetime] = Query(
-            None,
-            description="Start date for range"),
-        end_date: Optional[datetime] = Query(
-            None,
-            description="End date for range"),
-        db: Session = Depends(get_db),
-        current_user: Dict = Depends(get_current_user),
+    interval: str = Query("day", description="Interval: hour, day, week, month"),
+    start_date: Optional[datetime] = Query(None, description="Start date for range"),
+    end_date: Optional[datetime] = Query(None, description="End date for range"),
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user),
 ) -> Any:
     """
     Get ticket volume trends over time.
@@ -260,14 +255,10 @@ async def get_ticket_trends(
     summary="Get ticket distribution by category",
 )
 async def get_category_distribution(
-        start_date: Optional[datetime] = Query(
-            None,
-            description="Start date for range"),
-    end_date: Optional[datetime] = Query(
-            None,
-            description="End date for range"),
-        db: Session = Depends(get_db),
-        current_user: Dict = Depends(get_current_user),
+    start_date: Optional[datetime] = Query(None, description="Start date for range"),
+    end_date: Optional[datetime] = Query(None, description="End date for range"),
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user),
 ) -> Any:
     """
     Get distribution of tickets by category.
@@ -305,14 +296,10 @@ async def get_category_distribution(
     summary="Get SLA performance metrics",
 )
 async def get_sla_metrics(
-        start_date: Optional[datetime] = Query(
-            None,
-            description="Start date for range"),
-    end_date: Optional[datetime] = Query(
-            None,
-            description="End date for range"),
-        db: Session = Depends(get_db),
-        current_user: Dict = Depends(get_current_user),
+    start_date: Optional[datetime] = Query(None, description="Start date for range"),
+    end_date: Optional[datetime] = Query(None, description="End date for range"),
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user),
 ) -> Any:
     """
     Get SLA performance metrics.
@@ -346,11 +333,13 @@ async def get_sla_metrics(
         compliance_rate=round(metrics.compliance_rate, 3),
         avg_first_response_minutes=(
             round(metrics.avg_first_response_minutes, 1)
-            if metrics.avg_first_response_minutes else None
+            if metrics.avg_first_response_minutes
+            else None
         ),
         avg_resolution_minutes=(
             round(metrics.avg_resolution_minutes, 1)
-            if metrics.avg_resolution_minutes else None
+            if metrics.avg_resolution_minutes
+            else None
         ),
     )
 
@@ -361,19 +350,11 @@ async def get_sla_metrics(
     summary="Get per-agent performance metrics",
 )
 async def get_agent_metrics(
-        start_date: Optional[datetime] = Query(
-            None,
-            description="Start date for range"),
-    end_date: Optional[datetime] = Query(
-            None,
-            description="End date for range"),
-        limit: int = Query(
-            50,
-            ge=1,
-            le=200,
-            description="Max results to return"),
-        db: Session = Depends(get_db),
-        current_user: Dict = Depends(get_current_user),
+    start_date: Optional[datetime] = Query(None, description="Start date for range"),
+    end_date: Optional[datetime] = Query(None, description="End date for range"),
+    limit: int = Query(50, ge=1, le=200, description="Max results to return"),
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user),
 ) -> Any:
     """
     Get per-agent performance metrics.
@@ -405,11 +386,13 @@ async def get_agent_metrics(
             tickets_open=m.tickets_open,
             avg_resolution_time_hours=(
                 round(m.avg_resolution_time_hours, 2)
-                if m.avg_resolution_time_hours else None
+                if m.avg_resolution_time_hours
+                else None
             ),
             avg_first_response_time_hours=(
                 round(m.avg_first_response_time_hours, 2)
-                if m.avg_first_response_time_hours else None
+                if m.avg_first_response_time_hours
+                else None
             ),
             csat_avg=m.csat_avg,
             csat_count=m.csat_count,
@@ -421,8 +404,10 @@ async def get_agent_metrics(
 
 # ── Response Time Distribution Endpoint ─────────────────────────────────
 
+
 class ResponseTimeBucketResponse(BaseModel):
     """Response schema for a single response-time bucket."""
+
     bucket: str
     count: int
     label: str
@@ -430,6 +415,7 @@ class ResponseTimeBucketResponse(BaseModel):
 
 class ResponseTimeDistributionResponse(BaseModel):
     """Response schema for response time distribution."""
+
     buckets: List[ResponseTimeBucketResponse]
     avg_response_minutes: float
     median_response_minutes: float
@@ -442,19 +428,16 @@ class ResponseTimeDistributionResponse(BaseModel):
     summary="Get first-response time distribution",
 )
 async def get_response_time(
-        start_date: Optional[datetime] = Query(
-            None,
-            description="Start date for range"),
-    end_date: Optional[datetime] = Query(
-            None,
-            description="End date for range"),
-        days: int = Query(
-            30,
-            ge=1,
-            le=365,
-            description="Number of days (used when start_date is not provided)"),
-        db: Session = Depends(get_db),
-        current_user: Dict = Depends(get_current_user),
+    start_date: Optional[datetime] = Query(None, description="Start date for range"),
+    end_date: Optional[datetime] = Query(None, description="End date for range"),
+    days: int = Query(
+        30,
+        ge=1,
+        le=365,
+        description="Number of days (used when start_date is not provided)",
+    ),
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user),
 ) -> Any:
     """
     Get first-response time distribution bucketed by time ranges.
@@ -477,13 +460,13 @@ async def get_response_time(
 
         # When start_date is not provided, use the `days` parameter
         data = get_response_time_distribution(
-            company_id, db, days=days,
+            company_id,
+            db,
+            days=days,
         )
 
         return ResponseTimeDistributionResponse(
-            buckets=[
-                ResponseTimeBucketResponse(**b) for b in data.get("buckets", [])
-            ],
+            buckets=[ResponseTimeBucketResponse(**b) for b in data.get("buckets", [])],
             avg_response_minutes=data.get("avg_response_minutes", 0),
             median_response_minutes=data.get("median_response_minutes", 0),
             p95_response_minutes=data.get("p95_response_minutes", 0),
@@ -499,19 +482,16 @@ async def get_response_time(
 
 # ── Dashboard Endpoint (Combined) ────────────────────────────────────────────
 
+
 @router.get(
     "/dashboard",
     summary="Get combined analytics dashboard data",
 )
 async def get_analytics_dashboard(
-        start_date: Optional[datetime] = Query(
-            None,
-            description="Start date for range"),
-    end_date: Optional[datetime] = Query(
-            None,
-            description="End date for range"),
-        db: Session = Depends(get_db),
-        current_user: Dict = Depends(get_current_user),
+    start_date: Optional[datetime] = Query(None, description="Start date for range"),
+    end_date: Optional[datetime] = Query(None, description="End date for range"),
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user),
 ) -> Any:
     """
     Get combined analytics data for dashboard display.
@@ -549,11 +529,13 @@ async def get_analytics_dashboard(
             "resolution_rate": round(summary.resolution_rate, 3),
             "avg_resolution_time_hours": (
                 round(summary.avg_resolution_time_hours, 2)
-                if summary.avg_resolution_time_hours else 0
+                if summary.avg_resolution_time_hours
+                else 0
             ),
             "avg_first_response_time_hours": (
                 round(summary.avg_first_response_time_hours, 2)
-                if summary.avg_first_response_time_hours else 0
+                if summary.avg_first_response_time_hours
+                else 0
             ),
         },
         "sla": {
@@ -575,14 +557,26 @@ async def get_analytics_dashboard(
         ],
         "trend": [
             {
-                "timestamp": t.timestamp.isoformat() if hasattr(t.timestamp, 'isoformat') else str(t.timestamp),
+                "timestamp": (
+                    t.timestamp.isoformat()
+                    if hasattr(t.timestamp, "isoformat")
+                    else str(t.timestamp)
+                ),
                 "count": t.count,
                 "label": t.label,
             }
             for t in trends
         ],
         "date_range": {
-            "start_date": str(date_range.start_date.date()) if hasattr(date_range.start_date, 'date') else str(date_range.start_date),
-            "end_date": str(date_range.end_date.date()) if hasattr(date_range.end_date, 'date') else str(date_range.end_date),
+            "start_date": (
+                str(date_range.start_date.date())
+                if hasattr(date_range.start_date, "date")
+                else str(date_range.start_date)
+            ),
+            "end_date": (
+                str(date_range.end_date.date())
+                if hasattr(date_range.end_date, "date")
+                else str(date_range.end_date)
+            ),
         },
     }

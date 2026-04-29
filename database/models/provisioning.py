@@ -38,15 +38,14 @@ def _uuid() -> str:
 
 # ── Enum-like value sets (used by CHECK constraints) ────────────
 
-_PAYMENT_STATUSES = (
-    "'pending','paid','failed','refunded','expired'"
-)
+_PAYMENT_STATUSES = "'pending','paid','failed','refunded','expired'"
 _PROVISIONING_STATUSES = (
     "'awaiting_payment','provisioning','training','active','failed'"
 )
 
 
 # ── PendingAgent ───────────────────────────────────────────────
+
 
 class PendingAgent(Base):
     """Intermediate record for an agent being provisioned via Paddle.
@@ -65,13 +64,15 @@ class PendingAgent(Base):
     BC-003: paddle_event_id is unique for idempotent webhook processing.
     BC-004: Provisioning triggered via Celery task.
     """
+
     __tablename__ = "pending_agents"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     agent_name = Column(String(200), nullable=False)
     specialty = Column(String(50), nullable=False)
@@ -83,7 +84,9 @@ class PendingAgent(Base):
     paddle_event_id = Column(String(255), nullable=True, unique=True)
     payment_status = Column(String(20), nullable=False, default="pending")
     provisioning_status = Column(
-        String(20), nullable=False, default="awaiting_payment",
+        String(20),
+        nullable=False,
+        default="awaiting_payment",
     )
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
@@ -105,11 +108,13 @@ class PendingAgent(Base):
         ),
         Index(
             "ix_pending_agents_company_payment",
-            "company_id", "payment_status",
+            "company_id",
+            "payment_status",
         ),
         Index(
             "ix_pending_agents_company_provisioning",
-            "company_id", "provisioning_status",
+            "company_id",
+            "provisioning_status",
         ),
         {"schema": None},
     )

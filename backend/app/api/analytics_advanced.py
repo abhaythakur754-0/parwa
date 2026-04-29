@@ -15,7 +15,6 @@ Building Codes: BC-001 (tenant isolation), BC-002 (financial),
                BC-007 (AI model), BC-011 (auth), BC-012 (error handling)
 """
 
-
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -40,7 +39,9 @@ router = APIRouter(prefix="/api/analytics", tags=["analytics", "advanced"])
 @router.get("/adaptation")
 async def adaptation_tracker(
     days: int = Query(
-        30, ge=1, le=90,
+        30,
+        ge=1,
+        le=90,
         description="Number of days to track",
     ),
     company_id: str = Depends(get_company_id),
@@ -88,7 +89,9 @@ async def adaptation_tracker(
 @router.get("/savings")
 async def savings_counter(
     months: int = Query(
-        12, ge=1, le=24,
+        12,
+        ge=1,
+        le=24,
         description="Number of months to include in trend",
     ),
     company_id: str = Depends(get_company_id),
@@ -137,7 +140,9 @@ async def savings_counter(
 @router.get("/workforce")
 async def workforce_allocation(
     days: int = Query(
-        30, ge=1, le=90,
+        30,
+        ge=1,
+        le=90,
         description="Number of days for allocation data",
     ),
     company_id: str = Depends(get_company_id),
@@ -184,7 +189,9 @@ async def workforce_allocation(
 @router.get("/confidence-trend")
 async def confidence_trend(
     days: int = Query(
-        30, ge=1, le=90,
+        30,
+        ge=1,
+        le=90,
         description="Number of days to track",
     ),
     company_id: str = Depends(get_company_id),
@@ -233,7 +240,9 @@ async def confidence_trend(
 @router.get("/drift-reports")
 async def drift_reports(
     limit: int = Query(
-        20, ge=1, le=100,
+        20,
+        ge=1,
+        le=100,
         description="Maximum number of reports to return",
     ),
     company_id: str = Depends(get_company_id),
@@ -281,7 +290,9 @@ async def drift_reports(
 @router.get("/qa-scores")
 async def qa_scores(
     days: int = Query(
-        30, ge=1, le=90,
+        30,
+        ge=1,
+        le=90,
         description="Number of days to track",
     ),
     company_id: str = Depends(get_company_id),

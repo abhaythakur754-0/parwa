@@ -13,12 +13,9 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-
 # ── Shared Validators ──────────────────────────────────────────────
 
-_EMAIL_REGEX = re.compile(
-    r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
-)
+_EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
 
 
 def _validate_email(email: str) -> str:
@@ -89,33 +86,20 @@ class RegisterRequest(BaseModel):
         """BC-011: Min 8 chars + uppercase + lowercase + digit
         + special char (L02)."""
         if not re.search(r"[A-Z]", v):
-            raise ValueError(
-                "Password must contain at least one "
-                "uppercase letter"
-            )
+            raise ValueError("Password must contain at least one " "uppercase letter")
         if not re.search(r"[a-z]", v):
-            raise ValueError(
-                "Password must contain at least one "
-                "lowercase letter"
-            )
+            raise ValueError("Password must contain at least one " "lowercase letter")
         if not re.search(r"\d", v):
-            raise ValueError(
-                "Password must contain at least one digit"
-            )
+            raise ValueError("Password must contain at least one digit")
         if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v):
-            raise ValueError(
-                "Password must contain at least one "
-                "special character"
-            )
+            raise ValueError("Password must contain at least one " "special character")
         return v
 
     @model_validator(mode="after")
     def passwords_must_match(self) -> "RegisterRequest":
         """L01: confirm_password must match password."""
         if self.password != self.confirm_password:
-            raise ValueError(
-                "Password and confirm_password do not match"
-            )
+            raise ValueError("Password and confirm_password do not match")
         return self
 
 

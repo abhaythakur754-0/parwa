@@ -217,9 +217,7 @@ QUICK_COMMANDS: List[Dict[str, Any]] = [
 ]
 
 # Index by ID for fast lookup
-_COMMAND_INDEX: Dict[str, Dict[str, Any]] = {
-    cmd["id"]: cmd for cmd in QUICK_COMMANDS
-}
+_COMMAND_INDEX: Dict[str, Dict[str, Any]] = {cmd["id"]: cmd for cmd in QUICK_COMMANDS}
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -249,9 +247,13 @@ def get_quick_commands(
         from app.models.system_health import QuickCommandConfig
 
         # Fetch tenant customizations in a single query
-        configs = db.query(QuickCommandConfig).filter(
-            QuickCommandConfig.company_id == company_id,
-        ).all()
+        configs = (
+            db.query(QuickCommandConfig)
+            .filter(
+                QuickCommandConfig.company_id == company_id,
+            )
+            .all()
+        )
 
         config_map: Dict[str, Dict[str, Any]] = {}
         for cfg in configs:
@@ -260,7 +262,8 @@ def get_quick_commands(
                 "custom_label": cfg.custom_label,
                 "custom_params": (
                     json.loads(cfg.custom_params_json)
-                    if cfg.custom_params_json else None
+                    if cfg.custom_params_json
+                    else None
                 ),
             }
 
@@ -351,9 +354,7 @@ def execute_quick_command(
     command_text = cmd_def["command_text"]
     if params:
         # Append param values to command text
-        param_str = " ".join(
-            str(v) for v in params.values() if v is not None
-        )
+        param_str = " ".join(str(v) for v in params.values() if v is not None)
         if param_str:
             command_text = f"{command_text} {param_str}"
 
@@ -403,9 +404,14 @@ def get_custom_commands(
     try:
         from app.models.system_health import QuickCommandConfig
 
-        configs = db.query(QuickCommandConfig).filter(
-            QuickCommandConfig.company_id == company_id,
-        ).order_by(QuickCommandConfig.created_at.desc()).all()
+        configs = (
+            db.query(QuickCommandConfig)
+            .filter(
+                QuickCommandConfig.company_id == company_id,
+            )
+            .order_by(QuickCommandConfig.created_at.desc())
+            .all()
+        )
 
         return [
             {
@@ -416,11 +422,10 @@ def get_custom_commands(
                 "custom_label": cfg.custom_label,
                 "custom_params": (
                     json.loads(cfg.custom_params_json)
-                    if cfg.custom_params_json else None
+                    if cfg.custom_params_json
+                    else None
                 ),
-                "created_at": (
-                    cfg.created_at.isoformat() if cfg.created_at else None
-                ),
+                "created_at": (cfg.created_at.isoformat() if cfg.created_at else None),
             }
             for cfg in configs
         ]
@@ -469,10 +474,14 @@ def update_custom_commands(
         from app.models.system_health import QuickCommandConfig
 
         # Try to find existing config
-        config = db.query(QuickCommandConfig).filter(
-            QuickCommandConfig.company_id == company_id,
-            QuickCommandConfig.command_id == command_id,
-        ).first()
+        config = (
+            db.query(QuickCommandConfig)
+            .filter(
+                QuickCommandConfig.company_id == company_id,
+                QuickCommandConfig.command_id == command_id,
+            )
+            .first()
+        )
 
         if config:
             # Update existing
@@ -512,7 +521,8 @@ def update_custom_commands(
             "custom_label": config.custom_label,
             "custom_params": (
                 json.loads(config.custom_params_json)
-                if config.custom_params_json else None
+                if config.custom_params_json
+                else None
             ),
             "created_at": (
                 config.created_at.isoformat() if config.created_at else None

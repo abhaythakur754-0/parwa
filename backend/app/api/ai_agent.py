@@ -55,6 +55,7 @@ class AgentUpdateRequest(BaseModel):
 
 def _serialize_agent(agent) -> dict:
     """Serialize an AIAgentAssignment ORM object to response dict."""
+
     def _parse_json_list(val, default):
         if val is None:
             return default
@@ -73,14 +74,8 @@ def _serialize_agent(agent) -> dict:
         "feature_ids": _parse_json_list(agent.feature_ids, []),
         "task_ids": _parse_json_list(agent.task_ids, []),
         "status": agent.status,
-        "created_at": (
-            agent.created_at.isoformat()
-            if agent.created_at else None
-        ),
-        "updated_at": (
-            agent.updated_at.isoformat()
-            if agent.updated_at else None
-        ),
+        "created_at": (agent.created_at.isoformat() if agent.created_at else None),
+        "updated_at": (agent.updated_at.isoformat() if agent.updated_at else None),
     }
 
 
@@ -101,7 +96,8 @@ def list_agents(
     Requires owner or admin role.
     """
     agents = agent_assignment_service.get_all_agents(
-        db, status=status,
+        db,
+        status=status,
     )
     return {
         "items": [_serialize_agent(a) for a in agents],
@@ -135,13 +131,12 @@ def get_agent_for_feature(
     Returns 404 if no agent owns the feature.
     """
     agent = agent_assignment_service.get_agent_for_feature(
-        db, feature_id=feature_id,
+        db,
+        feature_id=feature_id,
     )
     if agent is None:
         raise NotFoundError(
-            message=(
-                f"No agent found for feature '{feature_id}'"
-            ),
+            message=(f"No agent found for feature '{feature_id}'"),
             details={"feature_id": feature_id},
         )
     return _serialize_agent(agent)
@@ -195,7 +190,9 @@ def update_agent(
         )
 
     agent = agent_assignment_service.update_agent_by_id(
-        db, agent_id=agent_id, **data,
+        db,
+        agent_id=agent_id,
+        **data,
     )
     return _serialize_agent(agent)
 
@@ -209,9 +206,7 @@ def delete_agent(
     """Soft-delete an agent (set status='inactive')."""
     agent = agent_assignment_service.delete_agent(db, agent_id)
     return {
-        "message": (
-            f"Agent '{agent.agent_name}' deactivated successfully"
-        ),
+        "message": (f"Agent '{agent.agent_name}' deactivated successfully"),
         "agent": _serialize_agent(agent),
     }
 

@@ -83,45 +83,104 @@ class IntentResult:
 INTENT_PATTERNS: Dict[str, Dict[str, Any]] = {
     IntentType.REFUND.value: {
         "keywords": [
-            "refund", "money back", "return", "reimburse", "credit back",
-            "chargeback", "cancel order", "get my money", "want my money back",
-            "refund policy", "refundable", "non-refundable",
+            "refund",
+            "money back",
+            "return",
+            "reimburse",
+            "credit back",
+            "chargeback",
+            "cancel order",
+            "get my money",
+            "want my money back",
+            "refund policy",
+            "refundable",
+            "non-refundable",
         ],
         "weight": 1.0,
     },
     IntentType.TECHNICAL.value: {
         "keywords": [
-            "error", "bug", "not working", "broken", "crash", "issue",
-            "problem", "doesn't work", "failed", "glitch", "not loading",
-            "slow", "connection", "timeout", "offline", "down",
-            "500 error", "404", "exception", "stack trace",
+            "error",
+            "bug",
+            "not working",
+            "broken",
+            "crash",
+            "issue",
+            "problem",
+            "doesn't work",
+            "failed",
+            "glitch",
+            "not loading",
+            "slow",
+            "connection",
+            "timeout",
+            "offline",
+            "down",
+            "500 error",
+            "404",
+            "exception",
+            "stack trace",
         ],
         "weight": 1.0,
     },
     IntentType.BILLING.value: {
         "keywords": [
-            "bill", "invoice", "charge", "payment", "subscription",
-            "price", "cost", "fee", "overcharge", "duplicate charge",
-            "unauthorized charge", "subscription cancel", "renewal",
-            "billing", "receipt", "transaction",
+            "bill",
+            "invoice",
+            "charge",
+            "payment",
+            "subscription",
+            "price",
+            "cost",
+            "fee",
+            "overcharge",
+            "duplicate charge",
+            "unauthorized charge",
+            "subscription cancel",
+            "renewal",
+            "billing",
+            "receipt",
+            "transaction",
         ],
         "weight": 1.0,
     },
     IntentType.COMPLAINT.value: {
         "keywords": [
-            "complaint", "unhappy", "disappointed", "frustrated", "angry",
-            "terrible", "awful", "worst", "horrible", "unacceptable",
-            "speak to manager", "escalate", "report", "formal complaint",
-            "outrageous", "appalling", "disgusting",
+            "complaint",
+            "unhappy",
+            "disappointed",
+            "frustrated",
+            "angry",
+            "terrible",
+            "awful",
+            "worst",
+            "horrible",
+            "unacceptable",
+            "speak to manager",
+            "escalate",
+            "report",
+            "formal complaint",
+            "outrageous",
+            "appalling",
+            "disgusting",
         ],
         "weight": 1.2,  # weighted higher for sensitivity
     },
     IntentType.FEATURE_REQUEST.value: {
         "keywords": [
-            "feature", "suggestion", "would be great", "wish you had",
-            "please add", "would like to see", "enhancement", "improve",
-            "new functionality", "missing feature", "roadmap",
-            "can you add", "it would be nice",
+            "feature",
+            "suggestion",
+            "would be great",
+            "wish you had",
+            "please add",
+            "would like to see",
+            "enhancement",
+            "improve",
+            "new functionality",
+            "missing feature",
+            "roadmap",
+            "can you add",
+            "it would be nice",
         ],
         "weight": 1.0,
     },
@@ -131,52 +190,113 @@ INTENT_PATTERNS: Dict[str, Dict[str, Any]] = {
     },
     IntentType.CANCELLATION.value: {
         "keywords": [
-            "cancel subscription", "unsubscribe", "stop service",
-            "terminate", "close account", "end subscription", "deactivate",
-            "cancel my plan", "i want to cancel", "please cancel",
-            "cancel right now", "cancel immediately", "cancel my subscription",
-            "cancel my", "cancel",
+            "cancel subscription",
+            "unsubscribe",
+            "stop service",
+            "terminate",
+            "close account",
+            "end subscription",
+            "deactivate",
+            "cancel my plan",
+            "i want to cancel",
+            "please cancel",
+            "cancel right now",
+            "cancel immediately",
+            "cancel my subscription",
+            "cancel my",
+            "cancel",
         ],
         "weight": 1.0,
     },
     IntentType.SHIPPING.value: {
         "keywords": [
-            "ship", "shipping", "deliver", "delivery", "track", "package",
-            "order status", "courier", "transit", "parcel", "tracking number",
-            "estimated delivery", "shipping address", "lost package",
+            "ship",
+            "shipping",
+            "deliver",
+            "delivery",
+            "track",
+            "package",
+            "order status",
+            "courier",
+            "transit",
+            "parcel",
+            "tracking number",
+            "estimated delivery",
+            "shipping address",
+            "lost package",
         ],
         "weight": 1.0,
     },
     IntentType.INQUIRY.value: {
         "keywords": [
-            "question", "how do i", "what is", "can you explain",
-            "information", "documentation", "help me understand", "guide",
-            "wondering", "curious", "tell me about", "i'd like to know",
+            "question",
+            "how do i",
+            "what is",
+            "can you explain",
+            "information",
+            "documentation",
+            "help me understand",
+            "guide",
+            "wondering",
+            "curious",
+            "tell me about",
+            "i'd like to know",
         ],
         "weight": 0.8,
     },
     IntentType.ESCALATION.value: {
         "keywords": [
-            "escalate", "manager", "supervisor", "senior", "higher up",
-            "speak to someone", "not resolved", "still waiting",
-            "unacceptable", "take this further", "next level",
+            "escalate",
+            "manager",
+            "supervisor",
+            "senior",
+            "higher up",
+            "speak to someone",
+            "not resolved",
+            "still waiting",
+            "unacceptable",
+            "take this further",
+            "next level",
         ],
         "weight": 1.1,
     },
     IntentType.ACCOUNT.value: {
         "keywords": [
-            "account", "profile", "login", "password reset", "reset password",
-            "reset my password", "verify", "mfa", "two-factor",
-            "email change", "username", "settings",
-            "update account", "delete account", "deactivate account", "password",
+            "account",
+            "profile",
+            "login",
+            "password reset",
+            "reset password",
+            "reset my password",
+            "verify",
+            "mfa",
+            "two-factor",
+            "email change",
+            "username",
+            "settings",
+            "update account",
+            "delete account",
+            "deactivate account",
+            "password",
         ],
         "weight": 1.0,
     },
     IntentType.FEEDBACK.value: {
         "keywords": [
-            "feedback", "suggestion", "opinion", "thought", "experience",
-            "rating", "review", "love your product", "keep up",
-            "suggestion box", "improve", "great job", "amazing", "keep it up",
+            "feedback",
+            "suggestion",
+            "opinion",
+            "thought",
+            "experience",
+            "rating",
+            "review",
+            "love your product",
+            "keep up",
+            "suggestion box",
+            "improve",
+            "great job",
+            "amazing",
+            "keep it up",
         ],
         "weight": 0.9,
     },
@@ -204,18 +324,18 @@ class KeywordClassifier:
                 scores[intent] = 0.01
                 continue
 
-            raw_score = sum(len(kw.split())
-                            for kw in keywords if kw in text_lower)
+            raw_score = sum(len(kw.split()) for kw in keywords if kw in text_lower)
             scores[intent] = raw_score * weight
 
-    # Ensure general has a small presence if nothing else matched
+        # Ensure general has a small presence if nothing else matched
         max_non_general = max(
             (v for k, v in scores.items() if k != IntentType.GENERAL.value),
             default=0,
         )
         if max_non_general == 0:
             scores[IntentType.GENERAL.value] = max(
-                scores[IntentType.GENERAL.value], 0.1,
+                scores[IntentType.GENERAL.value],
+                0.1,
             )
 
         # Normalize scores
@@ -304,11 +424,12 @@ class ClassificationEngine:
             return self._default_result("too_short")
 
         # ── AI classification (parwa/high_parwa only) ────────────
-        if use_ai and self.smart_router and variant_type in (
-                "parwa", "high_parwa"):
+        if use_ai and self.smart_router and variant_type in ("parwa", "high_parwa"):
             try:
                 return await self._classify_with_ai(
-                    cleaned, company_id, variant_type,
+                    cleaned,
+                    company_id,
+                    variant_type,
                 )
             except Exception as exc:
                 logger.warning(
@@ -321,26 +442,28 @@ class ClassificationEngine:
         return self._keyword_classifier.classify(cleaned)
 
     async def _classify_with_ai(
-        self, text: str, company_id: str, variant_type: str,
+        self,
+        text: str,
+        company_id: str,
+        variant_type: str,
     ) -> IntentResult:
         """Use Smart Router for AI-powered classification."""
         start = time.monotonic()
 
         prompt = (
             "Classify this customer support message into intents.\n"
-            "Return JSON: {\"primary\": \"<intent>\", \"secondary\": [{\"intent\": \"<intent>\", \"confidence\": <float>}], "
-            "\"confidences\": {\"<intent>\": <float>, ...}}\n\n"
+            'Return JSON: {"primary": "<intent>", "secondary": [{"intent": "<intent>", "confidence": <float>}], '
+            '"confidences": {"<intent>": <float>, ...}}\n\n'
             f"Valid intents: {', '.join(t.value for t in IntentType)}\n\n"
             f"Message: {text[:500]}"
         )
 
         # Route through Smart Router light tier
         from app.core.smart_router import SmartRouter
-        if not isinstance(
-                self.smart_router,
-                SmartRouter) and not hasattr(
-                self.smart_router,
-                'async_execute_llm_call'):
+
+        if not isinstance(self.smart_router, SmartRouter) and not hasattr(
+            self.smart_router, "async_execute_llm_call"
+        ):
             return self._keyword_classifier.classify(text)
 
         response = await self.smart_router.async_execute_llm_call(
@@ -351,13 +474,19 @@ class ClassificationEngine:
         )
 
         result = self._parse_ai_response(
-            response, company_id, variant_type, start,
+            response,
+            company_id,
+            variant_type,
+            start,
         )
         return result
 
     def _parse_ai_response(
-        self, response: Dict[str, Any], company_id: str,
-        variant_type: str, start_time: float,
+        self,
+        response: Dict[str, Any],
+        company_id: str,
+        variant_type: str,
+        start_time: float,
     ) -> IntentResult:
         """Parse Smart Router response into IntentResult."""
         elapsed = round((time.monotonic() - start_time) * 1000, 2)
@@ -371,8 +500,7 @@ class ClassificationEngine:
         # Extract JSON from response
         try:
             # Handle markdown fences
-            json_match = re.search(
-                r"```(?:json)?\s*(.*?)```", content, re.DOTALL)
+            json_match = re.search(r"```(?:json)?\s*(.*?)```", content, re.DOTALL)
             json_str = json_match.group(1) if json_match else content
             data = json.loads(json_str)
         except (json.JSONDecodeError, AttributeError):

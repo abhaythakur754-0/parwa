@@ -42,6 +42,7 @@ class TestSignalExtraction:
     @pytest.fixture
     def extractor(self):
         from app.core.signal_extraction import SignalExtractor
+
         return SignalExtractor()
 
     @pytest.fixture
@@ -59,13 +60,13 @@ class TestSignalExtraction:
                 conversation_history=kwargs.get("conversation_history"),
                 customer_metadata=kwargs.get("customer_metadata"),
             )
+
         return _req
 
     @pytest.mark.asyncio
     async def test_refund_intent_detected(self, extractor, make_request):
         """Refund keywords should trigger 'refund' intent."""
-        req = make_request(
-            "I want a refund for my order, this is unacceptable")
+        req = make_request("I want a refund for my order, this is unacceptable")
         signals = await extractor.extract(req)
         assert signals.intent == "refund"
         assert 0.0 <= signals.sentiment <= 1.0
@@ -74,8 +75,7 @@ class TestSignalExtraction:
     @pytest.mark.asyncio
     async def test_technical_intent_detected(self, extractor, make_request):
         """Technical keywords should trigger 'technical' intent."""
-        req = make_request(
-            "The API endpoint keeps returning a 500 error and crashing")
+        req = make_request("The API endpoint keeps returning a 500 error and crashing")
         signals = await extractor.extract(req)
         assert signals.intent == "technical"
         assert signals.complexity > 0.05  # Technical terms boost complexity
@@ -84,7 +84,8 @@ class TestSignalExtraction:
     async def test_negative_sentiment(self, extractor, make_request):
         """Negative words should lower sentiment score."""
         req = make_request(
-            "This is terrible and horrible, I am very angry and frustrated")
+            "This is terrible and horrible, I am very angry and frustrated"
+        )
         signals = await extractor.extract(req)
         assert signals.sentiment < 0.3, f"Expected negative sentiment, got {
             signals.sentiment}"
@@ -92,8 +93,7 @@ class TestSignalExtraction:
     @pytest.mark.asyncio
     async def test_positive_sentiment(self, extractor, make_request):
         """Positive words should raise sentiment score."""
-        req = make_request(
-            "This is amazing and excellent, very helpful and awesome!")
+        req = make_request("This is amazing and excellent, very helpful and awesome!")
         signals = await extractor.extract(req)
         assert signals.sentiment > 0.7, f"Expected positive sentiment, got {
             signals.sentiment}"
@@ -148,9 +148,7 @@ class TestSignalExtraction:
             "I want a refund for my order",
             "I want a refund for my order",
         ]
-        req = make_request(
-            "I want a refund for my order",
-            conversation_history=history)
+        req = make_request("I want a refund for my order", conversation_history=history)
         signals = await extractor.extract(req)
         # 0.85 threshold: need 2+ messages with >= 85% similarity
         assert signals.reasoning_loop_detected is True
@@ -195,6 +193,7 @@ class TestClassificationEngine:
     @pytest.fixture
     def engine(self):
         from app.core.classification_engine import ClassificationEngine
+
         return ClassificationEngine(smart_router=None)
 
     @pytest.mark.asyncio
@@ -292,16 +291,19 @@ class TestLangGraphWorkflow:
     @pytest.fixture
     def workflow_mini(self):
         from app.core.langgraph_workflow import LangGraphWorkflow, WorkflowConfig
+
         return LangGraphWorkflow(WorkflowConfig(variant_type="mini_parwa"))
 
     @pytest.fixture
     def workflow_parwa(self):
         from app.core.langgraph_workflow import LangGraphWorkflow, WorkflowConfig
+
         return LangGraphWorkflow(WorkflowConfig(variant_type="parwa"))
 
     @pytest.fixture
     def workflow_high(self):
         from app.core.langgraph_workflow import LangGraphWorkflow, WorkflowConfig
+
         return LangGraphWorkflow(WorkflowConfig(variant_type="parwa_high"))
 
     def test_mini_parwa_has_3_steps(self, workflow_mini):
@@ -385,11 +387,13 @@ class TestSmartRouter:
     @pytest.fixture
     def router(self):
         from app.core.smart_router import SmartRouter
+
         return SmartRouter()
 
     def test_route_returns_routing_decision(self, router):
         """Routing should always return a valid RoutingDecision."""
         from app.core.smart_router import AtomicStepType
+
         decision = router.route(
             company_id="test-co",
             variant_type="parwa",
@@ -403,6 +407,7 @@ class TestSmartRouter:
     def test_mini_parwa_only_light_tier(self, router):
         """Mini PARWA should only get LIGHT tier models."""
         from app.core.smart_router import AtomicStepType, ModelTier
+
         decision = router.route(
             company_id="test-co",
             variant_type="mini_parwa",
@@ -414,6 +419,7 @@ class TestSmartRouter:
     def test_parwa_high_gets_heavy_tier(self, router):
         """PARWA High should be able to get HEAVY tier for complex steps."""
         from app.core.smart_router import AtomicStepType, ModelTier
+
         decision = router.route(
             company_id="test-co",
             variant_type="parwa_high",
@@ -421,13 +427,16 @@ class TestSmartRouter:
         )
         # parwa_high can use all tiers
         assert decision.tier in (
-            ModelTier.LIGHT, ModelTier.MEDIUM,
-            ModelTier.HEAVY, ModelTier.GUARDRAIL,
+            ModelTier.LIGHT,
+            ModelTier.MEDIUM,
+            ModelTier.HEAVY,
+            ModelTier.GUARDRAIL,
         )
 
     def test_guardrail_step_always_guardrail_tier(self, router):
         """Guardrail checks should always use GUARDRAIL tier."""
         from app.core.smart_router import AtomicStepType, ModelTier
+
         decision = router.route(
             company_id="test-co",
             variant_type="mini_parwa",
@@ -438,6 +447,7 @@ class TestSmartRouter:
     def test_batch_routing(self, router):
         """Batch routing should return decisions for all steps."""
         from app.core.smart_router import AtomicStepType
+
         steps = [
             AtomicStepType.INTENT_CLASSIFICATION,
             AtomicStepType.PII_REDACTION,
@@ -470,6 +480,7 @@ class TestSmartRouter:
     def test_bc008_unknown_variant_safe_fallback(self, router):
         """BC-008: Unknown variant should default to mini_parwa (safest)."""
         from app.core.smart_router import AtomicStepType
+
         decision = router.route(
             company_id="test-co",
             variant_type="unknown_variant_xyz",
@@ -481,6 +492,7 @@ class TestSmartRouter:
     def test_model_registry_populated(self):
         """MODEL_REGISTRY should have models in all tiers."""
         from app.core.smart_router import MODEL_REGISTRY, ModelTier
+
         tiers = set()
         for config in MODEL_REGISTRY.values():
             tiers.add(config.tier)
@@ -501,11 +513,13 @@ class TestTechniqueRouter:
     @pytest.fixture
     def router(self):
         from app.core.technique_router import TechniqueRouter
+
         return TechniqueRouter(model_tier="medium")
 
     def test_basic_routing_returns_result(self, router):
         """Basic routing should return RouterResult."""
         from app.core.technique_router import QuerySignals
+
         signals = QuerySignals()
         result = router.route(signals)
         assert result is not None
@@ -514,6 +528,7 @@ class TestTechniqueRouter:
     def test_tier_1_always_active(self, router):
         """CLARA, CRP, GSD should always be active (Tier 1)."""
         from app.core.technique_router import QuerySignals, TechniqueID
+
         signals = QuerySignals()
         result = router.route(signals)
         activated_ids = {a.technique_id for a in result.activated_techniques}
@@ -524,6 +539,7 @@ class TestTechniqueRouter:
     def test_complexity_triggers_cot(self, router):
         """High complexity should trigger Chain of Thought."""
         from app.core.technique_router import QuerySignals, TechniqueID
+
         signals = QuerySignals(query_complexity=0.8)
         result = router.route(signals)
         activated_ids = {a.technique_id for a in result.activated_techniques}
@@ -532,6 +548,7 @@ class TestTechniqueRouter:
     def test_low_confidence_triggers_reverse_thinking(self, router):
         """Low confidence should trigger Reverse Thinking + Step-Back."""
         from app.core.technique_router import QuerySignals, TechniqueID
+
         signals = QuerySignals(confidence_score=0.3)
         result = router.route(signals)
         activated_ids = {a.technique_id for a in result.activated_techniques}
@@ -544,6 +561,7 @@ class TestTechniqueRouter:
         the rule triggered even if budget fallback replaced the technique.
         """
         from app.core.technique_router import QuerySignals, TechniqueID, TechniqueRouter
+
         # Use heavy budget to avoid T3->T2 fallback
         router = TechniqueRouter(model_tier="heavy")
         signals = QuerySignals(customer_tier="vip")
@@ -555,6 +573,7 @@ class TestTechniqueRouter:
     def test_monetary_gt_100_triggers_self_consistency(self, router):
         """High monetary value should trigger Self-Consistency."""
         from app.core.technique_router import QuerySignals, TechniqueID
+
         signals = QuerySignals(monetary_value=500.0)
         result = router.route(signals)
         activated_ids = {a.technique_id for a in result.activated_techniques}
@@ -563,6 +582,7 @@ class TestTechniqueRouter:
     def test_reasoning_loop_triggers_step_back(self, router):
         """Reasoning loop should trigger Step-Back."""
         from app.core.technique_router import QuerySignals, TechniqueID
+
         signals = QuerySignals(reasoning_loop_detected=True)
         result = router.route(signals)
         activated_ids = {a.technique_id for a in result.activated_techniques}
@@ -571,6 +591,7 @@ class TestTechniqueRouter:
     def test_technique_registry_complete(self):
         """TECHNIQUE_REGISTRY should have all 14 techniques."""
         from app.core.technique_router import TECHNIQUE_REGISTRY, TechniqueID
+
         assert len(TECHNIQUE_REGISTRY) == 14
         for tid in TechniqueID:
             assert tid in TECHNIQUE_REGISTRY
@@ -578,11 +599,16 @@ class TestTechniqueRouter:
     def test_plan_based_availability(self):
         """Free plan should only get Tier 1 techniques."""
         from app.core.technique_router import (
-            TechniqueRouter, TechniqueID, QuerySignals,
+            TechniqueRouter,
+            TechniqueID,
+            QuerySignals,
         )
+
         router = TechniqueRouter(
             model_tier="light",
-            enabled_techniques=TechniqueRouter.get_available_techniques_for_plan("free"),
+            enabled_techniques=TechniqueRouter.get_available_techniques_for_plan(
+                "free"
+            ),
         )
         signals = QuerySignals(query_complexity=0.9, customer_tier="vip")
         result = router.route(signals)
@@ -603,29 +629,34 @@ class TestPackageCompatibility:
     def test_langgraph_import(self):
         """langgraph should be importable."""
         from langgraph.graph import StateGraph, END
+
         assert StateGraph is not None
         assert END is not None
 
     def test_dspy_ai_import(self):
         """dspy-ai should be importable."""
         import dspy
-        assert hasattr(dspy, 'configure')
+
+        assert hasattr(dspy, "configure")
 
     def test_litellm_import(self):
         """litellm should be importable."""
         import litellm
-        assert hasattr(litellm, 'completion')
+
+        assert hasattr(litellm, "completion")
 
     def test_all_three_together(self):
         """All three should coexist without conflicts."""
         from langgraph.graph import StateGraph
         import dspy
         import litellm
+
         assert StateGraph is not None and dspy is not None and litellm is not None
 
     def test_version_info(self):
         """Version info should be available for debugging."""
         from importlib.metadata import version as pkg_version
+
         versions = {
             "langgraph": pkg_version("langgraph"),
             "dspy-ai": pkg_version("dspy-ai"),
@@ -633,8 +664,7 @@ class TestPackageCompatibility:
         }
         for name, ver in versions.items():
             assert ver, f"{name} should have version info"
-            assert len(
-                ver.split(".")) >= 2, f"{name} version should be semantic"
+            assert len(ver.split(".")) >= 2, f"{name} version should be semantic"
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -648,11 +678,13 @@ class TestGSDEngine:
     def test_gsd_import(self):
         """GSD engine module should be importable."""
         from app.core.gsd_engine import GSDEngine
+
         assert GSDEngine is not None
 
     def test_gsd_technique_registered(self):
         """GSD should be registered as Tier 1 technique."""
         from app.core.technique_router import TechniqueID, TECHNIQUE_REGISTRY
+
         assert TechniqueID.GSD in TECHNIQUE_REGISTRY
         assert TECHNIQUE_REGISTRY[TechniqueID.GSD].tier.value == "tier_1"
         assert TECHNIQUE_REGISTRY[TechniqueID.GSD].estimated_tokens <= 50
@@ -669,11 +701,13 @@ class TestStateSerialization:
     def test_state_serialization_import(self):
         """State serialization module should be importable."""
         from app.core.state_serialization import StateSerializer
+
         assert StateSerializer is not None
 
     def test_serializer_works_without_redis(self):
         """Serializer should be importable and instantiable without Redis."""
         from app.core.state_serialization import StateSerializer
+
         # StateSerializer should be importable (Day 1 Docker volume work)
         assert StateSerializer is not None
 
@@ -689,6 +723,7 @@ class TestEmbeddingService:
     def test_embedding_service_import(self):
         """Embedding service should be importable."""
         from app.services.embedding_service import EmbeddingService
+
         assert EmbeddingService is not None
 
 
@@ -703,11 +738,17 @@ class TestCLARAQualityGate:
     def test_clara_import(self):
         """CLARA module should be importable."""
         from app.core.clara_quality_gate import CLARAQualityGate
+
         assert CLARAQualityGate is not None
 
     def test_clara_registered_as_tier1(self):
         """CLARA should be Tier 1 always-active technique."""
-        from app.core.technique_router import TechniqueID, TECHNIQUE_REGISTRY, TechniqueTier
+        from app.core.technique_router import (
+            TechniqueID,
+            TECHNIQUE_REGISTRY,
+            TechniqueTier,
+        )
+
         assert TechniqueID.CLARA in TECHNIQUE_REGISTRY
         assert TECHNIQUE_REGISTRY[TechniqueID.CLARA].tier == TechniqueTier.TIER_1
 
@@ -723,6 +764,7 @@ class TestGuardrailsEngine:
     def test_guardrails_import(self):
         """Guardrails module should be importable."""
         from app.core.guardrails_engine import GuardrailsEngine
+
         assert GuardrailsEngine is not None
 
 
@@ -737,6 +779,7 @@ class TestExceptions:
     def test_parwa_base_error(self):
         """ParwaBaseError should create structured error."""
         from app.exceptions import ParwaBaseError
+
         err = ParwaBaseError(message="test error", error_code="TEST_ERROR")
         assert err.message == "test error"
         assert err.error_code == "TEST_ERROR"
@@ -747,24 +790,28 @@ class TestExceptions:
     def test_not_found_error(self):
         """NotFoundError should have 404 status."""
         from app.exceptions import NotFoundError
+
         err = NotFoundError(message="Resource not found")
         assert err.status_code == 404
 
     def test_validation_error(self):
         """ValidationError should have 422 status."""
         from app.exceptions import ValidationError
+
         err = ValidationError(message="Invalid input")
         assert err.status_code == 422
 
     def test_authentication_error(self):
         """AuthenticationError should have 401 status."""
         from app.exceptions import AuthenticationError
+
         err = AuthenticationError()
         assert err.status_code == 401
 
     def test_rate_limit_error(self):
         """RateLimitError should have 429 status."""
         from app.exceptions import RateLimitError
+
         err = RateLimitError()
         assert err.status_code == 429
 
@@ -800,7 +847,9 @@ class TestFullPipelineIntegration:
 
         # Step 2: Classify intent
         result = await engine.classify(
-            query, company_id="pipeline-test-co", use_ai=False,
+            query,
+            company_id="pipeline-test-co",
+            use_ai=False,
         )
         assert result.primary_intent == "refund"
 
@@ -849,10 +898,12 @@ class TestFullPipelineIntegration:
         from app.core.langgraph_workflow import LangGraphWorkflow, WorkflowConfig
 
         for variant in ["mini_parwa", "parwa", "parwa_high"]:
-            wf = LangGraphWorkflow(WorkflowConfig(
-                variant_type=variant,
-                company_id=f"e2e-test-{variant}",
-            ))
+            wf = LangGraphWorkflow(
+                WorkflowConfig(
+                    variant_type=variant,
+                    company_id=f"e2e-test-{variant}",
+                )
+            )
             result = await wf.execute(
                 company_id=f"e2e-test-{variant}",
                 query="Help me with my subscription billing issue",
@@ -898,6 +949,7 @@ class TestTenantIsolation:
         """SmartRouter.route should have company_id as first param."""
         from app.core.smart_router import SmartRouter
         import inspect
+
         sig = inspect.signature(SmartRouter.route)
         params = list(sig.parameters.keys())
         assert params[0] == "self"
@@ -907,6 +959,7 @@ class TestTenantIsolation:
         """LangGraphWorkflow.execute should have company_id as first param."""
         from app.core.langgraph_workflow import LangGraphWorkflow
         import inspect
+
         sig = inspect.signature(LangGraphWorkflow.execute)
         params = list(sig.parameters.keys())
         assert params[0] == "self"
@@ -916,6 +969,7 @@ class TestTenantIsolation:
         """ClassificationEngine.classify should accept company_id."""
         from app.core.classification_engine import ClassificationEngine
         import inspect
+
         sig = inspect.signature(ClassificationEngine.classify)
         params = list(sig.parameters.keys())
         assert "company_id" in params
@@ -924,6 +978,7 @@ class TestTenantIsolation:
         """SignalExtractionRequest should have company_id field."""
         from app.core.signal_extraction import SignalExtractionRequest
         import dataclasses
+
         fields = [f.name for f in dataclasses.fields(SignalExtractionRequest)]
         assert "company_id" in fields
 
@@ -939,4 +994,5 @@ class TestResponseGenerator:
     def test_response_generator_import(self):
         """Response generator should be importable."""
         from app.core.response_generator import ResponseGenerator
+
         assert ResponseGenerator is not None

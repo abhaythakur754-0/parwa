@@ -98,7 +98,9 @@ _RE_SELF_HARM = re.compile(
 
 _RE_CHILD_EXPLOITATION = re.compile(
     r"\b(child pornography|child exploitation|underage exploitation|minor abuse|"
-    r"pedophil|child grooming|child sex|sex with minor)\b", re.IGNORECASE, )
+    r"pedophil|child grooming|child sex|sex with minor)\b",
+    re.IGNORECASE,
+)
 
 # Severity: HIGH
 _RE_ILLEGAL_ACTIVITIES = re.compile(
@@ -270,7 +272,9 @@ _RE_HALLUCINATION_MARKERS = re.compile(
     r"a (recent|new|latest) (report|study|survey) (from|in) 202[0-4]|"
     r"the (current|latest) version is \d+\.\d+\.?\d*|"
     r"the (official|current) website (is|states)|"
-    r"(breaking|just announced|just confirmed) (news|update))\b", re.IGNORECASE, )
+    r"(breaking|just announced|just confirmed) (news|update))\b",
+    re.IGNORECASE,
+)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -280,6 +284,7 @@ _RE_HALLUCINATION_MARKERS = re.compile(
 
 class GuardrailLayer(str, Enum):
     """All guardrail layer identifiers."""
+
     CONTENT_SAFETY = "content_safety"
     TOPIC_RELEVANCE = "topic_relevance"
     HALLUCINATION_CHECK = "hallucination_check"
@@ -292,6 +297,7 @@ class GuardrailLayer(str, Enum):
 
 class SeverityLevel(str, Enum):
     """Severity levels for guardrail violations."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -300,6 +306,7 @@ class SeverityLevel(str, Enum):
 
 class GuardAction(str, Enum):
     """Actions the guardrail engine can take."""
+
     ALLOW = "allow"
     BLOCK = "block"
     FLAG_FOR_REVIEW = "flag_for_review"
@@ -308,6 +315,7 @@ class GuardAction(str, Enum):
 
 class StrictnessLevel(str, Enum):
     """How strictly guardrails are applied."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -331,6 +339,7 @@ class GuardrailResult:
         action: One of "allow", "block", "flag_for_review", "rewrite".
         metadata: Additional structured data about the check.
     """
+
     passed: bool
     layer: str
     severity: str = "low"
@@ -357,19 +366,23 @@ class GuardrailConfig:
         pii_check_enabled: Whether PII leak check is on.
         confidence_threshold: Minimum AI confidence score (0-100).
     """
+
     company_id: str
     variant_type: str = "parwa"
     strictness_level: str = StrictnessLevel.MEDIUM.value
-    enabled_layers: List[str] = field(default_factory=lambda: [
-        layer.value for layer in GuardrailLayer
-    ])
+    enabled_layers: List[str] = field(
+        default_factory=lambda: [layer.value for layer in GuardrailLayer]
+    )
     custom_rules: List[Dict[str, Any]] = field(default_factory=list)
     blocked_keywords: List[str] = field(default_factory=list)
     max_response_length: int = 2000
     min_response_length: int = 20
-    tone_requirements: List[str] = field(default_factory=lambda: [
-        "professional", "empathetic",
-    ])
+    tone_requirements: List[str] = field(
+        default_factory=lambda: [
+            "professional",
+            "empathetic",
+        ]
+    )
     pii_check_enabled: bool = True
     confidence_threshold: float = 85.0
 
@@ -385,6 +398,7 @@ class GuardrailsReport:
         flagged_count: How many layers returned a FLAG_FOR_REVIEW action.
         overall_action: The most restrictive action across all layers.
     """
+
     passed: bool
     results: List[GuardrailResult] = field(default_factory=list)
     blocked_count: int = 0
@@ -497,10 +511,12 @@ def _build_config(
     """
     # Get variant defaults
     strictness = VARIANT_STRICTNESS.get(
-        variant_type, StrictnessLevel.MEDIUM,
+        variant_type,
+        StrictnessLevel.MEDIUM,
     )
     confidence = VARIANT_CONFIDENCE_THRESHOLDS.get(
-        variant_type, 85.0,
+        variant_type,
+        85.0,
     )
 
     if override_config is not None:
@@ -511,24 +527,34 @@ def _build_config(
             company_id=override_config.company_id or company_id,
             variant_type=override_config.variant_type or variant_type,
             strictness_level=override_config.strictness_level or strictness.value,
-            enabled_layers=override_config.enabled_layers
-            if override_config.enabled_layers
-            else [layer.value for layer in GuardrailLayer],
+            enabled_layers=(
+                override_config.enabled_layers
+                if override_config.enabled_layers
+                else [layer.value for layer in GuardrailLayer]
+            ),
             custom_rules=override_config.custom_rules,
             blocked_keywords=override_config.blocked_keywords,
-            max_response_length=override_config.max_response_length
-            if override_config.max_response_length != 2000
-            else 2000,
-            min_response_length=override_config.min_response_length
-            if override_config.min_response_length != 20
-            else 20,
-            tone_requirements=override_config.tone_requirements
-            if override_config.tone_requirements
-            else ["professional", "empathetic"],
+            max_response_length=(
+                override_config.max_response_length
+                if override_config.max_response_length != 2000
+                else 2000
+            ),
+            min_response_length=(
+                override_config.min_response_length
+                if override_config.min_response_length != 20
+                else 20
+            ),
+            tone_requirements=(
+                override_config.tone_requirements
+                if override_config.tone_requirements
+                else ["professional", "empathetic"]
+            ),
             pii_check_enabled=override_config.pii_check_enabled,
-            confidence_threshold=override_config.confidence_threshold
-            if override_config.confidence_threshold != 85.0
-            else confidence,
+            confidence_threshold=(
+                override_config.confidence_threshold
+                if override_config.confidence_threshold != 85.0
+                else confidence
+            ),
         )
         return merged
 
@@ -568,9 +594,17 @@ class ContentSafetyGuard:
         (_RE_SELF_HARM, SeverityLevel.CRITICAL.value, "self-harm"),
         (_RE_CHILD_EXPLOITATION, SeverityLevel.CRITICAL.value, "child exploitation"),
         (_RE_ILLEGAL_ACTIVITIES, SeverityLevel.HIGH.value, "illegal activities"),
-        (_RE_SEXUAL_CONTENT_EXPLICIT, SeverityLevel.HIGH.value, "explicit sexual content"),
+        (
+            _RE_SEXUAL_CONTENT_EXPLICIT,
+            SeverityLevel.HIGH.value,
+            "explicit sexual content",
+        ),
         (_RE_VIOLENCE_MODERATE, SeverityLevel.MEDIUM.value, "moderate violence"),
-        (_RE_SEXUAL_CONTENT_MODERATE, SeverityLevel.MEDIUM.value, "moderate sexual content"),
+        (
+            _RE_SEXUAL_CONTENT_MODERATE,
+            SeverityLevel.MEDIUM.value,
+            "moderate sexual content",
+        ),
         (_RE_HATE_SPEECH_MODERATE, SeverityLevel.MEDIUM.value, "moderate hate speech"),
     ]
 
@@ -605,7 +639,8 @@ class ContentSafetyGuard:
                     reason=f"Blocked keyword detected: '{keyword}'",
                     blocked_content=keyword,
                     action=_resolve_action(
-                        SeverityLevel.HIGH.value, config.strictness_level,
+                        SeverityLevel.HIGH.value,
+                        config.strictness_level,
                     ),
                     metadata={"category": "custom_blocked_keyword"},
                 )
@@ -619,24 +654,28 @@ class ContentSafetyGuard:
                 try:
                     if re.search(pattern, text, re.IGNORECASE):
                         rule_severity = rule.get(
-                            "severity", SeverityLevel.HIGH.value,
+                            "severity",
+                            SeverityLevel.HIGH.value,
                         )
                         return GuardrailResult(
                             passed=False,
                             layer=self.LAYER_NAME,
                             severity=rule_severity,
                             reason=rule.get(
-                                "reason", f"Custom rule matched: {pattern}",
+                                "reason",
+                                f"Custom rule matched: {pattern}",
                             ),
                             blocked_content=pattern,
                             action=_resolve_action(
-                                rule_severity, config.strictness_level,
+                                rule_severity,
+                                config.strictness_level,
                             ),
                             metadata={"category": "custom_rule", "rule": rule},
                         )
                 except re.error:
                     logger.warning(
-                        "Invalid custom rule regex pattern: %s", pattern,
+                        "Invalid custom rule regex pattern: %s",
+                        pattern,
                     )
 
         # Run through all content safety patterns (worst match wins)
@@ -770,10 +809,7 @@ class TopicRelevanceGuard:
         return GuardrailResult(
             passed=True,
             layer=self.LAYER_NAME,
-            reason=(
-                "Response is on-topic: "
-                f"{overlap_ratio:.1%} keyword overlap"
-            ),
+            reason=("Response is on-topic: " f"{overlap_ratio:.1%} keyword overlap"),
             metadata=metadata,
         )
 
@@ -833,8 +869,7 @@ class HallucinationCheckGuard:
 
         # Check for fake URL/citation patterns
         fake_url_re = re.compile(
-            r"(?:https?://)?(?:www\.)?"
-            r"[a-z]+\d{4}\.(?:com|org|net|io)\b",
+            r"(?:https?://)?(?:www\.)?" r"[a-z]+\d{4}\.(?:com|org|net|io)\b",
             re.IGNORECASE,
         )
         url_match = fake_url_re.search(response)
@@ -891,18 +926,42 @@ class PolicyComplianceGuard:
 
     # (compiled_regex, severity, category, description)
     _POLICY_PATTERNS: List[tuple] = [
-        (_RE_PRICING_GUARANTEE, SeverityLevel.HIGH.value,
-         "pricing_guarantee", "Pricing guarantee detected"),
-        (_RE_LEGAL_ADVICE, SeverityLevel.HIGH.value,
-         "legal_advice", "Legal advice detected"),
-        (_RE_PROFESSIONAL_ADVICE, SeverityLevel.HIGH.value,
-         "professional_advice", "Professional advice detected"),
-        (_RE_SLA_PROMISES, SeverityLevel.HIGH.value,
-         "sla_promise", "SLA promise detected"),
-        (_RE_REFUND_PROMISES, SeverityLevel.HIGH.value,
-         "refund_promise", "Refund guarantee detected"),
-        (_RE_FINANCIAL_CLAIMS, SeverityLevel.HIGH.value,
-         "financial_claim", "Financial claim detected"),
+        (
+            _RE_PRICING_GUARANTEE,
+            SeverityLevel.HIGH.value,
+            "pricing_guarantee",
+            "Pricing guarantee detected",
+        ),
+        (
+            _RE_LEGAL_ADVICE,
+            SeverityLevel.HIGH.value,
+            "legal_advice",
+            "Legal advice detected",
+        ),
+        (
+            _RE_PROFESSIONAL_ADVICE,
+            SeverityLevel.HIGH.value,
+            "professional_advice",
+            "Professional advice detected",
+        ),
+        (
+            _RE_SLA_PROMISES,
+            SeverityLevel.HIGH.value,
+            "sla_promise",
+            "SLA promise detected",
+        ),
+        (
+            _RE_REFUND_PROMISES,
+            SeverityLevel.HIGH.value,
+            "refund_promise",
+            "Refund guarantee detected",
+        ),
+        (
+            _RE_FINANCIAL_CLAIMS,
+            SeverityLevel.HIGH.value,
+            "financial_claim",
+            "Financial claim detected",
+        ),
     ]
 
     def check(
@@ -931,12 +990,14 @@ class PolicyComplianceGuard:
         for compiled_re, severity, category, description in self._POLICY_PATTERNS:
             match = compiled_re.search(text)
             if match:
-                violations.append({
-                    "pattern_match": match.group(),
-                    "severity": severity,
-                    "category": category,
-                    "description": description,
-                })
+                violations.append(
+                    {
+                        "pattern_match": match.group(),
+                        "severity": severity,
+                        "category": category,
+                        "description": description,
+                    }
+                )
 
         # Check tenant custom rules
         for rule in config.custom_rules:
@@ -946,19 +1007,24 @@ class PolicyComplianceGuard:
             if pattern and isinstance(pattern, str):
                 try:
                     if re.search(pattern, text, re.IGNORECASE):
-                        violations.append({
-                            "pattern_match": pattern,
-                            "severity": rule.get(
-                                "severity", SeverityLevel.HIGH.value,
-                            ),
-                            "category": "custom_rule",
-                            "description": rule.get(
-                                "reason", "Custom policy rule",
-                            ),
-                        })
+                        violations.append(
+                            {
+                                "pattern_match": pattern,
+                                "severity": rule.get(
+                                    "severity",
+                                    SeverityLevel.HIGH.value,
+                                ),
+                                "category": "custom_rule",
+                                "description": rule.get(
+                                    "reason",
+                                    "Custom policy rule",
+                                ),
+                            }
+                        )
                 except re.error:
                     logger.warning(
-                        "Invalid custom policy regex: %s", pattern,
+                        "Invalid custom policy regex: %s",
+                        pattern,
                     )
 
         if violations:
@@ -979,7 +1045,8 @@ class PolicyComplianceGuard:
                 ),
                 blocked_content=worst["pattern_match"],
                 action=_resolve_action(
-                    worst["severity"], config.strictness_level,
+                    worst["severity"],
+                    config.strictness_level,
                 ),
                 metadata={
                     "violations": violations,
@@ -1009,10 +1076,8 @@ class ToneValidationGuard:
     _TONE_PATTERNS: List[tuple] = [
         (_RE_AGGRESSIVE_TONE, "aggressive", "Aggressive tone detected"),
         (_RE_DISMISSIVE_TONE, "dismissive", "Dismissive tone detected"),
-        (_RE_CONDESCENDING_TONE, "condescending",
-         "Condescending tone detected"),
-        (_RE_OVERLY_CASUAL_SERIOUS, "overly_casual",
-         "Overly casual language detected"),
+        (_RE_CONDESCENDING_TONE, "condescending", "Condescending tone detected"),
+        (_RE_OVERLY_CASUAL_SERIOUS, "overly_casual", "Overly casual language detected"),
     ]
 
     # Tone categories that are generally considered serious
@@ -1047,26 +1112,29 @@ class ToneValidationGuard:
                 # Casual tone is only a violation if the context
                 # requires a serious tone
                 if tone_category == "overly_casual":
-                    if self._SERIOUS_TONES.intersection(
-                            config.tone_requirements):
-                        tone_violations.append({
-                            "match": match.group(),
-                            "tone_category": tone_category,
-                            "description": description,
-                            "severity": SeverityLevel.MEDIUM.value,
-                        })
+                    if self._SERIOUS_TONES.intersection(config.tone_requirements):
+                        tone_violations.append(
+                            {
+                                "match": match.group(),
+                                "tone_category": tone_category,
+                                "description": description,
+                                "severity": SeverityLevel.MEDIUM.value,
+                            }
+                        )
                 else:
                     severity = (
                         SeverityLevel.HIGH.value
                         if tone_category in ("aggressive", "dismissive")
                         else SeverityLevel.MEDIUM.value
                     )
-                    tone_violations.append({
-                        "match": match.group(),
-                        "tone_category": tone_category,
-                        "description": description,
-                        "severity": severity,
-                    })
+                    tone_violations.append(
+                        {
+                            "match": match.group(),
+                            "tone_category": tone_category,
+                            "description": description,
+                            "severity": severity,
+                        }
+                    )
 
         if tone_violations:
             worst = max(
@@ -1085,7 +1153,8 @@ class ToneValidationGuard:
                 ),
                 blocked_content=worst["match"],
                 action=_resolve_action(
-                    worst["severity"], config.strictness_level,
+                    worst["severity"],
+                    config.strictness_level,
                 ),
                 metadata={
                     "violations": tone_violations,
@@ -1163,7 +1232,8 @@ class LengthControlGuard:
                     f"{length} chars (max {max_len})"
                 ),
                 action=_resolve_action(
-                    SeverityLevel.MEDIUM.value, config.strictness_level,
+                    SeverityLevel.MEDIUM.value,
+                    config.strictness_level,
                 ),
                 metadata=metadata,
             )
@@ -1174,11 +1244,11 @@ class LengthControlGuard:
                 layer=self.LAYER_NAME,
                 severity=SeverityLevel.MEDIUM.value,
                 reason=(
-                    "Response below minimum length: "
-                    f"{length} chars (min {min_len})"
+                    "Response below minimum length: " f"{length} chars (min {min_len})"
                 ),
                 action=_resolve_action(
-                    SeverityLevel.MEDIUM.value, config.strictness_level,
+                    SeverityLevel.MEDIUM.value,
+                    config.strictness_level,
                 ),
                 metadata=metadata,
             )
@@ -1271,11 +1341,13 @@ class PIILeakGuard:
             for match_text in matches:
                 # Mask the match for safety in logs
                 masked = self._mask_value(str(match_text), category)
-                pii_findings.append({
-                    "category": category,
-                    "masked_value": masked,
-                    "raw_length": len(str(match_text)),
-                })
+                pii_findings.append(
+                    {
+                        "category": category,
+                        "masked_value": masked,
+                        "raw_length": len(str(match_text)),
+                    }
+                )
 
         if pii_findings:
             # High severity for sensitive PII (SSN, credit card)
@@ -1298,16 +1370,12 @@ class PIILeakGuard:
                     f"{len(set(f['category'] for f in pii_findings))} "
                     "category(ies)"
                 ),
-                blocked_content="; ".join(
-                    f["category"] for f in pii_findings
-                ),
+                blocked_content="; ".join(f["category"] for f in pii_findings),
                 action=_resolve_action(severity, config.strictness_level),
                 metadata={
                     "pii_findings": pii_findings,
                     "finding_count": len(pii_findings),
-                    "categories": list({
-                        f["category"] for f in pii_findings
-                    }),
+                    "categories": list({f["category"] for f in pii_findings}),
                     "has_sensitive_pii": has_sensitive,
                 },
             )
@@ -1332,8 +1400,7 @@ class PIILeakGuard:
         if category == "ssn":
             return "***-**-" + value[-4:] if len(value) >= 4 else "***"
         if category == "credit_card":
-            return "****-****-****-" + \
-                value[-4:] if len(value) >= 4 else "****"
+            return "****-****-****-" + value[-4:] if len(value) >= 4 else "****"
         if category == "email":
             parts = value.split("@")
             if len(parts) == 2:
@@ -1466,31 +1533,40 @@ class GuardrailsEngine:
 
         # Guard registry: layer -> (guard_instance, needs_query)
         self._guards: Dict[
-            str, tuple[Any, bool],
+            str,
+            tuple[Any, bool],
         ] = {
             GuardrailLayer.CONTENT_SAFETY.value: (
-                self._content_safety, False,
+                self._content_safety,
+                False,
             ),
             GuardrailLayer.TOPIC_RELEVANCE.value: (
-                self._topic_relevance, True,
+                self._topic_relevance,
+                True,
             ),
             GuardrailLayer.HALLUCINATION_CHECK.value: (
-                self._hallucination_check, True,
+                self._hallucination_check,
+                True,
             ),
             GuardrailLayer.POLICY_COMPLIANCE.value: (
-                self._policy_compliance, False,
+                self._policy_compliance,
+                False,
             ),
             GuardrailLayer.TONE_VALIDATION.value: (
-                self._tone_validation, False,
+                self._tone_validation,
+                False,
             ),
             GuardrailLayer.LENGTH_CONTROL.value: (
-                self._length_control, False,
+                self._length_control,
+                False,
             ),
             GuardrailLayer.PII_LEAK_PREVENTION.value: (
-                self._pii_leak, False,
+                self._pii_leak,
+                False,
             ),
             GuardrailLayer.CONFIDENCE_GATE.value: (
-                self._confidence_gate, False,
+                self._confidence_gate,
+                False,
             ),
         }
 
@@ -1546,16 +1622,16 @@ class GuardrailsEngine:
             except Exception:
                 # BC-008: Never crash. Log and continue.
                 logger.exception(
-                    "Guard layer %s raised an exception "
-                    "(company_id=%s, variant=%s)",
-                    layer_name, company_id, variant_type,
+                    "Guard layer %s raised an exception " "(company_id=%s, variant=%s)",
+                    layer_name,
+                    company_id,
+                    variant_type,
                 )
                 result = GuardrailResult(
                     passed=True,
                     layer=layer_name,
                     reason=f"Guard {layer_name} failed internally, allowed by default",
-                    metadata={
-                        "internal_error": True},
+                    metadata={"internal_error": True},
                 )
 
             report.results.append(result)
@@ -1572,7 +1648,9 @@ class GuardrailsEngine:
                 report.overall_action = GuardAction.BLOCK.value
                 logger.warning(
                     "Guardrail BLOCK by %s (company_id=%s): %s",
-                    layer_name, company_id, result.reason,
+                    layer_name,
+                    company_id,
+                    result.reason,
                 )
                 break
             elif result.action == GuardAction.FLAG_FOR_REVIEW.value:
@@ -1587,8 +1665,11 @@ class GuardrailsEngine:
         logger.info(
             "Guardrails check complete (company_id=%s, variant=%s): "
             "passed=%s, blocked=%d, flagged=%d, action=%s",
-            company_id, variant_type,
-            report.passed, report.blocked_count, report.flagged_count,
+            company_id,
+            variant_type,
+            report.passed,
+            report.blocked_count,
+            report.flagged_count,
             report.overall_action,
         )
 
@@ -1762,11 +1843,15 @@ class BlockedResponseManager:
 
             redis = await get_redis()
             key = make_key(
-                company_id, self.BLOCKED_KEY_PREFIX, entry_id,
+                company_id,
+                self.BLOCKED_KEY_PREFIX,
+                entry_id,
             )
             serialized = json.dumps(entry, default=str)
             await redis.set(
-                key, serialized, ex=self.BLOCKED_ENTRY_TTL,
+                key,
+                serialized,
+                ex=self.BLOCKED_ENTRY_TTL,
             )
 
             # Increment stats counter
@@ -1775,14 +1860,16 @@ class BlockedResponseManager:
             logger.info(
                 "Blocked response logged (company_id=%s, entry=%s, "
                 "layer=%s, action=%s)",
-                company_id, entry_id,
-                guard_result.layer, guard_result.action,
+                company_id,
+                entry_id,
+                guard_result.layer,
+                guard_result.action,
             )
         except Exception:
             logger.exception(
-                "Failed to log blocked response to Redis "
-                "(company_id=%s, layer=%s)",
-                company_id, guard_result.layer,
+                "Failed to log blocked response to Redis " "(company_id=%s, layer=%s)",
+                company_id,
+                guard_result.layer,
             )
 
         return entry_id
@@ -1808,7 +1895,9 @@ class BlockedResponseManager:
 
             redis = await get_redis()
             pattern = make_key(
-                company_id, self.BLOCKED_KEY_PREFIX, "*",
+                company_id,
+                self.BLOCKED_KEY_PREFIX,
+                "*",
             )
             keys = []
             async for key in redis.scan_iter(match=pattern, count=100):
@@ -1818,7 +1907,7 @@ class BlockedResponseManager:
             keys.sort(reverse=True)
 
             # Paginate
-            paginated_keys = keys[offset:offset + limit]
+            paginated_keys = keys[offset : offset + limit]
 
             entries: List[Dict[str, Any]] = []
             for key in paginated_keys:
@@ -1933,12 +2022,12 @@ class BlockedResponseManager:
             severity = guard_result.severity
             if "by_severity" not in stats:
                 stats["by_severity"] = {}
-            stats["by_severity"][severity] = stats["by_severity"].get(
-                severity, 0) + 1
+            stats["by_severity"][severity] = stats["by_severity"].get(severity, 0) + 1
 
             # Serialize and store
             await redis.set(
-                stats_key, json.dumps(stats),
+                stats_key,
+                json.dumps(stats),
                 ex=self.BLOCKED_ENTRY_TTL,
             )
         except Exception:

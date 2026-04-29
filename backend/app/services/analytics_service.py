@@ -32,6 +32,7 @@ class BillingAnalyticsService:
             base_price = Decimal("0.00")
             if sub:
                 from database.models.billing_extended import get_variant_limits
+
                 limits = get_variant_limits(sub.tier) if sub.tier else None
                 if limits:
                     base_price = limits.get("price_monthly", Decimal("0.00"))
@@ -79,23 +80,24 @@ class BillingAnalyticsService:
                 "channels": {
                     "email": {
                         "tickets": usage.tickets_used if usage else 0,
-                        "cost": "included"},
-                    "chat": {
-                        "tickets": 0,
-                        "cost": "included"},
+                        "cost": "included",
+                    },
+                    "chat": {"tickets": 0, "cost": "included"},
                     "voice": {
-                        "minutes": float(
-                            usage.voice_minutes_used) if usage and usage.voice_minutes_used else 0.0,
+                        "minutes": (
+                            float(usage.voice_minutes_used)
+                            if usage and usage.voice_minutes_used
+                            else 0.0
+                        ),
                         "cost": "0.00",
                     },
-                    "sms": {
-                        "count": 0,
-                        "cost": "0.00"},
+                    "sms": {"count": 0, "cost": "0.00"},
                 },
             }
 
-    def get_spending_trend(self, company_id: str,
-                           months: int = 6) -> List[Dict[str, Any]]:
+    def get_spending_trend(
+        self, company_id: str, months: int = 6
+    ) -> List[Dict[str, Any]]:
         """6 month trend data."""
         with SessionLocal() as db:
             now = datetime.now(timezone.utc)
@@ -114,11 +116,17 @@ class BillingAnalyticsService:
                     .first()
                 )
 
-                months_data.append({
-                    "month": month_str,
-                    "tickets_used": usage.tickets_used if usage else 0,
-                    "overage_cost": str(usage.overage_charges) if usage and usage.overage_charges else "0.00",
-                })
+                months_data.append(
+                    {
+                        "month": month_str,
+                        "tickets_used": usage.tickets_used if usage else 0,
+                        "overage_cost": (
+                            str(usage.overage_charges)
+                            if usage and usage.overage_charges
+                            else "0.00"
+                        ),
+                    }
+                )
 
             return months_data
 
@@ -138,6 +146,7 @@ class BillingAnalyticsService:
             ticket_limit = 2000
             if sub:
                 from database.models.billing_extended import get_variant_limits
+
                 limits = get_variant_limits(sub.tier) if sub.tier else None
                 if limits:
                     ticket_limit = limits.get("monthly_tickets", 2000)
@@ -152,10 +161,7 @@ class BillingAnalyticsService:
             )
 
             tickets_used = usage.tickets_used if usage else 0
-            percentage = (
-                tickets_used
-                / ticket_limit
-                * 100) if ticket_limit > 0 else 0
+            percentage = (tickets_used / ticket_limit * 100) if ticket_limit > 0 else 0
 
             thresholds = [50, 75, 90, 100]
             alerts = []

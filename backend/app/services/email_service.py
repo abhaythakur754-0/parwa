@@ -20,8 +20,13 @@ from httpx import HTTPError, TimeoutException
 try:
     import sib_api_v3_sdk
     from sib_api_v3_sdk.api import TransactionalEmailsApi
-    from sib_api_v3_sdk.models import SendSmtpEmail, SendSmtpEmailTo, SendSmtpEmailSender
+    from sib_api_v3_sdk.models import (
+        SendSmtpEmail,
+        SendSmtpEmailTo,
+        SendSmtpEmailSender,
+    )
     from sib_api_v3_sdk.configuration import Configuration
+
     _BREVO_SDK_AVAILABLE = True
 except ImportError:
     sib_api_v3_sdk = None
@@ -62,10 +67,10 @@ def _get_redis_client():
         return _redis_client
     try:
         import redis
+
         settings = get_settings()
         if settings.REDIS_URL:
-            _redis_client = redis.from_url(
-                settings.REDIS_URL, decode_responses=True)
+            _redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
             _redis_client.ping()  # validate connection
             return _redis_client
     except Exception as exc:
@@ -115,8 +120,7 @@ def _get_brevo_client():
         return _brevo_api_client
     try:
         settings = get_settings()
-        configuration = Configuration(
-            api_key={"api-key": settings.BREVO_API_KEY})
+        configuration = Configuration(api_key={"api-key": settings.BREVO_API_KEY})
         api_client = sib_api_v3_sdk.ApiClient(configuration)
         _brevo_api_client = TransactionalEmailsApi(api_client)
         return _brevo_api_client
@@ -263,9 +267,7 @@ def _do_send_email(
 
     settings = get_settings()
     if not settings.BREVO_API_KEY:
-        logger.error(
-            "email_send_skipped", reason="no_api_key"
-        )
+        logger.error("email_send_skipped", reason="no_api_key")
         _result["error"] = "no_api_key"
         return _result
 
@@ -288,10 +290,12 @@ def _do_send_email(
                 continue
             name = att.get("name", "attachment")
             content = att.get("content", "")
-            brevo_attachments.append({
-                "name": name,
-                "content": content,
-            })
+            brevo_attachments.append(
+                {
+                    "name": name,
+                    "content": content,
+                }
+            )
 
     # --- SDK path (preferred) ---
     if _BREVO_SDK_AVAILABLE:
@@ -314,7 +318,7 @@ def _do_send_email(
                     send_email_obj.attachment = brevo_attachments
 
                 result = client.send_transac_email(send_email_obj)
-                if result and hasattr(result, 'message_id'):
+                if result and hasattr(result, "message_id"):
                     _record_success()
                     logger.info(
                         "email_sent_sdk",
@@ -397,9 +401,7 @@ def _do_send_email(
         _result["error"] = f"brevo_{resp.status_code}"
         return _result
     except TimeoutException:
-        logger.error(
-            "email_send_timeout", to=to
-        )
+        logger.error("email_send_timeout", to=to)
         _record_failure()
         _result["error"] = "timeout"
         return _result

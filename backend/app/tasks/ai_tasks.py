@@ -26,8 +26,7 @@ logger = logging.getLogger("parwa.tasks.ai")
     time_limit=60,
 )
 @with_company_id
-def classify_ticket(self, company_id: str, ticket_id: str,
-                    text: str = "") -> dict:
+def classify_ticket(self, company_id: str, ticket_id: str, text: str = "") -> dict:
     """Classify a support ticket using AI."""
     try:
         logger.info(
@@ -69,9 +68,13 @@ def classify_ticket(self, company_id: str, ticket_id: str,
     time_limit=300,
 )
 @with_company_id
-def generate_response(self, company_id: str, ticket_id: str,
-                      conversation_history: Optional[List[dict]] = None,
-                      context: str = "") -> dict:
+def generate_response(
+    self,
+    company_id: str,
+    ticket_id: str,
+    conversation_history: Optional[List[dict]] = None,
+    context: str = "",
+) -> dict:
     """Generate AI response for a support ticket."""
     try:
         logger.info(
@@ -111,8 +114,9 @@ def generate_response(self, company_id: str, ticket_id: str,
     time_limit=30,
 )
 @with_company_id
-def score_confidence(self, company_id: str, ticket_id: str,
-                     response_text: str = "") -> dict:
+def score_confidence(
+    self, company_id: str, ticket_id: str, response_text: str = ""
+) -> dict:
     """Score confidence of an AI-generated response."""
     try:
         logger.info(

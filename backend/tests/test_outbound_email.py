@@ -21,7 +21,6 @@ import uuid
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-
 # ── Fixtures ──────────────────────────────────────────────────
 
 
@@ -165,11 +164,17 @@ class TestOutboundEmailServiceBasic:
         mock_task = MagicMock()
         mock_task.delay = MagicMock()
 
-        with patch("app.services.outbound_email_service.OutboundEmail", create=True) as MockOutbound, \
-                patch("app.services.outbound_email_service.TicketMessage", create=True) as MockMsg, \
-                patch("app.services.outbound_email_service.EmailThread", create=True), \
-                patch("app.services.outbound_email_service.InboundEmail", create=True), \
-                patch("app.tasks.email_tasks.send_email", mock_task):
+        with patch(
+            "app.services.outbound_email_service.OutboundEmail", create=True
+        ) as MockOutbound, patch(
+            "app.services.outbound_email_service.TicketMessage", create=True
+        ) as MockMsg, patch(
+            "app.services.outbound_email_service.EmailThread", create=True
+        ), patch(
+            "app.services.outbound_email_service.InboundEmail", create=True
+        ), patch(
+            "app.tasks.email_tasks.send_email", mock_task
+        ):
             # Configure mock constructor
             mock_msg_instance = MagicMock()
             mock_msg_instance.id = str(uuid.uuid4())
@@ -296,8 +301,7 @@ class TestOutboundRateLimiting:
         mock_q.func = MagicMock()
         db.query.return_value = mock_q
 
-        error = service._check_outbound_rate_limit(
-            company_id, str(uuid.uuid4()))
+        error = service._check_outbound_rate_limit(company_id, str(uuid.uuid4()))
         assert error is not None
         assert "rate limit" in error.lower()
 
@@ -319,8 +323,7 @@ class TestOutboundRateLimiting:
         mock_q.func = MagicMock()
         db.query.return_value = mock_q
 
-        error = service._check_outbound_rate_limit(
-            company_id, str(uuid.uuid4()))
+        error = service._check_outbound_rate_limit(company_id, str(uuid.uuid4()))
         assert error is None
 
 
@@ -341,8 +344,7 @@ class TestOutboundThreading:
 
         db = _make_mock_db()
         service = OutboundEmailService(db)
-        assert service._build_reply_subject(
-            "Re: Help needed") == "Re: Help needed"
+        assert service._build_reply_subject("Re: Help needed") == "Re: Help needed"
 
     def test_build_reply_subject_multiple_re(self):
         """Deduplicates multiple Re: prefixes."""
@@ -350,8 +352,7 @@ class TestOutboundThreading:
 
         db = _make_mock_db()
         service = OutboundEmailService(db)
-        assert service._build_reply_subject(
-            "Re: Re: Help needed") == "Re: Help needed"
+        assert service._build_reply_subject("Re: Re: Help needed") == "Re: Help needed"
 
     def test_build_reply_subject_fwd(self):
         """Strips Fwd: prefix and adds Re:."""
@@ -359,8 +360,7 @@ class TestOutboundThreading:
 
         db = _make_mock_db()
         service = OutboundEmailService(db)
-        assert service._build_reply_subject(
-            "Fwd: Help needed") == "Re: Help needed"
+        assert service._build_reply_subject("Fwd: Help needed") == "Re: Help needed"
 
     def test_build_reply_subject_empty(self):
         """Handles empty subject."""
@@ -501,8 +501,7 @@ class TestOutboundInlineQuoting:
         mock_email.sender_email = "jane@example.com"
         mock_email.body_html = None
         mock_email.body_text = "I need help with my order #12345"
-        mock_email.created_at = datetime(
-            2026, 4, 13, 10, 30, tzinfo=timezone.utc)
+        mock_email.created_at = datetime(2026, 4, 13, 10, 30, tzinfo=timezone.utc)
 
         mock_q = MagicMock()
         mock_f = MagicMock()
@@ -714,36 +713,41 @@ class TestEmailUtils:
     def test_strip_html_basic(self):
         """Strips HTML tags."""
         from app.core.email_utils import strip_html
+
         assert strip_html("<p>Hello <b>world</b></p>") == "Hello world"
 
     def test_strip_html_empty(self):
         """Returns empty string for empty input."""
         from app.core.email_utils import strip_html
+
         assert strip_html("") == ""
         assert strip_html(None) == ""
 
     def test_strip_html_collapse_whitespace(self):
         """Collapses multiple whitespace."""
         from app.core.email_utils import strip_html
+
         assert strip_html("<p>  Hello   \n  world  </p>") == "Hello world"
 
     def test_strip_html_preserves_text_content(self):
         """Preserves text content within tags."""
         from app.core.email_utils import strip_html
-        result = strip_html(
-            "<h1>Title</h1><p>Paragraph with <a href='#'>link</a></p>")
+
+        result = strip_html("<h1>Title</h1><p>Paragraph with <a href='#'>link</a></p>")
         assert "Title" in result
         assert "Paragraph with link" in result
 
     def test_validate_email_valid(self):
         """Accepts valid email addresses."""
         from app.core.email_utils import validate_email_address
+
         assert validate_email_address("user@example.com") is True
         assert validate_email_address("user.name@domain.co.uk") is True
 
     def test_validate_email_invalid(self):
         """Rejects invalid email addresses."""
         from app.core.email_utils import validate_email_address
+
         assert validate_email_address("") is False
         assert validate_email_address("notanemail") is False
         assert validate_email_address("@domain.com") is False
@@ -753,12 +757,14 @@ class TestEmailUtils:
     def test_sanitize_subject(self):
         """Sanitizes subject lines."""
         from app.core.email_utils import sanitize_subject
+
         assert sanitize_subject("  Hello \x00 World  ") == "Hello World"
         assert sanitize_subject("") == ""
 
     def test_sanitize_subject_truncation(self):
         """Truncates long subjects."""
         from app.core.email_utils import sanitize_subject
+
         long_subject = "A" * 1000
         result = sanitize_subject(long_subject, max_length=100)
         assert len(result) == 100
@@ -776,17 +782,20 @@ class TestOutboundEmailModel:
         """G-01: OutboundEmail model is importable from mocked models."""
         # In test environment, database.models.outbound_email is mocked
         from database.models.outbound_email import OutboundEmail
+
         assert OutboundEmail is not None
         assert OutboundEmail.__tablename__ == "outbound_emails"
 
     def test_outbound_email_has_company_id(self):
         """BC-001: Every OutboundEmail has company_id."""
         from database.models.outbound_email import OutboundEmail
+
         assert hasattr(OutboundEmail, "company_id")
 
     def test_outbound_email_to_dict(self):
         """OutboundEmail.to_dict() serializes correctly."""
         from database.models.outbound_email import OutboundEmail
+
         outbound = OutboundEmail()
         outbound.recipient_email = "test@example.com"
         outbound.subject = "Re: Help"

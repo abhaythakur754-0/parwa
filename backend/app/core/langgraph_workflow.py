@@ -49,7 +49,9 @@ logger = get_logger("langgraph_workflow")
 #   from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 #   from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 # For development / single-process the in-memory checkpointer is sufficient.
-_CHECKPOINT_BACKENDS_COMMENT = "see langgraph-checkpoint-postgres / langgraph-checkpoint-redis"
+_CHECKPOINT_BACKENDS_COMMENT = (
+    "see langgraph-checkpoint-postgres / langgraph-checkpoint-redis"
+)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -181,6 +183,7 @@ VARIANT_PIPELINE_CONFIG: Dict[str, Dict[str, Any]] = {
 @dataclass
 class WorkflowConfig:
     """Configuration for a single workflow execution."""
+
     company_id: str = ""
     variant_type: str = "parwa"
     enable_context_compression: bool = False
@@ -198,6 +201,7 @@ class WorkflowConfig:
 @dataclass
 class WorkflowStep:
     """A single step within the pipeline graph."""
+
     step_id: str
     step_name: str
     step_type: str  # "preprocessing", "core", "postprocessing"
@@ -209,6 +213,7 @@ class WorkflowStep:
 @dataclass
 class WorkflowStepResult:
     """Outcome of executing a single pipeline step."""
+
     step_id: str
     status: str  # "success", "skipped", "error", "timeout"
     tokens_used: int = 0
@@ -220,6 +225,7 @@ class WorkflowStepResult:
 @dataclass
 class WorkflowResult:
     """Complete result of an entire workflow execution."""
+
     workflow_id: str
     variant_type: str
     status: str  # "success", "partial", "failed", "timeout"
@@ -281,7 +287,8 @@ class LangGraphWorkflow:
     """
 
     def __init__(
-        self, config: Optional[WorkflowConfig] = None,
+        self,
+        config: Optional[WorkflowConfig] = None,
     ) -> None:
         self._config = config or WorkflowConfig()
         self._graph: Any = None  # lazy-built StateGraph
@@ -319,6 +326,7 @@ class LangGraphWorkflow:
         if backend == "memory":
             try:
                 from langgraph.checkpoint.memory import MemorySaver
+
                 self._checkpointer = MemorySaver()
                 logger.info("checkpoint_memory_saver_initialized")
             except ImportError:
@@ -330,6 +338,7 @@ class LangGraphWorkflow:
         elif backend == "postgres":
             try:
                 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
                 self._checkpointer = AsyncPostgresSaver.from_conn_string(
                     "",  # Caller must call setup() with the real DSN
                 )
@@ -343,6 +352,7 @@ class LangGraphWorkflow:
         elif backend == "redis":
             try:
                 from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+
                 self._checkpointer = AsyncRedisSaver.from_url(
                     "",  # Caller must call setup() with the real URL
                 )
@@ -427,18 +437,22 @@ class LangGraphWorkflow:
             # Register a node for each step in the pipeline
             step_ids = [s.step_id for s in self._steps]
             for step_id in step_ids:
+
                 async def _node_fn(state: dict, _sid=step_id) -> dict:
                     """Delegate to the real step executor."""
                     try:
                         # Find the WorkflowStep definition for this step_id
                         wf_step = next(
-                            (s for s in self._steps if s.step_id == _sid), None, )
+                            (s for s in self._steps if s.step_id == _sid),
+                            None,
+                        )
                         if wf_step is None:
                             return {
                                 "step_outputs": {
                                     _sid: {"status": "error", "error": "Unknown step"},
                                 },
-                                "errors": state.get("errors", []) + [f"Unknown step: {_sid}"],
+                                "errors": state.get("errors", [])
+                                + [f"Unknown step: {_sid}"],
                             }
 
                         # Reconstruct step_results from accumulated state so
@@ -475,23 +489,25 @@ class LangGraphWorkflow:
                             },
                             "final_response": (
                                 step_result.output.get("response", "")
-                                if _sid == "generate" and step_result.status == "success"
+                                if _sid == "generate"
+                                and step_result.status == "success"
                                 else state.get("final_response", "")
                             ),
                             "total_tokens": (
                                 state.get("total_tokens", 0) + step_result.tokens_used
                             ),
                             "errors": (
-                                state.get("errors", [])
-                                + [step_result.error] if step_result.error
+                                state.get("errors", []) + [step_result.error]
+                                if step_result.error
                                 else state.get("errors", [])
                             ),
                         }
 
                         # Increment quality_retries when re-entering generate
                         if _sid == "generate":
-                            node_return["quality_retries"] = state.get(
-                                "quality_retries", 0) + 1
+                            node_return["quality_retries"] = (
+                                state.get("quality_retries", 0) + 1
+                            )
 
                         return node_return
                     except Exception as exc:
@@ -511,8 +527,7 @@ class LangGraphWorkflow:
 
             # Wire edges sequentially, with conditional edge after quality_gate
             has_quality_gate = "quality_gate" in step_ids
-            generate_idx = step_ids.index(
-                "generate") if "generate" in step_ids else -1
+            generate_idx = step_ids.index("generate") if "generate" in step_ids else -1
 
             for i in range(len(step_ids) - 1):
                 src = step_ids[i]
@@ -532,16 +547,14 @@ class LangGraphWorkflow:
                         exceeded max retries, route back to ``generate``.
                         Otherwise continue to the next step (e.g. ``format``).
                         """
-                        qg_output = state.get(
-                            "step_outputs", {}).get(
-                            "quality_gate", {})
-                        score = qg_output.get(
-                            "output",
-                            {}).get(
-                            "score",
-                            1.0) if isinstance(
-                            qg_output,
-                            dict) else 1.0
+                        qg_output = state.get("step_outputs", {}).get(
+                            "quality_gate", {}
+                        )
+                        score = (
+                            qg_output.get("output", {}).get("score", 1.0)
+                            if isinstance(qg_output, dict)
+                            else 1.0
+                        )
                         retries = state.get("quality_retries", 0)
                         threshold = self._config.quality_gate_confidence_threshold
                         max_retries = self._config.quality_gate_max_retries
@@ -617,7 +630,8 @@ class LangGraphWorkflow:
             )
 
     def _build_steps_for_variant(
-        self, variant_type: str,
+        self,
+        variant_type: str,
     ) -> List[WorkflowStep]:
         """Build the step list for a given variant."""
         builders = {
@@ -636,10 +650,12 @@ class LangGraphWorkflow:
             step_name=definition.get("step_name", step_id),
             step_type=definition.get("step_type", "core"),
             estimated_tokens=definition.get(
-                "estimated_tokens", 0,
+                "estimated_tokens",
+                0,
             ),
             timeout_seconds=definition.get(
-                "timeout_seconds", 5.0,
+                "timeout_seconds",
+                5.0,
             ),
             enabled=True,
         )
@@ -749,7 +765,8 @@ class LangGraphWorkflow:
             overall_status = "success"
 
             config = VARIANT_PIPELINE_CONFIG.get(
-                variant, VARIANT_PIPELINE_CONFIG["parwa"],
+                variant,
+                VARIANT_PIPELINE_CONFIG["parwa"],
             )
             max_time = config.get(
                 "timeout_seconds",
@@ -814,9 +831,7 @@ class LangGraphWorkflow:
                     context=kwargs,
                     step_results=step_results,
                 )
-                step_elapsed_ms = (
-                    (time.monotonic() - step_start) * 1000
-                )
+                step_elapsed_ms = (time.monotonic() - step_start) * 1000
                 step_result.duration_ms = round(step_elapsed_ms, 2)
 
                 step_results[wf_step.step_id] = step_result
@@ -827,15 +842,18 @@ class LangGraphWorkflow:
                     # Capture special outputs
                     if wf_step.step_id == "context_compress":
                         compression_applied = step_result.output.get(
-                            "compressed", False,
+                            "compressed",
+                            False,
                         )
                     if wf_step.step_id == "context_health":
                         health_score = step_result.output.get(
-                            "health_score", 1.0,
+                            "health_score",
+                            1.0,
                         )
                     if wf_step.step_id == "generate":
                         final_response = step_result.output.get(
-                            "response", "",
+                            "response",
+                            "",
                         )
                 elif step_result.status == "timeout":
                     overall_status = "partial"
@@ -850,9 +868,7 @@ class LangGraphWorkflow:
                         company_id=company_id,
                     )
 
-            total_duration_ms = (
-                (time.monotonic() - pipeline_start) * 1000
-            )
+            total_duration_ms = (time.monotonic() - pipeline_start) * 1000
 
             result = WorkflowResult(
                 workflow_id=workflow_id,
@@ -887,9 +903,7 @@ class LangGraphWorkflow:
                 workflow_id=workflow_id,
                 company_id=company_id,
             )
-            total_duration_ms = (
-                (time.monotonic() - pipeline_start) * 1000
-            )
+            total_duration_ms = (time.monotonic() - pipeline_start) * 1000
             return WorkflowResult(
                 workflow_id=workflow_id,
                 variant_type=self._config.variant_type,
@@ -944,15 +958,24 @@ class LangGraphWorkflow:
             # ── Simulation fallback path ─────────────────────
             if wf_step.step_type == "preprocessing":
                 output, tokens = self._simulate_preprocessing(
-                    step_id, query, context, step_results,
+                    step_id,
+                    query,
+                    context,
+                    step_results,
                 )
             elif wf_step.step_type == "core":
                 output, tokens = self._simulate_core_step(
-                    step_id, query, context, step_results,
+                    step_id,
+                    query,
+                    context,
+                    step_results,
                 )
             else:
                 output, tokens = self._simulate_postprocessing(
-                    step_id, query, context, step_results,
+                    step_id,
+                    query,
+                    context,
+                    step_results,
                 )
 
             return WorkflowStepResult(
@@ -1057,8 +1080,7 @@ class LangGraphWorkflow:
             if errors:
                 overall_status = "partial"
 
-            total_duration_ms = round(
-                (time.monotonic() - pipeline_start) * 1000, 2)
+            total_duration_ms = round((time.monotonic() - pipeline_start) * 1000, 2)
 
             logger.info(
                 "langgraph_execution_completed",
@@ -1111,45 +1133,70 @@ class LangGraphWorkflow:
         """
         if step_id == "classify":
             return await self._real_classify(
-                company_id, query, context, step_results,
+                company_id,
+                query,
+                context,
+                step_results,
             )
         if step_id == "extract_signals":
             return await self._real_extract_signals(
-                company_id, query, context, step_results,
+                company_id,
+                query,
+                context,
+                step_results,
             )
         if step_id == "technique_select":
             return await self._real_technique_select(
-                company_id, query, context, step_results,
+                company_id,
+                query,
+                context,
+                step_results,
             )
         if step_id == "context_compress":
             return await self._real_context_compress(
-                company_id, query, context, step_results,
+                company_id,
+                query,
+                context,
+                step_results,
             )
         if step_id == "generate":
             return await self._real_generate(
-                company_id, query, context, step_results,
+                company_id,
+                query,
+                context,
+                step_results,
             )
         if step_id == "quality_gate":
             return await self._real_quality_gate(
-                company_id, query, context, step_results,
+                company_id,
+                query,
+                context,
+                step_results,
             )
         if step_id == "context_health":
             return await self._real_context_health(
-                company_id, query, context, step_results,
+                company_id,
+                query,
+                context,
+                step_results,
             )
         if step_id == "dedup":
             return self._real_dedup(
-                company_id, query, context, step_results,
+                company_id,
+                query,
+                context,
+                step_results,
             )
         if step_id == "format":
             return self._real_format(
-                company_id, query, context, step_results,
+                company_id,
+                query,
+                context,
+                step_results,
             )
 
         # Unknown step — let the caller fall back to simulation
-        raise NotImplementedError(
-            f"No real handler for step '{step_id}'"
-        )
+        raise NotImplementedError(f"No real handler for step '{step_id}'")
 
     # ── Individual real step handlers ────────────────────────
 
@@ -1240,8 +1287,7 @@ class LangGraphWorkflow:
         # B8: Derive frustration from sentiment (inverse: sentiment 0.0 =
         # frustration 100)
         sentiment_val = extract_out.get("sentiment", 0.7)
-        frustration_est = round(
-            max(0.0, min(100.0, (1.0 - sentiment_val) * 100.0)), 1)
+        frustration_est = round(max(0.0, min(100.0, (1.0 - sentiment_val) * 100.0)), 1)
 
         signals = QuerySignals(
             query_complexity=extract_out.get("complexity", 0.5),
@@ -1253,23 +1299,23 @@ class LangGraphWorkflow:
             monetary_value=extract_out.get("monetary_value", 0.0),
             turn_count=extract_out.get("turn_count", 0),
             previous_response_status=extract_out.get(
-                "previous_response_status", "none",
+                "previous_response_status",
+                "none",
             ),
             reasoning_loop_detected=extract_out.get(
-                "reasoning_loop_detected", False,
+                "reasoning_loop_detected",
+                False,
             ),
             resolution_path_count=extract_out.get(
-                "resolution_path_count", 1,
+                "resolution_path_count",
+                1,
             ),
         )
 
         router = TechniqueRouter()
         result = router.route(signals)
 
-        activated = [
-            ta.technique_id.value
-            for ta in result.activated_techniques
-        ]
+        activated = [ta.technique_id.value for ta in result.activated_techniques]
         return {
             "technique": activated[0] if activated else "standard_response",
             "activated_techniques": activated,
@@ -1294,14 +1340,16 @@ class LangGraphWorkflow:
         compressor = ContextCompressor()
 
         # Gather context content to compress
-        raw_context = context.get("knowledge_context") or context.get(
-            "conversation_history") or []
+        raw_context = (
+            context.get("knowledge_context")
+            or context.get("conversation_history")
+            or []
+        )
         if isinstance(raw_context, str):
             content_chunks = [raw_context]
         elif isinstance(raw_context, list):
             content_chunks = [
-                chunk if isinstance(chunk, str) else str(chunk)
-                for chunk in raw_context
+                chunk if isinstance(chunk, str) else str(chunk) for chunk in raw_context
             ]
         else:
             content_chunks = [str(raw_context)]
@@ -1343,8 +1391,7 @@ class LangGraphWorkflow:
         classify_step = step_results.get("classify")
         if classify_step and classify_step.output:
             query_signals["intent"] = classify_step.output.get("intent")
-            query_signals["confidence"] = classify_step.output.get(
-                "confidence")
+            query_signals["confidence"] = classify_step.output.get("confidence")
 
         # Route to the best model for draft generation
         routing_decision = router.route(
@@ -1355,15 +1402,14 @@ class LangGraphWorkflow:
         )
 
         # Build messages payload — inject full session context
-        system_prompt = context.get(
-            "system_prompt",
-            "") or "You are a helpful customer support assistant."
+        system_prompt = (
+            context.get("system_prompt", "")
+            or "You are a helpful customer support assistant."
+        )
         knowledge_ctx = context.get("knowledge_context", "")
         if knowledge_ctx and isinstance(knowledge_ctx, (list, str)):
             if isinstance(knowledge_ctx, list):
-                knowledge_ctx = "\n".join(
-                    str(k) for k in knowledge_ctx
-                )
+                knowledge_ctx = "\n".join(str(k) for k in knowledge_ctx)
             system_prompt += f"\n\nRelevant context:\n{knowledge_ctx}"
 
         messages = [
@@ -1374,17 +1420,18 @@ class LangGraphWorkflow:
         conversation_history = context.get("conversation_history")
         if conversation_history and isinstance(conversation_history, list):
             for msg in conversation_history[-20:]:  # Last 20 turns
-                if isinstance(
-                        msg, dict) and "role" in msg and "content" in msg:
+                if isinstance(msg, dict) and "role" in msg and "content" in msg:
                     # Map internal "jarvis" role to standard "assistant" role
                     # (AI APIs only accept system/user/assistant)
                     role = msg["role"]
                     if role == "jarvis":
                         role = "assistant"
-                    messages.append({
-                        "role": role,
-                        "content": msg["content"],
-                    })
+                    messages.append(
+                        {
+                            "role": role,
+                            "content": msg["content"],
+                        }
+                    )
 
         # Append current query
         messages.append({"role": "user", "content": query})
@@ -1400,9 +1447,7 @@ class LangGraphWorkflow:
 
         response_text = llm_result.get("content", "")
         # Use real token count from LiteLLM response if available
-        tokens_used = llm_result.get(
-            "tokens_used", len(
-                response_text.split()) * 4)
+        tokens_used = llm_result.get("tokens_used", len(response_text.split()) * 4)
 
         return {
             "response": response_text,
@@ -1524,9 +1569,9 @@ class LangGraphWorkflow:
         dedup_applied = duplicates > 0
         if dedup_applied:
             # Keep first occurrence of each sentence
-            unique_sentences = list(dict.fromkeys(
-                s.strip() for s in response.split(".") if s.strip()
-            ))
+            unique_sentences = list(
+                dict.fromkeys(s.strip() for s in response.split(".") if s.strip())
+            )
             context["deduped_response"] = ". ".join(unique_sentences) + "."
 
         return {
@@ -1574,27 +1619,19 @@ class LangGraphWorkflow:
     ) -> Tuple[Dict[str, Any], int]:
         """Simulate a preprocessing step output."""
         tokens = WORKFLOW_STEP_DEFINITIONS.get(
-            step_id, {},
+            step_id,
+            {},
         ).get("estimated_tokens", 50)
 
         if step_id == "classify":
             # Classify intent from query length and content
             intent = "general_inquiry"
             q_lower = query.lower()
-            if any(
-                w in q_lower
-                for w in ["refund", "cancel", "return", "money"]
-            ):
+            if any(w in q_lower for w in ["refund", "cancel", "return", "money"]):
                 intent = "refund_request"
-            elif any(
-                w in q_lower
-                for w in ["order", "ship", "track", "delivery"]
-            ):
+            elif any(w in q_lower for w in ["order", "ship", "track", "delivery"]):
                 intent = "order_status"
-            elif any(
-                w in q_lower
-                for w in ["error", "bug", "broken", "not work"]
-            ):
+            elif any(w in q_lower for w in ["error", "bug", "broken", "not work"]):
                 intent = "technical_issue"
             return {
                 "intent": intent,
@@ -1615,7 +1652,8 @@ class LangGraphWorkflow:
             prev_classify = step_results.get("classify")
             intent = (
                 prev_classify.output.get("intent", "general")
-                if prev_classify else "general"
+                if prev_classify
+                else "general"
             )
             technique = "standard_response"
             if intent == "refund_request":
@@ -1628,11 +1666,14 @@ class LangGraphWorkflow:
             return {
                 "compressed": True,
                 "original_tokens": context.get(
-                    "context_tokens", 500,
+                    "context_tokens",
+                    500,
                 ),
                 "compressed_tokens": context.get(
-                    "context_tokens", 500,
-                ) * 0.7,
+                    "context_tokens",
+                    500,
+                )
+                * 0.7,
             }, tokens
 
         return {"raw_output": True}, tokens
@@ -1651,7 +1692,8 @@ class LangGraphWorkflow:
         response is relevant rather than generic.
         """
         tokens = WORKFLOW_STEP_DEFINITIONS.get(
-            step_id, {},
+            step_id,
+            {},
         ).get("estimated_tokens", 500)
 
         if step_id == "generate":
@@ -1659,7 +1701,8 @@ class LangGraphWorkflow:
             tech_step = step_results.get("technique_select")
             if tech_step and tech_step.output:
                 technique = tech_step.output.get(
-                    "technique", technique,
+                    "technique",
+                    technique,
                 )
 
             # Extract context-aware details from the system prompt
@@ -1711,7 +1754,8 @@ class LangGraphWorkflow:
     ) -> Tuple[Dict[str, Any], int]:
         """Simulate a postprocessing step output."""
         tokens = WORKFLOW_STEP_DEFINITIONS.get(
-            step_id, {},
+            step_id,
+            {},
         ).get("estimated_tokens", 50)
 
         if step_id == "quality_gate":
@@ -1738,7 +1782,8 @@ class LangGraphWorkflow:
             raw_response = ""
             if gen_step and gen_step.output:
                 raw_response = gen_step.output.get(
-                    "response", "",
+                    "response",
+                    "",
                 )
             return {
                 "formatted_response": raw_response,
@@ -1750,7 +1795,8 @@ class LangGraphWorkflow:
     # ── Checkpoint / State Query Methods ────────────────────────
 
     async def get_workflow_state(
-        self, thread_id: str,
+        self,
+        thread_id: str,
     ) -> Optional[Dict[str, Any]]:
         """Retrieve the current checkpointed workflow state for a thread.
 
@@ -1868,11 +1914,11 @@ class LangGraphWorkflow:
                 merged = dict(current_values)
                 for key, value in state_updates.items():
                     # Merge step_outputs dicts, replace everything else
-                    if key == "step_outputs" and isinstance(
-                            merged.get(key),
-                            dict) and isinstance(
-                            value,
-                            dict):
+                    if (
+                        key == "step_outputs"
+                        and isinstance(merged.get(key), dict)
+                        and isinstance(value, dict)
+                    ):
                         merged[key] = {**merged[key], **value}
                     else:
                         merged[key] = value
@@ -1923,8 +1969,7 @@ class LangGraphWorkflow:
             if errors:
                 overall_status = "partial"
 
-            total_duration_ms = round(
-                (time.monotonic() - pipeline_start) * 1000, 2)
+            total_duration_ms = round((time.monotonic() - pipeline_start) * 1000, 2)
 
             logger.info(
                 "checkpoint_resume_completed",
@@ -1957,7 +2002,8 @@ class LangGraphWorkflow:
     # ── Query Methods ──────────────────────────────────────────
 
     def get_step(
-        self, step_id: str,
+        self,
+        step_id: str,
     ) -> Optional[WorkflowStep]:
         """Look up a step by its ID. Returns None if not found."""
         try:
@@ -1975,7 +2021,8 @@ class LangGraphWorkflow:
             return None
 
     def get_pipeline_topology(
-        self, company_id: str = "",
+        self,
+        company_id: str = "",
     ) -> Dict[str, Any]:
         """Return the graph structure as a serialisable dict.
 
@@ -1987,34 +2034,30 @@ class LangGraphWorkflow:
 
             steps_list = []
             for i, step in enumerate(self._steps):
-                steps_list.append({
-                    "index": i,
-                    "step_id": step.step_id,
-                    "step_name": step.step_name,
-                    "step_type": step.step_type,
-                    "estimated_tokens": step.estimated_tokens,
-                    "timeout_seconds": step.timeout_seconds,
-                    "enabled": step.enabled,
-                    "next": (
-                        self._steps[i + 1].step_id
-                        if i + 1 < len(self._steps) else None
-                    ),
-                    "prev": (
-                        self._steps[i - 1].step_id
-                        if i > 0 else None
-                    ),
-                })
+                steps_list.append(
+                    {
+                        "index": i,
+                        "step_id": step.step_id,
+                        "step_name": step.step_name,
+                        "step_type": step.step_type,
+                        "estimated_tokens": step.estimated_tokens,
+                        "timeout_seconds": step.timeout_seconds,
+                        "enabled": step.enabled,
+                        "next": (
+                            self._steps[i + 1].step_id
+                            if i + 1 < len(self._steps)
+                            else None
+                        ),
+                        "prev": (self._steps[i - 1].step_id if i > 0 else None),
+                    }
+                )
 
             return {
                 "variant_type": self._config.variant_type,
                 "total_steps": len(self._steps),
                 "steps": steps_list,
-                "total_estimated_tokens": sum(
-                    s.estimated_tokens for s in self._steps
-                ),
-                "max_pipeline_time_seconds": (
-                    self._config.max_pipeline_time_seconds
-                ),
+                "total_estimated_tokens": sum(s.estimated_tokens for s in self._steps),
+                "max_pipeline_time_seconds": (self._config.max_pipeline_time_seconds),
                 "langgraph_available": self._langgraph_available,
             }
         except Exception as exc:

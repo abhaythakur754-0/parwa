@@ -31,8 +31,7 @@ class SignalExtractRequest(BaseModel):
 
 
 class BatchSignalRequest(BaseModel):
-    requests: List[SignalExtractRequest] = Field(
-        ..., min_length=1, max_length=20)
+    requests: List[SignalExtractRequest] = Field(..., min_length=1, max_length=20)
 
 
 class CLARAEvaluateRequest(BaseModel):
@@ -53,6 +52,7 @@ def _get_extractor():
     global _extractor
     if _extractor is None:
         from app.core.signal_extraction import SignalExtractor
+
         _extractor = SignalExtractor()
     return _extractor
 
@@ -61,6 +61,7 @@ def _get_clara(brand_voice_config=None):
     global _clara
     if _clara is None or brand_voice_config is not None:
         from app.core.clara_quality_gate import CLARAQualityGate, BrandVoiceConfig
+
         bv = None
         if brand_voice_config:
             bv = BrandVoiceConfig(**brand_voice_config)

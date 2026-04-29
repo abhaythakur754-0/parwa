@@ -31,17 +31,14 @@ class PIIScanService:
             # 16 digits with optional dashes/spaces
             r"\b\d{13,16}\b",  # 13-16 consecutive digits
         ],
-
         # Social Security Numbers (US format)
         "ssn": [
             r"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b",  # XXX-XX-XXXX
         ],
-
         # Email addresses
         "email": [
             r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
         ],
-
         # Phone numbers (various formats - US and International)
         "phone": [
             # US formats: 555-123-4567, (555) 123-4567, +1 555 123 4567,
@@ -55,7 +52,6 @@ class PIIScanService:
             # Simple 7-digit local
             r"\b\d{3}[-.\s]?\d{4}\b",
         ],
-
         # API keys (common patterns)
         "api_key": [
             r"\b(?:sk|pk|api|secret|token|key)[_-]?[a-zA-Z0-9]{20,}\b",
@@ -63,23 +59,19 @@ class PIIScanService:
             r"\bghp_[a-zA-Z0-9]{36}\b",  # GitHub tokens
             r"\bsk-[a-zA-Z0-9]{20,}\b",  # OpenAI style
         ],
-
         # Passwords in text (common patterns)
         "password": [
             r"(?:password|passwd|pwd)[\s:=]+['\"]?\S+['\"]?",
             r"(?:secret|token|api_key)[\s:=]+['\"]?\S+['\"]?",
         ],
-
         # IP addresses
         "ip_address": [
             r"\b(?:\d{1,3}\.){3}\d{1,3}\b",
         ],
-
         # Bank account numbers
         "bank_account": [
             r"\b\d{8,17}\b",  # 8-17 digit account numbers
         ],
-
         # Dates of birth
         "dob": [
             r"\b\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b",
@@ -136,13 +128,15 @@ class PIIScanService:
             for pattern in patterns:
                 matches = re.finditer(pattern, text, re.IGNORECASE)
                 for match in matches:
-                    findings.append({
-                        "type": pii_type,
-                        "value": match.group(),
-                        "start": match.start(),
-                        "end": match.end(),
-                        "pattern": pattern,
-                    })
+                    findings.append(
+                        {
+                            "type": pii_type,
+                            "value": match.group(),
+                            "start": match.start(),
+                            "end": match.end(),
+                            "pattern": pattern,
+                        }
+                    )
 
         return {
             "detected": len(findings) > 0,
@@ -189,8 +183,10 @@ class PIIScanService:
             overlaps = False
             for existing in deduplicated:
                 # Check for overlap: [start1, end1) overlaps [start2, end2)
-                if not (finding["end"] <= existing["start"]
-                        or finding["start"] >= existing["end"]):
+                if not (
+                    finding["end"] <= existing["start"]
+                    or finding["start"] >= existing["end"]
+                ):
                     overlaps = True
                     break
             if not overlaps:
@@ -217,18 +213,16 @@ class PIIScanService:
 
             # Replace in text
             redacted_text = (
-                redacted_text[:finding["start"]]
+                redacted_text[: finding["start"]]
                 + redaction_token
-                + redacted_text[finding["end"]:]
+                + redacted_text[finding["end"] :]
             )
 
             # Store in map
             redaction_map[redaction_token] = {
                 "type": pii_type,
                 "original": original_value,
-                "hash": hashlib.sha256(
-                    original_value.encode()).hexdigest()[
-                    :16],
+                "hash": hashlib.sha256(original_value.encode()).hexdigest()[:16],
             }
 
         # Store map in Redis if available
@@ -286,9 +280,7 @@ class PIIScanService:
             "redacted_text": redacted_text,
             "redaction_map": redaction_map,
             "redaction_count": len(redaction_map),
-            "pii_types": list(set(
-                info["type"] for info in redaction_map.values()
-            )),
+            "pii_types": list(set(info["type"] for info in redaction_map.values())),
         }
 
     def validate_no_pii(
@@ -313,11 +305,13 @@ class PIIScanService:
 
         violations = []
         for finding in scan_result["findings"]:
-            violations.append({
-                "type": finding["type"],
-                "position": finding["start"],
-                "message": f"PII detected: {finding['type']}",
-            })
+            violations.append(
+                {
+                    "type": finding["type"],
+                    "position": finding["start"],
+                    "message": f"PII detected: {finding['type']}",
+                }
+            )
 
         return len(violations) == 0, violations
 

@@ -39,8 +39,10 @@ logger = get_logger(__name__)
 # ENUMS
 # ══════════════════════════════════════════════════════════════════
 
+
 class ArbitrageAlertLevel(str, Enum):
     """Severity levels for arbitrage detection alerts."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -49,6 +51,7 @@ class ArbitrageAlertLevel(str, Enum):
 
 class InstanceAction(str, Enum):
     """Possible outcomes of an instance creation check."""
+
     ALLOWED = "allowed"
     BLOCKED = "blocked"
     FLAGGED = "flagged"
@@ -59,9 +62,11 @@ class InstanceAction(str, Enum):
 # DATACLASSES
 # ══════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class VariantInstance:
     """Represents a registered variant instance for a tenant."""
+
     instance_id: str
     variant_type: str
     company_id: str
@@ -75,6 +80,7 @@ class VariantInstance:
 @dataclass
 class CapacityCheck:
     """Result of a weighted capacity check for a tenant."""
+
     company_id: str
     current_weighted_capacity: float
     max_weighted_capacity: float
@@ -89,6 +95,7 @@ class CapacityCheck:
 @dataclass
 class ArbitrageAlert:
     """Alert raised when suspicious arbitrage patterns are detected."""
+
     alert_id: str
     company_id: str
     level: ArbitrageAlertLevel
@@ -110,6 +117,7 @@ class AntiArbitrageConfig:
     all of a tenant's instances must not exceed max_weighted_capacity
     (default 7.5 = 1 high_parwa).
     """
+
     max_instances_per_variant: int = 10
     max_weighted_capacity: float = 7.5
     capacity_weights: Dict[str, float] = field(
@@ -138,6 +146,7 @@ class AntiArbitrageConfig:
 # ══════════════════════════════════════════════════════════════════
 # CUSTOM ERROR
 # ══════════════════════════════════════════════════════════════════
+
 
 class AntiArbitrageError(ParwaBaseError):
     """Raised when an anti-arbitrage policy is violated."""
@@ -222,6 +231,7 @@ _RAPID_CREATION_WINDOW_SECONDS = 600  # 10 minutes
 # VALIDATION HELPERS
 # ══════════════════════════════════════════════════════════════════
 
+
 def _validate_company_id(company_id: str) -> None:
     """BC-001: company_id is required."""
     if not company_id or not str(company_id).strip():
@@ -248,6 +258,7 @@ def _validate_variant_type(variant_type: str) -> None:
 # ══════════════════════════════════════════════════════════════════
 # SERVICE
 # ══════════════════════════════════════════════════════════════════
+
 
 class AntiArbitrageService:
     """
@@ -310,7 +321,9 @@ class AntiArbitrageService:
         return self._instances.get(company_id, [])
 
     def _set_instances(
-        self, company_id: str, insts: List[VariantInstance],
+        self,
+        company_id: str,
+        insts: List[VariantInstance],
     ) -> None:
         self._instances[company_id] = insts
 
@@ -378,16 +391,10 @@ class AntiArbitrageService:
             instance_count = len(instances)
             max_instances = self.config.max_instances_per_variant
 
-            utilisation = (
-                (current_cap / max_cap * 100.0) if max_cap > 0 else 0.0
-            )
+            utilisation = (current_cap / max_cap * 100.0) if max_cap > 0 else 0.0
 
-            threshold_pct = self.config.alert_thresholds[
-                "capacity_threshold_pct"
-            ]
-            critical_pct = self.config.alert_thresholds[
-                "critical_threshold_pct"
-            ]
+            threshold_pct = self.config.alert_thresholds["capacity_threshold_pct"]
+            critical_pct = self.config.alert_thresholds["critical_threshold_pct"]
 
             if utilisation >= critical_pct:
                 action = InstanceAction.BLOCKED
@@ -469,15 +476,15 @@ class AntiArbitrageService:
 
             weight = self.config.capacity_weights.get(variant_type, 1.0)
             instances = self._get_instances(company_id)
-            variant_count = sum(
-                1 for i in instances if i.variant_type == variant_type
-            )
+            variant_count = sum(1 for i in instances if i.variant_type == variant_type)
 
             # Per-variant limit check
             if variant_count >= self.config.max_instances_per_variant:
                 return CapacityCheck(
                     company_id=company_id,
-                    current_weighted_capacity=self.calculate_weighted_capacity(company_id),
+                    current_weighted_capacity=self.calculate_weighted_capacity(
+                        company_id
+                    ),
                     max_weighted_capacity=self.config.max_weighted_capacity,
                     instance_count=len(instances),
                     max_instances=self.config.max_instances_per_variant,
@@ -534,14 +541,18 @@ class AntiArbitrageService:
                             instance_count=new_cnt,
                             max_instances=self.config.max_instances_per_variant,
                             utilization_pct=(
-                                new_cap
-                                / self.config.max_weighted_capacity
-                                * 100 if self.config.max_weighted_capacity > 0 else 0.0),
+                                new_cap / self.config.max_weighted_capacity * 100
+                                if self.config.max_weighted_capacity > 0
+                                else 0.0
+                            ),
                             action=InstanceAction.BLOCKED,
                             reason=(
-                                "Rapid instance creation rate exceeded: " f"{rapid_cnt} in last " f"{
+                                "Rapid instance creation rate exceeded: "
+                                f"{rapid_cnt} in last "
+                                f"{
                                     _RAPID_CREATION_WINDOW_SECONDS
-                                    // 60} min"),
+                                    // 60} min"
+                            ),
                         )
 
                     if status_code == 1:
@@ -574,12 +585,13 @@ class AntiArbitrageService:
                     action = InstanceAction.ALLOWED
                     reason = "Instance creation allowed"
 
-                    threshold_pct = self.config.alert_thresholds["capacity_threshold_pct"]
+                    threshold_pct = self.config.alert_thresholds[
+                        "capacity_threshold_pct"
+                    ]
                     if utilisation >= threshold_pct:
                         action = InstanceAction.FLAGGED
-                        reason = (
-                            "Allowed but flagged — capacity at " f"{
-                                utilisation:.1f}% (>= {threshold_pct}% threshold)")
+                        reason = "Allowed but flagged — capacity at " f"{
+                                utilisation:.1f}% (>= {threshold_pct}% threshold)"
                         self._create_alert(
                             company_id=company_id,
                             level=ArbitrageAlertLevel.MEDIUM,
@@ -615,14 +627,15 @@ class AntiArbitrageService:
 
             # ── In-memory fallback (thread-safe) ──
             with self._lock:
-                current_cap = sum(
-                    i.capacity_weight for i in instances
-                )
+                current_cap = sum(i.capacity_weight for i in instances)
                 new_capacity = current_cap + weight
 
                 rapid_count = self._get_rapid_count(company_id)
 
-                if rapid_count >= self.config.alert_thresholds["rapid_instance_creation"]:
+                if (
+                    rapid_count
+                    >= self.config.alert_thresholds["rapid_instance_creation"]
+                ):
                     return CapacityCheck(
                         company_id=company_id,
                         current_weighted_capacity=current_cap,
@@ -630,12 +643,15 @@ class AntiArbitrageService:
                         instance_count=len(instances),
                         max_instances=self.config.max_instances_per_variant,
                         utilization_pct=(
-                            current_cap
-                            / self.config.max_weighted_capacity
-                            * 100 if self.config.max_weighted_capacity > 0 else 0.0),
+                            current_cap / self.config.max_weighted_capacity * 100
+                            if self.config.max_weighted_capacity > 0
+                            else 0.0
+                        ),
                         action=InstanceAction.BLOCKED,
                         reason=(
-                            "Rapid instance creation rate exceeded " "(in-memory fallback)"),
+                            "Rapid instance creation rate exceeded "
+                            "(in-memory fallback)"
+                        ),
                     )
 
                 if new_capacity > self.config.max_weighted_capacity:
@@ -737,7 +753,8 @@ class AntiArbitrageService:
 
             # Run the atomic pre-check (increments Redis counters if allowed)
             check = self.check_instance_creation_allowed(
-                company_id, variant_type,
+                company_id,
+                variant_type,
             )
 
             if check.action == InstanceAction.BLOCKED:
@@ -897,52 +914,54 @@ class AntiArbitrageService:
 
             # ── 1. Rapid instance creation ──
             rapid_count = self._get_rapid_count(company_id)
-            rapid_threshold = self.config.alert_thresholds[
-                "rapid_instance_creation"
-            ]
+            rapid_threshold = self.config.alert_thresholds["rapid_instance_creation"]
             if rapid_count >= rapid_threshold:
-                alerts.append(ArbitrageAlert(
-                    alert_id=str(uuid.uuid4()),
-                    company_id=company_id,
-                    level=ArbitrageAlertLevel.HIGH,
-                    alert_type="rapid_instance_creation",
-                    description=(
-                        f"{rapid_count} instances created within "
-                        f"{_RAPID_CREATION_WINDOW_SECONDS // 60} minutes"
-                    ),
-                    details={
-                        "rapid_count": rapid_count,
-                        "threshold": rapid_threshold,
-                        "window_seconds": _RAPID_CREATION_WINDOW_SECONDS,
-                    },
-                ))
+                alerts.append(
+                    ArbitrageAlert(
+                        alert_id=str(uuid.uuid4()),
+                        company_id=company_id,
+                        level=ArbitrageAlertLevel.HIGH,
+                        alert_type="rapid_instance_creation",
+                        description=(
+                            f"{rapid_count} instances created within "
+                            f"{_RAPID_CREATION_WINDOW_SECONDS // 60} minutes"
+                        ),
+                        details={
+                            "rapid_count": rapid_count,
+                            "threshold": rapid_threshold,
+                            "window_seconds": _RAPID_CREATION_WINDOW_SECONDS,
+                        },
+                    )
+                )
 
             # ── 2. Weighted capacity gaming ──
             current_cap = self.calculate_weighted_capacity(company_id)
             max_cap = self.config.max_weighted_capacity
-            utilisation = (
-                (current_cap / max_cap * 100.0) if max_cap > 0 else 0.0
-            )
-            threshold_pct = self.config.alert_thresholds[
-                "capacity_threshold_pct"
-            ]
+            utilisation = (current_cap / max_cap * 100.0) if max_cap > 0 else 0.0
+            threshold_pct = self.config.alert_thresholds["capacity_threshold_pct"]
             if utilisation >= threshold_pct:
-                level = ArbitrageAlertLevel.CRITICAL if utilisation >= 95 else ArbitrageAlertLevel.MEDIUM
-                alerts.append(ArbitrageAlert(
-                    alert_id=str(uuid.uuid4()),
-                    company_id=company_id,
-                    level=level,
-                    alert_type="capacity_gaming",
-                    description=(
-                        "Weighted capacity utilisation at "
-                        f"{utilisation:.1f}% (threshold {threshold_pct}%)"
-                    ),
-                    details={
-                        "weighted_capacity": current_cap,
-                        "max_capacity": max_cap,
-                        "utilisation_pct": round(utilisation, 2),
-                    },
-                ))
+                level = (
+                    ArbitrageAlertLevel.CRITICAL
+                    if utilisation >= 95
+                    else ArbitrageAlertLevel.MEDIUM
+                )
+                alerts.append(
+                    ArbitrageAlert(
+                        alert_id=str(uuid.uuid4()),
+                        company_id=company_id,
+                        level=level,
+                        alert_type="capacity_gaming",
+                        description=(
+                            "Weighted capacity utilisation at "
+                            f"{utilisation:.1f}% (threshold {threshold_pct}%)"
+                        ),
+                        details={
+                            "weighted_capacity": current_cap,
+                            "max_capacity": max_cap,
+                            "utilisation_pct": round(utilisation, 2),
+                        },
+                    )
+                )
 
             # ── 3. Single-variant hoarding ──
             variant_counts: Dict[str, int] = {}
@@ -954,22 +973,22 @@ class AntiArbitrageService:
                 if count >= 5 and vtype == "mini_parwa":
                     alerts.append(
                         ArbitrageAlert(
-                            alert_id=str(
-                                uuid.uuid4()),
+                            alert_id=str(uuid.uuid4()),
                             company_id=company_id,
                             level=ArbitrageAlertLevel.HIGH,
                             alert_type="single_variant_hoarding",
                             description=(
-                                f"{count} mini_parwa instances detected — " "potential capacity gaming"),
+                                f"{count} mini_parwa instances detected — "
+                                "potential capacity gaming"
+                            ),
                             details={
                                 "variant_type": vtype,
                                 "count": count,
                                 "combined_weight": count
-                                * self.config.capacity_weights.get(
-                                    vtype,
-                                    1.0),
+                                * self.config.capacity_weights.get(vtype, 1.0),
                             },
-                        ))
+                        )
+                    )
 
             # Store alerts
             for alert in alerts:
@@ -1019,14 +1038,14 @@ class AntiArbitrageService:
                 variant_breakdown[vt]["count"] += 1
                 variant_breakdown[vt]["total_weight"] += inst.capacity_weight
                 variant_breakdown[vt]["total_tickets"] += inst.ticket_limit
-                variant_breakdown[vt]["instances"].append({
-                    "instance_id": inst.instance_id,
-                    "created_at": inst.created_at.isoformat(),
-                })
+                variant_breakdown[vt]["instances"].append(
+                    {
+                        "instance_id": inst.instance_id,
+                        "created_at": inst.created_at.isoformat(),
+                    }
+                )
 
-            utilisation = (
-                (current_cap / max_cap * 100.0) if max_cap > 0 else 0.0
-            )
+            utilisation = (current_cap / max_cap * 100.0) if max_cap > 0 else 0.0
 
             return {
                 "company_id": company_id,
@@ -1068,10 +1087,7 @@ class AntiArbitrageService:
         try:
             _validate_company_id(company_id)
 
-            alerts = [
-                a for a in self._alerts
-                if a.company_id == company_id
-            ]
+            alerts = [a for a in self._alerts if a.company_id == company_id]
             if unresolved_only:
                 alerts = [a for a in alerts if not a.resolved]
 
@@ -1097,10 +1113,7 @@ class AntiArbitrageService:
             _validate_company_id(company_id)
 
             for alert in self._alerts:
-                if (
-                    alert.company_id == company_id
-                    and alert.alert_id == alert_id
-                ):
+                if alert.company_id == company_id and alert.alert_id == alert_id:
                     alert.resolved = True
                     logger.info(
                         "alert_resolved",
@@ -1135,12 +1148,9 @@ class AntiArbitrageService:
             return {
                 "max_instances_per_variant": self.config.max_instances_per_variant,
                 "max_weighted_capacity": self.config.max_weighted_capacity,
-                "capacity_weights": dict(
-                    self.config.capacity_weights),
-                "ticket_limits": dict(
-                    self.config.ticket_limits),
-                "alert_thresholds": dict(
-                    self.config.alert_thresholds),
+                "capacity_weights": dict(self.config.capacity_weights),
+                "ticket_limits": dict(self.config.ticket_limits),
+                "alert_thresholds": dict(self.config.alert_thresholds),
                 "valid_variant_types": sorted(VALID_VARIANT_TYPES),
             }
         except Exception as exc:
@@ -1157,8 +1167,7 @@ class AntiArbitrageService:
                     self._instances.pop(company_id, None)
                     self._rapid_creation_counts.pop(company_id, None)
                     self._alerts = [
-                        a for a in self._alerts
-                        if a.company_id != company_id
+                        a for a in self._alerts if a.company_id != company_id
                     ]
                     if self._redis is not None:
                         try:

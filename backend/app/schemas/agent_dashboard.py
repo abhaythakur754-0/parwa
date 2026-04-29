@@ -13,13 +13,16 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-
 # ══════════════════════════════════════════════════════════════════
 # CONSTANTS
 # ══════════════════════════════════════════════════════════════════
 
 DASHBOARD_AGENT_STATUSES = (
-    "active", "training", "paused", "error", "cold_start",
+    "active",
+    "training",
+    "paused",
+    "error",
+    "cold_start",
 )
 
 QUICK_ACTION_TYPES = ("pause", "resume", "retrain", "view_metrics")
@@ -36,6 +39,7 @@ class AgentCardMetrics(BaseModel):
     These are the headline numbers shown on each agent card in the
     dashboard grid view.
     """
+
     resolution_rate: Optional[float] = Field(
         default=None,
         description="Percentage of tickets resolved by this agent (0-100)",
@@ -68,6 +72,7 @@ class AgentRealtimeMetrics(AgentCardMetrics):
     Extends the card metrics with a timestamp and agent identifier
     for use in agent:metrics_updated events.
     """
+
     agent_id: str
     company_id: str
     timestamp: Optional[str] = None
@@ -84,6 +89,7 @@ class AgentQuickAction(BaseModel):
     Each action has a type, whether it's currently allowed, and an
     optional reason if disallowed.
     """
+
     action: str = Field(
         description="Action type: pause, resume, retrain, view_metrics",
     )
@@ -109,10 +115,12 @@ class AgentCardResponse(BaseModel):
     identity, status, specialty, headline metrics, sparkline data,
     and quick-action affordances.
     """
+
     id: str
     name: str
     status: str = Field(
-        description="Current agent status: active/training/paused/error/cold_start", )
+        description="Current agent status: active/training/paused/error/cold_start",
+    )
     specialty: str
     description: Optional[str] = None
     base_model: Optional[str] = None
@@ -139,6 +147,7 @@ class AgentCardDetailResponse(AgentCardResponse):
     Extends the base card with channels, permissions, setup status,
     and active instruction set info for the detail view.
     """
+
     channels: Dict[str, Any] = Field(default_factory=dict)
     permissions: Dict[str, Any] = Field(default_factory=dict)
     setup_status: Optional[Dict[str, Any]] = None
@@ -155,6 +164,7 @@ class AgentStatusCounts(BaseModel):
 
     Used for status filter chips on the dashboard.
     """
+
     active: int = 0
     training: int = 0
     paused: int = 0
@@ -170,6 +180,7 @@ class AgentStatusCounts(BaseModel):
 
 class AgentCardListResponse(BaseModel):
     """Dashboard endpoint response with all agent cards + status counts."""
+
     cards: List[AgentCardResponse] = Field(default_factory=list)
     status_counts: AgentStatusCounts = Field(
         default_factory=AgentStatusCounts,
@@ -178,6 +189,7 @@ class AgentCardListResponse(BaseModel):
 
 class AgentPauseResumeResponse(BaseModel):
     """Response after pausing or resuming an agent."""
+
     agent_id: str
     previous_status: str
     new_status: str
@@ -191,6 +203,7 @@ class AgentPauseResumeResponse(BaseModel):
 
 class AgentStatusChangedEvent(BaseModel):
     """Payload for the agent:status_changed Socket.io event."""
+
     agent_id: str
     company_id: str
     previous_status: str
@@ -201,6 +214,7 @@ class AgentStatusChangedEvent(BaseModel):
 
 class AgentMetricsUpdatedEvent(BaseModel):
     """Payload for the agent:metrics_updated Socket.io event."""
+
     agent_id: str
     company_id: str
     metrics: AgentCardMetrics

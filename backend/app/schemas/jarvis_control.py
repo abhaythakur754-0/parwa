@@ -15,28 +15,61 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-
 # ══════════════════════════════════════════════════════════════════
 # F-087: Jarvis Command Parser Schemas
 # ══════════════════════════════════════════════════════════════════
 
 VALID_COMMAND_TYPES = {
-    "show_status", "system_status", "list_errors", "show_errors",
-    "restart_agent", "escalate_ticket", "train_from_error",
-    "list_tickets", "show_tickets", "get_ticket", "assign_ticket",
-    "close_ticket", "reopen_ticket", "list_agents", "show_agents",
-    "analytics", "show_analytics", "query_analytics",
-    "health_check", "ping", "uptime",
-    "list_integrations", "show_integrations", "check_integration",
-    "enable_integration", "disable_integration",
-    "list_queues", "show_queues", "purge_queue",
-    "list_incidents", "show_incidents", "resolve_incident",
-    "show_config", "get_config", "set_config",
-    "show_logs", "get_logs", "export_logs",
-    "show_usage", "usage_summary", "cost_report",
-    "train_model", "retrain", "evaluate_model",
-    "restart_service", "deploy", "rollback",
-    "help", "commands", "list_commands",
+    "show_status",
+    "system_status",
+    "list_errors",
+    "show_errors",
+    "restart_agent",
+    "escalate_ticket",
+    "train_from_error",
+    "list_tickets",
+    "show_tickets",
+    "get_ticket",
+    "assign_ticket",
+    "close_ticket",
+    "reopen_ticket",
+    "list_agents",
+    "show_agents",
+    "analytics",
+    "show_analytics",
+    "query_analytics",
+    "health_check",
+    "ping",
+    "uptime",
+    "list_integrations",
+    "show_integrations",
+    "check_integration",
+    "enable_integration",
+    "disable_integration",
+    "list_queues",
+    "show_queues",
+    "purge_queue",
+    "list_incidents",
+    "show_incidents",
+    "resolve_incident",
+    "show_config",
+    "get_config",
+    "set_config",
+    "show_logs",
+    "get_logs",
+    "export_logs",
+    "show_usage",
+    "usage_summary",
+    "cost_report",
+    "train_model",
+    "retrain",
+    "evaluate_model",
+    "restart_service",
+    "deploy",
+    "rollback",
+    "help",
+    "commands",
+    "list_commands",
     "unknown",
 }
 
@@ -66,8 +99,7 @@ class JarvisCommandRequest(BaseModel):
 class CommandParam(BaseModel):
     """A single extracted parameter from a parsed command."""
 
-    name: str = Field(
-        description="Parameter name (e.g., 'ticket_id', 'agent_id')")
+    name: str = Field(description="Parameter name (e.g., 'ticket_id', 'agent_id')")
     value: str = Field(description="Extracted parameter value")
     confidence: float = Field(
         default=1.0,
@@ -167,9 +199,7 @@ class SystemStatusResponse(BaseModel):
         description="Per-subsystem health data",
     )
     checked_at: str = Field(description="ISO 8601 timestamp")
-    cached: bool = Field(
-        default=False,
-        description="Whether result was cached")
+    cached: bool = Field(default=False, description="Whether result was cached")
     checks_total: int = 0
     checks_healthy: int = 0
     checks_degraded: int = 0
@@ -228,8 +258,7 @@ class GSDStateInfo(BaseModel):
 
     ticket_id: str
     company_id: str
-    current_state: str = Field(
-        description="Current GSD state (e.g., 'diagnosis')")
+    current_state: str = Field(description="Current GSD state (e.g., 'diagnosis')")
     variant: str = Field(default="parwa", description="PARWA variant type")
     entered_at: Optional[str] = Field(
         default=None,
@@ -265,9 +294,7 @@ class GSDSessionInfo(BaseModel):
     current_state: str
     agent_id: Optional[str] = Field(default=None)
     duration_seconds: float = 0.0
-    is_stuck: bool = Field(
-        default=False,
-        description="Whether session is stuck")
+    is_stuck: bool = Field(default=False, description="Whether session is stuck")
     stuck_reason: Optional[str] = Field(default=None)
     transition_count: int = 0
     last_transition_at: Optional[str] = None
@@ -330,12 +357,13 @@ class QuickCommand(BaseModel):
     command_text: str = Field(description="Underlying jarvis command text")
     confirmation_required: bool = Field(default=False)
     risk_level: str = Field(
-        default="low",
-        description="Risk level: low/medium/high/critical")
+        default="low", description="Risk level: low/medium/high/critical"
+    )
     requires_admin: bool = Field(default=False)
     description: Optional[str] = Field(default=None)
     display_label: Optional[str] = Field(
-        default=None, description="Tenant-overridden label")
+        default=None, description="Tenant-overridden label"
+    )
     tenant_enabled: bool = Field(default=True)
     custom_params: Optional[Dict[str, Any]] = Field(default=None)
 
@@ -469,13 +497,13 @@ class DismissResponse(BaseModel):
 
 
 VALID_TRAINING_ACTIONS = ("approved", "rejected", "needs_revision")
-VALID_TRAINING_SOURCES = (
-    "error_auto",
-    "error_manual",
-    "feedback",
-    "correction")
+VALID_TRAINING_SOURCES = ("error_auto", "error_manual", "feedback", "correction")
 VALID_TRAINING_STATUSES_FILTER = (
-    "queued_for_review", "approved", "rejected", "in_dataset", "archived",
+    "queued_for_review",
+    "approved",
+    "rejected",
+    "in_dataset",
+    "archived",
 )
 
 
@@ -485,11 +513,13 @@ class TrainingPointCreate(BaseModel):
     error_id: str = Field(description="Error log UUID to convert")
     ticket_id: Optional[str] = Field(default=None)
     correction_notes: Optional[str] = Field(
-        default=None, max_length=2000,
+        default=None,
+        max_length=2000,
         description="Operator notes about what went wrong",
     )
     expected_response: Optional[str] = Field(
-        default=None, max_length=5000,
+        default=None,
+        max_length=5000,
         description="What the correct AI response should have been",
     )
     source: str = Field(
@@ -523,7 +553,8 @@ class TrainingPointReview(BaseModel):
         description="Review action: approved, rejected, needs_revision",
     )
     review_notes: Optional[str] = Field(
-        default=None, max_length=1000,
+        default=None,
+        max_length=1000,
         description="Reviewer notes",
     )
 
@@ -558,8 +589,11 @@ class TrainingStats(BaseModel):
 
 VALID_RISK_LEVELS = ("low", "medium", "high", "critical")
 VALID_HEALING_OUTCOMES = (
-    "success", "failed", "skipped",
-    "requires_confirmation", "cooldown_active",
+    "success",
+    "failed",
+    "skipped",
+    "requires_confirmation",
+    "cooldown_active",
 )
 
 

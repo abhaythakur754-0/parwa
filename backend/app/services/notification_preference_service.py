@@ -123,35 +123,44 @@ class NotificationPreferenceService:
         Returns preferences for all event types, using defaults for unset ones.
         """
         # Verify user exists
-        user = self.db.query(User).filter(
-            User.id == user_id,
-            User.company_id == self.company_id,
-        ).first()
+        user = (
+            self.db.query(User)
+            .filter(
+                User.id == user_id,
+                User.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not user:
             raise NotFoundError(f"User {user_id} not found")
 
         # Get stored preferences
-        stored_prefs = self.db.query(NotificationPreference).filter(
-            NotificationPreference.company_id == self.company_id,
-            NotificationPreference.user_id == user_id,
-        ).all()
+        stored_prefs = (
+            self.db.query(NotificationPreference)
+            .filter(
+                NotificationPreference.company_id == self.company_id,
+                NotificationPreference.user_id == user_id,
+            )
+            .all()
+        )
 
         # Build preferences dict
         preferences = {}
 
         for event_type, defaults in self.DEFAULT_PREFERENCES.items():
-            stored = next(
-                (p for p in stored_prefs if p.event_type == event_type),
-                None
-            )
+            stored = next((p for p in stored_prefs if p.event_type == event_type), None)
 
             if stored:
                 preferences[event_type] = {
                     "enabled": stored.enabled,
-                    "channels": json.loads(
-                        stored.channels) if stored.channels else defaults["channels"],
-                    "priority_threshold": stored.priority_threshold or defaults["priority_threshold"],
+                    "channels": (
+                        json.loads(stored.channels)
+                        if stored.channels
+                        else defaults["channels"]
+                    ),
+                    "priority_threshold": stored.priority_threshold
+                    or defaults["priority_threshold"],
                 }
             else:
                 preferences[event_type] = defaults.copy()
@@ -200,31 +209,31 @@ class NotificationPreferenceService:
         # Validate priority threshold
         if priority_threshold is not None:
             if priority_threshold not in self.VALID_PRIORITY_THRESHOLDS:
-                raise ValidationError(
-                    f"Invalid priority threshold. Valid: {
+                raise ValidationError(f"Invalid priority threshold. Valid: {
                         self.VALID_PRIORITY_THRESHOLDS}")
 
         # Get or create preference
-        preference = self.db.query(NotificationPreference).filter(
-            NotificationPreference.company_id == self.company_id,
-            NotificationPreference.user_id == user_id,
-            NotificationPreference.event_type == event_type,
-        ).first()
+        preference = (
+            self.db.query(NotificationPreference)
+            .filter(
+                NotificationPreference.company_id == self.company_id,
+                NotificationPreference.user_id == user_id,
+                NotificationPreference.event_type == event_type,
+            )
+            .first()
+        )
 
         if not preference:
             defaults = self.DEFAULT_PREFERENCES[event_type]
             preference = NotificationPreference(
-                id=str(
-                    uuid4()),
+                id=str(uuid4()),
                 company_id=self.company_id,
                 user_id=user_id,
                 event_type=event_type,
                 enabled=enabled if enabled is not None else defaults["enabled"],
-                channels=json.dumps(
-                    channels or defaults["channels"]),
+                channels=json.dumps(channels or defaults["channels"]),
                 priority_threshold=priority_threshold or defaults["priority_threshold"],
-                created_at=datetime.now(
-                    timezone.utc),
+                created_at=datetime.now(timezone.utc),
             )
             self.db.add(preference)
         else:
@@ -273,10 +282,12 @@ class NotificationPreferenceService:
                 )
                 results["updated"].append(event_type)
             except Exception as e:
-                results["errors"].append({
-                    "event_type": event_type,
-                    "error": str(e),
-                })
+                results["errors"].append(
+                    {
+                        "event_type": event_type,
+                        "error": str(e),
+                    }
+                )
 
         return results
 
@@ -308,14 +319,17 @@ class NotificationPreferenceService:
             if not (0 <= hour <= 23 and 0 <= minute <= 59):
                 raise ValueError()
         except (ValueError, AttributeError):
-            raise ValidationError(
-                "Invalid time format. Use HH:MM (24-hour format)")
+            raise ValidationError("Invalid time format. Use HH:MM (24-hour format)")
 
         # Store in user metadata (or a dedicated table)
-        user = self.db.query(User).filter(
-            User.id == user_id,
-            User.company_id == self.company_id,
-        ).first()
+        user = (
+            self.db.query(User)
+            .filter(
+                User.id == user_id,
+                User.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not user:
             raise NotFoundError(f"User {user_id} not found")
@@ -403,11 +417,15 @@ class NotificationPreferenceService:
         Returns:
             Tuple of (should_notify, channels)
         """
-        preference = self.db.query(NotificationPreference).filter(
-            NotificationPreference.company_id == self.company_id,
-            NotificationPreference.user_id == user_id,
-            NotificationPreference.event_type == event_type,
-        ).first()
+        preference = (
+            self.db.query(NotificationPreference)
+            .filter(
+                NotificationPreference.company_id == self.company_id,
+                NotificationPreference.user_id == user_id,
+                NotificationPreference.event_type == event_type,
+            )
+            .first()
+        )
 
         if not preference:
             # Use defaults
@@ -417,8 +435,7 @@ class NotificationPreferenceService:
             threshold = defaults.get("priority_threshold", "low")
         else:
             enabled = preference.enabled
-            channels = json.loads(
-                preference.channels) if preference.channels else []
+            channels = json.loads(preference.channels) if preference.channels else []
             threshold = preference.priority_threshold or "low"
 
         if not enabled:
@@ -426,11 +443,7 @@ class NotificationPreferenceService:
 
         # Check priority threshold
         priority_levels = {"low": 0, "medium": 1, "high": 2, "urgent": 3}
-        if priority_levels.get(
-                priority,
-                0) < priority_levels.get(
-                threshold,
-                0):
+        if priority_levels.get(priority, 0) < priority_levels.get(threshold, 0):
             return False, []
 
         return True, channels
@@ -445,11 +458,15 @@ class NotificationPreferenceService:
 
         Used for batch notification processing.
         """
-        preferences = self.db.query(NotificationPreference).filter(
-            NotificationPreference.company_id == self.company_id,
-            NotificationPreference.event_type == event_type,
-            NotificationPreference.enabled,
-        ).all()
+        preferences = (
+            self.db.query(NotificationPreference)
+            .filter(
+                NotificationPreference.company_id == self.company_id,
+                NotificationPreference.event_type == event_type,
+                NotificationPreference.enabled,
+            )
+            .all()
+        )
 
         user_ids = []
         for pref in preferences:
@@ -480,10 +497,14 @@ class NotificationPreferenceService:
 
     def _get_digest_settings(self, user_id: str) -> Dict[str, Any]:
         """Get digest settings from user metadata."""
-        user = self.db.query(User).filter(
-            User.id == user_id,
-            User.company_id == self.company_id,
-        ).first()
+        user = (
+            self.db.query(User)
+            .filter(
+                User.id == user_id,
+                User.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not user or not user.metadata_json:
             return {"frequency": "none", "time": "09:00"}
@@ -491,8 +512,8 @@ class NotificationPreferenceService:
         try:
             metadata = json.loads(user.metadata_json)
             return metadata.get(
-                "digest_settings", {
-                    "frequency": "none", "time": "09:00"})
+                "digest_settings", {"frequency": "none", "time": "09:00"}
+            )
         except (json.JSONDecodeError, TypeError):
             return {"frequency": "none", "time": "09:00"}
 
@@ -520,10 +541,14 @@ class NotificationPreferenceService:
 
         Returns count of preferences copied.
         """
-        source_prefs = self.db.query(NotificationPreference).filter(
-            NotificationPreference.company_id == self.company_id,
-            NotificationPreference.user_id == from_user_id,
-        ).all()
+        source_prefs = (
+            self.db.query(NotificationPreference)
+            .filter(
+                NotificationPreference.company_id == self.company_id,
+                NotificationPreference.user_id == from_user_id,
+            )
+            .all()
+        )
 
         count = 0
         for pref in source_prefs:
@@ -532,8 +557,7 @@ class NotificationPreferenceService:
                     user_id=to_user_id,
                     event_type=pref.event_type,
                     enabled=pref.enabled,
-                    channels=json.loads(
-                        pref.channels) if pref.channels else None,
+                    channels=json.loads(pref.channels) if pref.channels else None,
                     priority_threshold=pref.priority_threshold,
                 )
                 count += 1
@@ -550,19 +574,26 @@ class NotificationPreferenceService:
 
         Useful for admin reporting.
         """
-        users = self.db.query(User).filter(
-            User.company_id == self.company_id,
-        ).count()
+        users = (
+            self.db.query(User)
+            .filter(
+                User.company_id == self.company_id,
+            )
+            .count()
+        )
 
-        preferences = self.db.query(NotificationPreference).filter(
-            NotificationPreference.company_id == self.company_id,
-        ).all()
+        preferences = (
+            self.db.query(NotificationPreference)
+            .filter(
+                NotificationPreference.company_id == self.company_id,
+            )
+            .all()
+        )
 
         # Count by event type
         event_counts = {}
         for event_type in self.DEFAULT_PREFERENCES.keys():
-            event_prefs = [
-                p for p in preferences if p.event_type == event_type]
+            event_prefs = [p for p in preferences if p.event_type == event_type]
             enabled = sum(1 for p in event_prefs if p.enabled)
             event_counts[event_type] = {
                 "total_configured": len(event_prefs),
@@ -573,16 +604,18 @@ class NotificationPreferenceService:
         # Digest settings
         digest_counts = {"none": 0, "daily": 0, "weekly": 0}
 
-        all_users = self.db.query(User).filter(
-            User.company_id == self.company_id,
-        ).all()
+        all_users = (
+            self.db.query(User)
+            .filter(
+                User.company_id == self.company_id,
+            )
+            .all()
+        )
 
         for user in all_users:
             try:
                 metadata = json.loads(user.metadata_json or "{}")
-                freq = metadata.get(
-                    "digest_settings", {}).get(
-                    "frequency", "none")
+                freq = metadata.get("digest_settings", {}).get("frequency", "none")
                 digest_counts[freq] = digest_counts.get(freq, 0) + 1
             except (json.JSONDecodeError, TypeError):
                 digest_counts["none"] += 1

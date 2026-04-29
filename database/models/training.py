@@ -10,7 +10,14 @@ from datetime import datetime
 import uuid
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Integer, Numeric, String, Text, ForeignKey
+    Boolean,
+    Column,
+    DateTime,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    ForeignKey,
 )
 
 from database.base import Base
@@ -25,14 +32,18 @@ class TrainingDataset(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     agent_id = Column(String(36), ForeignKey("agents.id"))
     name = Column(String(255), nullable=False)
     description = Column(Text)
     record_count = Column(Integer, default=0)
-    source = Column(String(50), nullable=False)  # mistakes, manual, export, cold_start_template
+    source = Column(
+        String(50), nullable=False
+    )  # mistakes, manual, export, cold_start_template
     status = Column(String(50), default="draft")
     file_path = Column(Text)
     storage_path = Column(Text)  # Path to stored JSONL file
@@ -49,12 +60,16 @@ class TrainingCheckpoint(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     training_run_id = Column(
-        String(36), ForeignKey("training_runs.id"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("training_runs.id"),
+        nullable=False,
+        index=True,
     )
     checkpoint_name = Column(String(255), nullable=False)
     model_path = Column(Text)
@@ -71,12 +86,16 @@ class AgentMistake(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     agent_id = Column(
-        String(36), ForeignKey("agents.id"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("agents.id"),
+        nullable=False,
+        index=True,
     )
     ticket_id = Column(String(36), ForeignKey("tickets.id"))
     mistake_type = Column(String(100), nullable=False)
@@ -93,12 +112,16 @@ class AgentPerformance(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     agent_id = Column(
-        String(36), ForeignKey("agents.id"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("agents.id"),
+        nullable=False,
+        index=True,
     )
     period = Column(String(20), nullable=False)
     period_start = Column(DateTime, nullable=False)
@@ -112,20 +135,27 @@ class AgentPerformance(Base):
 
 class PeerReview(Base):
     """F-108: Peer Review / Escalation model for junior-to-senior escalation."""
+
     __tablename__ = "peer_reviews"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     junior_agent_id = Column(
-        String(36), ForeignKey("agents.id"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("agents.id"),
+        nullable=False,
+        index=True,
     )
     senior_agent_id = Column(
-        String(36), ForeignKey("agents.id"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("agents.id"),
+        nullable=False,
+        index=True,
     )
     ticket_id = Column(String(36), ForeignKey("tickets.id"))
     # low_confidence, complex_query, policy_violation_risk, customer_escalation, uncertainty, knowledge_gap

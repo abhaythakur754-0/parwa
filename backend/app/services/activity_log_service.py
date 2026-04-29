@@ -170,129 +170,169 @@ class ActivityLogService:
         events = []
 
         # Get status changes
-        status_changes = self.db.query(TicketStatusChange).filter(
-            TicketStatusChange.ticket_id == ticket_id,
-            TicketStatusChange.company_id == self.company_id,
-        ).all()
+        status_changes = (
+            self.db.query(TicketStatusChange)
+            .filter(
+                TicketStatusChange.ticket_id == ticket_id,
+                TicketStatusChange.company_id == self.company_id,
+            )
+            .all()
+        )
 
         for sc in status_changes:
-            events.append({
-                "id": sc.id,
-                "type": self.ACTIVITY_STATUS_CHANGE,
-                "timestamp": sc.created_at,
-                "actor_id": sc.changed_by,
-                "actor_type": "human",
-                "old_value": sc.from_status,
-                "new_value": sc.to_status,
-                "reason": sc.reason,
-            })
+            events.append(
+                {
+                    "id": sc.id,
+                    "type": self.ACTIVITY_STATUS_CHANGE,
+                    "timestamp": sc.created_at,
+                    "actor_id": sc.changed_by,
+                    "actor_type": "human",
+                    "old_value": sc.from_status,
+                    "new_value": sc.to_status,
+                    "reason": sc.reason,
+                }
+            )
 
         # Get assignments
-        assignments = self.db.query(TicketAssignment).filter(
-            TicketAssignment.ticket_id == ticket_id,
-            TicketAssignment.company_id == self.company_id,
-        ).all()
+        assignments = (
+            self.db.query(TicketAssignment)
+            .filter(
+                TicketAssignment.ticket_id == ticket_id,
+                TicketAssignment.company_id == self.company_id,
+            )
+            .all()
+        )
 
         for a in assignments:
-            events.append({
-                "id": a.id,
-                "type": self.ACTIVITY_ASSIGNED,
-                "timestamp": a.assigned_at,
-                "actor_id": a.assignee_id,
-                "actor_type": a.assignee_type,
-                "new_value": a.assignee_id,
-                "reason": a.reason,
-                "metadata": {"score": float(a.score) if a.score else None},
-            })
+            events.append(
+                {
+                    "id": a.id,
+                    "type": self.ACTIVITY_ASSIGNED,
+                    "timestamp": a.assigned_at,
+                    "actor_id": a.assignee_id,
+                    "actor_type": a.assignee_type,
+                    "new_value": a.assignee_id,
+                    "reason": a.reason,
+                    "metadata": {"score": float(a.score) if a.score else None},
+                }
+            )
 
         # Get messages
         if include_messages:
-            messages = self.db.query(TicketMessage).filter(
-                TicketMessage.ticket_id == ticket_id,
-                TicketMessage.company_id == self.company_id,
-            ).all()
+            messages = (
+                self.db.query(TicketMessage)
+                .filter(
+                    TicketMessage.ticket_id == ticket_id,
+                    TicketMessage.company_id == self.company_id,
+                )
+                .all()
+            )
 
             for m in messages:
                 # Skip internal messages unless requested
                 if m.is_internal and not include_internal:
                     continue
 
-                events.append({
-                    "id": m.id,
-                    "type": self.ACTIVITY_MESSAGE_ADDED,
-                    "timestamp": m.created_at,
-                    "actor_id": None,  # Would need to track sender
-                    "actor_type": m.role,
-                    "metadata": {
-                        "channel": m.channel,
-                        "is_internal": m.is_internal,
-                        "is_redacted": m.is_redacted,
-                        "ai_confidence": float(m.ai_confidence) if m.ai_confidence else None,
-                    },
-                })
+                events.append(
+                    {
+                        "id": m.id,
+                        "type": self.ACTIVITY_MESSAGE_ADDED,
+                        "timestamp": m.created_at,
+                        "actor_id": None,  # Would need to track sender
+                        "actor_type": m.role,
+                        "metadata": {
+                            "channel": m.channel,
+                            "is_internal": m.is_internal,
+                            "is_redacted": m.is_redacted,
+                            "ai_confidence": (
+                                float(m.ai_confidence) if m.ai_confidence else None
+                            ),
+                        },
+                    }
+                )
 
         # Get internal notes
         if include_notes:
-            notes = self.db.query(TicketInternalNote).filter(
-                TicketInternalNote.ticket_id == ticket_id,
-                TicketInternalNote.company_id == self.company_id,
-            ).all()
+            notes = (
+                self.db.query(TicketInternalNote)
+                .filter(
+                    TicketInternalNote.ticket_id == ticket_id,
+                    TicketInternalNote.company_id == self.company_id,
+                )
+                .all()
+            )
 
             for n in notes:
-                events.append({
-                    "id": n.id,
-                    "type": self.ACTIVITY_NOTE_ADDED,
-                    "timestamp": n.created_at,
-                    "actor_id": n.author_id,
-                    "actor_type": "human",
-                    "metadata": {
-                        "is_pinned": n.is_pinned,
-                    },
-                })
+                events.append(
+                    {
+                        "id": n.id,
+                        "type": self.ACTIVITY_NOTE_ADDED,
+                        "timestamp": n.created_at,
+                        "actor_id": n.author_id,
+                        "actor_type": "human",
+                        "metadata": {
+                            "is_pinned": n.is_pinned,
+                        },
+                    }
+                )
 
         # Get attachments
-        attachments = self.db.query(TicketAttachment).filter(
-            TicketAttachment.ticket_id == ticket_id,
-            TicketAttachment.company_id == self.company_id,
-        ).all()
+        attachments = (
+            self.db.query(TicketAttachment)
+            .filter(
+                TicketAttachment.ticket_id == ticket_id,
+                TicketAttachment.company_id == self.company_id,
+            )
+            .all()
+        )
 
         for a in attachments:
-            events.append({
-                "id": a.id,
-                "type": self.ACTIVITY_ATTACHMENT_UPLOADED,
-                "timestamp": a.created_at,
-                "actor_id": a.uploaded_by,
-                "actor_type": "human",
-                "metadata": {
-                    "filename": a.filename,
-                    "file_size": a.file_size,
-                    "mime_type": a.mime_type,
-                },
-            })
+            events.append(
+                {
+                    "id": a.id,
+                    "type": self.ACTIVITY_ATTACHMENT_UPLOADED,
+                    "timestamp": a.created_at,
+                    "actor_id": a.uploaded_by,
+                    "actor_type": "human",
+                    "metadata": {
+                        "filename": a.filename,
+                        "file_size": a.file_size,
+                        "mime_type": a.mime_type,
+                    },
+                }
+            )
 
         # Get merges
-        merges = self.db.query(TicketMerge).filter(
-            or_(
-                TicketMerge.primary_ticket_id == ticket_id,
-                TicketMerge.merged_ticket_ids.contains(f'"{ticket_id}"'),
-            ),
-            TicketMerge.company_id == self.company_id,
-        ).all()
+        merges = (
+            self.db.query(TicketMerge)
+            .filter(
+                or_(
+                    TicketMerge.primary_ticket_id == ticket_id,
+                    TicketMerge.merged_ticket_ids.contains(f'"{ticket_id}"'),
+                ),
+                TicketMerge.company_id == self.company_id,
+            )
+            .all()
+        )
 
         for m in merges:
-            events.append({
-                "id": m.id,
-                "type": self.ACTIVITY_MERGED if not m.undone else self.ACTIVITY_UNMERGED,
-                "timestamp": m.created_at,
-                "actor_id": m.merged_by,
-                "actor_type": "human",
-                "reason": m.reason,
-                "metadata": {
-                    "primary_ticket_id": m.primary_ticket_id,
-                    "merged_ticket_ids": json.loads(m.merged_ticket_ids or "[]"),
-                    "undone": m.undone,
-                },
-            })
+            events.append(
+                {
+                    "id": m.id,
+                    "type": (
+                        self.ACTIVITY_MERGED if not m.undone else self.ACTIVITY_UNMERGED
+                    ),
+                    "timestamp": m.created_at,
+                    "actor_id": m.merged_by,
+                    "actor_type": "human",
+                    "reason": m.reason,
+                    "metadata": {
+                        "primary_ticket_id": m.primary_ticket_id,
+                        "merged_ticket_ids": json.loads(m.merged_ticket_ids or "[]"),
+                        "undone": m.undone,
+                    },
+                }
+            )
 
         # Sort by timestamp (newest first)
         events.sort(key=lambda x: x["timestamp"], reverse=True)
@@ -305,7 +345,7 @@ class ActivityLogService:
 
         # Paginate
         offset = (page - 1) * page_size
-        paginated = events[offset:offset + page_size]
+        paginated = events[offset : offset + page_size]
 
         return paginated, total
 
@@ -344,8 +384,7 @@ class ActivityLogService:
 
         for event in reversed(timeline):  # Oldest first
             if event["type"] == self.ACTIVITY_MESSAGE_ADDED:
-                if event.get("metadata", {}).get(
-                        "actor_type") in ["agent", "ai"]:
+                if event.get("metadata", {}).get("actor_type") in ["agent", "ai"]:
                     if not first_response:
                         first_response = event["timestamp"]
 
@@ -362,17 +401,13 @@ class ActivityLogService:
             "total_activities": total,
             "activity_counts": type_counts,
             "first_response_at": first_response.isoformat() if first_response else None,
-            "first_assignment_at": first_assignment.isoformat() if first_assignment else None,
+            "first_assignment_at": (
+                first_assignment.isoformat() if first_assignment else None
+            ),
             "resolved_at": resolution.isoformat() if resolution else None,
-            "message_count": type_counts.get(
-                self.ACTIVITY_MESSAGE_ADDED,
-                0),
-            "note_count": type_counts.get(
-                self.ACTIVITY_NOTE_ADDED,
-                0),
-            "status_change_count": type_counts.get(
-                self.ACTIVITY_STATUS_CHANGE,
-                0),
+            "message_count": type_counts.get(self.ACTIVITY_MESSAGE_ADDED, 0),
+            "note_count": type_counts.get(self.ACTIVITY_NOTE_ADDED, 0),
+            "status_change_count": type_counts.get(self.ACTIVITY_STATUS_CHANGE, 0),
         }
 
     # ── HELPER METHODS FOR RECORDING ─────────────────────────────────────
@@ -425,7 +460,9 @@ class ActivityLogService:
         """Helper to record tag change."""
         return self.record_activity(
             ticket_id=ticket_id,
-            activity_type=self.ACTIVITY_TAG_ADDED if added else self.ACTIVITY_TAG_REMOVED,
+            activity_type=(
+                self.ACTIVITY_TAG_ADDED if added else self.ACTIVITY_TAG_REMOVED
+            ),
             actor_id=actor_id,
             new_value=tag if added else None,
             old_value=tag if not added else None,

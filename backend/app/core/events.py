@@ -15,12 +15,12 @@ from typing import Any, Dict, Optional, Type
 
 from pydantic import BaseModel, Field
 
-
 # ── Event Categories ──────────────────────────────────────
 
 
 class EventCategory(str, Enum):
     """Category of a PARWA real-time event."""
+
     TICKET = "ticket"
     AI = "ai"
     APPROVAL = "approval"
@@ -34,6 +34,7 @@ class EventCategory(str, Enum):
 
 class TicketEventPayload(BaseModel):
     """Schema for ticket-scoped events."""
+
     ticket_id: str
     company_id: str
     status: Optional[str] = None
@@ -47,6 +48,7 @@ class TicketEventPayload(BaseModel):
 
 class AIEventPayload(BaseModel):
     """Schema for AI-scoped events."""
+
     ticket_id: str
     company_id: str
     confidence: Optional[float] = Field(default=None, ge=0, le=100)
@@ -59,6 +61,7 @@ class AIEventPayload(BaseModel):
 
 class ApprovalEventPayload(BaseModel):
     """Schema for approval-scoped events."""
+
     approval_id: str
     company_id: str
     action_type: Optional[str] = None
@@ -71,6 +74,7 @@ class ApprovalEventPayload(BaseModel):
 
 class NotificationEventPayload(BaseModel):
     """Schema for notification-scoped events."""
+
     company_id: str
     user_id: Optional[str] = None
     notification_type: Optional[str] = None
@@ -81,6 +85,7 @@ class NotificationEventPayload(BaseModel):
 
 class SystemEventPayload(BaseModel):
     """Schema for system-scoped events. company_id is optional."""
+
     company_id: Optional[str] = None
     subsystem: Optional[str] = None
     status: Optional[str] = None
@@ -91,6 +96,7 @@ class SystemEventPayload(BaseModel):
 
 class ShadowModeEventPayload(BaseModel):
     """Schema for shadow mode events."""
+
     company_id: str
     mode: Optional[str] = None
     previous_mode: Optional[str] = None
@@ -136,10 +142,7 @@ class EventType:
         return len(json.dumps(payload, default=str).encode("utf-8"))
 
     def __repr__(self) -> str:
-        return (
-            f"EventType({self.type_str!r}, "
-            f"category={self.category.value!r})"
-        )
+        return f"EventType({self.type_str!r}, " f"category={self.category.value!r})"
 
 
 # ── Event Registry ────────────────────────────────────────
@@ -155,20 +158,14 @@ class EventRegistry:
     def register(self, event_type: EventType) -> None:
         """Register a new event type. Raises ValueError if duplicate."""
         if event_type.type_str in self._events:
-            raise ValueError(
-                f"Event type '{event_type.type_str}' already registered"
-            )
+            raise ValueError(f"Event type '{event_type.type_str}' already registered")
         self._events[event_type.type_str] = event_type
 
     def get(self, type_str: str) -> Optional[EventType]:
         """Get event type by string, or None if not found."""
         return self._events.get(type_str)
 
-    def validate(self,
-                 type_str: str,
-                 payload: Dict[str,
-                               Any]) -> Dict[str,
-                                             Any]:
+    def validate(self, type_str: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Validate event type and payload. Returns cleaned payload."""
         et = self._events.get(type_str)
         if et is None:
@@ -177,10 +174,7 @@ class EventRegistry:
 
     def get_events_by_category(self, category: EventCategory) -> list:
         """Get all event types in a category."""
-        return [
-            et for et in self._events.values()
-            if et.category == category
-        ]
+        return [et for et in self._events.values() if et.category == category]
 
     def all_types(self) -> list:
         """Get all registered event types."""
@@ -201,12 +195,14 @@ class EventRegistry:
             ("ticket:escalated", "Ticket escalated"),
             ("ticket:message_new", "New message added to ticket"),
         ]:
-            self.register(EventType(
-                type_str=type_str,
-                category=EventCategory.TICKET,
-                payload_schema=TicketEventPayload,
-                description=desc,
-            ))
+            self.register(
+                EventType(
+                    type_str=type_str,
+                    category=EventCategory.TICKET,
+                    payload_schema=TicketEventPayload,
+                    description=desc,
+                )
+            )
 
         # ── AI Events (4) ──
         for type_str, desc in [
@@ -215,12 +211,14 @@ class EventRegistry:
             ("ai:confidence_low", "Confidence dropped below threshold"),
             ("ai:classification", "Ticket classified by AI"),
         ]:
-            self.register(EventType(
-                type_str=type_str,
-                category=EventCategory.AI,
-                payload_schema=AIEventPayload,
-                description=desc,
-            ))
+            self.register(
+                EventType(
+                    type_str=type_str,
+                    category=EventCategory.AI,
+                    payload_schema=AIEventPayload,
+                    description=desc,
+                )
+            )
 
         # ── Approval Events (5) ──
         for type_str, desc in [
@@ -230,12 +228,14 @@ class EventRegistry:
             ("approval:timeout", "Approval timed out (72h)"),
             ("approval:batch", "Batch approval completed"),
         ]:
-            self.register(EventType(
-                type_str=type_str,
-                category=EventCategory.APPROVAL,
-                payload_schema=ApprovalEventPayload,
-                description=desc,
-            ))
+            self.register(
+                EventType(
+                    type_str=type_str,
+                    category=EventCategory.APPROVAL,
+                    payload_schema=ApprovalEventPayload,
+                    description=desc,
+                )
+            )
 
         # ── Notification Events (3) ──
         for type_str, desc in [
@@ -243,12 +243,14 @@ class EventRegistry:
             ("notification:read", "User read notification"),
             ("notification:bulk", "Bulk notification (team-wide)"),
         ]:
-            self.register(EventType(
-                type_str=type_str,
-                category=EventCategory.NOTIFICATION,
-                payload_schema=NotificationEventPayload,
-                description=desc,
-            ))
+            self.register(
+                EventType(
+                    type_str=type_str,
+                    category=EventCategory.NOTIFICATION,
+                    payload_schema=NotificationEventPayload,
+                    description=desc,
+                )
+            )
 
         # ── System Events (4) ──
         for type_str, desc in [
@@ -257,28 +259,35 @@ class EventRegistry:
             ("system:error", "Critical error occurred"),
             ("system:maintenance", "Maintenance mode toggle"),
         ]:
-            self.register(EventType(
-                type_str=type_str,
-                category=EventCategory.SYSTEM,
-                payload_schema=SystemEventPayload,
-                description=desc,
-            ))
+            self.register(
+                EventType(
+                    type_str=type_str,
+                    category=EventCategory.SYSTEM,
+                    payload_schema=SystemEventPayload,
+                    description=desc,
+                )
+            )
 
         # ── Shadow Mode Events (6) ──
         for type_str, desc in [
-            ("shadow:mode_changed", "System shadow mode changed (shadow/supervised/graduated)"),
+            (
+                "shadow:mode_changed",
+                "System shadow mode changed (shadow/supervised/graduated)",
+            ),
             ("shadow:action_pending", "New shadow action awaiting approval"),
             ("shadow:action_resolved", "Shadow action approved or rejected"),
             ("shadow:action_undone", "Auto-approved action was undone"),
             ("shadow:preference_changed", "Per-category shadow preference updated"),
             ("shadow:stats_updated", "Shadow mode statistics refreshed"),
         ]:
-            self.register(EventType(
-                type_str=type_str,
-                category=EventCategory.SHADOW,
-                payload_schema=ShadowModeEventPayload,
-                description=desc,
-            ))
+            self.register(
+                EventType(
+                    type_str=type_str,
+                    category=EventCategory.SHADOW,
+                    payload_schema=ShadowModeEventPayload,
+                    description=desc,
+                )
+            )
 
 
 # ── Singleton ─────────────────────────────────────────────

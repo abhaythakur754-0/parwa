@@ -70,35 +70,53 @@ class EvaluationCriterion(str, Enum):
 
 _CATEGORY_PATTERNS: List[Tuple[re.Pattern, SolutionCategory]] = [
     # Billing / refund patterns → REFUND
-    (re.compile(
-        r"\b(refund|money.?back|reimburse|return.?payment|chargeback|reverse.?charge|full.?refund|partial.?refund)\b",
-        re.I,
-    ), SolutionCategory.REFUND),
+    (
+        re.compile(
+            r"\b(refund|money.?back|reimburse|return.?payment|chargeback|reverse.?charge|full.?refund|partial.?refund)\b",
+            re.I,
+        ),
+        SolutionCategory.REFUND,
+    ),
     # Credit / coupon / store credit patterns → CREDIT
-    (re.compile(
-        r"\b(credit|coupon|voucher|store.?credit|promotional.?credit|account.?credit|loyalty.?point|rebate|discount.?code)\b",
-        re.I,
-    ), SolutionCategory.CREDIT),
+    (
+        re.compile(
+            r"\b(credit|coupon|voucher|store.?credit|promotional.?credit|account.?credit|loyalty.?point|rebate|discount.?code)\b",
+            re.I,
+        ),
+        SolutionCategory.CREDIT,
+    ),
     # Free service / trial / complimentary patterns → FREE_SERVICE
-    (re.compile(
-        r"\b(free.?month|free.?trial|complimentary|waive.?fee|no.?charge|gratis|free.?upgrade|free.?access|bonus|courtesy)\b",
-        re.I,
-    ), SolutionCategory.FREE_SERVICE),
+    (
+        re.compile(
+            r"\b(free.?month|free.?trial|complimentary|waive.?fee|no.?charge|gratis|free.?upgrade|free.?access|bonus|courtesy)\b",
+            re.I,
+        ),
+        SolutionCategory.FREE_SERVICE,
+    ),
     # Upgrade / plan change patterns → UPGRADE
-    (re.compile(
-        r"\b(upgrade|plan.?change|premium|tier.?change|higher.?plan|better.?plan|plan.?switch|move.?up)\b",
-        re.I,
-    ), SolutionCategory.UPGRADE),
+    (
+        re.compile(
+            r"\b(upgrade|plan.?change|premium|tier.?change|higher.?plan|better.?plan|plan.?switch|move.?up)\b",
+            re.I,
+        ),
+        SolutionCategory.UPGRADE,
+    ),
     # Exception / waiver / policy override patterns → POLICY_EXCEPTION
-    (re.compile(
-        r"\b(exception|waiver|override|policy.?bend|one.?time.?thing|special.?case|goodwill|accommodation|extenuating)\b",
-        re.I,
-    ), SolutionCategory.POLICY_EXCEPTION),
+    (
+        re.compile(
+            r"\b(exception|waiver|override|policy.?bend|one.?time.?thing|special.?case|goodwill|accommodation|extenuating)\b",
+            re.I,
+        ),
+        SolutionCategory.POLICY_EXCEPTION,
+    ),
     # Escalation / manager / supervisor patterns → ESCALATION
-    (re.compile(
-        r"\b(escalat|manager|supervisor|senior.?agent|executive|complaint.?department|speak.?to.?someone|higher.?up)\b",
-        re.I,
-    ), SolutionCategory.ESCALATION),
+    (
+        re.compile(
+            r"\b(escalat|manager|supervisor|senior.?agent|executive|complaint.?department|speak.?to.?someone|higher.?up)\b",
+            re.I,
+        ),
+        SolutionCategory.ESCALATION,
+    ),
 ]
 
 _DEFAULT_CATEGORY = SolutionCategory.GENERAL
@@ -200,7 +218,6 @@ _SOLUTION_TEMPLATES: Dict[SolutionCategory, List[Dict[str, Any]]] = {
             ),
         },
     ],
-
     # ── CREDIT ────────────────────────────────────────────────────────
     SolutionCategory.CREDIT: [
         {
@@ -284,7 +301,6 @@ _SOLUTION_TEMPLATES: Dict[SolutionCategory, List[Dict[str, Any]]] = {
             ),
         },
     ],
-
     # ── FREE_SERVICE ──────────────────────────────────────────────────
     SolutionCategory.FREE_SERVICE: [
         {
@@ -369,7 +385,6 @@ _SOLUTION_TEMPLATES: Dict[SolutionCategory, List[Dict[str, Any]]] = {
             ),
         },
     ],
-
     # ── UPGRADE ───────────────────────────────────────────────────────
     SolutionCategory.UPGRADE: [
         {
@@ -453,7 +468,6 @@ _SOLUTION_TEMPLATES: Dict[SolutionCategory, List[Dict[str, Any]]] = {
             ),
         },
     ],
-
     # ── POLICY_EXCEPTION ──────────────────────────────────────────────
     SolutionCategory.POLICY_EXCEPTION: [
         {
@@ -538,7 +552,6 @@ _SOLUTION_TEMPLATES: Dict[SolutionCategory, List[Dict[str, Any]]] = {
             ),
         },
     ],
-
     # ── ESCALATION ────────────────────────────────────────────────────
     SolutionCategory.ESCALATION: [
         {
@@ -622,7 +635,6 @@ _SOLUTION_TEMPLATES: Dict[SolutionCategory, List[Dict[str, Any]]] = {
             ),
         },
     ],
-
     # ── GENERAL ───────────────────────────────────────────────────────
     SolutionCategory.GENERAL: [
         {
@@ -753,13 +765,15 @@ class UoTConfig:
     company_id: str = ""
     min_solutions: int = 3
     max_solutions: int = 5
-    weights: Dict[str, float] = field(default_factory=lambda: {
-        "customer_satisfaction": 0.25,
-        "financial_cost": 0.20,
-        "policy_compliance": 0.25,
-        "resolution_speed": 0.15,
-        "long_term_relationship": 0.15,
-    })
+    weights: Dict[str, float] = field(
+        default_factory=lambda: {
+            "customer_satisfaction": 0.25,
+            "financial_cost": 0.20,
+            "policy_compliance": 0.25,
+            "resolution_speed": 0.15,
+            "long_term_relationship": 0.15,
+        }
+    )
 
 
 @dataclass
@@ -819,9 +833,7 @@ class UoTResult:
         return {
             "solutions": [s.to_dict() for s in self.solutions],
             "selected_solution": (
-                self.selected_solution.to_dict()
-                if self.selected_solution
-                else None
+                self.selected_solution.to_dict() if self.selected_solution else None
             ),
             "evaluation_matrix": self.evaluation_matrix,
             "steps_applied": self.steps_applied,
@@ -877,7 +889,8 @@ class UoTProcessor:
 
         category = self._categorize_query(query)
         templates = _SOLUTION_TEMPLATES.get(
-            category, _SOLUTION_TEMPLATES[_DEFAULT_CATEGORY],
+            category,
+            _SOLUTION_TEMPLATES[_DEFAULT_CATEGORY],
         )
 
         # Limit by config
@@ -885,8 +898,10 @@ class UoTProcessor:
 
         # Ensure minimum count — if primary category has too few,
         # supplement from general category
-        if len(
-                selected) < self.config.min_solutions and category != SolutionCategory.GENERAL:
+        if (
+            len(selected) < self.config.min_solutions
+            and category != SolutionCategory.GENERAL
+        ):
             general_templates = _SOLUTION_TEMPLATES[SolutionCategory.GENERAL]
             needed = self.config.min_solutions - len(selected)
             selected.extend(general_templates[:needed])
@@ -950,7 +965,9 @@ class UoTProcessor:
 
             # ── Normalize each dimension to 1-10 ─────────────────
             csat_score = self._normalize_1_to_10(
-                raw.get("customer_satisfaction", 5), 1, 10,
+                raw.get("customer_satisfaction", 5),
+                1,
+                10,
             )
 
             cost_score = self._normalize_cost(
@@ -989,24 +1006,14 @@ class UoTProcessor:
                 "category": solution.category,
                 "customer_satisfaction": csat_score,
                 "financial_cost": cost_score,
-                "financial_cost_raw": raw.get(
-                    "financial_cost",
-                    0),
+                "financial_cost_raw": raw.get("financial_cost", 0),
                 "policy_compliance": policy_score,
-                "policy_compliance_raw": raw.get(
-                    "policy_compliance",
-                    "yes"),
+                "policy_compliance_raw": raw.get("policy_compliance", "yes"),
                 "resolution_speed": speed_score,
-                "resolution_speed_raw": raw.get(
-                    "resolution_speed",
-                    "moderate"),
+                "resolution_speed_raw": raw.get("resolution_speed", "moderate"),
                 "long_term_impact": long_term_score,
-                "long_term_impact_raw": raw.get(
-                    "long_term_impact",
-                    "neutral"),
-                "total": round(
-                    total,
-                    4),
+                "long_term_impact_raw": raw.get("long_term_impact", "neutral"),
+                "total": round(total, 4),
                 "weights_used": dict(weights),
             }
             matrix_rows.append(matrix_row)
@@ -1099,9 +1106,7 @@ class UoTProcessor:
         parts: List[str] = []
 
         # Solution name and description
-        parts.append(
-            f"Recommended Solution: {solution.name}"
-        )
+        parts.append(f"Recommended Solution: {solution.name}")
         parts.append(solution.description)
 
         # Rationale
@@ -1112,9 +1117,7 @@ class UoTProcessor:
         raw = solution.scores
         cost_display = raw.get("financial_cost", 0)
         cost_label = (
-            f"${abs(cost_display)}"
-            if cost_display >= 0
-            else f"-${abs(cost_display)}"
+            f"${abs(cost_display)}" if cost_display >= 0 else f"-${abs(cost_display)}"
         )
         speed_display = raw.get("resolution_speed", "moderate")
 
@@ -1201,7 +1204,8 @@ class UoTProcessor:
             # Step 4: Presentation
             if selected:
                 presentation = await self.generate_presentation(
-                    selected, solutions,
+                    selected,
+                    solutions,
                 )
                 if presentation:
                     steps_applied.append("presentation")
@@ -1221,9 +1225,11 @@ class UoTProcessor:
                 solutions=solutions,
                 selected_solution=selected,
                 evaluation_matrix=evaluation_matrix,
-                steps_applied=steps_applied + ["error_fallback"]
-                if steps_applied
-                else ["error_fallback"],
+                steps_applied=(
+                    steps_applied + ["error_fallback"]
+                    if steps_applied
+                    else ["error_fallback"]
+                ),
                 confidence_boost=0.0,
             )
 
@@ -1405,12 +1411,7 @@ class UniverseOfThoughtsNode(BaseTechniqueNode):
         elif urgent_result is True:
             is_flagged = True
 
-        return (
-            is_vip
-            or is_angry
-            or is_high_value
-            or is_flagged
-        )
+        return is_vip or is_angry or is_high_value or is_flagged
 
     async def execute(self, state: ConversationState) -> ConversationState:
         """
@@ -1446,7 +1447,8 @@ class UniverseOfThoughtsNode(BaseTechniqueNode):
             # append the presentation to response parts
             if result.selected_solution and result.steps_applied:
                 presentation = await self._processor.generate_presentation(
-                    result.selected_solution, result.solutions,
+                    result.selected_solution,
+                    result.solutions,
                 )
                 if presentation:
                     state.response_parts.append(presentation)

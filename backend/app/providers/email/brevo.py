@@ -127,7 +127,10 @@ class BrevoEmailProvider(EmailProvider):
 
         if message.attachments:
             payload["attachment"] = [
-                {"name": att.get("name", "attachment"), "content": att.get("content", "")}
+                {
+                    "name": att.get("name", "attachment"),
+                    "content": att.get("content", ""),
+                }
                 for att in message.attachments
             ]
 

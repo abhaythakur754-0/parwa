@@ -34,6 +34,7 @@ router = APIRouter(prefix="/api/verification", tags=["Verification"])
 
 class SendOTPRequest(BaseModel):
     """Request to send OTP to business email."""
+
     email: str = Field(..., description="Business email address to verify")
 
     @validator("email")
@@ -46,6 +47,7 @@ class SendOTPRequest(BaseModel):
 
 class SendOTPResponse(BaseModel):
     """Response after sending OTP."""
+
     message: str
     expires_in: int = Field(..., description="OTP expiry time in seconds")
     email: str
@@ -53,6 +55,7 @@ class SendOTPResponse(BaseModel):
 
 class VerifyOTPRequest(BaseModel):
     """Request to verify OTP code."""
+
     email: str = Field(..., description="Business email being verified")
     otp_code: str = Field(..., description="6-digit OTP code")
 
@@ -73,6 +76,7 @@ class VerifyOTPRequest(BaseModel):
 
 class VerifyOTPResponse(BaseModel):
     """Response after verifying OTP."""
+
     status: str
     message: str
     email: str
@@ -80,6 +84,7 @@ class VerifyOTPResponse(BaseModel):
 
 class VerificationStatusResponse(BaseModel):
     """Response for verification status check."""
+
     email: str
     verified: bool
 

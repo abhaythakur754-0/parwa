@@ -13,11 +13,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ── Enums ────────────────────────────────────────────────────────────────
+
 
 class VariantType(str, Enum):
     """PARWA subscription variants."""
+
     MINI_PARWA = "mini_parwa"
     PARWA = "parwa"
     HIGH_PARWA = "high_parwa"
@@ -25,6 +26,7 @@ class VariantType(str, Enum):
 
 class SubscriptionStatus(str, Enum):
     """Subscription status values."""
+
     ACTIVE = "active"
     PAST_DUE = "past_due"
     PAUSED = "paused"
@@ -34,6 +36,7 @@ class SubscriptionStatus(str, Enum):
 
 class PaymentStatus(str, Enum):
     """Payment/transaction status values."""
+
     PENDING = "pending"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -42,6 +45,7 @@ class PaymentStatus(str, Enum):
 
 class PaymentMethodType(str, Enum):
     """Payment method types."""
+
     CARD = "card"
     PAYPAL = "paypal"
     WIRE = "wire"
@@ -51,8 +55,10 @@ class PaymentMethodType(str, Enum):
 
 # ── Variant Limits ────────────────────────────────────────────────────────
 
+
 class BillingFrequency(str, Enum):
     """Billing frequency."""
+
     MONTHLY = "monthly"
     YEARLY = "yearly"
 
@@ -128,13 +134,15 @@ INDUSTRY_ADD_ONS = {
 
 class IndustryAddOnStatus(str, Enum):
     """Status of a company's industry add-on."""
+
     ACTIVE = "active"
-    INACTIVE = "inactive"      # Scheduled for removal at period end
-    ARCHIVED = "archived"      # Previously removed, data archived
+    INACTIVE = "inactive"  # Scheduled for removal at period end
+    ARCHIVED = "archived"  # Previously removed, data archived
 
 
 class CompanyVariantInfo(BaseModel):
     """Company variant add-on information (Day 3: V4)."""
+
     id: UUID
     company_id: UUID
     variant_id: str  # ecommerce, saas, logistics, others
@@ -154,6 +162,7 @@ class CompanyVariantInfo(BaseModel):
 
 class CompanyVariantCreate(BaseModel):
     """Request to add an industry variant add-on (Day 3: V2)."""
+
     variant_id: str
 
     @field_validator("variant_id")
@@ -162,8 +171,7 @@ class CompanyVariantCreate(BaseModel):
         v_lower = v.lower().strip()
         valid = {"ecommerce", "saas", "logistics", "others"}
         if v_lower not in valid:
-            raise ValueError(
-                f"Invalid variant_id '{v}'. Must be one of: {
+            raise ValueError(f"Invalid variant_id '{v}'. Must be one of: {
                     ', '.join(
                         sorted(valid))}")
         return v_lower
@@ -171,12 +179,14 @@ class CompanyVariantCreate(BaseModel):
 
 class CompanyVariantList(BaseModel):
     """List of company variant add-ons."""
+
     variants: List[CompanyVariantInfo]
     total: int
 
 
 class VariantLimits(BaseModel):
     """Feature limits for a variant."""
+
     variant: VariantType
     monthly_tickets: int
     ai_agents: int
@@ -189,30 +199,36 @@ class VariantLimits(BaseModel):
 
 # ── Subscription Schemas ──────────────────────────────────────────────────
 
+
 class SubscriptionBase(BaseModel):
     """Base subscription fields."""
+
     variant: VariantType
     status: SubscriptionStatus = SubscriptionStatus.ACTIVE
 
 
 class SubscriptionCreate(SubscriptionBase):
     """Request to create a new subscription."""
+
     payment_method_id: Optional[str] = None
 
 
 class SubscriptionUpdate(BaseModel):
     """Request to update a subscription (upgrade/downgrade)."""
+
     variant: VariantType
 
 
 class SubscriptionCancel(BaseModel):
     """Request to cancel a subscription."""
+
     reason: Optional[str] = None
     effective_immediately: bool = False
 
 
 class SubscriptionInfo(BaseModel):
     """Subscription information response."""
+
     id: UUID
     company_id: UUID
     variant: VariantType
@@ -238,8 +254,10 @@ class SubscriptionInfo(BaseModel):
 
 # ── Usage Schemas ─────────────────────────────────────────────────────────
 
+
 class UsageInfo(BaseModel):
     """Current usage information."""
+
     company_id: UUID
     record_month: str  # YYYY-MM
     tickets_used: int
@@ -253,6 +271,7 @@ class UsageInfo(BaseModel):
 
 class UsageHistory(BaseModel):
     """Monthly usage history."""
+
     record_month: str
     tickets_used: int
     overage_tickets: int
@@ -261,13 +280,16 @@ class UsageHistory(BaseModel):
 
 # ── Payment Method Schemas ────────────────────────────────────────────────
 
+
 class PaymentMethodBase(BaseModel):
     """Base payment method fields."""
+
     method_type: PaymentMethodType
 
 
 class PaymentMethodInfo(BaseModel):
     """Payment method information."""
+
     id: UUID
     company_id: UUID
     method_type: PaymentMethodType
@@ -283,8 +305,10 @@ class PaymentMethodInfo(BaseModel):
 
 # ── Invoice Schemas ────────────────────────────────────────────────────────
 
+
 class InvoiceInfo(BaseModel):
     """Invoice information."""
+
     id: UUID
     company_id: UUID
     paddle_invoice_id: Optional[str] = None
@@ -302,6 +326,7 @@ class InvoiceInfo(BaseModel):
 
 class InvoiceList(BaseModel):
     """Paginated invoice list."""
+
     invoices: List[InvoiceInfo]
     total: int
     page: int
@@ -310,8 +335,10 @@ class InvoiceList(BaseModel):
 
 # ── Proration Schemas ─────────────────────────────────────────────────────
 
+
 class ProrationResult(BaseModel):
     """Proration calculation result."""
+
     old_variant: VariantType
     new_variant: VariantType
     old_price: Decimal
@@ -328,6 +355,7 @@ class ProrationResult(BaseModel):
 
 class ProrationAudit(BaseModel):
     """Proration audit record."""
+
     id: UUID
     company_id: UUID
     old_variant: VariantType
@@ -345,8 +373,10 @@ class ProrationAudit(BaseModel):
 
 # ── Payment Failure Schemas ────────────────────────────────────────────────
 
+
 class PaymentFailureInfo(BaseModel):
     """Payment failure information."""
+
     id: UUID
     company_id: UUID
     paddle_subscription_id: Optional[str] = None
@@ -366,8 +396,10 @@ class PaymentFailureInfo(BaseModel):
 
 # ── Client Refund Schemas ──────────────────────────────────────────────────
 
+
 class ClientRefundCreate(BaseModel):
     """Request to create a client refund (PARWA clients to THEIR customers)."""
+
     ticket_id: Optional[UUID] = None
     amount: Decimal = Field(..., gt=0)
     currency: str = "USD"
@@ -385,6 +417,7 @@ class ClientRefundCreate(BaseModel):
 
 class ClientRefundInfo(BaseModel):
     """Client refund information."""
+
     id: UUID
     company_id: UUID
     ticket_id: Optional[UUID] = None
@@ -401,8 +434,10 @@ class ClientRefundInfo(BaseModel):
 
 # ── Overage Schemas ────────────────────────────────────────────────────────
 
+
 class OverageChargeInfo(BaseModel):
     """Overage charge information."""
+
     id: UUID
     company_id: UUID
     date: date
@@ -417,8 +452,10 @@ class OverageChargeInfo(BaseModel):
 
 # ── Limit Check Schemas ─────────────────────────────────────────────────────
 
+
 class LimitCheckResult(BaseModel):
     """Result of a variant limit check."""
+
     allowed: bool
     limit_type: str  # tickets, team_members, ai_agents, voice_slots, kb_docs
     current_usage: int
@@ -429,8 +466,10 @@ class LimitCheckResult(BaseModel):
 
 # ── Webhook Idempotency Schemas ────────────────────────────────────────────
 
+
 class IdempotencyKeyInfo(BaseModel):
     """Idempotency key information."""
+
     id: UUID
     company_id: Optional[UUID] = None
     idempotency_key: str
@@ -446,8 +485,10 @@ class IdempotencyKeyInfo(BaseModel):
 
 # ── Webhook Sequence Schemas ────────────────────────────────────────────────
 
+
 class WebhookSequenceInfo(BaseModel):
     """Webhook sequence/ordering information."""
+
     id: UUID
     company_id: Optional[UUID] = None
     paddle_event_id: str
@@ -464,8 +505,10 @@ class WebhookSequenceInfo(BaseModel):
 
 # ── Effective Limits (Day 3: V6 - with stacking) ────────────────────
 
+
 class EffectiveLimitsInfo(BaseModel):
     """Effective limits after stacking base plan + active add-ons."""
+
     base_monthly_tickets: int
     addon_tickets: int
     effective_monthly_tickets: int
@@ -486,18 +529,21 @@ class EffectiveLimitsInfo(BaseModel):
 
 # ── Day 4 Schemas: Cancel Confirmation, Data Retention, Re-subscription ──
 
+
 class CancelFeedbackRequest(BaseModel):
     """C1: Step 1 of cancel confirmation flow — feedback form."""
+
     reason: Optional[str] = Field(
-        None,
-        max_length=500,
-        description="Why are you leaving?")
+        None, max_length=500, description="Why are you leaving?"
+    )
     feedback: Optional[str] = Field(
-        None, max_length=1000, description="Additional feedback")
+        None, max_length=1000, description="Additional feedback"
+    )
 
 
 class SaveOfferResponse(BaseModel):
     """C1: Save offer — 20% off next 3 months."""
+
     discount_percentage: int = 20
     discount_months: int = 3
     message: str = (
@@ -510,6 +556,7 @@ class SaveOfferResponse(BaseModel):
 
 class CancelConfirmRequest(BaseModel):
     """C1: Final cancel confirmation."""
+
     effective_immediately: bool = False
     accept_data_retention: bool = Field(
         False,
@@ -519,6 +566,7 @@ class CancelConfirmRequest(BaseModel):
 
 class RetentionStatusResponse(BaseModel):
     """C4: Data retention status for a company."""
+
     status: str  # active, in_retention, retention_expired, no_subscription
     service_stopped_at: Optional[str] = None
     deletion_date: Optional[str] = None
@@ -529,6 +577,7 @@ class RetentionStatusResponse(BaseModel):
 
 class DataExportRequestResponse(BaseModel):
     """C5: Data export request response."""
+
     export_id: Optional[str] = None
     status: str  # processing, completed, failed
     requested_at: Optional[str] = None
@@ -537,6 +586,7 @@ class DataExportRequestResponse(BaseModel):
 
 class DataExportDownloadResponse(BaseModel):
     """C5: Data export download info."""
+
     export_id: str
     status: str
     file_size_bytes: Optional[int] = None
@@ -546,6 +596,7 @@ class DataExportDownloadResponse(BaseModel):
 
 class ResubscriptionRequest(BaseModel):
     """R1/R3: Re-subscription request."""
+
     variant: VariantType
     payment_method_id: Optional[str] = None
     billing_frequency: BillingFrequency = BillingFrequency.MONTHLY
@@ -557,6 +608,7 @@ class ResubscriptionRequest(BaseModel):
 
 class ResubscriptionResponse(BaseModel):
     """R1/R2/R3: Re-subscription response."""
+
     subscription: SubscriptionInfo
     data_restored: bool
     message: str
@@ -566,6 +618,7 @@ class ResubscriptionResponse(BaseModel):
 
 class PaymentMethodUpdateRequest(BaseModel):
     """G4: Payment method update request."""
+
     return_url: Optional[str] = Field(
         None,
         description="URL to redirect to after payment method update in Paddle portal.",
@@ -574,12 +627,14 @@ class PaymentMethodUpdateRequest(BaseModel):
 
 class PaymentMethodUpdateResponse(BaseModel):
     """G4: Payment method update response."""
+
     paddle_portal_url: Optional[str] = None
     message: str
 
 
 class PaymentFailureStatusResponse(BaseModel):
     """G1/G2: Payment failure status with 7-day window info."""
+
     has_active_failure: bool
     failure_id: Optional[str] = None
     failure_reason: Optional[str] = None
@@ -592,8 +647,10 @@ class PaymentFailureStatusResponse(BaseModel):
 
 # ── Common Response Schemas ────────────────────────────────────────────────
 
+
 class MessageResponse(BaseModel):
     """Generic message response."""
+
     message: str
     code: Optional[str] = None
 
@@ -606,13 +663,16 @@ class MessageResponse(BaseModel):
 
 # ── MF1: Trial Schemas ────────────────────────────────────────────────────
 
+
 class TrialStartRequest(BaseModel):
     """MF1: Request to start a trial."""
+
     trial_days: int = Field(default=14, ge=1, le=60)
 
 
 class TrialStatusResponse(BaseModel):
     """MF1: Trial status response."""
+
     status: str  # none, not_started, active, expired
     trial_ends_at: Optional[str] = None
     trial_remaining_days: Optional[int] = None
@@ -620,8 +680,10 @@ class TrialStatusResponse(BaseModel):
 
 # ── MF2: Pause/Resume Schemas ─────────────────────────────────────────────
 
+
 class PauseResponse(BaseModel):
     """MF2: Pause response."""
+
     status: str
     paused_at: Optional[str] = None
     max_resume_date: Optional[str] = None
@@ -629,6 +691,7 @@ class PauseResponse(BaseModel):
 
 class ResumeResponse(BaseModel):
     """MF2: Resume response."""
+
     status: str
     resumed_at: Optional[str] = None
     pause_duration_days: Optional[int] = None
@@ -637,14 +700,17 @@ class ResumeResponse(BaseModel):
 
 # ── MF3: Promo Code Schemas ───────────────────────────────────────────────
 
+
 class PromoApplyRequest(BaseModel):
     """MF3: Request to apply a promo code."""
+
     code: str
     tier: Optional[str] = None
 
 
 class PromoValidateResponse(BaseModel):
     """MF3: Promo code validation response."""
+
     valid: bool
     code: Optional[str] = None
     discount_type: Optional[str] = None
@@ -654,6 +720,7 @@ class PromoValidateResponse(BaseModel):
 
 class PromoCodeInfo(BaseModel):
     """MF3: Promo code info for admin list."""
+
     id: str
     code: str
     discount_type: str
@@ -665,6 +732,7 @@ class PromoCodeInfo(BaseModel):
 
 class PromoCodeCreateRequest(BaseModel):
     """MF3: Admin create promo code."""
+
     code: str
     discount_type: str = Field(..., pattern="^(percentage|fixed)$")
     discount_value: Decimal = Field(..., gt=0)
@@ -676,27 +744,34 @@ class PromoCodeCreateRequest(BaseModel):
 
 # ── MF4: Currency Schemas ─────────────────────────────────────────────────
 
+
 class CurrencyResponse(BaseModel):
     """MF4: Company currency response."""
+
     currency: str = "USD"
 
 
 # ── MF5: Timezone Schemas ─────────────────────────────────────────────────
 
+
 class TimezoneResponse(BaseModel):
     """MF5: Billing timezone display settings."""
+
     timezone: str = "UTC"
 
 
 # ── MF6: Enterprise Billing Schemas ───────────────────────────────────────
 
+
 class EnterpriseBillingRequest(BaseModel):
     """MF6: Enable manual billing request."""
+
     company_id: str
 
 
 class ManualInvoiceRequest(BaseModel):
     """MF6: Create manual invoice request."""
+
     company_id: str
     amount: Decimal = Field(..., gt=0)
     due_date: Optional[datetime] = None
@@ -705,8 +780,10 @@ class ManualInvoiceRequest(BaseModel):
 
 # ── MF7: Invoice Amendment Schemas ────────────────────────────────────────
 
+
 class InvoiceAmendmentRequest(BaseModel):
     """MF7: Create amendment request."""
+
     new_amount: Decimal = Field(..., ge=0)
     amendment_type: str = Field(..., pattern="^(credit|additional_charge)$")
     reason: str
@@ -714,6 +791,7 @@ class InvoiceAmendmentRequest(BaseModel):
 
 class InvoiceAmendmentInfo(BaseModel):
     """MF7: Invoice amendment info."""
+
     id: str
     invoice_id: str
     original_amount: str
@@ -726,8 +804,10 @@ class InvoiceAmendmentInfo(BaseModel):
 
 # ── MF8-MF11: Analytics Schemas ───────────────────────────────────────────
 
+
 class SpendingSummary(BaseModel):
     """MF8: Spending summary."""
+
     month: str
     base_plan: str
     overage_cost: str
@@ -738,12 +818,14 @@ class SpendingSummary(BaseModel):
 
 class ChannelBreakdown(BaseModel):
     """MF8: Channel breakdown."""
+
     month: str
     channels: Dict[str, Any]
 
 
 class SpendingTrend(BaseModel):
     """MF8: Monthly spending trend item."""
+
     month: str
     tickets_used: int
     overage_cost: str
@@ -751,6 +833,7 @@ class SpendingTrend(BaseModel):
 
 class BudgetAlert(BaseModel):
     """MF9: Budget alert status."""
+
     usage_percentage: float
     tickets_used: int
     ticket_limit: int
@@ -760,6 +843,7 @@ class BudgetAlert(BaseModel):
 
 class VoiceUsageInfo(BaseModel):
     """MF10: Voice usage info."""
+
     period: str
     voice_minutes_used: float
     status: str
@@ -767,6 +851,7 @@ class VoiceUsageInfo(BaseModel):
 
 class SmsUsageInfo(BaseModel):
     """MF11: SMS usage info."""
+
     period: str
     sms_count: int
     status: str
@@ -774,8 +859,10 @@ class SmsUsageInfo(BaseModel):
 
 # ── DI1-DI5: Dashboard Schemas ─────────────────────────────────────────────
 
+
 class DashboardSummary(BaseModel):
     """DI1: Complete billing dashboard data."""
+
     subscription_status: Optional[str] = None
     current_plan: Optional[str] = None
     billing_frequency: Optional[str] = None
@@ -789,11 +876,13 @@ class DashboardSummary(BaseModel):
 
 class PlanComparison(BaseModel):
     """DI2: Plan comparison for all tiers."""
+
     plans: List[Dict[str, Any]]
 
 
 class VariantCatalogItem(BaseModel):
     """DI3: Variant catalog item."""
+
     variant_id: str
     display_name: str
     description: Optional[str] = None
@@ -806,6 +895,7 @@ class VariantCatalogItem(BaseModel):
 
 class VariantCatalog(BaseModel):
     """DI3: Variant catalog response."""
+
     catalog: List[VariantCatalogItem]
     total: int
     active_count: int
@@ -813,6 +903,7 @@ class VariantCatalog(BaseModel):
 
 class EnhancedInvoiceHistory(BaseModel):
     """DI4: Enhanced invoice history with YTD totals."""
+
     invoices: List[Dict[str, Any]]
     ytd_total: str
     pagination: Dict[str, Any]
@@ -820,6 +911,7 @@ class EnhancedInvoiceHistory(BaseModel):
 
 class PaymentSchedule(BaseModel):
     """DI5: Payment schedule info."""
+
     next_payment_date: Optional[str] = None
     next_payment_amount: Optional[str] = None
     upcoming_charges: List[Dict[str, Any]]

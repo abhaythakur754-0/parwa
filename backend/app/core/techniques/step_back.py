@@ -59,22 +59,81 @@ _ENTITY_PATTERNS: Tuple[str, ...] = (
 
 # Technical jargon terms that suggest a need for clarification
 _TECHNICAL_JARGON: Set[str] = {
-    "api", "webhook", "endpoint", "oauth", "ssl", "tls", "dns",
-    "cdn", "latency", "throughput", "bandwidth", "payload",
-    "middleware", "microservice", "container", "kubernetes", "docker",
-    "load balancer", "rate limit", "idempotent", "cron", "daemon",
-    "protobu", "graphql", "rest", "grpc", "tcp", "udp", "http",
-    "ssh", "sftp", "ci/cd", "deployment", "rollback", "hotfix",
-    "schema", "migration", "index", "replica", "shard", "cluster",
-    "serialization", "deserialization", "authentication", "authorization",
-    "jwt", "token", "nonce", "hash", "salt", "encryption",
+    "api",
+    "webhook",
+    "endpoint",
+    "oauth",
+    "ssl",
+    "tls",
+    "dns",
+    "cdn",
+    "latency",
+    "throughput",
+    "bandwidth",
+    "payload",
+    "middleware",
+    "microservice",
+    "container",
+    "kubernetes",
+    "docker",
+    "load balancer",
+    "rate limit",
+    "idempotent",
+    "cron",
+    "daemon",
+    "protobu",
+    "graphql",
+    "rest",
+    "grpc",
+    "tcp",
+    "udp",
+    "http",
+    "ssh",
+    "sftp",
+    "ci/cd",
+    "deployment",
+    "rollback",
+    "hotfix",
+    "schema",
+    "migration",
+    "index",
+    "replica",
+    "shard",
+    "cluster",
+    "serialization",
+    "deserialization",
+    "authentication",
+    "authorization",
+    "jwt",
+    "token",
+    "nonce",
+    "hash",
+    "salt",
+    "encryption",
 }
 
 # Ambiguous intent trigger words (could mean multiple things)
 _AMBIGUOUS_WORDS: Set[str] = {
-    "fix", "update", "change", "issue", "problem", "help", "check",
-    "what", "how", "why", "when", "set up", "setup", "configure",
-    "manage", "access", "connect", "integrate", "sync", "transfer",
+    "fix",
+    "update",
+    "change",
+    "issue",
+    "problem",
+    "help",
+    "check",
+    "what",
+    "how",
+    "why",
+    "when",
+    "set up",
+    "setup",
+    "configure",
+    "manage",
+    "access",
+    "connect",
+    "integrate",
+    "sync",
+    "transfer",
 }
 
 # ── Broadening Templates ─────────────────────────────────────────────
@@ -133,19 +192,21 @@ class StepBackResult:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "detection_result": {
-                "is_narrow": self.detection_result.is_narrow,
-                "narrow_type": self.detection_result.narrow_type,
-                "confidence": self.detection_result.confidence,
-                "suggested_broadening": self.detection_result.suggested_broadening,
-            } if self.detection_result else None,
+            "detection_result": (
+                {
+                    "is_narrow": self.detection_result.is_narrow,
+                    "narrow_type": self.detection_result.narrow_type,
+                    "confidence": self.detection_result.confidence,
+                    "suggested_broadening": self.detection_result.suggested_broadening,
+                }
+                if self.detection_result
+                else None
+            ),
             "broadened_queries": self.broadened_queries,
             "analysis_result": self.analysis_result,
             "refined_response": self.refined_response,
             "steps_applied": self.steps_applied,
-            "context_score": round(
-                self.context_score,
-                4),
+            "context_score": round(self.context_score, 4),
         }
 
 
@@ -189,9 +250,7 @@ class StepBackProcessor:
             try:
                 patterns.append(re.compile(pattern_str, re.I))
             except re.error:
-                logger.warning(
-                    "step_back_invalid_entity_pattern",
-                    pattern=pattern_str)
+                logger.warning("step_back_invalid_entity_pattern", pattern=pattern_str)
         return patterns
 
     # ── Step 1: Detection ──────────────────────────────────────────
@@ -256,7 +315,8 @@ class StepBackProcessor:
         )
 
     def _detect_stuck_reasoning(
-        self, reasoning_thread: List[str],
+        self,
+        reasoning_thread: List[str],
     ) -> NarrowQueryDetector:
         """Detect if reasoning is looping (same words 3+ times)."""
         if not reasoning_thread:
@@ -270,15 +330,79 @@ class StepBackProcessor:
 
         # Filter out common stop words
         stop_words = {
-            "the", "a", "an", "is", "are", "was", "were", "be", "been",
-            "being", "have", "has", "had", "do", "does", "did", "will",
-            "would", "could", "should", "may", "might", "can", "shall",
-            "to", "o", "in", "for", "on", "with", "at", "by", "from",
-            "as", "into", "through", "during", "before", "after", "above",
-            "below", "between", "and", "but", "or", "nor", "not", "so",
-            "i", "then", "than", "too", "very", "just", "about", "also",
-            "that", "this", "these", "those", "it", "its", "i", "me",
-            "my", "we", "our", "you", "your", "he", "she", "they", "them",
+            "the",
+            "a",
+            "an",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "can",
+            "shall",
+            "to",
+            "o",
+            "in",
+            "for",
+            "on",
+            "with",
+            "at",
+            "by",
+            "from",
+            "as",
+            "into",
+            "through",
+            "during",
+            "before",
+            "after",
+            "above",
+            "below",
+            "between",
+            "and",
+            "but",
+            "or",
+            "nor",
+            "not",
+            "so",
+            "i",
+            "then",
+            "than",
+            "too",
+            "very",
+            "just",
+            "about",
+            "also",
+            "that",
+            "this",
+            "these",
+            "those",
+            "it",
+            "its",
+            "i",
+            "me",
+            "my",
+            "we",
+            "our",
+            "you",
+            "your",
+            "he",
+            "she",
+            "they",
+            "them",
         }
         content_words = [w for w in words if w not in stop_words]
         if not content_words:
@@ -290,10 +414,7 @@ class StepBackProcessor:
         loop_words = [w for w, c in word_counts.items() if c >= 3]
         if loop_words:
             top_word = loop_words[0]
-            confidence = min(
-                1.0,
-                word_counts[top_word]
-                / len(reasoning_thread))
+            confidence = min(1.0, word_counts[top_word] / len(reasoning_thread))
             return NarrowQueryDetector(
                 is_narrow=True,
                 narrow_type="stuck_reasoning",
@@ -344,8 +465,7 @@ class StepBackProcessor:
                 narrow_type="single_word",
                 confidence=round(max(0.3, confidence), 4),
                 suggested_broadening=(
-                    f"Very short query ({word_count} words): "
-                    f"'{query}'"
+                    f"Very short query ({word_count} words): " f"'{query}'"
                 ),
             )
 
@@ -420,16 +540,16 @@ class StepBackProcessor:
             return []
 
         broadened: List[str] = []
-        entity = self._extract_entity(
-            query) if narrow_type == "entity_specific" else None
+        entity = (
+            self._extract_entity(query) if narrow_type == "entity_specific" else None
+        )
 
         for i, template in enumerate(templates):
             if i >= self.config.max_broadening_levels:
                 break
             try:
                 if entity:
-                    broadened_query = template.format(
-                        entity=entity, query=query)
+                    broadened_query = template.format(entity=entity, query=query)
                 else:
                     broadened_query = template.format(query=query)
                 broadened.append(broadened_query)
@@ -480,28 +600,42 @@ class StepBackProcessor:
         scores.append(breadth)
 
         # 2. Coverage score: how many broadened queries were generated
-        coverage = min(1.0, len(broadened_queries)
-                       / max(self.config.max_broadening_levels, 1))
+        coverage = min(
+            1.0, len(broadened_queries) / max(self.config.max_broadening_levels, 1)
+        )
         scores.append(coverage)
 
         # 3. Clarity score: broadened queries are longer and more specific
-        avg_broadened_len = sum(len(bq.split())
-                                for bq in broadened_queries) / len(broadened_queries)
+        avg_broadened_len = sum(len(bq.split()) for bq in broadened_queries) / len(
+            broadened_queries
+        )
         original_len = max(1, len(query.split()))
         clarity = min(1.0, avg_broadened_len / original_len)
         scores.append(clarity)
 
         # 4. Context injection score: broadened queries add contextual framing
         contextual_words = {
-            "context", "history", "status", "accomplish", "aspect",
-            "specific", "relation", "problem", "feature", "area",
-            "alternative", "approach", "information", "earlier",
+            "context",
+            "history",
+            "status",
+            "accomplish",
+            "aspect",
+            "specific",
+            "relation",
+            "problem",
+            "feature",
+            "area",
+            "alternative",
+            "approach",
+            "information",
+            "earlier",
         }
         context_words_found = sum(
             1 for w in all_broadened_words if w in contextual_words
         )
         context_injection = min(
-            1.0, context_words_found / max(len(broadened_queries), 1))
+            1.0, context_words_found / max(len(broadened_queries), 1)
+        )
         scores.append(context_injection)
 
         # Weighted average
@@ -549,10 +683,7 @@ class StepBackProcessor:
         # Build contextual framing from the best broadened query
         best_query = broadened_queries[0]  # first is most relevant
 
-        refined = (
-            f"[Step-Back Context: {best_query}] "
-            f"{original_query}"
-        )
+        refined = f"[Step-Back Context: {best_query}] " f"{original_query}"
 
         return refined
 
@@ -600,20 +731,24 @@ class StepBackProcessor:
 
             # Step 2: Step-Back (Broadening)
             broadened_queries = await self.generate_broadened_queries(
-                query, detection,
+                query,
+                detection,
             )
             if broadened_queries:
                 steps_applied.append("broadening")
 
             # Step 3: Broader Analysis
             analysis_result, context_score = await self.analyze_broadened_context(
-                query, broadened_queries,
+                query,
+                broadened_queries,
             )
             steps_applied.append("analysis")
 
             # Step 4: Refined Response
             refined_response = await self.refine_response(
-                query, broadened_queries, context_score,
+                query,
+                broadened_queries,
+                context_score,
             )
             if refined_response != query:
                 steps_applied.append("refinement")
@@ -687,7 +822,9 @@ class StepBackNode(BaseTechniqueNode):
         BC-008: Wraps in try/except, returns original state on error.
         """
         try:
-            reasoning_thread = state.reasoning_thread if state.reasoning_thread else None
+            reasoning_thread = (
+                state.reasoning_thread if state.reasoning_thread else None
+            )
 
             result = await self._processor.process(
                 query=state.query,

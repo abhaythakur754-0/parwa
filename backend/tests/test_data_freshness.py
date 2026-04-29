@@ -29,6 +29,7 @@ StalenessConfig = None  # type: ignore[assignment,misc]
 # Fixtures — import source modules with mocked logger
 # ═══════════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture(autouse=True)
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
@@ -38,17 +39,21 @@ def _mock_logger():
             FreshnessStatus,
             StalenessConfig,
         )
-        globals().update({
-            "DataFreshnessService": DataFreshnessService,
-            "FreshnessCheckResult": FreshnessCheckResult,
-            "FreshnessStatus": FreshnessStatus,
-            "StalenessConfig": StalenessConfig,
-        })
+
+        globals().update(
+            {
+                "DataFreshnessService": DataFreshnessService,
+                "FreshnessCheckResult": FreshnessCheckResult,
+                "FreshnessStatus": FreshnessStatus,
+                "StalenessConfig": StalenessConfig,
+            }
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # Helper utilities
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def _make_key(company_id: str, *parts: str) -> str:
     """Mirror the real make_key: parwa:{company_id}:{parts...}."""
@@ -95,10 +100,12 @@ def _redis_patches(mock_redis, *, track_keys=False):
     )
     called_keys: list = []
     if track_keys:
+
         def _track(*args):
             k = _make_key(*args)
             called_keys.append(k)
             return k
+
         stack.enter_context(
             patch("app.core.redis.make_key", side_effect=_track),
         )
@@ -112,6 +119,7 @@ def _redis_patches(mock_redis, *, track_keys=False):
 # ═══════════════════════════════════════════════════════════════════════
 # 1. TestFreshnessStatus (4 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestFreshnessStatus:
 
@@ -131,6 +139,7 @@ class TestFreshnessStatus:
 # ═══════════════════════════════════════════════════════════════════════
 # 2. TestStalenessConfig (8 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestStalenessConfig:
 
@@ -181,63 +190,96 @@ class TestStalenessConfig:
 # 3. TestFreshnessCheckResult (8 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestFreshnessCheckResult:
 
     def test_default_metadata_is_empty_dict(self):
         r = FreshnessCheckResult(
-            FreshnessStatus.FRESH, 10.0, 300.0,
-            True, "2024-01-01T00:00:00+00:00", "signal",
+            FreshnessStatus.FRESH,
+            10.0,
+            300.0,
+            True,
+            "2024-01-01T00:00:00+00:00",
+            "signal",
         )
         assert r.metadata == {}
 
     def test_fresh_status_is_fresh_true(self):
         r = FreshnessCheckResult(
-            FreshnessStatus.FRESH, 10.0, 300.0,
-            True, "2024-01-01", "signal",
+            FreshnessStatus.FRESH,
+            10.0,
+            300.0,
+            True,
+            "2024-01-01",
+            "signal",
         )
         assert r.is_fresh is True
         assert r.status == FreshnessStatus.FRESH
 
     def test_stale_status_is_fresh_false(self):
         r = FreshnessCheckResult(
-            FreshnessStatus.STALE, 400.0, 300.0,
-            False, "2024-01-01", "signal",
+            FreshnessStatus.STALE,
+            400.0,
+            300.0,
+            False,
+            "2024-01-01",
+            "signal",
         )
         assert r.is_fresh is False
 
     def test_expired_status_is_fresh_false(self):
         r = FreshnessCheckResult(
-            FreshnessStatus.EXPIRED, 500.0, 300.0,
-            False, "2024-01-01", "signal",
+            FreshnessStatus.EXPIRED,
+            500.0,
+            300.0,
+            False,
+            "2024-01-01",
+            "signal",
         )
         assert r.is_fresh is False
 
     def test_unknown_status_is_fresh_false(self):
         r = FreshnessCheckResult(
-            FreshnessStatus.UNKNOWN, 0.0, 300.0,
-            False, None, "signal",
+            FreshnessStatus.UNKNOWN,
+            0.0,
+            300.0,
+            False,
+            None,
+            "signal",
         )
         assert r.is_fresh is False
         assert r.last_updated is None
 
     def test_age_seconds_stored(self):
         r = FreshnessCheckResult(
-            FreshnessStatus.FRESH, 42.5, 300.0,
-            True, "2024-01-01", "signal",
+            FreshnessStatus.FRESH,
+            42.5,
+            300.0,
+            True,
+            "2024-01-01",
+            "signal",
         )
         assert r.age_seconds == 42.5
 
     def test_max_age_seconds_stored(self):
         r = FreshnessCheckResult(
-            FreshnessStatus.STALE, 400.0, 300.0,
-            False, "2024-01-01", "context",
+            FreshnessStatus.STALE,
+            400.0,
+            300.0,
+            False,
+            "2024-01-01",
+            "context",
         )
         assert r.max_age_seconds == 300.0
 
     def test_source_and_metadata_set(self):
         r = FreshnessCheckResult(
-            FreshnessStatus.FRESH, 10.0, 120.0,
-            True, "2024-01-01", "rag_cache",
+            FreshnessStatus.FRESH,
+            10.0,
+            120.0,
+            True,
+            "2024-01-01",
+            "rag_cache",
             metadata={"method": "expiretime", "entity_type": "rag_cache"},
         )
         assert r.source == "rag_cache"
@@ -247,6 +289,7 @@ class TestFreshnessCheckResult:
 # ═══════════════════════════════════════════════════════════════════════
 # 4. TestCheckCacheFreshness (8 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestCheckCacheFreshness:
 
@@ -364,6 +407,7 @@ class TestCheckCacheFreshness:
 # 5. TestCheckSignalFreshness (8 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestCheckSignalFreshness:
 
     def setup_method(self):
@@ -380,7 +424,9 @@ class TestCheckSignalFreshness:
         stack, _ = _redis_patches(mock_redis)
         with stack:
             result = await self.svc.check_signal_freshness(
-                "abc123", "c1", "sentiment",
+                "abc123",
+                "c1",
+                "sentiment",
             )
         assert result.status == FreshnessStatus.FRESH
         assert result.is_fresh is True
@@ -396,7 +442,9 @@ class TestCheckSignalFreshness:
         stack, _ = _redis_patches(mock_redis)
         with stack:
             result = await self.svc.check_signal_freshness(
-                "abc123", "c1", "sentiment",
+                "abc123",
+                "c1",
+                "sentiment",
             )
         assert result.status == FreshnessStatus.EXPIRED
 
@@ -407,7 +455,9 @@ class TestCheckSignalFreshness:
         stack, _ = _redis_patches(mock_redis)
         with stack:
             result = await self.svc.check_signal_freshness(
-                "missing", "c1", "sentiment",
+                "missing",
+                "c1",
+                "sentiment",
             )
         assert result.status == FreshnessStatus.EXPIRED
 
@@ -419,7 +469,9 @@ class TestCheckSignalFreshness:
         stack, _ = _redis_patches(mock_redis)
         with stack:
             result = await self.svc.check_signal_freshness(
-                "q1", "c1", "intent",
+                "q1",
+                "c1",
+                "intent",
             )
         assert result.status == FreshnessStatus.UNKNOWN
         assert result.is_fresh is False
@@ -435,7 +487,9 @@ class TestCheckSignalFreshness:
         stack, called_keys = _redis_patches(mock_redis, track_keys=True)
         with stack:
             await self.svc.check_signal_freshness(
-                "qhash99", "compX", "sentiment",
+                "qhash99",
+                "compX",
+                "sentiment",
             )
         assert any("sentiment" in k for k in called_keys)
         assert any("qhash99" in k for k in called_keys)
@@ -451,7 +505,9 @@ class TestCheckSignalFreshness:
         stack, called_keys = _redis_patches(mock_redis, track_keys=True)
         with stack:
             await self.svc.check_signal_freshness(
-                "my_hash", "c1", "intent",
+                "my_hash",
+                "c1",
+                "intent",
             )
         assert any("my_hash" in k for k in called_keys)
 
@@ -466,7 +522,9 @@ class TestCheckSignalFreshness:
         stack, _ = _redis_patches(mock_redis)
         with stack:
             result = await self.svc.check_signal_freshness(
-                "h1", "c1", "v1",
+                "h1",
+                "c1",
+                "v1",
             )
         assert result.max_age_seconds == 300.0
 
@@ -490,6 +548,7 @@ class TestCheckSignalFreshness:
 # ═══════════════════════════════════════════════════════════════════════
 # 6. TestCheckContextFreshness (6 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestCheckContextFreshness:
 
@@ -580,6 +639,7 @@ class TestCheckContextFreshness:
 # 7. TestCheckRAGFreshness (6 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestCheckRAGFreshness:
 
     def setup_method(self):
@@ -596,7 +656,9 @@ class TestCheckRAGFreshness:
         stack, _ = _redis_patches(mock_redis)
         with stack:
             result = await self.svc.check_rag_freshness(
-                "what is refund?", "c1", "sentiment",
+                "what is refund?",
+                "c1",
+                "sentiment",
             )
         assert result.status == FreshnessStatus.FRESH
 
@@ -643,7 +705,9 @@ class TestCheckRAGFreshness:
         stack, called_keys = _redis_patches(mock_redis, track_keys=True)
         with stack:
             await self.svc.check_rag_freshness(
-                "hello world", "c1", "sentiment",
+                "hello world",
+                "c1",
+                "sentiment",
             )
         assert any("sentiment" in k for k in called_keys)
         assert any("rag:" in k for k in called_keys)
@@ -665,6 +729,7 @@ class TestCheckRAGFreshness:
 # ═══════════════════════════════════════════════════════════════════════
 # 8. TestInvalidateCache (6 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestInvalidateCache:
 
@@ -731,6 +796,7 @@ class TestInvalidateCache:
 # 9. TestInvalidateKBCaches (6 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestInvalidateKBCaches:
 
     def setup_method(self):
@@ -740,10 +806,12 @@ class TestInvalidateKBCaches:
     async def test_single_document_invalidation(self):
         """Caches for a specific document are invalidated."""
         fk = _make_key("c1", "freshness", "rag_cache", "doc_rag")
-        doc_payload = json.dumps({
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-            "document_id": "doc1",
-        })
+        doc_payload = json.dumps(
+            {
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "document_id": "doc1",
+            }
+        )
         mock_redis = MagicMock()
         mock_redis.scan = AsyncMock(return_value=[0, [fk]])
         mock_pipe_get = MagicMock()
@@ -762,10 +830,12 @@ class TestInvalidateKBCaches:
         """Multiple matching keys are all deleted."""
         fk1 = _make_key("c1", "freshness", "rag_cache", "rag1")
         fk2 = _make_key("c1", "freshness", "rag_cache", "rag2")
-        doc_payload = json.dumps({
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-            "document_id": "shared_doc",
-        })
+        doc_payload = json.dumps(
+            {
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "document_id": "shared_doc",
+            }
+        )
         mock_redis = MagicMock()
         mock_redis.scan = AsyncMock(return_value=[0, [fk1, fk2]])
         mock_pipe_get = MagicMock()
@@ -779,7 +849,8 @@ class TestInvalidateKBCaches:
         stack, _ = _redis_patches(mock_redis)
         with stack:
             count = await self.svc.invalidate_kb_caches(
-                "shared_doc", "c1",
+                "shared_doc",
+                "c1",
             )
         assert count >= 2
 
@@ -787,10 +858,12 @@ class TestInvalidateKBCaches:
     async def test_non_existent_document_returns_zero(self):
         """No matching documents → 0 keys invalidated."""
         fk = _make_key("c1", "freshness", "rag_cache", "rag1")
-        other_payload = json.dumps({
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-            "document_id": "other_doc",
-        })
+        other_payload = json.dumps(
+            {
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "document_id": "other_doc",
+            }
+        )
         mock_redis = MagicMock()
         mock_redis.scan = AsyncMock(return_value=[0, [fk]])
         mock_pipe = MagicMock()
@@ -800,7 +873,8 @@ class TestInvalidateKBCaches:
         stack, _ = _redis_patches(mock_redis)
         with stack:
             count = await self.svc.invalidate_kb_caches(
-                "nonexistent", "c1",
+                "nonexistent",
+                "c1",
             )
         assert count == 0
 
@@ -841,7 +915,8 @@ class TestInvalidateKBCaches:
                 side_effect=_make_key,
             ) as mk:
                 await self.svc.invalidate_kb_caches(
-                    "doc1", "company_42",
+                    "doc1",
+                    "company_42",
                 )
                 call_args = mk.call_args[0]
                 assert call_args[0] == "company_42"
@@ -850,6 +925,7 @@ class TestInvalidateKBCaches:
 # ═══════════════════════════════════════════════════════════════════════
 # 10. TestRecordUpdate (6 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestRecordUpdate:
 
@@ -922,6 +998,7 @@ class TestRecordUpdate:
 # 11. TestNeedsReExtraction (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestNeedsReExtraction:
 
     def setup_method(self):
@@ -991,6 +1068,7 @@ class TestNeedsReExtraction:
 # 12. TestNeedsRAGRefresh (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestNeedsRAGRefresh:
 
     def setup_method(self):
@@ -1052,7 +1130,9 @@ class TestNeedsRAGRefresh:
         stack, called_keys = _redis_patches(mock_redis, track_keys=True)
         with stack:
             await self.svc.needs_rag_refresh(
-                "my query", "co42", "intent",
+                "my query",
+                "co42",
+                "intent",
             )
         assert any("co42" in k for k in called_keys)
         assert any("intent" in k for k in called_keys)
@@ -1061,6 +1141,7 @@ class TestNeedsRAGRefresh:
 # ═══════════════════════════════════════════════════════════════════════
 # 13. TestBatchCheckFreshness (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestBatchCheckFreshness:
 
@@ -1074,8 +1155,10 @@ class TestBatchCheckFreshness:
         now = time.time()
         mock_redis, _ = _setup_redis(
             pipe_results=[
-                payload, now + 100,  # key 1: get, expiretime
-                payload, now + 100,  # key 2: get, expiretime
+                payload,
+                now + 100,  # key 1: get, expiretime
+                payload,
+                now + 100,  # key 2: get, expiretime
             ],
         )
         stack, _ = _redis_patches(mock_redis)
@@ -1095,8 +1178,10 @@ class TestBatchCheckFreshness:
         now = time.time()
         mock_redis, _ = _setup_redis(
             pipe_results=[
-                fresh_payload, now + 100,  # key 1: FRESH
-                stale_payload, None,        # key 2: STALE via fallback
+                fresh_payload,
+                now + 100,  # key 1: FRESH
+                stale_payload,
+                None,  # key 2: STALE via fallback
             ],
         )
         stack, _ = _redis_patches(mock_redis)
@@ -1127,10 +1212,7 @@ class TestBatchCheckFreshness:
                 {"entity_type": "signal", "entity_id": "s2"},
             ]
             results = await self.svc.batch_check_freshness(keys, "c1")
-        assert all(
-            r.status == FreshnessStatus.UNKNOWN
-            for r in results.values()
-        )
+        assert all(r.status == FreshnessStatus.UNKNOWN for r in results.values())
         assert len(results) == 2
 
     @pytest.mark.asyncio
@@ -1153,6 +1235,7 @@ class TestBatchCheckFreshness:
 # ═══════════════════════════════════════════════════════════════════════
 # 14. TestGetFreshnessReport (4 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestGetFreshnessReport:
 
@@ -1184,10 +1267,14 @@ class TestGetFreshnessReport:
             return_value=[0, [signal_key, context_key]],
         )
         mock_pipe = MagicMock()
-        mock_pipe.execute = AsyncMock(return_value=[
-            fresh_payload, now + 200,  # signal
-            fresh_payload, now + 1000,  # context
-        ])
+        mock_pipe.execute = AsyncMock(
+            return_value=[
+                fresh_payload,
+                now + 200,  # signal
+                fresh_payload,
+                now + 1000,  # context
+            ]
+        )
         mock_redis.pipeline.return_value = mock_pipe
 
         stack, _ = _redis_patches(mock_redis)

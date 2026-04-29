@@ -137,15 +137,9 @@ class LogTechniqueExecutionTask(ParwaBaseTask):
                 extra={
                     "company_id": company_id,
                     "technique_id": execution_data.get("technique_id"),
-                    "tokens_overhead": execution_data.get(
-                        "tokens_overhead",
-                        0),
-                    "latency_ms": execution_data.get(
-                        "latency_ms",
-                        0),
-                    "result_status": execution_data.get(
-                        "result_status",
-                        "unknown"),
+                    "tokens_overhead": execution_data.get("tokens_overhead", 0),
+                    "latency_ms": execution_data.get("latency_ms", 0),
+                    "result_status": execution_data.get("result_status", "unknown"),
                 },
             )
             return True

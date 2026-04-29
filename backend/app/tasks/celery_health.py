@@ -37,7 +37,8 @@ async def celery_health_check() -> dict:
         latency = round((time.monotonic() - start) * 1000, 2)
         logger.warning(
             "celery_health_check failed latency_ms=%s error=%s",
-            latency, exc,
+            latency,
+            exc,
         )
         return {
             "status": "unhealthy",

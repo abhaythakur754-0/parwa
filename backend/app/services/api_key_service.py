@@ -29,6 +29,7 @@ GRACE_PERIOD_HOURS = 24
 
 def _uuid() -> str:
     import uuid
+
     return str(uuid.uuid4())
 
 
@@ -51,14 +52,16 @@ def create_key(
     Returns (raw_key, APIKey db record).
     Max 10 keys per tenant (F-019).
     """
-    count = db.query(APIKey).filter(
-        APIKey.company_id == company_id,
-        APIKey.revoked.is_(False),
-    ).count()
-    if count >= MAX_KEYS_PER_TENANT:
-        raise ValueError(
-            f"Maximum {MAX_KEYS_PER_TENANT} keys per tenant"
+    count = (
+        db.query(APIKey)
+        .filter(
+            APIKey.company_id == company_id,
+            APIKey.revoked.is_(False),
         )
+        .count()
+    )
+    if count >= MAX_KEYS_PER_TENANT:
+        raise ValueError(f"Maximum {MAX_KEYS_PER_TENANT} keys per tenant")
 
     raw_key = _generate_raw_key("parwa_live_")
     key_hash = hash_api_key(raw_key)
@@ -66,9 +69,7 @@ def create_key(
 
     expires_at = None
     if expires_days is not None:
-        expires_at = datetime.now(timezone.utc) + timedelta(
-            days=expires_days
-        )
+        expires_at = datetime.now(timezone.utc) + timedelta(days=expires_days)
 
     # Validate scopes
     valid_scopes = [s.value for s in APIKeyScope]
@@ -97,40 +98,46 @@ def create_key(
 
     # Audit log
     _create_audit(
-        db, record.id, company_id, "created", None, None,
+        db,
+        record.id,
+        company_id,
+        "created",
+        None,
+        None,
     )
 
     return raw_key, record
 
 
 def list_keys(
-    db: Session, company_id: str,
+    db: Session,
+    company_id: str,
 ) -> list:
     """List all keys for a tenant (without hashes)."""
-    records = db.query(APIKey).filter(
-        APIKey.company_id == company_id,
-    ).order_by(APIKey.created_at.desc()).all()
+    records = (
+        db.query(APIKey)
+        .filter(
+            APIKey.company_id == company_id,
+        )
+        .order_by(APIKey.created_at.desc())
+        .all()
+    )
     results = []
     for r in records:
-        results.append({
-            "id": r.id,
-            "name": r.name,
-            "key_prefix": r.key_prefix,
-            "scopes": _parse_scopes(r),
-            "created_at": (
-                r.created_at.isoformat()
-                if r.created_at else None
-            ),
-            "last_used_at": (
-                r.last_used_at.isoformat()
-                if r.last_used_at else None
-            ),
-            "expires_at": (
-                r.expires_at.isoformat()
-                if r.expires_at else None
-            ),
-            "revoked": r.revoked,
-        })
+        results.append(
+            {
+                "id": r.id,
+                "name": r.name,
+                "key_prefix": r.key_prefix,
+                "scopes": _parse_scopes(r),
+                "created_at": (r.created_at.isoformat() if r.created_at else None),
+                "last_used_at": (
+                    r.last_used_at.isoformat() if r.last_used_at else None
+                ),
+                "expires_at": (r.expires_at.isoformat() if r.expires_at else None),
+                "revoked": r.revoked,
+            }
+        )
     return results
 
 
@@ -145,10 +152,14 @@ def rotate_key(
     Generates new key, old key valid for 24h grace period.
     Returns (new_raw_key, new_APIKey, old_APIKey).
     """
-    old_record = db.query(APIKey).filter(
-        APIKey.id == key_id,
-        APIKey.company_id == company_id,
-    ).first()
+    old_record = (
+        db.query(APIKey)
+        .filter(
+            APIKey.id == key_id,
+            APIKey.company_id == company_id,
+        )
+        .first()
+    )
     if not old_record:
         raise ValueError("API key not found")
     if old_record.revoked:
@@ -177,14 +188,17 @@ def rotate_key(
     db.add(new_record)
 
     # Old key stays active for 24h grace, then auto-expires
-    grace_ends = datetime.now(timezone.utc) + timedelta(
-        hours=GRACE_PERIOD_HOURS
-    )
+    grace_ends = datetime.now(timezone.utc) + timedelta(hours=GRACE_PERIOD_HOURS)
     old_record.is_active = True
     old_record.grace_ends_at = grace_ends
     db.flush()
     _create_audit(
-        db, new_record.id, company_id, "rotated", None, None,
+        db,
+        new_record.id,
+        company_id,
+        "rotated",
+        None,
+        None,
     )
 
     return raw_key, new_record, old_record, grace_ends
@@ -197,10 +211,14 @@ def revoke_key(
     user_id: Optional[str],
 ) -> APIKey:
     """Revoke an API key immediately."""
-    record = db.query(APIKey).filter(
-        APIKey.id == key_id,
-        APIKey.company_id == company_id,
-    ).first()
+    record = (
+        db.query(APIKey)
+        .filter(
+            APIKey.id == key_id,
+            APIKey.company_id == company_id,
+        )
+        .first()
+    )
     if not record:
         raise ValueError("API key not found")
     record.revoked = True
@@ -209,13 +227,19 @@ def revoke_key(
     db.flush()
 
     _create_audit(
-        db, record.id, company_id, "revoked", None, None,
+        db,
+        record.id,
+        company_id,
+        "revoked",
+        None,
+        None,
     )
     return record
 
 
 def validate_key(
-    db: Session, raw_key: str,
+    db: Session,
+    raw_key: str,
     company_id: Optional[str] = None,
 ) -> Optional[APIKey]:
     """Validate a raw API key against the database.
@@ -243,8 +267,7 @@ def validate_key(
     if record.expires_at and datetime.now(timezone.utc) > record.expires_at:
         return None
     # L18: Enforce grace period — rotated keys expire after grace_ends_at
-    if record.grace_ends_at and datetime.now(
-            timezone.utc) > record.grace_ends_at:
+    if record.grace_ends_at and datetime.now(timezone.utc) > record.grace_ends_at:
         return None
     return record
 
@@ -269,8 +292,12 @@ def update_last_used(
         record.last_used_at = datetime.now(timezone.utc)
         db.flush()
         _create_audit(
-            db, key_id, record.company_id,
-            "used", endpoint, ip_address,
+            db,
+            key_id,
+            record.company_id,
+            "used",
+            endpoint,
+            ip_address,
         )
 
 

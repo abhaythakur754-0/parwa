@@ -41,6 +41,7 @@ ANOMALY_MIN_VOLUME: int = 100
 
 # ── Exception Classes ─────────────────────────────────────────────────────
 
+
 class FinancialSafetyError(Exception):
     """Base exception for financial safety errors."""
 
@@ -58,6 +59,7 @@ class InvoiceAuditError(FinancialSafetyError):
 
 
 # ── Service Implementation ───────────────────────────────────────────────
+
 
 class FinancialSafetyService:
     """
@@ -157,13 +159,14 @@ class FinancialSafetyService:
 
         total = (
             db.query(
-                func.coalesce(
-                    func.sum(
-                        UsageRecord.overage_charges),
-                    Decimal("0.00"))) .filter(
+                func.coalesce(func.sum(UsageRecord.overage_charges), Decimal("0.00"))
+            )
+            .filter(
                 UsageRecord.company_id == company_id,
                 UsageRecord.record_month == current_month,
-            ) .scalar())
+            )
+            .scalar()
+        )
 
         return Decimal(str(total or 0))
 
@@ -210,15 +213,13 @@ class FinancialSafetyService:
             )
 
         if overage_decimal < Decimal("0"):
-            raise FinancialSafetyError(
-                "current_overage_amount must be non-negative")
+            raise FinancialSafetyError("current_overage_amount must be non-negative")
 
         remaining = GLOBAL_OVERAGE_MAX - overage_decimal
 
         if overage_decimal >= GLOBAL_OVERAGE_MAX:
             logger.warning(
-                "global_overage_cap_exceeded "
-                "company_id=%s current=%s max=%s",
+                "global_overage_cap_exceeded " "company_id=%s current=%s max=%s",
                 company_id_str,
                 overage_decimal,
                 GLOBAL_OVERAGE_MAX,
@@ -235,8 +236,7 @@ class FinancialSafetyService:
             }
 
         logger.info(
-            "global_overage_cap_check_passed "
-            "company_id=%s current=%s remaining=%s",
+            "global_overage_cap_check_passed " "company_id=%s current=%s remaining=%s",
             company_id_str,
             overage_decimal,
             self._round_money(remaining),
@@ -337,22 +337,28 @@ class FinancialSafetyService:
                         "anomaly_detected company_id=%s "
                         "today=%d yesterday=%d ratio=%.1f severity=%s",
                         company_id_str,
-                        today_count, yesterday_count,
-                        ratio, severity,
+                        today_count,
+                        yesterday_count,
+                        ratio,
+                        severity,
                     )
             elif today_count > 0 and yesterday_count == 0:
                 # First day of activity or reset — not necessarily anomalous
                 logger.info(
                     "anomaly_check_skip_no_baseline company_id=%s today=%d",
-                    company_id_str, today_count,
+                    company_id_str,
+                    today_count,
                 )
 
             logger.info(
                 "anomaly_check company_id=%s today=%d yesterday=%d "
                 "ratio=%.1f detected=%s severity=%s",
                 company_id_str,
-                today_count, yesterday_count,
-                ratio, anomaly_detected, severity,
+                today_count,
+                yesterday_count,
+                ratio,
+                anomaly_detected,
+                severity,
             )
 
             return {
@@ -410,14 +416,16 @@ class FinancialSafetyService:
 
                     if anomaly["anomaly_detected"]:
                         results["anomalies_found"] += 1
-                        results["anomalies"].append({
-                            "company_id": str(company.id),
-                            "company_name": company.name,
-                            "today_count": anomaly["today_count"],
-                            "yesterday_count": anomaly["yesterday_count"],
-                            "ratio": anomaly["ratio"],
-                            "severity": anomaly["severity"],
-                        })
+                        results["anomalies"].append(
+                            {
+                                "company_id": str(company.id),
+                                "company_name": company.name,
+                                "today_count": anomaly["today_count"],
+                                "yesterday_count": anomaly["yesterday_count"],
+                                "ratio": anomaly["ratio"],
+                                "severity": anomaly["severity"],
+                            }
+                        )
 
                         # Emit alert event
                         try:
@@ -441,13 +449,16 @@ class FinancialSafetyService:
                             pass
 
                 except Exception as exc:
-                    results["errors"].append({
-                        "company_id": str(company.id),
-                        "error": str(exc)[:200],
-                    })
+                    results["errors"].append(
+                        {
+                            "company_id": str(company.id),
+                            "error": str(exc)[:200],
+                        }
+                    )
                     logger.error(
                         "daily_anomaly_check_error company_id=%s error=%s",
-                        company.id, str(exc)[:200],
+                        company.id,
+                        str(exc)[:200],
                     )
 
         logger.info(
@@ -501,22 +512,23 @@ class FinancialSafetyService:
             # Fetch Paddle invoices
             paddle_invoices = self._fetch_paddle_invoices(company_id_str)
         except Exception as exc:
-            results["errors"].append({
-                "source": "paddle_fetch",
-                "error": str(exc)[:200],
-            })
+            results["errors"].append(
+                {
+                    "source": "paddle_fetch",
+                    "error": str(exc)[:200],
+                }
+            )
             logger.error(
                 "invoice_audit_paddle_fetch_failed company_id=%s error=%s",
-                company_id_str, str(exc),
+                company_id_str,
+                str(exc),
             )
             return results
 
         with SessionLocal() as db:
             # Get local invoices
             local_invoices = (
-                db.query(Invoice)
-                .filter(Invoice.company_id == company_id_str)
-                .all()
+                db.query(Invoice).filter(Invoice.company_id == company_id_str).all()
             )
 
             # Build lookup maps by paddle_invoice_id
@@ -541,74 +553,89 @@ class FinancialSafetyService:
 
                     if local and paddle:
                         # Both exist — compare amounts
-                        paddle_amount = Decimal(str(
-                            paddle.get("total", paddle.get("amount", "0"))
-                        ))
+                        paddle_amount = Decimal(
+                            str(paddle.get("total", paddle.get("amount", "0")))
+                        )
 
-                        if self._round_money(
-                                local.amount) == self._round_money(paddle_amount):
+                        if self._round_money(local.amount) == self._round_money(
+                            paddle_amount
+                        ):
                             results["matched"] += 1
                         else:
                             results["mismatched"] += 1
-                            results["details"].append({
-                                "invoice_id": inv_id,
-                                "issue": "amount_mismatch",
-                                "local_amount": str(local.amount),
-                                "paddle_amount": str(paddle_amount),
-                                "local_status": local.status,
-                            })
+                            results["details"].append(
+                                {
+                                    "invoice_id": inv_id,
+                                    "issue": "amount_mismatch",
+                                    "local_amount": str(local.amount),
+                                    "paddle_amount": str(paddle_amount),
+                                    "local_status": local.status,
+                                }
+                            )
 
                             logger.warning(
                                 "invoice_mismatch company_id=%s inv_id=%s "
                                 "local=%s paddle=%s",
-                                company_id_str, inv_id,
-                                local.amount, paddle_amount,
+                                company_id_str,
+                                inv_id,
+                                local.amount,
+                                paddle_amount,
                             )
 
                     elif paddle and not local:
                         # Paddle has it, we don't
                         results["missing_local"] += 1
-                        results["details"].append({
-                            "invoice_id": inv_id,
-                            "issue": "missing_local",
-                            "paddle_amount": str(
-                                paddle.get("total", paddle.get("amount", "0"))
-                            ),
-                            "paddle_status": paddle.get("status"),
-                        })
+                        results["details"].append(
+                            {
+                                "invoice_id": inv_id,
+                                "issue": "missing_local",
+                                "paddle_amount": str(
+                                    paddle.get("total", paddle.get("amount", "0"))
+                                ),
+                                "paddle_status": paddle.get("status"),
+                            }
+                        )
 
                         logger.warning(
                             "invoice_missing_local company_id=%s inv_id=%s",
-                            company_id_str, inv_id,
+                            company_id_str,
+                            inv_id,
                         )
 
                     elif local and not paddle:
                         # We have it, Paddle doesn't
                         results["missing_paddle"] += 1
-                        results["details"].append({
-                            "invoice_id": inv_id,
-                            "issue": "missing_paddle",
-                            "local_amount": str(local.amount),
-                            "local_status": local.status,
-                        })
+                        results["details"].append(
+                            {
+                                "invoice_id": inv_id,
+                                "issue": "missing_paddle",
+                                "local_amount": str(local.amount),
+                                "local_status": local.status,
+                            }
+                        )
 
                         logger.warning(
                             "invoice_missing_paddle company_id=%s inv_id=%s",
-                            company_id_str, inv_id,
+                            company_id_str,
+                            inv_id,
                         )
 
                 except Exception as exc:
-                    results["errors"].append({
-                        "invoice_id": inv_id,
-                        "error": str(exc)[:200],
-                    })
+                    results["errors"].append(
+                        {
+                            "invoice_id": inv_id,
+                            "error": str(exc)[:200],
+                        }
+                    )
 
         logger.info(
             "invoice_audit_completed company_id=%s "
             "matched=%d mismatched=%d missing_local=%d missing_paddle=%d",
             company_id_str,
-            results["matched"], results["mismatched"],
-            results["missing_local"], results["missing_paddle"],
+            results["matched"],
+            results["mismatched"],
+            results["missing_local"],
+            results["missing_paddle"],
         )
 
         return results
@@ -634,9 +661,7 @@ class FinancialSafetyService:
             import asyncio
 
             with SessionLocal() as db:
-                company = db.query(Company).filter(
-                    Company.id == company_id
-                ).first()
+                company = db.query(Company).filter(Company.id == company_id).first()
 
                 if not company or not company.paddle_customer_id:
                     logger.info(
@@ -651,9 +676,7 @@ class FinancialSafetyService:
                 asyncio.set_event_loop(loop)
                 try:
                     result = loop.run_until_complete(
-                        paddle.get_invoices(
-                            customer_id=company.paddle_customer_id
-                        )
+                        paddle.get_invoices(customer_id=company.paddle_customer_id)
                     )
                 finally:
                     loop.close()
@@ -663,7 +686,8 @@ class FinancialSafetyService:
         except Exception as exc:
             logger.warning(
                 "paddle_invoice_fetch_failed company_id=%s error=%s",
-                company_id, str(exc)[:200],
+                company_id,
+                str(exc)[:200],
             )
             return []
 
@@ -702,9 +726,7 @@ class FinancialSafetyService:
         with SessionLocal() as db:
             # Get all active companies with Paddle customer IDs
             companies = (
-                db.query(Company)
-                .filter(Company.paddle_customer_id.isnot(None))
-                .all()
+                db.query(Company).filter(Company.paddle_customer_id.isnot(None)).all()
             )
 
             results["companies_audited"] = len(companies)
@@ -726,13 +748,15 @@ class FinancialSafetyService:
 
                     if has_issues:
                         results["companies_with_issues"] += 1
-                        results["issues"].append({
-                            "company_id": str(company.id),
-                            "company_name": company.name,
-                            "mismatched": audit["mismatched"],
-                            "missing_local": audit["missing_local"],
-                            "missing_paddle": audit["missing_paddle"],
-                        })
+                        results["issues"].append(
+                            {
+                                "company_id": str(company.id),
+                                "company_name": company.name,
+                                "mismatched": audit["mismatched"],
+                                "missing_local": audit["missing_local"],
+                                "missing_paddle": audit["missing_paddle"],
+                            }
+                        )
 
                         # Attempt auto-sync for missing local invoices
                         if audit["missing_local"] > 0:
@@ -750,28 +774,31 @@ class FinancialSafetyService:
                             try:
                                 loop.run_until_complete(
                                     emit_billing_event(
-                                        company_id=str(
-                                            company.id),
+                                        company_id=str(company.id),
                                         event_type="invoice_audit_issue",
                                         data={
                                             "mismatched": audit["mismatched"],
                                             "missing_local": audit["missing_local"],
                                             "missing_paddle": audit["missing_paddle"],
                                         },
-                                    ))
+                                    )
+                                )
                             finally:
                                 loop.close()
                         except Exception:
                             pass
 
                 except Exception as exc:
-                    results["errors"].append({
-                        "company_id": str(company.id),
-                        "error": str(exc)[:200],
-                    })
+                    results["errors"].append(
+                        {
+                            "company_id": str(company.id),
+                            "error": str(exc)[:200],
+                        }
+                    )
                     logger.error(
                         "weekly_audit_error company_id=%s error=%s",
-                        company.id, str(exc)[:200],
+                        company.id,
+                        str(exc)[:200],
                     )
 
         logger.info(
@@ -819,9 +846,13 @@ class FinancialSafetyService:
                     continue
 
                 # Check not already created (race condition guard)
-                existing = db.query(Invoice).filter(
-                    Invoice.paddle_invoice_id == invoice_id,
-                ).first()
+                existing = (
+                    db.query(Invoice)
+                    .filter(
+                        Invoice.paddle_invoice_id == invoice_id,
+                    )
+                    .first()
+                )
                 if existing:
                     continue
 
@@ -845,8 +876,7 @@ class FinancialSafetyService:
                         "auto_sync_invoice_failed company_id=%s inv_id=%s error=%s",
                         company_id,
                         invoice_id,
-                        str(exc)[
-                            :200],
+                        str(exc)[:200],
                     )
 
             if synced > 0:
@@ -854,7 +884,8 @@ class FinancialSafetyService:
 
         logger.info(
             "auto_sync_invoices company_id=%s synced=%d",
-            company_id, synced,
+            company_id,
+            synced,
         )
 
         return synced

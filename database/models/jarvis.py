@@ -19,8 +19,15 @@ from datetime import datetime
 import uuid
 
 from sqlalchemy import (
-    Boolean, CheckConstraint, Column, DateTime, Integer, Numeric,
-    String, Text, ForeignKey,
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    ForeignKey,
 )
 from sqlalchemy.orm import relationship
 
@@ -54,6 +61,7 @@ _TICKET_STATUSES = "'pending','in_progress','completed','failed'"
 
 # ── Jarvis Sessions ─────────────────────────────────────────────
 
+
 class JarvisSession(Base):
     __tablename__ = "jarvis_sessions"
 
@@ -61,12 +69,14 @@ class JarvisSession(Base):
     user_id = Column(
         String(36),
         ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=True, index=True,
+        nullable=True,
+        index=True,
     )
     # 'onboarding' before purchase, 'customer_care' after handoff
     type = Column(String(20), nullable=False, default="onboarding")
@@ -93,12 +103,14 @@ class JarvisSession(Base):
 
     # ── Relationships ──
     messages = relationship(
-        "JarvisMessage", back_populates="session",
+        "JarvisMessage",
+        back_populates="session",
         cascade="all, delete-orphan",
         order_by="JarvisMessage.created_at",
     )
     action_tickets = relationship(
-        "JarvisActionTicket", back_populates="session",
+        "JarvisActionTicket",
+        back_populates="session",
         cascade="all, delete-orphan",
     )
     user = relationship("User")
@@ -131,6 +143,7 @@ class JarvisSession(Base):
 
 # ── Jarvis Messages ────────────────────────────────────────────
 
+
 class JarvisMessage(Base):
     __tablename__ = "jarvis_messages"
 
@@ -138,7 +151,8 @@ class JarvisMessage(Base):
     session_id = Column(
         String(36),
         ForeignKey("jarvis_sessions.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     # 'user' | 'jarvis' | 'system'
     role = Column(String(10), nullable=False)
@@ -154,7 +168,8 @@ class JarvisMessage(Base):
     # ── Relationships ──
     session = relationship("JarvisSession", back_populates="messages")
     knowledge_used = relationship(
-        "JarvisKnowledgeUsed", back_populates="message",
+        "JarvisKnowledgeUsed",
+        back_populates="message",
         cascade="all, delete-orphan",
     )
 
@@ -173,6 +188,7 @@ class JarvisMessage(Base):
 
 # ── Jarvis Knowledge Used ─────────────────────────────────────
 
+
 class JarvisKnowledgeUsed(Base):
     __tablename__ = "jarvis_knowledge_used"
 
@@ -180,7 +196,8 @@ class JarvisKnowledgeUsed(Base):
     message_id = Column(
         String(36),
         ForeignKey("jarvis_messages.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     # e.g. '01_pricing_tiers.json', '07_objection_handling.json'
     knowledge_file = Column(String(100), nullable=False)
@@ -201,6 +218,7 @@ class JarvisKnowledgeUsed(Base):
 
 # ── Jarvis Action Tickets ─────────────────────────────────────
 
+
 class JarvisActionTicket(Base):
     __tablename__ = "jarvis_action_tickets"
 
@@ -208,7 +226,8 @@ class JarvisActionTicket(Base):
     session_id = Column(
         String(36),
         ForeignKey("jarvis_sessions.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     # Links to the in-chat message that rendered this ticket card
     message_id = Column(

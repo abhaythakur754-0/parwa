@@ -37,9 +37,11 @@ def _get_db(request: Request):
     """Get DB session from request state (injected by middleware)."""
     try:
         from database.base import get_db
+
         return next(get_db())
     except Exception:
         from database.base import SessionLocal
+
         return SessionLocal()
 
 
@@ -99,6 +101,7 @@ async def send_sms(request: Request):
     try:
         db = _get_db(request)
         from app.services.sms_channel_service import SMSChannelService
+
         service = SMSChannelService(db)
         result = service.send_sms(
             company_id=company_id,
@@ -111,16 +114,20 @@ async def send_sms(request: Request):
         )
 
         if result.get("status") == "error":
-            status_code = 429 if "rate" in result.get(
-                "error", "").lower() else 422
+            status_code = 429 if "rate" in result.get("error", "").lower() else 422
             return JSONResponse(
                 status_code=status_code,
                 content={
                     "error": {
-                        "code": "RATE_LIMIT_EXCEEDED" if status_code == 429 else "VALIDATION_ERROR",
+                        "code": (
+                            "RATE_LIMIT_EXCEEDED"
+                            if status_code == 429
+                            else "VALIDATION_ERROR"
+                        ),
                         "message": result["error"],
                         "details": None,
-                    }},
+                    }
+                },
             )
 
         return result
@@ -170,6 +177,7 @@ async def list_sms_conversations(
     try:
         db = _get_db(request)
         from app.services.sms_channel_service import SMSChannelService
+
         service = SMSChannelService(db)
         return service.list_conversations(
             company_id=company_id,
@@ -213,6 +221,7 @@ async def get_sms_conversation(request: Request, conversation_id: str):
     try:
         db = _get_db(request)
         from app.services.sms_channel_service import SMSChannelService
+
         service = SMSChannelService(db)
         conv = service.get_conversation(conversation_id, company_id)
         if not conv:
@@ -272,6 +281,7 @@ async def get_sms_messages(
     try:
         db = _get_db(request)
         from app.services.sms_channel_service import SMSChannelService
+
         service = SMSChannelService(db)
         return service.get_messages(
             conversation_id=conversation_id,
@@ -324,6 +334,7 @@ async def get_sms_config(request: Request):
     try:
         db = _get_db(request)
         from app.services.sms_channel_service import SMSChannelService
+
         service = SMSChannelService(db)
         config = service.get_sms_config(company_id)
         if not config:
@@ -388,10 +399,7 @@ async def create_sms_config(request: Request):
             },
         )
 
-    required_fields = [
-        "twilio_account_sid",
-        "twilio_auth_token",
-        "twilio_phone_number"]
+    required_fields = ["twilio_account_sid", "twilio_auth_token", "twilio_phone_number"]
     missing = [f for f in required_fields if not body.get(f)]
     if missing:
         return JSONResponse(
@@ -402,12 +410,14 @@ async def create_sms_config(request: Request):
                     "message": f"Missing required fields: {
                         ', '.join(missing)}",
                     "details": None,
-                }},
+                }
+            },
         )
 
     try:
         db = _get_db(request)
         from app.services.sms_channel_service import SMSChannelService
+
         service = SMSChannelService(db)
         result = service.create_sms_config(company_id, body)
         if result.get("status") == "error":
@@ -463,6 +473,7 @@ async def update_sms_config(request: Request):
     try:
         db = _get_db(request)
         from app.services.sms_channel_service import SMSChannelService
+
         service = SMSChannelService(db)
         result = service.update_sms_config(company_id, body)
         if result.get("status") == "error":
@@ -513,6 +524,7 @@ async def delete_sms_config(request: Request):
     try:
         db = _get_db(request)
         from app.services.sms_channel_service import SMSChannelService
+
         service = SMSChannelService(db)
         result = service.delete_sms_config(company_id)
         if result.get("status") == "error":
@@ -595,6 +607,7 @@ async def manual_opt_out(request: Request):
     try:
         db = _get_db(request)
         from app.services.sms_channel_service import SMSChannelService
+
         service = SMSChannelService(db)
         return service.opt_out_number(
             company_id=company_id,
@@ -667,6 +680,7 @@ async def manual_opt_in(request: Request):
     try:
         db = _get_db(request)
         from app.services.sms_channel_service import SMSChannelService
+
         service = SMSChannelService(db)
         return service.opt_in_number(
             company_id=company_id,
@@ -711,6 +725,7 @@ async def get_consent_status(request: Request, customer_number: str):
     try:
         db = _get_db(request)
         from app.services.sms_channel_service import SMSChannelService
+
         service = SMSChannelService(db)
         return service.get_consent_status(
             company_id=company_id,
@@ -789,6 +804,7 @@ async def twilio_status_callback(request: Request):
             return {"status": "not_found"}
 
         from app.services.sms_channel_service import SMSChannelService
+
         service = SMSChannelService(db)
         result = service.update_delivery_status(
             company_id=message.company_id,
@@ -801,7 +817,8 @@ async def twilio_status_callback(request: Request):
     except Exception as exc:
         logger.error(
             "sms_status_callback_error sid=%s error=%s",
-            message_sid, str(exc)[:200],
+            message_sid,
+            str(exc)[:200],
         )
         return JSONResponse(
             status_code=500,

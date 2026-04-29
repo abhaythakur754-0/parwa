@@ -108,7 +108,9 @@ KNOWN_PLANS: Dict[str, float] = {
 }
 
 KNOWN_PLAN_NAMES: Set[str] = {
-    "mini parwa", "parwa", "parwa high",
+    "mini parwa",
+    "parwa",
+    "parwa high",
 }
 
 # Policy fabrication phrases
@@ -145,18 +147,41 @@ RE_FEATURE_CLAIMS = re.compile(
 
 # Known feature names from FEATURE_REGISTRY
 KNOWN_FEATURE_PHRASES: Set[str] = {
-    "knowledge base", "semantic search", "sentiment analysis",
-    "intent classification", "multi-language", "tone adjustment",
-    "chain of thought", "few-shot", "react", "reflexion",
-    "hallucination detection", "pii redaction", "prompt injection",
-    "content policy", "toxicity detection", "a/b testing",
-    "brand voice", "response personalization", "auto-summarization",
-    "human handof", "escalation", "context window",
-    "conversation thread", "email channel", "chat channel",
-    "sms channel", "voice channel",
-    "ticket routing", "urgency detection", "language detection",
-    "spam detection", "complexity scoring", "emotion analysis",
-    "topic classification", "customer tier",
+    "knowledge base",
+    "semantic search",
+    "sentiment analysis",
+    "intent classification",
+    "multi-language",
+    "tone adjustment",
+    "chain of thought",
+    "few-shot",
+    "react",
+    "reflexion",
+    "hallucination detection",
+    "pii redaction",
+    "prompt injection",
+    "content policy",
+    "toxicity detection",
+    "a/b testing",
+    "brand voice",
+    "response personalization",
+    "auto-summarization",
+    "human handof",
+    "escalation",
+    "context window",
+    "conversation thread",
+    "email channel",
+    "chat channel",
+    "sms channel",
+    "voice channel",
+    "ticket routing",
+    "urgency detection",
+    "language detection",
+    "spam detection",
+    "complexity scoring",
+    "emotion analysis",
+    "topic classification",
+    "customer tier",
 }
 
 # Circular reasoning patterns
@@ -208,15 +233,45 @@ RE_PRECISE_COUNT = re.compile(
 
 # Buzzword list for plausible nonsense detection
 BUZZWORDS: Set[str] = {
-    "leverage", "synergy", "paradigm", "holistic", "streamline",
-    "optimize", "empower", "disrupt", "innovate", "transformative",
-    "actionable", "robust", "scalable", "cutting-edge", "next-generation",
-    "best-in-class", "world-class", "enterprise-grade", "future-proof",
-    "seamless", "frictionless", "end-to-end", "turnkey", "agile",
-    "cloud-native", "data-driven", "AI-powered", "machine learning",
-    "deep learning", "neural network", "natural language processing",
-    "predictive analytics", "big data", "blockchain", "metaverse",
-    "quantum", "gamification", "omnichannel", "hyper-personalization",
+    "leverage",
+    "synergy",
+    "paradigm",
+    "holistic",
+    "streamline",
+    "optimize",
+    "empower",
+    "disrupt",
+    "innovate",
+    "transformative",
+    "actionable",
+    "robust",
+    "scalable",
+    "cutting-edge",
+    "next-generation",
+    "best-in-class",
+    "world-class",
+    "enterprise-grade",
+    "future-proof",
+    "seamless",
+    "frictionless",
+    "end-to-end",
+    "turnkey",
+    "agile",
+    "cloud-native",
+    "data-driven",
+    "AI-powered",
+    "machine learning",
+    "deep learning",
+    "neural network",
+    "natural language processing",
+    "predictive analytics",
+    "big data",
+    "blockchain",
+    "metaverse",
+    "quantum",
+    "gamification",
+    "omnichannel",
+    "hyper-personalization",
 }
 
 # Negation patterns for KB contradiction
@@ -234,14 +289,33 @@ RE_NEGATION = re.compile(
 
 # Days per month (index = month, 0-based, so 1=Jan)
 _DAYS_IN_MONTH: Dict[int, int] = {
-    1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30,
-    7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31,
+    1: 31,
+    2: 28,
+    3: 31,
+    4: 30,
+    5: 31,
+    6: 30,
+    7: 31,
+    8: 31,
+    9: 30,
+    10: 31,
+    11: 30,
+    12: 31,
 }
 
 _MONTH_NAMES: Dict[str, int] = {
-    "january": 1, "february": 2, "march": 3, "april": 4,
-    "may": 5, "june": 6, "july": 7, "august": 8,
-    "september": 9, "october": 10, "november": 11, "december": 12,
+    "january": 1,
+    "february": 2,
+    "march": 3,
+    "april": 4,
+    "may": 5,
+    "june": 6,
+    "july": 7,
+    "august": 8,
+    "september": 9,
+    "october": 10,
+    "november": 11,
+    "december": 12,
 }
 
 
@@ -296,8 +370,7 @@ class HallucinationReport:
                 "HallucinationReport overall_confidence out of range: %.3f, clamping",
                 self.overall_confidence,
             )
-            self.overall_confidence = max(
-                0.0, min(1.0, self.overall_confidence))
+            self.overall_confidence = max(0.0, min(1.0, self.overall_confidence))
         valid_recommendations = {"safe", "review", "block"}
         if self.recommendation not in valid_recommendations:
             logger.warning(
@@ -368,8 +441,12 @@ class HallucinationDetector:
                 is_hallucination=False,
                 overall_confidence=0.0,
                 matches=[],
-                summary={"total_patterns": 12, "patterns_run": 0,
-                         "patterns_failed": 0, "reason": "empty_response"},
+                summary={
+                    "total_patterns": 12,
+                    "patterns_run": 0,
+                    "patterns_failed": 0,
+                    "reason": "empty_response",
+                },
                 recommendation="safe",
             )
 
@@ -378,24 +455,54 @@ class HallucinationDetector:
         # Run all 12 detection patterns — each is wrapped so
         # individual failures don't crash the pipeline (BC-012)
         pattern_methods: List[Tuple[str, Any]] = [
-            ("P01_kb_contradiction", lambda: self._detect_kb_contradiction(
-                response, knowledge_context or "",
-            )),
+            (
+                "P01_kb_contradiction",
+                lambda: self._detect_kb_contradiction(
+                    response,
+                    knowledge_context or "",
+                ),
+            ),
             ("P02_fabricated_urls", lambda: self._detect_fabricated_urls(response)),
-            ("P03_overconfident_claims", lambda: self._detect_overconfident_claims(
-                response, 0.7,
-            )),
-            ("P04_plausible_nonsense", lambda: self._detect_plausible_nonsense(response)),
+            (
+                "P03_overconfident_claims",
+                lambda: self._detect_overconfident_claims(
+                    response,
+                    0.7,
+                ),
+            ),
+            (
+                "P04_plausible_nonsense",
+                lambda: self._detect_plausible_nonsense(response),
+            ),
             ("P05_date_math_errors", lambda: self._detect_date_math_errors(response)),
             ("P06_entity_confusion", lambda: self._detect_entity_confusion(response)),
-            ("P07_policy_fabrication", lambda: self._detect_policy_fabrication(response)),
-            ("P08_false_feature_claims", lambda: self._detect_false_feature_claims(response)),
-            ("P09_circular_reasoning", lambda: self._detect_circular_reasoning(response)),
-            ("P10_fake_source_attribution", lambda: self._detect_fake_source_attribution(response)),
-            ("P11_numerical_precision", lambda: self._detect_numerical_precision_hallucination(response)),
-            ("P12_temporal_inconsistency", lambda: self._detect_temporal_inconsistency(
-                response, conversation_history or [],
-            )),
+            (
+                "P07_policy_fabrication",
+                lambda: self._detect_policy_fabrication(response),
+            ),
+            (
+                "P08_false_feature_claims",
+                lambda: self._detect_false_feature_claims(response),
+            ),
+            (
+                "P09_circular_reasoning",
+                lambda: self._detect_circular_reasoning(response),
+            ),
+            (
+                "P10_fake_source_attribution",
+                lambda: self._detect_fake_source_attribution(response),
+            ),
+            (
+                "P11_numerical_precision",
+                lambda: self._detect_numerical_precision_hallucination(response),
+            ),
+            (
+                "P12_temporal_inconsistency",
+                lambda: self._detect_temporal_inconsistency(
+                    response,
+                    conversation_history or [],
+                ),
+            ),
         ]
 
         for pattern_id, pattern_fn in pattern_methods:
@@ -455,10 +562,13 @@ class HallucinationDetector:
 
         # Severity summary
         severity_counts: Dict[str, int] = {
-            "low": 0, "medium": 0, "high": 0, "critical": 0}
+            "low": 0,
+            "medium": 0,
+            "high": 0,
+            "critical": 0,
+        }
         for m in matches:
-            severity_counts[m.severity] = severity_counts.get(
-                m.severity, 0) + 1
+            severity_counts[m.severity] = severity_counts.get(m.severity, 0) + 1
 
         has_critical = severity_counts.get("critical", 0) > 0
 
@@ -507,8 +617,7 @@ class HallucinationDetector:
             return None
 
         # Extract key factual statements from KB context
-        kb_sentences: List[str] = re.split(
-            r'[.!?]\s+', knowledge_context.strip())
+        kb_sentences: List[str] = re.split(r"[.!?]\s+", knowledge_context.strip())
         kb_sentences = [s.strip() for s in kb_sentences if len(s.strip()) > 15]
 
         if not kb_sentences:
@@ -521,15 +630,14 @@ class HallucinationDetector:
             neg_context = response[neg_start:neg_end].lower()
 
             for kb_sent in kb_sentences:
-                kb_words = set(re.findall(r'\b\w{4,}\b', kb_sent.lower()))
-                neg_words = set(re.findall(r'\b\w{4,}\b', neg_context))
+                kb_words = set(re.findall(r"\b\w{4,}\b", kb_sent.lower()))
+                neg_words = set(re.findall(r"\b\w{4,}\b", neg_context))
                 overlap = kb_words & neg_words
 
                 # If >40% of KB sentence's significant words appear
                 # near a negation in the response, likely contradiction
                 if kb_words and len(overlap) / len(kb_words) >= 0.3:
-                    confidence = 0.7 + 0.2 * \
-                        min(1.0, len(overlap) / len(kb_words))
+                    confidence = 0.7 + 0.2 * min(1.0, len(overlap) / len(kb_words))
                     severity = "high" if confidence >= 0.85 else "medium"
                     return HallucinationMatch(
                         pattern_id="P01_kb_contradiction",
@@ -569,12 +677,8 @@ class HallucinationDetector:
             return None
 
         # Confidence based on count and type
-        has_placeholder = any(
-            RE_SUSPICIOUS_DOMAINS.search(u) for u in suspicious_urls
-        )
-        has_internal = any(
-            RE_INTERNAL_PATHS.search(u) for u in suspicious_urls
-        )
+        has_placeholder = any(RE_SUSPICIOUS_DOMAINS.search(u) for u in suspicious_urls)
+        has_internal = any(RE_INTERNAL_PATHS.search(u) for u in suspicious_urls)
 
         confidence = 0.85
         if has_placeholder and has_internal:
@@ -638,8 +742,7 @@ class HallucinationDetector:
                 distance = abs(oc.start() - spec.end())
                 if distance <= 60:
                     combined = response[
-                        min(oc.start(), spec.start()):
-                        max(oc.end(), spec.end())
+                        min(oc.start(), spec.start()) : max(oc.end(), spec.end())
                     ]
                     confidence = 0.5 + 0.2 * (1.0 - distance / 60.0)
                     return HallucinationMatch(
@@ -665,7 +768,7 @@ class HallucinationDetector:
         Checks for long sentences with high buzzword density and
         no concrete nouns. Confidence: 0.4-0.6.
         """
-        sentences: List[str] = re.split(r'[.!?]+', response)
+        sentences: List[str] = re.split(r"[.!?]+", response)
         flagged_sentences: List[str] = []
 
         for sentence in sentences:
@@ -682,29 +785,29 @@ class HallucinationDetector:
             # Concrete noun check (capitalized words that aren't
             # at the start of sentence = likely proper nouns / entities)
             proper_nouns = re.findall(
-                r'(?<!^)(?<!\.\s)[A-Z][a-z]+(?:\s[A-Z][a-z]+)*',
+                r"(?<!^)(?<!\.\s)[A-Z][a-z]+(?:\s[A-Z][a-z]+)*",
                 sentence,
             )
 
             # Number presence (concrete data)
-            has_numbers = bool(re.search(r'\d', sentence))
+            has_numbers = bool(re.search(r"\d", sentence))
 
             # High buzzword + no concrete data = suspicious
-            if buzz_density >= 0.15 and len(
-                    proper_nouns) == 0 and not has_numbers:
+            if buzz_density >= 0.15 and len(proper_nouns) == 0 and not has_numbers:
                 flagged_sentences.append(sentence)
 
         if not flagged_sentences:
             return None
 
         # Confidence based on buzzword density of worst sentence
-        worst = max(flagged_sentences, key=lambda s: sum(
-            1 for bw in BUZZWORDS if bw in s.lower()
-        ) / max(1, len(s.split()))
+        worst = max(
+            flagged_sentences,
+            key=lambda s: sum(1 for bw in BUZZWORDS if bw in s.lower())
+            / max(1, len(s.split())),
         )
-        worst_density = sum(
-            1 for bw in BUZZWORDS if bw in worst.lower()
-        ) / max(1, len(worst.split()))
+        worst_density = sum(1 for bw in BUZZWORDS if bw in worst.lower()) / max(
+            1, len(worst.split())
+        )
 
         confidence = 0.4 + 0.2 * min(1.0, worst_density / 0.3)
 
@@ -737,10 +840,7 @@ class HallucinationDetector:
 
         # Check MM/DD/YYYY format dates
         for m in RE_DATE_MDY.finditer(response):
-            month, day, year = int(
-                m.group(1)), int(
-                m.group(2)), int(
-                m.group(3))
+            month, day, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
             if month < 1 or month > 12:
                 errors.append(f"Invalid month {month} in date {m.group(0)}")
                 error_positions.append((m.start(), m.end()))
@@ -751,8 +851,7 @@ class HallucinationDetector:
                         errors.append(f"Feb 29 in non-leap year {year}")
                         error_positions.append((m.start(), m.end()))
                 else:
-                    errors.append(
-                        f"Invalid day {day} for month {month} in date {
+                    errors.append(f"Invalid day {day} for month {month} in date {
                             m.group(0)}")
                     error_positions.append((m.start(), m.end()))
 
@@ -767,17 +866,11 @@ class HallucinationDetector:
                 re.IGNORECASE,
             )
             if month_name_match:
-                month_num = _MONTH_NAMES.get(
-                    month_name_match.group(1).lower(), 0)
-                if month_num and (
-                    day < 1 or day > _DAYS_IN_MONTH.get(
-                        month_num,
-                        31)):
-                    if month_num == 2 and day == 29 and self._is_leap_year(
-                            year):
+                month_num = _MONTH_NAMES.get(month_name_match.group(1).lower(), 0)
+                if month_num and (day < 1 or day > _DAYS_IN_MONTH.get(month_num, 31)):
+                    if month_num == 2 and day == 29 and self._is_leap_year(year):
                         continue
-                    errors.append(
-                        f"Invalid day {day} for {
+                    errors.append(f"Invalid day {day} for {
                             month_name_match.group(1)} {year}")
                     error_positions.append((m.start(), m.end()))
 
@@ -796,8 +889,8 @@ class HallucinationDetector:
                 if "year" in unit:
                     expected = base_year + amount
                     # Check if the result year appears nearby in the text
-                    nearby = response[m.end():m.end() + 30]
-                    year_in_text = re.search(r'\b(\d{4})\b', nearby)
+                    nearby = response[m.end() : m.end() + 30]
+                    year_in_text = re.search(r"\b(\d{4})\b", nearby)
                     if year_in_text:
                         stated_result = int(year_in_text.group(1))
                         if stated_result != expected:
@@ -844,17 +937,16 @@ class HallucinationDetector:
         # specific (longest) plan name first at each position.
         # This prevents "parwa" from matching inside "mini parwa".
         sorted_plans = sorted(
-            KNOWN_PLANS.items(),
-            key=lambda x: len(
-                x[0]),
-            reverse=True)
+            KNOWN_PLANS.items(), key=lambda x: len(x[0]), reverse=True
+        )
         # (start, end, plan_name)
         matched_positions: List[Tuple[int, int, str]] = []
 
         for plan_name, correct_price in sorted_plans:
             # Use regex with word boundaries to avoid substring matches
             plan_pattern = re.compile(
-                r'\b' + re.escape(plan_name) + r'\b', re.IGNORECASE)
+                r"\b" + re.escape(plan_name) + r"\b", re.IGNORECASE
+            )
             for m in plan_pattern.finditer(response_lower):
                 plan_start, plan_end = m.start(), m.end()
                 # Skip if this position overlaps with an already-matched
@@ -867,11 +959,12 @@ class HallucinationDetector:
                     continue
                 matched_positions.append((plan_start, plan_end, plan_name))
 
-                nearby = response[max(0, plan_start - 20):min(len(response), plan_end + 50)]
+                nearby = response[
+                    max(0, plan_start - 20) : min(len(response), plan_end + 50)
+                ]
 
                 # Extract dollar amounts from nearby text
-                prices_nearby = re.findall(
-                    r'\$\s*([\d,]+(?:\.\d{1,2})?)', nearby)
+                prices_nearby = re.findall(r"\$\s*([\d,]+(?:\.\d{1,2})?)", nearby)
                 for price_str in prices_nearby:
                     price_str_clean = price_str.replace(",", "")
                     try:
@@ -882,16 +975,19 @@ class HallucinationDetector:
                     # Check if the mentioned price matches known plans
                     # but NOT the correct one
                     for other_plan, other_price in KNOWN_PLANS.items():
-                        if other_plan != plan_name and abs(
-                                mentioned_price - other_price) < 1:
-                            errors.append(
-                                f"Plan '{plan_name}' priced at ${
+                        if (
+                            other_plan != plan_name
+                            and abs(mentioned_price - other_price) < 1
+                        ):
+                            errors.append(f"Plan '{plan_name}' priced at ${
                                     mentioned_price:.0f}, " f"but that's the price of '{other_plan}' (${
                                     correct_price:.0f})")
-                            error_positions.append((
-                                max(0, plan_start - 20),
-                                min(len(response), plan_end + 50),
-                            ))
+                            error_positions.append(
+                                (
+                                    max(0, plan_start - 20),
+                                    min(len(response), plan_end + 50),
+                                )
+                            )
 
         # Check for plan names with wrong casing / spacing used
         # to refer to different plans
@@ -910,16 +1006,17 @@ class HallucinationDetector:
                     sentence_end = len(response)
                 sentence = response[sentence_start:sentence_end].lower()
 
-                other_prices = {
-                    p: v for p, v in KNOWN_PLANS.items() if p != variant
-                }
+                other_prices = {p: v for p, v in KNOWN_PLANS.items() if p != variant}
                 for other_plan, other_price in other_prices.items():
                     price_pattern = rf"\${other_price:,.0f}"
-                    if re.search(price_pattern,
-                                 sentence) and other_plan not in sentence:
+                    if (
+                        re.search(price_pattern, sentence)
+                        and other_plan not in sentence
+                    ):
                         errors.append(
                             f"Price ${
-                                other_price:,.0f} associated with wrong plan '{variant}'")
+                                other_price:,.0f} associated with wrong plan '{variant}'"
+                        )
                         error_positions.append((sentence_start, sentence_end))
 
         if not errors:
@@ -956,7 +1053,7 @@ class HallucinationDetector:
 
         for pm in policy_matches:
             # Check if followed by specific claims within 120 chars
-            after = response[pm.end():pm.end() + 120]
+            after = response[pm.end() : pm.end() + 120]
             specific_claims = RE_REFUND_SLA_CLAIMS.findall(after)
 
             if specific_claims:
@@ -964,7 +1061,7 @@ class HallucinationDetector:
                 claim_count = len(specific_claims)
                 confidence = 0.6 + min(0.2, claim_count * 0.05)
                 severity = "high" if confidence >= 0.75 else "medium"
-                evidence_text = response[pm.start():pm.end() + 120].strip()
+                evidence_text = response[pm.start() : pm.end() + 120].strip()
                 return HallucinationMatch(
                     pattern_id="P07_policy_fabrication",
                     pattern_name="Policy fabrication",
@@ -1013,7 +1110,10 @@ class HallucinationDetector:
         # Try to import FEATURE_REGISTRY from variant_capability_service
         known_features: Set[str] = set(KNOWN_FEATURE_PHRASES)
         try:
-            from app.services.variant_capability_service import FEATURE_REGISTRY as _FR  # noqa: E501
+            from app.services.variant_capability_service import (
+                FEATURE_REGISTRY as _FR,
+            )  # noqa: E501
+
             for _fid, finfo in _FR.items():
                 feat_name = finfo.get("name", "").lower()
                 if feat_name:
@@ -1033,10 +1133,10 @@ class HallucinationDetector:
             claim_text = response[claim_start:claim_end].lower()
 
             # Extract what feature is being claimed
-            words_after = claim_text[fm.end() - fm.start():]
+            words_after = claim_text[fm.end() - fm.start() :]
             # Look for feature-like nouns after the claim verb
             feature_nouns = re.findall(
-                r'(?:[\w\s-]{2,25}?)(?:\.|,|;|$)',
+                r"(?:[\w\s-]{2,25}?)(?:\.|,|;|$)",
                 words_after,
             )
 
@@ -1046,10 +1146,7 @@ class HallucinationDetector:
                     continue
 
                 # Check if this feature phrase is known
-                is_known = any(
-                    known in noun_phrase_clean
-                    for known in known_features
-                )
+                is_known = any(known in noun_phrase_clean for known in known_features)
 
                 if not is_known:
                     suspicious_claims.append(
@@ -1096,12 +1193,12 @@ class HallucinationDetector:
 
         # Check for specific circular structures
         # "X is true. Therefore, X is true."
-        sentences = re.split(r'[.!?]+', response)
+        sentences = re.split(r"[.!?]+", response)
         sentence_set: Set[str] = set()
         repeated_count = 0
 
         for sent in sentences:
-            sent_clean = re.sub(r'\s+', ' ', sent.strip().lower())
+            sent_clean = re.sub(r"\s+", " ", sent.strip().lower())
             if len(sent_clean) < 20:
                 continue
             if sent_clean in sentence_set:
@@ -1117,27 +1214,28 @@ class HallucinationDetector:
                 # restates the clause before
                 parts = sent_lower.split("because")
                 if len(parts) >= 2:
-                    before_words = set(re.findall(r'\b\w{4,}\b', parts[0]))
-                    after_words = set(re.findall(r'\b\w{4,}\b', parts[1]))
+                    before_words = set(re.findall(r"\b\w{4,}\b", parts[0]))
+                    after_words = set(re.findall(r"\b\w{4,}\b", parts[1]))
                     if before_words and after_words:
                         overlap = before_words & after_words
                         # Check pairwise overlap OR check if any word
                         # appears 2+ times across all parts (repetition)
-                        ratio = len(overlap) / \
-                            min(len(before_words), len(after_words))
-                        all_parts_words = re.findall(r'\b\w{4,}\b', sent_lower)
+                        ratio = len(overlap) / min(len(before_words), len(after_words))
+                        all_parts_words = re.findall(r"\b\w{4,}\b", sent_lower)
                         word_counts = {}
                         for w in all_parts_words:
                             word_counts[w] = word_counts.get(w, 0) + 1
                         repeated_key_words = sum(
-                            1 for c in word_counts.values() if c >= 2)
+                            1 for c in word_counts.values() if c >= 2
+                        )
                         if ratio >= 0.2 or repeated_key_words >= 2:
                             because_circular += 1
 
         # Combine signals
         if circular_count >= 2 or repeated_count >= 2 or because_circular >= 1:
-            confidence = 0.5 + \
-                min(0.2, (circular_count + repeated_count + because_circular) * 0.05)
+            confidence = 0.5 + min(
+                0.2, (circular_count + repeated_count + because_circular) * 0.05
+            )
             first_circular = circular_matches[0] if circular_matches else None
             start = first_circular.start() if first_circular else 0
             evidence_parts: List[str] = []
@@ -1146,8 +1244,7 @@ class HallucinationDetector:
             if repeated_count > 0:
                 evidence_parts.append(f"repeated sentences: {repeated_count}")
             if because_circular > 0:
-                evidence_parts.append(
-                    f"'because' circular: {because_circular}")
+                evidence_parts.append(f"'because' circular: {because_circular}")
 
             return HallucinationMatch(
                 pattern_id="P09_circular_reasoning",
@@ -1172,7 +1269,7 @@ class HallucinationDetector:
         phrase_counts: Dict[str, List[int]] = {}
 
         for i in range(len(words) - phrase_len + 1):
-            phrase = " ".join(w.lower() for w in words[i:i + phrase_len])
+            phrase = " ".join(w.lower() for w in words[i : i + phrase_len])
             if phrase not in phrase_counts:
                 phrase_counts[phrase] = []
             phrase_counts[phrase].append(i)
@@ -1180,7 +1277,7 @@ class HallucinationDetector:
         for phrase, positions in phrase_counts.items():
             if len(positions) >= 2:
                 # Build position in original string
-                first_pos = sum(len(w) + 1 for w in words[:positions[0]])
+                first_pos = sum(len(w) + 1 for w in words[: positions[0]])
                 return HallucinationMatch(
                     pattern_id="P09_circular_reasoning",
                     pattern_name="Circular reasoning",
@@ -1212,8 +1309,8 @@ class HallucinationDetector:
         attr_positions: List[Tuple[int, int]] = []
 
         for sm in source_matches:
-            after_text = response[sm.end():sm.end() + 100]
-            before_text = response[max(0, sm.start() - 30):sm.start()]
+            after_text = response[sm.end() : sm.end() + 100]
+            before_text = response[max(0, sm.start() - 30) : sm.start()]
 
             # Check if followed by a fake document reference
             has_fake_ref = bool(RE_FAKE_DOC_REFS.search(after_text))
@@ -1223,24 +1320,25 @@ class HallucinationDetector:
             has_real_url = bool(RE_URL.search(before_text))
 
             if (has_fake_ref or has_page_ref) and not has_real_url:
-                full_text = response[sm.start():sm.end() + 100].strip()
+                full_text = response[sm.start() : sm.end() + 100].strip()
                 suspicious_attributions.append(full_text[:120])
                 attr_positions.append((sm.start(), sm.end() + 100))
 
         # Also flag source attributions that are vague
         for sm in source_matches:
-            after_text = response[sm.end():sm.end() + 60]
+            after_text = response[sm.end() : sm.end() + 60]
             # If followed by very generic text with no specific reference
-            if (not RE_FAKE_DOC_REFS.search(after_text)
-                    and not RE_PAGE_REFS.search(after_text)
-                    and not RE_URL.search(after_text)):
+            if (
+                not RE_FAKE_DOC_REFS.search(after_text)
+                and not RE_PAGE_REFS.search(after_text)
+                and not RE_URL.search(after_text)
+            ):
                 # Vague source attribution
                 words_after = after_text.split()[:5]
                 if len(words_after) < 3:
-                    full_text = response[sm.start():sm.end() + 60].strip()
+                    full_text = response[sm.start() : sm.end() + 60].strip()
                     # Avoid duplicate from the loop above
-                    if full_text[:80] not in [a[:80]
-                                              for a in suspicious_attributions]:
+                    if full_text[:80] not in [a[:80] for a in suspicious_attributions]:
                         suspicious_attributions.append(full_text[:120])
                         attr_positions.append((sm.start(), sm.end() + 60))
 
@@ -1281,7 +1379,7 @@ class HallucinationDetector:
         for m in RE_PRECISE_PERCENTAGE.finditer(response):
             pct_str = m.group(0)
             # Extract decimal part — any decimal precision is suspicious
-            decimal_match = re.search(r'\.(\d+)%', pct_str)
+            decimal_match = re.search(r"\.(\d+)%", pct_str)
             if decimal_match and len(decimal_match.group(1)) >= 1:
                 flags.append(f"Overly precise percentage: {pct_str}")
                 flag_positions.append((m.start(), m.end()))
@@ -1308,13 +1406,13 @@ class HallucinationDetector:
         # counts)
         for m in RE_PRECISE_DECIMAL.finditer(response):
             # Skip if this is part of a percentage (already caught above)
-            if response[m.end():m.end() + 1] == '%':
+            if response[m.end() : m.end() + 1] == "%":
                 continue
             # Skip if preceded by $ (currency)
-            if m.start() > 0 and response[m.start() - 1] == '$':
+            if m.start() > 0 and response[m.start() - 1] == "$":
                 continue
             decimal_val = m.group(0)
-            decimal_match = re.search(r'\.(\d+)', decimal_val)
+            decimal_match = re.search(r"\.(\d+)", decimal_val)
             if decimal_match and len(decimal_match.group(1)) >= 2:
                 flags.append(f"Overly precise decimal: {decimal_val}")
                 flag_positions.append((m.start(), m.end()))
@@ -1357,31 +1455,37 @@ class HallucinationDetector:
                 continue
             # Extract MM/DD/YYYY dates
             for m in RE_DATE_MDY.finditer(content):
-                history_dates.append({
-                    "raw": m.group(0),
-                    "month": int(m.group(1)),
-                    "day": int(m.group(2)),
-                    "year": int(m.group(3)),
-                    "context": content[max(0, m.start() - 30):m.end() + 10],
-                })
+                history_dates.append(
+                    {
+                        "raw": m.group(0),
+                        "month": int(m.group(1)),
+                        "day": int(m.group(2)),
+                        "year": int(m.group(3)),
+                        "context": content[max(0, m.start() - 30) : m.end() + 10],
+                    }
+                )
             # Extract text month dates
             for m in RE_DATE_TEXT.finditer(content):
                 month_name = re.match(
                     r"(January|February|March|April|May|June|July|"
                     r"August|September|October|November|December)",
-                    m.group(0), re.IGNORECASE,
+                    m.group(0),
+                    re.IGNORECASE,
                 )
                 if month_name:
-                    month_num = _MONTH_NAMES.get(
-                        month_name.group(1).lower(), 0)
+                    month_num = _MONTH_NAMES.get(month_name.group(1).lower(), 0)
                     if month_num:
-                        history_dates.append({
-                            "raw": m.group(0),
-                            "month": month_num,
-                            "day": int(m.group(1)),
-                            "year": int(m.group(2)),
-                            "context": content[max(0, m.start() - 30):m.end() + 10],
-                        })
+                        history_dates.append(
+                            {
+                                "raw": m.group(0),
+                                "month": month_num,
+                                "day": int(m.group(1)),
+                                "year": int(m.group(2)),
+                                "context": content[
+                                    max(0, m.start() - 30) : m.end() + 10
+                                ],
+                            }
+                        )
 
         if not history_dates:
             return None
@@ -1389,27 +1493,32 @@ class HallucinationDetector:
         # Extract dates from current response
         response_dates: List[dict] = []
         for m in RE_DATE_MDY.finditer(response):
-            response_dates.append({
-                "raw": m.group(0),
-                "month": int(m.group(1)),
-                "day": int(m.group(2)),
-                "year": int(m.group(3)),
-            })
+            response_dates.append(
+                {
+                    "raw": m.group(0),
+                    "month": int(m.group(1)),
+                    "day": int(m.group(2)),
+                    "year": int(m.group(3)),
+                }
+            )
         for m in RE_DATE_TEXT.finditer(response):
             month_name = re.match(
                 r"(January|February|March|April|May|June|July|"
                 r"August|September|October|November|December)",
-                m.group(0), re.IGNORECASE,
+                m.group(0),
+                re.IGNORECASE,
             )
             if month_name:
                 month_num = _MONTH_NAMES.get(month_name.group(1).lower(), 0)
                 if month_num:
-                    response_dates.append({
-                        "raw": m.group(0),
-                        "month": month_num,
-                        "day": int(m.group(1)),
-                        "year": int(m.group(2)),
-                    })
+                    response_dates.append(
+                        {
+                            "raw": m.group(0),
+                            "month": month_num,
+                            "day": int(m.group(1)),
+                            "year": int(m.group(2)),
+                        }
+                    )
 
         if not response_dates:
             return None
@@ -1418,20 +1527,19 @@ class HallucinationDetector:
         for hist_date in history_dates:
             for resp_date in response_dates:
                 # If month or year or day differ, it's a contradiction
-                if (hist_date["month"] != resp_date["month"]
+                if (
+                    hist_date["month"] != resp_date["month"]
                     or hist_date["day"] != resp_date["day"]
-                        or hist_date["year"] != resp_date["year"]):
+                    or hist_date["year"] != resp_date["year"]
+                ):
                     # But only if they reference similar context
                     # (similar surrounding words indicate same entity)
                     hist_context_words = set(
-                        re.findall(
-                            r'\b\w{4,}\b',
-                            hist_date.get(
-                                "context",
-                                "").lower()))
+                        re.findall(r"\b\w{4,}\b", hist_date.get("context", "").lower())
+                    )
                     resp_nearby = response
                     resp_context_words = set(
-                        re.findall(r'\b\w{4,}\b', resp_nearby.lower())
+                        re.findall(r"\b\w{4,}\b", resp_nearby.lower())
                     )
                     # Check if there's any contextual overlap
                     overlap = hist_context_words & resp_context_words
@@ -1439,10 +1547,9 @@ class HallucinationDetector:
                         # If there's overlap or we can't determine context,
                         # flag as temporal inconsistency
                         confidence = 0.75 if overlap else 0.60
-                        evidence = (
-                            f"Date contradiction: history said '{
+                        evidence = f"Date contradiction: history said '{
                                 hist_date['raw']}' " f"but response says '{
-                                resp_date['raw']}'")
+                                resp_date['raw']}'"
                         return HallucinationMatch(
                             pattern_id="P12_temporal_inconsistency",
                             pattern_name="Temporal inconsistency",
@@ -1473,7 +1580,7 @@ class HallucinationDetector:
         Returns sentences that contain numbers, prices, dates,
         or copula verbs (is/are/was/were).
         """
-        sentences = re.split(r'[.!?]+', text)
+        sentences = re.split(r"[.!?]+", text)
         claims: List[str] = []
         for sent in sentences:
             sent = sent.strip()
@@ -1482,7 +1589,7 @@ class HallucinationDetector:
             # Must contain a factual indicator
             has_factual = bool(
                 re.search(
-                    r'\b\d\b|\$|is\s|are\s|was\s|were\s',
+                    r"\b\d\b|\$|is\s|are\s|was\s|were\s",
                     sent,
                     re.IGNORECASE,
                 )

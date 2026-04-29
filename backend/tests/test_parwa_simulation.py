@@ -35,7 +35,8 @@ PARWA_INSTANCES = ["parwa_billing", "parwa_support", "parwa_technical"]
 PARWA_HIGH_INSTANCES = [
     "parwa_high_vip",
     "parwa_high_enterprise",
-    "parwa_high_training"]
+    "parwa_high_training",
+]
 
 
 class TicketCategory(Enum):
@@ -115,25 +116,27 @@ CUSTOMER_NAMES = [
     "Daniel Thompson",
     "Margaret Clark",
     "Matthew Lewis",
-    "Dorothy Walker"]
+    "Dorothy Walker",
+]
 
 PRODUCT_NAMES = [
     "iPhone 15 Pro Max",
-    "MacBook Pro 16\"",
+    'MacBook Pro 16"',
     "Samsung Galaxy S24 Ultra",
     "Dell XPS 15",
     "Sony WH-1000XM5 Headphones",
-    "iPad Pro 12.9\"",
+    'iPad Pro 12.9"',
     "Nintendo Switch OLED",
     "PS5 Console",
     "Apple Watch Series 9",
-    "Samsung 65\" OLED TV",
+    'Samsung 65" OLED TV',
     "Dyson V15 Vacuum",
     "Instant Pot Duo",
     "Nike Air Max 2024",
     "Adidas Ultraboost",
     "KitchenAid Stand Mixer",
-    "Roomba i7+"]
+    "Roomba i7+",
+]
 
 ISSUE_PHRASES = {
     TicketCategory.ORDER_SHIPPING: [
@@ -144,7 +147,7 @@ ISSUE_PHRASES = {
         "My order #{order_id} arrived damaged. The box was crushed and {product} is broken.",
         "I need to change the shipping address for order #{order_id}. It hasn't shipped yet.",
         "Why is my order #{order_id} stuck in transit for {days} days?",
-        "The courier left my order #{order_id} outside in the rain. Package is destroyed."
+        "The courier left my order #{order_id} outside in the rain. Package is destroyed.",
     ],
     TicketCategory.RETURNS_REFUNDS: [
         "I want to return {product} from order #{order_id}. It doesn't fit.",
@@ -154,7 +157,7 @@ ISSUE_PHRASES = {
         "I returned {product} from order #{order_id} {days} days ago but haven't received my refund.",
         "Your return policy says 30 days but I'm on day {days}. Can I still return?",
         "I never ordered {product}! Someone used my card. I want my ${amount} back.",
-        "The refund for order #{order_id} was only ${amount} but I paid ${amount}. Where's the rest?"
+        "The refund for order #{order_id} was only ${amount} but I paid ${amount}. Where's the rest?",
     ],
     TicketCategory.BILLING_PAYMENTS: [
         "I was charged ${amount} but my cart total was ${amount2}. Why the difference?",
@@ -164,7 +167,7 @@ ISSUE_PHRASES = {
         "Can I get an invoice for order #{order_id} for my company expense report?",
         "My payment method was declined but the charge still shows on my account.",
         "I need to update my billing address for future orders.",
-        "You charged me sales tax for a state I don't live in. Please correct."
+        "You charged me sales tax for a state I don't live in. Please correct.",
     ],
     TicketCategory.TECHNICAL_SUPPORT: [
         "The {product} won't turn on. I've tried everything in the manual.",
@@ -174,7 +177,7 @@ ISSUE_PHRASES = {
         "The {product} firmware update failed and now it's stuck in recovery mode.",
         "Your website shows 'out of stock' but I can see {product} in my cart.",
         "The {product} battery drains in 2 hours instead of the advertised 12.",
-        "I'm getting error code E-4502 when trying to complete my purchase."
+        "I'm getting error code E-4502 when trying to complete my purchase.",
     ],
     TicketCategory.ACCOUNT_ISSUES: [
         "Someone hacked my account and changed my email. Please help me recover it.",
@@ -184,7 +187,7 @@ ISSUE_PHRASES = {
         "My rewards points balance is wrong. I should have {amount} points.",
         "I can't update my phone number in my account settings. It keeps reverting.",
         "My account shows someone else's order history. Major security issue!",
-        "Please change my username. I used my full name and want privacy."
+        "Please change my username. I used my full name and want privacy.",
     ],
     TicketCategory.COMPLAINTS_ESCALATIONS: [
         "This is my 5th email about order #{order_id}. No one is helping me!",
@@ -194,8 +197,8 @@ ISSUE_PHRASES = {
         "Your agent was extremely rude to me. I have screenshots of the chat.",
         "I'm filing a chargeback with my credit card company if this isn't resolved today.",
         "I'm a platinum member and I expect priority treatment. Transfer me to VIP support.",
-        "This is a legal matter. Your product caused damage and I'm consulting my lawyer."
-    ]
+        "This is a legal matter. Your product caused damage and I'm consulting my lawyer.",
+    ],
 }
 
 
@@ -208,15 +211,21 @@ class LLMClient:
     def _check_sdk(self) -> bool:
         try:
             result = subprocess.run(
-                ["node", "-e", "const ZAI = require('z-ai-web-dev-sdk').default; console.log('ok');"],
-                capture_output=True, text=True, timeout=10, cwd="/home/z/my-project/parwa"
+                [
+                    "node",
+                    "-e",
+                    "const ZAI = require('z-ai-web-dev-sdk').default; console.log('ok');",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                cwd="/home/z/my-project/parwa",
             )
             return result.returncode == 0 and "ok" in result.stdout
         except BaseException:
             return False
 
-    async def generate_response(
-            self, ticket: Ticket, variant: str) -> Dict[str, Any]:
+    async def generate_response(self, ticket: Ticket, variant: str) -> Dict[str, Any]:
         """Generate AI response for a ticket"""
 
         system_prompt = """You are a professional customer support agent for TechMart Inc.
@@ -245,7 +254,7 @@ Please respond to this customer."""
 
         if self.available:
             try:
-                script = '''
+                script = """
 const ZAI = require('z-ai-web-dev-sdk').default;
 async function main() {{
     const zai = await ZAI.create();
@@ -263,11 +272,13 @@ async function main() {{
     }}));
 }}
 main().catch(e => console.error(JSON.stringify({{error: e.message}})));
-'''
+"""
                 result = subprocess.run(
                     ["node", "-e", script],
-                    capture_output=True, text=True, timeout=45,
-                    cwd="/home/z/my-project/parwa"
+                    capture_output=True,
+                    text=True,
+                    timeout=45,
+                    cwd="/home/z/my-project/parwa",
                 )
 
                 if result.returncode == 0:
@@ -290,29 +301,37 @@ main().catch(e => console.error(JSON.stringify({{error: e.message}})));
                     ticket.customer.name.split()[0]}, I understand your concern about your return/refund request. I've located your order {
                     ticket.order_id} in our system. I'll process this right away. For the amount of ${
                     ticket.amount_involved or 0:.2f}, I'll initiate the refund to your original payment method. You should see it reflected within 3-5 business days. Is there anything else I can help with?",
-                "resolved": True}
-        elif "shipping" in msg_lower or "order" in msg_lower or "delivered" in msg_lower:
+                "resolved": True,
+            }
+        elif (
+            "shipping" in msg_lower or "order" in msg_lower or "delivered" in msg_lower
+        ):
             return {
                 "response": f"Hi {
                     ticket.customer.name.split()[0]}, thank you for reaching out about your order. I apologize for any inconvenience with your delivery. Let me check the status of order {
                     ticket.order_id} right away. I can see there was a delay in transit. I'm escalating this to our shipping team and you'll receive an update within 24 hours. As a {
                     ticket.customer.tier} member, we prioritize your satisfaction.",
-                "resolved": True}
+                "resolved": True,
+            }
         elif "billing" in msg_lower or "charge" in msg_lower or "payment" in msg_lower:
             return {
                 "response": f"Hi {
                     ticket.customer.name.split()[0]}, I'd be happy to help with your billing inquiry. I've reviewed your account and can see the charge you're referring to. I'll investigate this discrepancy and ensure your account is corrected. If a refund is due, it will be processed automatically. Thank you for your patience!",
-                "resolved": True}
-        elif "manager" in msg_lower or "escalat" in msg_lower or "complaint" in msg_lower:
+                "resolved": True,
+            }
+        elif (
+            "manager" in msg_lower or "escalat" in msg_lower or "complaint" in msg_lower
+        ):
             return {
                 "response": f"Hi {ticket.customer.name.split()[0]}, I sincerely apologize for the frustration you've experienced. Your feedback is extremely important to us. I'm escalating this matter to our customer experience manager who will personally follow up within 2 hours. As a valued {ticket.customer.tier} member, we want to make this right. Please expect a call at {ticket.customer.phone}.",
-                "resolved": False  # Escalation needed
+                "resolved": False,  # Escalation needed
             }
         else:
             return {
                 "response": f"Hi {
                     ticket.customer.name.split()[0]}, thank you for contacting TechMart support. I understand your concern and I'm here to help. I've reviewed your inquiry and I'm working on a solution for you. You'll receive a follow-up email shortly with the next steps. Is there anything specific you'd like me to prioritize?",
-                "resolved": True}
+                "resolved": True,
+            }
 
 
 class ProductionSimulator:
@@ -328,13 +347,16 @@ class ProductionSimulator:
                 "resolved": 0,
                 "escalated": 0,
                 "avg_time": 0,
-                "errors": []},
+                "errors": [],
+            },
             "parwa_high": {
                 "processed": 0,
                 "resolved": 0,
                 "escalated": 0,
                 "avg_time": 0,
-                "errors": []}}
+                "errors": [],
+            },
+        }
 
     def _generate_customers(self, count: int) -> List[Customer]:
         """Generate realistic customer profiles"""
@@ -348,18 +370,20 @@ class ProductionSimulator:
                 "bronze": random.uniform(50, 500),
                 "silver": random.uniform(500, 2000),
                 "gold": random.uniform(2000, 10000),
-                "platinum": random.uniform(10000, 50000)
+                "platinum": random.uniform(10000, 50000),
             }[tier]
 
-            customers.append(Customer(
-                customer_id=f"cust_{uuid.uuid4().hex[:8]}",
-                name=random.choice(CUSTOMER_NAMES),
-                email=f"customer{i}@email.com",
-                phone=f"+1-555-{random.randint(100, 999)}-{random.randint(1000, 9999)}",
-                tier=tier,
-                lifetime_value=round(ltv, 2),
-                tickets_history=random.randint(0, 20)
-            ))
+            customers.append(
+                Customer(
+                    customer_id=f"cust_{uuid.uuid4().hex[:8]}",
+                    name=random.choice(CUSTOMER_NAMES),
+                    email=f"customer{i}@email.com",
+                    phone=f"+1-555-{random.randint(100, 999)}-{random.randint(1000, 9999)}",
+                    tier=tier,
+                    lifetime_value=round(ltv, 2),
+                    tickets_history=random.randint(0, 20),
+                )
+            )
         return customers
 
     def generate_ticket(self, ticket_id: int) -> Ticket:
@@ -368,21 +392,16 @@ class ProductionSimulator:
 
         # Category distribution matching real-world patterns
         category_weights = [35, 25, 15, 10, 8, 7]
-        category = random.choices(
-            list(TicketCategory),
-            weights=category_weights)[0]
+        category = random.choices(list(TicketCategory), weights=category_weights)[0]
 
         # Priority based on customer tier and category
-        if customer.tier in [
-            "platinum",
-                "gold"] or category == TicketCategory.COMPLAINTS_ESCALATIONS:
-            priority = random.choices(
-                list(TicketPriority), weights=[
-                    10, 20, 40, 30])[0]
+        if (
+            customer.tier in ["platinum", "gold"]
+            or category == TicketCategory.COMPLAINTS_ESCALATIONS
+        ):
+            priority = random.choices(list(TicketPriority), weights=[10, 20, 40, 30])[0]
         else:
-            priority = random.choices(
-                list(TicketPriority), weights=[
-                    40, 35, 20, 5])[0]
+            priority = random.choices(list(TicketPriority), weights=[40, 35, 20, 5])[0]
 
         # Channel distribution
         channel = random.choices(list(Channel), weights=[40, 35, 10, 10, 5])[0]
@@ -399,7 +418,7 @@ class ProductionSimulator:
             product=product,
             amount=amount,
             days=days,
-            amount2=round(amount * 1.15, 2)
+            amount2=round(amount * 1.15, 2),
         )
 
         # Subject based on category
@@ -409,7 +428,7 @@ class ProductionSimulator:
             TicketCategory.BILLING_PAYMENTS: f"Billing Inquiry - Account {customer.customer_id}",
             TicketCategory.TECHNICAL_SUPPORT: f"Technical Support Needed - {product}",
             TicketCategory.ACCOUNT_ISSUES: f"Account Issue - {customer.email}",
-            TicketCategory.COMPLAINTS_ESCALATIONS: "ESCALATION - Urgent Assistance Required"
+            TicketCategory.COMPLAINTS_ESCALATIONS: "ESCALATION - Urgent Assistance Required",
         }
 
         # Approval needed for high-value refunds
@@ -427,7 +446,7 @@ class ProductionSimulator:
             order_id=order_id,
             amount_involved=amount,
             requires_approval=requires_approval,
-            created_at=datetime.now(timezone.utc).isoformat()
+            created_at=datetime.now(timezone.utc).isoformat(),
         )
 
     async def process_ticket(self, ticket: Ticket, variant: str) -> Dict:
@@ -452,14 +471,14 @@ class ProductionSimulator:
                 "success": True,
                 "resolved": ticket.resolved,
                 "resolution_time": resolution_time,
-                "escalated": not ticket.resolved
+                "escalated": not ticket.resolved,
             }
         except Exception as e:
             return {
                 "success": False,
                 "error": str(e),
                 "resolved": False,
-                "resolution_time": time.time() - start_time
+                "resolution_time": time.time() - start_time,
             }
 
     async def run_simulation(self, num_tickets: int = 50):
@@ -507,17 +526,15 @@ class ProductionSimulator:
                     self.results["parwa"]["escalated"] += 1
                 parwa_times.append(result["resolution_time"])
             else:
-                self.results["parwa"]["errors"].append({
-                    "ticket": ticket.ticket_id,
-                    "error": result["error"]
-                })
+                self.results["parwa"]["errors"].append(
+                    {"ticket": ticket.ticket_id, "error": result["error"]}
+                )
 
             if (i + 1) % 5 == 0:
                 print(f"   Processed {i + 1}/{len(parwa_tickets)} tickets...")
 
         if parwa_times:
-            self.results["parwa"]["avg_time"] = sum(
-                parwa_times) / len(parwa_times)
+            self.results["parwa"]["avg_time"] = sum(parwa_times) / len(parwa_times)
 
         # Process with PARWA High
         print(f"\n🚀 Testing PARWA High Variant (${3_999}/mo)...")
@@ -533,18 +550,15 @@ class ProductionSimulator:
                     self.results["parwa_high"]["escalated"] += 1
                 high_times.append(result["resolution_time"])
             else:
-                self.results["parwa_high"]["errors"].append({
-                    "ticket": ticket.ticket_id,
-                    "error": result["error"]
-                })
+                self.results["parwa_high"]["errors"].append(
+                    {"ticket": ticket.ticket_id, "error": result["error"]}
+                )
 
             if (i + 1) % 5 == 0:
-                print(
-                    f"   Processed {i + 1}/{len(parwa_high_tickets)} tickets...")
+                print(f"   Processed {i + 1}/{len(parwa_high_tickets)} tickets...")
 
         if high_times:
-            self.results["parwa_high"]["avg_time"] = sum(
-                high_times) / len(high_times)
+            self.results["parwa_high"]["avg_time"] = sum(high_times) / len(high_times)
 
         # Print results
         self._print_results()
@@ -558,12 +572,13 @@ class ProductionSimulator:
         print("=" * 70)
 
         for variant in ["parwa", "parwa_high"]:
-            name = "PARWA ($2,499/mo)" if variant == "parwa" else "PARWA High ($3,999/mo)"
+            name = (
+                "PARWA ($2,499/mo)" if variant == "parwa" else "PARWA High ($3,999/mo)"
+            )
             r = self.results[variant]
             resolve_rate = (
-                r["resolved"]
-                / r["processed"]
-                * 100) if r["processed"] > 0 else 0
+                (r["resolved"] / r["processed"] * 100) if r["processed"] > 0 else 0
+            )
 
             print(f"\n{name}")
             print("-" * 40)
@@ -577,14 +592,15 @@ class ProductionSimulator:
         print("🎯 PRODUCTION READINESS VERDICT")
         print("=" * 70)
 
-        total_processed = self.results["parwa"]["processed"] + \
-            self.results["parwa_high"]["processed"]
-        total_resolved = self.results["parwa"]["resolved"] + \
-            self.results["parwa_high"]["resolved"]
+        total_processed = (
+            self.results["parwa"]["processed"] + self.results["parwa_high"]["processed"]
+        )
+        total_resolved = (
+            self.results["parwa"]["resolved"] + self.results["parwa_high"]["resolved"]
+        )
         overall_rate = (
-            total_resolved
-            / total_processed
-            * 100) if total_processed > 0 else 0
+            (total_resolved / total_processed * 100) if total_processed > 0 else 0
+        )
 
         if overall_rate >= 80:
             print("✅ PRODUCTION READY - High confidence")
@@ -604,7 +620,7 @@ class ProductionSimulator:
             "simulation": {
                 "company": "TechMart Inc.",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "total_tickets": len(self.tickets)
+                "total_tickets": len(self.tickets),
             },
             "results": self.results,
             "tickets": [
@@ -619,10 +635,10 @@ class ProductionSimulator:
                     "amount_involved": t.amount_involved,
                     "resolved": t.resolved,
                     "assigned_to": t.assigned_to,
-                    "resolution_time": t.resolution_time_seconds
+                    "resolution_time": t.resolution_time_seconds,
                 }
                 for t in self.tickets
-            ]
+            ],
         }
 
         with open(filepath, "w") as f:
@@ -632,8 +648,7 @@ class ProductionSimulator:
 async def main():
     simulator = ProductionSimulator()
     await simulator.run_simulation(num_tickets=50)
-    simulator.save_results(
-        "/home/z/my-project/download/parwa_simulation_results.json")
+    simulator.save_results("/home/z/my-project/download/parwa_simulation_results.json")
 
 
 if __name__ == "__main__":

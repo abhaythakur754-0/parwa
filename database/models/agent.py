@@ -22,8 +22,15 @@ from datetime import datetime
 import uuid
 
 from sqlalchemy import (
-    Boolean, CheckConstraint, Column, DateTime, Integer, Numeric,
-    String, Text, ForeignKey,
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    ForeignKey,
 )
 from sqlalchemy.orm import relationship
 
@@ -36,9 +43,7 @@ def _uuid() -> str:
 
 # ── Enum-like value sets (used by CHECK constraints) ────────────
 
-_AGENT_STATUSES = (
-    "'initializing','training','active','paused','deprovisioned','error'"
-)
+_AGENT_STATUSES = "'initializing','training','active','paused','deprovisioned','error'"
 _SETUP_STEP_STATUSES = "'pending','in_progress','completed','failed'"
 _INSTRUCTION_STATUSES = "'draft','active','archived'"
 _AB_TEST_STATUSES = "'running','completed','cancelled'"
@@ -46,6 +51,7 @@ _AB_VARIANTS = "'A','B'"
 
 
 # ── Agent ───────────────────────────────────────────────────────
+
 
 class Agent(Base):
     """AI agent instance within a tenant (company).
@@ -58,13 +64,15 @@ class Agent(Base):
     BC-007: AI model configuration via base_model, model_checkpoint_id.
     BC-009: Financial actions flagged for approval.
     """
+
     __tablename__ = "agents"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     name = Column(String(200), nullable=False)
     # Specialty: billing, returns, technical, general, sales,
@@ -92,16 +100,19 @@ class Agent(Base):
 
     # ── Relationships ──
     setup_logs = relationship(
-        "AgentSetupLog", back_populates="agent",
+        "AgentSetupLog",
+        back_populates="agent",
         cascade="all, delete-orphan",
         order_by="AgentSetupLog.created_at",
     )
     instruction_sets = relationship(
-        "InstructionSet", back_populates="agent",
+        "InstructionSet",
+        back_populates="agent",
         cascade="all, delete-orphan",
     )
     ab_tests = relationship(
-        "InstructionABTest", back_populates="agent",
+        "InstructionABTest",
+        back_populates="agent",
         cascade="all, delete-orphan",
     )
     creator = relationship("User", foreign_keys=[created_by])
@@ -118,6 +129,7 @@ class Agent(Base):
 
 # ── Agent Setup Log ─────────────────────────────────────────────
 
+
 class AgentSetupLog(Base):
     """Tracks each step of the agent setup process.
 
@@ -128,18 +140,21 @@ class AgentSetupLog(Base):
     BC-001: Scoped by company_id.
     BC-008: State management for setup progress.
     """
+
     __tablename__ = "agent_setup_logs"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     agent_id = Column(
         String(36),
         ForeignKey("agents.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     # Setup step name: configuration, training, integration_setup,
     #                   permission_config, testing, activation
@@ -165,6 +180,7 @@ class AgentSetupLog(Base):
 
 # ── Instruction Set ─────────────────────────────────────────────
 
+
 class InstructionSet(Base):
     """Versioned collection of behavioral instructions for an agent.
 
@@ -180,18 +196,21 @@ class InstructionSet(Base):
     BC-007: AI model behavioral instructions.
     BC-008: Version-controlled state management.
     """
+
     __tablename__ = "instruction_sets"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     agent_id = Column(
         String(36),
         ForeignKey("agents.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     name = Column(String(200), nullable=False)
     version = Column(Integer, nullable=False, default=1)
@@ -218,7 +237,8 @@ class InstructionSet(Base):
 
     # ── Relationships ──
     versions = relationship(
-        "InstructionVersion", back_populates="instruction_set",
+        "InstructionVersion",
+        back_populates="instruction_set",
         cascade="all, delete-orphan",
         order_by="InstructionVersion.version.desc()",
     )
@@ -241,6 +261,7 @@ class InstructionSet(Base):
 
 # ── Instruction Version ─────────────────────────────────────────
 
+
 class InstructionVersion(Base):
     """Historical version of an instruction set.
 
@@ -251,18 +272,21 @@ class InstructionVersion(Base):
     BC-007: AI model version tracking.
     BC-008: Full version history with change summaries.
     """
+
     __tablename__ = "instruction_versions"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     set_id = Column(
         String(36),
         ForeignKey("instruction_sets.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     version = Column(Integer, nullable=False)
     # Full JSON snapshot of instructions at this version
@@ -278,7 +302,8 @@ class InstructionVersion(Base):
 
     # ── Relationships ──
     instruction_set = relationship(
-        "InstructionSet", back_populates="versions",
+        "InstructionSet",
+        back_populates="versions",
     )
     publisher = relationship("User", foreign_keys=[published_by])
 
@@ -292,6 +317,7 @@ class InstructionVersion(Base):
 
 
 # ── Instruction A/B Test ────────────────────────────────────────
+
 
 class InstructionABTest(Base):
     """A/B test comparing two instruction sets for an agent.
@@ -307,18 +333,21 @@ class InstructionABTest(Base):
     BC-007: AI model optimization via testing.
     BC-008: State management for test lifecycle.
     """
+
     __tablename__ = "instruction_ab_tests"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     agent_id = Column(
         String(36),
         ForeignKey("agents.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     set_a_id = Column(
         String(36),
@@ -333,7 +362,9 @@ class InstructionABTest(Base):
     # Traffic split percentage for variant A (0-100)
     traffic_split = Column(Integer, nullable=False, default=50)
     success_metric = Column(
-        String(50), nullable=False, default="csat",
+        String(50),
+        nullable=False,
+        default="csat",
     )
     duration_days = Column(Integer, nullable=False, default=14)
     # running → completed → cancelled
@@ -358,14 +389,17 @@ class InstructionABTest(Base):
     # ── Relationships ──
     agent = relationship("Agent", back_populates="ab_tests")
     set_a = relationship(
-        "InstructionSet", foreign_keys=[set_a_id],
+        "InstructionSet",
+        foreign_keys=[set_a_id],
     )
     set_b = relationship(
-        "InstructionSet", foreign_keys=[set_b_id],
+        "InstructionSet",
+        foreign_keys=[set_b_id],
     )
     winner = relationship("InstructionSet", foreign_keys=[winner_id])
     assignments = relationship(
-        "InstructionABAssignment", back_populates="ab_test",
+        "InstructionABAssignment",
+        back_populates="ab_test",
         cascade="all, delete-orphan",
     )
 
@@ -392,6 +426,7 @@ class InstructionABTest(Base):
 
 # ── Instruction A/B Assignment ──────────────────────────────────
 
+
 class InstructionABAssignment(Base):
     """Per-ticket A/B variant assignment.
 
@@ -401,13 +436,15 @@ class InstructionABAssignment(Base):
     BC-001: Scoped via ab_test → company.
     BC-008: State management for assignment tracking.
     """
+
     __tablename__ = "instruction_ab_assignments"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     test_id = Column(
         String(36),
         ForeignKey("instruction_ab_tests.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     ticket_id = Column(String(36), nullable=False, index=True)
     # A or B
@@ -425,7 +462,8 @@ class InstructionABAssignment(Base):
 
     # ── Relationships ──
     ab_test = relationship(
-        "InstructionABTest", back_populates="assignments",
+        "InstructionABTest",
+        back_populates="assignments",
     )
     instruction_set = relationship("InstructionSet")
 

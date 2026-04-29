@@ -14,11 +14,12 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
-
 # ── Event Types Enum ───────────────────────────────────────────────────────
+
 
 class PaddleEventType(str, Enum):
     """All Paddle webhook event types."""
+
     # Subscription events (7)
     SUBSCRIPTION_CREATED = "subscription.created"
     SUBSCRIPTION_UPDATED = "subscription.updated"
@@ -66,12 +67,14 @@ class PaddleEventType(str, Enum):
 
 # ── Base Event Models ──────────────────────────────────────────────────────
 
+
 class PaddleEventData(BaseModel):
     """Base event data structure."""
 
 
 class PaddleEvent(BaseModel):
     """Base Paddle webhook event."""
+
     event_id: str = Field(..., alias="event_id")
     event_type: PaddleEventType
     occurred_at: datetime
@@ -83,8 +86,10 @@ class PaddleEvent(BaseModel):
 
 # ── Subscription Event Data ────────────────────────────────────────────────
 
+
 class PaddleSubscriptionItem(BaseModel):
     """Subscription item (line item)."""
+
     item_id: Optional[str] = None
     price_id: str
     quantity: int
@@ -93,6 +98,7 @@ class PaddleSubscriptionItem(BaseModel):
 
 class PaddleSubscriptionData(PaddleEventData):
     """Subscription data from Paddle."""
+
     id: str
     status: str
     customer_id: str
@@ -108,12 +114,14 @@ class PaddleSubscriptionData(PaddleEventData):
 
 class SubscriptionCreatedEvent(PaddleEvent):
     """subscription.created event."""
+
     event_type: PaddleEventType = PaddleEventType.SUBSCRIPTION_CREATED
     data: PaddleSubscriptionData
 
 
 class SubscriptionUpdatedEvent(PaddleEvent):
     """subscription.updated event."""
+
     event_type: PaddleEventType = PaddleEventType.SUBSCRIPTION_UPDATED
     data: PaddleSubscriptionData
     previous_attributes: Optional[Dict[str, Any]] = None
@@ -121,38 +129,45 @@ class SubscriptionUpdatedEvent(PaddleEvent):
 
 class SubscriptionActivatedEvent(PaddleEvent):
     """subscription.activated event."""
+
     event_type: PaddleEventType = PaddleEventType.SUBSCRIPTION_ACTIVATED
     data: PaddleSubscriptionData
 
 
 class SubscriptionCanceledEvent(PaddleEvent):
     """subscription.canceled event."""
+
     event_type: PaddleEventType = PaddleEventType.SUBSCRIPTION_CANCELED
     data: PaddleSubscriptionData
 
 
 class SubscriptionPastDueEvent(PaddleEvent):
     """subscription.past_due event."""
+
     event_type: PaddleEventType = PaddleEventType.SUBSCRIPTION_PAST_DUE
     data: PaddleSubscriptionData
 
 
 class SubscriptionPausedEvent(PaddleEvent):
     """subscription.paused event."""
+
     event_type: PaddleEventType = PaddleEventType.SUBSCRIPTION_PAUSED
     data: PaddleSubscriptionData
 
 
 class SubscriptionResumedEvent(PaddleEvent):
     """subscription.resumed event."""
+
     event_type: PaddleEventType = PaddleEventType.SUBSCRIPTION_RESUMED
     data: PaddleSubscriptionData
 
 
 # ── Transaction Event Data ──────────────────────────────────────────────────
 
+
 class PaddleTransactionDetails(BaseModel):
     """Transaction details from Paddle."""
+
     total: Decimal
     currency_code: str
     subtotal: Optional[Decimal] = None
@@ -162,6 +177,7 @@ class PaddleTransactionDetails(BaseModel):
 
 class PaddleTransactionData(PaddleEventData):
     """Transaction data from Paddle."""
+
     id: str
     status: str
     customer_id: Optional[str] = None
@@ -176,18 +192,21 @@ class PaddleTransactionData(PaddleEventData):
 
 class TransactionCompletedEvent(PaddleEvent):
     """transaction.completed event."""
+
     event_type: PaddleEventType = PaddleEventType.TRANSACTION_COMPLETED
     data: PaddleTransactionData
 
 
 class TransactionPaidEvent(PaddleEvent):
     """transaction.paid event."""
+
     event_type: PaddleEventType = PaddleEventType.TRANSACTION_PAID
     data: PaddleTransactionData
 
 
 class TransactionPaymentFailedEvent(PaddleEvent):
     """transaction.payment_failed event."""
+
     event_type: PaddleEventType = PaddleEventType.TRANSACTION_PAYMENT_FAILED
     data: PaddleTransactionData
     error: Optional[Dict[str, Any]] = None
@@ -195,20 +214,24 @@ class TransactionPaymentFailedEvent(PaddleEvent):
 
 class TransactionCanceledEvent(PaddleEvent):
     """transaction.canceled event."""
+
     event_type: PaddleEventType = PaddleEventType.TRANSACTION_CANCELED
     data: PaddleTransactionData
 
 
 class TransactionUpdatedEvent(PaddleEvent):
     """transaction.updated event."""
+
     event_type: PaddleEventType = PaddleEventType.TRANSACTION_UPDATED
     data: PaddleTransactionData
 
 
 # ── Customer Event Data ─────────────────────────────────────────────────────
 
+
 class PaddleCustomerData(PaddleEventData):
     """Customer data from Paddle."""
+
     id: str
     email: str
     name: Optional[str] = None
@@ -220,12 +243,14 @@ class PaddleCustomerData(PaddleEventData):
 
 class CustomerCreatedEvent(PaddleEvent):
     """customer.created event."""
+
     event_type: PaddleEventType = PaddleEventType.CUSTOMER_CREATED
     data: PaddleCustomerData
 
 
 class CustomerUpdatedEvent(PaddleEvent):
     """customer.updated event."""
+
     event_type: PaddleEventType = PaddleEventType.CUSTOMER_UPDATED
     data: PaddleCustomerData
     previous_attributes: Optional[Dict[str, Any]] = None
@@ -233,14 +258,17 @@ class CustomerUpdatedEvent(PaddleEvent):
 
 class CustomerDeletedEvent(PaddleEvent):
     """customer.deleted event."""
+
     event_type: PaddleEventType = PaddleEventType.CUSTOMER_DELETED
     data: PaddleCustomerData
 
 
 # ── Price Event Data ────────────────────────────────────────────────────────
 
+
 class PaddlePriceData(PaddleEventData):
     """Price/variant data from Paddle."""
+
     id: str
     product_id: str
     name: Optional[str] = None
@@ -252,26 +280,31 @@ class PaddlePriceData(PaddleEventData):
 
 class PriceCreatedEvent(PaddleEvent):
     """price.created event."""
+
     event_type: PaddleEventType = PaddleEventType.PRICE_CREATED
     data: PaddlePriceData
 
 
 class PriceUpdatedEvent(PaddleEvent):
     """price.updated event."""
+
     event_type: PaddleEventType = PaddleEventType.PRICE_UPDATED
     data: PaddlePriceData
 
 
 class PriceDeletedEvent(PaddleEvent):
     """price.deleted event."""
+
     event_type: PaddleEventType = PaddleEventType.PRICE_DELETED
     data: PaddlePriceData
 
 
 # ── Discount Event Data ─────────────────────────────────────────────────────
 
+
 class PaddleDiscountData(PaddleEventData):
     """Discount data from Paddle."""
+
     id: str
     status: Optional[str] = None
     code: Optional[str] = None
@@ -283,26 +316,31 @@ class PaddleDiscountData(PaddleEventData):
 
 class DiscountCreatedEvent(PaddleEvent):
     """discount.created event."""
+
     event_type: PaddleEventType = PaddleEventType.DISCOUNT_CREATED
     data: PaddleDiscountData
 
 
 class DiscountUpdatedEvent(PaddleEvent):
     """discount.updated event."""
+
     event_type: PaddleEventType = PaddleEventType.DISCOUNT_UPDATED
     data: PaddleDiscountData
 
 
 class DiscountDeletedEvent(PaddleEvent):
     """discount.deleted event."""
+
     event_type: PaddleEventType = PaddleEventType.DISCOUNT_DELETED
     data: PaddleDiscountData
 
 
 # ── Credit Event Data ────────────────────────────────────────────────────────
 
+
 class PaddleCreditData(PaddleEventData):
     """Credit data from Paddle."""
+
     id: str
     customer_id: Optional[str] = None
     amount: Optional[str] = None
@@ -313,26 +351,31 @@ class PaddleCreditData(PaddleEventData):
 
 class CreditCreatedEvent(PaddleEvent):
     """credit.created event."""
+
     event_type: PaddleEventType = PaddleEventType.CREDIT_CREATED
     data: PaddleCreditData
 
 
 class CreditUpdatedEvent(PaddleEvent):
     """credit.updated event."""
+
     event_type: PaddleEventType = PaddleEventType.CREDIT_UPDATED
     data: PaddleCreditData
 
 
 class CreditDeletedEvent(PaddleEvent):
     """credit.deleted event."""
+
     event_type: PaddleEventType = PaddleEventType.CREDIT_DELETED
     data: PaddleCreditData
 
 
 # ── Adjustment Event Data ────────────────────────────────────────────────────
 
+
 class PaddleAdjustmentData(PaddleEventData):
     """Adjustment data from Paddle."""
+
     id: str
     transaction_id: Optional[str] = None
     subscription_id: Optional[str] = None
@@ -345,20 +388,24 @@ class PaddleAdjustmentData(PaddleEventData):
 
 class AdjustmentCreatedEvent(PaddleEvent):
     """adjustment.created event."""
+
     event_type: PaddleEventType = PaddleEventType.ADJUSTMENT_CREATED
     data: PaddleAdjustmentData
 
 
 class AdjustmentUpdatedEvent(PaddleEvent):
     """adjustment.updated event."""
+
     event_type: PaddleEventType = PaddleEventType.ADJUSTMENT_UPDATED
     data: PaddleAdjustmentData
 
 
 # ── Report Event Data ────────────────────────────────────────────────────────
 
+
 class PaddleReportData(PaddleEventData):
     """Report data from Paddle."""
+
     id: str
     status: Optional[str] = None
     type: Optional[str] = None
@@ -369,12 +416,14 @@ class PaddleReportData(PaddleEventData):
 
 class ReportCreatedEvent(PaddleEvent):
     """report.created event."""
+
     event_type: PaddleEventType = PaddleEventType.REPORT_CREATED
     data: PaddleReportData
 
 
 class ReportUpdatedEvent(PaddleEvent):
     """report.updated event."""
+
     event_type: PaddleEventType = PaddleEventType.REPORT_UPDATED
     data: PaddleReportData
 

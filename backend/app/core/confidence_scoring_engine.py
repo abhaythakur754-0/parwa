@@ -93,8 +93,7 @@ _RE_HALLUC_FABRICATED_STATS = re.compile(
 )
 
 _RE_HALLUC_FAKE_URLS = re.compile(
-    r"(?:https?://)?(?:www\.)?"
-    r"[a-z]+\d{4}\.(?:com|org|net|io)\b",
+    r"(?:https?://)?(?:www\.)?" r"[a-z]+\d{4}\.(?:com|org|net|io)\b",
     re.IGNORECASE,
 )
 
@@ -102,7 +101,9 @@ _RE_HALLUC_TEMPORAL_CLAIMS = re.compile(
     r"\b(as of (?:my |the )?(?:latest|last) (?:update|training|knowledge).*?202[0-5]|"
     r"I (?:recently|just) learned that|according to (?:my|the) (?:latest|recent) (?:data|info)|"
     r"studies (?:from|in) 202[0-5] (?:show|suggest|indicate)|"
-    r"a (?:recent|new|latest) (?:report|study|survey) (?:from|in) 202[0-5])\b", re.IGNORECASE, )
+    r"a (?:recent|new|latest) (?:report|study|survey) (?:from|in) 202[0-5])\b",
+    re.IGNORECASE,
+)
 
 _RE_HALLUC_UNCERTAIN_CLAIMS = re.compile(
     r"\b(I (?:believe|think|assume|estimate) (?:that )?"
@@ -147,28 +148,98 @@ _RE_HALLUC_PLACEHOLDER_DOMAINS = re.compile(
 # ── Sentiment Word Lists (for Sentiment Alignment signal) ──────
 
 _POSITIVE_WORDS: Set[str] = {
-    "great", "excellent", "happy", "pleased", "satisfied", "wonderful",
-    "perfect", "love", "enjoy", "best", "amazing", "fantastic",
-    "thankful", "grateful", "appreciate", "helpful", "friendly",
-    "professional", "quality", "reliable", "efficient", "outstanding",
-    "superb", "brilliant", "awesome", "good", "nice", "welcome",
-    "understand", "resolved", "solution", "success", "glad",
+    "great",
+    "excellent",
+    "happy",
+    "pleased",
+    "satisfied",
+    "wonderful",
+    "perfect",
+    "love",
+    "enjoy",
+    "best",
+    "amazing",
+    "fantastic",
+    "thankful",
+    "grateful",
+    "appreciate",
+    "helpful",
+    "friendly",
+    "professional",
+    "quality",
+    "reliable",
+    "efficient",
+    "outstanding",
+    "superb",
+    "brilliant",
+    "awesome",
+    "good",
+    "nice",
+    "welcome",
+    "understand",
+    "resolved",
+    "solution",
+    "success",
+    "glad",
 }
 
 _NEGATIVE_WORDS: Set[str] = {
-    "terrible", "awful", "horrible", "worst", "hate", "angry",
-    "frustrated", "disappointed", "unhappy", "useless", "broken",
-    "unacceptable", "ridiculous", "stupid", "waste", "garbage",
-    "pathetic", "annoying", "disgusting", "inferior", "complaint",
-    "problem", "issue", "error", "fault", "failed", "wrong",
-    "bad", "poor", "slow", "rude", "unprofessional",
+    "terrible",
+    "awful",
+    "horrible",
+    "worst",
+    "hate",
+    "angry",
+    "frustrated",
+    "disappointed",
+    "unhappy",
+    "useless",
+    "broken",
+    "unacceptable",
+    "ridiculous",
+    "stupid",
+    "waste",
+    "garbage",
+    "pathetic",
+    "annoying",
+    "disgusting",
+    "inferior",
+    "complaint",
+    "problem",
+    "issue",
+    "error",
+    "fault",
+    "failed",
+    "wrong",
+    "bad",
+    "poor",
+    "slow",
+    "rude",
+    "unprofessional",
 }
 
 _EMERGENCY_WORDS: Set[str] = {
-    "urgent", "emergency", "immediately", "asap", "critical",
-    "desperate", "urgent", "help", "danger", "risk", "safety",
-    "legal", "threat", "violation", "breach", "complaint",
-    "lawsuit", "attorney", "sue", "regulatory", "compliance",
+    "urgent",
+    "emergency",
+    "immediately",
+    "asap",
+    "critical",
+    "desperate",
+    "urgent",
+    "help",
+    "danger",
+    "risk",
+    "safety",
+    "legal",
+    "threat",
+    "violation",
+    "breach",
+    "complaint",
+    "lawsuit",
+    "attorney",
+    "sue",
+    "regulatory",
+    "compliance",
 }
 
 
@@ -195,6 +266,7 @@ _RE_MULTI_PART_SPLITTERS = re.compile(
 
 class SignalName(str, Enum):
     """Canonical names for all confidence signals."""
+
     SEMANTIC_RELEVANCE = "semantic_relevance"
     RESPONSE_COMPLETENESS = "response_completeness"
     PII_SAFETY = "pii_safety"
@@ -206,6 +278,7 @@ class SignalName(str, Enum):
 
 class VariantType(str, Enum):
     """PARWA variant identifiers with associated quality tiers."""
+
     MINI_PARWA = "mini_parwa"
     PARWA = "parwa"
     PARWA_HIGH = "high_parwa"
@@ -228,6 +301,7 @@ class SignalScore:
         metadata: Structured details about how the score was computed.
         passed: True if score >= the configured threshold.
     """
+
     signal_name: str
     score: float  # 0-100
     weight: float
@@ -255,6 +329,7 @@ class ConfidenceResult:
         scored_at: UTC ISO 8601 timestamp of when scoring completed.
         scoring_duration_ms: Wall-clock time for the scoring operation.
     """
+
     overall_score: float  # 0-100
     passed: bool  # True if overall_score >= threshold
     threshold: float
@@ -283,6 +358,7 @@ class ConfidenceConfig:
         signal_weights: Override default weights per signal name.
         enabled_signals: Which signals to evaluate (empty = all).
     """
+
     company_id: str
     variant_type: str = "parwa"
     threshold: float = 85.0
@@ -328,10 +404,10 @@ ALL_SIGNAL_NAMES: List[str] = [
 
 # Known model tiers and their reliability scores (0-100)
 MODEL_TIER_RELIABILITY: Dict[str, float] = {
-    "tier_1": 95.0,    # GPT-4o, Claude 3.5 Sonnet
-    "tier_2": 85.0,    # GPT-4o-mini, Claude 3 Haiku
-    "tier_3": 70.0,    # GPT-3.5-turbo, lighter models
-    "unknown": 75.0,    # Default when tier is not provided
+    "tier_1": 95.0,  # GPT-4o, Claude 3.5 Sonnet
+    "tier_2": 85.0,  # GPT-4o-mini, Claude 3 Haiku
+    "tier_3": 70.0,  # GPT-3.5-turbo, lighter models
+    "unknown": 75.0,  # Default when tier is not provided
 }
 
 
@@ -377,10 +453,7 @@ def _jaccard_similarity(set_a: Set[str], set_b: Set[str]) -> float:
     return len(intersection) / len(union)
 
 
-def _safe_divide(
-        numerator: float,
-        denominator: float,
-        fallback: float = 0.0) -> float:
+def _safe_divide(numerator: float, denominator: float, fallback: float = 0.0) -> float:
     """Safely divide two numbers, returning fallback on zero denominator.
 
     Args:
@@ -722,8 +795,7 @@ class ConfidenceScoringEngine:
             threshold=DEFAULT_THRESHOLDS[VariantType.PARWA.value],
         )
 
-    def _get_effective_weights(
-            self, config: ConfidenceConfig) -> Dict[str, float]:
+    def _get_effective_weights(self, config: ConfidenceConfig) -> Dict[str, float]:
         """Build effective weights by merging defaults with tenant overrides.
 
         Args:
@@ -846,22 +918,61 @@ class ConfidenceScoringEngine:
 
         # Filter out common stop words for more meaningful comparison
         stop_words: Set[str] = {
-            "the", "and", "for", "are", "but", "not", "you", "all",
-            "can", "had", "her", "was", "one", "our", "out", "has",
-            "have", "from", "been", "some", "them", "than", "its",
-            "over", "that", "this", "with", "will", "each", "make",
-            "like", "just", "into", "could", "would", "should",
-            "about", "which", "their", "what", "when", "where",
-            "does", "also", "very", "more", "other", "your",
+            "the",
+            "and",
+            "for",
+            "are",
+            "but",
+            "not",
+            "you",
+            "all",
+            "can",
+            "had",
+            "her",
+            "was",
+            "one",
+            "our",
+            "out",
+            "has",
+            "have",
+            "from",
+            "been",
+            "some",
+            "them",
+            "than",
+            "its",
+            "over",
+            "that",
+            "this",
+            "with",
+            "will",
+            "each",
+            "make",
+            "like",
+            "just",
+            "into",
+            "could",
+            "would",
+            "should",
+            "about",
+            "which",
+            "their",
+            "what",
+            "when",
+            "where",
+            "does",
+            "also",
+            "very",
+            "more",
+            "other",
+            "your",
         }
 
         query_tokens_filtered = query_tokens - stop_words
         response_tokens_filtered = response_tokens - stop_words
 
         # Jaccard similarity (intersection / union)
-        jaccard = _jaccard_similarity(
-            query_tokens_filtered,
-            response_tokens_filtered)
+        jaccard = _jaccard_similarity(query_tokens_filtered, response_tokens_filtered)
 
         # Keyword overlap ratio (how many query tokens appear in response)
         if query_tokens_filtered:
@@ -942,12 +1053,50 @@ class ConfidenceScoringEngine:
             query_tokens = _tokenize(query)
             response_tokens = _tokenize(response)
             stop_words = {
-                "the", "and", "for", "are", "but", "not", "you", "all",
-                "can", "was", "our", "out", "has", "have", "from", "been",
-                "some", "than", "its", "over", "that", "this", "with",
-                "will", "each", "make", "like", "into", "could", "would",
-                "about", "which", "their", "what", "when", "where", "does",
-                "also", "very", "more", "other", "your", "how", "please",
+                "the",
+                "and",
+                "for",
+                "are",
+                "but",
+                "not",
+                "you",
+                "all",
+                "can",
+                "was",
+                "our",
+                "out",
+                "has",
+                "have",
+                "from",
+                "been",
+                "some",
+                "than",
+                "its",
+                "over",
+                "that",
+                "this",
+                "with",
+                "will",
+                "each",
+                "make",
+                "like",
+                "into",
+                "could",
+                "would",
+                "about",
+                "which",
+                "their",
+                "what",
+                "when",
+                "where",
+                "does",
+                "also",
+                "very",
+                "more",
+                "other",
+                "your",
+                "how",
+                "please",
             }
             query_content_tokens = query_tokens - stop_words
             response_content_tokens = response_tokens - stop_words
@@ -967,9 +1116,11 @@ class ConfidenceScoringEngine:
                 metadata={
                     "multi_part": False,
                     "sub_parts_count": 1,
-                    "coverage_ratio": round(
-                        len(covered) / len(query_content_tokens), 4
-                    ) if query_content_tokens else 1.0,
+                    "coverage_ratio": (
+                        round(len(covered) / len(query_content_tokens), 4)
+                        if query_content_tokens
+                        else 1.0
+                    ),
                     "tokens_covered": len(covered),
                     "total_content_tokens": len(query_content_tokens),
                 },
@@ -979,12 +1130,50 @@ class ConfidenceScoringEngine:
         response_lower = response.lower()
         response_tokens = _tokenize(response)
         stop_words = {
-            "the", "and", "for", "are", "but", "not", "you", "all",
-            "can", "was", "our", "out", "has", "have", "from", "been",
-            "some", "than", "its", "over", "that", "this", "with",
-            "will", "each", "make", "like", "into", "could", "would",
-            "about", "which", "their", "what", "when", "where", "does",
-            "also", "very", "more", "other", "your", "how", "please",
+            "the",
+            "and",
+            "for",
+            "are",
+            "but",
+            "not",
+            "you",
+            "all",
+            "can",
+            "was",
+            "our",
+            "out",
+            "has",
+            "have",
+            "from",
+            "been",
+            "some",
+            "than",
+            "its",
+            "over",
+            "that",
+            "this",
+            "with",
+            "will",
+            "each",
+            "make",
+            "like",
+            "into",
+            "could",
+            "would",
+            "about",
+            "which",
+            "their",
+            "what",
+            "when",
+            "where",
+            "does",
+            "also",
+            "very",
+            "more",
+            "other",
+            "your",
+            "how",
+            "please",
         }
 
         parts_addressed = 0
@@ -994,8 +1183,7 @@ class ConfidenceScoringEngine:
             part_tokens = _tokenize(part) - stop_words
             if not part_tokens:
                 parts_addressed += 1
-                part_details.append(
-                    {"part": part[:50], "covered": True, "ratio": 1.0})
+                part_details.append({"part": part[:50], "covered": True, "ratio": 1.0})
                 continue
 
             covered = part_tokens & response_tokens
@@ -1003,17 +1191,21 @@ class ConfidenceScoringEngine:
 
             if ratio >= 0.3:
                 parts_addressed += 1
-                part_details.append({
-                    "part": part[:50],
-                    "covered": True,
-                    "ratio": round(ratio, 4),
-                })
+                part_details.append(
+                    {
+                        "part": part[:50],
+                        "covered": True,
+                        "ratio": round(ratio, 4),
+                    }
+                )
             else:
-                part_details.append({
-                    "part": part[:50],
-                    "covered": False,
-                    "ratio": round(ratio, 4),
-                })
+                part_details.append(
+                    {
+                        "part": part[:50],
+                        "covered": False,
+                        "ratio": round(ratio, 4),
+                    }
+                )
 
         completeness_ratio = parts_addressed / len(sub_parts)
         score = round(min(100.0, completeness_ratio * 100.0), 2)
@@ -1098,14 +1290,16 @@ class ConfidenceScoringEngine:
         for pattern, sensitivity, label, penalty in pii_checks:
             matches = list(pattern.finditer(response))
             if matches:
-                score -= (penalty * len(matches))
+                score -= penalty * len(matches)
                 for m in matches:
-                    findings.append({
-                        "type": label,
-                        "sensitivity": sensitivity,
-                        "match_preview": m.group()[:40],
-                        "penalty": penalty,
-                    })
+                    findings.append(
+                        {
+                            "type": label,
+                            "sensitivity": sensitivity,
+                            "match_preview": m.group()[:40],
+                            "penalty": penalty,
+                        }
+                    )
 
         score = max(0.0, min(100.0, score))
         score = round(score, 2)
@@ -1118,8 +1312,8 @@ class ConfidenceScoringEngine:
             metadata={
                 "pii_findings": findings,
                 "finding_count": len(findings),
-                "safety_level": "safe" if score >= 90 else (
-                    "caution" if score >= 60 else "unsafe"
+                "safety_level": (
+                    "safe" if score >= 90 else ("caution" if score >= 60 else "unsafe")
                 ),
             },
         )
@@ -1168,37 +1362,45 @@ class ConfidenceScoringEngine:
         if _RE_HALLUC_FABRICATED_STATS.search(response):
             score -= 15.0
             match = _RE_HALLUC_FABRICATED_STATS.search(response)
-            markers.append({
-                "type": "fabricated_statistics",
-                "preview": (match.group()[:80] if match else ""),
-            })
+            markers.append(
+                {
+                    "type": "fabricated_statistics",
+                    "preview": (match.group()[:80] if match else ""),
+                }
+            )
 
         # Check fake URLs
         if _RE_HALLUC_FAKE_URLS.search(response):
             score -= 12.0
             match = _RE_HALLUC_FAKE_URLS.search(response)
-            markers.append({
-                "type": "fake_urls",
-                "preview": (match.group()[:80] if match else ""),
-            })
+            markers.append(
+                {
+                    "type": "fake_urls",
+                    "preview": (match.group()[:80] if match else ""),
+                }
+            )
 
         # Check temporal claims
         if _RE_HALLUC_TEMPORAL_CLAIMS.search(response):
             score -= 10.0
             match = _RE_HALLUC_TEMPORAL_CLAIMS.search(response)
-            markers.append({
-                "type": "temporal_claims",
-                "preview": (match.group()[:80] if match else ""),
-            })
+            markers.append(
+                {
+                    "type": "temporal_claims",
+                    "preview": (match.group()[:80] if match else ""),
+                }
+            )
 
         # Check uncertain claims
         if _RE_HALLUC_UNCERTAIN_CLAIMS.search(response):
             score -= 10.0
             match = _RE_HALLUC_UNCERTAIN_CLAIMS.search(response)
-            markers.append({
-                "type": "uncertain_claims",
-                "preview": (match.group()[:80] if match else ""),
-            })
+            markers.append(
+                {
+                    "type": "uncertain_claims",
+                    "preview": (match.group()[:80] if match else ""),
+                }
+            )
 
         # Check overconfident + speculative proximity
         overconfident = list(_RE_HALLUC_OVERCONFIDENT.finditer(response))
@@ -1214,43 +1416,49 @@ class ConfidenceScoringEngine:
 
         if has_proximity_issue:
             score -= 8.0
-            markers.append({
-                "type": "overconfident_plus_speculative",
-                "preview": "overconfident language near speculative language",
-            })
+            markers.append(
+                {
+                    "type": "overconfident_plus_speculative",
+                    "preview": "overconfident language near speculative language",
+                }
+            )
 
         # Check unverified source attributions
         if _RE_HALLUC_SOURCE_ATTRIBUTION.search(response):
             score -= 5.0
             match = _RE_HALLUC_SOURCE_ATTRIBUTION.search(response)
-            markers.append({
-                "type": "source_attribution",
-                "preview": (match.group()[:80] if match else ""),
-            })
+            markers.append(
+                {
+                    "type": "source_attribution",
+                    "preview": (match.group()[:80] if match else ""),
+                }
+            )
 
         # Check fake document references
         if _RE_HALLUC_FAKE_DOC_REF.search(response):
             score -= 10.0
             match = _RE_HALLUC_FAKE_DOC_REF.search(response)
-            markers.append({
-                "type": "fake_document_reference",
-                "preview": (match.group()[:80] if match else ""),
-            })
+            markers.append(
+                {
+                    "type": "fake_document_reference",
+                    "preview": (match.group()[:80] if match else ""),
+                }
+            )
 
         # Check placeholder domains
         if _RE_HALLUC_PLACEHOLDER_DOMAINS.search(response):
             score -= 15.0
             match = _RE_HALLUC_PLACEHOLDER_DOMAINS.search(response)
-            markers.append({
-                "type": "placeholder_domains",
-                "preview": (match.group()[:80] if match else ""),
-            })
+            markers.append(
+                {
+                    "type": "placeholder_domains",
+                    "preview": (match.group()[:80] if match else ""),
+                }
+            )
 
         score = max(0.0, min(100.0, round(score, 2)))
 
-        risk_level = "low" if score >= 80 else (
-            "medium" if score >= 50 else "high"
-        )
+        risk_level = "low" if score >= 80 else ("medium" if score >= 50 else "high")
 
         return SignalScore(
             signal_name=SignalName.HALLUCINATION_RISK.value,
@@ -1312,10 +1520,8 @@ class ConfidenceScoringEngine:
         query_negative = sum(1 for w in _NEGATIVE_WORDS if w in query_lower)
         query_emergency = sum(1 for w in _EMERGENCY_WORDS if w in query_lower)
 
-        response_positive = sum(
-            1 for w in _POSITIVE_WORDS if w in response_lower)
-        response_negative = sum(
-            1 for w in _NEGATIVE_WORDS if w in response_lower)
+        response_positive = sum(1 for w in _POSITIVE_WORDS if w in response_lower)
+        response_negative = sum(1 for w in _NEGATIVE_WORDS if w in response_lower)
 
         # Determine query sentiment
         if query_emergency > 0:
@@ -1352,7 +1558,10 @@ class ConfidenceScoringEngine:
 
         elif query_sentiment == "negative":
             # Negative queries: response should be empathetic/positive
-            if response_sentiment == "positive" or response_positive > response_negative:
+            if (
+                response_sentiment == "positive"
+                or response_positive > response_negative
+            ):
                 score = 90.0
                 reason = "empathetic_response_to_negative_query"
             elif response_sentiment == "negative":
@@ -1464,9 +1673,7 @@ class ConfidenceScoringEngine:
         ratio = _safe_divide(response_len, query_len, fallback=0.0)
 
         # Compute token ratio
-        token_ratio = _safe_divide(
-            response_tokens, max(
-                1, query_tokens), fallback=0.0)
+        token_ratio = _safe_divide(response_tokens, max(1, query_tokens), fallback=0.0)
 
         # Determine score based on ratio
         if ratio <= 0:
@@ -1574,9 +1781,9 @@ class ConfidenceScoringEngine:
         # Complexity adjustment: measure query complexity
         query_tokens = _tokenize(query) if query else set()
         query_word_count = len(query.split()) if query else 0
-        has_multi_part = len(
-            _RE_MULTI_PART_SPLITTERS.split(
-                query.lower())) > 2 if query else False
+        has_multi_part = (
+            len(_RE_MULTI_PART_SPLITTERS.split(query.lower())) > 2 if query else False
+        )
 
         # Penalize lower tiers for complex queries
         if query_word_count > 30 or has_multi_part or len(query_tokens) > 15:
@@ -1590,8 +1797,7 @@ class ConfidenceScoringEngine:
             score -= complexity_penalty
 
         # Bonus for higher tiers handling complex queries well
-        if model_tier == "tier_1" and (
-                query_word_count > 30 or has_multi_part):
+        if model_tier == "tier_1" and (query_word_count > 30 or has_multi_part):
             score = min(100.0, score + 5.0)
 
         score = max(0.0, min(100.0, round(score, 2)))

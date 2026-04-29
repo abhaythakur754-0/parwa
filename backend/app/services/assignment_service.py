@@ -33,6 +33,7 @@ from app.exceptions import NotFoundError, ValidationError
 
 class AssigneeType:
     """Assignee type constants."""
+
     AI = "ai"
     HUMAN = "human"
     SYSTEM = "system"
@@ -112,19 +113,28 @@ class AssignmentService:
             NotFoundError: If ticket not found
         """
         # Get ticket
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")
 
         # Get all active rules, sorted by priority
-        rules = self.db.query(AssignmentRule).filter(
-            AssignmentRule.company_id == self.company_id,
-            AssignmentRule.is_active,
-        ).order_by(AssignmentRule.priority_order).all()
+        rules = (
+            self.db.query(AssignmentRule)
+            .filter(
+                AssignmentRule.company_id == self.company_id,
+                AssignmentRule.is_active,
+            )
+            .order_by(AssignmentRule.priority_order)
+            .all()
+        )
 
         # If no rules, create defaults
         if not rules:
@@ -146,10 +156,11 @@ class AssignmentService:
             }
 
         # Execute rule action
-        action = json.loads(
-            matched_rule.action) if isinstance(
-            matched_rule.action,
-            str) else matched_rule.action
+        action = (
+            json.loads(matched_rule.action)
+            if isinstance(matched_rule.action, str)
+            else matched_rule.action
+        )
 
         assignee_id, assignee_type = self._execute_action(action, ticket)
 
@@ -204,10 +215,14 @@ class AssignmentService:
             Dict with candidate scores and recommendation
         """
         # Get ticket for validation
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")
@@ -215,13 +230,16 @@ class AssignmentService:
         if use_ai_scoring:
             # Use real AI scoring
             try:
-                from app.services.assignment_scoring_service import get_assignment_scoring_service
-                scoring_svc = get_assignment_scoring_service(
-                    self.db, self.company_id)
+                from app.services.assignment_scoring_service import (
+                    get_assignment_scoring_service,
+                )
+
+                scoring_svc = get_assignment_scoring_service(self.db, self.company_id)
                 return scoring_svc.calculate_scores(ticket_id)
             except Exception as exc:
                 # Fall back to rule-based on error
                 import logging
+
                 logging.getLogger(__name__).warning(
                     f"AI scoring failed, falling back to rule-based: {exc}"
                 )
@@ -234,7 +252,7 @@ class AssignmentService:
             score = self._calculate_agent_score(agent, ticket)
             scores[agent.id] = {
                 "user_id": agent.id,
-                "name": getattr(agent, 'full_name', None) or agent.email,
+                "name": getattr(agent, "full_name", None) or agent.email,
                 "score": score,
                 "current_tickets": self._get_agent_ticket_count(agent.id),
             }
@@ -280,13 +298,16 @@ class AssignmentService:
             ValidationError: If max rules exceeded or invalid conditions
         """
         # Check max rules
-        current_count = self.db.query(AssignmentRule).filter(
-            AssignmentRule.company_id == self.company_id,
-        ).count()
+        current_count = (
+            self.db.query(AssignmentRule)
+            .filter(
+                AssignmentRule.company_id == self.company_id,
+            )
+            .count()
+        )
 
         if current_count >= self.MAX_RULES_PER_COMPANY:
-            raise ValidationError(
-                f"Maximum {
+            raise ValidationError(f"Maximum {
                     self.MAX_RULES_PER_COMPANY} rules allowed per company")
 
         # Validate conditions
@@ -339,10 +360,14 @@ class AssignmentService:
             NotFoundError: If rule not found
             ValidationError: If invalid conditions/action
         """
-        rule = self.db.query(AssignmentRule).filter(
-            AssignmentRule.id == rule_id,
-            AssignmentRule.company_id == self.company_id,
-        ).first()
+        rule = (
+            self.db.query(AssignmentRule)
+            .filter(
+                AssignmentRule.id == rule_id,
+                AssignmentRule.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not rule:
             raise NotFoundError(f"Rule {rule_id} not found")
@@ -386,10 +411,14 @@ class AssignmentService:
         Raises:
             NotFoundError: If rule not found
         """
-        rule = self.db.query(AssignmentRule).filter(
-            AssignmentRule.id == rule_id,
-            AssignmentRule.company_id == self.company_id,
-        ).first()
+        rule = (
+            self.db.query(AssignmentRule)
+            .filter(
+                AssignmentRule.id == rule_id,
+                AssignmentRule.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not rule:
             raise NotFoundError(f"Rule {rule_id} not found")
@@ -426,19 +455,26 @@ class AssignmentService:
                 {
                     "id": rule.id,
                     "name": rule.name,
-                    "conditions": json.loads(
-                        rule.conditions) if isinstance(
-                        rule.conditions,
-                        str) else rule.conditions,
-                    "action": json.loads(
-                        rule.action) if isinstance(
-                        rule.action,
-                        str) else rule.action,
+                    "conditions": (
+                        json.loads(rule.conditions)
+                        if isinstance(rule.conditions, str)
+                        else rule.conditions
+                    ),
+                    "action": (
+                        json.loads(rule.action)
+                        if isinstance(rule.action, str)
+                        else rule.action
+                    ),
                     "priority_order": rule.priority_order,
                     "is_active": rule.is_active,
-                    "created_at": rule.created_at.isoformat() if rule.created_at else None,
-                    "updated_at": rule.updated_at.isoformat() if rule.updated_at else None,
-                })
+                    "created_at": (
+                        rule.created_at.isoformat() if rule.created_at else None
+                    ),
+                    "updated_at": (
+                        rule.updated_at.isoformat() if rule.updated_at else None
+                    ),
+                }
+            )
 
         return results
 
@@ -466,19 +502,27 @@ class AssignmentService:
             NotFoundError: If ticket or user not found
         """
         # Get ticket
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")
 
         # Verify user exists and is in same company
-        user = self.db.query(User).filter(
-            User.id == assignee_id,
-            User.company_id == self.company_id,
-        ).first()
+        user = (
+            self.db.query(User)
+            .filter(
+                User.id == assignee_id,
+                User.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not user:
             raise NotFoundError(f"User {assignee_id} not found in company")
@@ -531,10 +575,14 @@ class AssignmentService:
         Raises:
             NotFoundError: If ticket not found
         """
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")
@@ -580,21 +628,28 @@ class AssignmentService:
         Returns:
             List of assignment records
         """
-        assignments = self.db.query(TicketAssignment).filter(
-            TicketAssignment.ticket_id == ticket_id,
-            TicketAssignment.company_id == self.company_id,
-        ).order_by(desc(TicketAssignment.assigned_at)).all()
+        assignments = (
+            self.db.query(TicketAssignment)
+            .filter(
+                TicketAssignment.ticket_id == ticket_id,
+                TicketAssignment.company_id == self.company_id,
+            )
+            .order_by(desc(TicketAssignment.assigned_at))
+            .all()
+        )
 
         results = []
         for a in assignments:
-            results.append({
-                "id": a.id,
-                "assignee_type": a.assignee_type,
-                "assignee_id": a.assignee_id,
-                "reason": a.reason,
-                "score": float(a.score) if a.score else None,
-                "assigned_at": a.assigned_at.isoformat() if a.assigned_at else None,
-            })
+            results.append(
+                {
+                    "id": a.id,
+                    "assignee_type": a.assignee_type,
+                    "assignee_id": a.assignee_id,
+                    "reason": a.reason,
+                    "score": float(a.score) if a.score else None,
+                    "assigned_at": a.assigned_at.isoformat() if a.assigned_at else None,
+                }
+            )
 
         return results
 
@@ -631,10 +686,11 @@ class AssignmentService:
         Returns:
             True if rule matches
         """
-        conditions = json.loads(
-            rule.conditions) if isinstance(
-            rule.conditions,
-            str) else rule.conditions
+        conditions = (
+            json.loads(rule.conditions)
+            if isinstance(rule.conditions, str)
+            else rule.conditions
+        )
 
         if not conditions:
             # Empty conditions = match all (catch-all rule)
@@ -713,10 +769,14 @@ class AssignmentService:
 
     def _get_available_agents(self) -> List[User]:
         """Get all available agents for assignment."""
-        return self.db.query(User).filter(
-            User.company_id == self.company_id,
-            User.is_active,
-        ).all()
+        return (
+            self.db.query(User)
+            .filter(
+                User.company_id == self.company_id,
+                User.is_active,
+            )
+            .all()
+        )
 
     def _get_next_agent_in_pool(self, pool: str) -> Optional[User]:
         """Get next agent in pool using round-robin.
@@ -751,16 +811,22 @@ class AssignmentService:
         Returns:
             Count of open tickets
         """
-        return self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.assigned_to == agent_id,
-            Ticket.status.in_([
-                TicketStatus.open.value,
-                TicketStatus.assigned.value,
-                TicketStatus.in_progress.value,
-                TicketStatus.awaiting_client.value,
-            ]),
-        ).count()
+        return (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.assigned_to == agent_id,
+                Ticket.status.in_(
+                    [
+                        TicketStatus.open.value,
+                        TicketStatus.assigned.value,
+                        TicketStatus.in_progress.value,
+                        TicketStatus.awaiting_client.value,
+                    ]
+                ),
+            )
+            .count()
+        )
 
     def _calculate_agent_score(self, agent: User, ticket: Ticket) -> float:
         """Calculate assignment score for an agent.

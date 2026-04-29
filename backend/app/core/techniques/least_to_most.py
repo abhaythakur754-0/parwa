@@ -41,6 +41,7 @@ logger = get_logger("least_to_most")
 
 class SubQueryStatus(str, Enum):
     """Lifecycle status of a sub-query within the decomposition pipeline."""
+
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     SOLVED = "solved"
@@ -50,6 +51,7 @@ class SubQueryStatus(str, Enum):
 
 class TaskDomain(str, Enum):
     """Domains of complex enterprise tasks for template matching."""
+
     ONBOARDING = "onboarding"
     MIGRATION = "migration"
     CONFIGURATION = "configuration"
@@ -139,8 +141,14 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "multi_dept_employee_onboarding",
             "trigger_keywords": [
-                "onboard", "new employee", "new hire", "department",
-                "access", "email", "slack", "provision",
+                "onboard",
+                "new employee",
+                "new hire",
+                "department",
+                "access",
+                "email",
+                "slack",
+                "provision",
             ],
             "sub_queries": [
                 {
@@ -232,9 +240,7 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
                     ),
                 },
             ],
-            "dependency_chain": (
-                "sq1 → sq2 → sq3 → [parallel: sq4, sq5, sq7] → sq6"
-            ),
+            "dependency_chain": ("sq1 → sq2 → sq3 → [parallel: sq4, sq5, sq7] → sq6"),
             "final_synthesis": (
                 "To onboard {count} employees across {departments} departments: "
                 "First, confirm the roster and identify managers (sq1 → sq2). "
@@ -249,8 +255,13 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "customer_client_onboarding",
             "trigger_keywords": [
-                "customer", "client", "onboard", "trial", "pilot",
-                "kickof", "implementation",
+                "customer",
+                "client",
+                "onboard",
+                "trial",
+                "pilot",
+                "kickof",
+                "implementation",
             ],
             "sub_queries": [
                 {
@@ -344,8 +355,14 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "bulk_user_provisioning",
             "trigger_keywords": [
-                "bulk", "batch", "provision", "create accounts",
-                "add users", "user list", "csv", "import users",
+                "bulk",
+                "batch",
+                "provision",
+                "create accounts",
+                "add users",
+                "user list",
+                "csv",
+                "import users",
             ],
             "sub_queries": [
                 {
@@ -427,9 +444,7 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
                     ),
                 },
             ],
-            "dependency_chain": (
-                "sq1 → [parallel: sq2, sq3] → sq4 → sq5 → sq6"
-            ),
+            "dependency_chain": ("sq1 → [parallel: sq2, sq3] → sq4 → sq5 → sq6"),
             "final_synthesis": (
                 "Bulk provisioning workflow: Prepare and format the user data "
                 "(sq1). Validate data quality (sq2) and define role mappings "
@@ -445,8 +460,13 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "data_migration",
             "trigger_keywords": [
-                "migrate data", "move data", "import data", "export data",
-                "data transfer", "database migration", "bulk data",
+                "migrate data",
+                "move data",
+                "import data",
+                "export data",
+                "data transfer",
+                "database migration",
+                "bulk data",
             ],
             "sub_queries": [
                 {
@@ -540,9 +560,7 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
                     ),
                 },
             ],
-            "dependency_chain": (
-                "sq1 → sq2 → sq3 → [parallel: sq4, sq5] → sq6 → sq7"
-            ),
+            "dependency_chain": ("sq1 → sq2 → sq3 → [parallel: sq4, sq5] → sq6 → sq7"),
             "final_synthesis": (
                 "Data migration plan: Assess scope and volume (sq1), identify "
                 "source system and format (sq2), create schema mapping (sq3). "
@@ -555,8 +573,13 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "platform_system_migration",
             "trigger_keywords": [
-                "switch", "move to", "transition", "replatform",
-                "change system", "upgrade platform", "migrate platform",
+                "switch",
+                "move to",
+                "transition",
+                "replatform",
+                "change system",
+                "upgrade platform",
+                "migrate platform",
             ],
             "sub_queries": [
                 {
@@ -638,9 +661,7 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
                     ),
                 },
             ],
-            "dependency_chain": (
-                "sq1 → sq2 → [parallel: sq3, sq4, sq5] → sq6"
-            ),
+            "dependency_chain": ("sq1 → sq2 → [parallel: sq3, sq4, sq5] → sq6"),
             "final_synthesis": (
                 "Platform migration plan: Document current state and pain "
                 "points (sq1), select target platform with feature comparison "
@@ -654,8 +675,12 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "user_account_migration",
             "trigger_keywords": [
-                "merge accounts", "transfer users", "consolidate users",
-                "move accounts", "user migration", "account transfer",
+                "merge accounts",
+                "transfer users",
+                "consolidate users",
+                "move accounts",
+                "user migration",
+                "account transfer",
             ],
             "sub_queries": [
                 {
@@ -723,9 +748,7 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
                     ),
                 },
             ],
-            "dependency_chain": (
-                "sq1 → sq2 → [parallel: sq3, sq4] → sq5"
-            ),
+            "dependency_chain": ("sq1 → sq2 → [parallel: sq3, sq4] → sq5"),
             "final_synthesis": (
                 "User migration plan: Identify source/target systems and "
                 "account scope (sq1). Resolve duplicate accounts (sq2). "
@@ -741,8 +764,13 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "multi_team_workspace_setup",
             "trigger_keywords": [
-                "workspace", "team setup", "multi-team", "organization",
-                "create workspace", "team structure", "department setup",
+                "workspace",
+                "team setup",
+                "multi-team",
+                "organization",
+                "create workspace",
+                "team structure",
+                "department setup",
             ],
             "sub_queries": [
                 {
@@ -853,8 +881,14 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "security_access_control_config",
             "trigger_keywords": [
-                "security", "access control", "permission", "sso",
-                "mfa", "authentication", "authorization", "policy",
+                "security",
+                "access control",
+                "permission",
+                "sso",
+                "mfa",
+                "authentication",
+                "authorization",
+                "policy",
             ],
             "sub_queries": [
                 {
@@ -951,8 +985,15 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "notification_alert_configuration",
             "trigger_keywords": [
-                "notification", "alert", "notify", "warning", "trigger",
-                "pagerduty", "slack alert", "email alert", "monitor",
+                "notification",
+                "alert",
+                "notify",
+                "warning",
+                "trigger",
+                "pagerduty",
+                "slack alert",
+                "email alert",
+                "monitor",
             ],
             "sub_queries": [
                 {
@@ -1022,9 +1063,7 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
                     ),
                 },
             ],
-            "dependency_chain": (
-                "sq1 → sq2 → [parallel: sq3, sq4] → sq5"
-            ),
+            "dependency_chain": ("sq1 → sq2 → [parallel: sq3, sq4] → sq5"),
             "final_synthesis": (
                 "Notification configuration plan: Define trigger events "
                 "(sq1) and configure delivery channels (sq2). Set up routing "
@@ -1040,8 +1079,15 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "third_party_tool_integration",
             "trigger_keywords": [
-                "third party", "connect tool", "integration", "plugin",
-                "slack", "jira", "salesforce", "hubspot", "zapier",
+                "third party",
+                "connect tool",
+                "integration",
+                "plugin",
+                "slack",
+                "jira",
+                "salesforce",
+                "hubspot",
+                "zapier",
             ],
             "sub_queries": [
                 {
@@ -1124,9 +1170,7 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
                     ),
                 },
             ],
-            "dependency_chain": (
-                "sq1 → sq2 → [parallel: sq3, sq5] → sq4 → sq6"
-            ),
+            "dependency_chain": ("sq1 → sq2 → [parallel: sq3, sq5] → sq4 → sq6"),
             "final_synthesis": (
                 "Third-party integration plan: Inventory required tools (sq1), "
                 "configure authentication (sq2). Map data flows (sq3) and set "
@@ -1139,8 +1183,14 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "api_integration_setup",
             "trigger_keywords": [
-                "api", "endpoint", "rest", "graphql", "webhook",
-                "api key", "api setup", "developer",
+                "api",
+                "endpoint",
+                "rest",
+                "graphql",
+                "webhook",
+                "api key",
+                "api setup",
+                "developer",
             ],
             "sub_queries": [
                 {
@@ -1222,9 +1272,7 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
                     ),
                 },
             ],
-            "dependency_chain": (
-                "sq1 → [parallel: sq2, sq3, sq4] → sq5 → sq6"
-            ),
+            "dependency_chain": ("sq1 → [parallel: sq2, sq3, sq4] → sq5 → sq6"),
             "final_synthesis": (
                 "API integration plan: Review API specification (sq1), assess "
                 "rate limits (sq2). Implement security (sq3) and data mapping "
@@ -1237,8 +1285,14 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "workflow_automation_integration",
             "trigger_keywords": [
-                "automation", "workflow", "trigger", "action", "rule",
-                "if then", "automate", "process",
+                "automation",
+                "workflow",
+                "trigger",
+                "action",
+                "rule",
+                "if then",
+                "automate",
+                "process",
             ],
             "sub_queries": [
                 {
@@ -1309,9 +1363,7 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
                     ),
                 },
             ],
-            "dependency_chain": (
-                "sq1 → sq2 → [parallel: sq3, sq4] → sq5"
-            ),
+            "dependency_chain": ("sq1 → sq2 → [parallel: sq3, sq4] → sq5"),
             "final_synthesis": (
                 "Workflow automation plan: Identify processes to automate "
                 "(sq1), define triggers and conditions (sq2). Implement "
@@ -1327,8 +1379,12 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "custom_report_creation",
             "trigger_keywords": [
-                "custom report", "create report", "build report",
-                "report template", "report design", "new report",
+                "custom report",
+                "create report",
+                "build report",
+                "report template",
+                "report design",
+                "new report",
             ],
             "sub_queries": [
                 {
@@ -1410,9 +1466,7 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
                     ),
                 },
             ],
-            "dependency_chain": (
-                "sq1 → sq2 → [parallel: sq3, sq4] → sq5 → sq6"
-            ),
+            "dependency_chain": ("sq1 → sq2 → [parallel: sq3, sq4] → sq5 → sq6"),
             "final_synthesis": (
                 "Report creation plan: Define purpose and audience (sq1), "
                 "identify data sources and metrics (sq2). Design visualizations "
@@ -1425,8 +1479,13 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "dashboard_setup",
             "trigger_keywords": [
-                "dashboard", "overview", "metrics view", "kpi dashboard",
-                "real-time", "control panel", "command center",
+                "dashboard",
+                "overview",
+                "metrics view",
+                "kpi dashboard",
+                "real-time",
+                "control panel",
+                "command center",
             ],
             "sub_queries": [
                 {
@@ -1510,9 +1569,7 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
                     ),
                 },
             ],
-            "dependency_chain": (
-                "sq1 → sq2 → [parallel: sq3, sq4, sq6] → sq5"
-            ),
+            "dependency_chain": ("sq1 → sq2 → [parallel: sq3, sq4, sq6] → sq5"),
             "final_synthesis": (
                 "Dashboard setup plan: Identify users and decisions (sq1), "
                 "select KPIs (sq2). Configure refresh rate (sq3), design "
@@ -1525,8 +1582,14 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "analytics_pipeline_setup",
             "trigger_keywords": [
-                "analytics", "data pipeline", "etl", "data warehouse",
-                "data flow", "event tracking", "funnel", "cohort",
+                "analytics",
+                "data pipeline",
+                "etl",
+                "data warehouse",
+                "data flow",
+                "event tracking",
+                "funnel",
+                "cohort",
             ],
             "sub_queries": [
                 {
@@ -1611,9 +1674,7 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
                     ),
                 },
             ],
-            "dependency_chain": (
-                "sq1 → sq2 → [parallel: sq3, sq4, sq5] → sq6"
-            ),
+            "dependency_chain": ("sq1 → sq2 → [parallel: sq3, sq4, sq5] → sq6"),
             "final_synthesis": (
                 "Analytics pipeline plan: Define analytics questions (sq1) "
                 "and event taxonomy (sq2). Design pipeline architecture (sq3), "
@@ -1629,8 +1690,13 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "multi_department_coordination",
             "trigger_keywords": [
-                "multiple departments", "cross-functional", "coordinate",
-                "collaborate", "team", "department", "stakeholder",
+                "multiple departments",
+                "cross-functional",
+                "coordinate",
+                "collaborate",
+                "team",
+                "department",
+                "stakeholder",
             ],
             "sub_queries": [
                 {
@@ -1728,8 +1794,14 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "enterprise_scale_request",
             "trigger_keywords": [
-                "enterprise", "scale", "large", "organization-wide",
-                "global", "rollout", "deploy", "implement",
+                "enterprise",
+                "scale",
+                "large",
+                "organization-wide",
+                "global",
+                "rollout",
+                "deploy",
+                "implement",
             ],
             "sub_queries": [
                 {
@@ -1816,9 +1888,7 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
                     ),
                 },
             ],
-            "dependency_chain": (
-                "sq1 → [parallel: sq2, sq3, sq4] → sq5 → sq6"
-            ),
+            "dependency_chain": ("sq1 → [parallel: sq2, sq3, sq4] → sq5 → sq6"),
             "final_synthesis": (
                 "Enterprise rollout plan: Define scope and scale (sq1). "
                 "Assess technical requirements (sq2), choose rollout strategy "
@@ -1831,8 +1901,15 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
         {
             "name": "complex_troubleshooting",
             "trigger_keywords": [
-                "troubleshoot", "debug", "fix", "issue", "problem",
-                "broken", "not working", "error", "complex issue",
+                "troubleshoot",
+                "debug",
+                "fix",
+                "issue",
+                "problem",
+                "broken",
+                "not working",
+                "error",
+                "complex issue",
             ],
             "sub_queries": [
                 {
@@ -1919,9 +1996,7 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
                     ),
                 },
             ],
-            "dependency_chain": (
-                "sq1 → [parallel: sq2, sq3] → sq4 → sq5 → sq6"
-            ),
+            "dependency_chain": ("sq1 → [parallel: sq2, sq3] → sq4 → sq5 → sq6"),
             "final_synthesis": (
                 "Troubleshooting plan: Document symptoms precisely (sq1), "
                 "analyze recent changes (sq2) and map components (sq3) in "
@@ -2058,7 +2133,8 @@ class LeastToMostProcessor:
     """
 
     def __init__(
-        self, config: Optional[LeastToMostConfig] = None,
+        self,
+        config: Optional[LeastToMostConfig] = None,
     ):
         self.config = config or LeastToMostConfig()
 
@@ -2110,7 +2186,8 @@ class LeastToMostProcessor:
     # ── Step 2: Dependency Ordering ───────────────────────────────
 
     async def order_dependencies(
-        self, sub_queries: List[SubQuery],
+        self,
+        sub_queries: List[SubQuery],
     ) -> DependencyGraph:
         """
         Build a dependency graph and compute topological execution order.
@@ -2176,9 +2253,7 @@ class LeastToMostProcessor:
         if processed_count < len(sub_queries):
             has_cycles = True
             # Find cycle members for reporting
-            unprocessed = [
-                sq_id for sq_id, degree in in_degree.items() if degree > 0
-            ]
+            unprocessed = [sq_id for sq_id, degree in in_degree.items() if degree > 0]
             logger.warning(
                 "least_to_most_cycle_detected",
                 cycle_nodes=str(unprocessed),
@@ -2206,7 +2281,8 @@ class LeastToMostProcessor:
     # ── Step 3: Sequential Solving ─────────────────────────────────
 
     async def solve_sequentially(
-        self, graph: DependencyGraph,
+        self,
+        graph: DependencyGraph,
     ) -> List[Dict[str, str]]:
         """
         Solve sub-queries in dependency order.
@@ -2224,9 +2300,7 @@ class LeastToMostProcessor:
         if not graph or not graph.execution_order:
             return []
 
-        sq_map: Dict[str, SubQuery] = {
-            sq.id: sq for sq in graph.sub_queries
-        }
+        sq_map: Dict[str, SubQuery] = {sq.id: sq for sq in graph.sub_queries}
         results: List[Dict[str, str]] = []
         solved_context: Dict[str, str] = {}
 
@@ -2343,9 +2417,8 @@ class LeastToMostProcessor:
         missing_count = 0
 
         for sq in sub_queries:
-            has_result = (
-                sq.status == SubQueryStatus.SOLVED
-                and bool(result_map.get(sq.id, "").strip())
+            has_result = sq.status == SubQueryStatus.SOLVED and bool(
+                result_map.get(sq.id, "").strip()
             )
 
             detail = {
@@ -2469,7 +2542,8 @@ class LeastToMostProcessor:
 
             # Step 5: Completeness Check
             completeness = await self.check_completeness(
-                sub_queries, results,
+                sub_queries,
+                results,
             )
             steps_applied.append("completeness_check")
             if completeness.get("is_complete"):
@@ -2493,8 +2567,11 @@ class LeastToMostProcessor:
                 solved_results=results,
                 final_answer=final_answer if "final_answer" in dir() else "",
                 completeness_check=completeness,
-                steps_applied=steps_applied + ["error_fallback"]
-                if "steps_applied" in dir() else ["error_fallback"],
+                steps_applied=(
+                    steps_applied + ["error_fallback"]
+                    if "steps_applied" in dir()
+                    else ["error_fallback"]
+                ),
                 confidence_boost=0.0,
             )
 
@@ -2538,8 +2615,7 @@ class LeastToMostProcessor:
         for pattern, domain in _DOMAIN_PATTERNS:
             matches = pattern.findall(query_lower)
             if matches:
-                domain_scores[domain] = domain_scores.get(
-                    domain, 0) + len(matches)
+                domain_scores[domain] = domain_scores.get(domain, 0) + len(matches)
 
         for domain, score in domain_scores.items():
             if score > best_score:
@@ -2735,7 +2811,8 @@ class LeastToMostProcessor:
             if context_refs:
                 result += (
                     "\n\nBuilding on previous findings: "
-                    + "; ".join(context_refs) + "."
+                    + "; ".join(context_refs)
+                    + "."
                 )
 
         return result
@@ -2759,7 +2836,8 @@ class LeastToMostNode(BaseTechniqueNode):
     """
 
     def __init__(
-        self, config: Optional[LeastToMostConfig] = None,
+        self,
+        config: Optional[LeastToMostConfig] = None,
     ):
         self._config = config or LeastToMostConfig()
         self._processor = LeastToMostProcessor(config=self._config)

@@ -32,12 +32,13 @@ DEFAULT_AI_ACCURACY = Decimal("0.85")  # 85% AI resolution accuracy
     time_limit=120,
 )
 @with_company_id
-def aggregate_metrics(self, company_id: str,
-                      period: str = "daily",
-                      metric_date: str = "") -> dict:
+def aggregate_metrics(
+    self, company_id: str, period: str = "daily", metric_date: str = ""
+) -> dict:
     """Aggregate metrics for a given period."""
     try:
         from datetime import datetime, timezone
+
         if not metric_date:
             metric_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         logger.info(
@@ -78,8 +79,7 @@ def aggregate_metrics(self, company_id: str,
     time_limit=300,
 )
 @with_company_id
-def calculate_roi(self, company_id: str,
-                  period_days: int = 30) -> dict:
+def calculate_roi(self, company_id: str, period_days: int = 30) -> dict:
     """Calculate ROI for the company over the given period.
 
     This task:
@@ -109,8 +109,7 @@ def calculate_roi(self, company_id: str,
             import os
 
             # Database connection
-            database_url = os.environ.get(
-                "DATABASE_URL", "sqlite:///./parwa.db")
+            database_url = os.environ.get("DATABASE_URL", "sqlite:///./parwa.db")
             engine = create_engine(database_url)
             Session = sessionmaker(bind=engine)
             session = Session()
@@ -133,7 +132,11 @@ def calculate_roi(self, company_id: str,
 
                 total_result = session.execute(
                     total_query,
-                    {"company_id": company_id, "start_date": start_date, "end_date": end_date}
+                    {
+                        "company_id": company_id,
+                        "start_date": start_date,
+                        "end_date": end_date,
+                    },
                 ).fetchone()
 
                 total_tickets = total_result[0] if total_result else 0
@@ -153,7 +156,11 @@ def calculate_roi(self, company_id: str,
 
                 ai_result = session.execute(
                     ai_query,
-                    {"company_id": company_id, "start_date": start_date, "end_date": end_date}
+                    {
+                        "company_id": company_id,
+                        "start_date": start_date,
+                        "end_date": end_date,
+                    },
                 ).fetchone()
 
                 ai_tickets = ai_result[0] if ai_result else 0
@@ -167,8 +174,7 @@ def calculate_roi(self, company_id: str,
                       AND created_at >= :start_date
                 """)
                 accuracy_result = session.execute(
-                    accuracy_query,
-                    {"company_id": company_id, "start_date": start_date}
+                    accuracy_query, {"company_id": company_id, "start_date": start_date}
                 ).fetchone()
 
                 if accuracy_result and accuracy_result[0]:
@@ -196,13 +202,13 @@ def calculate_roi(self, company_id: str,
 
         # Calculate costs
         ai_cost = Decimal(str(ai_tickets)) * DEFAULT_AI_COST_PER_TICKET
-        human_cost = Decimal(str(human_tickets)) * \
-            DEFAULT_HUMAN_COST_PER_TICKET
+        human_cost = Decimal(str(human_tickets)) * DEFAULT_HUMAN_COST_PER_TICKET
         total_cost_with_ai = ai_cost + human_cost
 
         # Cost if all handled by humans
-        total_cost_without_ai = Decimal(
-            str(total_tickets)) * DEFAULT_HUMAN_COST_PER_TICKET
+        total_cost_without_ai = (
+            Decimal(str(total_tickets)) * DEFAULT_HUMAN_COST_PER_TICKET
+        )
 
         # Calculate savings
         total_savings = total_cost_without_ai - total_cost_with_ai

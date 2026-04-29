@@ -16,7 +16,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-
 # ── Data Classes ──────────────────────────────────────────────────────
 
 
@@ -51,25 +50,27 @@ class PromptTemplateRegistry:
     def _load_all_templates(self) -> None:
         """Load all templates into the registry."""
         intents = [
-            "refund", "technical", "billing", "complaint", "feature_request",
-            "general", "cancellation", "shipping", "inquiry", "escalation",
-            "account", "feedback",
+            "refund",
+            "technical",
+            "billing",
+            "complaint",
+            "feature_request",
+            "general",
+            "cancellation",
+            "shipping",
+            "inquiry",
+            "escalation",
+            "account",
+            "feedback",
         ]
-        response_types = [
-            "empathetic",
-            "informational",
-            "resolution",
-            "follow_up"]
+        response_types = ["empathetic", "informational", "resolution", "follow_up"]
 
         for intent in intents:
             for resp_type in response_types:
                 template = self._build_template(intent, resp_type)
                 self._templates[template.template_id] = template
 
-    def _build_template(
-            self,
-            intent: str,
-            response_type: str) -> PromptTemplate:
+    def _build_template(self, intent: str, response_type: str) -> PromptTemplate:
         """Build a single template for intent × response_type."""
         tid = f"{intent}_{response_type}"
 
@@ -368,7 +369,8 @@ class PromptTemplateRegistry:
         )
 
     def _get_few_shot_examples(
-            self, intent: str, response_type: str) -> List[Dict[str, str]]:
+        self, intent: str, response_type: str
+    ) -> List[Dict[str, str]]:
         """Get few-shot examples for the template."""
         examples: List[Dict[str, str]] = []
         intent_examples = {
@@ -426,8 +428,7 @@ class PromptTemplateRegistry:
         examples.append(base)
         return examples
 
-    def _get_output_schema(
-            self, intent: str, response_type: str) -> Dict[str, Any]:
+    def _get_output_schema(self, intent: str, response_type: str) -> Dict[str, Any]:
         """Get output schema for the template."""
         return {
             "type": "object",
@@ -439,9 +440,17 @@ class PromptTemplateRegistry:
                 "intent_detected": {
                     "type": "string",
                     "enum": [
-                        "refund", "technical", "billing", "complaint",
-                        "feature_request", "general", "cancellation",
-                        "shipping", "inquiry", "escalation", "account",
+                        "refund",
+                        "technical",
+                        "billing",
+                        "complaint",
+                        "feature_request",
+                        "general",
+                        "cancellation",
+                        "shipping",
+                        "inquiry",
+                        "escalation",
+                        "account",
                         "feedback",
                     ],
                 },
@@ -469,28 +478,29 @@ class PromptTemplateRegistry:
             "empathetic": (
                 "Use warm, understanding language. Acknowledge the customer's feelings. "
                 "Avoid robotic or overly formal language. Show genuine care and empathy. "
-                "Use phrases like 'I understand', 'I'm sorry', 'I appreciate your patience'."),
+                "Use phrases like 'I understand', 'I'm sorry', 'I appreciate your patience'."
+            ),
             "informational": (
                 "Use clear, factual language. Be precise and organized. Avoid unnecessary "
                 "filler words. Use structured formatting (lists, headers) for complex info. "
-                "Maintain a helpful and knowledgeable tone."),
+                "Maintain a helpful and knowledgeable tone."
+            ),
             "resolution": (
                 "Use confident, action-oriented language. Be direct about what's being "
                 "done. Include specific details (amounts, dates, reference numbers). "
                 "Show commitment to follow-through. Use phrases like 'I've processed', "
-                "'Here's what happens next', 'You can expect'."),
+                "'Here's what happens next', 'You can expect'."
+            ),
             "follow_up": (
                 "Use warm, attentive language. Show the customer they're not forgotten. "
                 "Reference previous interactions. Be proactive about next steps. "
                 "Use phrases like 'I wanted to check in', 'How is everything going', "
-                "'Is there anything else'."),
+                "'Is there anything else'."
+            ),
         }
         return tone_map.get(response_type, tone_map["informational"])
 
-    def _get_variant_access(
-            self,
-            intent: str,
-            response_type: str) -> List[str]:
+    def _get_variant_access(self, intent: str, response_type: str) -> List[str]:
         """Determine which variants can use this template."""
         # All variants can use empathetic and follow_up
         if response_type in ("empathetic", "follow_up"):
@@ -520,10 +530,7 @@ class PromptTemplateRegistry:
 
     def get_templates_for_intent(self, intent: str) -> List[PromptTemplate]:
         """Get all templates for an intent (all response types)."""
-        return [
-            t for t in self._templates.values()
-            if t.intent == intent
-        ]
+        return [t for t in self._templates.values() if t.intent == intent]
 
     def list_all_templates(self) -> List[Dict[str, str]]:
         """List all templates with metadata."""

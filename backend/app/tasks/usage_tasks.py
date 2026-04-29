@@ -49,10 +49,7 @@ DEFAULT_MONTHLY_TICKET_LIMIT = 2000
     retry_jitter=True,
 )
 @with_company_id
-def aggregate_daily_usage(
-        self,
-        company_id: str,
-        target_date: str = None) -> dict:
+def aggregate_daily_usage(self, company_id: str, target_date: str = None) -> dict:
     """
     Aggregate ticket usage for a single company for yesterday.
 
@@ -79,17 +76,19 @@ def aggregate_daily_usage(
 
         with SessionLocal() as db:
             # Verify company exists
-            company = db.query(Company).filter(
-                Company.id == company_id,
-            ).first()
+            company = (
+                db.query(Company)
+                .filter(
+                    Company.id == company_id,
+                )
+                .first()
+            )
 
             if not company:
                 logger.warning(
                     "aggregate_daily_usage_skipped company_id=%s reason=not_found",
                     company_id,
-                    extra={
-                        "task": self.name,
-                        "company_id": company_id},
+                    extra={"task": self.name, "company_id": company_id},
                 )
                 return {
                     "company_id": company_id,
@@ -104,10 +103,15 @@ def aggregate_daily_usage(
             try:
                 from database.models.ticket import Ticket
 
-                ticket_count = db.query(func.count(Ticket.id)).filter(
-                    Ticket.company_id == company_id,
-                    func.date(Ticket.created_at) == agg_date,
-                ).scalar() or 0
+                ticket_count = (
+                    db.query(func.count(Ticket.id))
+                    .filter(
+                        Ticket.company_id == company_id,
+                        func.date(Ticket.created_at) == agg_date,
+                    )
+                    .scalar()
+                    or 0
+                )
             except ImportError:
                 ticket_count = 0
                 logger.warning(
@@ -121,10 +125,14 @@ def aggregate_daily_usage(
             ticket_count = int(ticket_count)
 
             # Get or create UsageRecord for the target date
-            usage_record = db.query(UsageRecord).filter(
-                UsageRecord.company_id == company_id,
-                UsageRecord.record_date == agg_date,
-            ).first()
+            usage_record = (
+                db.query(UsageRecord)
+                .filter(
+                    UsageRecord.company_id == company_id,
+                    UsageRecord.record_date == agg_date,
+                )
+                .first()
+            )
 
             if not usage_record:
                 usage_record = UsageRecord(
@@ -140,10 +148,15 @@ def aggregate_daily_usage(
             usage_record.tickets_used = ticket_count
 
             # Get subscription to determine plan limit
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == company_id,
-                Subscription.status == "active",
-            ).order_by(Subscription.created_at.desc()).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == company_id,
+                    Subscription.status == "active",
+                )
+                .order_by(Subscription.created_at.desc())
+                .first()
+            )
 
             ticket_limit = DEFAULT_MONTHLY_TICKET_LIMIT
             if subscription:
@@ -160,13 +173,18 @@ def aggregate_daily_usage(
 
             # Calculate month-to-date usage to determine overage
             month_start = agg_date.replace(day=1)
-            month_usage = db.query(
-                func.sum(UsageRecord.tickets_used).label("total_tickets"),
-            ).filter(
-                UsageRecord.company_id == company_id,
-                UsageRecord.record_month == agg_date.strftime("%Y-%m"),
-                UsageRecord.record_date <= agg_date,
-            ).scalar() or 0
+            month_usage = (
+                db.query(
+                    func.sum(UsageRecord.tickets_used).label("total_tickets"),
+                )
+                .filter(
+                    UsageRecord.company_id == company_id,
+                    UsageRecord.record_month == agg_date.strftime("%Y-%m"),
+                    UsageRecord.record_date <= agg_date,
+                )
+                .scalar()
+                or 0
+            )
             total_month_tickets = int(month_usage)
 
             # Calculate overage against monthly limit
@@ -253,11 +271,7 @@ def aggregate_all_usage(self, target_date: str = None) -> dict:
         if target_date:
             process_date = date.fromisoformat(target_date)
         else:
-            process_date = (
-                datetime.now(
-                    timezone.utc)
-                - timedelta(
-                    days=1)).date()
+            process_date = (datetime.now(timezone.utc) - timedelta(days=1)).date()
 
         results = {
             "date": process_date.isoformat(),
@@ -269,12 +283,17 @@ def aggregate_all_usage(self, target_date: str = None) -> dict:
 
         with SessionLocal() as db:
             # Get all active companies with subscriptions
-            active_companies = db.query(Company).join(
-                Subscription,
-                Company.id == Subscription.company_id,
-            ).filter(
-                Subscription.status == "active",
-            ).all()
+            active_companies = (
+                db.query(Company)
+                .join(
+                    Subscription,
+                    Company.id == Subscription.company_id,
+                )
+                .filter(
+                    Subscription.status == "active",
+                )
+                .all()
+            )
 
             results["total_companies"] = len(active_companies)
 
@@ -288,14 +307,15 @@ def aggregate_all_usage(self, target_date: str = None) -> dict:
 
                 except Exception as e:
                     results["failed"] += 1
-                    results["errors"].append({
-                        "company_id": str(company.id),
-                        "error": str(e)[:100],
-                    })
+                    results["errors"].append(
+                        {
+                            "company_id": str(company.id),
+                            "error": str(e)[:100],
+                        }
+                    )
 
         logger.info(
-            "aggregate_all_usage_completed "
-            "date=%s total=%d dispatched=%d failed=%d",
+            "aggregate_all_usage_completed " "date=%s total=%d dispatched=%d failed=%d",
             process_date.isoformat(),
             results["total_companies"],
             results["dispatched"],
@@ -356,18 +376,21 @@ def check_usage_limits(self, company_id: str) -> dict:
     try:
         with SessionLocal() as db:
             # Get active subscription for this company
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == company_id,
-                Subscription.status == "active",
-            ).order_by(Subscription.created_at.desc()).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == company_id,
+                    Subscription.status == "active",
+                )
+                .order_by(Subscription.created_at.desc())
+                .first()
+            )
 
             if not subscription:
                 logger.info(
                     "check_usage_limits_skipped company_id=%s reason=no_subscription",
                     company_id,
-                    extra={
-                        "task": self.name,
-                        "company_id": company_id},
+                    extra={"task": self.name, "company_id": company_id},
                 )
                 return {
                     "company_id": company_id,
@@ -392,12 +415,17 @@ def check_usage_limits(self, company_id: str) -> dict:
 
             # Calculate current month's total usage
             current_month = datetime.now(timezone.utc).strftime("%Y-%m")
-            month_usage = db.query(
-                func.sum(UsageRecord.tickets_used).label("total_tickets"),
-            ).filter(
-                UsageRecord.company_id == company_id,
-                UsageRecord.record_month == current_month,
-            ).scalar() or 0
+            month_usage = (
+                db.query(
+                    func.sum(UsageRecord.tickets_used).label("total_tickets"),
+                )
+                .filter(
+                    UsageRecord.company_id == company_id,
+                    UsageRecord.record_month == current_month,
+                )
+                .scalar()
+                or 0
+            )
             tickets_used = int(month_usage)
 
             # Calculate usage percentage (cap at 100+ for overage display)
@@ -446,8 +474,7 @@ def check_usage_limits(self, company_id: str) -> dict:
 
                 except Exception as event_exc:
                     logger.warning(
-                        "usage_limit_exceeded_event_failed "
-                        "company_id=%s error=%s",
+                        "usage_limit_exceeded_event_failed " "company_id=%s error=%s",
                         company_id,
                         str(event_exc)[:100],
                         extra={"task": self.name, "company_id": company_id},
@@ -521,12 +548,17 @@ def check_all_usage_limits(self) -> dict:
 
         with SessionLocal() as db:
             # Get all active companies with subscriptions
-            active_companies = db.query(Company).join(
-                Subscription,
-                Company.id == Subscription.company_id,
-            ).filter(
-                Subscription.status == "active",
-            ).all()
+            active_companies = (
+                db.query(Company)
+                .join(
+                    Subscription,
+                    Company.id == Subscription.company_id,
+                )
+                .filter(
+                    Subscription.status == "active",
+                )
+                .all()
+            )
 
             for company in active_companies:
                 results["total_checked"] += 1
@@ -589,7 +621,7 @@ def reset_monthly_usage(self) -> dict:
     try:
         now = datetime.now(timezone.utc)
         # The month that just completed
-        previous_month_date = (now - timedelta(days=1))
+        previous_month_date = now - timedelta(days=1)
         month_completed = previous_month_date.strftime("%Y-%m")
 
         results = {
@@ -600,29 +632,37 @@ def reset_monthly_usage(self) -> dict:
         with SessionLocal() as db:
             # Get all companies that have usage records for the
             # previous month
-            companies_with_usage = db.query(
-                UsageRecord.company_id,
-            ).filter(
-                UsageRecord.record_month == month_completed,
-            ).distinct().all()
+            companies_with_usage = (
+                db.query(
+                    UsageRecord.company_id,
+                )
+                .filter(
+                    UsageRecord.record_month == month_completed,
+                )
+                .distinct()
+                .all()
+            )
 
             for row in companies_with_usage:
                 cid = row.company_id
 
                 # Sum total usage for the completed month
-                monthly_summary = db.query(
-                    func.sum(UsageRecord.tickets_used).label("total_tickets"),
-                    func.sum(UsageRecord.overage_tickets).label("total_overage"),
-                    func.sum(UsageRecord.overage_charges).label("total_charges"),
-                ).filter(
-                    UsageRecord.company_id == cid,
-                    UsageRecord.record_month == month_completed,
-                ).first()
+                monthly_summary = (
+                    db.query(
+                        func.sum(UsageRecord.tickets_used).label("total_tickets"),
+                        func.sum(UsageRecord.overage_tickets).label("total_overage"),
+                        func.sum(UsageRecord.overage_charges).label("total_charges"),
+                    )
+                    .filter(
+                        UsageRecord.company_id == cid,
+                        UsageRecord.record_month == month_completed,
+                    )
+                    .first()
+                )
 
                 total_tickets = int(monthly_summary.total_tickets or 0)
                 total_overage = int(monthly_summary.total_overage or 0)
-                total_charges = Decimal(
-                    str(monthly_summary.total_charges or 0))
+                total_charges = Decimal(str(monthly_summary.total_charges or 0))
 
                 results["companies_logged"] += 1
 
@@ -645,8 +685,7 @@ def reset_monthly_usage(self) -> dict:
                 )
 
         logger.info(
-            "reset_monthly_usage_completed "
-            "month=%s companies=%d",
+            "reset_monthly_usage_completed " "month=%s companies=%d",
             month_completed,
             results["companies_logged"],
             extra={

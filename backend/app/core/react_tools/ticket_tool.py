@@ -28,12 +28,7 @@ logger = logging.getLogger(__name__)
 
 # ── Mock data factories ────────────────────────────────────────────
 
-_TICKET_STATUSES = [
-    "open",
-    "in_progress",
-    "pending_customer",
-    "resolved",
-    "closed"]
+_TICKET_STATUSES = ["open", "in_progress", "pending_customer", "resolved", "closed"]
 _PRIORITIES = ["low", "medium", "high", "urgent"]
 _CATEGORIES = [
     "billing",
@@ -41,7 +36,8 @@ _CATEGORIES = [
     "account",
     "feature_request",
     "bug_report",
-    "general"]
+    "general",
+]
 _SUBJECTS = [
     "Cannot access my account",
     "Billing charge discrepancy",
@@ -88,7 +84,9 @@ def _mock_ticket(
         "status": status,
         "priority": random.choice(_PRIORITIES),
         "category": random.choice(_CATEGORIES),
-        "assignee_id": f"AGENT-{random.randint(1, 20):03d}" if status != "open" else None,
+        "assignee_id": (
+            f"AGENT-{random.randint(1, 20):03d}" if status != "open" else None
+        ),
         "assignee_name": (
             f"Agent {random.randint(1, 20)}" if status != "open" else None
         ),
@@ -146,7 +144,11 @@ def _mock_comment(
         "ticket_id": ticket_id,
         "company_id": company_id,
         "author_type": "agent" if is_agent else "customer",
-        "author_id": f"AGENT-{random.randint(1, 20):03d}" if is_agent else (customer_id or "unknown"),
+        "author_id": (
+            f"AGENT-{random.randint(1, 20):03d}"
+            if is_agent
+            else (customer_id or "unknown")
+        ),
         "content": random.choice(agent_responses if is_agent else customer_comments),
         # Some agent comments are internal
         "internal": is_agent and random.random() > 0.7,
@@ -159,8 +161,7 @@ def _mock_history_entry(
     field: str | None = None,
 ) -> dict[str, Any]:
     """Generate a mock ticket history / audit log entry."""
-    fields = field or random.choice(
-        ["status", "priority", "assignee", "category"])
+    fields = field or random.choice(["status", "priority", "assignee", "category"])
     transitions = {
         "status": (["open", "in_progress", "pending_customer", "resolved", "closed"]),
         "priority": (["low", "medium", "high", "urgent"]),
@@ -232,7 +233,10 @@ class TicketTool(BaseReactTool):
                     parameters={
                         "type": "object",
                         "properties": {
-                            "ticket_id": {"type": "string", "description": "Unique ticket identifier"},
+                            "ticket_id": {
+                                "type": "string",
+                                "description": "Unique ticket identifier",
+                            },
                         },
                         "required": ["ticket_id"],
                     },
@@ -245,12 +249,30 @@ class TicketTool(BaseReactTool):
                     parameters={
                         "type": "object",
                         "properties": {
-                            "subject": {"type": "string", "description": "Ticket subject / title"},
-                            "description": {"type": "string", "description": "Detailed issue description"},
-                            "customer_id": {"type": "string", "description": "Customer who opened the ticket"},
-                            "priority": {"type": "string", "description": "Priority: low, medium, high, urgent"},
-                            "category": {"type": "string", "description": "Category: billing, technical, account, feature_request, bug_report, general"},
-                            "tags": {"type": "string", "description": "Comma-separated tags"},
+                            "subject": {
+                                "type": "string",
+                                "description": "Ticket subject / title",
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Detailed issue description",
+                            },
+                            "customer_id": {
+                                "type": "string",
+                                "description": "Customer who opened the ticket",
+                            },
+                            "priority": {
+                                "type": "string",
+                                "description": "Priority: low, medium, high, urgent",
+                            },
+                            "category": {
+                                "type": "string",
+                                "description": "Category: billing, technical, account, feature_request, bug_report, general",
+                            },
+                            "tags": {
+                                "type": "string",
+                                "description": "Comma-separated tags",
+                            },
                         },
                         "required": ["subject", "description"],
                     },
@@ -263,11 +285,26 @@ class TicketTool(BaseReactTool):
                     parameters={
                         "type": "object",
                         "properties": {
-                            "ticket_id": {"type": "string", "description": "Ticket to update"},
-                            "status": {"type": "string", "description": "New status: open, in_progress, pending_customer, resolved, closed"},
-                            "priority": {"type": "string", "description": "New priority: low, medium, high, urgent"},
-                            "assignee_id": {"type": "string", "description": "New assignee agent ID"},
-                            "category": {"type": "string", "description": "New category"},
+                            "ticket_id": {
+                                "type": "string",
+                                "description": "Ticket to update",
+                            },
+                            "status": {
+                                "type": "string",
+                                "description": "New status: open, in_progress, pending_customer, resolved, closed",
+                            },
+                            "priority": {
+                                "type": "string",
+                                "description": "New priority: low, medium, high, urgent",
+                            },
+                            "assignee_id": {
+                                "type": "string",
+                                "description": "New assignee agent ID",
+                            },
+                            "category": {
+                                "type": "string",
+                                "description": "New category",
+                            },
                         },
                         "required": ["ticket_id"],
                     },
@@ -280,11 +317,26 @@ class TicketTool(BaseReactTool):
                     parameters={
                         "type": "object",
                         "properties": {
-                            "ticket_id": {"type": "string", "description": "Ticket to comment on"},
-                            "content": {"type": "string", "description": "Comment content"},
-                            "author_id": {"type": "string", "description": "Author ID (agent or customer)"},
-                            "author_type": {"type": "string", "description": "agent or customer"},
-                            "internal": {"type": "boolean", "description": "Whether the comment is internal-only"},
+                            "ticket_id": {
+                                "type": "string",
+                                "description": "Ticket to comment on",
+                            },
+                            "content": {
+                                "type": "string",
+                                "description": "Comment content",
+                            },
+                            "author_id": {
+                                "type": "string",
+                                "description": "Author ID (agent or customer)",
+                            },
+                            "author_type": {
+                                "type": "string",
+                                "description": "agent or customer",
+                            },
+                            "internal": {
+                                "type": "boolean",
+                                "description": "Whether the comment is internal-only",
+                            },
                         },
                         "required": ["ticket_id", "content"],
                     },
@@ -297,12 +349,31 @@ class TicketTool(BaseReactTool):
                     parameters={
                         "type": "object",
                         "properties": {
-                            "status": {"type": "string", "description": "Filter by status"},
-                            "priority": {"type": "string", "description": "Filter by priority"},
-                            "assignee_id": {"type": "string", "description": "Filter by assignee"},
-                            "customer_id": {"type": "string", "description": "Filter by customer"},
-                            "category": {"type": "string", "description": "Filter by category"},
-                            "limit": {"type": "integer", "description": "Max tickets (1-50)", "default": 10},
+                            "status": {
+                                "type": "string",
+                                "description": "Filter by status",
+                            },
+                            "priority": {
+                                "type": "string",
+                                "description": "Filter by priority",
+                            },
+                            "assignee_id": {
+                                "type": "string",
+                                "description": "Filter by assignee",
+                            },
+                            "customer_id": {
+                                "type": "string",
+                                "description": "Filter by customer",
+                            },
+                            "category": {
+                                "type": "string",
+                                "description": "Filter by category",
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Max tickets (1-50)",
+                                "default": 10,
+                            },
                         },
                         "required": [],
                     },
@@ -316,7 +387,11 @@ class TicketTool(BaseReactTool):
                         "type": "object",
                         "properties": {
                             "ticket_id": {"type": "string", "description": "Ticket ID"},
-                            "limit": {"type": "integer", "description": "Max history entries (1-100)", "default": 20},
+                            "limit": {
+                                "type": "integer",
+                                "description": "Max history entries (1-100)",
+                                "default": 20,
+                            },
                         },
                         "required": ["ticket_id"],
                     },
@@ -341,8 +416,8 @@ class TicketTool(BaseReactTool):
 
         if action == "__health_check__":
             return ToolResult(
-                success=True, error=None, data={
-                    "status": "ok"}, execution_time_ms=0)
+                success=True, error=None, data={"status": "ok"}, execution_time_ms=0
+            )
 
         handler = {
             "get_ticket": self._get_ticket,
@@ -382,27 +457,17 @@ class TicketTool(BaseReactTool):
                 )
             # Include comment count
             ticket_copy = {**ticket}
-            ticket_copy["comment_count"] = len(
-                self._comments.get(ticket_id, []))
+            ticket_copy["comment_count"] = len(self._comments.get(ticket_id, []))
             return ToolResult(
-                success=True,
-                error=None,
-                data=ticket_copy,
-                execution_time_ms=0)
+                success=True, error=None, data=ticket_copy, execution_time_ms=0
+            )
 
         ticket = _mock_ticket(ticket_id=ticket_id, company_id=company_id)
         self._tickets[ticket_id] = ticket
         ticket["comment_count"] = 0
-        return ToolResult(
-            success=True,
-            error=None,
-            data=ticket,
-            execution_time_ms=0)
+        return ToolResult(success=True, error=None, data=ticket, execution_time_ms=0)
 
-    async def _create_ticket(
-            self,
-            company_id: str,
-            **params: Any) -> ToolResult:
+    async def _create_ticket(self, company_id: str, **params: Any) -> ToolResult:
         """Create a new support ticket."""
         subject: str = params.get("subject", "")
         description: str = params.get("description", "")
@@ -445,8 +510,7 @@ class TicketTool(BaseReactTool):
                 execution_time_ms=0,
             )
 
-        tags = [t.strip() for t in raw_tags.split(
-            ",") if t.strip()] if raw_tags else []
+        tags = [t.strip() for t in raw_tags.split(",") if t.strip()] if raw_tags else []
         now = datetime.now(timezone.utc).isoformat()
 
         ticket_id = f"TKT-{uuid.uuid4().hex[:8].upper()}"
@@ -490,10 +554,7 @@ class TicketTool(BaseReactTool):
             execution_time_ms=0,
         )
 
-    async def _update_ticket(
-            self,
-            company_id: str,
-            **params: Any) -> ToolResult:
+    async def _update_ticket(self, company_id: str, **params: Any) -> ToolResult:
         """Update ticket fields."""
         ticket_id: str = params.get("ticket_id", "")
 
@@ -545,15 +606,17 @@ class TicketTool(BaseReactTool):
             # Record in history
             if ticket_id not in self._history:
                 self._history[ticket_id] = []
-            self._history[ticket_id].append({
-                "event_id": f"EVT-{uuid.uuid4().hex[:8].upper()}",
-                "ticket_id": ticket_id,
-                "field": field_name,
-                "old_value": old_value,
-                "new_value": value,
-                "changed_by": params.get("updated_by", "system"),
-                "created_at": now,
-            })
+            self._history[ticket_id].append(
+                {
+                    "event_id": f"EVT-{uuid.uuid4().hex[:8].upper()}",
+                    "ticket_id": ticket_id,
+                    "field": field_name,
+                    "old_value": old_value,
+                    "new_value": value,
+                    "changed_by": params.get("updated_by", "system"),
+                    "created_at": now,
+                }
+            )
 
         if not updated_fields:
             return ToolResult(
@@ -625,7 +688,8 @@ class TicketTool(BaseReactTool):
             "ticket_id": ticket_id,
             "company_id": company_id,
             "author_type": author_type,
-            "author_id": author_id or ("system" if author_type == "agent" else "unknown"),
+            "author_id": author_id
+            or ("system" if author_type == "agent" else "unknown"),
             "content": content.strip(),
             "internal": is_internal,
             "created_at": now,
@@ -642,15 +706,17 @@ class TicketTool(BaseReactTool):
         # Add to history
         if ticket_id not in self._history:
             self._history[ticket_id] = []
-        self._history[ticket_id].append({
-            "event_id": f"EVT-{uuid.uuid4().hex[:8].upper()}",
-            "ticket_id": ticket_id,
-            "field": "comment_added",
-            "old_value": None,
-            "new_value": comment["comment_id"],
-            "changed_by": author_id or "system",
-            "created_at": now,
-        })
+        self._history[ticket_id].append(
+            {
+                "event_id": f"EVT-{uuid.uuid4().hex[:8].upper()}",
+                "ticket_id": ticket_id,
+                "field": "comment_added",
+                "old_value": None,
+                "new_value": comment["comment_id"],
+                "changed_by": author_id or "system",
+                "created_at": now,
+            }
+        )
 
         return ToolResult(
             success=True,
@@ -659,10 +725,7 @@ class TicketTool(BaseReactTool):
             execution_time_ms=0,
         )
 
-    async def _list_tickets(
-            self,
-            company_id: str,
-            **params: Any) -> ToolResult:
+    async def _list_tickets(self, company_id: str, **params: Any) -> ToolResult:
         """List tickets with optional filtering."""
         status: str | None = params.get("status")
         priority: str | None = params.get("priority")
@@ -682,11 +745,9 @@ class TicketTool(BaseReactTool):
         if priority:
             tickets = [t for t in tickets if t["priority"] == priority]
         if assignee_id:
-            tickets = [t for t in tickets if t.get(
-                "assignee_id") == assignee_id]
+            tickets = [t for t in tickets if t.get("assignee_id") == assignee_id]
         if customer_id:
-            tickets = [t for t in tickets if t.get(
-                "customer_id") == customer_id]
+            tickets = [t for t in tickets if t.get("customer_id") == customer_id]
         if category:
             tickets = [t for t in tickets if t.get("category") == category]
 
@@ -705,10 +766,7 @@ class TicketTool(BaseReactTool):
             execution_time_ms=0,
         )
 
-    async def _get_ticket_history(
-            self,
-            company_id: str,
-            **params: Any) -> ToolResult:
+    async def _get_ticket_history(self, company_id: str, **params: Any) -> ToolResult:
         """Get full audit trail for a ticket."""
         ticket_id: str = params.get("ticket_id", "")
         limit: int = min(max(params.get("limit", 20), 1), 100)

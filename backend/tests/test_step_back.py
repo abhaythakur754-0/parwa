@@ -23,7 +23,6 @@ from app.core.techniques.step_back import (
     _TECHNICAL_JARGON,
 )
 
-
 # ── Fixtures ────────────────────────────────────────────────────────
 
 
@@ -65,6 +64,7 @@ class TestConstants:
 
     def test_entity_patterns_compile(self):
         import re
+
         for p in _ENTITY_PATTERNS:
             re.compile(p, re.I)  # should not raise
 
@@ -86,8 +86,11 @@ class TestConstants:
 
     def test_broadening_templates_keys(self):
         expected_keys = {
-            "entity_specific", "single_word", "technical_jargon",
-            "ambiguous_intent", "stuck_reasoning",
+            "entity_specific",
+            "single_word",
+            "technical_jargon",
+            "ambiguous_intent",
+            "stuck_reasoning",
         }
         assert set(_BROADENING_TEMPLATES.keys()) == expected_keys
 
@@ -132,8 +135,10 @@ class TestStepBackConfig:
 class TestStepBackResult:
     def test_basic_creation(self):
         detection = NarrowQueryDetector(
-            is_narrow=True, narrow_type="single_word",
-            confidence=0.8, suggested_broadening="short query",
+            is_narrow=True,
+            narrow_type="single_word",
+            confidence=0.8,
+            suggested_broadening="short query",
         )
         result = StepBackResult(
             detection_result=detection,
@@ -149,8 +154,10 @@ class TestStepBackResult:
 
     def test_to_dict(self):
         detection = NarrowQueryDetector(
-            is_narrow=True, narrow_type="entity_specific",
-            confidence=0.9, suggested_broadening="entity found",
+            is_narrow=True,
+            narrow_type="entity_specific",
+            confidence=0.9,
+            suggested_broadening="entity found",
         )
         result = StepBackResult(
             detection_result=detection,
@@ -184,8 +191,12 @@ class TestStepBackResult:
         result = StepBackResult()
         d = result.to_dict()
         expected_keys = {
-            "detection_result", "broadened_queries", "analysis_result",
-            "refined_response", "steps_applied", "context_score",
+            "detection_result",
+            "broadened_queries",
+            "analysis_result",
+            "refined_response",
+            "steps_applied",
+            "context_score",
         }
         assert set(d.keys()) == expected_keys
 
@@ -404,9 +415,7 @@ class TestDetectNarrowQuery:
     @pytest.mark.asyncio
     async def test_technical_jargon_too_long(self, processor):
         """Long query with jargon should NOT be narrow (len > 15)."""
-        long_jargon = " ".join(
-            list(_TECHNICAL_JARGON)[:20]
-        )
+        long_jargon = " ".join(list(_TECHNICAL_JARGON)[:20])
         detection = await processor.detect_narrow_query(long_jargon)
         assert detection.narrow_type != "technical_jargon"
 
@@ -480,7 +489,8 @@ class TestStuckReasoning:
             "rechecking order #12345 again because status unclear",
         ]
         detection = await processor.detect_narrow_query(
-            "What about order #12345?", reasoning_thread=thread,
+            "What about order #12345?",
+            reasoning_thread=thread,
         )
         assert detection.is_narrow is True
         assert detection.narrow_type == "stuck_reasoning"
@@ -493,21 +503,24 @@ class TestStuckReasoning:
             "reviewing refund policy",
         ]
         detection = await processor.detect_narrow_query(
-            "What about order #12345?", reasoning_thread=thread,
+            "What about order #12345?",
+            reasoning_thread=thread,
         )
         assert detection.narrow_type != "stuck_reasoning"
 
     @pytest.mark.asyncio
     async def test_empty_reasoning_thread(self, processor):
         detection = await processor.detect_narrow_query(
-            "order #12345", reasoning_thread=[],
+            "order #12345",
+            reasoning_thread=[],
         )
         assert detection.narrow_type != "stuck_reasoning"
 
     @pytest.mark.asyncio
     async def test_none_reasoning_thread(self, processor):
         detection = await processor.detect_narrow_query(
-            "order #12345", reasoning_thread=None,
+            "order #12345",
+            reasoning_thread=None,
         )
         assert detection.narrow_type != "stuck_reasoning"
 
@@ -521,7 +534,8 @@ class TestStuckReasoning:
             "the team is reviewing",
         ]
         detection = await processor.detect_narrow_query(
-            "some query", reasoning_thread=thread,
+            "some query",
+            reasoning_thread=thread,
         )
         assert detection.narrow_type != "stuck_reasoning"
 
@@ -535,7 +549,8 @@ class TestStuckReasoning:
             "order confirmed order shipped",
         ]
         detection = await processor.detect_narrow_query(
-            "order #12345", reasoning_thread=thread,
+            "order #12345",
+            reasoning_thread=thread,
         )
         assert detection.narrow_type == "stuck_reasoning"
 
@@ -548,24 +563,29 @@ class TestBroadening:
     @pytest.mark.asyncio
     async def test_broaden_entity_specific(self, processor):
         detection = NarrowQueryDetector(
-            is_narrow=True, narrow_type="entity_specific",
-            confidence=0.8, suggested_broadening="",
+            is_narrow=True,
+            narrow_type="entity_specific",
+            confidence=0.8,
+            suggested_broadening="",
         )
         queries = await processor.generate_broadened_queries(
-            "order #12345", detection,
+            "order #12345",
+            detection,
         )
         assert len(queries) >= 1
-        assert any("order" in q.lower() or "#12345" in q.lower()
-                   for q in queries)
+        assert any("order" in q.lower() or "#12345" in q.lower() for q in queries)
 
     @pytest.mark.asyncio
     async def test_broaden_single_word(self, processor):
         detection = NarrowQueryDetector(
-            is_narrow=True, narrow_type="single_word",
-            confidence=0.8, suggested_broadening="",
+            is_narrow=True,
+            narrow_type="single_word",
+            confidence=0.8,
+            suggested_broadening="",
         )
         queries = await processor.generate_broadened_queries(
-            "help", detection,
+            "help",
+            detection,
         )
         assert len(queries) >= 1
         assert any("help" in q.lower() for q in queries)
@@ -573,44 +593,56 @@ class TestBroadening:
     @pytest.mark.asyncio
     async def test_broaden_technical_jargon(self, processor):
         detection = NarrowQueryDetector(
-            is_narrow=True, narrow_type="technical_jargon",
-            confidence=0.8, suggested_broadening="",
+            is_narrow=True,
+            narrow_type="technical_jargon",
+            confidence=0.8,
+            suggested_broadening="",
         )
         queries = await processor.generate_broadened_queries(
-            "api webhook ssl", detection,
+            "api webhook ssl",
+            detection,
         )
         assert len(queries) >= 1
 
     @pytest.mark.asyncio
     async def test_broaden_ambiguous_intent(self, processor):
         detection = NarrowQueryDetector(
-            is_narrow=True, narrow_type="ambiguous_intent",
-            confidence=0.8, suggested_broadening="",
+            is_narrow=True,
+            narrow_type="ambiguous_intent",
+            confidence=0.8,
+            suggested_broadening="",
         )
         queries = await processor.generate_broadened_queries(
-            "fix update issue", detection,
+            "fix update issue",
+            detection,
         )
         assert len(queries) >= 1
 
     @pytest.mark.asyncio
     async def test_broaden_stuck_reasoning(self, processor):
         detection = NarrowQueryDetector(
-            is_narrow=True, narrow_type="stuck_reasoning",
-            confidence=0.8, suggested_broadening="",
+            is_narrow=True,
+            narrow_type="stuck_reasoning",
+            confidence=0.8,
+            suggested_broadening="",
         )
         queries = await processor.generate_broadened_queries(
-            "some query", detection,
+            "some query",
+            detection,
         )
         assert len(queries) >= 1
 
     @pytest.mark.asyncio
     async def test_not_narrow_returns_empty(self, processor):
         detection = NarrowQueryDetector(
-            is_narrow=False, narrow_type="none",
-            confidence=0.0, suggested_broadening="",
+            is_narrow=False,
+            narrow_type="none",
+            confidence=0.0,
+            suggested_broadening="",
         )
         queries = await processor.generate_broadened_queries(
-            "some query", detection,
+            "some query",
+            detection,
         )
         assert queries == []
 
@@ -619,8 +651,10 @@ class TestBroadening:
         config = StepBackConfig(max_broadening_levels=1)
         proc = StepBackProcessor(config=config)
         detection = NarrowQueryDetector(
-            is_narrow=True, narrow_type="single_word",
-            confidence=0.8, suggested_broadening="",
+            is_narrow=True,
+            narrow_type="single_word",
+            confidence=0.8,
+            suggested_broadening="",
         )
         queries = await proc.generate_broadened_queries("help", detection)
         assert len(queries) == 1
@@ -630,8 +664,10 @@ class TestBroadening:
         config = StepBackConfig(max_broadening_levels=0)
         proc = StepBackProcessor(config=config)
         detection = NarrowQueryDetector(
-            is_narrow=True, narrow_type="single_word",
-            confidence=0.8, suggested_broadening="",
+            is_narrow=True,
+            narrow_type="single_word",
+            confidence=0.8,
+            suggested_broadening="",
         )
         queries = await proc.generate_broadened_queries("help", detection)
         assert queries == []
@@ -639,11 +675,14 @@ class TestBroadening:
     @pytest.mark.asyncio
     async def test_unknown_narrow_type(self, processor):
         detection = NarrowQueryDetector(
-            is_narrow=True, narrow_type="unknown_type",
-            confidence=0.8, suggested_broadening="",
+            is_narrow=True,
+            narrow_type="unknown_type",
+            confidence=0.8,
+            suggested_broadening="",
         )
         queries = await processor.generate_broadened_queries(
-            "test", detection,
+            "test",
+            detection,
         )
         assert queries == []
 
@@ -666,7 +705,8 @@ class TestAnalysis:
     @pytest.mark.asyncio
     async def test_analysis_empty_broadened(self, processor):
         summary, score = await processor.analyze_broadened_context(
-            "test", [],
+            "test",
+            [],
         )
         assert score == 0.0
         assert "No broadening" in summary
@@ -686,7 +726,8 @@ class TestAnalysis:
     async def test_analysis_better_with_more_context(self, processor):
         # Single query
         _, score1 = await processor.analyze_broadened_context(
-            "help", ["Tell me more about help"],
+            "help",
+            ["Tell me more about help"],
         )
         # Multiple richer queries
         _, score2 = await processor.analyze_broadened_context(
@@ -738,7 +779,9 @@ class TestRefinedResponse:
     @pytest.mark.asyncio
     async def test_refine_empty_broadened(self, processor):
         refined = await processor.refine_response(
-            "test", [], context_score=0.5,
+            "test",
+            [],
+            context_score=0.5,
         )
         assert refined == "test"
 
@@ -838,7 +881,8 @@ class TestReasoningThreadIntegration:
             "verifying the refund again",
         ]
         result = await processor.process(
-            "What about my refund?", reasoning_thread=thread,
+            "What about my refund?",
+            reasoning_thread=thread,
         )
         assert result.detection_result.is_narrow is True
         assert result.detection_result.narrow_type == "stuck_reasoning"
@@ -852,7 +896,8 @@ class TestReasoningThreadIntegration:
             "reviewing subscription terms",
         ]
         result = await processor.process(
-            "What about my order #12345?", reasoning_thread=thread,
+            "What about my order #12345?",
+            reasoning_thread=thread,
         )
         # Should still detect entity_specific, not stuck_reasoning
         assert result.detection_result.narrow_type != "stuck_reasoning"
@@ -875,17 +920,13 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_very_long_query(self, processor):
-        long_query = "I need help with " + "and ".join(
-            [f"item{i}" for i in range(100)]
-        )
+        long_query = "I need help with " + "and ".join([f"item{i}" for i in range(100)])
         result = await processor.process(long_query)
         assert result.detection_result.is_narrow is False
 
     @pytest.mark.asyncio
     async def test_special_characters(self, processor):
-        result = await processor.process(
-            "order #123-ABC? ($50)"
-        )
+        result = await processor.process("order #123-ABC? ($50)")
         # Should detect entity_specific due to # pattern (short query)
         assert result.detection_result.is_narrow is True
         assert result.detection_result.narrow_type == "entity_specific"
@@ -938,8 +979,10 @@ class TestCompanyIsolation:
         p2 = StepBackProcessor(config=config2)
 
         detection = NarrowQueryDetector(
-            is_narrow=True, narrow_type="single_word",
-            confidence=0.8, suggested_broadening="",
+            is_narrow=True,
+            narrow_type="single_word",
+            confidence=0.8,
+            suggested_broadening="",
         )
         q1 = await p1.generate_broadened_queries("help", detection)
         q2 = await p2.generate_broadened_queries("help", detection)
@@ -1007,8 +1050,7 @@ class TestStepBackNodeIntegration:
         result_state = await node.execute(state)
         # Should have response_parts with refined response
         if result_state.response_parts:
-            assert any(
-                "Step-Back Context" in p for p in result_state.response_parts)
+            assert any("Step-Back Context" in p for p in result_state.response_parts)
 
     @pytest.mark.asyncio
     async def test_execute_no_context_injection(self):
@@ -1020,9 +1062,7 @@ class TestStepBackNodeIntegration:
         )
         result_state = await node.execute(state)
         # Should not inject context
-        assert all(
-            "Step-Back Context" not in p for p in result_state.response_parts
-        )
+        assert all("Step-Back Context" not in p for p in result_state.response_parts)
 
     @pytest.mark.asyncio
     async def test_execute_with_reasoning_thread(self, node):
@@ -1056,7 +1096,8 @@ class TestErrorFallback:
     @pytest.mark.asyncio
     async def test_process_error_fallback(self, processor):
         with patch.object(
-            processor, 'detect_narrow_query',
+            processor,
+            "detect_narrow_query",
             side_effect=RuntimeError("boom"),
         ):
             result = await processor.process("order #12345")
@@ -1067,7 +1108,8 @@ class TestErrorFallback:
     @pytest.mark.asyncio
     async def test_process_error_preserves_query(self, processor):
         with patch.object(
-            processor, 'generate_broadened_queries',
+            processor,
+            "generate_broadened_queries",
             side_effect=ValueError("err"),
         ):
             result = await processor.process("help me")
@@ -1080,19 +1122,24 @@ class TestErrorFallback:
             signals=QuerySignals(confidence_score=0.3),
         )
         with patch.object(
-            node._processor, 'process',
+            node._processor,
+            "process",
             side_effect=RuntimeError("node boom"),
         ):
             result_state = await node.execute(state)
             # Should record skip, not crash
             assert "step_back" in result_state.technique_results
-            assert result_state.technique_results["step_back"]["status"] == "skipped_budget"
+            assert (
+                result_state.technique_results["step_back"]["status"]
+                == "skipped_budget"
+            )
 
     @pytest.mark.asyncio
     async def test_analysis_error_in_pipeline(self, processor):
         """Error in analysis step should trigger error_fallback."""
         with patch.object(
-            processor, 'analyze_broadened_context',
+            processor,
+            "analyze_broadened_context",
             side_effect=Exception("analysis error"),
         ):
             result = await processor.process("order #12345")
@@ -1102,7 +1149,8 @@ class TestErrorFallback:
     async def test_refine_error_in_pipeline(self, processor):
         """Error in refine step should trigger error_fallback."""
         with patch.object(
-            processor, 'refine_response',
+            processor,
+            "refine_response",
             side_effect=Exception("refine error"),
         ):
             result = await processor.process("order #12345")
@@ -1119,8 +1167,10 @@ class TestEntityExtraction:
         queries = await processor.generate_broadened_queries(
             "what about order #12345",
             NarrowQueryDetector(
-                is_narrow=True, narrow_type="entity_specific",
-                confidence=0.9, suggested_broadening="",
+                is_narrow=True,
+                narrow_type="entity_specific",
+                confidence=0.9,
+                suggested_broadening="",
             ),
         )
         assert any("#12345" in q or "order" in q.lower() for q in queries)
@@ -1130,8 +1180,10 @@ class TestEntityExtraction:
         queries = await processor.generate_broadened_queries(
             "invoice #INV-001",
             NarrowQueryDetector(
-                is_narrow=True, narrow_type="entity_specific",
-                confidence=0.9, suggested_broadening="",
+                is_narrow=True,
+                narrow_type="entity_specific",
+                confidence=0.9,
+                suggested_broadening="",
             ),
         )
         assert len(queries) >= 1
@@ -1139,21 +1191,27 @@ class TestEntityExtraction:
     @pytest.mark.asyncio
     async def test_extract_tracking_number(self, processor):
         detection = NarrowQueryDetector(
-            is_narrow=True, narrow_type="entity_specific",
-            confidence=0.9, suggested_broadening="",
+            is_narrow=True,
+            narrow_type="entity_specific",
+            confidence=0.9,
+            suggested_broadening="",
         )
         queries = await processor.generate_broadened_queries(
-            "tracking #TRK999", detection,
+            "tracking #TRK999",
+            detection,
         )
         assert len(queries) >= 1
 
     @pytest.mark.asyncio
     async def test_extract_hash_entity(self, processor):
         detection = NarrowQueryDetector(
-            is_narrow=True, narrow_type="entity_specific",
-            confidence=0.9, suggested_broadening="",
+            is_narrow=True,
+            narrow_type="entity_specific",
+            confidence=0.9,
+            suggested_broadening="",
         )
         queries = await processor.generate_broadened_queries(
-            "#ABC123", detection,
+            "#ABC123",
+            detection,
         )
         assert len(queries) >= 1

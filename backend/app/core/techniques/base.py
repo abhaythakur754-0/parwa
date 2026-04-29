@@ -20,12 +20,12 @@ from app.core.technique_router import (
     TECHNIQUE_REGISTRY,
 )
 
-
 # ── GSD State Engine ──────────────────────────────────────────────
 
 
 class GSDState(str, Enum):
     """GSD State Engine states (F-053)."""
+
     NEW = "new"
     GREETING = "greeting"
     DIAGNOSIS = "diagnosis"

@@ -69,6 +69,7 @@ class VariantAddonService:
         if self._paddle_client is not None:
             return self._paddle_client
         from app.clients.paddle_client import get_paddle_client
+
         self._paddle_client = get_paddle_client()
         return self._paddle_client
 
@@ -169,10 +170,11 @@ class VariantAddonService:
 
             # Calculate proration
             now = datetime.now(timezone.utc)
-            days_remaining = max(
-                0,
-                (subscription.current_period_end
-                 - now).days) if subscription.current_period_end else period_days
+            days_remaining = (
+                max(0, (subscription.current_period_end - now).days)
+                if subscription.current_period_end
+                else period_days
+            )
             proration_amount = self._calculate_proration_amount(
                 price, days_remaining, period_days
             )
@@ -199,11 +201,13 @@ class VariantAddonService:
                 # The paddle subscription ID is on the subscription
                 paddle_result = paddle_client.update_subscription(
                     subscription.paddle_subscription_id,
-                    items=[{
-                        "price_id": f"addon_{variant_id}_"
-                        f"{subscription.billing_frequency}",
-                        "quantity": 1,
-                    }],
+                    items=[
+                        {
+                            "price_id": f"addon_{variant_id}_"
+                            f"{subscription.billing_frequency}",
+                            "quantity": 1,
+                        }
+                    ],
                 )
                 paddle_item_id = paddle_result.get("id")
                 variant_record.paddle_subscription_item_id = paddle_item_id
@@ -335,9 +339,7 @@ class VariantAddonService:
                 .all()
             )
 
-            return [
-                CompanyVariantInfo.model_validate(v) for v in variants
-            ]
+            return [CompanyVariantInfo.model_validate(v) for v in variants]
 
     # ── V6: Effective Limits (Stacking) ────────────────────────────
 
@@ -362,8 +364,7 @@ class VariantAddonService:
         with SessionLocal() as db:
             subscription = self._get_subscription(db, str(company_id))
             tier_key = (
-                subscription.tier.lower().strip()
-                if subscription else "mini_parwa"
+                subscription.tier.lower().strip() if subscription else "mini_parwa"
             )
             variant_type = VariantType(tier_key)
             base_limits = VARIANT_LIMITS[variant_type]
@@ -380,8 +381,9 @@ class VariantAddonService:
 
             addon_tickets = sum(v.tickets_added for v in variants)
             addon_kb_docs = sum(v.kb_docs_added for v in variants)
-            active_addon_names = [v.variant_id for v in variants
-                                  if v.status == "active"]
+            active_addon_names = [
+                v.variant_id for v in variants if v.status == "active"
+            ]
 
         effective_tickets = base_limits["monthly_tickets"] + addon_tickets
         effective_kb_docs = base_limits["kb_docs"] + addon_kb_docs
@@ -451,26 +453,34 @@ class VariantAddonService:
                             if subscription and subscription.paddle_subscription_id:
                                 paddle_client.update_subscription(
                                     subscription.paddle_subscription_id,
-                                    items=[{
-                                        "price_id": variant.paddle_subscription_item_id,
-                                        "quantity": 0,
-                                    }],
+                                    items=[
+                                        {
+                                            "price_id": variant.paddle_subscription_item_id,
+                                            "quantity": 0,
+                                        }
+                                    ],
                                 )
                         except PaddleError as e:
                             logger.warning(
-                                "variant_archive_paddle_error variant_id=%s error=%s", variant.id, str(e), )
-                            errors.append(
-                                f"Paddle removal failed for {
+                                "variant_archive_paddle_error variant_id=%s error=%s",
+                                variant.id,
+                                str(e),
+                            )
+                            errors.append(f"Paddle removal failed for {
                                     variant.variant_id}: {e}")
 
                     # V8: Archive variant-specific KB documents (tag-based)
                     try:
                         from database.models.onboarding import KnowledgeDocument
+
                         kb_docs = (
-                            db.query(KnowledgeDocument) .filter(
+                            db.query(KnowledgeDocument)
+                            .filter(
                                 KnowledgeDocument.company_id == variant.company_id,
                                 KnowledgeDocument.is_archived is False,
-                            ) .all())
+                            )
+                            .all()
+                        )
                         for doc in kb_docs:
                             # V8 Fix: Only archive variant-specific docs
                             # Check if doc has variant tag or metadata matching
@@ -481,8 +491,7 @@ class VariantAddonService:
 
                             # Check tags for variant reference
                             if isinstance(doc_tags, list):
-                                tag_str = " ".join(str(t)
-                                                   for t in doc_tags).lower()
+                                tag_str = " ".join(str(t) for t in doc_tags).lower()
                                 if variant.variant_id in tag_str or "addon" in tag_str:
                                     is_variant_doc = True
 
@@ -491,8 +500,7 @@ class VariantAddonService:
                                 if variant.variant_id in doc_metadata.lower():
                                     is_variant_doc = True
                             elif doc_metadata and isinstance(doc_metadata, dict):
-                                if doc_metadata.get(
-                                        "variant_id") == variant.variant_id:
+                                if doc_metadata.get("variant_id") == variant.variant_id:
                                     is_variant_doc = True
 
                             if is_variant_doc:
@@ -500,7 +508,8 @@ class VariantAddonService:
                     except Exception as e:
                         logger.warning(
                             "variant_archive_kb_error variant_id=%s error=%s",
-                            variant.id, str(e),
+                            variant.id,
+                            str(e),
                         )
                         errors.append(
                             f"KB archival failed for {variant.variant_id}: {e}"
@@ -512,6 +521,7 @@ class VariantAddonService:
                     try:
                         from app.core.event_emitter import emit_billing_event
                         import asyncio
+
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)
                         try:
@@ -526,7 +536,8 @@ class VariantAddonService:
                                         "tickets_removed": variant.tickets_added,
                                         "kb_docs_removed": variant.kb_docs_added,
                                     },
-                                ))
+                                )
+                            )
                         finally:
                             loop.close()
                     except Exception as notify_err:
@@ -537,12 +548,11 @@ class VariantAddonService:
                         )
 
                 except Exception as e:
-                    errors.append(
-                        f"Error archiving {variant.variant_id}: {e}"
-                    )
+                    errors.append(f"Error archiving {variant.variant_id}: {e}")
                     logger.error(
                         "variant_archive_error variant_id=%s error=%s",
-                        variant.id, str(e),
+                        variant.id,
+                        str(e),
                     )
 
             db.commit()
@@ -620,11 +630,13 @@ class VariantAddonService:
                 if subscription and subscription.paddle_subscription_id:
                     paddle_result = paddle_client.update_subscription(
                         subscription.paddle_subscription_id,
-                        items=[{
-                            "price_id": f"addon_{variant_id}_"
-                            f"{subscription.billing_frequency}",
-                            "quantity": 1,
-                        }],
+                        items=[
+                            {
+                                "price_id": f"addon_{variant_id}_"
+                                f"{subscription.billing_frequency}",
+                                "quantity": 1,
+                            }
+                        ],
                     )
                     paddle_item_id = paddle_result.get("id")
                     variant.paddle_subscription_item_id = paddle_item_id
@@ -639,6 +651,7 @@ class VariantAddonService:
             # Un-archive KB documents
             try:
                 from database.models.onboarding import KnowledgeDocument
+
                 kb_docs = (
                     db.query(KnowledgeDocument)
                     .filter(

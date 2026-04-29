@@ -148,9 +148,13 @@ def provision_company(
 
     # Validate email uniqueness
     if db is not None:
-        existing = db.query(User).filter(
-            User.email == owner_email.strip().lower(),
-        ).first()
+        existing = (
+            db.query(User)
+            .filter(
+                User.email == owner_email.strip().lower(),
+            )
+            .first()
+        )
         if existing:
             raise ValidationError(
                 message="Email already registered",
@@ -167,6 +171,7 @@ def provision_company(
     owns_session = False
     if db is None:
         from database.base import SessionLocal
+
         db = SessionLocal()
         owns_session = True
 
@@ -280,7 +285,8 @@ def provision_company(
 
 
 def get_company_entitlements(
-    company_id: str, db: Session,
+    company_id: str,
+    db: Session,
 ) -> Dict[str, Any]:
     """Get entitlements for an existing company.
 
@@ -299,9 +305,13 @@ def get_company_entitlements(
     """
     from app.exceptions import NotFoundError
 
-    company = db.query(Company).filter(
-        Company.id == company_id,
-    ).first()
+    company = (
+        db.query(Company)
+        .filter(
+            Company.id == company_id,
+        )
+        .first()
+    )
 
     if not company:
         raise NotFoundError(
@@ -342,7 +352,8 @@ def check_entitlement(
 
 
 def check_team_member_limit(
-    company_id: str, db: Session,
+    company_id: str,
+    db: Session,
 ) -> bool:
     """Check if company can add more team members.
 
@@ -356,16 +367,21 @@ def check_team_member_limit(
     entitlements = get_company_entitlements(company_id, db)
     max_members = entitlements.get("max_team_members", 3)
 
-    current_count = db.query(User).filter(
-        User.company_id == company_id,
-        User.is_active is True,  # noqa: E712
-    ).count()
+    current_count = (
+        db.query(User)
+        .filter(
+            User.company_id == company_id,
+            User.is_active is True,  # noqa: E712
+        )
+        .count()
+    )
 
     return current_count < max_members
 
 
 def check_agent_limit(
-    company_id: str, db: Session,
+    company_id: str,
+    db: Session,
 ) -> bool:
     """Check if company can create more agents.
 
@@ -381,9 +397,13 @@ def check_agent_limit(
     entitlements = get_company_entitlements(company_id, db)
     max_agents = entitlements.get("max_agents", 1)
 
-    current_count = db.query(Agent).filter(
-        Agent.company_id == company_id,
-        Agent.status == "active",
-    ).count()
+    current_count = (
+        db.query(Agent)
+        .filter(
+            Agent.company_id == company_id,
+            Agent.status == "active",
+        )
+        .count()
+    )
 
     return current_count < max_agents

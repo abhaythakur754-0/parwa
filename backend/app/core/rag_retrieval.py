@@ -193,8 +193,7 @@ class RAGRetriever:
             similarity_threshold = config["similarity_threshold"]
 
         # ── Step 1: Check cache ──────────────────────────────────
-        cache_key = self._build_cache_key(
-            query, company_id, variant_type, filters)
+        cache_key = self._build_cache_key(query, company_id, variant_type, filters)
         cached_result = await self._check_cache(company_id, cache_key)
         if cached_result is not None:
             cached_result.retrieval_time_ms = round(
@@ -233,9 +232,7 @@ class RAGRetriever:
         all_chunks: List[RAGChunk] = []
 
         # BC-008: Check store health before searching
-        if hasattr(
-                self._store,
-                "health_check") and not self._store.health_check():
+        if hasattr(self._store, "health_check") and not self._store.health_check():
             logger.warning(
                 "rag_vector_store_unhealthy_keyword_fallback",
                 company_id=company_id,
@@ -252,7 +249,9 @@ class RAGRetriever:
         for exp_query in expanded_queries:
             exp_embedding = query_embedding
             if exp_query != query:
-                exp_embedding = await self._generate_embedding(exp_query) or query_embedding
+                exp_embedding = (
+                    await self._generate_embedding(exp_query) or query_embedding
+                )
 
             try:
                 search_results = self._store.search(
@@ -332,9 +331,7 @@ class RAGRetriever:
 
     # ── Embedding Generation ──────────────────────────────────────
 
-    async def _generate_embedding(
-        self, text: str
-    ) -> Optional[List[float]]:
+    async def _generate_embedding(self, text: str) -> Optional[List[float]]:
         """Generate query embedding using EmbeddingService.
 
         Falls back to the store's own embedding generator if the service
@@ -346,6 +343,7 @@ class RAGRetriever:
         # Try real embedding service first
         try:
             from app.services.embedding_service import EmbeddingService
+
             svc = EmbeddingService(company_id="rag_query")
             embedding = svc.generate_embedding(text)
             if embedding:
@@ -357,7 +355,7 @@ class RAGRetriever:
             )
 
         # BC-008: Fallback to store's own generator (e.g. MockVectorStore)
-        if hasattr(self._store, '_generate_embedding'):
+        if hasattr(self._store, "_generate_embedding"):
             try:
                 return self._store._generate_embedding(text)
             except Exception as exc:
@@ -402,9 +400,9 @@ class RAGRetriever:
             # G9-GAP-07 FIX: Use public get_all_documents() method instead of
             # accessing private _store._store attribute directly
             company_docs: Dict[str, Any] = {}
-            if hasattr(self._store, 'get_all_documents'):
+            if hasattr(self._store, "get_all_documents"):
                 company_docs = self._store.get_all_documents(company_id)
-            elif hasattr(self._store, '_store'):
+            elif hasattr(self._store, "_store"):
                 company_docs = self._store._store.get(company_id, {})
             for doc_id, doc_data in company_docs.items():
                 for chunk in doc_data.get("chunks", []):
@@ -512,16 +510,19 @@ class RAGRetriever:
             position_bonus = 0.01 * (1 - i / max(len(chunks), 1))
 
             # Combine original score with reranking signals
-            rerank_score = chunk.score * 0.6 + word_density * \
-                0.3 + phrase_bonus + position_bonus
+            rerank_score = (
+                chunk.score * 0.6 + word_density * 0.3 + phrase_bonus + position_bonus
+            )
 
-            reranked.append(RAGChunk(
-                chunk_id=chunk.chunk_id,
-                document_id=chunk.document_id,
-                content=chunk.content,
-                score=round(min(rerank_score, 1.0), 6),
-                metadata=chunk.metadata,
-            ))
+            reranked.append(
+                RAGChunk(
+                    chunk_id=chunk.chunk_id,
+                    document_id=chunk.document_id,
+                    content=chunk.content,
+                    score=round(min(rerank_score, 1.0), 6),
+                    metadata=chunk.metadata,
+                )
+            )
 
         reranked.sort(key=lambda c: c.score, reverse=True)
         return reranked
@@ -558,11 +559,13 @@ class RAGRetriever:
         filters: Optional[Dict[str, Any]],
     ) -> str:
         """Build a deterministic cache key."""
-        query_hash = hashlib.sha256(
-            query.lower().strip().encode("utf-8")).hexdigest()[:16]
+        query_hash = hashlib.sha256(query.lower().strip().encode("utf-8")).hexdigest()[
+            :16
+        ]
         filter_hash = ""
         if filters:
             import json
+
             filter_hash = hashlib.sha256(
                 json.dumps(filters, sort_keys=True).encode("utf-8")
             ).hexdigest()[:8]
@@ -589,17 +592,16 @@ class RAGRetriever:
                     for c in cached.get("chunks", [])
                 ]
                 return RAGResult(
-                    chunks=chunks, total_found=cached.get(
-                        "total_found", 0), retrieval_time_ms=cached.get(
-                        "retrieval_time_ms", 0.0), query_embedding_time_ms=cached.get(
-                        "query_embedding_time_ms", 0.0), filters_applied=cached.get(
-                        "filters_applied", {}), variant_tier_used=cached.get(
-                        "variant_tier_used", "parwa"), cached=True, )
+                    chunks=chunks,
+                    total_found=cached.get("total_found", 0),
+                    retrieval_time_ms=cached.get("retrieval_time_ms", 0.0),
+                    query_embedding_time_ms=cached.get("query_embedding_time_ms", 0.0),
+                    filters_applied=cached.get("filters_applied", {}),
+                    variant_tier_used=cached.get("variant_tier_used", "parwa"),
+                    cached=True,
+                )
         except Exception as exc:
-            logger.warning(
-                "rag_cache_read_failed",
-                error=str(exc),
-                cache_key=cache_key)
+            logger.warning("rag_cache_read_failed", error=str(exc), cache_key=cache_key)
         return None
 
     async def _store_cache(
@@ -616,7 +618,4 @@ class RAGRetriever:
                 ttl_seconds=CACHE_TTL_SECONDS,
             )
         except Exception as exc:
-            logger.debug(
-                "rag_cache_write_failed",
-                error=str(exc),
-                cache_key=cache_key)
+            logger.debug("rag_cache_write_failed", error=str(exc), cache_key=cache_key)

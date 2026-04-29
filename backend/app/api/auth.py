@@ -88,9 +88,7 @@ def check_email(
     L04: F-010 spec requires email availability check.
     Rate limited by middleware (20/IP/min).
     """
-    available = check_email_availability(
-        db=db, email=email
-    )
+    available = check_email_availability(db=db, email=email)
     return EmailCheckResponse(
         email=email.strip().lower(),
         available=available,
@@ -164,9 +162,7 @@ def refresh(
     L07: Reuse detection invalidates ALL user tokens.
     L12: Also updates HTTP-only cookies.
     """
-    result = refresh_tokens(
-        db=db, raw_token=body.refresh_token
-    )
+    result = refresh_tokens(db=db, raw_token=body.refresh_token)
     _set_token_cookies(response, result)
     return result
 
@@ -206,11 +202,16 @@ def phone_send_otp(
     Validates E.164 format, generates OTP, stores hash in DB.
     """
     # Verify company exists (BC-001)
-    company = db.query(Company).filter(
-        Company.id == body.company_id,
-    ).first()
+    company = (
+        db.query(Company)
+        .filter(
+            Company.id == body.company_id,
+        )
+        .first()
+    )
     if not company:
         from fastapi import HTTPException
+
         raise HTTPException(
             status_code=404,
             detail="Company not found",
@@ -239,11 +240,16 @@ def phone_verify_otp(
     L23: Validate company exists for consistency with send.
     """
     # L23: Verify company exists (BC-001)
-    company = db.query(Company).filter(
-        Company.id == body.company_id,
-    ).first()
+    company = (
+        db.query(Company)
+        .filter(
+            Company.id == body.company_id,
+        )
+        .first()
+    )
     if not company:
         from fastapi import HTTPException
+
         raise HTTPException(
             status_code=404,
             detail="Company not found",
@@ -264,7 +270,9 @@ def phone_verify_otp(
 @router.get("/verify")
 def verify_email_endpoint(
     token: str = Query(
-        ..., min_length=32, max_length=64,
+        ...,
+        min_length=32,
+        max_length=64,
         description="Verification token (URL-safe)",
     ),
     db: Session = Depends(get_db),
@@ -288,9 +296,7 @@ def resend_verification(
     F-012: Rate limited to 3 per email per hour.
     Invalidates previous unused tokens.
     """
-    return resend_verification_email(
-        db=db, email=body.email
-    )
+    return resend_verification_email(db=db, email=body.email)
 
 
 # ── F-014: Password Reset ──────────────────────────────────────────
@@ -306,9 +312,7 @@ def forgot_password(
     F-014: Generic response (no account enumeration).
     Rate limited to 3 per email per hour.
     """
-    return initiate_password_reset(
-        db=db, email=body.email
-    )
+    return initiate_password_reset(db=db, email=body.email)
 
 
 @router.post("/reset-password")
@@ -345,9 +349,7 @@ def logout(
     """
     logout_user(db=db, raw_token=body.refresh_token)
     _clear_token_cookies(response)
-    return MessageResponse(
-        message="Logged out successfully"
-    )
+    return MessageResponse(message="Logged out successfully")
 
 
 @router.get("/me", response_model=UserResponse)
@@ -365,11 +367,20 @@ def get_me(
     onboarding_completed = False
     try:
         from database.models.onboarding import OnboardingSession
-        session = db.query(OnboardingSession).filter(
-            OnboardingSession.user_id == user.id,
-            OnboardingSession.company_id == user.company_id,
-        ).first()
-        if session and session.status == "completed" and session.first_victory_completed:
+
+        session = (
+            db.query(OnboardingSession)
+            .filter(
+                OnboardingSession.user_id == user.id,
+                OnboardingSession.company_id == user.company_id,
+            )
+            .first()
+        )
+        if (
+            session
+            and session.status == "completed"
+            and session.first_victory_completed
+        ):
             onboarding_completed = True
     except Exception:
         pass  # Non-critical — default to False
@@ -385,19 +396,14 @@ def get_me(
         is_verified=user.is_verified,
         company_id=user.company_id,
         onboarding_completed=onboarding_completed,
-        created_at=(
-            user.created_at.isoformat()
-            if user.created_at else None
-        ),
+        created_at=(user.created_at.isoformat() if user.created_at else None),
     )
 
 
 # ── Cookie Helpers (L12) ──────────────────────────────────────────
 
 
-def _set_token_cookies(
-    response: Response, tokens: TokenResponse
-) -> None:
+def _set_token_cookies(response: Response, tokens: TokenResponse) -> None:
     """L12: Set HTTP-only, Secure, SameSite=Strict cookies."""
     response.set_cookie(
         key="parwa_access",
@@ -421,9 +427,5 @@ def _set_token_cookies(
 
 def _clear_token_cookies(response: Response) -> None:
     """L12: Clear auth cookies on logout."""
-    response.delete_cookie(
-        key="parwa_access", path="/"
-    )
-    response.delete_cookie(
-        key="parwa_refresh", path="/"
-    )
+    response.delete_cookie(key="parwa_access", path="/")
+    response.delete_cookie(key="parwa_refresh", path="/")

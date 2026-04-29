@@ -126,11 +126,9 @@ class PostmarkEmailProvider(EmailProvider):
                 error_message=str(e)[:200],
             )
 
-    def send_template_email(self,
-                            template_id: str,
-                            to: str,
-                            variables: Dict[str,
-                                            Any]) -> ProviderResult:
+    def send_template_email(
+        self, template_id: str, to: str, variables: Dict[str, Any]
+    ) -> ProviderResult:
         payload = {
             "From": self.from_email,
             "To": to,

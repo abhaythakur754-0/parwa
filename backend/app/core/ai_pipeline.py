@@ -42,15 +42,11 @@ logger = logging.getLogger("parwa.ai_pipeline")
 # activate prompt/response optimization via DSPyIntegration.
 # When OFF or when the dspy_integration module is unavailable,
 # the pipeline works exactly as before.
-_DSPY_ENABLED = os.getenv(
-    "DSPY_ENABLED",
-    "false").lower() in (
-        "1",
-        "true",
-    "yes")
+_DSPY_ENABLED = os.getenv("DSPY_ENABLED", "false").lower() in ("1", "true", "yes")
 _DSPy_INTEGRATION_AVAILABLE = False
 try:
     from app.core.dspy_integration import DSPyIntegration
+
     _DSPY_INTEGRATION_AVAILABLE = True
 except ImportError:
     DSPyIntegration = None  # type: ignore[assignment,misc]
@@ -248,30 +244,52 @@ class AIPipeline:
         if self._edge_case_handlers is None:
             try:
                 from app.core.edge_case_handlers import (
-                    EmptyQueryHandler, TooLongQueryHandler,
-                    UnsupportedLanguageHandler, EmojisOnlyHandler,
-                    CodeBlocksHandler, DuplicateQueryHandler,
-                    EmbeddedImagesHandler, MultiQuestionHandler,
-                    NonExistentTicketHandler, MaliciousHTMLHandler,
-                    FAQMatchHandler, BelowConfidenceHandler,
-                    MaintenanceModeHandler, ExpiredContextHandler,
-                    BlockedUserHandler, PricingRequestHandler,
-                    LegalTerminologyHandler, CompetitorMentionHandler,
-                    SystemCommandsHandler, TimeoutHandler,
+                    EmptyQueryHandler,
+                    TooLongQueryHandler,
+                    UnsupportedLanguageHandler,
+                    EmojisOnlyHandler,
+                    CodeBlocksHandler,
+                    DuplicateQueryHandler,
+                    EmbeddedImagesHandler,
+                    MultiQuestionHandler,
+                    NonExistentTicketHandler,
+                    MaliciousHTMLHandler,
+                    FAQMatchHandler,
+                    BelowConfidenceHandler,
+                    MaintenanceModeHandler,
+                    ExpiredContextHandler,
+                    BlockedUserHandler,
+                    PricingRequestHandler,
+                    LegalTerminologyHandler,
+                    CompetitorMentionHandler,
+                    SystemCommandsHandler,
+                    TimeoutHandler,
                 )
+
                 # Instantiate handlers in priority order
                 self._edge_case_handlers = [
-                    h() for h in [
-                        EmptyQueryHandler, MaintenanceModeHandler,
-                        BlockedUserHandler, MaliciousHTMLHandler,
-                        TooLongQueryHandler, EmojisOnlyHandler,
-                        CodeBlocksHandler, UnsupportedLanguageHandler,
-                        EmbeddedImagesHandler, DuplicateQueryHandler,
-                        MultiQuestionHandler, NonExistentTicketHandler,
-                        FAQMatchHandler, PricingRequestHandler,
-                        LegalTerminologyHandler, CompetitorMentionHandler,
-                        SystemCommandsHandler, BelowConfidenceHandler,
-                        ExpiredContextHandler, TimeoutHandler,
+                    h()
+                    for h in [
+                        EmptyQueryHandler,
+                        MaintenanceModeHandler,
+                        BlockedUserHandler,
+                        MaliciousHTMLHandler,
+                        TooLongQueryHandler,
+                        EmojisOnlyHandler,
+                        CodeBlocksHandler,
+                        UnsupportedLanguageHandler,
+                        EmbeddedImagesHandler,
+                        DuplicateQueryHandler,
+                        MultiQuestionHandler,
+                        NonExistentTicketHandler,
+                        FAQMatchHandler,
+                        PricingRequestHandler,
+                        LegalTerminologyHandler,
+                        CompetitorMentionHandler,
+                        SystemCommandsHandler,
+                        BelowConfidenceHandler,
+                        ExpiredContextHandler,
+                        TimeoutHandler,
                     ]
                 ]
             except Exception as exc:
@@ -283,6 +301,7 @@ class AIPipeline:
         if self._injection_detector is None:
             try:
                 from app.core.prompt_injection_defense import PromptInjectionDetector
+
                 self._injection_detector = PromptInjectionDetector()
             except Exception as exc:
                 logger.warning("PromptInjectionDetector init failed: %s", exc)
@@ -294,6 +313,7 @@ class AIPipeline:
                 from app.core.signal_extraction import (
                     SignalExtractor,
                 )
+
                 self._signal_extractor = SignalExtractor()
             except Exception as exc:
                 logger.warning("SignalExtractor init failed: %s", exc)
@@ -308,6 +328,7 @@ class AIPipeline:
         if self._classification_engine is None:
             try:
                 from app.core.classification_engine import ClassificationEngine
+
                 # Get smart_router for AI-powered classification
                 smart_router = self._get_smart_router()
                 self._classification_engine = ClassificationEngine(
@@ -321,6 +342,7 @@ class AIPipeline:
         if self._sentiment_analyzer is None:
             try:
                 from app.core.sentiment_engine import SentimentAnalyzer
+
                 self._sentiment_analyzer = SentimentAnalyzer()
             except Exception as exc:
                 logger.warning("SentimentAnalyzer init failed: %s", exc)
@@ -330,6 +352,7 @@ class AIPipeline:
         if self._smart_router is None:
             try:
                 from app.core.smart_router import SmartRouter
+
                 self._smart_router = SmartRouter()
             except Exception as exc:
                 logger.warning("SmartRouter init failed: %s", exc)
@@ -339,6 +362,7 @@ class AIPipeline:
         if self._technique_router is None:
             try:
                 from app.core.technique_router import TechniqueRouter
+
                 self._technique_router = TechniqueRouter()
             except Exception as exc:
                 logger.warning("TechniqueRouter init failed: %s", exc)
@@ -348,6 +372,7 @@ class AIPipeline:
         if self._rag_reranker is None:
             try:
                 from app.core.rag_reranking import CrossEncoderReranker
+
                 self._rag_reranker = CrossEncoderReranker()
             except Exception as exc:
                 logger.warning("CrossEncoderReranker init failed: %s", exc)
@@ -357,6 +382,7 @@ class AIPipeline:
         if self._response_generator is None:
             try:
                 from app.core.response_generator import ResponseGenerator
+
                 self._response_generator = ResponseGenerator(
                     redis_client=self._redis_client,
                 )
@@ -368,6 +394,7 @@ class AIPipeline:
         if self._clara_gate is None:
             try:
                 from app.core.clara_quality_gate import CLARAQualityGate
+
                 self._clara_gate = CLARAQualityGate()
             except Exception as exc:
                 logger.warning("CLARAQualityGate init failed: %s", exc)
@@ -377,6 +404,7 @@ class AIPipeline:
         if self._guardrails_engine is None:
             try:
                 from app.core.guardrails_engine import GuardrailsEngine
+
                 self._guardrails_engine = GuardrailsEngine()
             except Exception as exc:
                 logger.warning("GuardrailsEngine init failed: %s", exc)
@@ -388,6 +416,7 @@ class AIPipeline:
                 from app.core.confidence_scoring_engine import (
                     ConfidenceScoringEngine,
                 )
+
                 self._confidence_engine = ConfidenceScoringEngine()
             except Exception as exc:
                 logger.warning("ConfidenceScoringEngine init failed: %s", exc)
@@ -396,6 +425,7 @@ class AIPipeline:
     def _get_brand_voice_service(self, company_id: str):
         try:
             from app.services.brand_voice_service import BrandVoiceService
+
             # BrandVoiceService needs a db session, handled at call site
             return BrandVoiceService
         except ImportError:
@@ -431,6 +461,7 @@ class AIPipeline:
         """
         try:
             from app.core.langgraph_workflow import LangGraphWorkflow, WorkflowConfig
+
             config = WorkflowConfig(
                 company_id=company_id,
                 variant_type=variant_type,
@@ -438,17 +469,20 @@ class AIPipeline:
             workflow = LangGraphWorkflow(config=config)
             logger.info(
                 "LangGraphWorkflow initialized: company_id=%s, variant=%s",
-                company_id, variant_type,
+                company_id,
+                variant_type,
             )
             return workflow
         except ImportError as exc:
             logger.debug(
-                "LangGraphWorkflow not available (import failed): %s", exc,
+                "LangGraphWorkflow not available (import failed): %s",
+                exc,
             )
             return None
         except Exception as exc:
             logger.warning(
-                "LangGraphWorkflow init failed (BC-008 fallback): %s", exc,
+                "LangGraphWorkflow init failed (BC-008 fallback): %s",
+                exc,
             )
             return None
 
@@ -481,7 +515,9 @@ class AIPipeline:
         start_time = time.time()
         logger.info(
             "AI Pipeline started: company_id=%s, variant=%s, query=%s",
-            ctx.company_id, ctx.variant_type, ctx.query[:80],
+            ctx.company_id,
+            ctx.variant_type,
+            ctx.query[:80],
         )
 
         # ── Stages 1-5: Always run first (safety & context) ──────
@@ -574,25 +610,27 @@ class AIPipeline:
                     ctx.stages_completed.append("langgraph_workflow")
 
                     # J7-G3: Surface LangGraph metadata in PipelineResult
-                    if hasattr(lg_result, 'workflow_id'):
+                    if hasattr(lg_result, "workflow_id"):
                         ctx.stages_completed.append(
-                            f"langgraph_{lg_result.workflow_id}")
-                    if hasattr(lg_result, 'step_results'):
+                            f"langgraph_{lg_result.workflow_id}"
+                        )
+                    if hasattr(lg_result, "step_results"):
                         ctx.stages_completed.extend(
                             f"lg:{sid}" for sid in lg_result.step_results
                         )
 
                     # Surface LangGraph step results as metadata
-                    lg_step_summary = [
-                        sid for sid in lg_result.steps_completed
-                    ]
+                    lg_step_summary = [sid for sid in lg_result.steps_completed]
                     logger.info(
                         "LangGraphWorkflow succeeded: company_id=%s, "
                         "variant=%s, status=%s, steps=%s, "
                         "tokens=%d, duration_ms=%.1f",
-                        ctx.company_id, ctx.variant_type,
-                        lg_result.status, lg_step_summary,
-                        lg_result.total_tokens_used, lg_elapsed,
+                        ctx.company_id,
+                        ctx.variant_type,
+                        lg_result.status,
+                        lg_step_summary,
+                        lg_result.total_tokens_used,
+                        lg_elapsed,
                     )
                 else:
                     # LangGraph returned but without a usable response
@@ -600,7 +638,8 @@ class AIPipeline:
                         "LangGraphWorkflow returned empty/failed result: "
                         "company_id=%s, variant=%s, status=%s, "
                         "final_response_len=%d — falling back to sequential pipeline",
-                        ctx.company_id, ctx.variant_type,
+                        ctx.company_id,
+                        ctx.variant_type,
                         lg_result.status if lg_result else "None",
                         len(lg_result.final_response) if lg_result else 0,
                     )
@@ -608,21 +647,25 @@ class AIPipeline:
                 logger.info(
                     "LangGraphWorkflow not available for company_id=%s, "
                     "variant=%s — using sequential pipeline",
-                    ctx.company_id, ctx.variant_type,
+                    ctx.company_id,
+                    ctx.variant_type,
                 )
 
         except asyncio.TimeoutError:
             logger.warning(
                 "LangGraphWorkflow timed out for company_id=%s, "
                 "variant=%s — falling back to sequential pipeline",
-                ctx.company_id, ctx.variant_type,
+                ctx.company_id,
+                ctx.variant_type,
             )
         except Exception as exc:
             # BC-008: Never crash — log and fall back
             logger.warning(
                 "LangGraphWorkflow execution failed (BC-008 fallback): "
                 "company_id=%s, variant=%s, error=%s",
-                ctx.company_id, ctx.variant_type, exc,
+                ctx.company_id,
+                ctx.variant_type,
+                exc,
             )
 
         if not langgraph_used:
@@ -634,16 +677,15 @@ class AIPipeline:
 
             # Stage 6-7: Routing (model + technique)
             self._run_stage_sync("smart_router", ctx, self._stage_smart_router)
-            self._run_stage_sync(
-                "technique_router",
-                ctx,
-                self._stage_technique_router)
+            self._run_stage_sync("technique_router", ctx, self._stage_technique_router)
 
             # Stage 8: RAG Retrieval
             await self._run_stage("rag_retrieval", ctx, self._stage_rag_retrieval)
 
             # Stage 9: Response Generation
-            await self._run_stage("response_generation", ctx, self._stage_response_generation)
+            await self._run_stage(
+                "response_generation", ctx, self._stage_response_generation
+            )
 
         # ── Stages 10-13: Always run (quality & safety) ──────────
 
@@ -653,7 +695,9 @@ class AIPipeline:
         # If CLARA failed and has suggestions, re-generate once
         if not ctx.clara_passed and ctx.clara_suggestions_applied and ctx.raw_response:
             await self._run_stage(
-                "response_regeneration", ctx, self._stage_response_generation,
+                "response_regeneration",
+                ctx,
+                self._stage_response_generation,
             )
 
         # Stage 11: Output Guardrails
@@ -672,19 +716,25 @@ class AIPipeline:
 
         # Stage 12: Confidence Scoring
         self._run_stage_sync(
-            "confidence_scoring", ctx, self._stage_confidence_scoring,
+            "confidence_scoring",
+            ctx,
+            self._stage_confidence_scoring,
         )
 
         # Stage 13: Brand Voice
         self._run_stage("brand_voice", ctx, self._stage_brand_voice)
 
         # Set final response
-        ctx.final_response = ctx.response_text or ctx.raw_response or self._get_safe_fallback_response(
-            ctx)
+        ctx.final_response = (
+            ctx.response_text
+            or ctx.raw_response
+            or self._get_safe_fallback_response(ctx)
+        )
 
         # Record query in AI monitoring service (BC-008: never crash)
         try:
             from app.core.ai_monitoring_service import AIMonitoringService
+
             _monitor = AIMonitoringService()
             _monitor.record_query(
                 company_id=ctx.company_id,
@@ -703,8 +753,10 @@ class AIPipeline:
         logger.info(
             "AI Pipeline completed: company_id=%s, langgraph_used=%s, "
             "stages_completed=%s, stages_failed=%s, duration_ms=%.1f",
-            ctx.company_id, langgraph_used,
-            ctx.stages_completed, ctx.stages_failed,
+            ctx.company_id,
+            langgraph_used,
+            ctx.stages_completed,
+            ctx.stages_failed,
             ctx.pipeline_time_ms,
         )
 
@@ -719,10 +771,7 @@ class AIPipeline:
             await asyncio.wait_for(stage_fn(ctx), timeout=timeout)
             ctx.stages_completed.append(name)
         except asyncio.TimeoutError:
-            logger.warning(
-                "Pipeline stage '%s' timed out after %ds",
-                name,
-                timeout)
+            logger.warning("Pipeline stage '%s' timed out after %ds", name, timeout)
             ctx.stages_failed.append(name)
         except Exception as exc:
             logger.error("Pipeline stage '%s' failed: %s", name, exc)
@@ -750,6 +799,7 @@ class AIPipeline:
         # E1: Try EdgeCaseRegistry first (variant-aware)
         try:
             from app.core.edge_case_handlers import EdgeCaseRegistry
+
             registry = EdgeCaseRegistry(variant=ctx.variant_type)
             ec_context = {
                 "company_id": ctx.company_id,
@@ -766,7 +816,8 @@ class AIPipeline:
                     if action == "block":
                         # E2: Use reason, not response
                         reason = registry_result.get(
-                            "reason", "I cannot process this request.")
+                            "reason", "I cannot process this request."
+                        )
                         ctx.edge_case_message = reason
                         ctx.response_text = reason
                         return
@@ -780,21 +831,22 @@ class AIPipeline:
                             company_id=ctx.company_id,
                         )
 
-                    elif action == "redirect" and registry_result.get("redirect_target"):
+                    elif action == "redirect" and registry_result.get(
+                        "redirect_target"
+                    ):
                         # E3: Handle redirect (e.g., FAQ match)
-                        ctx.edge_case_message = registry_result.get(
-                            "reason", "")
+                        ctx.edge_case_message = registry_result.get("reason", "")
                         # Don't block — let the pipeline continue with the
                         # redirect context
 
                     elif action == "escalate":
                         # E3: Mark for escalation
                         ctx.edge_case_message = registry_result.get(
-                            "reason", "Escalating to human agent.")
+                            "reason", "Escalating to human agent."
+                        )
                         ctx.urgency_level = "critical"
         except Exception as exc:
-            logger.debug(
-                "EdgeCaseRegistry failed, using manual handlers: %s", exc)
+            logger.debug("EdgeCaseRegistry failed, using manual handlers: %s", exc)
             # Fallback to manual handler iteration
             handlers = self._get_edge_case_handlers()
             if not handlers:
@@ -812,24 +864,32 @@ class AIPipeline:
                         result = handler.handle(ctx.query, context)
                         if result and hasattr(result, "action"):
                             ctx.is_edge_case = True
-                            ctx.edge_case_action = result.action.value if hasattr(
-                                result.action, "value") else str(result.action)
+                            ctx.edge_case_action = (
+                                result.action.value
+                                if hasattr(result.action, "value")
+                                else str(result.action)
+                            )
                             # E2: Use reason, not response
                             if hasattr(result, "reason") and result.reason:
                                 ctx.edge_case_message = result.reason
                             if ctx.edge_case_action == "block":
-                                ctx.response_text = ctx.edge_case_message or "I cannot process this request."
+                                ctx.response_text = (
+                                    ctx.edge_case_message
+                                    or "I cannot process this request."
+                                )
                                 return
                             # E3: Handle rewrite
                             if ctx.edge_case_action == "rewrite" and hasattr(
-                                    result, "rewritten_query"):
+                                result, "rewritten_query"
+                            ):
                                 ctx.query = result.rewritten_query
                             break
                 except Exception as inner_exc:
                     logger.debug(
                         "Edge case handler %s failed: %s",
                         type(handler).__name__,
-                        inner_exc)
+                        inner_exc,
+                    )
                     continue
 
     # ── Stage 2: Prompt Injection Scan ────────────────────────
@@ -842,19 +902,25 @@ class AIPipeline:
 
         try:
             result = detector.scan(
-                ctx.query,
-                tenant_id=ctx.company_id,
-                conversation_id=ctx.conversation_id)
+                ctx.query, tenant_id=ctx.company_id, conversation_id=ctx.conversation_id
+            )
             if result:
                 if hasattr(result, "is_injection"):
                     ctx.injection_detected = result.is_injection
                 if hasattr(result, "severity"):
                     ctx.injection_severity = result.severity or "none"
                 if hasattr(result, "action"):
-                    action = result.action if isinstance(
-                        result.action, str) else str(result.action)
+                    action = (
+                        result.action
+                        if isinstance(result.action, str)
+                        else str(result.action)
+                    )
                     ctx.injection_blocked = action in (
-                        "block", "reject", "BLOCK", "REJECT")
+                        "block",
+                        "reject",
+                        "BLOCK",
+                        "REJECT",
+                    )
                 if hasattr(result, "matches"):
                     ctx.injection_matches = [
                         {"pattern": m.pattern, "type": m.type, "severity": m.severity}
@@ -869,7 +935,8 @@ class AIPipeline:
                     )
                     logger.warning(
                         "Prompt injection blocked: company=%s, severity=%s",
-                        ctx.company_id, ctx.injection_severity,
+                        ctx.company_id,
+                        ctx.injection_severity,
                     )
         except Exception as exc:
             logger.error("Injection scan failed: %s", exc)
@@ -884,23 +951,28 @@ class AIPipeline:
 
         try:
             from app.core.signal_extraction import SignalExtractionRequest
+
             request = SignalExtractionRequest(
                 query=ctx.query,
                 company_id=ctx.company_id,
                 variant_type=ctx.variant_type,
-                customer_tier=ctx.customer_metadata.get(
-                    "tier",
-                    "free") if ctx.customer_metadata else "free",
-                turn_count=len(
-                    ctx.conversation_history or []),
-                conversation_history=[
-                    m.get(
-                        "content",
-                        "") for m in ctx.conversation_history] if ctx.conversation_history else None,
+                customer_tier=(
+                    ctx.customer_metadata.get("tier", "free")
+                    if ctx.customer_metadata
+                    else "free"
+                ),
+                turn_count=len(ctx.conversation_history or []),
+                conversation_history=(
+                    [m.get("content", "") for m in ctx.conversation_history]
+                    if ctx.conversation_history
+                    else None
+                ),
                 customer_metadata=ctx.customer_metadata,
             )
             signals = await extractor.extract(request)
-            ctx.extracted_signals = signals.to_dict() if hasattr(signals, "to_dict") else {}
+            ctx.extracted_signals = (
+                signals.to_dict() if hasattr(signals, "to_dict") else {}
+            )
 
             # Build QuerySignals for TechniqueRouter
             if hasattr(extractor, "to_query_signals"):
@@ -938,8 +1010,7 @@ class AIPipeline:
                     # names
                     raw = result.secondary_intents or []
                     ctx.secondary_intents = [
-                        si[0] if isinstance(si, (list, tuple)) else si
-                        for si in raw
+                        si[0] if isinstance(si, (list, tuple)) else si for si in raw
                     ]
         except Exception as exc:
             logger.error("Classification failed: %s", exc)
@@ -964,8 +1035,7 @@ class AIPipeline:
             history = None
             if ctx.conversation_history:
                 history = [
-                    m.get("content", str(m))
-                    if isinstance(m, dict) else str(m)
+                    m.get("content", str(m)) if isinstance(m, dict) else str(m)
                     for m in ctx.conversation_history
                 ]
 
@@ -1038,11 +1108,17 @@ class AIPipeline:
                 # G3: Read from model_config sub-object
                 if hasattr(result, "model_config"):
                     ctx.selected_model = result.model_config.model_id
-                    ctx.selected_provider = result.model_config.provider.value if hasattr(
-                        result.model_config.provider, "value") else str(result.model_config.provider)
+                    ctx.selected_provider = (
+                        result.model_config.provider.value
+                        if hasattr(result.model_config.provider, "value")
+                        else str(result.model_config.provider)
+                    )
                 if hasattr(result, "tier"):
-                    ctx.selected_tier = result.tier.value if hasattr(
-                        result.tier, "value") else str(result.tier)
+                    ctx.selected_tier = (
+                        result.tier.value
+                        if hasattr(result.tier, "value")
+                        else str(result.tier)
+                    )
         except Exception as exc:
             logger.error("Smart routing failed: %s", exc)
             ctx.selected_model = "gemini-2.0-flash"
@@ -1084,13 +1160,15 @@ class AIPipeline:
             if result:
                 # G5 FIX: RouterResult has activated_techniques (not
                 # technique/tier/fallback)
-                if hasattr(
-                        result,
-                        "activated_techniques") and result.activated_techniques:
+                if (
+                    hasattr(result, "activated_techniques")
+                    and result.activated_techniques
+                ):
                     first_activation = result.activated_techniques[0]
                     tech_id = first_activation.technique_id
-                    ctx.selected_technique = tech_id.value if hasattr(
-                        tech_id, "value") else str(tech_id)
+                    ctx.selected_technique = (
+                        tech_id.value if hasattr(tech_id, "value") else str(tech_id)
+                    )
                 if hasattr(result, "model_tier"):
                     ctx.technique_tier = str(result.model_tier)
                 if hasattr(result, "fallback_applied"):
@@ -1116,13 +1194,12 @@ class AIPipeline:
                 top_k=5,
             )
 
-            chunks = rag_result.chunks if hasattr(
-                rag_result, 'chunks') else rag_result
+            chunks = rag_result.chunks if hasattr(rag_result, "chunks") else rag_result
 
             if chunks:
                 rag_list = []
                 for c in chunks:
-                    if hasattr(c, 'to_dict'):
+                    if hasattr(c, "to_dict"):
                         rag_list.append(c.to_dict())
                     elif isinstance(c, dict):
                         rag_list.append(c)
@@ -1137,8 +1214,11 @@ class AIPipeline:
 
                 # Step 3: Optionally rerank (E4: skip for mini_parwa)
                 reranker = self._get_rag_reranker()
-                if reranker and len(
-                        ctx.rag_chunks) > 1 and ctx.variant_type != "mini_parwa":
+                if (
+                    reranker
+                    and len(ctx.rag_chunks) > 1
+                    and ctx.variant_type != "mini_parwa"
+                ):
                     try:
                         assembled = await reranker.rerank(
                             chunks=ctx.rag_chunks,
@@ -1153,7 +1233,8 @@ class AIPipeline:
                             ctx.rag_citations = assembled.to_dict().get("citations", [])
                     except Exception as rerank_exc:
                         logger.debug(
-                            "Reranking failed (using unranked): %s", rerank_exc)
+                            "Reranking failed (using unranked): %s", rerank_exc
+                        )
         except Exception as exc:
             logger.error("RAG retrieval failed: %s", exc)
 
@@ -1179,6 +1260,7 @@ class AIPipeline:
         gen_start = time.time()
         try:
             from app.core.response_generator import ResponseGenerationRequest
+
             request = ResponseGenerationRequest(
                 query=ctx.query,
                 company_id=ctx.company_id,
@@ -1210,8 +1292,13 @@ class AIPipeline:
                 if hasattr(result, "confidence_score"):
                     # Use generation confidence as baseline
                     ctx.confidence_score = max(
-                        ctx.confidence_score, result.confidence_score if hasattr(
-                            result, 'confidence_score') else 0.0)
+                        ctx.confidence_score,
+                        (
+                            result.confidence_score
+                            if hasattr(result, "confidence_score")
+                            else 0.0
+                        ),
+                    )
                 if hasattr(result, "rag_context_used"):
                     ctx.rag_context_used = result.rag_context_used
                 if hasattr(result, "citations"):
@@ -1255,8 +1342,11 @@ class AIPipeline:
 
                 # Apply DSPy-optimized response if it returned one
                 dspy_response = dspy_updates.get("final_response")
-                if dspy_response and isinstance(
-                        dspy_response, str) and dspy_response.strip():
+                if (
+                    dspy_response
+                    and isinstance(dspy_response, str)
+                    and dspy_response.strip()
+                ):
                     ctx.raw_response = dspy_response
                     ctx.response_text = dspy_response
                     ctx.stages_completed.append("dspy_optimization")
@@ -1281,7 +1371,8 @@ class AIPipeline:
                 if dspy_conf is not None:
                     try:
                         ctx.confidence_score = max(
-                            ctx.confidence_score, float(dspy_conf),
+                            ctx.confidence_score,
+                            float(dspy_conf),
                         )
                     except (ValueError, TypeError):
                         pass
@@ -1294,7 +1385,8 @@ class AIPipeline:
                     "DSPy optimization failed, using original response "
                     "(BC-008 graceful degradation): company_id=%s, "
                     "error=%s",
-                    ctx.company_id, exc,
+                    ctx.company_id,
+                    exc,
                 )
 
     # ── Stage 10: CLARA Quality Gate ──────────────────────────
@@ -1368,6 +1460,7 @@ class AIPipeline:
             day4_issues = []
             try:
                 from app.core.guardrails_integration import _run_day4_output_scanners
+
                 day4_issues = _run_day4_output_scanners(
                     response_content=ctx.response_text,
                     original_query=ctx.query,
@@ -1384,7 +1477,9 @@ class AIPipeline:
                 logger.error("Day 4 output scanners failed: %s", day4_exc)
 
             # D5-6: Use CLARA score as confidence (runs before guardrails)
-            confidence_val = ctx.clara_score if ctx.clara_passed else ctx.confidence_score or 50.0
+            confidence_val = (
+                ctx.clara_score if ctx.clara_passed else ctx.confidence_score or 50.0
+            )
             report = engine.run_full_check(
                 query=ctx.query,
                 response=ctx.response_text,
@@ -1415,6 +1510,7 @@ class AIPipeline:
             if ctx.guardrails_blocked:
                 try:
                     from app.services.shadow_mode_service import ShadowModeService
+
                     shadow_svc = ShadowModeService()
                     eval_result = shadow_svc.evaluate_action_risk(
                         company_id=ctx.company_id,
@@ -1428,11 +1524,14 @@ class AIPipeline:
                             ctx.company_id,
                         )
                         ctx.guardrails_blocked = False
-                        ctx.guardrails_passed = False  # Not passed, but not blocked either
+                        ctx.guardrails_passed = (
+                            False  # Not passed, but not blocked either
+                        )
                 except Exception as shadow_exc:
                     logger.debug(
                         "Shadow mode check failed, keeping guardrails block: %s",
-                        shadow_exc)
+                        shadow_exc,
+                    )
 
         except Exception as exc:
             logger.error("Guardrails check failed: %s", exc)
@@ -1501,46 +1600,49 @@ class AIPipeline:
         try:
             # D5-9: Try BrandVoiceService first (proper implementation)
             from app.services.brand_voice_service import BrandVoiceService
+
             bv_service = BrandVoiceService()
             result = await bv_service.merge_with_brand_voice(
                 response_text=ctx.response_text,
                 company_id=ctx.company_id,
             )
-            if result and isinstance(
-                    result, str) and result != ctx.response_text:
+            if result and isinstance(result, str) and result != ctx.response_text:
                 ctx.response_text = result
                 ctx.brand_voice_applied = True
         except Exception as exc:
             # Fallback to jarvis_service
             try:
-                from app.services.jarvis_service import jarvis_merge_with_brand_voice as _merge_bv
+                from app.services.jarvis_service import (
+                    jarvis_merge_with_brand_voice as _merge_bv,
+                )
+
                 result = _merge_bv(ctx.company_id, ctx.response_text)
                 if result and isinstance(result, dict):
-                    merged = result.get(
-                        "merged_response") or result.get("response")
+                    merged = result.get("merged_response") or result.get("response")
                     if merged and merged != ctx.response_text:
                         ctx.response_text = merged
                         ctx.brand_voice_applied = True
             except Exception as inner_exc:
                 logger.debug(
-                    "Brand voice merge failed: %s (fallback: %s)",
-                    exc,
-                    inner_exc)
+                    "Brand voice merge failed: %s (fallback: %s)", exc, inner_exc
+                )
 
     # ── Result Building ───────────────────────────────────────
 
-    def _build_result(
-            self,
-            ctx: PipelineContext,
-            start_time: float) -> PipelineResult:
+    def _build_result(self, ctx: PipelineContext, start_time: float) -> PipelineResult:
         """Build the final PipelineResult from PipelineContext."""
         elapsed_ms = (time.time() - start_time) * 1000
         ctx.pipeline_time_ms = elapsed_ms
 
         return PipelineResult(
-            response=ctx.final_response or ctx.response_text or ctx.edge_case_message or "",
+            response=ctx.final_response
+            or ctx.response_text
+            or ctx.edge_case_message
+            or "",
             confidence_score=ctx.confidence_score,
-            auto_action=ctx.confidence_auto_action and ctx.guardrails_passed and ctx.clara_passed,
+            auto_action=ctx.confidence_auto_action
+            and ctx.guardrails_passed
+            and ctx.clara_passed,
             intent_type=ctx.intent_type,
             frustration_score=ctx.frustration_score,
             sentiment_score=ctx.sentiment_score,
@@ -1570,8 +1672,7 @@ class AIPipeline:
                 "clara_issues": ctx.clara_issues,
                 "guardrails_severity": ctx.guardrails_severity,
                 "confidence_threshold": ctx.confidence_threshold,
-                "rag_chunks_count": len(
-                    ctx.rag_chunks),
+                "rag_chunks_count": len(ctx.rag_chunks),
                 "tokens_used": ctx.tokens_used,
                 "generation_time_ms": ctx.generation_time_ms,
                 "injection_severity": ctx.injection_severity,
@@ -1593,7 +1694,8 @@ class AIPipeline:
         severity = ctx.guardrails_severity or "none"
         return responses.get(
             severity,
-            "I appreciate your patience. A team member will follow up with you shortly on this matter.")
+            "I appreciate your patience. A team member will follow up with you shortly on this matter.",
+        )
 
     def _get_template_response(self, ctx: PipelineContext) -> str:
         """Generate a template-based response when AI generation fails."""

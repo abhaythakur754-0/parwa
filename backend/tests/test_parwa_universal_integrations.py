@@ -38,7 +38,7 @@ import sys
 from datetime import datetime
 
 # Add backend to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 # Import provider system
@@ -79,6 +79,7 @@ PARWA_LIMITS = {
 # TEST CLASS
 # ============================================================
 
+
 class TestParwaVariant:
     """Complete test suite for PARWA variant with universal integrations"""
 
@@ -105,7 +106,9 @@ class TestParwaVariant:
         assert limits["voice_slots"] == 2, "PARWA should have 2 voice slots"
         assert limits["kb_docs"] == 500, "PARWA should have 500 KB docs"
         assert limits["rag_top_k"] == 5, "PARWA should have RAG top_k=5"
-        assert limits["api_access"] == "readwrite", "PARWA should have readwrite API access"
+        assert (
+            limits["api_access"] == "readwrite"
+        ), "PARWA should have readwrite API access"
         assert "light" in limits["model_tiers"], "PARWA should have light model"
         assert "medium" in limits["model_tiers"], "PARWA should have medium model"
         assert 1 in limits["technique_tiers"], "PARWA should have Tier 1 techniques"
@@ -275,8 +278,7 @@ class TestParwaVariant:
             if result.error_message:
                 print(f"  - Error: {result.error_message}")
             if result.metadata:
-                print(
-                    f"  - Account Email: {result.metadata.get('email', 'N/A')}")
+                print(f"  - Account Email: {result.metadata.get('email', 'N/A')}")
 
             # Get rate limits
             limits = provider.get_rate_limits()
@@ -326,7 +328,8 @@ class TestParwaVariant:
                 print(f"  - Error: {result.error_message}")
             if result.metadata:
                 print(
-                    f"  - Account Name: {result.metadata.get('friendly_name', 'N/A')}")
+                    f"  - Account Name: {result.metadata.get('friendly_name', 'N/A')}"
+                )
 
             # Get rate limits
             limits = provider.get_rate_limits()
@@ -450,7 +453,8 @@ class TestParwaVariant:
                 ProviderType.SMS, "twilio", twilio_config, validate=False
             )
             messagebird = ProviderFactory.create(
-                ProviderType.SMS, "messagebird", messagebird_config, validate=False)
+                ProviderType.SMS, "messagebird", messagebird_config, validate=False
+            )
 
             print("\n✅ Created Email Providers:")
             print(f"  - Brevo: {brevo.provider_name}")
@@ -461,12 +465,10 @@ class TestParwaVariant:
             print(f"  - MessageBird: {messagebird.provider_name}")
 
             # Verify all have same interface
-            assert hasattr(brevo, 'send_email'), "Brevo should have send_email"
-            assert hasattr(
-                sendgrid, 'send_email'), "SendGrid should have send_email"
-            assert hasattr(twilio, 'send_sms'), "Twilio should have send_sms"
-            assert hasattr(
-                messagebird, 'send_sms'), "MessageBird should have send_sms"
+            assert hasattr(brevo, "send_email"), "Brevo should have send_email"
+            assert hasattr(sendgrid, "send_email"), "SendGrid should have send_email"
+            assert hasattr(twilio, "send_sms"), "Twilio should have send_sms"
+            assert hasattr(messagebird, "send_sms"), "MessageBird should have send_sms"
 
             print("\n✅ All providers have the SAME interface!")
             print("   This means you can switch providers without code changes.")
@@ -492,15 +494,39 @@ class TestParwaVariant:
         print("\n| Feature | Mini PARWA | PARWA |")
         print("|---------|------------|-------|")
         comparisons = [
-            ("Monthly Tickets", mini_limits.get("monthly_tickets"), parwa_limits.get("monthly_tickets")),
+            (
+                "Monthly Tickets",
+                mini_limits.get("monthly_tickets"),
+                parwa_limits.get("monthly_tickets"),
+            ),
             ("AI Agents", mini_limits.get("ai_agents"), parwa_limits.get("ai_agents")),
-            ("Team Members", mini_limits.get("team_members"), parwa_limits.get("team_members")),
-            ("Voice Slots", mini_limits.get("voice_slots"), parwa_limits.get("voice_slots")),
+            (
+                "Team Members",
+                mini_limits.get("team_members"),
+                parwa_limits.get("team_members"),
+            ),
+            (
+                "Voice Slots",
+                mini_limits.get("voice_slots"),
+                parwa_limits.get("voice_slots"),
+            ),
             ("KB Docs", mini_limits.get("kb_docs"), parwa_limits.get("kb_docs")),
             ("RAG Top-K", mini_limits.get("rag_top_k"), parwa_limits.get("rag_top_k")),
-            ("API Access", mini_limits.get("api_access"), parwa_limits.get("api_access")),
-            ("Model Tiers", mini_limits.get("model_tiers"), parwa_limits.get("model_tiers")),
-            ("Technique Tiers", mini_limits.get("technique_tiers"), parwa_limits.get("technique_tiers")),
+            (
+                "API Access",
+                mini_limits.get("api_access"),
+                parwa_limits.get("api_access"),
+            ),
+            (
+                "Model Tiers",
+                mini_limits.get("model_tiers"),
+                parwa_limits.get("model_tiers"),
+            ),
+            (
+                "Technique Tiers",
+                mini_limits.get("technique_tiers"),
+                parwa_limits.get("technique_tiers"),
+            ),
         ]
 
         for name, mini_val, parwa_val in comparisons:
@@ -512,6 +538,7 @@ class TestParwaVariant:
 # ============================================================
 # RUN TESTS
 # ============================================================
+
 
 def run_all_tests():
     """Run all tests and generate report"""
@@ -528,15 +555,39 @@ def run_all_tests():
     tests = [
         ("SCENARIO 1: PARWA Limits", test_instance.test_scenario_01_parwa_limits),
         ("SCENARIO 2: PARWA Features", test_instance.test_scenario_02_parwa_features),
-        ("SCENARIO 3: PARWA Blocked Features", test_instance.test_scenario_03_parwa_blocked_features),
-        ("SCENARIO 4: Universal Email Providers", test_instance.test_scenario_04_universal_email_providers),
-        ("SCENARIO 5: Universal SMS Providers", test_instance.test_scenario_05_universal_sms_providers),
-        ("SCENARIO 6: Brevo Email Test", test_instance.test_scenario_06_brevo_email_test),
+        (
+            "SCENARIO 3: PARWA Blocked Features",
+            test_instance.test_scenario_03_parwa_blocked_features,
+        ),
+        (
+            "SCENARIO 4: Universal Email Providers",
+            test_instance.test_scenario_04_universal_email_providers,
+        ),
+        (
+            "SCENARIO 5: Universal SMS Providers",
+            test_instance.test_scenario_05_universal_sms_providers,
+        ),
+        (
+            "SCENARIO 6: Brevo Email Test",
+            test_instance.test_scenario_06_brevo_email_test,
+        ),
         ("SCENARIO 7: Twilio SMS Test", test_instance.test_scenario_07_twilio_sms_test),
-        ("SCENARIO 8: Universal Email Service", test_instance.test_scenario_08_universal_email_service),
-        ("SCENARIO 9: Universal SMS Service", test_instance.test_scenario_09_universal_sms_service),
-        ("SCENARIO 10: Provider Switching", test_instance.test_scenario_10_provider_switching),
-        ("SCENARIO 11: PARWA vs Mini PARWA", test_instance.test_scenario_11_parwa_vs_mini_comparison),
+        (
+            "SCENARIO 8: Universal Email Service",
+            test_instance.test_scenario_08_universal_email_service,
+        ),
+        (
+            "SCENARIO 9: Universal SMS Service",
+            test_instance.test_scenario_09_universal_sms_service,
+        ),
+        (
+            "SCENARIO 10: Provider Switching",
+            test_instance.test_scenario_10_provider_switching,
+        ),
+        (
+            "SCENARIO 11: PARWA vs Mini PARWA",
+            test_instance.test_scenario_11_parwa_vs_mini_comparison,
+        ),
     ]
 
     results = []
@@ -579,8 +630,11 @@ def run_all_tests():
     print(f" ✅ Passed: {passed}")
     print(f" ❌ Failed: {failed}")
     print(f" ⏭️ Skipped: {skipped}")
-    print(f" Success Rate: {(passed / (passed + failed)) * 100:.1f}%" if (
-        passed + failed) > 0 else "N/A")
+    print(
+        f" Success Rate: {(passed / (passed + failed)) * 100:.1f}%"
+        if (passed + failed) > 0
+        else "N/A"
+    )
     print("-" * 70)
 
     return passed, failed, skipped

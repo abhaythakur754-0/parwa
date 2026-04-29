@@ -44,6 +44,7 @@ HEALTH_ALERT_SLOW_MS: int = 5000
 
 # ── Exception Classes ─────────────────────────────────────────────────────
 
+
 class WebhookHealthError(Exception):
     """Base exception for webhook health errors."""
 
@@ -60,6 +61,7 @@ class WebhookOrderingError(WebhookHealthError):
 # DeadLetterWebhook and WebhookHealthStat models are being added via
 # migration in parallel. We define stubs here so the service is importable.
 
+
 class _DeadLetterWebhookModel:
     """Stub for DeadLetterWebhook table schema.
 
@@ -67,6 +69,7 @@ class _DeadLetterWebhookModel:
              error_message, status, retry_count, max_retries,
              next_retry_at, created_at, updated_at
     """
+
     __tablename__ = "dead_letter_webhooks"
 
 
@@ -77,10 +80,12 @@ class _WebhookHealthStatModel:
              events_failed, avg_processing_time_ms, failure_rate,
              created_at
     """
+
     __tablename__ = "webhook_health_stats"
 
 
 # ── Service Implementation ───────────────────────────────────────────────
+
 
 class WebhookHealthService:
     """
@@ -119,6 +124,7 @@ class WebhookHealthService:
             return None
         try:
             from database.models.billing_extended import DeadLetterWebhook  # type: ignore
+
             self._dlq_table_available = True
             return DeadLetterWebhook
         except ImportError:
@@ -132,6 +138,7 @@ class WebhookHealthService:
             return None
         try:
             from database.models.billing_extended import WebhookHealthStat  # type: ignore
+
             self._health_table_available = True
             return WebhookHealthStat
         except ImportError:
@@ -182,11 +189,9 @@ class WebhookHealthService:
             Dict with updated health stats for today
         """
         if not provider or not isinstance(provider, str):
-            raise WebhookHealthError(
-                "provider is required and must be a string")
+            raise WebhookHealthError("provider is required and must be a string")
         if not event_type or not isinstance(event_type, str):
-            raise WebhookHealthError(
-                "event_type is required and must be a string")
+            raise WebhookHealthError("event_type is required and must be a string")
 
         today = datetime.now(timezone.utc).date()
 
@@ -239,8 +244,7 @@ class WebhookHealthService:
                 stat.events_failed = (stat.events_failed or 0) + 1
 
             # Recalculate average processing time
-            total_processed = (stat.events_processed or 0) + \
-                (stat.events_failed or 0)
+            total_processed = (stat.events_processed or 0) + (stat.events_failed or 0)
             if total_processed > 0:
                 current_avg = stat.avg_processing_time_ms or 0
                 # Running average: (old_avg * (n-1) + new_value) / n
@@ -259,9 +263,13 @@ class WebhookHealthService:
             logger.info(
                 "webhook_health_recorded provider=%s type=%s success=%s "
                 "received=%d processed=%d failed=%d avg_ms=%d",
-                provider, event_type, success,
-                stat.events_received, stat.events_processed,
-                stat.events_failed, stat.avg_processing_time_ms,
+                provider,
+                event_type,
+                success,
+                stat.events_received,
+                stat.events_processed,
+                stat.events_failed,
+                stat.avg_processing_time_ms,
             )
 
             return {
@@ -300,8 +308,7 @@ class WebhookHealthService:
         if days < 1:
             raise WebhookHealthError("days must be >= 1")
 
-        since_date = datetime.now(timezone.utc).date() - \
-            timedelta(days=days - 1)
+        since_date = datetime.now(timezone.utc).date() - timedelta(days=days - 1)
 
         with SessionLocal() as db:
             WebhookHealthStat = self._get_health_stat_model(db)
@@ -346,12 +353,9 @@ class WebhookHealthService:
             for r in rows:
                 day_total = (r.events_processed or 0) + (r.events_failed or 0)
                 if day_total > 0:
-                    total_time_weight += (r.avg_processing_time_ms or 0) * \
-                        day_total
+                    total_time_weight += (r.avg_processing_time_ms or 0) * day_total
                     total_weight += day_total
-            avg_time = int(
-                total_time_weight
-                / total_weight) if total_weight > 0 else 0
+            avg_time = int(total_time_weight / total_weight) if total_weight > 0 else 0
 
             # Check alert conditions
             alerts: List[str] = []
@@ -442,7 +446,8 @@ class WebhookHealthService:
             if DeadLetterWebhook is None:
                 logger.warning(
                     "dlq_add_skipped company_id=%s event_id=%s",
-                    company_id_str, event_id,
+                    company_id_str,
+                    event_id,
                 )
                 return {
                     "company_id": company_id_str,
@@ -481,7 +486,10 @@ class WebhookHealthService:
             logger.info(
                 "dlq_webhook_added company_id=%s provider=%s event_id=%s "
                 "event_type=%s error=%s",
-                company_id_str, provider, event_id, event_type,
+                company_id_str,
+                provider,
+                event_id,
+                event_type,
                 error_message[:100],
             )
 
@@ -551,10 +559,8 @@ class WebhookHealthService:
             record.retry_count = (record.retry_count or 0) + 1
 
             # Calculate exponential backoff: 2^retry_count minutes
-            backoff_minutes = EXPONENTIAL_BACKOFF_BASE ** record.retry_count
-            next_retry = datetime.now(timezone.utc) + timedelta(
-                minutes=backoff_minutes
-            )
+            backoff_minutes = EXPONENTIAL_BACKOFF_BASE**record.retry_count
+            next_retry = datetime.now(timezone.utc) + timedelta(minutes=backoff_minutes)
 
             record.status = "retrying"
             record.next_retry_at = next_retry
@@ -659,17 +665,14 @@ class WebhookHealthService:
 
                         logger.info(
                             "dlq_webhook_processed id=%s event_id=%s",
-                            record.id, record.event_id,
+                            record.id,
+                            record.event_id,
                         )
                     else:
                         # Failed — increment retry and schedule next
                         record.retry_count = (record.retry_count or 0) + 1
-                        backoff_minutes = (
-                            EXPONENTIAL_BACKOFF_BASE ** record.retry_count
-                        )
-                        record.next_retry_at = now + timedelta(
-                            minutes=backoff_minutes
-                        )
+                        backoff_minutes = EXPONENTIAL_BACKOFF_BASE**record.retry_count
+                        record.next_retry_at = now + timedelta(minutes=backoff_minutes)
                         record.status = "retrying"
                         record.updated_at = now
                         db.commit()
@@ -678,25 +681,32 @@ class WebhookHealthService:
                         logger.warning(
                             "dlq_webhook_retry_failed id=%s event_id=%s "
                             "attempt=%d next_in=%dmin",
-                            record.id, record.event_id,
-                            record.retry_count, backoff_minutes,
+                            record.id,
+                            record.event_id,
+                            record.retry_count,
+                            backoff_minutes,
                         )
 
                 except Exception as exc:
-                    results["errors"].append({
-                        "id": record.id,
-                        "event_id": record.event_id,
-                        "error": str(exc)[:200],
-                    })
+                    results["errors"].append(
+                        {
+                            "id": record.id,
+                            "event_id": record.event_id,
+                            "error": str(exc)[:200],
+                        }
+                    )
                     logger.error(
                         "dlq_webhook_processing_error id=%s error=%s",
-                        record.id, str(exc)[:200],
+                        record.id,
+                        str(exc)[:200],
                     )
 
         logger.info(
             "dlq_processing_completed processed=%d failed=%d exhausted=%d errors=%d",
-            results["processed"], results["failed"],
-            results["exhausted"], len(results["errors"]),
+            results["processed"],
+            results["failed"],
+            results["exhausted"],
+            len(results["errors"]),
         )
 
         return results
@@ -737,8 +747,7 @@ class WebhookHealthService:
 
             # Update error message
             record.error_message = result.get(
-                "error",
-                f"Handler returned status: {result.get('status')}"
+                "error", f"Handler returned status: {result.get('status')}"
             )
             return False
 
@@ -794,7 +803,8 @@ class WebhookHealthService:
 
             logger.info(
                 "dlq_webhook_discarded id=%s event_id=%s",
-                dead_letter_id, record.event_id,
+                dead_letter_id,
+                record.event_id,
             )
 
             return {
@@ -823,16 +833,10 @@ class WebhookHealthService:
         if limit < 1:
             raise WebhookHealthError("limit must be >= 1")
 
-        valid_statuses = {
-            "pending",
-            "retrying",
-            "processed",
-            "discarded",
-            "exhausted"}
+        valid_statuses = {"pending", "retrying", "processed", "discarded", "exhausted"}
         if status is not None and status not in valid_statuses:
             raise WebhookHealthError(
-                f"Invalid status: {status}. "
-                f"Must be one of: {valid_statuses}"
+                f"Invalid status: {status}. " f"Must be one of: {valid_statuses}"
             )
 
         with SessionLocal() as db:
@@ -846,10 +850,7 @@ class WebhookHealthService:
                 query = query.filter(DeadLetterWebhook.status == status)
 
             records = (
-                query
-                .order_by(DeadLetterWebhook.created_at.desc())
-                .limit(limit)
-                .all()
+                query.order_by(DeadLetterWebhook.created_at.desc()).limit(limit).all()
             )
 
             return [
@@ -866,9 +867,7 @@ class WebhookHealthService:
                     "next_retry_at": (
                         r.next_retry_at.isoformat() if r.next_retry_at else None
                     ),
-                    "created_at": (
-                        r.created_at.isoformat() if r.created_at else None
-                    ),
+                    "created_at": (r.created_at.isoformat() if r.created_at else None),
                 }
                 for r in records
             ]
@@ -908,9 +907,7 @@ class WebhookHealthService:
 
         # Validate timestamp
         try:
-            since_dt = datetime.fromisoformat(
-                since_timestamp.replace("Z", "+00:00")
-            )
+            since_dt = datetime.fromisoformat(since_timestamp.replace("Z", "+00:00"))
         except (ValueError, AttributeError):
             raise WebhookHealthError(
                 f"Invalid since_timestamp: {since_timestamp}. "
@@ -929,16 +926,18 @@ class WebhookHealthService:
 
             logger.info(
                 "webhook_backfill_started since=%s company_id=%s fetched=%d",
-                since_timestamp, company_id_str, len(events),
+                since_timestamp,
+                company_id_str,
+                len(events),
             )
 
             with SessionLocal() as db:
                 for event_data in events:
                     try:
-                        event_id = event_data.get(
-                            "event_id") or event_data.get("id")
-                        event_type = event_data.get(
-                            "event_type") or event_data.get("type")
+                        event_id = event_data.get("event_id") or event_data.get("id")
+                        event_type = event_data.get("event_type") or event_data.get(
+                            "type"
+                        )
 
                         if not event_id or not event_type:
                             results["events_skipped"] += 1
@@ -992,38 +991,38 @@ class WebhookHealthService:
                                 provider="paddle",
                                 event_id=event_id,
                                 event_type=event_type,
-                                payload=event_data.get(
-                                    "payload",
-                                    {}),
-                                error_message=result.get(
-                                    "error",
-                                    "Processing failed"),
+                                payload=event_data.get("payload", {}),
+                                error_message=result.get("error", "Processing failed"),
                             )
                             results["events_skipped"] += 1
 
                     except Exception as exc:
-                        results["errors"].append({
-                            "event_id": event_data.get("event_id", "unknown"),
-                            "error": str(exc)[:200],
-                        })
+                        results["errors"].append(
+                            {
+                                "event_id": event_data.get("event_id", "unknown"),
+                                "error": str(exc)[:200],
+                            }
+                        )
                         logger.error(
                             "backfill_event_error event_id=%s error=%s",
-                            event_data.get("event_id"), str(exc)[:200],
+                            event_data.get("event_id"),
+                            str(exc)[:200],
                         )
 
         except Exception as exc:
             logger.error(
                 "webhook_backfill_failed since=%s error=%s",
-                since_timestamp, str(exc),
+                since_timestamp,
+                str(exc),
             )
-            raise WebhookHealthError(
-                f"Backfill failed: {str(exc)}"
-            ) from exc
+            raise WebhookHealthError(f"Backfill failed: {str(exc)}") from exc
 
         logger.info(
             "webhook_backfill_completed fetched=%d processed=%d skipped=%d errors=%d",
-            results["events_fetched"], results["events_processed"],
-            results["events_skipped"], len(results["errors"]),
+            results["events_fetched"],
+            results["events_processed"],
+            results["events_skipped"],
+            len(results["errors"]),
         )
 
         return results
@@ -1064,7 +1063,8 @@ class WebhookHealthService:
         except Exception as exc:
             logger.warning(
                 "paddle_events_fetch_failed since=%s error=%s",
-                since_timestamp, str(exc)[:200],
+                since_timestamp,
+                str(exc)[:200],
             )
             return []
 
@@ -1102,9 +1102,7 @@ class WebhookHealthService:
         # Parse occurred_at
         if isinstance(occurred_at, str):
             try:
-                occurred_dt = datetime.fromisoformat(
-                    occurred_at.replace("Z", "+00:00")
-                )
+                occurred_dt = datetime.fromisoformat(occurred_at.replace("Z", "+00:00"))
             except (ValueError, AttributeError):
                 occurred_dt = datetime.now(timezone.utc)
         elif isinstance(occurred_at, datetime):
@@ -1130,16 +1128,21 @@ class WebhookHealthService:
                 logger.info(
                     "webhook_ordering_gap company_id=%s event_id=%s "
                     "waiting_for=%s gap_occurred=%s",
-                    company_id_str, event_id,
+                    company_id_str,
+                    event_id,
                     gap_event.paddle_event_id,
                     gap_event.occurred_at.isoformat(),
                 )
 
                 return {
-                    "delayed": True, "waiting_for": gap_event.paddle_event_id, "message": (
+                    "delayed": True,
+                    "waiting_for": gap_event.paddle_event_id,
+                    "message": (
                         "Event ordering gap detected. " f"Waiting for earlier event {
                             gap_event.paddle_event_id} " f"(occurred at {
-                            gap_event.occurred_at.isoformat()})."), }
+                            gap_event.occurred_at.isoformat()})."
+                    ),
+                }
 
             # No gap — register this event as being processed
             sequence = WebhookSequence(
@@ -1156,7 +1159,8 @@ class WebhookHealthService:
 
             logger.info(
                 "webhook_ordering_ok company_id=%s event_id=%s",
-                company_id_str, event_id,
+                company_id_str,
+                event_id,
             )
 
             return {

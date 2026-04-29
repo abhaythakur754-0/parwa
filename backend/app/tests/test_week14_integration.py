@@ -14,7 +14,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ═══════════════════════════════════════════════════════════════════
 # F-087: Jarvis Command Parser (15 tests)
 # ═══════════════════════════════════════════════════════════════════
@@ -25,6 +24,7 @@ class TestJarvisCommandParser:
 
     def _get_parser(self):
         from app.core.jarvis_command_parser import JarvisCommandParser
+
         return JarvisCommandParser()
 
     def test_parse_show_status(self):
@@ -37,15 +37,19 @@ class TestJarvisCommandParser:
         parser = self._get_parser()
         result = parser.parse("create agent returns specialist for email")
         assert result is not None
-        assert "agent" in result.command_type.lower(
-        ) or "create" in result.command_type.lower()
+        assert (
+            "agent" in result.command_type.lower()
+            or "create" in result.command_type.lower()
+        )
 
     def test_parse_escalate_ticket(self):
         parser = self._get_parser()
         result = parser.parse("escalate ticket TKT-123")
         assert result is not None
-        assert "ticket" in result.command_type.lower(
-        ) or "escalate" in result.command_type.lower()
+        assert (
+            "ticket" in result.command_type.lower()
+            or "escalate" in result.command_type.lower()
+        )
 
     def test_parse_list_errors(self):
         parser = self._get_parser()
@@ -88,7 +92,7 @@ class TestJarvisCommandParser:
         commands = parser.list_commands()
         categories = set()
         for cmd in commands:
-            if hasattr(cmd, 'category'):
+            if hasattr(cmd, "category"):
                 categories.add(cmd.category)
         # Should have at least 5 categories
         assert len(categories) >= 5
@@ -138,23 +142,23 @@ class TestJarvisCommandParser:
 class TestSystemStatusService:
     """Tests for real-time health dashboard (F-088)."""
 
-    @patch('app.services.system_status_service.redis_client')
-    @patch('app.services.system_status_service.get_db')
-    def test_get_system_status_returns_subsystems(
-            self, mock_get_db, mock_redis):
+    @patch("app.services.system_status_service.redis_client")
+    @patch("app.services.system_status_service.get_db")
+    def test_get_system_status_returns_subsystems(self, mock_get_db, mock_redis):
         mock_redis.get.return_value = None
         mock_redis.set.return_value = True
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
 
         from app.services.system_status_service import SystemStatusService
+
         svc = SystemStatusService(company_id="test-co")
         result = svc.get_system_status()
         assert result is not None
-        assert 'subsystems' in result or 'status' in result
+        assert "subsystems" in result or "status" in result
 
-    @patch('app.services.system_status_service.redis_client')
-    @patch('app.services.system_status_service.get_db')
+    @patch("app.services.system_status_service.redis_client")
+    @patch("app.services.system_status_service.get_db")
     def test_subsystems_have_status(self, mock_get_db, mock_redis):
         mock_redis.get.return_value = None
         mock_redis.set.return_value = True
@@ -162,13 +166,14 @@ class TestSystemStatusService:
         mock_get_db.return_value = mock_db
 
         from app.services.system_status_service import SystemStatusService
+
         svc = SystemStatusService(company_id="test-co")
         result = svc.get_system_status()
         # Should contain subsystem info with status fields
         assert result is not None
 
-    @patch('app.services.system_status_service.redis_client')
-    @patch('app.services.system_status_service.get_db')
+    @patch("app.services.system_status_service.redis_client")
+    @patch("app.services.system_status_service.get_db")
     def test_status_history(self, mock_get_db, mock_redis):
         mock_redis.get.return_value = None
         mock_redis.set.return_value = True
@@ -176,12 +181,13 @@ class TestSystemStatusService:
         mock_get_db.return_value = mock_db
 
         from app.services.system_status_service import SystemStatusService
+
         svc = SystemStatusService(company_id="test-co")
         result = svc.get_status_history(hours=1)
         assert result is not None
 
-    @patch('app.services.system_status_service.redis_client')
-    @patch('app.services.system_status_service.get_db')
+    @patch("app.services.system_status_service.redis_client")
+    @patch("app.services.system_status_service.get_db")
     def test_incident_tracking(self, mock_get_db, mock_redis):
         mock_redis.get.return_value = None
         mock_redis.set.return_value = True
@@ -189,12 +195,13 @@ class TestSystemStatusService:
         mock_get_db.return_value = mock_db
 
         from app.services.system_status_service import SystemStatusService
+
         svc = SystemStatusService(company_id="test-co")
         result = svc.get_active_incidents()
         assert result is not None
 
-    @patch('app.services.system_status_service.redis_client')
-    @patch('app.services.system_status_service.get_db')
+    @patch("app.services.system_status_service.redis_client")
+    @patch("app.services.system_status_service.get_db")
     def test_degraded_status_after_failures(self, mock_get_db, mock_redis):
         mock_redis.get.return_value = None
         mock_redis.set.return_value = True
@@ -202,14 +209,15 @@ class TestSystemStatusService:
         mock_get_db.return_value = mock_db
 
         from app.services.system_status_service import SystemStatusService
+
         svc = SystemStatusService(company_id="test-co")
         # Record an incident
         svc.record_incident("llm", "high", "Provider timeout")
         incidents = svc.get_active_incidents()
         assert incidents is not None
 
-    @patch('app.services.system_status_service.redis_client')
-    @patch('app.services.system_status_service.get_db')
+    @patch("app.services.system_status_service.redis_client")
+    @patch("app.services.system_status_service.get_db")
     def test_service_initializes(self, mock_get_db, mock_redis):
         mock_redis.get.return_value = None
         mock_redis.set.return_value = True
@@ -217,11 +225,12 @@ class TestSystemStatusService:
         mock_get_db.return_value = mock_db
 
         from app.services.system_status_service import SystemStatusService
+
         svc = SystemStatusService(company_id="test-co")
         assert svc.company_id == "test-co"
 
-    @patch('app.services.system_status_service.redis_client')
-    @patch('app.services.system_status_service.get_db')
+    @patch("app.services.system_status_service.redis_client")
+    @patch("app.services.system_status_service.get_db")
     def test_celery_queue_check(self, mock_get_db, mock_redis):
         mock_redis.get.return_value = None
         mock_redis.set.return_value = True
@@ -229,12 +238,13 @@ class TestSystemStatusService:
         mock_get_db.return_value = mock_db
 
         from app.services.system_status_service import SystemStatusService
+
         svc = SystemStatusService(company_id="test-co")
         result = svc.get_system_status()
         assert result is not None
 
-    @patch('app.services.system_status_service.redis_client')
-    @patch('app.services.system_status_service.get_db')
+    @patch("app.services.system_status_service.redis_client")
+    @patch("app.services.system_status_service.get_db")
     def test_redis_connectivity(self, mock_get_db, mock_redis):
         mock_redis.get.return_value = None
         mock_redis.set.return_value = True
@@ -242,13 +252,14 @@ class TestSystemStatusService:
         mock_get_db.return_value = mock_db
 
         from app.services.system_status_service import SystemStatusService
+
         svc = SystemStatusService(company_id="test-co")
         # Should not throw when Redis is available
         status = svc.get_system_status()
         assert status is not None
 
-    @patch('app.services.system_status_service.redis_client')
-    @patch('app.services.system_status_service.get_db')
+    @patch("app.services.system_status_service.redis_client")
+    @patch("app.services.system_status_service.get_db")
     def test_multiple_subsystems(self, mock_get_db, mock_redis):
         mock_redis.get.return_value = None
         mock_redis.set.return_value = True
@@ -256,13 +267,14 @@ class TestSystemStatusService:
         mock_get_db.return_value = mock_db
 
         from app.services.system_status_service import SystemStatusService
+
         svc = SystemStatusService(company_id="test-co")
         result = svc.get_system_status()
         # Should have data for multiple subsystems
         assert result is not None
 
-    @patch('app.services.system_status_service.redis_client')
-    @patch('app.services.system_status_service.get_db')
+    @patch("app.services.system_status_service.redis_client")
+    @patch("app.services.system_status_service.get_db")
     def test_latency_tracking(self, mock_get_db, mock_redis):
         mock_redis.get.return_value = None
         mock_redis.set.return_value = True
@@ -270,6 +282,7 @@ class TestSystemStatusService:
         mock_get_db.return_value = mock_db
 
         from app.services.system_status_service import SystemStatusService
+
         svc = SystemStatusService(company_id="test-co")
         result = svc.get_system_status()
         assert result is not None
@@ -283,7 +296,7 @@ class TestSystemStatusService:
 class TestGSDTerminalService:
     """Tests for GSD state machine debugging (F-089)."""
 
-    @patch('app.services.gsd_terminal_service.get_db')
+    @patch("app.services.gsd_terminal_service.get_db")
     def test_get_gsd_state_returns_current_step(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -293,13 +306,14 @@ class TestGSDTerminalService:
         mock_query.first.return_value = None  # No session found
 
         from app.services.gsd_terminal_service import GSDTerminalService
+
         svc = GSDTerminalService(company_id="test-co")
         try:
             result = svc.get_gsd_state(ticket_id="TKT-001")
         except Exception:
             pass  # May raise NotFoundError - that's expected for missing data
 
-    @patch('app.services.gsd_terminal_service.get_db')
+    @patch("app.services.gsd_terminal_service.get_db")
     def test_list_active_sessions(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -309,20 +323,22 @@ class TestGSDTerminalService:
         mock_query.all.return_value = []
 
         from app.services.gsd_terminal_service import GSDTerminalService
+
         svc = GSDTerminalService(company_id="test-co")
         result = svc.list_active_sessions()
         assert result is not None
 
-    @patch('app.services.gsd_terminal_service.get_db')
+    @patch("app.services.gsd_terminal_service.get_db")
     def test_service_initializes(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
 
         from app.services.gsd_terminal_service import GSDTerminalService
+
         svc = GSDTerminalService(company_id="test-co")
         assert svc.company_id == "test-co"
 
-    @patch('app.services.gsd_terminal_service.get_db')
+    @patch("app.services.gsd_terminal_service.get_db")
     def test_detect_stuck_sessions(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -332,12 +348,14 @@ class TestGSDTerminalService:
         mock_query.all.return_value = []
 
         from app.services.gsd_terminal_service import GSDTerminalService
+
         svc = GSDTerminalService(company_id="test-co")
         result = svc.detect_stuck_sessions()
         assert result is not None
 
     def test_force_transition_validates_step(self):
         from app.services.gsd_terminal_service import GSDTerminalService
+
         svc = GSDTerminalService(company_id="test-co")
         # Should require valid target step
         try:
@@ -349,7 +367,7 @@ class TestGSDTerminalService:
         except Exception:
             pass  # Expected to fail validation
 
-    @patch('app.services.gsd_terminal_service.get_db')
+    @patch("app.services.gsd_terminal_service.get_db")
     def test_empty_sessions_list(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -359,22 +377,24 @@ class TestGSDTerminalService:
         mock_query.all.return_value = []
 
         from app.services.gsd_terminal_service import GSDTerminalService
+
         svc = GSDTerminalService(company_id="test-co")
         result = svc.list_active_sessions(agent_id=None, stuck_only=False)
         assert isinstance(result, list)
 
-    @patch('app.services.gsd_terminal_service.get_db')
+    @patch("app.services.gsd_terminal_service.get_db")
     def test_stuck_detection_threshold(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
 
         from app.services.gsd_terminal_service import GSDTerminalService
+
         svc = GSDTerminalService(company_id="test-co")
         # 30 min threshold for stuck detection
         # Service exists
-        assert hasattr(svc, 'STUCK_THRESHOLD_MINUTES') or True
+        assert hasattr(svc, "STUCK_THRESHOLD_MINUTES") or True
 
-    @patch('app.services.gsd_terminal_service.get_db')
+    @patch("app.services.gsd_terminal_service.get_db")
     def test_gsd_state_nonexistent_ticket(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -384,6 +404,7 @@ class TestGSDTerminalService:
         mock_query.first.return_value = None
 
         from app.services.gsd_terminal_service import GSDTerminalService
+
         svc = GSDTerminalService(company_id="test-co")
         try:
             svc.get_gsd_state(ticket_id="nonexistent")
@@ -399,7 +420,7 @@ class TestGSDTerminalService:
 class TestQuickCommandService:
     """Tests for quick command buttons (F-090)."""
 
-    @patch('app.services.quick_command_service.get_db')
+    @patch("app.services.quick_command_service.get_db")
     def test_get_quick_commands(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -409,6 +430,7 @@ class TestQuickCommandService:
         mock_query.all.return_value = []
 
         from app.services.quick_command_service import QuickCommandService
+
         svc = QuickCommandService(company_id="test-co")
         result = svc.get_quick_commands()
         assert result is not None
@@ -416,38 +438,42 @@ class TestQuickCommandService:
 
     def test_commands_have_categories(self):
         from app.services.quick_command_service import QuickCommandService
+
         svc = QuickCommandService(company_id="test-co")
         commands = svc.get_quick_commands()
         categories = set()
         for cmd in commands:
-            if hasattr(cmd, 'category'):
+            if hasattr(cmd, "category"):
                 categories.add(cmd.category)
         # Should have at least 3 categories
         assert len(categories) >= 3
 
     def test_commands_have_risk_levels(self):
         from app.services.quick_command_service import QuickCommandService
+
         svc = QuickCommandService(company_id="test-co")
         commands = svc.get_quick_commands()
         for cmd in commands:
-            if hasattr(cmd, 'risk_level'):
-                assert cmd.risk_level in ('low', 'medium', 'high', 'critical')
+            if hasattr(cmd, "risk_level"):
+                assert cmd.risk_level in ("low", "medium", "high", "critical")
 
     def test_commands_have_labels(self):
         from app.services.quick_command_service import QuickCommandService
+
         svc = QuickCommandService(company_id="test-co")
         commands = svc.get_quick_commands()
         for cmd in commands:
-            if hasattr(cmd, 'label'):
+            if hasattr(cmd, "label"):
                 assert isinstance(cmd.label, str)
                 assert len(cmd.label) > 0
 
     def test_service_initializes(self):
         from app.services.quick_command_service import QuickCommandService
+
         svc = QuickCommandService(company_id="test-co")
         assert svc.company_id == "test-co"
 
-    @patch('app.services.quick_command_service.get_db')
+    @patch("app.services.quick_command_service.get_db")
     def test_custom_commands(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -457,25 +483,28 @@ class TestQuickCommandService:
         mock_query.all.return_value = []
 
         from app.services.quick_command_service import QuickCommandService
+
         svc = QuickCommandService(company_id="test-co")
         result = svc.get_custom_commands()
         assert result is not None
 
     def test_execute_quick_command(self):
         from app.services.quick_command_service import QuickCommandService
+
         svc = QuickCommandService(company_id="test-co")
         commands = svc.get_quick_commands()
         if commands:
             # Try to execute the first command
             try:
                 result = svc.execute_quick_command(
-                    commands[0].id if hasattr(
-                        commands[0], 'id') else "test")
+                    commands[0].id if hasattr(commands[0], "id") else "test"
+                )
             except Exception:
                 pass  # May fail without DB, that's ok
 
     def test_minimum_commands_count(self):
         from app.services.quick_command_service import QuickCommandService
+
         svc = QuickCommandService(company_id="test-co")
         commands = svc.get_quick_commands()
         assert len(commands) >= 10
@@ -489,7 +518,7 @@ class TestQuickCommandService:
 class TestErrorPanelService:
     """Tests for error panel (F-091)."""
 
-    @patch('app.services.error_panel_service.get_db')
+    @patch("app.services.error_panel_service.get_db")
     def test_get_recent_errors(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -501,11 +530,12 @@ class TestErrorPanelService:
         mock_query.all.return_value = []
 
         from app.services.error_panel_service import ErrorPanelService
+
         svc = ErrorPanelService(company_id="test-co")
         result = svc.get_recent_errors(limit=5)
         assert result is not None
 
-    @patch('app.services.error_panel_service.get_db')
+    @patch("app.services.error_panel_service.get_db")
     def test_errors_have_severity(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -517,21 +547,23 @@ class TestErrorPanelService:
         mock_query.all.return_value = []
 
         from app.services.error_panel_service import ErrorPanelService
+
         svc = ErrorPanelService(company_id="test-co")
         result = svc.get_recent_errors(limit=5)
         assert isinstance(result, list)
 
-    @patch('app.services.error_panel_service.get_db')
+    @patch("app.services.error_panel_service.get_db")
     def test_error_grouping(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
 
         from app.services.error_panel_service import ErrorPanelService
+
         svc = ErrorPanelService(company_id="test-co")
         # Test that grouping mechanism exists
-        assert hasattr(svc, 'get_recent_errors')
+        assert hasattr(svc, "get_recent_errors")
 
-    @patch('app.services.error_panel_service.get_db')
+    @patch("app.services.error_panel_service.get_db")
     def test_dismiss_error(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -541,13 +573,14 @@ class TestErrorPanelService:
         mock_query.first.return_value = None  # No error found
 
         from app.services.error_panel_service import ErrorPanelService
+
         svc = ErrorPanelService(company_id="test-co")
         try:
             svc.dismiss_error(error_id="nonexistent")
         except Exception:
             pass  # Expected for nonexistent error
 
-    @patch('app.services.error_panel_service.get_db')
+    @patch("app.services.error_panel_service.get_db")
     def test_error_stats(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -557,6 +590,7 @@ class TestErrorPanelService:
         mock_query.count.return_value = 0
 
         from app.services.error_panel_service import ErrorPanelService
+
         svc = ErrorPanelService(company_id="test-co")
         try:
             result = svc.get_error_stats()
@@ -566,10 +600,11 @@ class TestErrorPanelService:
 
     def test_service_initializes(self):
         from app.services.error_panel_service import ErrorPanelService
+
         svc = ErrorPanelService(company_id="test-co")
         assert svc.company_id == "test-co"
 
-    @patch('app.services.error_panel_service.get_db')
+    @patch("app.services.error_panel_service.get_db")
     def test_get_error_detail(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -579,13 +614,14 @@ class TestErrorPanelService:
         mock_query.first.return_value = None
 
         from app.services.error_panel_service import ErrorPanelService
+
         svc = ErrorPanelService(company_id="test-co")
         try:
             svc.get_error_detail(error_id="nonexistent")
         except Exception:
             pass
 
-    @patch('app.services.error_panel_service.get_db')
+    @patch("app.services.error_panel_service.get_db")
     def test_limit_parameter(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -597,6 +633,7 @@ class TestErrorPanelService:
         mock_query.all.return_value = []
 
         from app.services.error_panel_service import ErrorPanelService
+
         svc = ErrorPanelService(company_id="test-co")
         # Test with custom limit
         result = svc.get_recent_errors(limit=10)
@@ -611,7 +648,7 @@ class TestErrorPanelService:
 class TestTrainFromErrorService:
     """Tests for train from error (F-092)."""
 
-    @patch('app.services.train_from_error_service.get_db')
+    @patch("app.services.train_from_error_service.get_db")
     def test_create_training_point(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -623,6 +660,7 @@ class TestTrainFromErrorService:
         mock_db.flush = MagicMock()
 
         from app.services.train_from_error_service import TrainFromErrorService
+
         svc = TrainFromErrorService(company_id="test-co")
         try:
             result = svc.create_training_point(
@@ -633,7 +671,7 @@ class TestTrainFromErrorService:
         except Exception:
             pass
 
-    @patch('app.services.train_from_error_service.get_db')
+    @patch("app.services.train_from_error_service.get_db")
     def test_deduplication_check(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -646,6 +684,7 @@ class TestTrainFromErrorService:
         mock_query.first.return_value = mock_existing
 
         from app.services.train_from_error_service import TrainFromErrorService
+
         svc = TrainFromErrorService(company_id="test-co")
         try:
             result = svc.create_training_point(error_id="err-001")
@@ -653,7 +692,7 @@ class TestTrainFromErrorService:
         except Exception:
             pass
 
-    @patch('app.services.train_from_error_service.get_db')
+    @patch("app.services.train_from_error_service.get_db")
     def test_review_workflow(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -663,6 +702,7 @@ class TestTrainFromErrorService:
         mock_query.first.return_value = None
 
         from app.services.train_from_error_service import TrainFromErrorService
+
         svc = TrainFromErrorService(company_id="test-co")
         try:
             result = svc.review_training_point(
@@ -672,7 +712,7 @@ class TestTrainFromErrorService:
         except Exception:
             pass
 
-    @patch('app.services.train_from_error_service.get_db')
+    @patch("app.services.train_from_error_service.get_db")
     def test_get_training_points(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -684,16 +724,18 @@ class TestTrainFromErrorService:
         mock_query.all.return_value = []
 
         from app.services.train_from_error_service import TrainFromErrorService
+
         svc = TrainFromErrorService(company_id="test-co")
         result = svc.get_training_points()
         assert result is not None
 
     def test_service_initializes(self):
         from app.services.train_from_error_service import TrainFromErrorService
+
         svc = TrainFromErrorService(company_id="test-co")
         assert svc.company_id == "test-co"
 
-    @patch('app.services.train_from_error_service.get_db')
+    @patch("app.services.train_from_error_service.get_db")
     def test_training_stats(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -703,6 +745,7 @@ class TestTrainFromErrorService:
         mock_query.count.return_value = 0
 
         from app.services.train_from_error_service import TrainFromErrorService
+
         svc = TrainFromErrorService(company_id="test-co")
         try:
             result = svc.get_training_stats()
@@ -710,23 +753,21 @@ class TestTrainFromErrorService:
         except Exception:
             pass
 
-    @patch('app.services.train_from_error_service.get_db')
+    @patch("app.services.train_from_error_service.get_db")
     def test_pii_redaction(self, mock_get_db):
         from app.services.train_from_error_service import TrainFromErrorService
+
         svc = TrainFromErrorService(company_id="test-co")
         # PII redaction should be part of the workflow
-        assert hasattr(svc, 'create_training_point')
+        assert hasattr(svc, "create_training_point")
 
-    @patch('app.services.train_from_error_service.get_db')
+    @patch("app.services.train_from_error_service.get_db")
     def test_status_transitions(self, mock_get_db):
         from app.services.train_from_error_service import TrainFromErrorService
+
         svc = TrainFromErrorService(company_id="test-co")
         # Verify valid status values
-        valid_statuses = [
-            'queued_for_review',
-            'approved',
-            'rejected',
-            'in_dataset']
+        valid_statuses = ["queued_for_review", "approved", "rejected", "in_dataset"]
         for status in valid_statuses:
             assert isinstance(status, str)
 
@@ -741,62 +782,69 @@ class TestSelfHealingOrchestrator:
 
     def test_healing_actions_registered(self):
         from app.services.self_healing_orchestrator import SelfHealingOrchestrator
+
         svc = SelfHealingOrchestrator(company_id="test-co")
         actions = svc.get_registered_actions()
         assert len(actions) >= 8
 
     def test_actions_have_risk_levels(self):
         from app.services.self_healing_orchestrator import SelfHealingOrchestrator
+
         svc = SelfHealingOrchestrator(company_id="test-co")
         actions = svc.get_registered_actions()
         for action in actions:
-            if hasattr(action, 'risk_level'):
-                assert action.risk_level in (
-                    'low', 'medium', 'high', 'critical')
+            if hasattr(action, "risk_level"):
+                assert action.risk_level in ("low", "medium", "high", "critical")
 
     def test_actions_have_names(self):
         from app.services.self_healing_orchestrator import SelfHealingOrchestrator
+
         svc = SelfHealingOrchestrator(company_id="test-co")
         actions = svc.get_registered_actions()
         for action in actions:
-            assert hasattr(action, 'name') or hasattr(action, 'action_name')
+            assert hasattr(action, "name") or hasattr(action, "action_name")
 
-    @patch('app.services.self_healing_orchestrator.redis_client')
+    @patch("app.services.self_healing_orchestrator.redis_client")
     def test_healing_history(self, mock_redis):
         mock_redis.get.return_value = None
         mock_redis.lrange.return_value = []
 
         from app.services.self_healing_orchestrator import SelfHealingOrchestrator
+
         svc = SelfHealingOrchestrator(company_id="test-co")
         result = svc.get_healing_history()
         assert result is not None
 
-    @patch('app.services.self_healing_orchestrator.redis_client')
+    @patch("app.services.self_healing_orchestrator.redis_client")
     def test_healing_status(self, mock_redis):
         mock_redis.get.return_value = None
 
         from app.services.self_healing_orchestrator import SelfHealingOrchestrator
+
         svc = SelfHealingOrchestrator(company_id="test-co")
         result = svc.get_healing_status()
         assert result is not None
 
     def test_service_initializes(self):
         from app.services.self_healing_orchestrator import SelfHealingOrchestrator
+
         svc = SelfHealingOrchestrator(company_id="test-co")
         assert svc.company_id == "test-co"
 
     def test_action_categories(self):
         from app.services.self_healing_orchestrator import SelfHealingOrchestrator
+
         svc = SelfHealingOrchestrator(company_id="test-co")
         actions = svc.get_registered_actions()
         # Should cover various healing categories
         assert len(actions) >= 8
 
-    @patch('app.services.self_healing_orchestrator.redis_client')
+    @patch("app.services.self_healing_orchestrator.redis_client")
     def test_manual_trigger(self, mock_redis):
         mock_redis.get.return_value = None
 
         from app.services.self_healing_orchestrator import SelfHealingOrchestrator
+
         svc = SelfHealingOrchestrator(company_id="test-co")
         try:
             result = svc.manual_trigger(action_name="llm_failover")
@@ -813,88 +861,97 @@ class TestSelfHealingOrchestrator:
 class TestTrustPreservationProtocol:
     """Tests for trust preservation protocol (F-094)."""
 
-    @patch('app.services.trust_preservation_service.redis_client')
+    @patch("app.services.trust_preservation_service.redis_client")
     def test_initial_mode_is_green(self, mock_redis):
         mock_redis.get.return_value = None
         mock_redis.set.return_value = True
 
         from app.services.trust_preservation_service import TrustPreservationService
+
         svc = TrustPreservationService(company_id="test-co")
         status = svc.get_protocol_status()
         assert status is not None
 
-    @patch('app.services.trust_preservation_service.redis_client')
+    @patch("app.services.trust_preservation_service.redis_client")
     def test_green_to_amber_transition(self, mock_redis):
         mock_redis.get.return_value = None
         mock_redis.set.return_value = True
 
         from app.services.trust_preservation_service import TrustPreservationService
+
         svc = TrustPreservationService(company_id="test-co")
         # Set mode to amber
         svc.set_protocol_mode("amber")
         status = svc.get_protocol_status()
         assert status is not None
 
-    @patch('app.services.trust_preservation_service.redis_client')
+    @patch("app.services.trust_preservation_service.redis_client")
     def test_response_wrapper_green(self, mock_redis):
         mock_redis.get.return_value = json.dumps({"mode": "green"})
         mock_redis.set.return_value = True
 
         from app.services.trust_preservation_service import TrustPreservationService
+
         svc = TrustPreservationService(company_id="test-co")
         wrapper = svc.get_response_wrapper()
         assert wrapper is not None
 
-    @patch('app.services.trust_preservation_service.redis_client')
+    @patch("app.services.trust_preservation_service.redis_client")
     def test_response_wrapper_red(self, mock_redis):
         mock_redis.get.return_value = json.dumps({"mode": "red"})
         mock_redis.set.return_value = True
 
         from app.services.trust_preservation_service import TrustPreservationService
+
         svc = TrustPreservationService(company_id="test-co")
         wrapper = svc.get_response_wrapper()
         assert wrapper is not None
 
-    @patch('app.services.trust_preservation_service.redis_client')
+    @patch("app.services.trust_preservation_service.redis_client")
     def test_protocol_modes(self, mock_redis):
         mock_redis.get.return_value = None
         mock_redis.set.return_value = True
 
         from app.services.trust_preservation_service import TrustPreservationService
+
         svc = TrustPreservationService(company_id="test-co")
         for mode in ["green", "amber", "red"]:
             svc.set_protocol_mode(mode)
             status = svc.get_protocol_status()
             assert status is not None
 
-    @patch('app.services.trust_preservation_service.redis_client')
+    @patch("app.services.trust_preservation_service.redis_client")
     def test_protocol_history(self, mock_redis):
         mock_redis.get.return_value = None
         mock_redis.set.return_value = True
         mock_redis.lrange.return_value = []
 
         from app.services.trust_preservation_service import TrustPreservationService
+
         svc = TrustPreservationService(company_id="test-co")
         result = svc.get_protocol_history()
         assert result is not None
 
-    @patch('app.services.trust_preservation_service.redis_client')
+    @patch("app.services.trust_preservation_service.redis_client")
     def test_recovery_estimate(self, mock_redis):
         mock_redis.get.return_value = json.dumps(
-            {"mode": "amber", "since": datetime.now(timezone.utc).isoformat()})
+            {"mode": "amber", "since": datetime.now(timezone.utc).isoformat()}
+        )
         mock_redis.set.return_value = True
 
         from app.services.trust_preservation_service import TrustPreservationService
+
         svc = TrustPreservationService(company_id="test-co")
         result = svc.get_recovery_estimate()
         assert result is not None
 
-    @patch('app.services.trust_preservation_service.redis_client')
+    @patch("app.services.trust_preservation_service.redis_client")
     def test_service_initializes(self, mock_redis):
         mock_redis.get.return_value = None
         mock_redis.set.return_value = True
 
         from app.services.trust_preservation_service import TrustPreservationService
+
         svc = TrustPreservationService(company_id="test-co")
         assert svc.company_id == "test-co"
 
@@ -907,7 +964,7 @@ class TestTrustPreservationProtocol:
 class TestAgentProvisioningService:
     """Tests for agent creation (F-095)."""
 
-    @patch('app.services.agent_provisioning_service.get_db')
+    @patch("app.services.agent_provisioning_service.get_db")
     def test_create_agent(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -919,6 +976,7 @@ class TestAgentProvisioningService:
         mock_db.flush = MagicMock()
 
         from app.services.agent_provisioning_service import AgentProvisioningService
+
         svc = AgentProvisioningService(company_id="test-co")
         try:
             result = svc.create_agent(
@@ -932,27 +990,29 @@ class TestAgentProvisioningService:
         except Exception:
             pass
 
-    @patch('app.services.agent_provisioning_service.get_db')
+    @patch("app.services.agent_provisioning_service.get_db")
     def test_specialty_templates(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
 
         from app.services.agent_provisioning_service import AgentProvisioningService
+
         svc = AgentProvisioningService(company_id="test-co")
         templates = svc.get_specialty_templates()
         assert len(templates) >= 8
 
-    @patch('app.services.agent_provisioning_service.get_db')
+    @patch("app.services.agent_provisioning_service.get_db")
     def test_permission_levels(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
 
         from app.services.agent_provisioning_service import AgentProvisioningService
+
         svc = AgentProvisioningService(company_id="test-co")
         permissions = svc.get_permission_levels()
         assert len(permissions) >= 4
 
-    @patch('app.services.agent_provisioning_service.get_db')
+    @patch("app.services.agent_provisioning_service.get_db")
     def test_duplicate_name_detection(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -965,6 +1025,7 @@ class TestAgentProvisioningService:
         mock_query.first.return_value = mock_existing
 
         from app.services.agent_provisioning_service import AgentProvisioningService
+
         svc = AgentProvisioningService(company_id="test-co")
         try:
             result = svc.create_agent(
@@ -976,7 +1037,7 @@ class TestAgentProvisioningService:
         except Exception:
             pass  # Expected to raise error
 
-    @patch('app.services.agent_provisioning_service.get_db')
+    @patch("app.services.agent_provisioning_service.get_db")
     def test_list_agents(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -986,44 +1047,49 @@ class TestAgentProvisioningService:
         mock_query.all.return_value = []
 
         from app.services.agent_provisioning_service import AgentProvisioningService
+
         svc = AgentProvisioningService(company_id="test-co")
         result = svc.list_agents()
         assert isinstance(result, list)
 
     def test_service_initializes(self):
         from app.services.agent_provisioning_service import AgentProvisioningService
+
         svc = AgentProvisioningService(company_id="test-co")
         assert svc.company_id == "test-co"
 
-    @patch('app.services.agent_provisioning_service.get_db')
+    @patch("app.services.agent_provisioning_service.get_db")
     def test_plan_limit_check(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
 
         from app.services.agent_provisioning_service import AgentProvisioningService
+
         svc = AgentProvisioningService(company_id="test-co")
         limits = svc.check_plan_limits()
         assert limits is not None
-        assert 'current' in limits or 'max' in limits
+        assert "current" in limits or "max" in limits
 
-    @patch('app.services.agent_provisioning_service.get_db')
+    @patch("app.services.agent_provisioning_service.get_db")
     def test_agent_statuses(self, mock_get_db):
         valid_statuses = [
-            'initializing',
-            'training',
-            'active',
-            'paused',
-            'deprovisioned',
-            'error']
+            "initializing",
+            "training",
+            "active",
+            "paused",
+            "deprovisioned",
+            "error",
+        ]
         for status in valid_statuses:
             assert isinstance(status, str)
 
-    @patch('app.services.agent_provisioning_service.get_db')
+    @patch("app.services.agent_provisioning_service.get_db")
     def test_nl_command_parsing(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
 
         from app.services.agent_provisioning_service import AgentProvisioningService
+
         svc = AgentProvisioningService(company_id="test-co")
         try:
             result = svc.create_agent_from_command(
@@ -1034,9 +1100,9 @@ class TestAgentProvisioningService:
         except Exception:
             pass
 
-    @patch('app.services.agent_provisioning_service.get_db')
+    @patch("app.services.agent_provisioning_service.get_db")
     def test_channels_validation(self, mock_get_db):
-        valid_channels = ['email', 'chat', 'sms', 'voice']
+        valid_channels = ["email", "chat", "sms", "voice"]
         for ch in valid_channels:
             assert isinstance(ch, str)
 
@@ -1049,7 +1115,7 @@ class TestAgentProvisioningService:
 class TestInstructionWorkflowService:
     """Tests for dynamic instruction workflow (F-096)."""
 
-    @patch('app.services.instruction_workflow_service.get_db')
+    @patch("app.services.instruction_workflow_service.get_db")
     def test_create_instruction_set(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -1061,6 +1127,7 @@ class TestInstructionWorkflowService:
         mock_db.flush = MagicMock()
 
         from app.services.instruction_workflow_service import InstructionWorkflowService
+
         svc = InstructionWorkflowService(company_id="test-co")
         try:
             result = svc.create_instruction_set(
@@ -1068,13 +1135,14 @@ class TestInstructionWorkflowService:
                 name="Standard Instructions",
                 instructions={
                     "behavioral_rules": ["Greet warmly"],
-                    "tone": "professional"},
+                    "tone": "professional",
+                },
             )
             assert result is not None
         except Exception:
             pass
 
-    @patch('app.services.instruction_workflow_service.get_db')
+    @patch("app.services.instruction_workflow_service.get_db")
     def test_get_instruction_sets(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -1084,11 +1152,12 @@ class TestInstructionWorkflowService:
         mock_query.all.return_value = []
 
         from app.services.instruction_workflow_service import InstructionWorkflowService
+
         svc = InstructionWorkflowService(company_id="test-co")
         result = svc.get_instruction_sets()
         assert isinstance(result, list)
 
-    @patch('app.services.instruction_workflow_service.get_db')
+    @patch("app.services.instruction_workflow_service.get_db")
     def test_publish_creates_version(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -1105,6 +1174,7 @@ class TestInstructionWorkflowService:
         mock_db.flush = MagicMock()
 
         from app.services.instruction_workflow_service import InstructionWorkflowService
+
         svc = InstructionWorkflowService(company_id="test-co")
         try:
             result = svc.publish_instruction_set(set_id="set-001")
@@ -1112,7 +1182,7 @@ class TestInstructionWorkflowService:
         except Exception:
             pass
 
-    @patch('app.services.instruction_workflow_service.get_db')
+    @patch("app.services.instruction_workflow_service.get_db")
     def test_archive_instruction_set(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -1124,13 +1194,14 @@ class TestInstructionWorkflowService:
         mock_query.first.return_value = mock_set
 
         from app.services.instruction_workflow_service import InstructionWorkflowService
+
         svc = InstructionWorkflowService(company_id="test-co")
         try:
             result = svc.archive_instruction_set(set_id="set-001")
         except Exception:
             pass
 
-    @patch('app.services.instruction_workflow_service.get_db')
+    @patch("app.services.instruction_workflow_service.get_db")
     def test_create_ab_test(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -1142,6 +1213,7 @@ class TestInstructionWorkflowService:
         mock_db.flush = MagicMock()
 
         from app.services.instruction_workflow_service import InstructionWorkflowService
+
         svc = InstructionWorkflowService(company_id="test-co")
         try:
             result = svc.create_ab_test(
@@ -1154,7 +1226,7 @@ class TestInstructionWorkflowService:
         except Exception:
             pass
 
-    @patch('app.services.instruction_workflow_service.get_db')
+    @patch("app.services.instruction_workflow_service.get_db")
     def test_ab_test_routing_deterministic(self, mock_get_db):
         # Test that the same ticket always gets the same variant
         test_id = "test-001"
@@ -1167,7 +1239,7 @@ class TestInstructionWorkflowService:
         variant2 = "A" if int(hash_val2, 16) % 100 < 50 else "B"
         assert variant == variant2
 
-    @patch('app.services.instruction_workflow_service.get_db')
+    @patch("app.services.instruction_workflow_service.get_db")
     def test_only_one_active_ab_test(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -1180,6 +1252,7 @@ class TestInstructionWorkflowService:
         mock_query.first.return_value = mock_existing
 
         from app.services.instruction_workflow_service import InstructionWorkflowService
+
         svc = InstructionWorkflowService(company_id="test-co")
         try:
             result = svc.create_ab_test(
@@ -1192,7 +1265,7 @@ class TestInstructionWorkflowService:
         except Exception:
             pass  # Expected to raise conflict error
 
-    @patch('app.services.instruction_workflow_service.get_db')
+    @patch("app.services.instruction_workflow_service.get_db")
     def test_version_history(self, mock_get_db):
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
@@ -1203,6 +1276,7 @@ class TestInstructionWorkflowService:
         mock_query.all.return_value = []
 
         from app.services.instruction_workflow_service import InstructionWorkflowService
+
         svc = InstructionWorkflowService(company_id="test-co")
         try:
             result = svc.get_version_history(set_id="set-001")
@@ -1212,12 +1286,13 @@ class TestInstructionWorkflowService:
 
     def test_service_initializes(self):
         from app.services.instruction_workflow_service import InstructionWorkflowService
+
         svc = InstructionWorkflowService(company_id="test-co")
         assert svc.company_id == "test-co"
 
-    @patch('app.services.instruction_workflow_service.get_db')
+    @patch("app.services.instruction_workflow_service.get_db")
     def test_instruction_set_statuses(self, mock_get_db):
-        valid_statuses = ['draft', 'active', 'archived']
+        valid_statuses = ["draft", "active", "archived"]
         for status in valid_statuses:
             assert isinstance(status, str)
 

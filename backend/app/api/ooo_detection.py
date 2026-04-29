@@ -37,6 +37,7 @@ router = APIRouter(prefix="/api/v1/email/ooo", tags=["OOO Detection"])
 def _get_db(request: Request):
     """Get DB session from request state (injected by middleware)."""
     from database.session import get_db_session
+
     return get_db_session()
 
 
@@ -262,8 +263,8 @@ async def update_ooo_rule(request: Request, rule_id: str, body: OOORuleUpdate):
             extra={
                 "company_id": company_id,
                 "rule_id": rule_id,
-                "error": str(exc)[
-                    :200]},
+                "error": str(exc)[:200],
+            },
         )
         return JSONResponse(
             status_code=500,
@@ -322,8 +323,8 @@ async def delete_ooo_rule(request: Request, rule_id: str):
             extra={
                 "company_id": company_id,
                 "rule_id": rule_id,
-                "error": str(exc)[
-                    :200]},
+                "error": str(exc)[:200],
+            },
         )
         return JSONResponse(
             status_code=500,
@@ -338,8 +339,10 @@ async def delete_ooo_rule(request: Request, rule_id: str):
 
 
 @router.get("/stats", response_model=OOOStatsResponse)
-async def get_ooo_stats(request: Request, range_days: int = Query(
-        7, ge=1, le=90, description="Number of days to look back"), ):
+async def get_ooo_stats(
+    request: Request,
+    range_days: int = Query(7, ge=1, le=90, description="Number of days to look back"),
+):
     """Get OOO detection statistics for the tenant.
 
     Returns detection counts, breakdown by type, and top senders.
@@ -413,11 +416,7 @@ async def check_sender_ooo_status(request: Request, email: str):
     except Exception as exc:
         logger.error(
             "ooo_status_check_error",
-            extra={
-                "company_id": company_id,
-                "email": email,
-                "error": str(exc)[
-                    :200]},
+            extra={"company_id": company_id, "email": email, "error": str(exc)[:200]},
         )
         return JSONResponse(
             status_code=500,

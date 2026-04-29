@@ -27,6 +27,7 @@ router = APIRouter(prefix="/api/pricing", tags=["Pricing"])
 
 # ── Security Helpers (GAP-6-1, GAP-6-3 fixes) ───────────────────────
 
+
 def sanitize_input(value: str, max_length: int = 100) -> str:
     """Sanitize user input to prevent XSS (GAP-6-4 fix).
 
@@ -37,7 +38,7 @@ def sanitize_input(value: str, max_length: int = 100) -> str:
     if not value:
         return ""
     # Remove any HTML tags
-    value = re.sub(r'<[^>]*>', '', value)
+    value = re.sub(r"<[^>]*>", "", value)
     # Escape HTML entities
     value = html.escape(value)
     # Truncate
@@ -56,20 +57,14 @@ def validate_url(url: str) -> str:
     url = url.strip()
 
     # Check for dangerous protocols
-    dangerous_protocols = [
-        'javascript:',
-        'data:',
-        'file:',
-        'vbscript:',
-        'about:']
+    dangerous_protocols = ["javascript:", "data:", "file:", "vbscript:", "about:"]
     url_lower = url.lower()
     for protocol in dangerous_protocols:
         if url_lower.startswith(protocol):
             raise ValueError(f"URL protocol not allowed: {protocol}")
 
     # Must start with http:// or https://
-    if not (url_lower.startswith('http://')
-            or url_lower.startswith('https://')):
+    if not (url_lower.startswith("http://") or url_lower.startswith("https://")):
         raise ValueError("URL must start with http:// or https://")
 
     # Basic URL length check
@@ -403,15 +398,12 @@ class VariantResponse(BaseModel):
     id: str = Field(..., description="Variant identifier")
     name: str = Field(..., description="Variant display name")
     description: str = Field(..., description="Variant description")
-    tickets_per_month: int = Field(..., ge=0,
-                                   description="Monthly ticket allowance")
+    tickets_per_month: int = Field(..., ge=0, description="Monthly ticket allowance")
     price_per_month: int = Field(..., ge=0, description="Monthly price in USD")
-    features: List[str] = Field(
-        default_factory=list,
-        description="Included features")
+    features: List[str] = Field(default_factory=list, description="Included features")
     popular: bool = Field(
-        default=False,
-        description="Is this a popular/recommended variant?")
+        default=False, description="Is this a popular/recommended variant?"
+    )
 
 
 class CalculateRequest(BaseModel):
@@ -426,8 +418,7 @@ class CalculateRequest(BaseModel):
     @validator("industry")
     def validate_industry(cls, v: str) -> str:
         if v not in VALID_INDUSTRIES:
-            raise ValueError(
-                f"Invalid industry. Must be one of: {VALID_INDUSTRIES}")
+            raise ValueError(f"Invalid industry. Must be one of: {VALID_INDUSTRIES}")
         return v
 
     @validator("variants")
@@ -462,11 +453,9 @@ class CalculateResponse(BaseModel):
     industry: str
     variants: List[VariantSummary]
     total_tickets: int = Field(..., ge=0, description="Total monthly tickets")
-    total_monthly: int = Field(..., ge=0,
-                               description="Total monthly cost in USD")
+    total_monthly: int = Field(..., ge=0, description="Total monthly cost in USD")
     annual_cost: int = Field(..., ge=0, description="Annual cost in USD")
-    annual_savings: int = Field(..., ge=0,
-                                description="Savings with annual billing")
+    annual_savings: int = Field(..., ge=0, description="Savings with annual billing")
 
 
 # ── Endpoints ───────────────────────────────────────────────────────
@@ -547,9 +536,11 @@ def calculate_pricing(body: CalculateRequest) -> CalculateResponse:
     for item in body.variants:
         if item["id"] not in valid_ids:
             raise HTTPException(
-                status_code=400, detail=f"Variant '{
+                status_code=400,
+                detail=f"Variant '{
                     item['id']}' not found in industry '{
-                    body.industry}'", )
+                    body.industry}'",
+            )
 
     # Calculate totals
     variant_summaries = []
@@ -605,16 +596,14 @@ class ValidateRequest(BaseModel):
         description="List of {id, quantity} objects",
     )
     # For "others" industry
-    other_industry_name: Optional[str] = Field(
-        None, description="Custom industry name")
+    other_industry_name: Optional[str] = Field(None, description="Custom industry name")
     company_name: Optional[str] = Field(None, description="Company name")
     company_website: Optional[str] = Field(None, description="Company website")
 
     @validator("industry")
     def validate_industry(cls, v: str) -> str:
         if v not in VALID_INDUSTRIES:
-            raise ValueError(
-                f"Invalid industry. Must be one of: {VALID_INDUSTRIES}")
+            raise ValueError(f"Invalid industry. Must be one of: {VALID_INDUSTRIES}")
         return v
 
     @validator("variants")
@@ -634,21 +623,16 @@ class ValidateRequest(BaseModel):
 
     @validator("other_industry_name")
     def validate_other_industry_name(
-            cls,
-            v: Optional[str],
-            values: dict) -> Optional[str]:
+        cls, v: Optional[str], values: dict
+    ) -> Optional[str]:
         if values.get("industry") == "others" and not v:
-            raise ValueError(
-                "other_industry_name is required for 'others' industry")
+            raise ValueError("other_industry_name is required for 'others' industry")
         if v:
             return sanitize_input(v, max_length=100)
         return v
 
     @validator("company_name")
-    def validate_company_name(
-            cls,
-            v: Optional[str],
-            values: dict) -> Optional[str]:
+    def validate_company_name(cls, v: Optional[str], values: dict) -> Optional[str]:
         if values.get("industry") == "others" and not v:
             raise ValueError("company_name is required for 'others' industry")
         if v:
@@ -678,8 +662,7 @@ class ValidateResponse(BaseModel):
     company_website: Optional[str] = None
     # Server-side validation token (GAP-6-1, GAP-6-3)
     validation_token: str = Field(..., description="Signed token for checkout")
-    expires_at: int = Field(...,
-                            description="Token expiration timestamp (epoch)")
+    expires_at: int = Field(..., description="Token expiration timestamp (epoch)")
 
 
 # Simple signing key (in production, use proper secret management)
@@ -732,9 +715,11 @@ def validate_pricing(body: ValidateRequest) -> ValidateResponse:
     for item in body.variants:
         if item["id"] not in valid_ids:
             raise HTTPException(
-                status_code=400, detail=f"Variant '{
+                status_code=400,
+                detail=f"Variant '{
                     item['id']}' not found in industry '{
-                    body.industry}'", )
+                    body.industry}'",
+            )
 
     # Calculate totals (server-side, not trusting client)
     variant_summaries = []

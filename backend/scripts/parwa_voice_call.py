@@ -11,7 +11,7 @@ import sys
 from datetime import datetime
 
 # Add path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # Twilio credentials from environment (SECURE - not hardcoded)
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID", "")
@@ -46,21 +46,22 @@ def create_twiml_for_hindi(message: str) -> str:
     """Create TwiML for Hindi voice message"""
 
     # Split message into smaller chunks for better TTS
-    sentences = message.replace('\n', ' ').split('. ')
+    sentences = message.replace("\n", " ").split(". ")
 
     # Build TwiML with Say tags
     say_tags = []
     for sentence in sentences:
         if sentence.strip():
             say_tags.append(
-                f'        <Say language="hi-IN" voice="Polly.Aditi">{sentence.strip()}.</Say>')
+                f'        <Say language="hi-IN" voice="Polly.Aditi">{sentence.strip()}.</Say>'
+            )
 
-    twiml = '''<?xml version="1.0" encoding="UTF-8"?>
+    twiml = """<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Pause length="1"/>
 {chr(10).join(say_tags)}
     <Pause length="1"/>
-</Response>'''
+</Response>"""
 
     return twiml
 
@@ -81,12 +82,14 @@ def make_voice_call_twiml(to_number: str, twiml: str) -> dict:
         "call_sid": None,
         "to_number": to_number,
         "from_number": TWILIO_PHONE_NUMBER,
-        "error": None
+        "error": None,
     }
 
     if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
         result["error"] = "Twilio credentials not set"
-        result["note"] = "Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN environment variables"
+        result["note"] = (
+            "Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN environment variables"
+        )
         return result
 
     if not TWILIO_PHONE_NUMBER:
@@ -102,10 +105,7 @@ def make_voice_call_twiml(to_number: str, twiml: str) -> dict:
 
         # Make the call
         call = client.calls.create(
-            to=to_number,
-            from_=TWILIO_PHONE_NUMBER,
-            twiml=twiml,
-            timeout=30
+            to=to_number, from_=TWILIO_PHONE_NUMBER, twiml=twiml, timeout=30
         )
 
         result["success"] = True
@@ -138,7 +138,7 @@ def make_voice_call_tts(to_number: str, audio_url: str) -> dict:
         "call_sid": None,
         "to_number": to_number,
         "from_number": TWILIO_PHONE_NUMBER,
-        "error": None
+        "error": None,
     }
 
     if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
@@ -151,16 +151,12 @@ def make_voice_call_tts(to_number: str, audio_url: str) -> dict:
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
         # TwiML to play audio
-        twiml = '''<?xml version="1.0" encoding="UTF-8"?>
+        twiml = """<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Play>{audio_url}</Play>
-</Response>'''
+</Response>"""
 
-        call = client.calls.create(
-            to=to_number,
-            from_=TWILIO_PHONE_NUMBER,
-            twiml=twiml
-        )
+        call = client.calls.create(to=to_number, from_=TWILIO_PHONE_NUMBER, twiml=twiml)
 
         result["success"] = True
         result["call_sid"] = call.sid
@@ -174,11 +170,7 @@ def make_voice_call_tts(to_number: str, audio_url: str) -> dict:
 
 def send_sms_notification(to_number: str, message: str) -> dict:
     """Send SMS notification"""
-    result = {
-        "success": False,
-        "message_sid": None,
-        "error": None
-    }
+    result = {"success": False, "message_sid": None, "error": None}
 
     if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
         result["error"] = "Twilio credentials not set"
@@ -190,9 +182,7 @@ def send_sms_notification(to_number: str, message: str) -> dict:
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
         msg = client.messages.create(
-            to=to_number,
-            from_=TWILIO_PHONE_NUMBER,
-            body=message
+            to=to_number, from_=TWILIO_PHONE_NUMBER, body=message
         )
 
         result["success"] = True
@@ -209,9 +199,11 @@ def test_twilio_connection() -> dict:
     """Test Twilio API connection"""
     result = {
         "success": False,
-        "account_sid": TWILIO_ACCOUNT_SID[:10] + "..." if TWILIO_ACCOUNT_SID else "Not set",
+        "account_sid": (
+            TWILIO_ACCOUNT_SID[:10] + "..." if TWILIO_ACCOUNT_SID else "Not set"
+        ),
         "phone_number": TWILIO_PHONE_NUMBER,
-        "error": None
+        "error": None,
     }
 
     if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
@@ -277,7 +269,7 @@ def demo_parwa_voice_call(phone_number: str):
         print(f"   From: {call_result['from_number']}")
     else:
         print(f"❌ Call failed: {call_result['error']}")
-        if call_result.get('note'):
+        if call_result.get("note"):
             print(f"   Note: {call_result['note']}")
 
     # Also send SMS confirmation
@@ -301,23 +293,16 @@ def main():
     """Main entry point"""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="PARWA Voice Call Service - Hindi")
+    parser = argparse.ArgumentParser(description="PARWA Voice Call Service - Hindi")
     parser.add_argument(
-        "--phone",
-        "-p",
-        required=False,
-        help="Phone number to call (with country code)")
+        "--phone", "-p", required=False, help="Phone number to call (with country code)"
+    )
     parser.add_argument(
-        "--test",
-        "-t",
-        action="store_true",
-        help="Test Twilio connection only")
+        "--test", "-t", action="store_true", help="Test Twilio connection only"
+    )
     parser.add_argument(
-        "--demo",
-        "-d",
-        action="store_true",
-        help="Run demo with sample number")
+        "--demo", "-d", action="store_true", help="Run demo with sample number"
+    )
 
     args = parser.parse_args()
 
@@ -353,8 +338,7 @@ def main():
 
         # Test connection
         conn = test_twilio_connection()
-        print(
-            f"\nTwilio Connection: {
+        print(f"\nTwilio Connection: {
                 '✅ OK' if conn['success'] else '❌ '
                 + conn['error']}")
 

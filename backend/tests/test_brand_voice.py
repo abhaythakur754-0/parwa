@@ -46,10 +46,10 @@ from app.services.brand_voice_service import (
     _validate_tone,
 )
 
-
 # ══════════════════════════════════════════════════════════════════
 # FIXTURES
 # ══════════════════════════════════════════════════════════════════
+
 
 @pytest.fixture
 def service():
@@ -132,6 +132,7 @@ def _make_config(
 # 1. TEXT NORMALIZATION (GAP-021) — 10 tests
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestNormalizeText:
     """Tests for _normalize_text and _normalize_word."""
 
@@ -173,6 +174,7 @@ class TestNormalizeText:
 # ══════════════════════════════════════════════════════════════════
 # 2. VALIDATION FUNCTIONS — 14 tests
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestValidateTone:
     def test_valid_tone(self):
@@ -280,6 +282,7 @@ class TestValidateCompanyId:
 # 3. HELPER FUNCTIONS — 6 tests
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestHelperFunctions:
 
     def test_now_utc_returns_datetime(self):
@@ -309,6 +312,7 @@ class TestHelperFunctions:
 # ══════════════════════════════════════════════════════════════════
 # 4. FORMALITY SCORING — 5 tests
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestEstimateFormality:
 
@@ -345,6 +349,7 @@ class TestEstimateFormality:
 # 5. SERVICE INITIALIZATION — 3 tests
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestServiceInit:
 
     def test_default_init(self, service):
@@ -365,6 +370,7 @@ class TestServiceInit:
 # ══════════════════════════════════════════════════════════════════
 # 6. GET CONFIG — 7 tests
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestGetConfig:
 
@@ -417,7 +423,8 @@ class TestGetConfig:
 
     @pytest.mark.asyncio
     async def test_get_config_redis_miss_falls_to_memory(
-            self, service_with_redis, mock_redis):
+        self, service_with_redis, mock_redis
+    ):
         mock_redis.get.return_value = None
         config = _make_config(company_id="corp-mem")
         service_with_redis._in_memory_store["corp-mem"] = config
@@ -449,6 +456,7 @@ class TestGetConfig:
 # 7. CREATE CONFIG — 8 tests
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestCreateConfig:
 
     @pytest.mark.asyncio
@@ -465,8 +473,7 @@ class TestCreateConfig:
         assert service._in_memory_store["corp-002"] is config
 
     @pytest.mark.asyncio
-    async def test_create_empty_company_raises(
-            self, service, sample_config_data):
+    async def test_create_empty_company_raises(self, service, sample_config_data):
         with pytest.raises(ValidationError):
             await service.create_config("", sample_config_data)
 
@@ -488,10 +495,13 @@ class TestCreateConfig:
     @pytest.mark.asyncio
     async def test_create_min_exceeds_max_raises(self, service):
         with pytest.raises(ValidationError, match="min_response_sentences"):
-            await service.create_config("corp-001", {
-                "min_response_sentences": 10,
-                "max_response_sentences": 3,
-            })
+            await service.create_config(
+                "corp-001",
+                {
+                    "min_response_sentences": 10,
+                    "max_response_sentences": 3,
+                },
+            )
 
     @pytest.mark.asyncio
     async def test_create_defaults_when_partial_data(self, service):
@@ -506,6 +516,7 @@ class TestCreateConfig:
 # 8. UPDATE CONFIG — 7 tests
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestUpdateConfig:
 
     @pytest.mark.asyncio
@@ -516,8 +527,7 @@ class TestUpdateConfig:
         assert updated.company_id == "corp-001"
 
     @pytest.mark.asyncio
-    async def test_update_invalid_tone_raises(
-            self, service, sample_config_data):
+    async def test_update_invalid_tone_raises(self, service, sample_config_data):
         await service.create_config("corp-001", sample_config_data)
         with pytest.raises(ValidationError, match="tone"):
             await service.update_config("corp-001", {"tone": "angry"})
@@ -530,28 +540,37 @@ class TestUpdateConfig:
 
     @pytest.mark.asyncio
     async def test_update_response_length_auto_adjusts_bounds(
-            self, service, sample_config_data):
+        self, service, sample_config_data
+    ):
         await service.create_config("corp-001", sample_config_data)
         updated = await service.update_config(
-            "corp-001", {"response_length_preference": "detailed"},
+            "corp-001",
+            {"response_length_preference": "detailed"},
         )
         assert updated.response_length_preference == "detailed"
-        assert updated.max_response_sentences == _RESPONSE_LENGTH_BOUNDS["detailed"]["max"]
-        assert updated.min_response_sentences == _RESPONSE_LENGTH_BOUNDS["detailed"]["min"]
+        assert (
+            updated.max_response_sentences == _RESPONSE_LENGTH_BOUNDS["detailed"]["max"]
+        )
+        assert (
+            updated.min_response_sentences == _RESPONSE_LENGTH_BOUNDS["detailed"]["min"]
+        )
 
     @pytest.mark.asyncio
     async def test_update_sentence_bounds_inverted_raises(
-            self, service, sample_config_data):
+        self, service, sample_config_data
+    ):
         await service.create_config("corp-001", sample_config_data)
         with pytest.raises(ValidationError, match="min_response_sentences"):
-            await service.update_config("corp-001", {
-                "min_response_sentences": 10,
-                "max_response_sentences": 2,
-            })
+            await service.update_config(
+                "corp-001",
+                {
+                    "min_response_sentences": 10,
+                    "max_response_sentences": 2,
+                },
+            )
 
     @pytest.mark.asyncio
-    async def test_update_empty_company_raises(
-            self, service, sample_config_data):
+    async def test_update_empty_company_raises(self, service, sample_config_data):
         with pytest.raises(ValidationError):
             await service.update_config("", {"tone": "friendly"})
 
@@ -559,7 +578,8 @@ class TestUpdateConfig:
     async def test_update_prohibited_words(self, service, sample_config_data):
         await service.create_config("corp-001", sample_config_data)
         updated = await service.update_config(
-            "corp-001", {"prohibited_words": ["badword", "worseword"]},
+            "corp-001",
+            {"prohibited_words": ["badword", "worseword"]},
         )
         assert "badword" in updated.prohibited_words
         assert "worseword" in updated.prohibited_words
@@ -569,11 +589,11 @@ class TestUpdateConfig:
 # 9. DELETE CONFIG — 4 tests
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestDeleteConfig:
 
     @pytest.mark.asyncio
-    async def test_delete_existing_returns_true(
-            self, service, sample_config_data):
+    async def test_delete_existing_returns_true(self, service, sample_config_data):
         await service.create_config("corp-001", sample_config_data)
         result = await service.delete_config("corp-001")
         assert result is True
@@ -607,6 +627,7 @@ class TestDeleteConfig:
 # ══════════════════════════════════════════════════════════════════
 # 10. PROHIBITED WORDS — 8 tests
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestProhibitedWords:
 
@@ -673,13 +694,16 @@ class TestProhibitedWords:
 # 11. RESPONSE GUIDELINES — 8 tests
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestResponseGuidelines:
 
     @pytest.mark.asyncio
     async def test_critical_empathy_for_negative_sentiment(self, service):
         config = _make_config(tone="professional")
         service._in_memory_store["corp-001"] = config
-        guidelines = await service.get_response_guidelines("corp-001", sentiment_score=0.1)
+        guidelines = await service.get_response_guidelines(
+            "corp-001", sentiment_score=0.1
+        )
         assert guidelines.empathy_level == "critical"
         assert guidelines.urgency_adjustment == "immediate_response"
 
@@ -687,7 +711,9 @@ class TestResponseGuidelines:
     async def test_low_empathy_for_positive_sentiment(self, service):
         config = _make_config(tone="professional")
         service._in_memory_store["corp-001"] = config
-        guidelines = await service.get_response_guidelines("corp-001", sentiment_score=0.8)
+        guidelines = await service.get_response_guidelines(
+            "corp-001", sentiment_score=0.8
+        )
         assert guidelines.empathy_level == "low"
         assert guidelines.urgency_adjustment == "relaxed"
 
@@ -695,7 +721,9 @@ class TestResponseGuidelines:
     async def test_medium_empathy_default(self, service):
         config = _make_config()
         service._in_memory_store["corp-001"] = config
-        guidelines = await service.get_response_guidelines("corp-001", sentiment_score=0.5)
+        guidelines = await service.get_response_guidelines(
+            "corp-001", sentiment_score=0.5
+        )
         assert guidelines.empathy_level == "medium"
         assert guidelines.urgency_adjustment == "standard"
 
@@ -703,14 +731,18 @@ class TestResponseGuidelines:
     async def test_tone_softened_for_critical(self, service):
         config = _make_config(tone="authoritative")
         service._in_memory_store["corp-001"] = config
-        guidelines = await service.get_response_guidelines("corp-001", sentiment_score=0.1)
+        guidelines = await service.get_response_guidelines(
+            "corp-001", sentiment_score=0.1
+        )
         assert guidelines.tone == "professional"  # softened from authoritative
 
     @pytest.mark.asyncio
     async def test_suggested_opening_present(self, service):
         config = _make_config(tone="friendly")
         service._in_memory_store["corp-001"] = config
-        guidelines = await service.get_response_guidelines("corp-001", sentiment_score=0.1)
+        guidelines = await service.get_response_guidelines(
+            "corp-001", sentiment_score=0.1
+        )
         assert guidelines.suggested_opening
         assert len(guidelines.suggested_opening) > 0
 
@@ -726,7 +758,9 @@ class TestResponseGuidelines:
     async def test_avoid_phrases_include_prohibited_words(self, service):
         config = _make_config(prohibited_words=["damn", "hell"])
         service._in_memory_store["corp-001"] = config
-        guidelines = await service.get_response_guidelines("corp-001", sentiment_score=0.1)
+        guidelines = await service.get_response_guidelines(
+            "corp-001", sentiment_score=0.1
+        )
         assert "damn" in guidelines.avoid_phrases
         assert "hell" in guidelines.avoid_phrases
 
@@ -741,6 +775,7 @@ class TestResponseGuidelines:
 # ══════════════════════════════════════════════════════════════════
 # 12. RESPONSE VALIDATION — 8 tests
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestValidateResponse:
 
@@ -795,9 +830,7 @@ class TestValidateResponse:
 
     @pytest.mark.asyncio
     async def test_suggested_fixes_provided(self, service):
-        config = _make_config(
-            prohibited_words=["damn"],
-            min_response_sentences=5)
+        config = _make_config(prohibited_words=["damn"], min_response_sentences=5)
         service._in_memory_store["corp-001"] = config
         result = await service.validate_response("Damn!", "corp-001")
         assert len(result.suggested_fixes) > 0
@@ -826,6 +859,7 @@ class TestValidateResponse:
 # ══════════════════════════════════════════════════════════════════
 # 13. DEFAULT CONFIG / INDUSTRY DEFAULTS — 5 tests
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestDefaultConfig:
 
@@ -869,6 +903,7 @@ class TestDefaultConfig:
 # 14. MERGE WITH BRAND VOICE — 5 tests
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestMergeWithBrandVoice:
 
     @pytest.mark.asyncio
@@ -878,7 +913,9 @@ class TestMergeWithBrandVoice:
             closing_template="Goodbye!",
         )
         service._in_memory_store["corp-001"] = config
-        result = await service.merge_with_brand_voice("Here is your answer.", "corp-001")
+        result = await service.merge_with_brand_voice(
+            "Here is your answer.", "corp-001"
+        )
         assert result.startswith("Hello! How can I help?")
 
     @pytest.mark.asyncio
@@ -888,7 +925,9 @@ class TestMergeWithBrandVoice:
             closing_template="Goodbye!",
         )
         service._in_memory_store["corp-001"] = config
-        result = await service.merge_with_brand_voice("Here is your answer.", "corp-001")
+        result = await service.merge_with_brand_voice(
+            "Here is your answer.", "corp-001"
+        )
         assert result.strip().endswith("Goodbye!")
 
     @pytest.mark.asyncio
@@ -909,7 +948,8 @@ class TestMergeWithBrandVoice:
         config = _make_config(formality_level=0.9)
         service._in_memory_store["corp-001"] = config
         result = await service.merge_with_brand_voice(
-            "I don't think we can't do it. It's fine.", "corp-001",
+            "I don't think we can't do it. It's fine.",
+            "corp-001",
         )
         assert "do not" in result
         assert "cannot" in result
@@ -926,6 +966,7 @@ class TestMergeWithBrandVoice:
 # ══════════════════════════════════════════════════════════════════
 # 15. STATIC TEXT TRANSFORMATION HELPERS — 3 tests
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestTextTransformations:
 
@@ -956,26 +997,26 @@ class TestTextTransformations:
 # 16. REDIS CACHE OPERATIONS — 4 tests
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestRedisCacheOps:
 
     @pytest.mark.asyncio
     async def test_set_cache_called_on_create(
-            self, service_with_redis, mock_redis, sample_config_data):
+        self, service_with_redis, mock_redis, sample_config_data
+    ):
         await service_with_redis.create_config("corp-redis", sample_config_data)
         mock_redis.set.assert_called_once()
         call_args = mock_redis.set.call_args
         assert "brand_voice:corp-redis" in call_args[0][0]
 
     @pytest.mark.asyncio
-    async def test_cache_miss_returns_none(
-            self, service_with_redis, mock_redis):
+    async def test_cache_miss_returns_none(self, service_with_redis, mock_redis):
         mock_redis.get.return_value = None
         result = await service_with_redis._get_from_cache("corp-001")
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_cache_hit_deserializes(
-            self, service_with_redis, mock_redis):
+    async def test_cache_hit_deserializes(self, service_with_redis, mock_redis):
         now = datetime.now(timezone.utc)
         cache_data = {
             "company_id": "corp-001",
@@ -1003,7 +1044,8 @@ class TestRedisCacheOps:
 
     @pytest.mark.asyncio
     async def test_delete_cache_called_on_delete(
-            self, service_with_redis, mock_redis, sample_config_data):
+        self, service_with_redis, mock_redis, sample_config_data
+    ):
         await service_with_redis.create_config("corp-del", sample_config_data)
         mock_redis.reset_mock()
         await service_with_redis.delete_config("corp-del")
@@ -1013,6 +1055,7 @@ class TestRedisCacheOps:
 # ══════════════════════════════════════════════════════════════════
 # 17. PER-TENANT ISOLATION — 3 tests
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestTenantIsolation:
 
@@ -1030,9 +1073,7 @@ class TestTenantIsolation:
 
     @pytest.mark.asyncio
     async def test_prohibited_words_per_tenant(self, service):
-        config_a = _make_config(
-            company_id="tenant-a",
-            prohibited_words=["damn"])
+        config_a = _make_config(company_id="tenant-a", prohibited_words=["damn"])
         config_b = _make_config(company_id="tenant-b", prohibited_words=[])
         service._in_memory_store["tenant-a"] = config_a
         service._in_memory_store["tenant-b"] = config_b
@@ -1058,6 +1099,7 @@ class TestTenantIsolation:
 # 18. DATA STRUCTURES — 4 tests
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestDataStructures:
 
     def test_brand_voice_config_creation(self):
@@ -1069,7 +1111,14 @@ class TestDataStructures:
     def test_prohibited_word_check_creation(self):
         check = ProhibitedWordCheck(
             has_violations=True,
-            violations=[{"word": "test", "position": 0, "normalized_form": "test", "severity": "low"}],
+            violations=[
+                {
+                    "word": "test",
+                    "position": 0,
+                    "normalized_form": "test",
+                    "severity": "low",
+                }
+            ],
             cleaned_text="****",
         )
         assert check.has_violations is True
@@ -1105,21 +1154,24 @@ class TestDataStructures:
 # 19. EMPATHY TABLES COVERAGE — 3 tests
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestEmpathyTables:
 
     def test_all_empathy_levels_have_openings(self):
         for level in ["critical", "high", "medium", "low"]:
             assert level in _EMPATHY_OPENINGS
             for tone in VALID_TONES:
-                assert tone in _EMPATHY_OPENINGS[
-                    level], f"Missing tone '{tone}' in openings for '{level}'"
+                assert (
+                    tone in _EMPATHY_OPENINGS[level]
+                ), f"Missing tone '{tone}' in openings for '{level}'"
 
     def test_all_empathy_levels_have_closings(self):
         for level in ["critical", "high", "medium", "low"]:
             assert level in _EMPATHY_CLOSINGS
             for tone in VALID_TONES:
-                assert tone in _EMPATHY_CLOSINGS[
-                    level], f"Missing tone '{tone}' in closings for '{level}'"
+                assert (
+                    tone in _EMPATHY_CLOSINGS[level]
+                ), f"Missing tone '{tone}' in closings for '{level}'"
 
     def test_all_empathy_levels_have_avoid_phrases(self):
         for level in ["critical", "high", "medium", "low"]:
@@ -1130,29 +1182,38 @@ class TestEmpathyTables:
 # 20. EDGE CASES & GRACEFUL DEGRADATION — 5 tests
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_create_with_all_industries(self, service):
         """All defined industries should produce valid configs."""
         for industry in VALID_INDUSTRIES:
-            config = await service.create_config(f"corp-{industry}", {"industry": industry})
+            config = await service.create_config(
+                f"corp-{industry}", {"industry": industry}
+            )
             assert config.industry == industry
             assert config.tone in VALID_TONES
 
     @pytest.mark.asyncio
     async def test_create_with_brand_name_override(self, service):
-        config = await service.create_config("corp-brand", {
-            "brand_name": "MyCustomBrand",
-        })
+        config = await service.create_config(
+            "corp-brand",
+            {
+                "brand_name": "MyCustomBrand",
+            },
+        )
         assert config.brand_name == "MyCustomBrand"
 
     @pytest.mark.asyncio
     async def test_create_with_custom_greeting_closing(self, service):
-        config = await service.create_config("corp-custom", {
-            "greeting_template": "Welcome to Acme!",
-            "closing_template": "We value your business!",
-        })
+        config = await service.create_config(
+            "corp-custom",
+            {
+                "greeting_template": "Welcome to Acme!",
+                "closing_template": "We value your business!",
+            },
+        )
         assert config.greeting_template == "Welcome to Acme!"
         assert config.closing_template == "We value your business!"
 
@@ -1179,6 +1240,7 @@ class TestEdgeCases:
 # 21. RESPONSE LENGTH BOUNDS — 3 tests
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestResponseLengthBounds:
 
     def test_concise_bounds(self):
@@ -1198,63 +1260,74 @@ class TestResponseLengthBounds:
 # 22. ADDITIONAL SCENARIOS — 6 tests
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestAdditionalScenarios:
 
     @pytest.mark.asyncio
     async def test_update_multiple_fields(self, service, sample_config_data):
         await service.create_config("corp-001", sample_config_data)
-        updated = await service.update_config("corp-001", {
-            "tone": "casual",
-            "formality_level": 0.2,
-            "emoji_usage": "liberal",
-        })
+        updated = await service.update_config(
+            "corp-001",
+            {
+                "tone": "casual",
+                "formality_level": 0.2,
+                "emoji_usage": "liberal",
+            },
+        )
         assert updated.tone == "casual"
         assert updated.formality_level == 0.2
         assert updated.emoji_usage == "liberal"
 
     @pytest.mark.asyncio
     async def test_guidelines_critical_increases_max_sentences(self, service):
-        config = _make_config(
-            max_response_sentences=3,
-            min_response_sentences=1)
+        config = _make_config(max_response_sentences=3, min_response_sentences=1)
         service._in_memory_store["corp-001"] = config
-        guidelines = await service.get_response_guidelines("corp-001", sentiment_score=0.1)
+        guidelines = await service.get_response_guidelines(
+            "corp-001", sentiment_score=0.1
+        )
         assert guidelines.max_sentences >= 5  # critical adds +2, max with 8
 
     @pytest.mark.asyncio
     async def test_guidelines_high_increases_max_sentences(self, service):
-        config = _make_config(
-            max_response_sentences=3,
-            min_response_sentences=1)
+        config = _make_config(max_response_sentences=3, min_response_sentences=1)
         service._in_memory_store["corp-001"] = config
-        guidelines = await service.get_response_guidelines("corp-001", sentiment_score=0.3)
+        guidelines = await service.get_response_guidelines(
+            "corp-001", sentiment_score=0.3
+        )
         assert guidelines.max_sentences >= 4  # high adds +1, max with 5
 
     @pytest.mark.asyncio
     async def test_formality_adjusted_for_critical(self, service):
         config = _make_config(formality_level=0.5)
         service._in_memory_store["corp-001"] = config
-        guidelines = await service.get_response_guidelines("corp-001", sentiment_score=0.1)
+        guidelines = await service.get_response_guidelines(
+            "corp-001", sentiment_score=0.1
+        )
         assert guidelines.formality_level == 0.6  # 0.5 + 0.1
 
     @pytest.mark.asyncio
     async def test_formality_adjusted_for_low(self, service):
         config = _make_config(formality_level=0.5)
         service._in_memory_store["corp-001"] = config
-        guidelines = await service.get_response_guidelines("corp-001", sentiment_score=0.9)
+        guidelines = await service.get_response_guidelines(
+            "corp-001", sentiment_score=0.9
+        )
         assert guidelines.formality_level == 0.45  # 0.5 - 0.05
 
     @pytest.mark.asyncio
     async def test_casual_tone_upgraded_for_critical(self, service):
         config = _make_config(tone="casual")
         service._in_memory_store["corp-001"] = config
-        guidelines = await service.get_response_guidelines("corp-001", sentiment_score=0.1)
+        guidelines = await service.get_response_guidelines(
+            "corp-001", sentiment_score=0.1
+        )
         assert guidelines.tone == "friendly"  # up-leveled from casual
 
 
 # ══════════════════════════════════════════════════════════════════
 # 23. SENTENCE COUNT BOUNDARY — 2 tests
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestSentenceCountBoundary:
 
@@ -1275,6 +1348,7 @@ class TestSentenceCountBoundary:
 # 24. MULTI-WORD PROHIBITED PHRASES — 2 tests
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestMultiWordProhibitedPhrases:
 
     @pytest.mark.asyncio
@@ -1282,18 +1356,21 @@ class TestMultiWordProhibitedPhrases:
         config = _make_config(prohibited_words=["guaranteed returns"])
         service._in_memory_store["corp-001"] = config
         result = await service.check_prohibited_words(
-            "We offer guaranteed returns on investment.", "corp-001",
+            "We offer guaranteed returns on investment.",
+            "corp-001",
         )
         assert result.has_violations is True
-        assert any(v["normalized_form"]
-                   == "guaranteed returns" for v in result.violations)
+        assert any(
+            v["normalized_form"] == "guaranteed returns" for v in result.violations
+        )
 
     @pytest.mark.asyncio
     async def test_multi_word_phrase_not_partial_match(self, service):
         config = _make_config(prohibited_words=["guaranteed returns"])
         service._in_memory_store["corp-001"] = config
         result = await service.check_prohibited_words(
-            "We guarantee quality and quick returns.", "corp-001",
+            "We guarantee quality and quick returns.",
+            "corp-001",
         )
         # "guaranteed returns" as a phrase should not match separate words
         assert result.has_violations is False
@@ -1303,18 +1380,19 @@ class TestMultiWordProhibitedPhrases:
 # 25. REDIS FAILURE RESILIENCE — 2 tests
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestRedisFailureResilience:
 
     @pytest.mark.asyncio
-    async def test_redis_get_failure_returns_none(
-            self, service_with_redis, mock_redis):
+    async def test_redis_get_failure_returns_none(self, service_with_redis, mock_redis):
         mock_redis.get.side_effect = Exception("Connection refused")
         result = await service_with_redis._get_from_cache("corp-001")
         assert result is None
 
     @pytest.mark.asyncio
     async def test_redis_set_failure_silently_ignored(
-            self, service_with_redis, mock_redis, sample_config_data):
+        self, service_with_redis, mock_redis, sample_config_data
+    ):
         mock_redis.set.side_effect = Exception("Connection refused")
         # Should not raise
         config = await service_with_redis.create_config("corp-001", sample_config_data)
@@ -1324,6 +1402,7 @@ class TestRedisFailureResilience:
 # ══════════════════════════════════════════════════════════════════
 # 26. VALIDATION WARNING SCENARIOS — 2 tests
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestValidationWarnings:
 

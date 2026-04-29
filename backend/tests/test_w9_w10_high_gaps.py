@@ -68,7 +68,6 @@ from app.core.state_serialization import (
 )
 from app.core.techniques.base import GSDState, ConversationState
 
-
 # ══════════════════════════════════════════════════════════════════
 # 1. INTENT CLASSIFICATION AMBIGUITY
 # ══════════════════════════════════════════════════════════════════
@@ -114,19 +113,20 @@ class TestIntentClassificationAmbiguity:
         )
         result = await extractor.extract(request)
         assert result.intent in (
-            "general", "inquiry", "feedback", "account",
-            "technical", "billing", "complaint",
+            "general",
+            "inquiry",
+            "feedback",
+            "account",
+            "technical",
+            "billing",
+            "complaint",
         )
 
     @pytest.mark.asyncio
     async def test_signal_extractor_returns_valid_sentiment_range(self):
         """Sentiment is always 0.0-1.0 regardless of input."""
         extractor = SignalExtractor()
-        for query in [
-            "",
-            "   ",
-            "xyzzy nonsense",
-                "I am very happy and great"]:
+        for query in ["", "   ", "xyzzy nonsense", "I am very happy and great"]:
             req = SignalExtractionRequest(query=query, company_id="c")
             result = await extractor.extract(req)
             assert 0.0 <= result.sentiment <= 1.0
@@ -158,7 +158,8 @@ class TestTechniqueTierBypass:
         )
         assert result.decision in (
             TierAccessDecision.BLOCKED,
-            TierAccessDecision.DOWNGRADED)
+            TierAccessDecision.DOWNGRADED,
+        )
 
     def test_mini_parwa_cannot_access_tier3(self):
         """mini_parwa blocked from gst (Tier 3)."""
@@ -169,7 +170,8 @@ class TestTechniqueTierBypass:
         )
         assert result.decision in (
             TierAccessDecision.BLOCKED,
-            TierAccessDecision.DOWNGRADED)
+            TierAccessDecision.DOWNGRADED,
+        )
 
     def test_parwa_allowed_tier2_blocked_tier3(self):
         """parwa can use Tier 2 but not Tier 3."""
@@ -188,15 +190,16 @@ class TestTechniqueTierBypass:
             TechniqueID.GST.value,
         ]:
             result = checker.check_access(tid, "parwa_high")
-            assert result.decision == TierAccessDecision.ALLOWED, (
-                f"parwa_high should allow {tid}, got {result.decision}"
-            )
+            assert (
+                result.decision == TierAccessDecision.ALLOWED
+            ), f"parwa_high should allow {tid}, got {result.decision}"
 
     def test_unknown_variant_treated_as_restricted(self):
         """Unknown variant gets BLOCKED for all techniques."""
         checker = TechniqueTierAccessChecker()
         result = checker.check_access(
-            TechniqueID.CHAIN_OF_THOUGHT.value, "unknown_variant",
+            TechniqueID.CHAIN_OF_THOUGHT.value,
+            "unknown_variant",
         )
         assert result.decision == TierAccessDecision.BLOCKED
         assert "unknown_variant" in result.reason
@@ -267,9 +270,7 @@ class TestEdgeCaseHandlerOrdering:
     def test_blocked_user_triggers_block(self):
         """Blocked user context triggers BLOCK."""
         registry = EdgeCaseRegistry(variant="parwa")
-        result = registry.process(
-            "help me", context={"is_blocked": True}
-        )
+        result = registry.process("help me", context={"is_blocked": True})
         assert result.blocked is True
         assert result.final_action == EdgeCaseAction.BLOCK
 
@@ -280,9 +281,7 @@ class TestEdgeCaseHandlerOrdering:
             "I want to file a lawsuit for breach of contract",
             context={},
         )
-        assert EdgeCaseAction.ESCALATE in [
-            r.action for r in result.results
-        ]
+        assert EdgeCaseAction.ESCALATE in [r.action for r in result.results]
 
     def test_timeout_handler_fires_on_elapsed(self):
         """TimeoutHandler fires when elapsed exceeds threshold."""
@@ -290,10 +289,7 @@ class TestEdgeCaseHandlerOrdering:
         registry = EdgeCaseRegistry(variant="parwa")
         result = registry.process(
             "hello",
-            context={
-                "_processing_elapsed_ms": CHAIN_TIMEOUT_SECONDS
-                * 1000
-                + 1},
+            context={"_processing_elapsed_ms": CHAIN_TIMEOUT_SECONDS * 1000 + 1},
         )
         handler_types = [r.handler_type for r in result.results]
         assert "timeout" in handler_types
@@ -311,7 +307,8 @@ class TestCrossVariantEscalationBilling:
         """No escalation → billed_to_variant equals original_variant."""
         router = CrossVariantRouter()
         result = router.route_ticket(
-            company_id="co1", ticket_id="t1",
+            company_id="co1",
+            ticket_id="t1",
             channel=ChannelType.CHAT,
         )
         assert result.billed_to_variant == result.original_variant
@@ -322,7 +319,8 @@ class TestCrossVariantEscalationBilling:
         router = CrossVariantRouter()
         router.update_capacity("co1", "mini_parwa", 95, 100)
         result = router.route_ticket(
-            company_id="co1", ticket_id="t2",
+            company_id="co1",
+            ticket_id="t2",
             channel=ChannelType.CHAT,
         )
         assert result.escalated is True
@@ -333,7 +331,8 @@ class TestCrossVariantEscalationBilling:
         router = CrossVariantRouter()
         router.update_capacity("co1", "mini_parwa", 95, 100)
         result = router.route_ticket(
-            company_id="co1", ticket_id="t3",
+            company_id="co1",
+            ticket_id="t3",
             channel=ChannelType.CHAT,
         )
         assert result.billed_to_variant == "mini_parwa"
@@ -344,7 +343,8 @@ class TestCrossVariantEscalationBilling:
         for variant in ESCALATION_CHAIN:
             router.update_capacity("co1", variant, 95, 100)
         result = router.route_ticket(
-            company_id="co1", ticket_id="t4",
+            company_id="co1",
+            ticket_id="t4",
             channel=ChannelType.CHAT,
         )
         # Must be escalated and either queued or sent to human
@@ -358,7 +358,8 @@ class TestCrossVariantEscalationBilling:
         """Escalation parwa_high → parwa (backwards) is rejected."""
         router = CrossVariantRouter()
         result = router.escalate_ticket(
-            company_id="co1", ticket_id="t5",
+            company_id="co1",
+            ticket_id="t5",
             from_variant="parwa_high",
             to_variant="parwa",
             reason=EscalationReason.MANUAL_REQUEST,
@@ -407,9 +408,7 @@ class TestWorkflowTimeout:
         """Workflow execute returns a WorkflowResult with valid status."""
         config = WorkflowConfig(variant_type="mini_parwa")
         wf = LangGraphWorkflow(config)
-        result = await wf.execute(
-            company_id="co1", query="hello world"
-        )
+        result = await wf.execute(company_id="co1", query="hello world")
         assert isinstance(result, WorkflowResult)
         assert result.status in ("success", "partial", "failed", "timeout")
         assert result.variant_type == "mini_parwa"
@@ -462,7 +461,9 @@ class TestGSDTransitionValidation:
         state = ConversationState(query="test", company_id="co1")
         state.gsd_state = GSDState.DIAGNOSIS
         can = await engine.can_transition_with_variant(
-            GSDState.DIAGNOSIS, GSDState.ESCALATE, "mini_parwa",
+            GSDState.DIAGNOSIS,
+            GSDState.ESCALATE,
+            "mini_parwa",
         )
         assert can is False
 
@@ -471,7 +472,9 @@ class TestGSDTransitionValidation:
         """parwa variant allows escalation from diagnosis."""
         engine = GSDEngine()
         can = await engine.can_transition_with_variant(
-            GSDState.DIAGNOSIS, GSDState.ESCALATE, "parwa",
+            GSDState.DIAGNOSIS,
+            GSDState.ESCALATE,
+            "parwa",
         )
         assert can is True
 
@@ -485,8 +488,16 @@ class TestGSDTransitionValidation:
     @pytest.mark.asyncio
     async def test_transition_table_consistency(self):
         """All states in FULL_TRANSITION_TABLE have valid targets."""
-        all_states = {"new", "greeting", "diagnosis", "resolution",
-                      "follow_up", "escalate", "human_handof", "closed"}
+        all_states = {
+            "new",
+            "greeting",
+            "diagnosis",
+            "resolution",
+            "follow_up",
+            "escalate",
+            "human_handof",
+            "closed",
+        }
         for state, targets in FULL_TRANSITION_TABLE.items():
             assert state in all_states, f"Unknown state {state} in table"
             for t in targets:
@@ -512,9 +523,7 @@ class TestGSDTransitionValidation:
         state.gsd_state = GSDState.DIAGNOSIS
 
         # Set frustration high to trigger auto-escalation
-        engine._escalation_timestamps["co1"] = (
-            datetime.now(timezone.utc).isoformat()
-        )
+        engine._escalation_timestamps["co1"] = datetime.now(timezone.utc).isoformat()
         with pytest.raises(EscalationCooldownError):
             await engine.handle_escalation(state)
 

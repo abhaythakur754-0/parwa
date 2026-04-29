@@ -24,7 +24,6 @@ from app.services.spam_detection_service import SpamDetectionService
 from database.models.core import User
 from database.models.tickets import Ticket, TicketStatus
 
-
 router = APIRouter(
     prefix="/tickets",
     tags=["Ticket Lifecycle"],
@@ -34,75 +33,85 @@ router = APIRouter(
 
 # ── Request/Response Schemas ────────────────────────────────────────────
 
+
 class EscalateRequest(BaseModel):
     """Request to escalate a ticket."""
+
     reason: str = Field(..., description="Escalation reason")
-    ai_summary: Optional[str] = Field(
-        None, description="AI conversation summary")
+    ai_summary: Optional[str] = Field(None, description="AI conversation summary")
 
 
 class ReopenRequest(BaseModel):
     """Request to reopen a ticket."""
+
     reason: str = Field(..., description="Reason for reopening")
 
 
 class FreezeRequest(BaseModel):
     """Request to freeze a ticket."""
-    reason: str = Field(
-        default="account_suspended",
-        description="Reason for freezing")
+
+    reason: str = Field(default="account_suspended", description="Reason for freezing")
 
 
 class SpamMarkRequest(BaseModel):
     """Request to mark ticket as spam."""
+
     reason: str = Field(..., description="Reason for spam marking")
 
 
 class SpamUnmarkRequest(BaseModel):
     """Request to unmark ticket as spam."""
+
     reason: str = Field(..., description="Reason for unmarking")
 
 
 class IncidentCreateRequest(BaseModel):
     """Request to create an incident."""
+
     title: str = Field(..., description="Incident title")
     description: str = Field(..., description="Incident description")
     severity: str = Field(
-        default="medium",
-        description="Severity: low, medium, high, critical")
+        default="medium", description="Severity: low, medium, high, critical"
+    )
     affected_services: Optional[List[str]] = Field(
-        None, description="Affected services")
-    master_ticket_id: Optional[str] = Field(
-        None, description="Master ticket ID")
+        None, description="Affected services"
+    )
+    master_ticket_id: Optional[str] = Field(None, description="Master ticket ID")
 
 
 class IncidentUpdateRequest(BaseModel):
     """Request to update incident status."""
+
     status: str = Field(..., description="New status")
     message: Optional[str] = Field(None, description="Status update message")
 
 
 class IncidentResolveRequest(BaseModel):
     """Request to resolve an incident."""
+
     resolution_summary: str = Field(..., description="Resolution summary")
 
 
 class IncidentNotifyRequest(BaseModel):
     """Request to notify affected customers."""
+
     message: str = Field(..., description="Notification message")
 
 
 class LinkTicketRequest(BaseModel):
     """Request to link a ticket to an incident."""
+
     ticket_id: str = Field(..., description="Ticket ID to link")
 
 
 class AddAffectedCustomersRequest(BaseModel):
     """Request to add affected customers to incident."""
+
     customer_ids: List[str] = Field(..., description="Customer IDs to add")
 
 
 # ── Ticket Lifecycle Endpoints ──────────────────────────────────────────
+
 
 @router.post("/{ticket_id}/escalate")
 async def escalate_ticket(
@@ -116,23 +125,24 @@ async def escalate_ticket(
     lifecycle_service = TicketLifecycleService(db, tenant["company_id"])
 
     # Check if escalation is valid
-    ticket = db.query(Ticket).filter(
-        Ticket.id == ticket_id,
-        Ticket.company_id == tenant["company_id"],
-    ).first()
+    ticket = (
+        db.query(Ticket)
+        .filter(
+            Ticket.id == ticket_id,
+            Ticket.company_id == tenant["company_id"],
+        )
+        .first()
+    )
 
     if not ticket:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Ticket {ticket_id} not found"
+            detail=f"Ticket {ticket_id} not found",
         )
 
     can_escalate, error = TransitionValidator.validate_escalation(ticket)
     if not can_escalate:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
     result = lifecycle_service.handle_human_request(
         ticket_id=ticket_id,
@@ -159,23 +169,24 @@ async def reopen_ticket(
     """Reopen a closed/resolved ticket (PS04)."""
     lifecycle_service = TicketLifecycleService(db, tenant["company_id"])
 
-    ticket = db.query(Ticket).filter(
-        Ticket.id == ticket_id,
-        Ticket.company_id == tenant["company_id"],
-    ).first()
+    ticket = (
+        db.query(Ticket)
+        .filter(
+            Ticket.id == ticket_id,
+            Ticket.company_id == tenant["company_id"],
+        )
+        .first()
+    )
 
     if not ticket:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Ticket {ticket_id} not found"
+            detail=f"Ticket {ticket_id} not found",
         )
 
     can_reopen, error = TransitionValidator.validate_reopen(ticket)
     if not can_reopen:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
     try:
         result = lifecycle_service.reopen_ticket(
@@ -191,10 +202,7 @@ async def reopen_ticket(
             "reopen_count": result.reopen_count,
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.post("/{ticket_id}/freeze")
@@ -208,23 +216,24 @@ async def freeze_ticket(
     """Freeze a ticket (PS07)."""
     state_machine = TicketStateMachine(db, tenant["company_id"])
 
-    ticket = db.query(Ticket).filter(
-        Ticket.id == ticket_id,
-        Ticket.company_id == tenant["company_id"],
-    ).first()
+    ticket = (
+        db.query(Ticket)
+        .filter(
+            Ticket.id == ticket_id,
+            Ticket.company_id == tenant["company_id"],
+        )
+        .first()
+    )
 
     if not ticket:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Ticket {ticket_id} not found"
+            detail=f"Ticket {ticket_id} not found",
         )
 
     can_freeze, error = TransitionValidator.validate_freeze(ticket)
     if not can_freeze:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
     try:
         state_machine.transition(
@@ -242,10 +251,7 @@ async def freeze_ticket(
             "status": ticket.status,
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.post("/{ticket_id}/thaw")
@@ -258,23 +264,24 @@ async def thaw_ticket(
     """Thaw a frozen ticket (PS07)."""
     state_machine = TicketStateMachine(db, tenant["company_id"])
 
-    ticket = db.query(Ticket).filter(
-        Ticket.id == ticket_id,
-        Ticket.company_id == tenant["company_id"],
-    ).first()
+    ticket = (
+        db.query(Ticket)
+        .filter(
+            Ticket.id == ticket_id,
+            Ticket.company_id == tenant["company_id"],
+        )
+        .first()
+    )
 
     if not ticket:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Ticket {ticket_id} not found"
+            detail=f"Ticket {ticket_id} not found",
         )
 
     can_thaw, error = TransitionValidator.validate_thaw(ticket)
     if not can_thaw:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
     try:
         state_machine.transition(
@@ -292,10 +299,7 @@ async def thaw_ticket(
             "status": ticket.status,
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.post("/{ticket_id}/spam")
@@ -323,10 +327,7 @@ async def mark_as_spam(
             "status": ticket.status,
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.delete("/{ticket_id}/spam")
@@ -354,10 +355,7 @@ async def unmark_as_spam(
             "status": ticket.status,
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.get("/{ticket_id}/transitions")
@@ -370,15 +368,19 @@ async def get_valid_transitions(
     """Get valid status transitions for a ticket."""
     state_machine = TicketStateMachine(db, tenant["company_id"])
 
-    ticket = db.query(Ticket).filter(
-        Ticket.id == ticket_id,
-        Ticket.company_id == tenant["company_id"],
-    ).first()
+    ticket = (
+        db.query(Ticket)
+        .filter(
+            Ticket.id == ticket_id,
+            Ticket.company_id == tenant["company_id"],
+        )
+        .first()
+    )
 
     if not ticket:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Ticket {ticket_id} not found"
+            detail=f"Ticket {ticket_id} not found",
         )
 
     valid_transitions = state_machine.get_valid_transitions(ticket)
@@ -391,6 +393,7 @@ async def get_valid_transitions(
 
 
 # ── Stale Ticket Endpoints ───────────────────────────────────────────────────
+
 
 @router.get("/stale")
 async def get_stale_tickets(
@@ -406,7 +409,7 @@ async def get_stale_tickets(
     stale_tickets = stale_service.detect_stale_tickets()
 
     return {
-        "tickets": stale_tickets[offset:offset + limit],
+        "tickets": stale_tickets[offset : offset + limit],
         "total": len(stale_tickets),
         "statistics": stale_service.get_stale_statistics(),
     }
@@ -443,10 +446,7 @@ async def create_incident(
 
         return incident
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @incident_router.get("")
@@ -496,10 +496,7 @@ async def get_incident(
             ],
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @incident_router.put("/{incident_id}/status")
@@ -523,10 +520,7 @@ async def update_incident_status(
 
         return incident
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @incident_router.post("/{incident_id}/resolve")
@@ -549,10 +543,7 @@ async def resolve_incident(
 
         return incident
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @incident_router.post("/{incident_id}/notify")
@@ -574,10 +565,7 @@ async def notify_incident_customers(
 
         return result
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @incident_router.post("/{incident_id}/link-ticket")
@@ -599,10 +587,7 @@ async def link_ticket_to_incident(
 
         return incident
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @incident_router.post("/{incident_id}/affected-customers")
@@ -624,10 +609,7 @@ async def add_affected_customers(
 
         return incident
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 # ── Spam Queue Endpoints ─────────────────────────────────────────────────────

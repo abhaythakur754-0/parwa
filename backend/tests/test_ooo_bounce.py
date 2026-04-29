@@ -23,8 +23,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
-
 # ── Fixtures ──────────────────────────────────────────────────
+
 
 def _mock_db():
     db = MagicMock()
@@ -39,11 +39,12 @@ def _mock_db():
 
 
 def _make_mock_filter_chain(
-        query_result=None,
-        scalar_result=None,
-        all_result=None,
-        first_result=None,
-        order_by_result=None):
+    query_result=None,
+    scalar_result=None,
+    all_result=None,
+    first_result=None,
+    order_by_result=None,
+):
     """Create a properly chained mock filter query.
 
     Supports chaining: query.filter().order_by().limit().all()
@@ -51,8 +52,11 @@ def _make_mock_filter_chain(
     work regardless of how many methods are chained.
     """
     f = MagicMock()
-    f.first.return_value = first_result if first_result is not None else (
-        query_result if query_result else None)
+    f.first.return_value = (
+        first_result
+        if first_result is not None
+        else (query_result if query_result else None)
+    )
     f.scalar.return_value = scalar_result if scalar_result is not None else 0
     f.order_by.return_value = order_by_result if order_by_result is not None else f
     f.group_by.return_value = f
@@ -65,9 +69,8 @@ def _make_mock_filter_chain(
 
 
 def _make_bounce_data(
-        email="bounced@example.com",
-        bounce_type="hard",
-        reason="does_not_exist"):
+    email="bounced@example.com", bounce_type="hard", reason="does_not_exist"
+):
     return {
         "email": email,
         "bounce_type": bounce_type,
@@ -88,10 +91,8 @@ def _make_complaint_data(email="complained@example.com", reason="spam"):
 
 
 def _make_email_data(
-        headers_json=None,
-        subject="",
-        body_text="",
-        sender_email="user@example.com"):
+    headers_json=None, subject="", body_text="", sender_email="user@example.com"
+):
     return {
         "sender_email": sender_email,
         "subject": subject,
@@ -627,8 +628,7 @@ class TestBounceHard:
         db = _mock_db()
         service = BounceComplaintService(db)
 
-        bounce_data = _make_bounce_data(
-            bounce_type="hard", reason="does_not_exist")
+        bounce_data = _make_bounce_data(bounce_type="hard", reason="does_not_exist")
 
         q, f = _make_mock_filter_chain(first_result=None, scalar_result=0)
         db.query.return_value = q
@@ -641,16 +641,16 @@ class TestBounceHard:
     def test_invalid_domain_is_hard(self):
         from app.services.bounce_complaint_service import BounceComplaintService
 
-        assert BounceComplaintService._is_hard_bounce(
-            "unknown", "invalid_domain"
-        ) is True
+        assert (
+            BounceComplaintService._is_hard_bounce("unknown", "invalid_domain") is True
+        )
 
     def test_mailbox_full_is_soft(self):
         from app.services.bounce_complaint_service import BounceComplaintService
 
-        assert BounceComplaintService._is_hard_bounce(
-            "unknown", "mailbox_full"
-        ) is False
+        assert (
+            BounceComplaintService._is_hard_bounce("unknown", "mailbox_full") is False
+        )
 
     def test_missing_email_returns_error(self):
         from app.services.bounce_complaint_service import BounceComplaintService
@@ -682,8 +682,7 @@ class TestBounceSoft:
         db = _mock_db()
         service = BounceComplaintService(db)
 
-        bounce_data = _make_bounce_data(
-            bounce_type="soft", reason="mailbox_full")
+        bounce_data = _make_bounce_data(bounce_type="soft", reason="mailbox_full")
 
         call_idx = [0]
 
@@ -692,11 +691,9 @@ class TestBounceSoft:
             # Alternate between scalar=0 (no event) and first=None (no
             # outbound)
             if call_idx[0] % 2 == 0:
-                q, f = _make_mock_filter_chain(
-                    scalar_result=0, first_result=None)
+                q, f = _make_mock_filter_chain(scalar_result=0, first_result=None)
             else:
-                q, f = _make_mock_filter_chain(
-                    scalar_result=0, first_result=None)
+                q, f = _make_mock_filter_chain(scalar_result=0, first_result=None)
             return q
 
         db.query.side_effect = query_side_effect
@@ -712,8 +709,7 @@ class TestBounceSoft:
         db = _mock_db()
         service = BounceComplaintService(db)
 
-        bounce_data = _make_bounce_data(
-            bounce_type="soft", reason="mailbox_full")
+        bounce_data = _make_bounce_data(bounce_type="soft", reason="mailbox_full")
 
         # Multiple query calls happen inside process_bounce:
         # 1. _is_event_processed → scalar() must return 0 (not duplicate)
@@ -722,10 +718,10 @@ class TestBounceSoft:
         # 4. _get_soft_bounce_count → scalar() returns >=
         # SOFT_BOUNCE_MAX_RETRIES
         call_results = [
-            0,      # _is_event_processed: scalar() returns 0
-            None,   # _find_outbound: first() returns None
+            0,  # _is_event_processed: scalar() returns 0
+            None,  # _find_outbound: first() returns None
             MagicMock(),  # _get_or_create: first() returns mock
-            3,      # _get_soft_bounce_count: scalar() returns 3
+            3,  # _get_soft_bounce_count: scalar() returns 3
         ]
         call_idx = [0]
 
@@ -918,8 +914,7 @@ class TestSuppressionList:
         q, f = _make_mock_filter_chain(first_result=mock_status)
         db.query.return_value = q
 
-        assert service.is_email_suppressed(
-            "comp-1", "whitelisted@example.com") is False
+        assert service.is_email_suppressed("comp-1", "whitelisted@example.com") is False
 
     def test_active_email_not_suppressed(self):
         from app.services.bounce_complaint_service import BounceComplaintService
@@ -930,8 +925,7 @@ class TestSuppressionList:
         q, f = _make_mock_filter_chain(first_result=None)
         db.query.return_value = q
 
-        assert service.is_email_suppressed(
-            "comp-1", "good@example.com") is False
+        assert service.is_email_suppressed("comp-1", "good@example.com") is False
 
 
 class TestWhitelist:
@@ -966,30 +960,24 @@ class TestProviderDetection:
     def test_gmail_detected(self):
         from app.services.bounce_complaint_service import BounceComplaintService
 
-        assert BounceComplaintService._detect_provider(
-            "user@gmail.com", {}
-        ) == "gmail"
+        assert BounceComplaintService._detect_provider("user@gmail.com", {}) == "gmail"
 
     def test_outlook_detected(self):
         from app.services.bounce_complaint_service import BounceComplaintService
 
-        assert BounceComplaintService._detect_provider(
-            "user@outlook.com", {}
-        ) == "outlook"
+        assert (
+            BounceComplaintService._detect_provider("user@outlook.com", {}) == "outlook"
+        )
 
     def test_yahoo_detected(self):
         from app.services.bounce_complaint_service import BounceComplaintService
 
-        assert BounceComplaintService._detect_provider(
-            "user@yahoo.com", {}
-        ) == "yahoo"
+        assert BounceComplaintService._detect_provider("user@yahoo.com", {}) == "yahoo"
 
     def test_unknown_provider(self):
         from app.services.bounce_complaint_service import BounceComplaintService
 
-        assert BounceComplaintService._detect_provider(
-            "user@custom.com", {}
-        ) == "other"
+        assert BounceComplaintService._detect_provider("user@custom.com", {}) == "other"
 
 
 # ══════════════════════════════════════════════════════════════
@@ -1080,6 +1068,7 @@ class TestEmailDeliveryEventModel:
 
     def test_model_import(self):
         from database.models.email_delivery_event import EmailDeliveryEvent
+
         assert EmailDeliveryEvent.__tablename__ == "email_delivery_events"
 
     def test_to_dict(self):

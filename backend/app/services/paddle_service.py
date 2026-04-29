@@ -76,14 +76,13 @@ def _load_price_ids() -> Dict[str, str]:
     """Load price IDs from env config, falling back to defaults."""
     try:
         from app.config import get_settings
+
         _settings = get_settings()
         env_json = _settings.PADDLE_PRICE_IDS
         if env_json:
             overrides = json.loads(env_json)
             merged = {**_DEFAULT_PRICE_IDS, **overrides}
-            logger.info(
-                "paddle_price_ids_loaded_from_env count=%d",
-                len(merged))
+            logger.info("paddle_price_ids_loaded_from_env count=%d", len(merged))
             return merged
     except Exception as e:
         logger.warning("paddle_price_ids_env_parse_failed error=%s", str(e))
@@ -104,7 +103,8 @@ PLAN_PRICE_IDS: Dict[str, str] = {
 
 # Industry variant price IDs — all non-plan entries
 VARIANT_PRICE_IDS: Dict[str, str] = {
-    k: v for k, v in _PRICE_IDS.items()
+    k: v
+    for k, v in _PRICE_IDS.items()
     if k not in ("demo_pack", "mini_parwa", "parwa", "high_parwa")
 }
 
@@ -113,10 +113,8 @@ class PaddleServiceError(Exception):
     """Base exception for Paddle service errors."""
 
     def __init__(
-            self,
-            message: str,
-            code: str = "paddle_service_error",
-            details: Any = None):
+        self, message: str, code: str = "paddle_service_error", details: Any = None
+    ):
         self.message = message
         self.code = code
         self.details = details
@@ -133,10 +131,7 @@ class DemoPackAlreadyActiveError(PaddleServiceError):
 class CheckoutCreationError(PaddleServiceError):
     """Raised when Paddle checkout creation fails."""
 
-    def __init__(
-            self,
-            message: str = "Failed to create checkout",
-            details: Any = None):
+    def __init__(self, message: str = "Failed to create checkout", details: Any = None):
         super().__init__(message, code="checkout_creation_failed", details=details)
 
 
@@ -150,10 +145,7 @@ class PaymentNotFoundError(PaddleServiceError):
 class WebhookProcessingError(PaddleServiceError):
     """Raised when webhook processing fails."""
 
-    def __init__(
-            self,
-            message: str = "Webhook processing failed",
-            details: Any = None):
+    def __init__(self, message: str = "Webhook processing failed", details: Any = None):
         super().__init__(message, code="webhook_processing_failed", details=details)
 
 
@@ -314,7 +306,8 @@ class PaddleService:
             ) from e
 
     async def handle_demo_pack_webhook(
-            self, event_data: Dict[str, Any]) -> Dict[str, Any]:
+        self, event_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Process a demo pack payment success webhook event.
 
@@ -367,8 +360,7 @@ class PaddleService:
         )
 
         # Calculate pack expiry (24 hours from now)
-        expiry = datetime.now(timezone.utc) + \
-            timedelta(hours=DEMO_PACK_DURATION_HOURS)
+        expiry = datetime.now(timezone.utc) + timedelta(hours=DEMO_PACK_DURATION_HOURS)
 
         # Return the data that should be applied to the session
         # The actual session update is done by the caller (JarvisService or API
@@ -469,16 +461,17 @@ class PaddleService:
                     # Use a fallback price ID based on variant name
                     price_id = f"pri_{variant_id}_01"
 
-                items.append({
-                    "price_id": price_id,
-                    "quantity": int(quantity),
-                })
+                items.append(
+                    {
+                        "price_id": price_id,
+                        "quantity": int(quantity),
+                    }
+                )
 
                 total_monthly += Decimal(str(price)) * int(quantity)
 
             if not items:
-                raise CheckoutCreationError(
-                    "No variants selected for checkout")
+                raise CheckoutCreationError("No variants selected for checkout")
 
             # Build custom data
             custom_data = {
@@ -486,16 +479,10 @@ class PaddleService:
                 "pack_type": "subscription",
                 "source": "jarvis_onboarding",
                 "industry": industry,
-                "variant_ids": [
-                    v.get(
-                        "id",
-                        "") for v in variants],
+                "variant_ids": [v.get("id", "") for v in variants],
                 "variant_quantities": {
-                    v.get(
-                        "id",
-                        ""): v.get(
-                        "quantity",
-                        1) for v in variants},
+                    v.get("id", ""): v.get("quantity", 1) for v in variants
+                },
             }
 
             # Create customer data
@@ -577,7 +564,8 @@ class PaddleService:
             ) from e
 
     async def handle_subscription_webhook(
-            self, event_data: Dict[str, Any]) -> Dict[str, Any]:
+        self, event_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Process a variant subscription success webhook event.
 
@@ -637,11 +625,13 @@ class PaddleService:
         for vid in variant_ids:
             qty = variant_quantities.get(vid, 1)
             price_id = VARIANT_PRICE_IDS.get(vid, "")
-            hired_variants.append({
-                "id": vid,
-                "quantity": qty,
-                "paddle_price_id": price_id,
-            })
+            hired_variants.append(
+                {
+                    "id": vid,
+                    "quantity": qty,
+                    "paddle_price_id": price_id,
+                }
+            )
 
         result = {
             "status": "processed",
@@ -657,8 +647,7 @@ class PaddleService:
         }
 
         logger.info(
-            "paddle_service_subscription_activated session_id=%s sub=%s "
-            "variants=%d",
+            "paddle_service_subscription_activated session_id=%s sub=%s " "variants=%d",
             session_id,
             subscription_id,
             len(hired_variants),
@@ -692,9 +681,7 @@ class PaddleService:
                 "session_id": str,
             }
         """
-        logger.info(
-            "paddle_service_get_payment_status session_id=%s",
-            session_id)
+        logger.info("paddle_service_get_payment_status session_id=%s", session_id)
 
         # Default result when nothing is found
         result: Dict[str, Any] = {
@@ -725,9 +712,8 @@ class PaddleService:
                         if isinstance(raw_cid, bytes)
                         else str(raw_cid)
                     )
-                raw_sid = (
-                    meta.get("paddle_subscription_id")
-                    or meta.get(b"paddle_subscription_id")
+                raw_sid = meta.get("paddle_subscription_id") or meta.get(
+                    b"paddle_subscription_id"
                 )
                 if raw_sid is not None:
                     paddle_subscription_id = (
@@ -737,7 +723,8 @@ class PaddleService:
                     )
         except Exception as exc:
             logger.debug(
-                "paddle_service_redis_unavailable error=%s", str(exc),
+                "paddle_service_redis_unavailable error=%s",
+                str(exc),
             )
 
         if not company_id:
@@ -771,9 +758,7 @@ class PaddleService:
                     result["failure_code"] = failure.failure_code
                     result["failure_reason"] = failure.failure_reason
                     if failure.paddle_transaction_id:
-                        result["paddle_transaction_id"] = (
-                            failure.paddle_transaction_id
-                        )
+                        result["paddle_transaction_id"] = failure.paddle_transaction_id
                     if failure.amount_attempted is not None:
                         result["amount"] = str(failure.amount_attempted)
                     result["currency"] = failure.currency or "USD"
@@ -784,8 +769,7 @@ class PaddleService:
                 )
                 if paddle_subscription_id:
                     sub_q = sub_q.filter(
-                        Subscription.paddle_subscription_id
-                        == paddle_subscription_id,
+                        Subscription.paddle_subscription_id == paddle_subscription_id,
                     )
                 subscription = sub_q.order_by(
                     Subscription.created_at.desc(),
@@ -817,10 +801,12 @@ class PaddleService:
                     db.query(WebhookEvent)
                     .filter(
                         WebhookEvent.company_id == company_id,
-                        WebhookEvent.event_type.in_([
-                            "transaction.paid",
-                            "transaction.completed",
-                        ]),
+                        WebhookEvent.event_type.in_(
+                            [
+                                "transaction.paid",
+                                "transaction.completed",
+                            ]
+                        ),
                         WebhookEvent.created_at >= recent_cutoff,
                     )
                     .order_by(WebhookEvent.created_at.desc())
@@ -832,25 +818,19 @@ class PaddleService:
                     payload = evt.payload or {}
                     # custom_data may be at top level or nested under
                     # data.custom_data depending on Paddle event shape
-                    custom_data = (
-                        payload.get("custom_data")
-                        or payload.get("data", {}).get("custom_data", {})
-                    )
+                    custom_data = payload.get("custom_data") or payload.get(
+                        "data", {}
+                    ).get("custom_data", {})
                     evt_session_id = custom_data.get("session_id", "")
                     if evt_session_id != session_id:
                         continue
 
                     # Found a matching successful payment event
-                    evt_data = (
-                        payload.get("data", {}).get("transaction", {})
-                    )
+                    evt_data = payload.get("data", {}).get("transaction", {})
                     result["status"] = "completed"
                     if evt.completed_at:
                         result["paid_at"] = evt.completed_at.isoformat()
-                    txn_id = (
-                        evt_data.get("id")
-                        or evt_data.get("transaction_id")
-                    )
+                    txn_id = evt_data.get("id") or evt_data.get("transaction_id")
                     if txn_id:
                         result["paddle_transaction_id"] = txn_id
                     totals = evt_data.get("details", {}).get("totals", {})
@@ -861,10 +841,9 @@ class PaddleService:
                     )
                     if amt is not None:
                         result["amount"] = str(amt)
-                    cur = (
-                        evt_data.get("details", {}).get("currency_code")
-                        or evt_data.get("currency_code", "USD")
-                    )
+                    cur = evt_data.get("details", {}).get(
+                        "currency_code"
+                    ) or evt_data.get("currency_code", "USD")
                     result["currency"] = cur
                     pack = custom_data.get("pack_type", "demo")
                     result["pack_type"] = pack
@@ -872,8 +851,7 @@ class PaddleService:
 
         except Exception as exc:
             logger.error(
-                "paddle_service_get_payment_status_error "
-                "session_id=%s error=%s",
+                "paddle_service_get_payment_status_error " "session_id=%s error=%s",
                 session_id,
                 str(exc),
             )

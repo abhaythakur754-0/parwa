@@ -27,7 +27,6 @@ from app.services.message_service import MessageService
 from app.exceptions import NotFoundError, ValidationError
 from app.core.event_emitter import emit_event
 
-
 router = APIRouter(
     prefix="/tickets",
     tags=["tickets", "messages"],
@@ -37,8 +36,10 @@ router = APIRouter(
 
 # ── Request/Response Schemas ───────────────────────────────────────────────
 
+
 class AttachmentSchema(BaseModel):
     """Attachment metadata."""
+
     filename: str
     file_url: str
     file_size: Optional[int] = None
@@ -47,8 +48,8 @@ class AttachmentSchema(BaseModel):
 
 class MessageCreate(BaseModel):
     """Create message request."""
-    role: str = Field(...,
-                      description="Message role: customer, agent, system, ai")
+
+    role: str = Field(..., description="Message role: customer, agent, system, ai")
     content: str = Field(..., min_length=1, max_length=100000)
     channel: str = Field(..., description="Communication channel")
     is_internal: bool = Field(default=False)
@@ -60,12 +61,14 @@ class MessageCreate(BaseModel):
 
 class MessageUpdate(BaseModel):
     """Update message request."""
+
     content: Optional[str] = Field(None, min_length=1, max_length=100000)
     metadata_json: Optional[Dict[str, Any]] = None
 
 
 class MessageResponse(BaseModel):
     """Message response."""
+
     id: str
     ticket_id: str
     role: str
@@ -83,6 +86,7 @@ class MessageResponse(BaseModel):
 
 class MessageListResponse(BaseModel):
     """Paginated message list response."""
+
     messages: List[MessageResponse]
     total: int
     page: int
@@ -90,6 +94,7 @@ class MessageListResponse(BaseModel):
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/{ticket_id}/messages",
@@ -118,8 +123,11 @@ async def create_message(
             channel=request.channel,
             is_internal=request.is_internal,
             metadata_json=request.metadata_json,
-            attachments=[
-                a.model_dump() for a in request.attachments] if request.attachments else None,
+            attachments=(
+                [a.model_dump() for a in request.attachments]
+                if request.attachments
+                else None
+            ),
             user_id=current_user.get("id"),
             ai_confidence=request.ai_confidence,
             variant_version=request.variant_version,
@@ -144,8 +152,9 @@ async def create_message(
             channel=message.channel,
             is_internal=message.is_internal,
             is_redacted=message.is_redacted,
-            ai_confidence=float(
-                message.ai_confidence) if message.ai_confidence else None,
+            ai_confidence=(
+                float(message.ai_confidence) if message.ai_confidence else None
+            ),
             variant_version=message.variant_version,
             created_at=message.created_at,
         )
@@ -210,8 +219,7 @@ async def list_messages(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.get("/{ticket_id}/messages/{message_id}",
-            response_model=MessageResponse)
+@router.get("/{ticket_id}/messages/{message_id}", response_model=MessageResponse)
 async def get_message(
     ticket_id: str,
     message_id: str,
@@ -233,8 +241,9 @@ async def get_message(
             channel=message.channel,
             is_internal=message.is_internal,
             is_redacted=message.is_redacted,
-            ai_confidence=float(
-                message.ai_confidence) if message.ai_confidence else None,
+            ai_confidence=(
+                float(message.ai_confidence) if message.ai_confidence else None
+            ),
             variant_version=message.variant_version,
             created_at=message.created_at,
         )
@@ -243,8 +252,7 @@ async def get_message(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.put("/{ticket_id}/messages/{message_id}",
-            response_model=MessageResponse)
+@router.put("/{ticket_id}/messages/{message_id}", response_model=MessageResponse)
 async def update_message(
     ticket_id: str,
     message_id: str,
@@ -280,8 +288,9 @@ async def update_message(
             channel=message.channel,
             is_internal=message.is_internal,
             is_redacted=message.is_redacted,
-            ai_confidence=float(
-                message.ai_confidence) if message.ai_confidence else None,
+            ai_confidence=(
+                float(message.ai_confidence) if message.ai_confidence else None
+            ),
             variant_version=message.variant_version,
             created_at=message.created_at,
         )
@@ -292,8 +301,9 @@ async def update_message(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.delete("/{ticket_id}/messages/{message_id}",
-               status_code=http_status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{ticket_id}/messages/{message_id}", status_code=http_status.HTTP_204_NO_CONTENT
+)
 async def delete_message(
     ticket_id: str,
     message_id: str,
@@ -321,8 +331,9 @@ async def delete_message(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.post("/{ticket_id}/messages/{message_id}/redact",
-             response_model=MessageResponse)
+@router.post(
+    "/{ticket_id}/messages/{message_id}/redact", response_model=MessageResponse
+)
 async def redact_message(
     ticket_id: str,
     message_id: str,
@@ -354,8 +365,9 @@ async def redact_message(
             channel=message.channel,
             is_internal=message.is_internal,
             is_redacted=message.is_redacted,
-            ai_confidence=float(
-                message.ai_confidence) if message.ai_confidence else None,
+            ai_confidence=(
+                float(message.ai_confidence) if message.ai_confidence else None
+            ),
             variant_version=message.variant_version,
             created_at=message.created_at,
         )

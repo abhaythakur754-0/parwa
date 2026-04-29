@@ -38,13 +38,7 @@ MAX_SMS_PER_HOUR = 100
 
 # Message status values
 SMS_STATUSES = ["queued", "sent", "delivered", "undelivered", "failed"]
-CALL_STATUSES = [
-    "queued",
-    "ringing",
-    "in-progress",
-    "completed",
-    "failed",
-    "canceled"]
+CALL_STATUSES = ["queued", "ringing", "in-progress", "completed", "failed", "canceled"]
 
 
 class TwilioClientError(Exception):
@@ -105,24 +99,25 @@ class TwilioClient:
             phone_number: Default Twilio phone number (falls back to env var).
             db: Optional database session for rate limiting.
         """
-        self.account_sid = account_sid or os.environ.get(
-            "TWILIO_ACCOUNT_SID", "")
+        self.account_sid = account_sid or os.environ.get("TWILIO_ACCOUNT_SID", "")
         self.auth_token = auth_token or os.environ.get("TWILIO_AUTH_TOKEN", "")
-        self.phone_number = phone_number or os.environ.get(
-            "TWILIO_PHONE_NUMBER", "")
+        self.phone_number = phone_number or os.environ.get("TWILIO_PHONE_NUMBER", "")
         self.db = db
 
         if not self.account_sid or not self.auth_token:
             logger.warning(
-                "twilio_client_missing_credentials", extra={
-                    "has_sid": bool(
-                        self.account_sid), "has_token": bool(
-                        self.auth_token)}, )
+                "twilio_client_missing_credentials",
+                extra={
+                    "has_sid": bool(self.account_sid),
+                    "has_token": bool(self.auth_token),
+                },
+            )
 
     @property
     def auth_header(self) -> Tuple[str, str]:
         """Return Basic auth header tuple for Twilio API."""
         import base64
+
         credentials = base64.b64encode(
             f"{self.account_sid}:{self.auth_token}".encode()
         ).decode()
@@ -283,7 +278,9 @@ class TwilioClient:
         Returns:
             Dict with status, error_code, etc.
         """
-        url = f"{TWILIO_API_BASE}/Accounts/{self.account_sid}/Messages/{message_sid}.json"
+        url = (
+            f"{TWILIO_API_BASE}/Accounts/{self.account_sid}/Messages/{message_sid}.json"
+        )
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -357,8 +354,7 @@ class TwilioClient:
             raise TwilioClientError("Invalid recipient phone number")
 
         if not url and not twiml and not application_sid:
-            raise TwilioClientError(
-                "Must provide url, twiml, or application_sid")
+            raise TwilioClientError("Must provide url, twiml, or application_sid")
 
         api_url = f"{TWILIO_API_BASE}/Accounts/{self.account_sid}/Calls.json"
 
@@ -464,6 +460,7 @@ class TwilioClient:
     def _normalize_phone(self, phone: str) -> Optional[str]:
         """Normalize phone number to E.164 format."""
         import re
+
         if not phone:
             return None
         # Remove non-digits
@@ -481,21 +478,22 @@ class TwilioClient:
         try:
             from database.models.sms_channel import SMSConversation
 
-            conv = db.query(SMSConversation).filter(
-                SMSConversation.company_id == company_id,
-                SMSConversation.customer_number == phone,
-                SMSConversation.is_opted_out is True,  # noqa: E712
-            ).first()
+            conv = (
+                db.query(SMSConversation)
+                .filter(
+                    SMSConversation.company_id == company_id,
+                    SMSConversation.customer_number == phone,
+                    SMSConversation.is_opted_out is True,  # noqa: E712
+                )
+                .first()
+            )
 
             return conv is not None
 
         except Exception as e:
             logger.warning(
                 "twilio_opt_out_check_failed",
-                extra={
-                    "company_id": company_id,
-                    "phone": phone,
-                    "error": str(e)},
+                extra={"company_id": company_id, "phone": phone, "error": str(e)},
             )
             # Fail-safe: allow the message if check fails
             return False
@@ -513,12 +511,16 @@ class TwilioClient:
             since = datetime.utcnow() - timedelta(hours=24)
 
             # Count outbound messages in last 24h
-            count = db.query(SMSMessage).filter(
-                SMSMessage.company_id == company_id,
-                SMSMessage.to_number == phone,
-                SMSMessage.direction == "outbound",
-                SMSMessage.created_at >= since,
-            ).count()
+            count = (
+                db.query(SMSMessage)
+                .filter(
+                    SMSMessage.company_id == company_id,
+                    SMSMessage.to_number == phone,
+                    SMSMessage.direction == "outbound",
+                    SMSMessage.created_at >= since,
+                )
+                .count()
+            )
 
             if count >= MAX_SMS_PER_THREAD_PER_DAY:
                 return {
@@ -537,19 +539,18 @@ class TwilioClient:
         except Exception as e:
             logger.warning(
                 "twilio_rate_limit_check_failed",
-                extra={
-                    "company_id": company_id,
-                    "phone": phone,
-                    "error": str(e)},
+                extra={"company_id": company_id, "phone": phone, "error": str(e)},
             )
             # Fail-safe: allow the message if check fails
             return {
                 "allowed": True,
                 "count": 0,
-                "remaining": MAX_SMS_PER_THREAD_PER_DAY}
+                "remaining": MAX_SMS_PER_THREAD_PER_DAY,
+            }
 
 
 # ── Factory Function ─────────────────────────────────────────────────
+
 
 def get_twilio_client(
     company_id: str,
@@ -571,9 +572,13 @@ def get_twilio_client(
     try:
         from database.models.sms_channel import SMSChannelConfig
 
-        config = db.query(SMSChannelConfig).filter(
-            SMSChannelConfig.company_id == company_id,
-        ).first()
+        config = (
+            db.query(SMSChannelConfig)
+            .filter(
+                SMSChannelConfig.company_id == company_id,
+            )
+            .first()
+        )
 
         if config:
             # Decrypt auth token (BC-011)

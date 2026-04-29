@@ -154,14 +154,16 @@ def weekly_invoice_audit(self) -> dict:
         result = service.run_weekly_invoice_audit()
 
         logger.info(
-            "weekly_invoice_audit_completed", extra={
-                "task": self.name, "companies_audited": result.get(
-                    "companies_audited", 0), "total_matched": result.get(
-                    "total_matched", 0), "total_mismatched": result.get(
-                    "total_mismatched", 0), "companies_with_issues": result.get(
-                        "companies_with_issues", 0), "errors": len(
-                            result.get(
-                                "errors", [])), }, )
+            "weekly_invoice_audit_completed",
+            extra={
+                "task": self.name,
+                "companies_audited": result.get("companies_audited", 0),
+                "total_matched": result.get("total_matched", 0),
+                "total_mismatched": result.get("total_mismatched", 0),
+                "companies_with_issues": result.get("companies_with_issues", 0),
+                "errors": len(result.get("errors", [])),
+            },
+        )
 
         return result
 
@@ -269,7 +271,10 @@ def check_spending_caps(self) -> dict:
         with SessionLocal() as db:
             # Lazily import the SpendingCap model (may not exist yet)
             try:
-                from database.models.billing_extended import SpendingCap as SpendingCapModel
+                from database.models.billing_extended import (
+                    SpendingCap as SpendingCapModel,
+                )
+
                 table_available = True
             except ImportError:
                 table_available = False
@@ -299,8 +304,7 @@ def check_spending_caps(self) -> dict:
                     from sqlalchemy import func
                     from database.models.billing_extended import UsageRecord
 
-                    current_month = datetime.now(
-                        timezone.utc).strftime("%Y-%m")
+                    current_month = datetime.now(timezone.utc).strftime("%Y-%m")
 
                     current_overage = (
                         db.query(
@@ -326,18 +330,22 @@ def check_spending_caps(self) -> dict:
 
                     if alerts.get("alerts"):
                         results["alerts_triggered"] += len(alerts["alerts"])
-                        results["companies_with_alerts"].append({
-                            "company_id": cap.company_id,
-                            "current_overage": str(current_overage),
-                            "max_cap": str(cap.max_overage_amount),
-                            "alerts_fired": len(alerts["alerts"]),
-                        })
+                        results["companies_with_alerts"].append(
+                            {
+                                "company_id": cap.company_id,
+                                "current_overage": str(current_overage),
+                                "max_cap": str(cap.max_overage_amount),
+                                "alerts_fired": len(alerts["alerts"]),
+                            }
+                        )
 
                 except Exception as exc:
-                    results["errors"].append({
-                        "company_id": str(cap.company_id) if cap else "unknown",
-                        "error": str(exc)[:200],
-                    })
+                    results["errors"].append(
+                        {
+                            "company_id": str(cap.company_id) if cap else "unknown",
+                            "error": str(exc)[:200],
+                        }
+                    )
 
         logger.info(
             "check_spending_caps_completed",
@@ -398,6 +406,7 @@ def expire_credits(self) -> dict:
         # Lazily import the CreditBalance model (may not exist yet)
         try:
             from database.models.billing_extended import CreditBalance
+
             table_available = True
         except ImportError:
             table_available = False
@@ -437,10 +446,12 @@ def expire_credits(self) -> dict:
                     )
 
                 except Exception as exc:
-                    results["errors"].append({
-                        "credit_id": str(credit.id) if credit else "unknown",
-                        "error": str(exc)[:200],
-                    })
+                    results["errors"].append(
+                        {
+                            "credit_id": str(credit.id) if credit else "unknown",
+                            "error": str(exc)[:200],
+                        }
+                    )
 
             if expired_credits:
                 db.commit()

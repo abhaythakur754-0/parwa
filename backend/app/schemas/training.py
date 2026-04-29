@@ -11,33 +11,35 @@ Building Codes:
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # F-101: Mistake Threshold Schemas
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class MistakeReportRequest(BaseModel):
     """Request to report an agent mistake."""
+
     agent_id: str = Field(..., description="Agent that made the mistake")
     ticket_id: Optional[str] = Field(None, description="Related ticket ID")
     mistake_type: str = Field(
         "incorrect_response",
-        description="Type of mistake (incorrect_response, hallucination, tone_issue, incomplete, policy_violation, escalation_needed, other)"
+        description="Type of mistake (incorrect_response, hallucination, tone_issue, incomplete, policy_violation, escalation_needed, other)",
     )
     original_response: Optional[str] = Field(
-        None, description="The incorrect AI response")
+        None, description="The incorrect AI response"
+    )
     expected_response: Optional[str] = Field(
-        None, description="What the response should have been")
-    correction: Optional[str] = Field(
-        None, description="Correction or action taken")
+        None, description="What the response should have been"
+    )
+    correction: Optional[str] = Field(None, description="Correction or action taken")
     severity: str = Field(
-        "medium",
-        description="Severity level (low, medium, high, critical)"
+        "medium", description="Severity level (low, medium, high, critical)"
     )
 
 
 class MistakeReportResponse(BaseModel):
     """Response after reporting a mistake."""
+
     status: str = "reported"
     mistake_id: str
     agent_id: str
@@ -49,6 +51,7 @@ class MistakeReportResponse(BaseModel):
 
 class ThresholdStatusResponse(BaseModel):
     """Threshold status for an agent."""
+
     agent_id: str
     current_count: int
     threshold: int = 50  # LOCKED
@@ -59,6 +62,7 @@ class ThresholdStatusResponse(BaseModel):
 
 class MistakeHistoryItem(BaseModel):
     """Single mistake history item."""
+
     id: str
     ticket_id: Optional[str] = None
     mistake_type: str
@@ -70,6 +74,7 @@ class MistakeHistoryItem(BaseModel):
 
 class MistakeHistoryResponse(BaseModel):
     """Mistake history list response."""
+
     mistakes: List[MistakeHistoryItem]
     total: int
     limit: int
@@ -78,6 +83,7 @@ class MistakeHistoryResponse(BaseModel):
 
 class MistakeStatsResponse(BaseModel):
     """Mistake statistics for an agent."""
+
     total_mistakes: int
     threshold: int = 50
     percentage_to_threshold: float
@@ -91,31 +97,26 @@ class MistakeStatsResponse(BaseModel):
 # F-100: Training Run Schemas
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TrainingRunCreateRequest(BaseModel):
     """Request to create a training run."""
+
     agent_id: str = Field(..., description="Agent to train")
     dataset_id: str = Field(..., description="Dataset to use for training")
     name: Optional[str] = Field(None, description="Optional run name")
     trigger: str = Field(
         "manual",
-        description="Trigger type (manual, auto_threshold, scheduled, cold_start)")
-    base_model: Optional[str] = Field(
-        None, description="Base model to fine-tune")
-    epochs: int = Field(
-        3,
-        ge=1,
-        le=10,
-        description="Number of training epochs")
-    learning_rate: float = Field(
-        0.0001,
-        ge=1e-6,
-        le=1e-2,
-        description="Learning rate")
+        description="Trigger type (manual, auto_threshold, scheduled, cold_start)",
+    )
+    base_model: Optional[str] = Field(None, description="Base model to fine-tune")
+    epochs: int = Field(3, ge=1, le=10, description="Number of training epochs")
+    learning_rate: float = Field(0.0001, ge=1e-6, le=1e-2, description="Learning rate")
     batch_size: int = Field(16, ge=1, le=64, description="Batch size")
 
 
 class TrainingRunCreateResponse(BaseModel):
     """Response after creating a training run."""
+
     status: str
     run_id: Optional[str] = None
     agent_id: str
@@ -128,6 +129,7 @@ class TrainingRunCreateResponse(BaseModel):
 
 class TrainingRunResponse(BaseModel):
     """Full training run details."""
+
     id: str
     company_id: str
     agent_id: str
@@ -157,6 +159,7 @@ class TrainingRunResponse(BaseModel):
 
 class TrainingRunListResponse(BaseModel):
     """List of training runs."""
+
     runs: List[TrainingRunResponse]
     total: int
     limit: int
@@ -165,6 +168,7 @@ class TrainingRunListResponse(BaseModel):
 
 class TrainingRunProgressUpdate(BaseModel):
     """Training progress update (internal use)."""
+
     epoch: int
     progress_pct: float
     metrics: Optional[Dict[str, Any]] = None
@@ -172,6 +176,7 @@ class TrainingRunProgressUpdate(BaseModel):
 
 class TrainingRunCancelResponse(BaseModel):
     """Response after cancelling a training run."""
+
     status: str
     run_id: str
 
@@ -180,8 +185,10 @@ class TrainingRunCancelResponse(BaseModel):
 # Training Stats Schemas
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TrainingStatsResponse(BaseModel):
     """Training statistics for a tenant or agent."""
+
     total_runs: int
     completed: int
     failed: int
@@ -195,8 +202,10 @@ class TrainingStatsResponse(BaseModel):
 # Checkpoint Schemas
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class CheckpointCreateRequest(BaseModel):
     """Request to create a checkpoint."""
+
     epoch: int = Field(..., ge=1, description="Epoch number")
     checkpoint_name: str = Field(..., description="Name for the checkpoint")
     model_path: Optional[str] = None
@@ -207,6 +216,7 @@ class CheckpointCreateRequest(BaseModel):
 
 class CheckpointResponse(BaseModel):
     """Checkpoint details."""
+
     checkpoint_id: str
     checkpoint_name: str
     model_path: Optional[str] = None
@@ -218,6 +228,7 @@ class CheckpointResponse(BaseModel):
 
 class CheckpointCreateResponse(BaseModel):
     """Response after creating a checkpoint."""
+
     status: str
     checkpoint_id: str
     is_best: bool

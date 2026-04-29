@@ -109,9 +109,7 @@ class TestLifecycleStages(unittest.TestCase):
 
     def test_stage_enums(self):
         self.assertEqual(LifecycleStage.INITIALIZED.value, "initialized")
-        self.assertEqual(
-            LifecycleStage.SIGNAL_EXTRACTION.value,
-            "signal_extraction")
+        self.assertEqual(LifecycleStage.SIGNAL_EXTRACTION.value, "signal_extraction")
         self.assertEqual(LifecycleStage.COMPLETED.value, "completed")
         self.assertEqual(LifecycleStage.FAILED.value, "failed")
         self.assertEqual(LifecycleStage.CANCELLED.value, "cancelled")
@@ -183,11 +181,7 @@ class TestStageTransitions(unittest.TestCase):
         mgr = _mgr()
         lid = mgr.start_lifecycle("co1", "tkt1")
         mgr.start_stage("co1", lid, "signal_extraction")
-        result = mgr.fail_stage(
-            "co1",
-            lid,
-            "signal_extraction",
-            "timeout error")
+        result = mgr.fail_stage("co1", lid, "signal_extraction", "timeout error")
         self.assertTrue(result)
 
     def test_skip_stage(self):
@@ -225,8 +219,11 @@ class TestStageTransitions(unittest.TestCase):
         mgr.fail_stage("co1", lid, "signal_extraction", "DB connection lost")
         snap = mgr.get_lifecycle("co1", lid)
         execs = snap["stage_executions"]
-        failed = [e for e in execs if e["stage"]
-                  == "signal_extraction" and e["status"] == "failed"]
+        failed = [
+            e
+            for e in execs
+            if e["stage"] == "signal_extraction" and e["status"] == "failed"
+        ]
         self.assertEqual(len(failed), 1)
         self.assertEqual(failed[0]["error"], "DB connection lost")
 
@@ -235,8 +232,8 @@ class TestStageTransitions(unittest.TestCase):
         lid = mgr.start_lifecycle("co1", "tkt1")
         mgr.start_stage("co1", lid, "signal_extraction")
         mgr.complete_stage(
-            "co1", lid, "signal_extraction", metadata={
-                "signals_count": 5})
+            "co1", lid, "signal_extraction", metadata={"signals_count": 5}
+        )
         snap = mgr.get_lifecycle("co1", lid)
         execs = snap["stage_executions"]
         completed = [e for e in execs if e["stage"] == "signal_extraction"][0]
@@ -285,12 +282,8 @@ class TestLifecycleCompletion(unittest.TestCase):
         history = mgr.get_lifecycle_history("co1", "tkt1")
         self.assertEqual(len(history), 1)
         self.assertIn(
-            "out of memory",
-            history[0].get(
-                "metadata",
-                {}).get(
-                "failure_error",
-                ""))
+            "out of memory", history[0].get("metadata", {}).get("failure_error", "")
+        )
 
     def test_cancel_lifecycle(self):
         mgr = _mgr()
@@ -415,9 +408,7 @@ class TestLifecycleEvents(unittest.TestCase):
     def test_add_listener(self):
         mgr = _mgr()
         events = []
-        mgr.add_event_listener(
-            lambda etype, lid, data: events.append(
-                (etype, lid)))
+        mgr.add_event_listener(lambda etype, lid, data: events.append((etype, lid)))
         mgr.start_lifecycle("co1", "tkt1")
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0][0], "lifecycle_started")
@@ -428,6 +419,7 @@ class TestLifecycleEvents(unittest.TestCase):
 
         def cb(eid, etype, data):
             return events.append(etype)
+
         mgr.add_event_listener(cb)
         mgr.start_lifecycle("co1", "tkt1")
         self.assertEqual(len(events), 1)
@@ -456,6 +448,7 @@ class TestLifecycleEvents(unittest.TestCase):
 
         def bad_listener(eid, etype, data):
             raise RuntimeError("listener error")
+
         mgr.add_event_listener(bad_listener)
         lid = mgr.start_lifecycle("co1", "tkt1")
         self.assertIsNotNone(lid)
@@ -553,21 +546,36 @@ class TestEnumValues(unittest.TestCase):
             "guardrails_check",
             "completed",
             "failed",
-                "cancelled"]:
+            "cancelled",
+        ]:
             self.assertIn(expected, stages)
 
     def test_lifecycle_event_values(self):
         events = [e.value for e in LifecycleEvent]
-        for expected in ["stage_started", "stage_completed", "stage_failed",
-                         "stage_skipped", "stage_retry", "lifecycle_started",
-                         "lifecycle_completed", "lifecycle_failed",
-                         "lifecycle_cancelled", "timeout"]:
+        for expected in [
+            "stage_started",
+            "stage_completed",
+            "stage_failed",
+            "stage_skipped",
+            "stage_retry",
+            "lifecycle_started",
+            "lifecycle_completed",
+            "lifecycle_failed",
+            "lifecycle_cancelled",
+            "timeout",
+        ]:
             self.assertIn(expected, events)
 
     def test_lifecycle_status_values(self):
         statuses = [s.value for s in LifecycleStatus]
-        for expected in ["pending", "running", "completed", "failed",
-                         "cancelled", "timed_out"]:
+        for expected in [
+            "pending",
+            "running",
+            "completed",
+            "failed",
+            "cancelled",
+            "timed_out",
+        ]:
             self.assertIn(expected, statuses)
 
 

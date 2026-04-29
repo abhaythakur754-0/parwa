@@ -5,9 +5,7 @@ Scenario: A company hires 2 Mini PARWA instances
 Tests ALL functionality from scratch
 """
 
-from app.config.variant_features import (
-    VARIANT_LIMITS
-)
+from app.config.variant_features import VARIANT_LIMITS
 import sys
 import os
 from datetime import datetime
@@ -15,16 +13,18 @@ from typing import Dict, List, Any
 from dataclasses import dataclass, field
 
 # Add backend to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 # ============================================================
 # FAKE COMPANIES - 2 COMPANIES HIRING MINI PARWA
 # ============================================================
 
+
 @dataclass
 class FakeCompany:
     """Represents a fake company hiring Mini PARWA"""
+
     id: str
     name: str
     industry: str
@@ -46,6 +46,7 @@ class FakeCompany:
 @dataclass
 class CustomerTicket:
     """Represents a customer support ticket"""
+
     id: str
     company_id: str
     customer_name: str
@@ -67,111 +68,113 @@ class CustomerTicket:
 # COMPANY 1: E-COMMERCE STORE
 # ============================================================
 
-COMPANY_1 = FakeCompany(id="company_001",
-                        name="ShopEasy Online Store",
-                        industry="E-Commerce",
-                        website="https://shopeasy.example.com",
-                        support_email="support@shopeasy.example.com",
-                        team_members=["alice@shopeasy.example.com",
-                                      "bob@shopeasy.example.com"],
-                        supported_languages=["en",
-                                             "hi"],
-                        faqs=[{"id": "faq_001",
-                               "question": "What is your return policy?",
-                               "answer": "We offer 30-day easy returns on all products. Items must be unused and in original packaging.",
-                               "keywords": ["return",
-                                            "policy",
-                                            "refund",
-                                            "money back"],
-                               "language": "en"},
-                              {"id": "faq_002",
-                               "question": "How long does shipping take?",
-                               "answer": "Standard shipping takes 5-7 business days. Express shipping is 2-3 business days.",
-                               "keywords": ["shipping",
-                                            "delivery",
-                                            "time",
-                                            "days"],
-                               "language": "en"},
-                              {"id": "faq_003",
-                               "question": "वापसी नीति क्या है?",
-                               "answer": "हम सभी उत्पादों पर 30-दिन की आसान वापसी की पेशकश करते हैं।",
-                              "keywords": ["वापसी",
-                                           "नीति",
-                                           "रिफंड"],
-                               "language": "hi"},
-                              {"id": "faq_004",
-                               "question": "Do you offer COD?",
-                               "answer": "Yes! We offer Cash on Delivery for orders under ₹50,000.",
-                              "keywords": ["cod",
-                                           "cash on delivery",
-                                           "payment"],
-                               "language": "en"},
-                              {"id": "faq_005",
-                               "question": "How do I track my order?",
-                               "answer": "You can track your order at shopeasy.example.com/track using your order ID.",
-                              "keywords": ["track",
-                                           "order",
-                                           "status",
-                                           "where"],
-                               "language": "en"}])
+COMPANY_1 = FakeCompany(
+    id="company_001",
+    name="ShopEasy Online Store",
+    industry="E-Commerce",
+    website="https://shopeasy.example.com",
+    support_email="support@shopeasy.example.com",
+    team_members=["alice@shopeasy.example.com", "bob@shopeasy.example.com"],
+    supported_languages=["en", "hi"],
+    faqs=[
+        {
+            "id": "faq_001",
+            "question": "What is your return policy?",
+            "answer": "We offer 30-day easy returns on all products. Items must be unused and in original packaging.",
+            "keywords": ["return", "policy", "refund", "money back"],
+            "language": "en",
+        },
+        {
+            "id": "faq_002",
+            "question": "How long does shipping take?",
+            "answer": "Standard shipping takes 5-7 business days. Express shipping is 2-3 business days.",
+            "keywords": ["shipping", "delivery", "time", "days"],
+            "language": "en",
+        },
+        {
+            "id": "faq_003",
+            "question": "वापसी नीति क्या है?",
+            "answer": "हम सभी उत्पादों पर 30-दिन की आसान वापसी की पेशकश करते हैं।",
+            "keywords": ["वापसी", "नीति", "रिफंड"],
+            "language": "hi",
+        },
+        {
+            "id": "faq_004",
+            "question": "Do you offer COD?",
+            "answer": "Yes! We offer Cash on Delivery for orders under ₹50,000.",
+            "keywords": ["cod", "cash on delivery", "payment"],
+            "language": "en",
+        },
+        {
+            "id": "faq_005",
+            "question": "How do I track my order?",
+            "answer": "You can track your order at shopeasy.example.com/track using your order ID.",
+            "keywords": ["track", "order", "status", "where"],
+            "language": "en",
+        },
+    ],
+)
 
 # ============================================================
 # COMPANY 2: SAAS STARTUP
 # ============================================================
 
-COMPANY_2 = FakeCompany(id="company_002",
-                        name="CloudSync Technologies",
-                        industry="SaaS/Software",
-                        website="https://cloudsync.example.io",
-                        support_email="help@cloudsync.example.io",
-                        team_members=["charlie@cloudsync.example.io",
-                                      "diana@cloudsync.example.io",
-                                      "edward@cloudsync.example.io"],
-                        supported_languages=["en",
-                                             "es"],
-                        faqs=[{"id": "faq_101",
-                               "question": "How do I reset my password?",
-                               "answer": "Go to Settings > Security > Reset Password. You'll receive an email with reset instructions.",
-                               "keywords": ["password",
-                                            "reset",
-                                            "forgot",
-                                            "login"],
-                               "language": "en"},
-                              {"id": "faq_102",
-                               "question": "What are your pricing plans?",
-                               "answer": "We offer Starter ($29/mo), Pro ($79/mo), and Enterprise (custom) plans.",
-                               "keywords": ["pricing",
-                                            "plans",
-                                            "cost",
-                                            "subscription"],
-                               "language": "en"},
-                              {"id": "faq_103",
-                               "question": "¿Cómo restablezco mi contraseña?",
-                               "answer": "Ve a Configuración > Seguridad > Restablecer contraseña.",
-                              "keywords": ["contraseña",
-                                           "restablecer",
-                                           "olvidé"],
-                               "language": "es"},
-                              {"id": "faq_104",
-                               "question": "Do you have an API?",
-                               "answer": "Yes! We have a RESTful API with comprehensive documentation at docs.cloudsync.example.io",
-                              "keywords": ["api",
-                                           "integration",
-                                           "developer"],
-                               "language": "en"},
-                              {"id": "faq_105",
-                               "question": "How do I export my data?",
-                               "answer": "Go to Settings > Data Management > Export. Choose your format (CSV, JSON, Excel).",
-                              "keywords": ["export",
-                                           "data",
-                                           "download",
-                                           "backup"],
-                               "language": "en"}])
+COMPANY_2 = FakeCompany(
+    id="company_002",
+    name="CloudSync Technologies",
+    industry="SaaS/Software",
+    website="https://cloudsync.example.io",
+    support_email="help@cloudsync.example.io",
+    team_members=[
+        "charlie@cloudsync.example.io",
+        "diana@cloudsync.example.io",
+        "edward@cloudsync.example.io",
+    ],
+    supported_languages=["en", "es"],
+    faqs=[
+        {
+            "id": "faq_101",
+            "question": "How do I reset my password?",
+            "answer": "Go to Settings > Security > Reset Password. You'll receive an email with reset instructions.",
+            "keywords": ["password", "reset", "forgot", "login"],
+            "language": "en",
+        },
+        {
+            "id": "faq_102",
+            "question": "What are your pricing plans?",
+            "answer": "We offer Starter ($29/mo), Pro ($79/mo), and Enterprise (custom) plans.",
+            "keywords": ["pricing", "plans", "cost", "subscription"],
+            "language": "en",
+        },
+        {
+            "id": "faq_103",
+            "question": "¿Cómo restablezco mi contraseña?",
+            "answer": "Ve a Configuración > Seguridad > Restablecer contraseña.",
+            "keywords": ["contraseña", "restablecer", "olvidé"],
+            "language": "es",
+        },
+        {
+            "id": "faq_104",
+            "question": "Do you have an API?",
+            "answer": "Yes! We have a RESTful API with comprehensive documentation at docs.cloudsync.example.io",
+            "keywords": ["api", "integration", "developer"],
+            "language": "en",
+        },
+        {
+            "id": "faq_105",
+            "question": "How do I export my data?",
+            "answer": "Go to Settings > Data Management > Export. Choose your format (CSV, JSON, Excel).",
+            "keywords": ["export", "data", "download", "backup"],
+            "language": "en",
+        },
+    ],
+)
 
 
 # ============================================================
 # MINI PARWA INSTANCE SIMULATOR
 # ============================================================
+
 
 class MiniParwaInstance:
     """Simulates a single Mini PARWA instance"""
@@ -210,9 +213,15 @@ class MiniParwaInstance:
     def is_feature_allowed(self, feature: str) -> bool:
         """Check if feature is allowed for Mini PARWA"""
         blocked_features = [
-            "sms_channel", "voice_channel", "medium_ai_model",
-            "tier_2_techniques", "tier_3_techniques", "api_write_access",
-            "advanced_analytics", "custom_integrations", "priority_support"
+            "sms_channel",
+            "voice_channel",
+            "medium_ai_model",
+            "tier_2_techniques",
+            "tier_3_techniques",
+            "api_write_access",
+            "advanced_analytics",
+            "custom_integrations",
+            "priority_support",
         ]
         return feature not in blocked_features
 
@@ -223,7 +232,7 @@ class MiniParwaInstance:
             "sentiment_analysis_basic",
             "auto_categorization",
             "basic_ner",
-            "keyword_extraction"
+            "keyword_extraction",
         ]
 
     def get_blocked_techniques(self) -> List[str]:
@@ -234,7 +243,7 @@ class MiniParwaInstance:
             "multi_turn_reasoning",
             "emotion_detection",
             "predictive_analytics",
-            "auto_resolution_advanced"
+            "auto_resolution_advanced",
         ]
 
     def process_ticket(self, ticket: CustomerTicket) -> Dict[str, Any]:
@@ -247,7 +256,7 @@ class MiniParwaInstance:
             "matched_faq": None,
             "techniques_used": [],
             "blocked_features": [],
-            "error": None
+            "error": None,
         }
 
         # Check ticket limit
@@ -319,13 +328,7 @@ class MiniParwaInstance:
 
     def _analyze_sentiment_basic(self, text: str) -> str:
         """Basic sentiment analysis (Tier 1)"""
-        positive_words = [
-            "thank",
-            "great",
-            "love",
-            "awesome",
-            "helpful",
-            "good"]
+        positive_words = ["thank", "great", "love", "awesome", "helpful", "good"]
         negative_words = [
             "angry",
             "frustrated",
@@ -333,13 +336,12 @@ class MiniParwaInstance:
             "bad",
             "hate",
             "worst",
-            "disappointed"]
+            "disappointed",
+        ]
 
         text_lower = text.lower()
-        positive_count = sum(
-            1 for word in positive_words if word in text_lower)
-        negative_count = sum(
-            1 for word in negative_words if word in text_lower)
+        positive_count = sum(1 for word in positive_words if word in text_lower)
+        negative_count = sum(1 for word in negative_words if word in text_lower)
 
         if positive_count > negative_count:
             return "positive"
@@ -353,17 +355,17 @@ class MiniParwaInstance:
         subject_lower = ticket.subject.lower()
         combined = message_lower + " " + subject_lower
 
-        if any(
-            word in combined for word in [
-                "return",
-                "refund",
-                "money back"]):
+        if any(word in combined for word in ["return", "refund", "money back"]):
             return "returns"
         elif any(word in combined for word in ["shipping", "delivery", "track"]):
             return "shipping"
-        elif any(word in combined for word in ["password", "login", "access", "account"]):
+        elif any(
+            word in combined for word in ["password", "login", "access", "account"]
+        ):
             return "account"
-        elif any(word in combined for word in ["payment", "billing", "charge", "invoice"]):
+        elif any(
+            word in combined for word in ["payment", "billing", "charge", "invoice"]
+        ):
             return "billing"
         elif any(word in combined for word in ["api", "integration", "developer"]):
             return "technical"
@@ -371,16 +373,13 @@ class MiniParwaInstance:
 
     def check_api_access(self, operation: str) -> bool:
         """Check API access permissions"""
-        read_operations = [
-            "get_tickets",
-            "get_faqs",
-            "get_analytics",
-            "search_kb"]
+        read_operations = ["get_tickets", "get_faqs", "get_analytics", "search_kb"]
         write_operations = [
             "create_ticket",
             "update_ticket",
             "delete_ticket",
-            "create_faq"]
+            "create_faq",
+        ]
 
         if operation in read_operations:
             return True  # Read access allowed
@@ -397,6 +396,7 @@ class MiniParwaInstance:
 # TEST CLASS: COMPREHENSIVE 2 INSTANCE TESTING
 # ============================================================
 
+
 class TestTwoMiniParwaInstances:
     """Complete test suite for 2 Mini PARWA instances"""
 
@@ -410,7 +410,7 @@ class TestTwoMiniParwaInstances:
             support_email=COMPANY_1.support_email,
             team_members=COMPANY_1.team_members.copy(),
             supported_languages=COMPANY_1.supported_languages.copy(),
-            faqs=COMPANY_1.faqs.copy()
+            faqs=COMPANY_1.faqs.copy(),
         )
 
         self.company2 = FakeCompany(
@@ -421,7 +421,7 @@ class TestTwoMiniParwaInstances:
             support_email=COMPANY_2.support_email,
             team_members=COMPANY_2.team_members.copy(),
             supported_languages=COMPANY_2.supported_languages.copy(),
-            faqs=COMPANY_2.faqs.copy()
+            faqs=COMPANY_2.faqs.copy(),
         )
 
         self.instance1 = MiniParwaInstance(self.company1)
@@ -494,7 +494,7 @@ class TestTwoMiniParwaInstances:
             subject="Return Policy Question",
             message="What is your return policy? I want to return my order.",
             language="en",
-            channel="email"
+            channel="email",
         )
 
         # Create ticket for Company 2
@@ -506,7 +506,7 @@ class TestTwoMiniParwaInstances:
             subject="Password Reset",
             message="I forgot my password. How do I reset it?",
             language="en",
-            channel="email"
+            channel="email",
         )
 
         # Process tickets
@@ -571,13 +571,14 @@ class TestTwoMiniParwaInstances:
                 subject="FAQ Test",
                 message=message,
                 language="en",
-                channel="email"
+                channel="email",
             )
             result = self.instance1.process_ticket(ticket)
             matched_id = result["matched_faq"]["id"] if result["matched_faq"] else None
             status = "✅" if matched_id == expected_faq_id else "❌"
             print(
-                f"  {status} '{message[:30]}...' -> FAQ: {matched_id} (expected: {expected_faq_id})")
+                f"  {status} '{message[:30]}...' -> FAQ: {matched_id} (expected: {expected_faq_id})"
+            )
             assert matched_id == expected_faq_id, f"FAQ mismatch for '{message}'"
 
         # Company 2 FAQ tests
@@ -598,13 +599,14 @@ class TestTwoMiniParwaInstances:
                 subject="FAQ Test",
                 message=message,
                 language="en",
-                channel="email"
+                channel="email",
             )
             result = self.instance2.process_ticket(ticket)
             matched_id = result["matched_faq"]["id"] if result["matched_faq"] else None
             status = "✅" if matched_id == expected_faq_id else "❌"
             print(
-                f"  {status} '{message[:30]}...' -> FAQ: {matched_id} (expected: {expected_faq_id})")
+                f"  {status} '{message[:30]}...' -> FAQ: {matched_id} (expected: {expected_faq_id})"
+            )
             assert matched_id == expected_faq_id, f"FAQ mismatch for '{message}'"
 
         print(f"\nCompany 1 FAQs Matched: {self.instance1.faqs_matched}")
@@ -635,14 +637,17 @@ class TestTwoMiniParwaInstances:
             subject="वापसी पॉलिसी",
             message="आपकी वापसी नीति क्या है? मैं अपना ऑर्डर वापस करना चाहता हूं।",
             language="hi",
-            channel="email")
+            channel="email",
+        )
         result_hi = self.instance1.process_ticket(hindi_ticket)
         print(f"  Hindi Query: '{hindi_ticket.message[:30]}...'")
         print(
             f"  Matched FAQ: {
-                result_hi['matched_faq']['id'] if result_hi['matched_faq'] else 'None'}")
+                result_hi['matched_faq']['id'] if result_hi['matched_faq'] else 'None'}"
+        )
         print(
-            f"  Response: {result_hi['ai_response'][:50] if result_hi['ai_response'] else 'None'}...")
+            f"  Response: {result_hi['ai_response'][:50] if result_hi['ai_response'] else 'None'}..."
+        )
         assert result_hi["matched_faq"]["id"] == "faq_003"  # Hindi FAQ
         print("  ✅ Hindi FAQ matched correctly")
 
@@ -656,15 +661,17 @@ class TestTwoMiniParwaInstances:
             subject="Contraseña olvidada",
             message="¿Cómo restablezco mi contraseña? La olvidé.",
             language="es",
-            channel="email"
+            channel="email",
         )
         result_es = self.instance2.process_ticket(spanish_ticket)
         print(f"  Spanish Query: '{spanish_ticket.message[:30]}...'")
         print(
             f"  Matched FAQ: {
-                result_es['matched_faq']['id'] if result_es['matched_faq'] else 'None'}")
+                result_es['matched_faq']['id'] if result_es['matched_faq'] else 'None'}"
+        )
         print(
-            f"  Response: {result_es['ai_response'][:50] if result_es['ai_response'] else 'None'}...")
+            f"  Response: {result_es['ai_response'][:50] if result_es['ai_response'] else 'None'}..."
+        )
         assert result_es["matched_faq"]["id"] == "faq_103"  # Spanish FAQ
         print("  ✅ Spanish FAQ matched correctly")
 
@@ -688,11 +695,9 @@ class TestTwoMiniParwaInstances:
         self.instance1.tickets_this_month = 1999
         self.instance2.tickets_this_month = 1999
 
-        print(
-            f"\nInstance 1 tickets this month: {
+        print(f"\nInstance 1 tickets this month: {
                 self.instance1.tickets_this_month}/2000")
-        print(
-            f"Instance 2 tickets this month: {
+        print(f"Instance 2 tickets this month: {
                 self.instance2.tickets_this_month}/2000")
 
         # Should allow 1 more ticket
@@ -704,11 +709,10 @@ class TestTwoMiniParwaInstances:
             subject="Last Ticket",
             message="This should be allowed",
             language="en",
-            channel="email"
+            channel="email",
         )
         result1 = self.instance1.process_ticket(ticket1)
-        print(
-            f"\nTicket {
+        print(f"\nTicket {
                 self.instance1.tickets_this_month}/2000 for Instance 1: {
                 '✅ Allowed' if result1['processed'] else '❌ Blocked'}")
         assert result1["processed"]
@@ -722,11 +726,10 @@ class TestTwoMiniParwaInstances:
             subject="Last Ticket",
             message="This should be allowed",
             language="en",
-            channel="email"
+            channel="email",
         )
         result2 = self.instance2.process_ticket(ticket2)
-        print(
-            f"Ticket {
+        print(f"Ticket {
                 self.instance2.tickets_this_month}/2000 for Instance 2: {
                 '✅ Allowed' if result2['processed'] else '❌ Blocked'}")
         assert result2["processed"]
@@ -740,11 +743,10 @@ class TestTwoMiniParwaInstances:
             subject="Over Limit",
             message="This should be blocked",
             language="en",
-            channel="email"
+            channel="email",
         )
         result1_ex = self.instance1.process_ticket(ticket1_exceeded)
-        print(
-            f"\nTicket over limit for Instance 1: {
+        print(f"\nTicket over limit for Instance 1: {
                 '❌ Blocked' if result1_ex['error'] else '✅ Allowed'}")
         assert result1_ex["error"] == "TICKET_LIMIT_EXCEEDED"
 
@@ -756,11 +758,10 @@ class TestTwoMiniParwaInstances:
             subject="Over Limit",
             message="This should be blocked",
             language="en",
-            channel="email"
+            channel="email",
         )
         result2_ex = self.instance2.process_ticket(ticket2_exceeded)
-        print(
-            f"Ticket over limit for Instance 2: {
+        print(f"Ticket over limit for Instance 2: {
                 '❌ Blocked' if result2_ex['error'] else '✅ Allowed'}")
         assert result2_ex["error"] == "TICKET_LIMIT_EXCEEDED"
 
@@ -787,14 +788,14 @@ class TestTwoMiniParwaInstances:
             "medium_ai_model",
             "tier_2_techniques",
             "tier_3_techniques",
-            "api_write_access"]
+            "api_write_access",
+        ]
 
         print("\n--- Checking Blocked Features ---")
         for feature in blocked_features:
             allowed1 = self.instance1.is_feature_allowed(feature)
             allowed2 = self.instance2.is_feature_allowed(feature)
-            print(
-                f"  {feature}: Instance 1 = {
+            print(f"  {feature}: Instance 1 = {
                     '✅ Allowed' if allowed1 else '❌ Blocked'}, Instance 2 = {
                     '✅ Allowed' if allowed2 else '❌ Blocked'}")
             assert allowed1 is False, f"{feature} should be blocked for Instance 1"
@@ -810,11 +811,10 @@ class TestTwoMiniParwaInstances:
             subject="SMS Test",
             message="This came via SMS",
             language="en",
-            channel="sms"  # Should be blocked
+            channel="sms",  # Should be blocked
         )
         result_sms = self.instance1.process_ticket(sms_ticket)
-        print(
-            f"  SMS Ticket Result: {
+        print(f"  SMS Ticket Result: {
                 '❌ Blocked' if result_sms['error'] else '✅ Allowed'}")
         print(f"  Error: {result_sms['error']}")
         assert "CHANNEL_NOT_ALLOWED" in result_sms["error"]
@@ -829,11 +829,10 @@ class TestTwoMiniParwaInstances:
             subject="Voice Test",
             message="This came via Voice",
             language="en",
-            channel="voice"  # Should be blocked
+            channel="voice",  # Should be blocked
         )
         result_voice = self.instance2.process_ticket(voice_ticket)
-        print(
-            f"  Voice Ticket Result: {
+        print(f"  Voice Ticket Result: {
                 '❌ Blocked' if result_voice['error'] else '✅ Allowed'}")
         print(f"  Error: {result_voice['error']}")
         assert "CHANNEL_NOT_ALLOWED" in result_voice["error"]
@@ -883,7 +882,7 @@ class TestTwoMiniParwaInstances:
             subject="Test",
             message="I want a refund for my order",
             language="en",
-            channel="email"
+            channel="email",
         )
         result = self.instance1.process_ticket(ticket)
 
@@ -907,23 +906,19 @@ class TestTwoMiniParwaInstances:
         print("SCENARIO 8: API Restrictions (Read-Only)")
         print("=" * 60)
 
-        read_operations = [
-            "get_tickets",
-            "get_faqs",
-            "get_analytics",
-            "search_kb"]
+        read_operations = ["get_tickets", "get_faqs", "get_analytics", "search_kb"]
         write_operations = [
             "create_ticket",
             "update_ticket",
             "delete_ticket",
-            "create_faq"]
+            "create_faq",
+        ]
 
         print("\n--- Read Operations (Should be ALLOWED) ---")
         for op in read_operations:
             allowed1 = self.instance1.check_api_access(op)
             allowed2 = self.instance2.check_api_access(op)
-            print(
-                f"  {op}: Instance 1 = {
+            print(f"  {op}: Instance 1 = {
                     '✅ Allowed' if allowed1 else '❌ Blocked'}, Instance 2 = {
                     '✅ Allowed' if allowed2 else '❌ Blocked'}")
             assert allowed1
@@ -933,8 +928,7 @@ class TestTwoMiniParwaInstances:
         for op in write_operations:
             allowed1 = self.instance1.check_api_access(op)
             allowed2 = self.instance2.check_api_access(op)
-            print(
-                f"  {op}: Instance 1 = {
+            print(f"  {op}: Instance 1 = {
                     '✅ Allowed' if allowed1 else '❌ Blocked'}, Instance 2 = {
                     '✅ Allowed' if allowed2 else '❌ Blocked'}")
             assert allowed1 is False
@@ -972,7 +966,8 @@ class TestTwoMiniParwaInstances:
                 subject="Test",
                 message="I need a refund",
                 language="en",
-                channel="email"),
+                channel="email",
+            ),
             CustomerTicket(
                 id="SHADOW_1_2",
                 company_id=self.company1.id,
@@ -981,7 +976,8 @@ class TestTwoMiniParwaInstances:
                 subject="Test",
                 message="Shipping time?",
                 language="en",
-                channel="email"),
+                channel="email",
+            ),
         ]
 
         tickets_2 = [
@@ -993,7 +989,8 @@ class TestTwoMiniParwaInstances:
                 subject="Test",
                 message="Reset password",
                 language="en",
-                channel="email"),
+                channel="email",
+            ),
             CustomerTicket(
                 id="SHADOW_2_2",
                 company_id=self.company2.id,
@@ -1002,7 +999,8 @@ class TestTwoMiniParwaInstances:
                 subject="Test",
                 message="Pricing info",
                 language="en",
-                channel="email"),
+                channel="email",
+            ),
         ]
 
         for t in tickets_1:
@@ -1010,19 +1008,19 @@ class TestTwoMiniParwaInstances:
         for t in tickets_2:
             self.instance2.process_ticket(t)
 
-        print(
-            f"\nInstance 1 Shadow Responses: {len(self.instance1.shadow_responses)}")
-        print(
-            f"Instance 2 Shadow Responses: {len(self.instance2.shadow_responses)}")
+        print(f"\nInstance 1 Shadow Responses: {len(self.instance1.shadow_responses)}")
+        print(f"Instance 2 Shadow Responses: {len(self.instance2.shadow_responses)}")
 
         assert len(self.instance1.shadow_responses) == 2
         assert len(self.instance2.shadow_responses) == 2
 
         print("\n--- Shadow Response Samples ---")
         print(
-            f"Instance 1 Sample: {self.instance1.shadow_responses[0]['ticket_id']} - {self.instance1.shadow_responses[0]['ai_response'][:40]}...")
+            f"Instance 1 Sample: {self.instance1.shadow_responses[0]['ticket_id']} - {self.instance1.shadow_responses[0]['ai_response'][:40]}..."
+        )
         print(
-            f"Instance 2 Sample: {self.instance2.shadow_responses[0]['ticket_id']} - {self.instance2.shadow_responses[0]['ai_response'][:40]}...")
+            f"Instance 2 Sample: {self.instance2.shadow_responses[0]['ticket_id']} - {self.instance2.shadow_responses[0]['ai_response'][:40]}..."
+        )
 
         print("\n✅ PASSED: Shadow mode works correctly for both instances")
 
@@ -1037,21 +1035,20 @@ class TestTwoMiniParwaInstances:
         print("=" * 60)
 
         # Company 1 has 2 members, should allow 1 more
-        print(
-            f"\nInstance 1 Current Members: {len(self.company1.team_members)}/3")
+        print(f"\nInstance 1 Current Members: {len(self.company1.team_members)}/3")
         print(f"Can add member: {self.instance1.can_add_team_member()}")
         assert self.instance1.can_add_team_member()
 
         # Company 2 has 3 members, should block adding
-        print(
-            f"\nInstance 2 Current Members: {len(self.company2.team_members)}/3")
+        print(f"\nInstance 2 Current Members: {len(self.company2.team_members)}/3")
         print(f"Can add member: {self.instance2.can_add_team_member()}")
         assert self.instance2.can_add_team_member() is False
 
         # Add member to company 1
         self.company1.team_members.append("new_member@shopeasy.example.com")
         print(
-            f"\nAfter adding member to Instance 1: {len(self.company1.team_members)}/3")
+            f"\nAfter adding member to Instance 1: {len(self.company1.team_members)}/3"
+        )
         print(f"Can add another: {self.instance1.can_add_team_member()}")
         assert self.instance1.can_add_team_member() is False
 
@@ -1082,7 +1079,7 @@ class TestTwoMiniParwaInstances:
                 subject=f"Query {i}",
                 message="I have a question about my order",
                 language="en",
-                channel="email"
+                channel="email",
             )
             self.instance1.process_ticket(ticket1)
 
@@ -1094,21 +1091,17 @@ class TestTwoMiniParwaInstances:
                 subject=f"Query {i}",
                 message="I need help with my account",
                 language="en",
-                channel="email"
+                channel="email",
             )
             self.instance2.process_ticket(ticket2)
 
-        print(
-            f"\nInstance 1 Processed: {
+        print(f"\nInstance 1 Processed: {
                 self.instance1.tickets_processed} tickets")
-        print(
-            f"Instance 2 Processed: {
+        print(f"Instance 2 Processed: {
                 self.instance2.tickets_processed} tickets")
-        print(
-            f"Instance 1 AI Responses: {
+        print(f"Instance 1 AI Responses: {
                 self.instance1.ai_responses_generated}")
-        print(
-            f"Instance 2 AI Responses: {
+        print(f"Instance 2 AI Responses: {
                 self.instance2.ai_responses_generated}")
 
         assert self.instance1.tickets_processed == 100
@@ -1156,13 +1149,14 @@ class TestTwoMiniParwaInstances:
                 subject="Test",
                 message=message,
                 language="en",
-                channel="email"
+                channel="email",
             )
             result = self.instance1.process_ticket(ticket)
             sentiment = result.get("sentiment", "unknown")
             status = "✅" if sentiment == expected else "❌"
             print(
-                f"  {status} '{message[:30]}...' -> {sentiment} (expected: {expected})")
+                f"  {status} '{message[:30]}...' -> {sentiment} (expected: {expected})"
+            )
 
         print("\n✅ PASSED: Sentiment analysis works correctly")
 
@@ -1198,13 +1192,14 @@ class TestTwoMiniParwaInstances:
                 subject="Test",
                 message=message,
                 language="en",
-                channel="email"
+                channel="email",
             )
             result = self.instance1.process_ticket(ticket)
             category = result.get("category", "unknown")
             status = "✅" if category == expected else "❌"
             print(
-                f"  {status} '{message[:35]}...' -> {category} (expected: {expected})")
+                f"  {status} '{message[:35]}...' -> {category} (expected: {expected})"
+            )
 
         print("\n✅ PASSED: Auto categorization works correctly")
 
@@ -1230,7 +1225,7 @@ class TestTwoMiniParwaInstances:
             subject="Return",
             message="I want a refund",
             language="en",
-            channel="email"
+            channel="email",
         )
         result1 = self.instance1.process_ticket(ticket1)
 
@@ -1247,7 +1242,7 @@ class TestTwoMiniParwaInstances:
             subject="Password",
             message="I forgot my password",
             language="en",
-            channel="email"
+            channel="email",
         )
         result2 = self.instance2.process_ticket(ticket2)
 
@@ -1273,6 +1268,7 @@ class TestTwoMiniParwaInstances:
 # RUN TESTS
 # ============================================================
 
+
 def run_all_tests():
     """Run all tests and generate report"""
     import traceback
@@ -1287,20 +1283,50 @@ def run_all_tests():
     test_instance.setup()
 
     tests = [
-        ("SCENARIO 1: Instance Initialization", test_instance.test_scenario_01_instance_initialization),
-        ("SCENARIO 2: Independent Operation", test_instance.test_scenario_02_independent_operation),
+        (
+            "SCENARIO 1: Instance Initialization",
+            test_instance.test_scenario_01_instance_initialization,
+        ),
+        (
+            "SCENARIO 2: Independent Operation",
+            test_instance.test_scenario_02_independent_operation,
+        ),
         ("SCENARIO 3: FAQ Matching", test_instance.test_scenario_03_faq_matching),
-        ("SCENARIO 4: Multi-Language Support", test_instance.test_scenario_04_multi_language_support),
+        (
+            "SCENARIO 4: Multi-Language Support",
+            test_instance.test_scenario_04_multi_language_support,
+        ),
         ("SCENARIO 5: Ticket Limits", test_instance.test_scenario_05_ticket_limits),
         ("SCENARIO 6: Feature Gating", test_instance.test_scenario_06_feature_gating),
-        ("SCENARIO 7: Technique Access", test_instance.test_scenario_07_technique_access),
-        ("SCENARIO 8: API Restrictions", test_instance.test_scenario_08_api_restrictions),
+        (
+            "SCENARIO 7: Technique Access",
+            test_instance.test_scenario_07_technique_access,
+        ),
+        (
+            "SCENARIO 8: API Restrictions",
+            test_instance.test_scenario_08_api_restrictions,
+        ),
         ("SCENARIO 9: Shadow Mode", test_instance.test_scenario_09_shadow_mode),
-        ("SCENARIO 10: Team Member Limits", test_instance.test_scenario_10_team_member_limits),
-        ("SCENARIO 11: Concurrent Traffic", test_instance.test_scenario_11_concurrent_traffic),
-        ("SCENARIO 12: Sentiment Analysis", test_instance.test_scenario_12_sentiment_analysis),
-        ("SCENARIO 13: Auto Categorization", test_instance.test_scenario_13_auto_categorization),
-        ("SCENARIO 14: Instance Isolation", test_instance.test_scenario_14_instance_isolation),
+        (
+            "SCENARIO 10: Team Member Limits",
+            test_instance.test_scenario_10_team_member_limits,
+        ),
+        (
+            "SCENARIO 11: Concurrent Traffic",
+            test_instance.test_scenario_11_concurrent_traffic,
+        ),
+        (
+            "SCENARIO 12: Sentiment Analysis",
+            test_instance.test_scenario_12_sentiment_analysis,
+        ),
+        (
+            "SCENARIO 13: Auto Categorization",
+            test_instance.test_scenario_13_auto_categorization,
+        ),
+        (
+            "SCENARIO 14: Instance Isolation",
+            test_instance.test_scenario_14_instance_isolation,
+        ),
     ]
 
     results = []
@@ -1331,8 +1357,7 @@ def run_all_tests():
             print(f"      Error: {error[:100]}")
 
     print("\n" + "-" * 70)
-    print(
-        f" Total: {
+    print(f" Total: {
             passed
             + failed} tests | ✅ Passed: {passed} | ❌ Failed: {failed}")
     print(f" Success Rate: {(passed / (passed + failed)) * 100:.1f}%")

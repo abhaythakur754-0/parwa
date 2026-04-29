@@ -33,7 +33,6 @@ from app.core.state_migration import (
     _migrate_v5_to_v6,
 )
 
-
 # ── Fixtures ────────────────────────────────────────────────────
 
 
@@ -142,9 +141,7 @@ class TestSingleMigrationSteps:
         )
         assert new_state["technique_token_budget"] == 1500
         assert new_state["_version"] == 4
-        assert any(
-            "technique_token_budget" in c for c in changes
-        )
+        assert any("technique_token_budget" in c for c in changes)
 
     def test_v4_to_v5_converts_int_gsd_state(self):
         state = _v4_state(gsd_state=2)
@@ -273,7 +270,9 @@ class TestDryRunMode:
         state = _v1_state()
         original_gsd = state["gsd_state"]
         result = migrator.migrate_state(
-            state, target_version=6, dry_run=True,
+            state,
+            target_version=6,
+            dry_run=True,
         )
         # Original state should be unchanged
         assert state.get("gsd_state") == original_gsd
@@ -284,7 +283,9 @@ class TestDryRunMode:
     def test_dry_run_returns_changes_preview(self, migrator):
         state = _v1_state()
         result = migrator.migrate_state(
-            state, target_version=6, dry_run=True,
+            state,
+            target_version=6,
+            dry_run=True,
         )
         assert len(result.changes_made) > 0
         assert result.success is True
@@ -292,7 +293,9 @@ class TestDryRunMode:
     def test_dry_run_v2_to_v6(self, migrator):
         state = _v2_state()
         result = migrator.migrate_state(
-            state, target_version=6, dry_run=True,
+            state,
+            target_version=6,
+            dry_run=True,
         )
         assert result.success is True
         assert "signals" in result.state_after
@@ -302,7 +305,9 @@ class TestDryRunMode:
         state = _v4_state(gsd_state=1)
         original = copy.deepcopy(state)
         migrator.migrate_state(
-            state, target_version=6, dry_run=True,
+            state,
+            target_version=6,
+            dry_run=True,
         )
         assert state == original
 
@@ -341,14 +346,8 @@ class TestBackwardCompatibility:
         state["_version"] = 5
         result = migrator.migrate_state(state, target_version=6)
         assert result.success is True
-        assert (
-            result.state_after["signals"]["intent_confidence"]
-            == 0.9
-        )
-        assert (
-            result.state_after["signals"]["urgency_level"]
-            == "medium"
-        )
+        assert result.state_after["signals"]["intent_confidence"] == 0.9
+        assert result.state_after["signals"]["urgency_level"] == "medium"
 
     def test_state_with_extra_fields_preserved(self, migrator):
         """Extra/unknown fields should be preserved through
@@ -430,7 +429,8 @@ class TestBatchMigration:
         already_v6 = _v6_state()
         v1_state = _v1_state()
         result = migrator.batch_migrate(
-            [already_v6, v1_state], target_version=6,
+            [already_v6, v1_state],
+            target_version=6,
         )
         assert result.total == 2
         assert result.skipped == 1
@@ -439,7 +439,9 @@ class TestBatchMigration:
     def test_batch_migrate_dry_run(self, migrator):
         states = [_v1_state()]
         result = migrator.batch_migrate(
-            states, target_version=6, dry_run=True,
+            states,
+            target_version=6,
+            dry_run=True,
         )
         assert result.total == 1
         assert result.migrated == 1
@@ -529,9 +531,7 @@ class TestRollback:
         state = _v6_state()
         result = migrator.rollback_state(state, target_version=6)
         assert result.success is True
-        assert any(
-            "Already at target" in c for c in result.changes_made
-        )
+        assert any("Already at target" in c for c in result.changes_made)
 
     def test_rollback_forward_raises_error(self, migrator):
         state = _v3_state()
@@ -542,7 +542,9 @@ class TestRollback:
         state = _v6_state()
         original = copy.deepcopy(state)
         migrator.rollback_state(
-            state, target_version=5, dry_run=True,
+            state,
+            target_version=5,
+            dry_run=True,
         )
         assert state == original
 
@@ -582,6 +584,7 @@ class TestUnknownVersion:
     def test_register_invalid_migration_raises(self, migrator):
         def noop(state):
             return state, [], []
+
         with pytest.raises(ValueError, match="less than"):
             migrator.register_migration(5, 5, noop)
         with pytest.raises(ValueError, match="less than"):
@@ -599,9 +602,7 @@ class TestAlreadyAtTarget:
         result = migrator.migrate_state(state)
         assert result.success is True
         assert result.to_version == 6
-        assert any(
-            "Already at target" in c for c in result.changes_made
-        )
+        assert any("Already at target" in c for c in result.changes_made)
 
     def test_already_at_specific_target(self, migrator):
         state = _v3_state()

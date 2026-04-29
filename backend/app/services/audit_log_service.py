@@ -250,25 +250,27 @@ class AuditLogError(ParwaBaseError):
 # Security categories get longer retention for compliance (e.g. SOC2).
 _DEFAULT_CATEGORY_RETENTION_DAYS: Dict[str, int] = {
     AuditCategory.AUTHENTICATION.value: 2555,  # 7 years
-    AuditCategory.AUTHORIZATION.value: 2555,    # 7 years
-    AuditCategory.DATA_ACCESS.value: 1095,      # 3 years
+    AuditCategory.AUTHORIZATION.value: 2555,  # 7 years
+    AuditCategory.DATA_ACCESS.value: 1095,  # 3 years
     AuditCategory.DATA_MODIFICATION.value: 1095,  # 3 years
-    AuditCategory.BILLING.value: 2555,          # 7 years
-    AuditCategory.SYSTEM.value: 90,             # 90 days
-    AuditCategory.AI_OPERATION.value: 365,      # 1 year
-    AuditCategory.INTEGRATION.value: 365,       # 1 year
+    AuditCategory.BILLING.value: 2555,  # 7 years
+    AuditCategory.SYSTEM.value: 90,  # 90 days
+    AuditCategory.AI_OPERATION.value: 365,  # 1 year
+    AuditCategory.INTEGRATION.value: 365,  # 1 year
 }
 
 # Actions that are considered security-sensitive for alert generation.
-_SECURITY_RELEVANT_ACTIONS: frozenset = frozenset({
-    "login_failed",
-    "permission_change",
-    "api_key_revoke",
-    "api_key_rotate",
-    "settings_change",
-    "delete",
-    "export",
-})
+_SECURITY_RELEVANT_ACTIONS: frozenset = frozenset(
+    {
+        "login_failed",
+        "permission_change",
+        "api_key_revoke",
+        "api_key_rotate",
+        "settings_change",
+        "delete",
+        "export",
+    }
+)
 
 # Maximum number of alerts kept in memory per company.
 _MAX_ALERTS_PER_COMPANY: int = 100
@@ -309,10 +311,7 @@ def _validate_category(category: Any) -> AuditCategory:
             valid = ", ".join(c.value for c in AuditCategory)
             raise AuditLogError(
                 error_code="INVALID_CATEGORY",
-                message=(
-                    f"Invalid category '{category}'. "
-                    f"Must be one of: {valid}"
-                ),
+                message=(f"Invalid category '{category}'. " f"Must be one of: {valid}"),
                 status_code=400,
             )
     valid = ", ".join(c.value for c in AuditCategory)
@@ -346,10 +345,7 @@ def _validate_severity(severity: Any) -> AuditSeverity:
             valid = ", ".join(s.value for s in AuditSeverity)
             raise AuditLogError(
                 error_code="INVALID_SEVERITY",
-                message=(
-                    f"Invalid severity '{severity}'. "
-                    f"Must be one of: {valid}"
-                ),
+                message=(f"Invalid severity '{severity}'. " f"Must be one of: {valid}"),
                 status_code=400,
             )
     valid = ", ".join(s.value for s in AuditSeverity)
@@ -505,9 +501,7 @@ class AuditLogService:
             "new_value": entry.new_value,
             "ip_address": entry.ip_address,
             "metadata": entry.metadata,
-            "created_at": entry.created_at.isoformat()
-            if entry.created_at
-            else "",
+            "created_at": entry.created_at.isoformat() if entry.created_at else "",
         }
         computed = self._compute_checksum(entry_data)
         return computed == entry.checksum
@@ -568,8 +562,7 @@ class AuditLogService:
         if policy.max_entries_per_category > 0:
             company_entries = self._get_entries(entry.company_id)
             category_entries = [
-                e for e in company_entries
-                if e.category == entry.category
+                e for e in company_entries if e.category == entry.category
             ]
             if len(category_entries) > policy.max_entries_per_category:
                 # The entry is among the oldest beyond the cap —
@@ -578,11 +571,8 @@ class AuditLogService:
                     category_entries,
                     key=lambda e: e.created_at,
                 )
-                cutoff_idx = len(sorted_entries) - \
-                    policy.max_entries_per_category
-                if entry.entry_id in [
-                    e.entry_id for e in sorted_entries[:cutoff_idx]
-                ]:
+                cutoff_idx = len(sorted_entries) - policy.max_entries_per_category
+                if entry.entry_id in [e.entry_id for e in sorted_entries[:cutoff_idx]]:
                     return False
 
         return True
@@ -611,11 +601,7 @@ class AuditLogService:
             "actor_type": entry.actor_type,
             "resource_type": entry.resource_type,
             "resource_id": entry.resource_id,
-            "timestamp": (
-                entry.created_at.isoformat()
-                if entry.created_at
-                else None
-            ),
+            "timestamp": (entry.created_at.isoformat() if entry.created_at else None),
         }
 
         for callback in self._stream_callbacks:
@@ -724,11 +710,7 @@ class AuditLogService:
             "user_agent": entry.user_agent,
             "metadata": metadata,
             "checksum": entry.checksum,
-            "created_at": (
-                entry.created_at.isoformat()
-                if entry.created_at
-                else None
-            ),
+            "created_at": (entry.created_at.isoformat() if entry.created_at else None),
         }
 
     def _redact_if_sensitive(self, value: Optional[str]) -> Optional[str]:
@@ -1000,19 +982,21 @@ class AuditLogService:
                 filtered.append(entry)
 
             # Sort by created_at descending (newest first)
-            filtered.sort(
-                key=lambda e: e.created_at or datetime.min,
-                reverse=True)
+            filtered.sort(key=lambda e: e.created_at or datetime.min, reverse=True)
 
             total = len(filtered)
-            page = filtered[offset: offset + limit]
+            page = filtered[offset : offset + limit]
 
             logger.debug(
                 "audit_events_queried",
                 company_id=company_id,
                 filters_applied={
-                    "category": validated_category.value if validated_category else None,
-                    "severity": validated_severity.value if validated_severity else None,
+                    "category": (
+                        validated_category.value if validated_category else None
+                    ),
+                    "severity": (
+                        validated_severity.value if validated_severity else None
+                    ),
                     "actor_id": actor_id,
                     "resource_type": resource_type,
                 },
@@ -1086,15 +1070,11 @@ class AuditLogService:
 
                 # Category distribution
                 cat_key = entry.category.value
-                entries_by_category[cat_key] = (
-                    entries_by_category.get(cat_key, 0) + 1
-                )
+                entries_by_category[cat_key] = entries_by_category.get(cat_key, 0) + 1
 
                 # Severity distribution
                 sev_key = entry.severity.value
-                entries_by_severity[sev_key] = (
-                    entries_by_severity.get(sev_key, 0) + 1
-                )
+                entries_by_severity[sev_key] = entries_by_severity.get(sev_key, 0) + 1
 
                 # Actor activity
                 if entry.actor_id:
@@ -1104,8 +1084,7 @@ class AuditLogService:
 
                 # Unique resources
                 if entry.resource_type and entry.resource_id:
-                    resource_set.add(
-                        f"{entry.resource_type}:{entry.resource_id}")
+                    resource_set.add(f"{entry.resource_type}:{entry.resource_id}")
 
                 # Temporal counts
                 if entry.created_at >= last_24h_cutoff:
@@ -1155,14 +1134,8 @@ class AuditLogService:
             )
             return AuditStats(
                 company_id=company_id,
-                period_start=datetime.now(
-                    timezone.utc)
-                - timedelta(
-                    days=max(
-                        1,
-                        days)),
-                period_end=datetime.now(
-                    timezone.utc),
+                period_start=datetime.now(timezone.utc) - timedelta(days=max(1, days)),
+                period_end=datetime.now(timezone.utc),
             )
 
     def verify_integrity(
@@ -1224,11 +1197,13 @@ class AuditLogService:
                     # Entry has no checksum — can't verify.
                     # This is a partial result rather than tampered.
                     missing_count += 1
-                    details.append({
-                        "entry_id": entry.entry_id,
-                        "status": "missing_checksum",
-                        "message": "Entry has no checksum stored",
-                    })
+                    details.append(
+                        {
+                            "entry_id": entry.entry_id,
+                            "status": "missing_checksum",
+                            "message": "Entry has no checksum stored",
+                        }
+                    )
                     continue
 
                 is_valid = self._validate_checksum(entry)
@@ -1236,18 +1211,20 @@ class AuditLogService:
                     valid_count += 1
                 else:
                     tampered_count += 1
-                    details.append({
-                        "entry_id": entry.entry_id,
-                        "status": "tampered",
-                        "message": "Checksum mismatch — entry may have been modified",
-                        "category": entry.category.value,
-                        "action": entry.action,
-                        "created_at": (
-                            entry.created_at.isoformat()
-                            if entry.created_at
-                            else None
-                        ),
-                    })
+                    details.append(
+                        {
+                            "entry_id": entry.entry_id,
+                            "status": "tampered",
+                            "message": "Checksum mismatch — entry may have been modified",
+                            "category": entry.category.value,
+                            "action": entry.action,
+                            "created_at": (
+                                entry.created_at.isoformat()
+                                if entry.created_at
+                                else None
+                            ),
+                        }
+                    )
 
             # Determine overall status
             total_checked = len(checked)
@@ -1295,13 +1272,10 @@ class AuditLogService:
                             else None
                         ),
                         "checked_range_end": (
-                            checked_range_end.isoformat()
-                            if checked_range_end
-                            else None
+                            checked_range_end.isoformat() if checked_range_end else None
                         ),
                         "tampered_entries": [
-                            d["entry_id"] for d in details
-                            if d["status"] == "tampered"
+                            d["entry_id"] for d in details if d["status"] == "tampered"
                         ],
                     },
                 )
@@ -1380,8 +1354,7 @@ class AuditLogService:
 
             # Serialise with sensitive data redacted
             export_rows = [
-                self._entry_to_dict(entry, redact=True)
-                for entry in filtered
+                self._entry_to_dict(entry, redact=True) for entry in filtered
             ]
 
             export_data: Any
@@ -1395,20 +1368,10 @@ class AuditLogService:
                         "total_entries": len(export_rows),
                         "filters": {
                             "category": (
-                                validated_category.value
-                                if validated_category
-                                else None
+                                validated_category.value if validated_category else None
                             ),
-                            "date_from": (
-                                date_from.isoformat()
-                                if date_from
-                                else None
-                            ),
-                            "date_to": (
-                                date_to.isoformat()
-                                if date_to
-                                else None
-                            ),
+                            "date_from": (date_from.isoformat() if date_from else None),
+                            "date_to": (date_to.isoformat() if date_to else None),
                         },
                     },
                     "entries": export_rows,
@@ -1454,8 +1417,7 @@ class AuditLogService:
                 raise AuditLogError(
                     error_code="EXPORT_FAILED",
                     message=(
-                        f"Unsupported export format: {format}. "
-                        "Supported: json, csv"
+                        f"Unsupported export format: {format}. " "Supported: json, csv"
                     ),
                     status_code=400,
                 )
@@ -1478,7 +1440,8 @@ class AuditLogService:
                 format=format.value,
                 total_entries=result.total_entries,
                 duration_ms=(
-                    (export_completed_at - export_started_at).total_seconds() * 1000),
+                    (export_completed_at - export_started_at).total_seconds() * 1000
+                ),
             )
 
             return result
@@ -1732,21 +1695,18 @@ class AuditLogService:
 
                 # Redact old_value
                 if entry.old_value:
-                    entry.old_value = self._redact_if_sensitive(
-                        entry.old_value)
+                    entry.old_value = self._redact_if_sensitive(entry.old_value)
 
                 # Redact new_value
                 if entry.new_value:
-                    entry.new_value = self._redact_if_sensitive(
-                        entry.new_value)
+                    entry.new_value = self._redact_if_sensitive(entry.new_value)
 
                 # Redact metadata fields
                 for sensitive_key in self.config.sensitive_fields:
                     if sensitive_key in entry.metadata:
                         val = entry.metadata[sensitive_key]
                         if isinstance(val, str):
-                            entry.metadata[sensitive_key] = self._redact_field(
-                                val)
+                            entry.metadata[sensitive_key] = self._redact_field(val)
                         elif isinstance(val, dict):
                             for k, v in val.items():
                                 if isinstance(v, str):
@@ -1768,9 +1728,9 @@ class AuditLogService:
                     "new_value": entry.new_value,
                     "ip_address": entry.ip_address,
                     "metadata": entry.metadata,
-                    "created_at": entry.created_at.isoformat()
-                    if entry.created_at
-                    else "",
+                    "created_at": (
+                        entry.created_at.isoformat() if entry.created_at else ""
+                    ),
                 }
                 entry.checksum = self._compute_checksum(entry_data)
 

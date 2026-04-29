@@ -91,12 +91,15 @@ async def store_event(
         now = time.time()
 
         # Build the event record
-        event_record = json.dumps({
-            "event_type": event_type,
-            "payload": payload,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "timestamp": now,
-        }, default=str)
+        event_record = json.dumps(
+            {
+                "event_type": event_type,
+                "payload": payload,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "timestamp": now,
+            },
+            default=str,
+        )
 
         # Add to sorted set with timestamp as score
         await client.zadd(key, {event_record: now})

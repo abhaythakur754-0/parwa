@@ -52,8 +52,7 @@ _pubsub_client: Optional[aioredis.Redis] = None
 _pubsub_thread: Optional[threading.Thread] = None
 _pubsub_running = False
 _pubsub_lock = threading.Lock()
-_invalidation_callbacks: List[Callable[[
-    str, str], Coroutine[Any, Any, None]]] = []
+_invalidation_callbacks: List[Callable[[str, str], Coroutine[Any, Any, None]]] = []
 
 # NOTE: No sync get_redis() or get_redis_sync() exists in this module.
 # If one is added in the future, it MUST acquire _redis_thread_lock
@@ -301,8 +300,11 @@ async def get_redis() -> aioredis.Redis:
                 )
                 logger.info(
                     "redis_connected",
-                    url=settings.REDIS_URL.split("@")[-1]
-                    if "@" in settings.REDIS_URL else "localhost",
+                    url=(
+                        settings.REDIS_URL.split("@")[-1]
+                        if "@" in settings.REDIS_URL
+                        else "localhost"
+                    ),
                 )
     return _redis_client
 
@@ -351,9 +353,7 @@ async def redis_health_check() -> dict:
         }
 
 
-async def cache_get(
-    company_id: str, key: str, default: Any = None
-) -> Any:
+async def cache_get(company_id: str, key: str, default: Any = None) -> Any:
     """Get a cached value by tenant-scoped key.
 
     Args:
@@ -449,11 +449,13 @@ async def publish_invalidation(
     try:
         client = await get_redis()
         channel = f"parwa:cache_invalidation:{company_id}"
-        payload = json.dumps({
-            "company_id": company_id,
-            "key_pattern": key_pattern,
-            "timestamp": time.time(),
-        })
+        payload = json.dumps(
+            {
+                "company_id": company_id,
+                "key_pattern": key_pattern,
+                "timestamp": time.time(),
+            }
+        )
         await client.publish(channel, payload)
         logger.info(
             "cache_invalidation_published",
@@ -566,7 +568,8 @@ async def _pubsub_listener() -> None:
                     key_pattern = data.get("key_pattern", "")
                     if company_id and key_pattern:
                         await _handle_invalidation_message(
-                            company_id, key_pattern,
+                            company_id,
+                            key_pattern,
                         )
                 except (json.JSONDecodeError, TypeError) as exc:
                     logger.warning(

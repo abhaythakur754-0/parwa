@@ -92,9 +92,7 @@ def _migrate_v1_to_v2(
         state["reasoning_thread"] = []
         changes.append("Added reasoning_thread field (default [])")
     else:
-        warnings.append(
-            "reasoning_thread already exists, not overwritten"
-        )
+        warnings.append("reasoning_thread already exists, not overwritten")
 
     state["_version"] = 2
     return state, changes, warnings
@@ -109,13 +107,9 @@ def _migrate_v2_to_v3(
 
     if "reflexion_trace" not in state:
         state["reflexion_trace"] = None
-        changes.append(
-            "Added reflexion_trace field (default None)"
-        )
+        changes.append("Added reflexion_trace field (default None)")
     else:
-        warnings.append(
-            "reflexion_trace already exists, not overwritten"
-        )
+        warnings.append("reflexion_trace already exists, not overwritten")
 
     state["_version"] = 3
     return state, changes, warnings
@@ -130,14 +124,9 @@ def _migrate_v3_to_v4(
 
     if "technique_token_budget" not in state:
         state["technique_token_budget"] = 1500
-        changes.append(
-            "Added technique_token_budget field (default 1500)"
-        )
+        changes.append("Added technique_token_budget field (default 1500)")
     else:
-        warnings.append(
-            "technique_token_budget already exists, "
-            "not overwritten"
-        )
+        warnings.append("technique_token_budget already exists, " "not overwritten")
 
     state["_version"] = 4
     return state, changes, warnings
@@ -170,32 +159,22 @@ def _migrate_v4_to_v5(
         if new_val:
             state["gsd_state"] = new_val
             changes.append(
-                f"Converted gsd_state from int {gsd} "
-                f"to string '{new_val}'"
+                f"Converted gsd_state from int {gsd} " f"to string '{new_val}'"
             )
         else:
             warnings.append(
-                f"Unknown gsd_state int value: {gsd}, "
-                "falling back to 'new'"
+                f"Unknown gsd_state int value: {gsd}, " "falling back to 'new'"
             )
             state["gsd_state"] = "new"
-            changes.append(
-                f"Converted gsd_state from int {gsd} "
-                "to fallback 'new'"
-            )
+            changes.append(f"Converted gsd_state from int {gsd} " "to fallback 'new'")
     elif isinstance(gsd, str):
-        warnings.append(
-            "gsd_state is already a string, skipping conversion"
-        )
+        warnings.append("gsd_state is already a string, skipping conversion")
     else:
         warnings.append(
-            "gsd_state has unexpected type "
-            f"{type(gsd).__name__}, setting to 'new'"
+            "gsd_state has unexpected type " f"{type(gsd).__name__}, setting to 'new'"
         )
         state["gsd_state"] = "new"
-        changes.append(
-            f"Set gsd_state to 'new' (was {type(gsd).__name__})"
-        )
+        changes.append(f"Set gsd_state to 'new' (was {type(gsd).__name__})")
 
     state["_version"] = 5
     return state, changes, warnings
@@ -237,13 +216,10 @@ def _migrate_v5_to_v6(
                     merged = True
             if merged:
                 changes.append(
-                    "Merged missing keys into existing "
-                    "signals sub-object"
+                    "Merged missing keys into existing " "signals sub-object"
                 )
             else:
-                warnings.append(
-                    "signals already has all expected keys"
-                )
+                warnings.append("signals already has all expected keys")
         else:
             warnings.append(
                 "signals has unexpected type "
@@ -251,9 +227,7 @@ def _migrate_v5_to_v6(
                 "replacing with defaults"
             )
             state["signals"] = copy.deepcopy(default_signals)
-            changes.append(
-                "Replaced invalid signals with defaults"
-            )
+            changes.append("Replaced invalid signals with defaults")
 
     state["_version"] = 6
     return state, changes, warnings
@@ -265,20 +239,37 @@ def _migrate_v5_to_v6(
 _VERSION_REQUIRED_FIELDS: Dict[int, List[str]] = {
     1: ["query", "gsd_state"],
     2: ["query", "gsd_state", "reasoning_thread"],
-    3: ["query", "gsd_state", "reasoning_thread",
-        "reflexion_trace"],
-    4: ["query", "gsd_state", "reasoning_thread",
-        "reflexion_trace", "technique_token_budget"],
-    5: ["query", "gsd_state", "reasoning_thread",
-        "reflexion_trace", "technique_token_budget"],
-    6: ["query", "gsd_state", "reasoning_thread",
-        "reflexion_trace", "technique_token_budget", "signals"],
+    3: ["query", "gsd_state", "reasoning_thread", "reflexion_trace"],
+    4: [
+        "query",
+        "gsd_state",
+        "reasoning_thread",
+        "reflexion_trace",
+        "technique_token_budget",
+    ],
+    5: [
+        "query",
+        "gsd_state",
+        "reasoning_thread",
+        "reflexion_trace",
+        "technique_token_budget",
+    ],
+    6: [
+        "query",
+        "gsd_state",
+        "reasoning_thread",
+        "reflexion_trace",
+        "technique_token_budget",
+        "signals",
+    ],
 }
 
 # Required keys within signals sub-object for v6
 _SIGNALS_REQUIRED_KEYS = [
-    "intent_confidence", "urgency_level",
-    "sentiment_score", "language_code",
+    "intent_confidence",
+    "urgency_level",
+    "sentiment_score",
+    "language_code",
 ]
 
 
@@ -305,15 +296,11 @@ class StateMigrator:
         self._latest_version = latest_version
 
         # Registry: (from_version, to_version) -> migration_fn
-        self._registry: Dict[
-            Tuple[int, int], MigrationFn
-        ] = {}
+        self._registry: Dict[Tuple[int, int], MigrationFn] = {}
 
         # Rollback stack: (from_version, to_version) ->
         #   reverse_fn (swaps the migration)
-        self._rollback_registry: Dict[
-            Tuple[int, int], MigrationFn
-        ] = {}
+        self._rollback_registry: Dict[Tuple[int, int], MigrationFn] = {}
 
         # Pre-register the built-in migrations
         self.register_migration(1, 2, _migrate_v1_to_v2)
@@ -369,23 +356,25 @@ class StateMigrator:
         """
         # v2->v1: remove reasoning_thread
         self._rollback_registry[(2, 1)] = self._make_rollback(
-            1, remove_keys=["reasoning_thread"],
+            1,
+            remove_keys=["reasoning_thread"],
         )
         # v3->v2: remove reflexion_trace
         self._rollback_registry[(3, 2)] = self._make_rollback(
-            2, remove_keys=["reflexion_trace"],
+            2,
+            remove_keys=["reflexion_trace"],
         )
         # v4->v3: remove technique_token_budget
         self._rollback_registry[(4, 3)] = self._make_rollback(
-            3, remove_keys=["technique_token_budget"],
+            3,
+            remove_keys=["technique_token_budget"],
         )
         # v5->v4: revert gsd_state string back to int
-        self._rollback_registry[(5, 4)] = (
-            self._rollback_v5_to_v4
-        )
+        self._rollback_registry[(5, 4)] = self._rollback_v5_to_v4
         # v6->v5: remove signals
         self._rollback_registry[(6, 5)] = self._make_rollback(
-            5, remove_keys=["signals"],
+            5,
+            remove_keys=["signals"],
         )
 
     @staticmethod
@@ -402,6 +391,7 @@ class StateMigrator:
         Returns:
             Rollback migration function.
         """
+
         def _rollback(
             state: Dict[str, Any],
         ) -> Tuple[Dict[str, Any], List[str], List[str]]:
@@ -410,15 +400,12 @@ class StateMigrator:
             for key in remove_keys:
                 if key in state:
                     del state[key]
-                    changes.append(
-                        f"Removed field '{key}' during rollback"
-                    )
+                    changes.append(f"Removed field '{key}' during rollback")
                 else:
-                    warnings.append(
-                        f"Field '{key}' not found during rollback"
-                    )
+                    warnings.append(f"Field '{key}' not found during rollback")
             state["_version"] = target_version
             return state, changes, warnings
+
         return _rollback
 
     @staticmethod
@@ -444,27 +431,19 @@ class StateMigrator:
             if int_val is not None:
                 state["gsd_state"] = int_val
                 changes.append(
-                    f"Rolled back gsd_state from '{gsd}' "
-                    f"to int {int_val}"
+                    f"Rolled back gsd_state from '{gsd}' " f"to int {int_val}"
                 )
             else:
                 warnings.append(
-                    f"Unknown gsd_state string '{gsd}', "
-                    "falling back to 0"
+                    f"Unknown gsd_state string '{gsd}', " "falling back to 0"
                 )
                 state["gsd_state"] = 0
-                changes.append(
-                    "Rolled back gsd_state to fallback int 0"
-                )
+                changes.append("Rolled back gsd_state to fallback int 0")
         elif isinstance(gsd, int):
-            warnings.append(
-                "gsd_state is already an int, skipping"
-            )
+            warnings.append("gsd_state is already an int, skipping")
         else:
             state["gsd_state"] = 0
-            changes.append(
-                "Set gsd_state to int 0 during rollback"
-            )
+            changes.append("Set gsd_state to int 0 during rollback")
 
         state["_version"] = 4
         return state, changes, warnings
@@ -507,8 +486,7 @@ class StateMigrator:
             step = (current, current + 1)
             if step not in self._registry:
                 raise ValueError(
-                    "No migration registered for step "
-                    f"v{current} -> v{current + 1}"
+                    "No migration registered for step " f"v{current} -> v{current + 1}"
                 )
             path.append(step)
             current += 1
@@ -567,7 +545,8 @@ class StateMigrator:
         # Get migration path
         try:
             path = self.get_migration_path(
-                from_version, target_version,
+                from_version,
+                target_version,
             )
         except ValueError as exc:
             return MigrationResult(
@@ -597,7 +576,8 @@ class StateMigrator:
                 # where we just continue)
                 if not dry_run:
                     step_val = self.validate_state(
-                        working, to_v,
+                        working,
+                        to_v,
                     )
                     if not step_val.valid:
                         all_warnings.append(
@@ -608,10 +588,7 @@ class StateMigrator:
 
             except Exception as exc:
                 success = False
-                all_warnings.append(
-                    f"Migration v{from_v}->v{to_v} failed: "
-                    f"{exc}"
-                )
+                all_warnings.append(f"Migration v{from_v}->v{to_v} failed: " f"{exc}")
                 logger.error(
                     "migration_step_failed",
                     extra={
@@ -625,9 +602,7 @@ class StateMigrator:
         return MigrationResult(
             success=success,
             from_version=from_version,
-            to_version=(
-                target_version if success else from_version
-            ),
+            to_version=(target_version if success else from_version),
             changes_made=all_changes,
             warnings=all_warnings,
             state_after=copy.deepcopy(working),
@@ -669,10 +644,7 @@ class StateMigrator:
                 from_version=from_version,
                 to_version=target_version,
                 changes_made=[],
-                warnings=[
-                    "Rollback target must be lower than "
-                    "current version"
-                ],
+                warnings=["Rollback target must be lower than " "current version"],
                 state_after=copy.deepcopy(state_dict),
             )
 
@@ -688,8 +660,7 @@ class StateMigrator:
                     to_version=target_version,
                     changes_made=[],
                     warnings=[
-                        "No rollback registered for step "
-                        f"v{current}->v{current - 1}"
+                        "No rollback registered for step " f"v{current}->v{current - 1}"
                     ],
                     state_after=copy.deepcopy(state_dict),
                 )
@@ -710,18 +681,13 @@ class StateMigrator:
                 all_warnings.extend(warnings)
             except Exception as exc:
                 success = False
-                all_warnings.append(
-                    f"Rollback v{from_v}->v{to_v} failed: "
-                    f"{exc}"
-                )
+                all_warnings.append(f"Rollback v{from_v}->v{to_v} failed: " f"{exc}")
                 break
 
         return MigrationResult(
             success=success,
             from_version=from_version,
-            to_version=(
-                target_version if success else from_version
-            ),
+            to_version=(target_version if success else from_version),
             changes_made=all_changes,
             warnings=all_warnings,
             state_after=copy.deepcopy(working),
@@ -749,41 +715,34 @@ class StateMigrator:
         warnings: List[str] = []
 
         if version not in _VERSION_REQUIRED_FIELDS:
-            errors.append(
-                f"Unknown schema version: {version}"
-            )
+            errors.append(f"Unknown schema version: {version}")
             return ValidationResult(
-                valid=False, errors=errors, version=version,
+                valid=False,
+                errors=errors,
+                version=version,
             )
 
         required = _VERSION_REQUIRED_FIELDS[version]
         for field_name in required:
             if field_name not in state_dict:
-                errors.append(
-                    f"Missing required field: {field_name}"
-                )
+                errors.append(f"Missing required field: {field_name}")
 
         # Type checks for specific versions
         if version >= 5:
             gsd = state_dict.get("gsd_state")
             if isinstance(gsd, int) and gsd is not None:
                 warnings.append(
-                    "gsd_state is an int; expected string "
-                    f"(in v{version})"
+                    "gsd_state is an int; expected string " f"(in v{version})"
                 )
 
         if version >= 6 and "signals" in state_dict:
             signals = state_dict["signals"]
             if not isinstance(signals, dict):
-                errors.append(
-                    "signals must be a dict"
-                )
+                errors.append("signals must be a dict")
             else:
                 for key in _SIGNALS_REQUIRED_KEYS:
                     if key not in signals:
-                        errors.append(
-                            f"signals missing key: {key}"
-                        )
+                        errors.append(f"signals missing key: {key}")
 
         return ValidationResult(
             valid=len(errors) == 0,
@@ -821,7 +780,9 @@ class StateMigrator:
 
         for state in states:
             result = self.migrate_state(
-                state, target_version, dry_run,
+                state,
+                target_version,
+                dry_run,
             )
             results.append(result)
 

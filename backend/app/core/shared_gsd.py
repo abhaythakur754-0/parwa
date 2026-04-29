@@ -32,6 +32,7 @@ logger = get_logger("shared_gsd")
 @dataclass
 class TransitionLogEntry:
     """A single recorded state transition."""
+
     company_id: str
     ticket_id: str
     from_state: str
@@ -43,6 +44,7 @@ class TransitionLogEntry:
 @dataclass
 class StateDuration:
     """Duration spent in a specific state."""
+
     state: str
     duration_seconds: float
     entry_timestamp: Optional[float] = None
@@ -52,6 +54,7 @@ class StateDuration:
 @dataclass
 class RecoverySuggestion:
     """A recovery action suggestion when stuck."""
+
     action: str
     reason: str
     priority: str  # high, medium, low
@@ -61,6 +64,7 @@ class RecoverySuggestion:
 @dataclass
 class CapacityAlert:
     """Capacity alert for GSD tracking."""
+
     level: str  # warning, critical, full
     company_id: str
     variant: str
@@ -89,18 +93,16 @@ class SharedGSDManager:
     CRITICAL_STUCK_THRESHOLD_SECONDS = 600.0  # 10 minutes
 
     def __init__(self) -> None:
-        self._transition_history: Dict[
-            str, Dict[str, List[TransitionLogEntry]]
-        ] = defaultdict(lambda: defaultdict(list))
-        self._current_states: Dict[str, Dict[str, Dict[str, Any]]] = (
-            defaultdict(dict)
+        self._transition_history: Dict[str, Dict[str, List[TransitionLogEntry]]] = (
+            defaultdict(lambda: defaultdict(list))
         )
-        self._transition_counts: Dict[str, Dict[Tuple[str, str], int]] = (
-            defaultdict(lambda: defaultdict(int))
+        self._current_states: Dict[str, Dict[str, Dict[str, Any]]] = defaultdict(dict)
+        self._transition_counts: Dict[str, Dict[Tuple[str, str], int]] = defaultdict(
+            lambda: defaultdict(int)
         )
-        self._state_entry_times: Dict[
-            str, Dict[str, Dict[str, float]]
-        ] = defaultdict(lambda: defaultdict(dict))
+        self._state_entry_times: Dict[str, Dict[str, Dict[str, float]]] = defaultdict(
+            lambda: defaultdict(dict)
+        )
         self._event_listeners: List = []
 
     # ── Transition Validation ──────────────────────────────────
@@ -152,9 +154,7 @@ class SharedGSDManager:
         Returns:
             Dictionary with valid flag and explanation.
         """
-        valid_targets = SharedGSDManager.get_valid_transitions(
-            current_state
-        )
+        valid_targets = SharedGSDManager.get_valid_transitions(current_state)
         is_valid = target_state in valid_targets
 
         if is_valid:
@@ -176,8 +176,7 @@ class SharedGSDManager:
                 "valid": False,
                 "reason": (
                     f"Transition {current_state} -> {target_state} "
-                    "is not permitted."
-                    + suggestion
+                    "is not permitted." + suggestion
                 ),
             }
 
@@ -251,9 +250,7 @@ class SharedGSDManager:
         Returns:
             List of transition dictionaries sorted by timestamp.
         """
-        entries = self._transition_history.get(company_id, {}).get(
-            ticket_id, []
-        )
+        entries = self._transition_history.get(company_id, {}).get(ticket_id, [])
         return [
             {
                 "from_state": e.from_state,
@@ -286,9 +283,7 @@ class SharedGSDManager:
             Duration in seconds. Returns 0.0 if state was never
             entered for this ticket.
         """
-        history = self._transition_history.get(company_id, {}).get(
-            ticket_id, []
-        )
+        history = self._transition_history.get(company_id, {}).get(ticket_id, [])
         if not history:
             return 0.0
 
@@ -310,9 +305,7 @@ class SharedGSDManager:
                 exit_times.append(entry.timestamp)
 
         # For the most recent entry, check if still in that state
-        current = self._current_states.get(company_id, {}).get(
-            ticket_id, {}
-        )
+        current = self._current_states.get(company_id, {}).get(ticket_id, {})
         total = 0.0
         for i, entry_t in enumerate(entry_times):
             if i < len(exit_times):
@@ -345,9 +338,7 @@ class SharedGSDManager:
         for ticket_id, entries in all_tickets.items():
             for entry in entries:
                 state_counts[entry.to_state] += 1
-                dur = self.get_state_duration(
-                    company_id, ticket_id, entry.to_state
-                )
+                dur = self.get_state_duration(company_id, ticket_id, entry.to_state)
                 if dur > 0:
                     state_durations[entry.to_state].append(dur)
 
@@ -362,21 +353,19 @@ class SharedGSDManager:
                 level = "critical"
                 if avg_dur < self.CRITICAL_STUCK_THRESHOLD_SECONDS:
                     level = "warning"
-                bottleneck_states.append({
-                    "state": state,
-                    "avg_duration_seconds": round(avg_dur, 2),
-                    "level": level,
-                    "sample_count": len(state_durations[state]),
-                })
+                bottleneck_states.append(
+                    {
+                        "state": state,
+                        "avg_duration_seconds": round(avg_dur, 2),
+                        "level": level,
+                        "sample_count": len(state_durations[state]),
+                    }
+                )
 
         # Sort bottlenecks by duration descending
-        bottleneck_states.sort(
-            key=lambda x: x["avg_duration_seconds"], reverse=True
-        )
+        bottleneck_states.sort(key=lambda x: x["avg_duration_seconds"], reverse=True)
 
-        total_transitions = sum(
-            len(entries) for entries in all_tickets.values()
-        )
+        total_transitions = sum(len(entries) for entries in all_tickets.values())
 
         return {
             "company_id": company_id,
@@ -385,9 +374,7 @@ class SharedGSDManager:
             "state_distribution": dict(state_counts),
             "average_duration_seconds": avg_durations,
             "bottleneck_states": bottleneck_states,
-            "transition_frequency": dict(
-                self._transition_counts.get(company_id, {})
-            ),
+            "transition_frequency": dict(self._transition_counts.get(company_id, {})),
         }
 
     # ── Recovery Suggestions ───────────────────────────────────
@@ -409,9 +396,7 @@ class SharedGSDManager:
             List of recovery suggestion dictionaries.
         """
         suggestions: List[Dict[str, Any]] = []
-        current = self._current_states.get(company_id, {}).get(
-            ticket_id
-        )
+        current = self._current_states.get(company_id, {}).get(ticket_id)
         if not current:
             return suggestions
 
@@ -423,74 +408,81 @@ class SharedGSDManager:
         duration = time.time() - entered_at
 
         if duration > self.CRITICAL_STUCK_THRESHOLD_SECONDS:
-            suggestions.append({
-                "action": "escalate_to_human",
-                "reason": (
-                    f"Ticket stuck in '{state}' for "
-                    f"{duration:.0f}s (> "
-                    f"{self.CRITICAL_STUCK_THRESHOLD_SECONDS:.0f}s). "
-                    "Immediate human review recommended."
-                ),
-                "priority": "high",
-                "target_state": "human_handoff",
-            })
-            suggestions.append({
-                "action": "force_transition",
-                "reason": (
-                    "Consider force-transitioning to 'closed' "
-                    "if the issue has been resolved externally."
-                ),
-                "priority": "medium",
-                "target_state": "closed",
-            })
+            suggestions.append(
+                {
+                    "action": "escalate_to_human",
+                    "reason": (
+                        f"Ticket stuck in '{state}' for "
+                        f"{duration:.0f}s (> "
+                        f"{self.CRITICAL_STUCK_THRESHOLD_SECONDS:.0f}s). "
+                        "Immediate human review recommended."
+                    ),
+                    "priority": "high",
+                    "target_state": "human_handoff",
+                }
+            )
+            suggestions.append(
+                {
+                    "action": "force_transition",
+                    "reason": (
+                        "Consider force-transitioning to 'closed' "
+                        "if the issue has been resolved externally."
+                    ),
+                    "priority": "medium",
+                    "target_state": "closed",
+                }
+            )
         elif duration > self.STUCK_THRESHOLD_SECONDS:
-            suggestions.append({
-                "action": "review_state",
-                "reason": (
-                    f"Ticket in '{state}' for {duration:.0f}s. "
-                    "Review may be needed."
-                ),
-                "priority": "medium",
-                "target_state": None,
-            })
+            suggestions.append(
+                {
+                    "action": "review_state",
+                    "reason": (
+                        f"Ticket in '{state}' for {duration:.0f}s. "
+                        "Review may be needed."
+                    ),
+                    "priority": "medium",
+                    "target_state": None,
+                }
+            )
             # Check valid transitions from current state
             valid = self.get_valid_transitions(state)
             if valid:
-                suggestions.append({
-                    "action": "suggest_transition",
-                    "reason": (
-                        f"Valid next states from '{state}': "
-                        f"{', '.join(valid)}"
-                    ),
-                    "priority": "low",
-                    "target_state": valid[0] if valid else None,
-                })
+                suggestions.append(
+                    {
+                        "action": "suggest_transition",
+                        "reason": (
+                            f"Valid next states from '{state}': " f"{', '.join(valid)}"
+                        ),
+                        "priority": "low",
+                        "target_state": valid[0] if valid else None,
+                    }
+                )
 
         # Check for diagnosis loops
-        history = self._transition_history.get(company_id, {}).get(
-            ticket_id, []
-        )
-        diagnosis_count = sum(
-            1 for e in history if e.to_state == "diagnosis"
-        )
+        history = self._transition_history.get(company_id, {}).get(ticket_id, [])
+        diagnosis_count = sum(1 for e in history if e.to_state == "diagnosis")
         if diagnosis_count > 3:
-            suggestions.append({
-                "action": "escalate_diagnosis_loop",
-                "reason": (
-                    f"DIAGNOSIS entered {diagnosis_count} times. "
-                    "Auto-escalation recommended."
-                ),
-                "priority": "high",
-                "target_state": "escalate",
-            })
+            suggestions.append(
+                {
+                    "action": "escalate_diagnosis_loop",
+                    "reason": (
+                        f"DIAGNOSIS entered {diagnosis_count} times. "
+                        "Auto-escalation recommended."
+                    ),
+                    "priority": "high",
+                    "target_state": "escalate",
+                }
+            )
 
         if not suggestions:
-            suggestions.append({
-                "action": "no_action_needed",
-                "reason": "Ticket is progressing normally.",
-                "priority": "low",
-                "target_state": None,
-            })
+            suggestions.append(
+                {
+                    "action": "no_action_needed",
+                    "reason": "Ticket is progressing normally.",
+                    "priority": "low",
+                    "target_state": None,
+                }
+            )
 
         return suggestions
 
@@ -536,7 +528,8 @@ class SharedGSDManager:
             self._event_listeners.remove(callback)
 
     def _emit_transition_event(
-        self, entry: TransitionLogEntry,
+        self,
+        entry: TransitionLogEntry,
     ) -> None:
         """Emit transition event to all registered listeners.
 
@@ -569,9 +562,7 @@ class SharedGSDManager:
         Returns:
             Current state string or None if no state tracked.
         """
-        current = self._current_states.get(company_id, {}).get(
-            ticket_id
-        )
+        current = self._current_states.get(company_id, {}).get(ticket_id)
         if current:
             return current.get("state")
         return None

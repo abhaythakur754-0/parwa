@@ -52,10 +52,14 @@ def recover_missed_webhooks(self):
 
         db = SessionLocal()
         try:
-            companies = db.query(Company).filter(
-                Company.subscription_status.in_(["active", "past_due", "paused"]),
-                Company.paddle_subscription_id.isnot(None),
-            ).all()
+            companies = (
+                db.query(Company)
+                .filter(
+                    Company.subscription_status.in_(["active", "past_due", "paused"]),
+                    Company.paddle_subscription_id.isnot(None),
+                )
+                .all()
+            )
 
             logger.info(
                 "webhook_recovery_companies_found count=%d",
@@ -83,7 +87,8 @@ def recover_missed_webhooks(self):
 
         logger.info(
             "webhook_recovery_completed recovered=%d errors=%d",
-            recovered_count, error_count,
+            recovered_count,
+            error_count,
         )
 
         return {
@@ -121,7 +126,8 @@ def _recover_company_webhooks(company_id: str, subscription_id: str) -> int:
         except Exception as e:
             logger.warning(
                 "webhook_recovery_paddle_error company_id=%s error=%s",
-                company_id, str(e),
+                company_id,
+                str(e),
             )
             # Fall back to processing stuck events
             events = []
@@ -134,15 +140,20 @@ def _recover_company_webhooks(company_id: str, subscription_id: str) -> int:
                 continue
 
             # Check if we have this event
-            existing = db.query(WebhookSequence).filter(
-                WebhookSequence.paddle_event_id == event_id,
-            ).first()
+            existing = (
+                db.query(WebhookSequence)
+                .filter(
+                    WebhookSequence.paddle_event_id == event_id,
+                )
+                .first()
+            )
 
             if not existing:
                 # We missed this event - process it
                 logger.info(
                     "webhook_recovery_missing_event event_id=%s company_id=%s",
-                    event_id, company_id,
+                    event_id,
+                    company_id,
                 )
 
                 # Create sequence record and process
@@ -152,7 +163,8 @@ def _recover_company_webhooks(company_id: str, subscription_id: str) -> int:
     except Exception as e:
         logger.error(
             "webhook_recovery_company_error company_id=%s error=%s",
-            company_id, str(e),
+            company_id,
+            str(e),
         )
     finally:
         db.close()
@@ -176,8 +188,7 @@ def _process_recovered_event(company_id: str, event: dict) -> None:
 
     # Parse occurred_at
     try:
-        occurred_at = datetime.fromisoformat(
-            occurred_at_str.replace("Z", "+00:00"))
+        occurred_at = datetime.fromisoformat(occurred_at_str.replace("Z", "+00:00"))
     except (ValueError, AttributeError):
         occurred_at = datetime.now(timezone.utc)
 
@@ -212,18 +223,18 @@ def _process_recovered_event(company_id: str, event: dict) -> None:
             mark_sequence_processed(sequence.id)
             logger.info(
                 "webhook_recovery_processed event_id=%s company_id=%s",
-                event_id, company_id,
+                event_id,
+                company_id,
             )
         else:
-            mark_sequence_failed(
-                sequence.id, result.get(
-                    "error", "Unknown error"))
+            mark_sequence_failed(sequence.id, result.get("error", "Unknown error"))
 
     except Exception as e:
         mark_sequence_failed(sequence.id, str(e))
         logger.error(
             "webhook_recovery_process_failed event_id=%s error=%s",
-            event_id, str(e),
+            event_id,
+            str(e),
         )
 
 
@@ -257,18 +268,21 @@ def process_stuck_webhooks(self):
 
             logger.info(
                 "stuck_webhook_retried sequence_id=%s event_type=%s",
-                event["id"], event["event_type"],
+                event["id"],
+                event["event_type"],
             )
 
         except Exception as e:
             logger.error(
                 "stuck_webhook_retry_failed sequence_id=%s error=%s",
-                event["id"], str(e),
+                event["id"],
+                str(e),
             )
 
     logger.info(
         "stuck_webhooks_processing_completed stuck=%d retried=%d",
-        len(stuck), retried_count,
+        len(stuck),
+        retried_count,
     )
 
     return {
@@ -376,20 +390,20 @@ def process_pending_events(self, company_id: str):
                 mark_sequence_processed(sequence.id, order)
                 processed_count += 1
             else:
-                mark_sequence_failed(
-                    sequence.id, result.get(
-                        "error", "Unknown error"))
+                mark_sequence_failed(sequence.id, result.get("error", "Unknown error"))
 
         except Exception as e:
             mark_sequence_failed(sequence.id, str(e))
             logger.error(
                 "pending_event_process_failed sequence_id=%s error=%s",
-                sequence.id, str(e),
+                sequence.id,
+                str(e),
             )
 
     logger.info(
         "pending_events_processing_completed company_id=%s processed=%d",
-        company_id, processed_count,
+        company_id,
+        processed_count,
     )
 
     return {"processed": processed_count}

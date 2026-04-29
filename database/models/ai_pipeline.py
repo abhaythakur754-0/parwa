@@ -13,7 +13,14 @@ from datetime import datetime
 import uuid
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Integer, Numeric, String, Text, ForeignKey
+    Boolean,
+    Column,
+    DateTime,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    ForeignKey,
 )
 from sqlalchemy.orm import relationship
 
@@ -39,7 +46,8 @@ class APIProvider(Base):
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
     service_configs = relationship(
-        "ServiceConfig", back_populates="provider",
+        "ServiceConfig",
+        back_populates="provider",
     )
 
 
@@ -49,8 +57,10 @@ class ServiceConfig(Base):
     id = Column(String(36), primary_key=True, default=_uuid)
     provider_id = Column(String(36), ForeignKey("api_providers.id"))
     company_id = Column(
-        String(36), ForeignKey("companies.id"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id"),
+        nullable=False,
+        index=True,
     )
     display_name = Column(String(255))
     api_key_encrypted = Column(Text)
@@ -68,12 +78,16 @@ class GSDSession(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     session_id = Column(
-        String(36), ForeignKey("tickets.id"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("tickets.id"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     current_step = Column(String(100), nullable=False)
     state_data = Column(Text, default="{}")
@@ -87,12 +101,16 @@ class ConfidenceScore(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     session_id = Column(
-        String(36), ForeignKey("tickets.id"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("tickets.id"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     overall_score = Column(Numeric(5, 2), nullable=False)
     retrieval_score = Column(Numeric(5, 2))
@@ -107,12 +125,16 @@ class GuardrailBlock(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     session_id = Column(
-        String(36), ForeignKey("tickets.id"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("tickets.id"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     # harmful, off_topic, hallucination, policy
     block_type = Column(String(50), nullable=False)
@@ -130,8 +152,10 @@ class GuardrailRule(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name = Column(String(255), nullable=False)
     rule_type = Column(String(50), nullable=False)
@@ -147,8 +171,10 @@ class PromptTemplate(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name = Column(String(255), nullable=False)
     intent_type = Column(String(100))
@@ -164,8 +190,10 @@ class ModelUsageLog(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     session_id = Column(String(36), ForeignKey("tickets.id"))
     provider_name = Column(String(100), nullable=False)

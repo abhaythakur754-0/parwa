@@ -16,7 +16,6 @@ from app.exceptions import NotFoundError, ValidationError
 from app.services.template_service import TemplateService
 from database.models.core import User
 
-
 router = APIRouter(
     prefix="/templates",
     tags=["Templates"],

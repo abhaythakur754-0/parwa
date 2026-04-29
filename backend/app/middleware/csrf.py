@@ -94,7 +94,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if not secrets.compare_digest(csrf_cookie, csrf_header):
             logger.warning(
                 "CSRF token mismatch: path=%s method=%s",
-                path, request.method,
+                path,
+                request.method,
             )
             return JSONResponse(
                 status_code=403,

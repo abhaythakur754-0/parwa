@@ -103,8 +103,6 @@ def sanitize_subject(subject: str, max_length: int = 500) -> str:
     """
     if not subject:
         return ""
-    cleaned = "".join(
-        c for c in str(subject) if ord(c) >= 32 or c in "\n\r\t"
-    )
+    cleaned = "".join(c for c in str(subject) if ord(c) >= 32 or c in "\n\r\t")
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
     return cleaned[:max_length]

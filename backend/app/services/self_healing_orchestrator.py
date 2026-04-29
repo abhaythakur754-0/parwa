@@ -87,6 +87,7 @@ SOCKETIO_EVENT_HEALING_COMPLETED = "self_healing:action_completed"
 
 class RiskLevel(str, Enum):
     """Risk level for healing actions."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -95,6 +96,7 @@ class RiskLevel(str, Enum):
 
 class HealingOutcome(str, Enum):
     """Outcome of a healing action."""
+
     SUCCESS = "success"
     FAILED = "failed"
     SKIPPED = "skipped"
@@ -110,6 +112,7 @@ class HealingOutcome(str, Enum):
 @dataclass
 class HealingActionDef:
     """Definition of a registered healing action."""
+
     name: str
     description: str
     risk_level: RiskLevel
@@ -121,6 +124,7 @@ class HealingActionDef:
 @dataclass
 class HealingEvent:
     """Record of a healing event (audit log entry)."""
+
     event_id: str
     company_id: str
     action_name: str
@@ -136,6 +140,7 @@ class HealingEvent:
 @dataclass
 class HealingStatus:
     """Current status of the self-healing orchestrator."""
+
     company_id: str
     is_monitoring: bool
     last_check_at: Optional[str]
@@ -176,7 +181,9 @@ class BaseHealingAction(ABC):
 
     @abstractmethod
     async def trigger_condition(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Tuple[bool, str]:
         """Check if healing is needed.
 
@@ -187,7 +194,9 @@ class BaseHealingAction(ABC):
 
     @abstractmethod
     async def heal(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Execute the healing action.
 
@@ -234,10 +243,13 @@ class LLMProviderFailoverAction(BaseHealingAction):
         )
 
     async def trigger_condition(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Tuple[bool, str]:
         try:
             from app.core.smart_router import SmartRouter
+
             router = SmartRouter()
             provider_status = router.get_provider_status()
 
@@ -258,22 +270,27 @@ class LLMProviderFailoverAction(BaseHealingAction):
             return (False, "")
 
     async def heal(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Dict[str, Any]:
         try:
             from app.core.smart_router import SmartRouter
+
             router = SmartRouter()
 
             # Get failing providers
             provider_status = router.get_provider_status()
             failing = [
-                key for key, info in provider_status.items()
+                key
+                for key, info in provider_status.items()
                 if info.get("consecutive_failures", 0) >= 3
             ]
 
             # Get healthy alternatives
             healthy = [
-                key for key, info in provider_status.items()
+                key
+                for key, info in provider_status.items()
                 if info.get("is_healthy", True)
                 and info.get("consecutive_failures", 0) < 3
             ]
@@ -308,13 +325,15 @@ class QueueDrainAction(BaseHealingAction):
         )
 
     async def trigger_condition(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Tuple[bool, str]:
         try:
             from app.core.health import check_celery_queues
+
             sub = await check_celery_queues()
-            queue_depth = sub.details.get(
-                "total_pending", 0) if sub.details else 0
+            queue_depth = sub.details.get("total_pending", 0) if sub.details else 0
 
             if queue_depth > QUEUE_DEPTH_THRESHOLD:
                 return (
@@ -332,15 +351,16 @@ class QueueDrainAction(BaseHealingAction):
             return (False, "")
 
     async def heal(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Dict[str, Any]:
         try:
             from app.core.health import check_celery_queues
+
             sub = await check_celery_queues()
-            queue_depth = sub.details.get(
-                "total_pending", 0) if sub.details else 0
-            queue_names = sub.details.get(
-                "queue_names", []) if sub.details else []
+            queue_depth = sub.details.get("total_pending", 0) if sub.details else 0
+            queue_names = sub.details.get("queue_names", []) if sub.details else []
 
             # Recommendation logic
             recommended_workers = max(4, queue_depth // 200)
@@ -384,10 +404,13 @@ class MemoryPressureAction(BaseHealingAction):
         )
 
     async def trigger_condition(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Tuple[bool, str]:
         try:
             from app.core.redis import get_redis
+
             redis = await get_redis()
             info = await redis.info("memory")
             used_memory = info.get("used_memory", 0)
@@ -406,7 +429,7 @@ class MemoryPressureAction(BaseHealingAction):
             used_rss = info.get("used_memory_rss", 0)
             if used_rss > 0:
                 # Estimate: if RSS > 2GB, likely pressure
-                rss_gb = used_rss / (1024 ** 3)
+                rss_gb = used_rss / (1024**3)
                 if rss_gb > 2.0:
                     return (
                         True,
@@ -423,10 +446,13 @@ class MemoryPressureAction(BaseHealingAction):
             return (False, "")
 
     async def heal(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Dict[str, Any]:
         try:
             from app.core.redis import get_redis, make_key
+
             redis = await get_redis()
 
             # Scan for stale session keys
@@ -438,7 +464,9 @@ class MemoryPressureAction(BaseHealingAction):
 
             while True:
                 cursor, keys = await redis.scan(
-                    cursor=cursor, match=pattern, count=100,
+                    cursor=cursor,
+                    match=pattern,
+                    count=100,
                 )
                 for key in keys:
                     try:
@@ -470,8 +498,7 @@ class MemoryPressureAction(BaseHealingAction):
                 "evicted_keys": evicted,
                 "action": "stale_session_eviction",
                 "message": (
-                    f"Evicted {evicted} stale session keys to "
-                    "reduce memory pressure"
+                    f"Evicted {evicted} stale session keys to " "reduce memory pressure"
                 ),
             }
         except Exception as exc:
@@ -496,10 +523,13 @@ class DBConnectionPoolAction(BaseHealingAction):
         )
 
     async def trigger_condition(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Tuple[bool, str]:
         try:
             from app.core.health import check_postgresql
+
             sub = await check_postgresql()
 
             if sub.details:
@@ -525,7 +555,9 @@ class DBConnectionPoolAction(BaseHealingAction):
             return (False, "")
 
     async def heal(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Dict[str, Any]:
         try:
             from database.base import engine
@@ -564,7 +596,9 @@ class IntegrationRecoveryAction(BaseHealingAction):
         )
 
     async def trigger_condition(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Tuple[bool, str]:
         try:
             from app.core.health import check_external_service
@@ -577,7 +611,8 @@ class IntegrationRecoveryAction(BaseHealingAction):
 
             for name, url in integrations:
                 sub = await check_external_service(
-                    f"integration_{name}", url,
+                    f"integration_{name}",
+                    url,
                 )
                 if sub.status == "unhealthy":
                     return (
@@ -596,7 +631,9 @@ class IntegrationRecoveryAction(BaseHealingAction):
             return (False, "")
 
     async def heal(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Dict[str, Any]:
         import asyncio as _asyncio
 
@@ -612,6 +649,7 @@ class IntegrationRecoveryAction(BaseHealingAction):
             for attempt in range(1, INTEGRATION_RETRY_MAX + 1):
                 try:
                     import httpx
+
                     async with httpx.AsyncClient(
                         timeout=10.0,
                     ) as client:
@@ -623,8 +661,7 @@ class IntegrationRecoveryAction(BaseHealingAction):
                     pass
 
                 if attempt < INTEGRATION_RETRY_MAX:
-                    backoff = INTEGRATION_RETRY_BACKOFF_BASE * \
-                        (2 ** (attempt - 1))
+                    backoff = INTEGRATION_RETRY_BACKOFF_BASE * (2 ** (attempt - 1))
                     await _asyncio.sleep(min(backoff, 30))
 
             results[name] = {
@@ -632,9 +669,7 @@ class IntegrationRecoveryAction(BaseHealingAction):
                 "attempts": attempt,
             }
 
-        all_healthy = all(
-            r["retry_success"] for r in results.values()
-        )
+        all_healthy = all(r["retry_success"] for r in results.values())
 
         return {
             "integrations": results,
@@ -661,10 +696,13 @@ class StuckTicketRecoveryAction(BaseHealingAction):
         )
 
     async def trigger_condition(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Tuple[bool, str]:
         try:
             from app.services.gsd_terminal_service import get_stuck_sessions
+
             stuck = await get_stuck_sessions(
                 company_id=company_id,
                 db=context.get("db"),
@@ -673,8 +711,7 @@ class StuckTicketRecoveryAction(BaseHealingAction):
             stuck_list = stuck.get("sessions", [])
             if stuck_list:
                 count = len(stuck_list)
-                sample_tickets = [s.get("ticket_id", "")
-                                  for s in stuck_list[:3]]
+                sample_tickets = [s.get("ticket_id", "") for s in stuck_list[:3]]
                 return (
                     True,
                     f"{count} ticket(s) stuck in GSD state "
@@ -691,10 +728,13 @@ class StuckTicketRecoveryAction(BaseHealingAction):
             return (False, "")
 
     async def heal(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Dict[str, Any]:
         try:
             from app.services.gsd_terminal_service import get_stuck_sessions
+
             stuck = await get_stuck_sessions(
                 company_id=company_id,
                 db=context.get("db"),
@@ -749,7 +789,9 @@ class ApprovalQueueBacklogAction(BaseHealingAction):
         )
 
     async def trigger_condition(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Tuple[bool, str]:
         try:
             db = context.get("db")
@@ -759,10 +801,15 @@ class ApprovalQueueBacklogAction(BaseHealingAction):
             from database.models.approval import Approval
             from sqlalchemy import func
 
-            pending_count = db.query(func.count(Approval.id)).filter(
-                Approval.company_id == company_id,
-                Approval.status == "pending",
-            ).scalar() or 0
+            pending_count = (
+                db.query(func.count(Approval.id))
+                .filter(
+                    Approval.company_id == company_id,
+                    Approval.status == "pending",
+                )
+                .scalar()
+                or 0
+            )
 
             if pending_count > APPROVAL_BACKLOG_THRESHOLD:
                 return (
@@ -781,7 +828,9 @@ class ApprovalQueueBacklogAction(BaseHealingAction):
             return (False, "")
 
     async def heal(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Dict[str, Any]:
         try:
             db = context.get("db")
@@ -795,18 +844,22 @@ class ApprovalQueueBacklogAction(BaseHealingAction):
             from database.models.approval import Approval
             from sqlalchemy import func
 
-            pending_count = db.query(func.count(Approval.id)).filter(
-                Approval.company_id == company_id,
-                Approval.status == "pending",
-            ).scalar() or 0
+            pending_count = (
+                db.query(func.count(Approval.id))
+                .filter(
+                    Approval.company_id == company_id,
+                    Approval.status == "pending",
+                )
+                .scalar()
+                or 0
+            )
 
             # Log escalation (in production, would send notification)
             logger.warning(
                 "approval_backlog_escalation",
                 company_id=company_id,
                 pending_count=pending_count,
-                message="Approval queue backlog detected. "
-                "Admin attention required.",
+                message="Approval queue backlog detected. " "Admin attention required.",
             )
 
             return {
@@ -839,10 +892,13 @@ class ConfidenceDropRecoveryAction(BaseHealingAction):
         )
 
     async def trigger_condition(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Tuple[bool, str]:
         try:
             from app.core.self_healing_engine import SelfHealingEngine
+
             engine = SelfHealingEngine()
 
             health = engine.get_variant_health(company_id)
@@ -852,10 +908,7 @@ class ConfidenceDropRecoveryAction(BaseHealingAction):
 
                 default_thresh = 85.0
                 if summary.threshold_original > 0:
-                    drop = (
-                        (default_thresh - summary.threshold_current)
-                        / default_thresh
-                    )
+                    drop = (default_thresh - summary.threshold_current) / default_thresh
                     if drop > CONFIDENCE_DROP_THRESHOLD:
                         return (
                             True,
@@ -876,10 +929,13 @@ class ConfidenceDropRecoveryAction(BaseHealingAction):
             return (False, "")
 
     async def heal(
-        self, company_id: str, context: Dict[str, Any],
+        self,
+        company_id: str,
+        context: Dict[str, Any],
     ) -> Dict[str, Any]:
         try:
             from app.core.self_healing_engine import SelfHealingEngine
+
             engine = SelfHealingEngine()
 
             health = engine.get_variant_health(company_id)
@@ -888,12 +944,14 @@ class ConfidenceDropRecoveryAction(BaseHealingAction):
 
             for summary in health:
                 if not summary.healthy and summary.issues:
-                    affected_variants.append({
-                        "variant": summary.variant,
-                        "issues": summary.issues,
-                        "current_threshold": summary.threshold_current,
-                        "original_threshold": summary.threshold_original,
-                    })
+                    affected_variants.append(
+                        {
+                            "variant": summary.variant,
+                            "issues": summary.issues,
+                            "current_threshold": summary.threshold_current,
+                            "original_threshold": summary.threshold_original,
+                        }
+                    )
 
                     suggestions.append(
                         f"Consider retraining variant {summary.variant} "
@@ -967,6 +1025,7 @@ class SelfHealingOrchestrator:
             return self._redis
         try:
             from app.core.redis import get_redis
+
             self._redis = await get_redis()
             return self._redis
         except Exception as exc:
@@ -995,7 +1054,8 @@ class SelfHealingOrchestrator:
             self._actions[action.name] = action
 
     def register_healing_action(
-        self, action: BaseHealingAction,
+        self,
+        action: BaseHealingAction,
     ) -> Dict[str, Any]:
         """Register a custom healing action.
 
@@ -1051,16 +1111,19 @@ class SelfHealingOrchestrator:
             try:
                 # Check cooldown
                 if action._check_cooldown(self.company_id):
-                    results.append({
-                        "action_name": action_name,
-                        "outcome": HealingOutcome.COOLDOWN_ACTIVE.value,
-                        "reason": "Cooldown period active",
-                    })
+                    results.append(
+                        {
+                            "action_name": action_name,
+                            "outcome": HealingOutcome.COOLDOWN_ACTIVE.value,
+                            "reason": "Cooldown period active",
+                        }
+                    )
                     continue
 
                 # Check trigger condition
                 should_trigger, reason = await action.trigger_condition(
-                    self.company_id, heal_ctx,
+                    self.company_id,
+                    heal_ctx,
                 )
 
                 if not should_trigger:
@@ -1081,12 +1144,14 @@ class SelfHealingOrchestrator:
                     )
                     await self._log_event(event)
 
-                    results.append({
-                        "action_name": action_name,
-                        "outcome": HealingOutcome.REQUIRES_CONFIRMATION.value,
-                        "reason": reason,
-                        "risk_level": action.risk_level.value,
-                    })
+                    results.append(
+                        {
+                            "action_name": action_name,
+                            "outcome": HealingOutcome.REQUIRES_CONFIRMATION.value,
+                            "reason": reason,
+                            "risk_level": action.risk_level.value,
+                        }
+                    )
                     continue
 
                 # Auto-execute healing
@@ -1113,12 +1178,14 @@ class SelfHealingOrchestrator:
                 # Socket.io broadcast
                 await self._broadcast_healing_event(event)
 
-                results.append({
-                    "action_name": action_name,
-                    "outcome": outcome,
-                    "reason": reason,
-                    "heal_result": heal_result,
-                })
+                results.append(
+                    {
+                        "action_name": action_name,
+                        "outcome": outcome,
+                        "reason": reason,
+                        "heal_result": heal_result,
+                    }
+                )
 
             except Exception as exc:
                 logger.error(
@@ -1127,11 +1194,13 @@ class SelfHealingOrchestrator:
                     action_name=action_name,
                     error=str(exc),
                 )
-                results.append({
-                    "action_name": action_name,
-                    "outcome": HealingOutcome.FAILED.value,
-                    "error": str(exc)[:200],
-                })
+                results.append(
+                    {
+                        "action_name": action_name,
+                        "outcome": HealingOutcome.FAILED.value,
+                        "error": str(exc)[:200],
+                    }
+                )
 
         self._is_monitoring = False
 
@@ -1248,7 +1317,8 @@ class SelfHealingOrchestrator:
                     try:
                         parsed = datetime.fromisoformat(
                             event["triggered_at"].replace(
-                                "Z", "+00:00",
+                                "Z",
+                                "+00:00",
                             ),
                         )
                         if parsed < cutoff:
@@ -1258,9 +1328,7 @@ class SelfHealingOrchestrator:
                         outcome = event.get("outcome", "unknown")
                         action = event.get("action_name", "unknown")
 
-                        by_outcome[outcome] = (
-                            by_outcome.get(outcome, 0) + 1
-                        )
+                        by_outcome[outcome] = by_outcome.get(outcome, 0) + 1
                         by_action[action] = by_action.get(action, 0) + 1
                     except (ValueError, TypeError):
                         continue
@@ -1269,7 +1337,8 @@ class SelfHealingOrchestrator:
 
         # Count active healings
         active_healings = by_outcome.get(
-            HealingOutcome.REQUIRES_CONFIRMATION.value, 0,
+            HealingOutcome.REQUIRES_CONFIRMATION.value,
+            0,
         )
 
         return {
@@ -1306,18 +1375,12 @@ class SelfHealingOrchestrator:
         # Apply filters
         filtered = events
         if action_name:
-            filtered = [
-                e for e in filtered
-                if e.get("action_name") == action_name
-            ]
+            filtered = [e for e in filtered if e.get("action_name") == action_name]
         if outcome:
-            filtered = [
-                e for e in filtered
-                if e.get("outcome") == outcome
-            ]
+            filtered = [e for e in filtered if e.get("outcome") == outcome]
 
         # Paginate
-        paginated = filtered[offset:offset + limit]
+        paginated = filtered[offset : offset + limit]
 
         return {
             "company_id": self.company_id,
@@ -1357,7 +1420,9 @@ class SelfHealingOrchestrator:
             from app.core.redis import make_key
 
             log_key = make_key(
-                self.company_id, "self_healing", "event_log",
+                self.company_id,
+                "self_healing",
+                "event_log",
             )
 
             event_data = {
@@ -1374,7 +1439,8 @@ class SelfHealingOrchestrator:
             }
 
             await redis.lpush(
-                log_key, json.dumps(event_data),
+                log_key,
+                json.dumps(event_data),
             )
             await redis.ltrim(log_key, 0, MAX_HEALING_EVENTS - 1)
             await redis.expire(log_key, HEALING_LOG_TTL_SECONDS)
@@ -1387,7 +1453,8 @@ class SelfHealingOrchestrator:
             )
 
     async def _get_events_redis(
-        self, limit: int = 100,
+        self,
+        limit: int = 100,
     ) -> List[Dict[str, Any]]:
         """Read healing events from Redis."""
         redis = await self._get_redis()
@@ -1399,7 +1466,9 @@ class SelfHealingOrchestrator:
             from app.core.redis import make_key
 
             log_key = make_key(
-                self.company_id, "self_healing", "event_log",
+                self.company_id,
+                "self_healing",
+                "event_log",
             )
             raw_events = await redis.lrange(log_key, 0, limit - 1)
 
@@ -1421,11 +1490,13 @@ class SelfHealingOrchestrator:
         return events
 
     async def _broadcast_healing_event(
-        self, event: HealingEvent,
+        self,
+        event: HealingEvent,
     ) -> None:
         """Broadcast healing event via Socket.io."""
         try:
             from app.core.socketio import get_socketio
+
             sio = get_socketio()
             if sio:
                 room = f"company:{self.company_id}"

@@ -24,6 +24,7 @@ from typing import Any, Dict, List, Optional, Tuple
 # ── Optional PgVector dependencies (graceful degradation) ─────────
 try:
     from sqlalchemy import text
+
     _HAS_SQLALCHEMY = True
 except ImportError:
     _HAS_SQLALCHEMY = False
@@ -182,11 +183,15 @@ class MockVectorStore(VectorStore):
         }
     """
 
-    def __init__(self, seed: Optional[int] = None, embedding_dim: int = EMBEDDING_DIMENSION):
+    def __init__(
+        self, seed: Optional[int] = None, embedding_dim: int = EMBEDDING_DIMENSION
+    ):
         self._store: Dict[str, Dict[str, Dict[str, Any]]] = {}
         self._embedding_dim = embedding_dim
         self._healthy = True
-        self._rng: random.Random = random.Random(seed) if seed is not None else random.Random()
+        self._rng: random.Random = (
+            random.Random(seed) if seed is not None else random.Random()
+        )
 
     def _generate_embedding(self, text: str) -> List[float]:
         """Generate a deterministic pseudo-embedding for text.
@@ -202,9 +207,13 @@ class MockVectorStore(VectorStore):
         for i in range(self._embedding_dim):
             # Mix text-derived value with position
             char_val = ord(text[i % len(text)]) if text else 0
-            hash_val = int(text_hash[i % len(text_hash): i % len(text_hash) + 2], 16) / 255.0
+            hash_val = (
+                int(text_hash[i % len(text_hash) : i % len(text_hash) + 2], 16) / 255.0
+            )
             noise = rng.gauss(0, 0.1)
-            embedding.append(round((char_val / 255.0) * 0.5 + hash_val * 0.3 + noise, 6))
+            embedding.append(
+                round((char_val / 255.0) * 0.5 + hash_val * 0.3 + noise, 6)
+            )
 
         # Normalize to unit vector
         magnitude = math.sqrt(sum(x * x for x in embedding))
@@ -241,7 +250,9 @@ class MockVectorStore(VectorStore):
 
         for doc_id, doc_data in self._store[company_id].items():
             # Apply document-level filters
-            if filters and not self._matches_filters(doc_data.get("metadata", {}), filters):
+            if filters and not self._matches_filters(
+                doc_data.get("metadata", {}), filters
+            ):
                 continue
 
             for chunk in doc_data.get("chunks", []):
@@ -379,7 +390,9 @@ class MockVectorStore(VectorStore):
 
         return True
 
-    def get_document(self, document_id: str, company_id: str) -> Optional[Dict[str, Any]]:
+    def get_document(
+        self, document_id: str, company_id: str
+    ) -> Optional[Dict[str, Any]]:
         """Retrieve a stored document as a dict, or None if not found.
 
         Returns:
@@ -461,7 +474,8 @@ class MockVectorStore(VectorStore):
             elif isinstance(value, list):
                 # Tag membership: at least one tag must match
                 if not meta_val or not any(
-                    tag in value for tag in (meta_val if isinstance(meta_val, list) else [meta_val])
+                    tag in value
+                    for tag in (meta_val if isinstance(meta_val, list) else [meta_val])
                 ):
                     return False
             else:
@@ -519,6 +533,7 @@ class PgVectorStore(VectorStore):
                 # Try the shared database module first
                 try:
                     from database.base import SessionLocal  # type: ignore[import-untyped]
+
                     self._session_factory = SessionLocal
                     logger.debug("PgVectorStore: using database.base.SessionLocal")
                     return
@@ -531,8 +546,10 @@ class PgVectorStore(VectorStore):
                 )
 
             from sqlalchemy import create_engine  # type: ignore[import-untyped]
+
             self._engine = create_engine(url, pool_pre_ping=True)
             from sqlalchemy.orm import sessionmaker  # type: ignore[import-untyped]
+
             self._session_factory = sessionmaker(
                 bind=self._engine,
                 autocommit=False,
@@ -542,7 +559,8 @@ class PgVectorStore(VectorStore):
             self._ensure_schema()
         except Exception as exc:
             logger.error(
-                "PgVectorStore._init_db failed: %s", exc,
+                "PgVectorStore._init_db failed: %s",
+                exc,
             )
 
     def _ensure_schema(self) -> None:
@@ -597,7 +615,8 @@ class PgVectorStore(VectorStore):
             except Exception as exc:
                 logger.warning(
                     "PgVectorStore._ensure_schema: failed to create %s: %s",
-                    label, exc,
+                    label,
+                    exc,
                 )
                 try:
                     session.rollback()
@@ -708,7 +727,8 @@ class PgVectorStore(VectorStore):
         except Exception as exc:
             logger.error(
                 "PgVectorStore.search failed [company_id=%s]: %s",
-                company_id, exc,
+                company_id,
+                exc,
             )
             return []
         finally:
@@ -752,15 +772,18 @@ class PgVectorStore(VectorStore):
                     "  embedding = EXCLUDED.embedding, "
                     "  metadata = EXCLUDED.metadata"
                 )
-                session.execute(stmt, {
-                    "id": chunk.chunk_id,
-                    "document_id": chunk.document_id,
-                    "company_id": company_id,
-                    "content": chunk.content,
-                    "embedding": embedding_str,
-                    "metadata": metadata_json,
-                    "chunk_index": 0,
-                })
+                session.execute(
+                    stmt,
+                    {
+                        "id": chunk.chunk_id,
+                        "document_id": chunk.document_id,
+                        "company_id": company_id,
+                        "content": chunk.content,
+                        "embedding": embedding_str,
+                        "metadata": metadata_json,
+                        "chunk_index": 0,
+                    },
+                )
                 added += 1
 
             session.commit()
@@ -769,7 +792,8 @@ class PgVectorStore(VectorStore):
         except Exception as exc:
             logger.error(
                 "PgVectorStore.add_chunks failed [company_id=%s]: %s",
-                company_id, exc,
+                company_id,
+                exc,
             )
             try:
                 session.rollback()
@@ -803,10 +827,13 @@ class PgVectorStore(VectorStore):
                 "WHERE document_id = :document_id "
                 "  AND company_id = :company_id"
             )
-            result = session.execute(stmt, {
-                "document_id": document_id,
-                "company_id": company_id,
-            })
+            result = session.execute(
+                stmt,
+                {
+                    "document_id": document_id,
+                    "company_id": company_id,
+                },
+            )
             session.commit()
             return result.rowcount > 0
 
@@ -814,7 +841,9 @@ class PgVectorStore(VectorStore):
             logger.error(
                 "PgVectorStore.delete_document failed "
                 "[document_id=%s, company_id=%s]: %s",
-                document_id, company_id, exc,
+                document_id,
+                company_id,
+                exc,
             )
             try:
                 session.rollback()
@@ -857,6 +886,7 @@ class PgVectorStore(VectorStore):
         """Generate embedding for text via EmbeddingService."""
         try:
             from app.services.embedding_service import EmbeddingService
+
             svc = EmbeddingService(company_id="system")
             result = svc.generate_embedding(text)
             if result:
@@ -866,7 +896,9 @@ class PgVectorStore(VectorStore):
         # Fallback: return zero vector of correct dimension
         return [0.0] * EMBEDDING_DIMENSION
 
-    def get_document(self, document_id: str, company_id: str) -> Optional[Dict[str, Any]]:
+    def get_document(
+        self, document_id: str, company_id: str
+    ) -> Optional[Dict[str, Any]]:
         """Retrieve a stored document as a dict."""
         session = self._get_session()
         if session is None:
@@ -878,16 +910,27 @@ class PgVectorStore(VectorStore):
                 "WHERE document_id = :document_id AND company_id = :company_id "
                 "ORDER BY chunk_index"
             )
-            rows = session.execute(stmt, {"document_id": document_id, "company_id": company_id}).fetchall()
+            rows = session.execute(
+                stmt, {"document_id": document_id, "company_id": company_id}
+            ).fetchall()
             if not rows:
                 return None
             chunks = []
             for r in rows:
                 meta = r[3]
                 if isinstance(meta, str):
-                    try: meta = json.loads(meta)
-                    except: meta = {}
-                chunks.append({"chunk_id": r[0], "document_id": r[1], "content": r[2], "metadata": meta or {}})
+                    try:
+                        meta = json.loads(meta)
+                    except:
+                        meta = {}
+                chunks.append(
+                    {
+                        "chunk_id": r[0],
+                        "document_id": r[1],
+                        "content": r[2],
+                        "metadata": meta or {},
+                    }
+                )
             return {
                 "document_id": document_id,
                 "company_id": company_id,
@@ -906,7 +949,9 @@ class PgVectorStore(VectorStore):
         if session is None:
             return 0
         try:
-            stmt = text("SELECT COUNT(DISTINCT document_id) FROM document_chunks WHERE company_id = :company_id")
+            stmt = text(
+                "SELECT COUNT(DISTINCT document_id) FROM document_chunks WHERE company_id = :company_id"
+            )
             row = session.execute(stmt, {"company_id": company_id}).fetchone()
             return row[0] if row else 0
         except Exception:
@@ -932,11 +977,17 @@ class PgVectorStore(VectorStore):
                     result[doc_id] = {"metadata": {}, "chunks": []}
                 meta = r[3]
                 if isinstance(meta, str):
-                    try: meta = json.loads(meta)
-                    except: meta = {}
-                result[doc_id]["chunks"].append({
-                    "chunk_id": r[1], "content": r[2], "metadata": meta or {},
-                })
+                    try:
+                        meta = json.loads(meta)
+                    except:
+                        meta = {}
+                result[doc_id]["chunks"].append(
+                    {
+                        "chunk_id": r[1],
+                        "content": r[2],
+                        "metadata": meta or {},
+                    }
+                )
             return result
         except Exception:
             return {}
@@ -956,10 +1007,7 @@ class PgVectorStore(VectorStore):
 
         try:
             row = session.execute(
-                text(
-                    "SELECT extversion FROM pg_extension "
-                    "WHERE extname = 'vector'"
-                )
+                text("SELECT extversion FROM pg_extension " "WHERE extname = 'vector'")
             ).fetchone()
 
             if row is None:
@@ -968,15 +1016,11 @@ class PgVectorStore(VectorStore):
                 )
                 return False
 
-            logger.debug(
-                "PgVectorStore.health_check: pgvector %s", row[0]
-            )
+            logger.debug("PgVectorStore.health_check: pgvector %s", row[0])
             return True
 
         except Exception as exc:
-            logger.error(
-                "PgVectorStore.health_check failed: %s", exc
-            )
+            logger.error("PgVectorStore.health_check failed: %s", exc)
             return False
         finally:
             self._close_session(session)
@@ -1016,10 +1060,7 @@ class PgVectorStore(VectorStore):
             elif isinstance(value, list):
                 if not meta_val or not any(
                     tag in value
-                    for tag in (
-                        meta_val if isinstance(meta_val, list)
-                        else [meta_val]
-                    )
+                    for tag in (meta_val if isinstance(meta_val, list) else [meta_val])
                 ):
                     return False
             else:

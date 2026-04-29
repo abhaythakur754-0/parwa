@@ -36,8 +36,7 @@ class InvoiceAmendmentService:
     ) -> Dict[str, Any]:
         """Admin create amendment."""
         with SessionLocal() as db:
-            invoice = db.query(Invoice).filter(
-                Invoice.id == invoice_id).first()
+            invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
             if not invoice:
                 raise InvoiceNotFoundError(f"Invoice {invoice_id} not found")
 
@@ -95,8 +94,7 @@ class InvoiceAmendmentService:
                 .first()
             )
             if not amendment:
-                raise AmendmentNotFoundError(
-                    f"Amendment {amendment_id} not found")
+                raise AmendmentNotFoundError(f"Amendment {amendment_id} not found")
 
             # In production, this would call Paddle API
             amendment.paddle_credit_note_id = f"cn_{amendment_id[:8]}"

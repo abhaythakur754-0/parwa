@@ -43,6 +43,7 @@ router = APIRouter()
 # Request/Response Models
 # ══════════════════════════════════════════════════════════════════
 
+
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=5000)
     context: Optional[Dict[str, Any]] = None
@@ -74,6 +75,7 @@ class MemoryStoreRequest(BaseModel):
 # ══════════════════════════════════════════════════════════════════
 # Main Chat Endpoint
 # ══════════════════════════════════════════════════════════════════
+
 
 @router.post("/api/jarvis/prod/chat")
 async def jarvis_production_chat(
@@ -180,8 +182,7 @@ async def jarvis_production_chat(
 
     # Include alert if any critical
     if system_context.get("alerts_by_severity", {}).get("critical", 0) > 0:
-        alerts = jps.get_active_alerts(
-            db, company_id, user_id, min_severity="critical")
+        alerts = jps.get_active_alerts(db, company_id, user_id, min_severity="critical")
         if alerts:
             response["alert"] = {
                 "id": str(alerts[0].id),
@@ -196,6 +197,7 @@ async def jarvis_production_chat(
 # ══════════════════════════════════════════════════════════════════
 # Context & History Endpoints
 # ══════════════════════════════════════════════════════════════════
+
 
 @router.get("/api/jarvis/prod/context")
 async def get_jarvis_context(
@@ -234,24 +236,13 @@ async def get_jarvis_context(
 
 @router.get("/api/jarvis/prod/history")
 async def get_jarvis_history(
-        user_filter: Optional[str] = Query(
-            None,
-            description="Filter by user ID"),
-    event_type: Optional[str] = Query(
-            None,
-            description="Filter by event type"),
-        hours: int = Query(
-            24,
-            ge=1,
-            le=168,
-            description="Hours to look back"),
-        limit: int = Query(
-            50,
-            ge=1,
-            le=200),
-        company_id: str = Depends(get_company_id),
-        user: User = Depends(get_current_user),
-        db: Session = Depends(get_db),
+    user_filter: Optional[str] = Query(None, description="Filter by user ID"),
+    event_type: Optional[str] = Query(None, description="Filter by event type"),
+    hours: int = Query(24, ge=1, le=168, description="Hours to look back"),
+    limit: int = Query(50, ge=1, le=200),
+    company_id: str = Depends(get_company_id),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Get activity history for awareness queries."""
 
@@ -286,6 +277,7 @@ async def get_jarvis_history(
 # Memory Endpoints
 # ══════════════════════════════════════════════════════════════════
 
+
 @router.get("/api/jarvis/prod/memory")
 async def get_jarvis_memory(
     category: Optional[str] = Query(None),
@@ -317,7 +309,9 @@ async def get_jarvis_memory(
                 "value": m.memory_value,
                 "importance": m.importance,
                 "created_at": m.created_at.isoformat() if m.created_at else None,
-                "last_accessed": m.last_accessed_at.isoformat() if m.last_accessed_at else None,
+                "last_accessed": (
+                    m.last_accessed_at.isoformat() if m.last_accessed_at else None
+                ),
                 "access_count": m.access_count,
             }
             for m in memories
@@ -365,6 +359,7 @@ async def store_jarvis_memory(
 # ══════════════════════════════════════════════════════════════════
 # Action Endpoints
 # ══════════════════════════════════════════════════════════════════
+
 
 @router.post("/api/jarvis/prod/action")
 async def execute_jarvis_action(
@@ -414,14 +409,14 @@ async def execute_jarvis_action(
         return {
             "mode": "draft",
             "draft": {
-                "id": str(
-                    draft.id),
+                "id": str(draft.id),
                 "type": draft.draft_type,
                 "subject": draft.subject,
                 "recipient_count": draft.recipient_count,
-                "content": json.loads(
-                    draft.content_json),
-                "expires_at": draft.expires_at.isoformat() if draft.expires_at else None,
+                "content": json.loads(draft.content_json),
+                "expires_at": (
+                    draft.expires_at.isoformat() if draft.expires_at else None
+                ),
             },
             "message": "Action requires review. Draft created for approval.",
         }
@@ -463,11 +458,17 @@ async def list_pending_drafts(
 
     from database.models.jarvis_production import JarvisDraft
 
-    drafts = db.query(JarvisDraft).filter(
-        JarvisDraft.company_id == company_id,
-        JarvisDraft.user_id == str(user.id),
-        JarvisDraft.status == status,
-    ).order_by(JarvisDraft.created_at.desc()).limit(limit).all()
+    drafts = (
+        db.query(JarvisDraft)
+        .filter(
+            JarvisDraft.company_id == company_id,
+            JarvisDraft.user_id == str(user.id),
+            JarvisDraft.status == status,
+        )
+        .order_by(JarvisDraft.created_at.desc())
+        .limit(limit)
+        .all()
+    )
 
     return {
         "total": len(drafts),
@@ -539,6 +540,7 @@ async def cancel_draft(
 # Alert Endpoints
 # ══════════════════════════════════════════════════════════════════
 
+
 @router.get("/api/jarvis/prod/alerts")
 async def list_active_alerts(
     min_severity: Optional[str] = Query(None),
@@ -559,16 +561,20 @@ async def list_active_alerts(
         "total": len(alerts),
         "alerts": [
             {
-                "id": str(
-                    a.id),
+                "id": str(a.id),
                 "type": a.alert_type,
                 "severity": a.severity,
                 "title": a.title,
                 "message": a.message,
-                "suggested_action": json.loads(
-                    a.suggested_action_json) if a.suggested_action_json else None,
+                "suggested_action": (
+                    json.loads(a.suggested_action_json)
+                    if a.suggested_action_json
+                    else None
+                ),
                 "created_at": a.created_at.isoformat() if a.created_at else None,
-            } for a in alerts],
+            }
+            for a in alerts
+        ],
     }
 
 
@@ -626,6 +632,7 @@ async def dismiss_alert(
 # Activity Tracking Endpoint
 # ══════════════════════════════════════════════════════════════════
 
+
 @router.post("/api/jarvis/prod/track")
 async def track_user_activity(
     body: TrackActivityRequest,
@@ -676,6 +683,7 @@ async def track_user_activity(
 # User Activity Summary
 # ══════════════════════════════════════════════════════════════════
 
+
 @router.get("/api/jarvis/prod/user/{target_user_id}/activity")
 async def get_user_activity(
     target_user_id: str,
@@ -703,6 +711,7 @@ async def get_user_activity(
 # Helper Functions
 # ══════════════════════════════════════════════════════════════════
 
+
 def _get_user_variant_tier(db: Session, user: User) -> str:
     """Get user's variant tier from their subscription."""
 
@@ -718,8 +727,7 @@ def _get_user_variant_tier(db: Session, user: User) -> str:
                 "parwa": "growth",
                 "parwa_high": "high",
             }
-            subscription_tier = getattr(
-                company, "subscription_tier", "starter")
+            subscription_tier = getattr(company, "subscription_tier", "starter")
             return tier_map.get(subscription_tier, "starter")
     except Exception:
         pass
@@ -750,14 +758,16 @@ async def _process_message_with_ai(
         from app.core.ai_pipeline import process_ai_message
 
         try:
-            result = asyncio.run(process_ai_message(
-                query=message,
-                company_id=company_id,
-                conversation_id=session_id,
-                variant_type=variant_tier,
-                customer_id=user_id,
-                system_prompt=system_prompt,
-            ))
+            result = asyncio.run(
+                process_ai_message(
+                    query=message,
+                    company_id=company_id,
+                    conversation_id=session_id,
+                    variant_type=variant_tier,
+                    customer_id=user_id,
+                    system_prompt=system_prompt,
+                )
+            )
         except RuntimeError:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 result = pool.submit(
@@ -769,7 +779,7 @@ async def _process_message_with_ai(
                         variant_type=variant_tier,
                         customer_id=user_id,
                         system_prompt=system_prompt,
-                    )
+                    ),
                 ).result(timeout=60)
 
         response = result.response
@@ -823,8 +833,7 @@ async def _process_message_with_ai(
         return _get_fallback_response(), None
 
 
-def _build_jarvis_system_prompt(
-        context: Dict[str, Any], variant_tier: str) -> str:
+def _build_jarvis_system_prompt(context: Dict[str, Any], variant_tier: str) -> str:
     """Build system prompt for Jarvis AI."""
 
     features = jps.TIER_FEATURES.get(jps.VariantTier(variant_tier), {})
@@ -874,4 +883,5 @@ def _get_fallback_response() -> str:
     return (
         "Hey! I'm here, but I'm having a bit of trouble processing that right now. "
         "Could you try again? If this keeps happening, there might be a brief "
-        "connectivity issue I'm working through.")
+        "connectivity issue I'm working through."
+    )

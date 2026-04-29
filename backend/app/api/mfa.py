@@ -110,9 +110,7 @@ def mfa_verify_login(
 
     F-015: Validates TOTP code with progressive lockout.
     """
-    result = verify_mfa_login(
-        db=db, user=user, code=body.code
-    )
+    result = verify_mfa_login(db=db, user=user, code=body.code)
     return result
 
 
@@ -128,9 +126,7 @@ def get_backup_codes_count(
 
     F-016: Returns count of unused backup codes.
     """
-    remaining = get_remaining_backup_codes(
-        db=db, user=user
-    )
+    remaining = get_remaining_backup_codes(db=db, user=user)
     return {
         "remaining": remaining,
         "warning": remaining < 3,
@@ -168,9 +164,7 @@ def use_backup_code_endpoint(
 
     F-016: Single-use, returns remaining count.
     """
-    result = use_backup_code(
-        db=db, user=user, code=body.code
-    )
+    result = use_backup_code(db=db, user=user, code=body.code)
     return result
 
 
@@ -248,9 +242,9 @@ def revoke_others_endpoint(
     refresh_token = request.cookies.get("parwa_refresh")
     if not refresh_token:
         from app.exceptions import AuthenticationError
+
         raise AuthenticationError(
-            message="No refresh token found. "
-                    "Please re-authenticate.",
+            message="No refresh token found. " "Please re-authenticate.",
         )
 
     current_hash = hash_refresh_token(refresh_token)

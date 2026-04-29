@@ -131,7 +131,9 @@ def evaluate_voice_shadow(
             )
             logger.info(
                 "voice_auto_executed company_id=%s log_id=%s risk=%.2f",
-                company_id, shadow_log_id, risk_score,
+                company_id,
+                shadow_log_id,
+                risk_score,
             )
 
         return VoiceShadowResult(
@@ -150,7 +152,9 @@ def evaluate_voice_shadow(
     except Exception as e:
         logger.error(
             "voice_shadow_evaluation_failed company_id=%s error=%s",
-            company_id, str(e), exc_info=True,
+            company_id,
+            str(e),
+            exc_info=True,
         )
         # Safe fallback: always require approval
         return VoiceShadowResult(
@@ -194,7 +198,9 @@ def _execute_voice_action(
 
         logger.info(
             "voice_executed company_id=%s call_id=%s shadow_id=%s",
-            company_id, voice_payload.get("call_id"), shadow_log_id,
+            company_id,
+            voice_payload.get("call_id"),
+            shadow_log_id,
         )
 
         return {
@@ -206,7 +212,10 @@ def _execute_voice_action(
     except Exception as e:
         logger.error(
             "voice_execution_failed company_id=%s shadow_id=%s error=%s",
-            company_id, shadow_log_id, str(e), exc_info=True,
+            company_id,
+            shadow_log_id,
+            str(e),
+            exc_info=True,
         )
         return {
             "status": "error",
@@ -240,10 +249,14 @@ def process_voice_after_approval(
 
         with SessionLocal() as db:
             # Get the shadow log entry
-            shadow_entry = db.query(ShadowLog).filter(
-                ShadowLog.id == shadow_log_id,
-                ShadowLog.company_id == company_id,
-            ).first()
+            shadow_entry = (
+                db.query(ShadowLog)
+                .filter(
+                    ShadowLog.id == shadow_log_id,
+                    ShadowLog.company_id == company_id,
+                )
+                .first()
+            )
 
             if not shadow_entry:
                 return {
@@ -257,7 +270,8 @@ def process_voice_after_approval(
             # For now, we return the payload for the caller to process
             logger.info(
                 "voice_shadow_approved shadow_id=%s company_id=%s",
-                shadow_log_id, company_id,
+                shadow_log_id,
+                company_id,
             )
 
             return {
@@ -270,7 +284,9 @@ def process_voice_after_approval(
     except Exception as e:
         logger.error(
             "voice_shadow_approval_processing_failed shadow_id=%s error=%s",
-            shadow_log_id, str(e), exc_info=True,
+            shadow_log_id,
+            str(e),
+            exc_info=True,
         )
         return {
             "status": "error",

@@ -17,7 +17,9 @@ logger = logging.getLogger("parwa.webhook_tasks")
     max_retries=3,
 )
 def process_paddle_webhook(
-    self, company_id: str, event_db_id: str,
+    self,
+    company_id: str,
+    event_db_id: str,
 ):
     """Process a Paddle webhook event.
 
@@ -53,7 +55,8 @@ def process_paddle_webhook(
 
         # Placeholder: mark as processed
         mark_webhook_processed(
-            event_db_id, "processed",
+            event_db_id,
+            "processed",
         )
 
         logger.info(
@@ -72,8 +75,10 @@ def process_paddle_webhook(
             from app.services.webhook_service import (
                 mark_webhook_processed,
             )
+
             mark_webhook_processed(
-                event_db_id, "failed",
+                event_db_id,
+                "failed",
                 error=str(exc),
             )
         except Exception:

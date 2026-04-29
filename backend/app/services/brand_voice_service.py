@@ -31,7 +31,11 @@ logger = logging.getLogger(__name__)
 # ══════════════════════════════════════════════════════════════════
 
 VALID_TONES = {
-    "professional", "friendly", "casual", "empathetic", "authoritative",
+    "professional",
+    "friendly",
+    "casual",
+    "empathetic",
+    "authoritative",
 }
 
 VALID_RESPONSE_LENGTHS = {"concise", "standard", "detailed"}
@@ -43,8 +47,12 @@ VALID_APOLOGY_STYLES = {"formal", "empathetic", "solution-focused"}
 VALID_ESCALATION_TONES = {"urgent", "calm", "reassuring"}
 
 VALID_INDUSTRIES = {
-    "tech", "ecommerce", "finance",
-    "education", "legal", "hospitality",
+    "tech",
+    "ecommerce",
+    "finance",
+    "education",
+    "legal",
+    "hospitality",
 }
 
 REDIS_KEY_PREFIX = "brand_voice:"
@@ -128,10 +136,19 @@ class ValidationResult:
 # Note: Only standard digit-based substitutions.  Symbol-based mappings
 # (e.g. @, $) are included but punctuation like ! is NOT mapped because
 # it would corrupt word endings (e.g. "returns!" → "returnsi").
-_LEET_MAP: Dict[str, str] = str.maketrans({
-    "0": "o", "1": "i", "3": "e", "4": "a", "5": "s",
-    "7": "t", "8": "b", "@": "a", "$": "s",
-})
+_LEET_MAP: Dict[str, str] = str.maketrans(
+    {
+        "0": "o",
+        "1": "i",
+        "3": "e",
+        "4": "a",
+        "5": "s",
+        "7": "t",
+        "8": "b",
+        "@": "a",
+        "$": "s",
+    }
+)
 
 
 def _normalize_text(text: str) -> str:
@@ -210,8 +227,11 @@ _INDUSTRY_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "apology_style": "formal",
         "escalation_tone": "urgent",
         "prohibited_words": [
-            "guaranteed returns", "risk-free", "sure thing",
-            "no problem", "easy money",
+            "guaranteed returns",
+            "risk-free",
+            "sure thing",
+            "no problem",
+            "easy money",
         ],
         "custom_instructions": (
             "Be precise with financial terminology. "
@@ -245,8 +265,11 @@ _INDUSTRY_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "apology_style": "formal",
         "escalation_tone": "urgent",
         "prohibited_words": [
-            "guarantee", "will definitely", "no worries",
-            "sure thing", "my bad",
+            "guarantee",
+            "will definitely",
+            "no worries",
+            "sure thing",
+            "my bad",
         ],
         "custom_instructions": (
             "Be precise and formal. "
@@ -309,7 +332,8 @@ def _estimate_formality(text: str) -> float:
 
     # Contraction penalty
     contractions = re.findall(
-        r"\b\w+'\w+\b", text_lower,
+        r"\b\w+'\w+\b",
+        text_lower,
     )
     score -= len(contractions) * 0.05
 
@@ -340,8 +364,14 @@ def _estimate_formality(text: str) -> float:
 
     # Formal words bonus
     formal_markers = [
-        "sincerely", "regards", "furthermore", "therefore",
-        "pursuant", "accordingly", "hereby", "notwithstanding",
+        "sincerely",
+        "regards",
+        "furthermore",
+        "therefore",
+        "pursuant",
+        "accordingly",
+        "hereby",
+        "notwithstanding",
     ]
     formal_count = sum(1 for m in formal_markers if m in text_lower)
     score += formal_count * 0.05
@@ -500,15 +530,24 @@ _EMPATHY_CLOSINGS: Dict[str, Dict[str, str]] = {
 
 _AVOID_PHRASES_BY_EMPATHY: Dict[str, List[str]] = {
     "critical": [
-        "calm down", "you should", "actually", "just",
-        "at least", "on the bright side", "no worries",
+        "calm down",
+        "you should",
+        "actually",
+        "just",
+        "at least",
+        "on the bright side",
+        "no worries",
     ],
     "high": [
-        "you should", "just", "actually",
-        "as you should know", "you're wrong",
+        "you should",
+        "just",
+        "actually",
+        "as you should know",
+        "you're wrong",
     ],
     "medium": [
-        "you should know", "clearly",
+        "you should know",
+        "clearly",
     ],
     "low": [],
 }
@@ -603,7 +642,8 @@ class BrandVoiceService:
                 extra={"company_id": company_id},
             )
             return await self.get_default_config(
-                "tech", company_id=company_id,
+                "tech",
+                company_id=company_id,
             )
 
         except ValidationError:
@@ -642,8 +682,7 @@ class BrandVoiceService:
             _validate_industry(industry)
 
             # Start with industry defaults
-            defaults = _INDUSTRY_DEFAULTS.get(
-                industry, _INDUSTRY_DEFAULTS["tech"])
+            defaults = _INDUSTRY_DEFAULTS.get(industry, _INDUSTRY_DEFAULTS["tech"])
             length_bounds = _RESPONSE_LENGTH_BOUNDS.get(
                 defaults["response_length_preference"],
                 _RESPONSE_LENGTH_BOUNDS["standard"],
@@ -653,7 +692,8 @@ class BrandVoiceService:
             _validate_tone(tone)
 
             formality_level = config_data.get(
-                "formality_level", defaults["formality_level"],
+                "formality_level",
+                defaults["formality_level"],
             )
             _validate_formality(formality_level)
 
@@ -664,27 +704,29 @@ class BrandVoiceService:
             _validate_response_length(response_length)
 
             emoji_usage = config_data.get(
-                "emoji_usage", defaults["emoji_usage"],
+                "emoji_usage",
+                defaults["emoji_usage"],
             )
             _validate_emoji_usage(emoji_usage)
 
             apology_style = config_data.get(
-                "apology_style", defaults["apology_style"],
+                "apology_style",
+                defaults["apology_style"],
             )
             _validate_apology_style(apology_style)
 
             escalation_tone = config_data.get(
-                "escalation_tone", defaults["escalation_tone"],
+                "escalation_tone",
+                defaults["escalation_tone"],
             )
             _validate_escalation_tone(escalation_tone)
 
             # Build the bounds for the selected length preference
             bounds = _RESPONSE_LENGTH_BOUNDS.get(
-                response_length, _RESPONSE_LENGTH_BOUNDS["standard"])
-            max_sentences = config_data.get(
-                "max_response_sentences", bounds["max"])
-            min_sentences = config_data.get(
-                "min_response_sentences", bounds["min"])
+                response_length, _RESPONSE_LENGTH_BOUNDS["standard"]
+            )
+            max_sentences = config_data.get("max_response_sentences", bounds["max"])
+            min_sentences = config_data.get("min_response_sentences", bounds["min"])
 
             # Validate min <= max
             if min_sentences > max_sentences:
@@ -702,16 +744,19 @@ class BrandVoiceService:
                 tone=tone,
                 formality_level=float(formality_level),
                 prohibited_words=config_data.get(
-                    "prohibited_words", defaults["prohibited_words"],
+                    "prohibited_words",
+                    defaults["prohibited_words"],
                 ),
                 response_length_preference=response_length,
                 max_response_sentences=max_sentences,
                 min_response_sentences=min_sentences,
                 greeting_template=config_data.get(
-                    "greeting_template", defaults["greeting_template"],
+                    "greeting_template",
+                    defaults["greeting_template"],
                 ),
                 closing_template=config_data.get(
-                    "closing_template", defaults["closing_template"],
+                    "closing_template",
+                    defaults["closing_template"],
                 ),
                 emoji_usage=emoji_usage,
                 apology_style=apology_style,
@@ -719,7 +764,8 @@ class BrandVoiceService:
                 brand_name=config_data.get("brand_name", "PARWA"),
                 industry=industry,
                 custom_instructions=config_data.get(
-                    "custom_instructions", defaults["custom_instructions"],
+                    "custom_instructions",
+                    defaults["custom_instructions"],
                 ),
                 created_at=now,
                 updated_at=now,
@@ -788,13 +834,15 @@ class BrandVoiceService:
             if "formality_level" in updates and updates["formality_level"] is not None:
                 _validate_formality(updates["formality_level"])
 
-            if "response_length_preference" in updates and updates[
-                    "response_length_preference"] is not None:
-                _validate_response_length(
-                    updates["response_length_preference"])
+            if (
+                "response_length_preference" in updates
+                and updates["response_length_preference"] is not None
+            ):
+                _validate_response_length(updates["response_length_preference"])
                 pref = updates["response_length_preference"]
                 bounds = _RESPONSE_LENGTH_BOUNDS.get(
-                    pref, _RESPONSE_LENGTH_BOUNDS["standard"])
+                    pref, _RESPONSE_LENGTH_BOUNDS["standard"]
+                )
                 if "max_response_sentences" not in updates:
                     updates["max_response_sentences"] = bounds["max"]
                 if "min_response_sentences" not in updates:
@@ -813,7 +861,10 @@ class BrandVoiceService:
                 _validate_industry(updates["industry"])
 
             # Validate sentence bounds if both are provided
-            if "min_response_sentences" in updates and "max_response_sentences" in updates:
+            if (
+                "min_response_sentences" in updates
+                and "max_response_sentences" in updates
+            ):
                 min_s = updates["min_response_sentences"]
                 max_s = updates["max_response_sentences"]
                 if min_s > max_s:
@@ -924,9 +975,7 @@ class BrandVoiceService:
             # BC-008: Use empty prohibited list if config unavailable
             config = None
 
-        prohibited_words: List[str] = (
-            config.prohibited_words if config else []
-        )
+        prohibited_words: List[str] = config.prohibited_words if config else []
 
         if not text or not prohibited_words:
             return ProhibitedWordCheck(
@@ -953,9 +1002,7 @@ class BrandVoiceService:
             # e.g. "hell" should NOT match "hello"
             # Multi-word phrases: replace spaces with \s+
             pattern_str = (
-                r"\b"
-                + re.escape(normalized_word).replace(r"\ ", r"\s+")
-                + r"\b"
+                r"\b" + re.escape(normalized_word).replace(r"\ ", r"\s+") + r"\b"
             )
             pattern = re.compile(pattern_str)
 
@@ -965,24 +1012,34 @@ class BrandVoiceService:
                 # Determine severity based on word context
                 severity = "medium"
                 if normalized_word in {
-                    "damn", "hell", "crap", "piss",
+                    "damn",
+                    "hell",
+                    "crap",
+                    "piss",
                 }:
                     severity = "low"
                 elif normalized_word in {
-                    "fuck", "shit", "ass", "bitch",
+                    "fuck",
+                    "shit",
+                    "ass",
+                    "bitch",
                 }:
                     severity = "high"
                 elif normalized_word in {
-                    "guaranteed", "cure", "miracle",
+                    "guaranteed",
+                    "cure",
+                    "miracle",
                 }:
                     severity = "medium"
 
-                violations.append({
-                    "word": word,
-                    "position": position,
-                    "normalized_form": normalized_word,
-                    "severity": severity,
-                })
+                violations.append(
+                    {
+                        "word": word,
+                        "position": position,
+                        "normalized_form": normalized_word,
+                        "severity": severity,
+                    }
+                )
 
                 # Mark corresponding positions in redacted mask
                 # We map normalized positions back to original text
@@ -1087,7 +1144,8 @@ class BrandVoiceService:
             formality_adjustment = -0.05
 
         adjusted_formality = max(
-            0.0, min(1.0, config.formality_level + formality_adjustment),
+            0.0,
+            min(1.0, config.formality_level + formality_adjustment),
         )
 
         # Select appropriate tone adjustments
@@ -1101,22 +1159,27 @@ class BrandVoiceService:
 
         # Get suggested opening and closing based on empathy + tone
         opening_table = _EMPATHY_OPENINGS.get(
-            empathy_level, _EMPATHY_OPENINGS["medium"],
+            empathy_level,
+            _EMPATHY_OPENINGS["medium"],
         )
         closing_table = _EMPATHY_CLOSINGS.get(
-            empathy_level, _EMPATHY_CLOSINGS["medium"],
+            empathy_level,
+            _EMPATHY_CLOSINGS["medium"],
         )
 
         suggested_opening = opening_table.get(
-            tone, opening_table.get("professional", ""),
+            tone,
+            opening_table.get("professional", ""),
         )
         suggested_closing = closing_table.get(
-            tone, closing_table.get("professional", ""),
+            tone,
+            closing_table.get("professional", ""),
         )
 
         # Get avoid phrases for empathy level
         avoid_phrases = _AVOID_PHRASES_BY_EMPATHY.get(
-            empathy_level, [],
+            empathy_level,
+            [],
         ) + list(config.prohibited_words)
 
         # Adjust sentence bounds for empathy
@@ -1194,16 +1257,14 @@ class BrandVoiceService:
                 f"Response has {sentence_count} sentences, exceeding "
                 f"the maximum of {config.max_response_sentences}"
             )
-            suggested_fixes.append(
-                f"Reduce response to at most {
+            suggested_fixes.append(f"Reduce response to at most {
                     config.max_response_sentences} sentences")
         elif sentence_count < config.min_response_sentences:
             violations.append(
                 f"Response has only {sentence_count} sentence(s), "
                 f"below the minimum of {config.min_response_sentences}"
             )
-            suggested_fixes.append(
-                f"Expand response to at least {
+            suggested_fixes.append(f"Expand response to at least {
                     config.min_response_sentences} sentences")
 
         # ── 3. Formality match ──
@@ -1271,7 +1332,8 @@ class BrandVoiceService:
             "detailed": {"ideal_min": 80, "ideal_max": 400},
         }
         length_exp = length_expectations.get(
-            config.response_length_preference, length_expectations["standard"],
+            config.response_length_preference,
+            length_expectations["standard"],
         )
         if word_count < length_exp["ideal_min"]:
             warnings.append(
@@ -1340,8 +1402,7 @@ class BrandVoiceService:
                 company_id=company_id,
                 tone=defaults["tone"],
                 formality_level=defaults["formality_level"],
-                prohibited_words=list(
-                    defaults["prohibited_words"]),
+                prohibited_words=list(defaults["prohibited_words"]),
                 response_length_preference=defaults["response_length_preference"],
                 max_response_sentences=bounds["max"],
                 min_response_sentences=bounds["min"],
@@ -1475,10 +1536,8 @@ class BrandVoiceService:
             data = await self.redis_client.get(key)
             if data:
                 parsed = json.loads(data)
-                parsed["created_at"] = datetime.fromisoformat(
-                    parsed["created_at"])
-                parsed["updated_at"] = datetime.fromisoformat(
-                    parsed["updated_at"])
+                parsed["created_at"] = datetime.fromisoformat(parsed["created_at"])
+                parsed["updated_at"] = datetime.fromisoformat(parsed["updated_at"])
                 return BrandVoiceConfig(**parsed)
         except Exception as exc:
             logger.warning(
@@ -1517,7 +1576,9 @@ class BrandVoiceService:
                 "updated_at": config.updated_at.isoformat(),
             }
             await self.redis_client.set(
-                key, json.dumps(data), ex=REDIS_TTL_SECONDS,
+                key,
+                json.dumps(data),
+                ex=REDIS_TTL_SECONDS,
             )
         except Exception as exc:
             logger.warning(

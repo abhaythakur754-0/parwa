@@ -97,7 +97,9 @@ class TechniqueConfigStore:
         self._configs: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
     def get_config(
-        self, company_id: str, technique_id: str,
+        self,
+        company_id: str,
+        technique_id: str,
     ) -> Dict[str, Any]:
         """
         Get configuration for a specific technique.
@@ -154,9 +156,7 @@ class TechniqueConfigStore:
             now = datetime.now(timezone.utc).isoformat()
             config = {
                 "enabled": enabled,
-                "config_overrides": overrides
-                if overrides is not None
-                else {},
+                "config_overrides": overrides if overrides is not None else {},
                 "updated_at": now,
             }
 
@@ -170,9 +170,7 @@ class TechniqueConfigStore:
             # BC-008: never crash
             return {
                 "enabled": enabled,
-                "config_overrides": overrides
-                if overrides is not None
-                else {},
+                "config_overrides": overrides if overrides is not None else {},
                 "updated_at": None,
             }
 
@@ -193,25 +191,29 @@ class TechniqueConfigStore:
         try:
             with self._lock:
                 company_configs = self._configs.get(
-                    company_id, {},
+                    company_id,
+                    {},
                 )
 
             result = []
             for tid, info in TECHNIQUE_REGISTRY.items():
                 stored = company_configs.get(tid.value, {})
-                result.append({
-                    "technique_id": tid.value,
-                    "technique_name": tid.name,
-                    "tier": info.tier.value,
-                    "description": info.description,
-                    "enabled": stored.get("enabled", True),
-                    "config_overrides": stored.get(
-                        "config_overrides", {},
-                    ),
-                    "updated_at": stored.get("updated_at"),
-                    "estimated_tokens": info.estimated_tokens,
-                    "time_budget_ms": info.time_budget_ms,
-                })
+                result.append(
+                    {
+                        "technique_id": tid.value,
+                        "technique_name": tid.name,
+                        "tier": info.tier.value,
+                        "description": info.description,
+                        "enabled": stored.get("enabled", True),
+                        "config_overrides": stored.get(
+                            "config_overrides",
+                            {},
+                        ),
+                        "updated_at": stored.get("updated_at"),
+                        "estimated_tokens": info.estimated_tokens,
+                        "time_budget_ms": info.time_budget_ms,
+                    }
+                )
 
             return result
         except Exception:
@@ -261,7 +263,9 @@ def _build_response(
     return TechniqueConfigResponse(
         technique_id=technique_id,
         technique_name=getattr(
-            TechniqueID(technique_id), "name", technique_id,
+            TechniqueID(technique_id),
+            "name",
+            technique_id,
         ),
         tier=info.tier.value,
         description=info.description,
@@ -314,10 +318,7 @@ async def list_technique_configs(
                         "detail": f"Must be one of {valid_tiers}",
                     },
                 )
-            all_configs = [
-                c for c in all_configs
-                if c["tier"] == variant_type
-            ]
+            all_configs = [c for c in all_configs if c["tier"] == variant_type]
 
         technique_responses = [
             TechniqueConfigResponse(**c).model_dump() for c in all_configs
@@ -367,9 +368,7 @@ async def update_technique_config(
     """
     try:
         # Validate technique_id exists
-        if technique_id not in {
-            t.value for t in TechniqueID
-        }:
+        if technique_id not in {t.value for t in TechniqueID}:
             return JSONResponse(
                 status_code=404,
                 content={
@@ -460,9 +459,7 @@ async def get_technique_config(
     """
     try:
         # Validate technique_id exists
-        if technique_id not in {
-            t.value for t in TechniqueID
-        }:
+        if technique_id not in {t.value for t in TechniqueID}:
             return JSONResponse(
                 status_code=404,
                 content={

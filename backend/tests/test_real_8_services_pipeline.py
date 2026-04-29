@@ -20,7 +20,6 @@ import sys
 import types
 import unittest.mock as mock
 
-
 # ── Module import setup (same pattern as other test files) ──────────
 
 _mock_db = types.ModuleType("database")
@@ -33,8 +32,7 @@ _mock_db_jarvis.JarvisMessage = mock.MagicMock
 _mock_db_jarvis.JarvisKnowledgeUsed = mock.MagicMock
 _mock_db_jarvis.JarvisActionTicket = mock.MagicMock
 _mock_app_exceptions.NotFoundError = type("NotFoundError", (Exception,), {})
-_mock_app_exceptions.ValidationError = type(
-    "ValidationError", (Exception,), {})
+_mock_app_exceptions.ValidationError = type("ValidationError", (Exception,), {})
 _mock_app_exceptions.RateLimitError = type("RateLimitError", (Exception,), {})
 _mock_app_exceptions.InternalError = type("InternalError", (Exception,), {})
 
@@ -62,10 +60,15 @@ _mock_app = _DynamicModule("app")
 sys.modules["app"] = _mock_app
 
 _JARVIS_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "app", "services", "jarvis_service.py",
+    os.path.dirname(__file__),
+    "..",
+    "app",
+    "services",
+    "jarvis_service.py",
 )
 _spec = importlib.util.spec_from_file_location(  # type: ignore
-    "app.services.jarvis_service", _JARVIS_PATH,
+    "app.services.jarvis_service",
+    _JARVIS_PATH,
 )
 jarvis = importlib.util.module_from_spec(_spec)  # type: ignore
 sys.modules["app.services"] = jarvis
@@ -74,6 +77,7 @@ _spec.loader.exec_module(jarvis)  # type: ignore
 
 
 # ── Helper: run async function from sync context ──────────────────
+
 
 def _run_async(coro):
     """Run an async coroutine, handling the case where an event loop exists."""
@@ -99,6 +103,7 @@ class TestRealServiceImports:
     def test_sentiment_analyzer_importable(self):
         """SentimentAnalyzer can be imported and instantiated."""
         from app.core.sentiment_engine import SentimentAnalyzer
+
         analyzer = SentimentAnalyzer()
         assert analyzer is not None
         print("  [OK] SentimentAnalyzer imported and instantiated")
@@ -106,18 +111,21 @@ class TestRealServiceImports:
     def test_ai_service_importable(self):
         """AIService enrich_system_prompt can be imported."""
         from app.services.ai_service import enrich_system_prompt
+
         assert callable(enrich_system_prompt)
         print("  [OK] enrich_system_prompt imported and callable")
 
     def test_analytics_service_importable(self):
         """AnalyticsService track_event can be imported."""
         from app.services.analytics_service import track_event
+
         assert callable(track_event)
         print("  [OK] track_event imported and callable")
 
     def test_lead_service_importable(self):
         """LeadService capture_lead can be imported."""
         from app.services.lead_service import capture_lead, update_lead_status
+
         assert callable(capture_lead)
         assert callable(update_lead_status)
         print("  [OK] capture_lead and update_lead_status imported")
@@ -129,6 +137,7 @@ class TestRealServiceImports:
             add_message_to_context,
             get_conversation_context,
         )
+
         assert callable(create_conversation)
         assert callable(add_message_to_context)
         assert callable(get_conversation_context)
@@ -137,12 +146,14 @@ class TestRealServiceImports:
     def test_knowledge_base_importable(self):
         """KnowledgeBase build_context_knowledge can be imported."""
         from app.services.jarvis_knowledge_service import build_context_knowledge
+
         assert callable(build_context_knowledge)
         print("  [OK] build_context_knowledge imported")
 
     def test_training_data_isolation_importable(self):
         """TrainingDataIsolationService can be imported."""
         from app.services.training_data_isolation import TrainingDataIsolationService
+
         svc = TrainingDataIsolationService()
         assert svc is not None
         print("  [OK] TrainingDataIsolationService imported and instantiated")
@@ -150,6 +161,7 @@ class TestRealServiceImports:
     def test_graceful_escalation_importable(self):
         """GracefulEscalationManager can be imported."""
         from app.core.graceful_escalation import GracefulEscalationManager
+
         manager = GracefulEscalationManager()
         assert manager is not None
         print("  [OK] GracefulEscalationManager imported and instantiated")
@@ -186,22 +198,22 @@ class TestRealSentimentAnalyzer:
         from app.core.sentiment_engine import SentimentAnalyzer
 
         analyzer = SentimentAnalyzer()
-        result = _run_async(analyzer.analyze(
-            query="Thank you so much! PARWA is amazing and wonderful!",
-            company_id="test_co",
-        ))
+        result = _run_async(
+            analyzer.analyze(
+                query="Thank you so much! PARWA is amazing and wonderful!",
+                company_id="test_co",
+            )
+        )
 
         assert result is not None
         d = result.to_dict()
-        print(
-            f"  Happy → frustration={
+        print(f"  Happy → frustration={
                 d['frustration_score']}, emotion={
                 d['emotion']}, tone={
                 d['tone_recommendation']}")
         assert d["frustration_score"] < 30, f"Expected low frustration, got {
             d['frustration_score']}"
-        assert d["emotion"] in (
-            "happy", "delighted", "neutral"), f"Got emotion: {
+        assert d["emotion"] in ("happy", "delighted", "neutral"), f"Got emotion: {
             d['emotion']}"
 
     def test_angry_message_produces_high_frustration(self):
@@ -213,12 +225,12 @@ class TestRealSentimentAnalyzer:
             analyzer.analyze(
                 query="This is absolutely unacceptable and disgusting! I am furious!",
                 company_id="test_co",
-            ))
+            )
+        )
 
         assert result is not None
         d = result.to_dict()
-        print(
-            f"  Angry → frustration={
+        print(f"  Angry → frustration={
                 d['frustration_score']}, emotion={
                 d['emotion']}, tone={
                 d['tone_recommendation']}")
@@ -234,33 +246,33 @@ class TestRealSentimentAnalyzer:
             analyzer.analyze(
                 query="I have been waiting for days and this is very annoying and frustrating",
                 company_id="test_co",
-            ))
+            )
+        )
 
         assert result is not None
         d = result.to_dict()
-        print(
-            f"  Frustrated → frustration={
+        print(f"  Frustrated → frustration={
                 d['frustration_score']}, tone={
                 d['tone_recommendation']}")
         assert d["frustration_score"] > 15, f"Expected moderate frustration, got {
             d['frustration_score']}"
-        assert d["tone_recommendation"] in (
-            "empathetic", "standard", "de-escalation")
+        assert d["tone_recommendation"] in ("empathetic", "standard", "de-escalation")
 
     def test_neutral_message_is_standard(self):
         """Neutral message → standard tone, low frustration."""
         from app.core.sentiment_engine import SentimentAnalyzer
 
         analyzer = SentimentAnalyzer()
-        result = _run_async(analyzer.analyze(
-            query="What features does PARWA offer?",
-            company_id="test_co",
-        ))
+        result = _run_async(
+            analyzer.analyze(
+                query="What features does PARWA offer?",
+                company_id="test_co",
+            )
+        )
 
         assert result is not None
         d = result.to_dict()
-        print(
-            f"  Neutral → frustration={
+        print(f"  Neutral → frustration={
                 d['frustration_score']}, tone={
                 d['tone_recommendation']}")
         assert d["frustration_score"] < 20, f"Expected very low frustration, got {
@@ -275,12 +287,12 @@ class TestRealSentimentAnalyzer:
             analyzer.analyze(
                 query="Emergency! Our system is down and we need help immediately!",
                 company_id="test_co",
-            ))
+            )
+        )
 
         assert result is not None
         d = result.to_dict()
-        print(
-            f"  Urgent → urgency={
+        print(f"  Urgent → urgency={
                 d['urgency_level']}, frustration={
                 d['frustration_score']}")
         assert d["urgency_level"] in ("high", "critical", "medium")
@@ -296,16 +308,17 @@ class TestRealSentimentAnalyzer:
             "This is really frustrating, nobody helps me",
             "I am absolutely furious now, worst service ever!",
         ]
-        result = _run_async(analyzer.analyze(
-            query="I am done with this terrible service!",
-            company_id="test_co",
-            conversation_history=history,
-        ))
+        result = _run_async(
+            analyzer.analyze(
+                query="I am done with this terrible service!",
+                company_id="test_co",
+                conversation_history=history,
+            )
+        )
 
         assert result is not None
         d = result.to_dict()
-        print(
-            f"  Worsening trend → trend={
+        print(f"  Worsening trend → trend={
                 d['conversation_trend']}, frustration={
                 d['frustration_score']}")
         # The trend should detect worsening when history goes from calm to
@@ -318,31 +331,25 @@ class TestRealSentimentAnalyzer:
 
         analyzer = SentimentAnalyzer()
 
-        happy = _run_async(
-            analyzer.analyze(
-                "I love this product!",
-                company_id="test"))
+        happy = _run_async(analyzer.analyze("I love this product!", company_id="test"))
         angry = _run_async(
-            analyzer.analyze(
-                "This is disgusting and unacceptable!",
-                company_id="test"))
+            analyzer.analyze("This is disgusting and unacceptable!", company_id="test")
+        )
 
         d_happy = happy.to_dict()
         d_angry = angry.to_dict()
 
-        print(
-            f"  Happy: frustration={
+        print(f"  Happy: frustration={
                 d_happy['frustration_score']}, emotion={
                 d_happy['emotion']}")
-        print(
-            f"  Angry: frustration={
+        print(f"  Angry: frustration={
                 d_angry['frustration_score']}, emotion={
                 d_angry['emotion']}")
 
-        assert d_happy["frustration_score"] != d_angry["frustration_score"], \
-            "Frustration scores should differ!"
-        assert d_happy["emotion"] != d_angry["emotion"], \
-            "Emotions should differ!"
+        assert (
+            d_happy["frustration_score"] != d_angry["frustration_score"]
+        ), "Frustration scores should differ!"
+        assert d_happy["emotion"] != d_angry["emotion"], "Emotions should differ!"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -374,14 +381,18 @@ class TestRealAIServiceEnrichment:
             is_escalated=False,
         )
 
-        assert result != "You are Jarvis, a helpful assistant.", \
-            "Enriched prompt should differ from base"
+        assert (
+            result != "You are Jarvis, a helpful assistant."
+        ), "Enriched prompt should differ from base"
         assert len(result) > 50
         print(f"  Enriched prompt length: {len(result)} chars")
-        print(
-            f"  Contains sentiment: {
+        print(f"  Contains sentiment: {
                 'frustration' in result.lower() or 'emotion' in result.lower()}")
-        assert "de-escalation" in result.lower() or "empathy" in result.lower() or "frustration" in result.lower()
+        assert (
+            "de-escalation" in result.lower()
+            or "empathy" in result.lower()
+            or "frustration" in result.lower()
+        )
 
     def test_enrichment_with_knowledge_adds_content(self):
         """enrich_system_prompt with knowledge snippets adds content."""
@@ -393,13 +404,18 @@ class TestRealAIServiceEnrichment:
             tone_recommendation="standard",
             knowledge_snippets=[
                 "PARWA has 700+ features across 3 tiers.",
-                "mini_parwa starts at $49/mo."],
+                "mini_parwa starts at $49/mo.",
+            ],
             trained_response=None,
             is_escalated=False,
         )
 
-        assert "PARWA" in result or "700" in result or "features" in result or "tier" in result, \
-            "Knowledge snippets should appear in enriched prompt"
+        assert (
+            "PARWA" in result
+            or "700" in result
+            or "features" in result
+            or "tier" in result
+        ), "Knowledge snippets should appear in enriched prompt"
         print(f"  Knowledge enriched prompt length: {len(result)} chars")
 
     def test_enrichment_with_trained_response(self):
@@ -415,8 +431,11 @@ class TestRealAIServiceEnrichment:
             is_escalated=False,
         )
 
-        assert "reset" in result.lower() or "password" in result.lower(
-        ) or "settings" in result.lower(), "Trained response should appear in enriched prompt"
+        assert (
+            "reset" in result.lower()
+            or "password" in result.lower()
+            or "settings" in result.lower()
+        ), "Trained response should appear in enriched prompt"
         print(f"  Trained response enriched: {len(result)} chars")
 
     def test_enrichment_with_escalation(self):
@@ -432,8 +451,9 @@ class TestRealAIServiceEnrichment:
             is_escalated=True,
         )
 
-        assert "escalat" in result.lower(), \
-            "Escalation flag should appear in enriched prompt"
+        assert (
+            "escalat" in result.lower()
+        ), "Escalation flag should appear in enriched prompt"
         print(f"  Escalation enriched: {'escalat' in result.lower()}")
 
     def test_base_vs_enriched_are_different(self):
@@ -451,8 +471,7 @@ class TestRealAIServiceEnrichment:
         )
 
         print(f"  Base length: {len(base)}, Enriched length: {len(enriched)}")
-        assert len(enriched) > len(
-            base), "Enriched prompt must be LONGER than base"
+        assert len(enriched) > len(base), "Enriched prompt must be LONGER than base"
         assert enriched != base, "Enriched prompt must be DIFFERENT from base"
 
 
@@ -479,14 +498,16 @@ class TestRealConversationService:
         assert ctx.user_id == "user_1"
         assert ctx.turn_count == 0
         assert ctx.session_type == "onboarding"
-        print(
-            f"  Created conversation: {
+        print(f"  Created conversation: {
                 ctx.conversation_id}, turns={
                 ctx.turn_count}")
 
     def test_add_message_increments_turn_count(self):
         """add_message_to_context increments turn_count for user messages."""
-        from app.services.conversation_service import create_conversation, add_message_to_context
+        from app.services.conversation_service import (
+            create_conversation,
+            add_message_to_context,
+        )
 
         ctx = create_conversation("c1", "u1", "co1")
         assert ctx.turn_count == 0
@@ -503,7 +524,10 @@ class TestRealConversationService:
 
     def test_add_message_updates_sentiment(self):
         """add_message_to_context stores sentiment data."""
-        from app.services.conversation_service import create_conversation, add_message_to_context
+        from app.services.conversation_service import (
+            create_conversation,
+            add_message_to_context,
+        )
 
         ctx = create_conversation("c1", "u1", "co1")
         assert ctx.last_sentiment is None
@@ -515,13 +539,13 @@ class TestRealConversationService:
             "tone_recommendation": "empathetic",
         }
         ctx = add_message_to_context(
-            ctx, "user", "I'm very angry!", sentiment_data=sentiment)
+            ctx, "user", "I'm very angry!", sentiment_data=sentiment
+        )
 
         assert ctx.last_sentiment is not None
         assert ctx.last_sentiment["frustration_score"] == 65
         assert ctx.last_sentiment["emotion"] == "angry"
-        print(
-            f"  Sentiment stored: frustration={
+        print(f"  Sentiment stored: frustration={
                 ctx.last_sentiment['frustration_score']}")
 
     def test_get_context_from_session(self):
@@ -537,15 +561,13 @@ class TestRealConversationService:
             "last_sentiment": {"frustration_score": 30, "emotion": "neutral"},
         }
 
-        ctx = get_conversation_context(
-            "sess1", session_context=session_context)
+        ctx = get_conversation_context("sess1", session_context=session_context)
         assert ctx.industry == "SaaS"
         assert ctx.business_email == "test@example.com"
         assert ctx.email_verified is True
         assert ctx.detected_stage == "pricing"
         assert ctx.last_sentiment is not None
-        print(
-            f"  Context from session: industry={
+        print(f"  Context from session: industry={
                 ctx.industry}, stage={
                 ctx.detected_stage}")
 
@@ -605,8 +627,7 @@ class TestRealAnalyticsService:
         metrics = get_metrics(company_id="c1", session_id="s1")
         assert metrics["total_events"] >= 1
         assert "message" in metrics["by_category"]
-        print(
-            f"  Metrics: total={
+        print(f"  Metrics: total={
                 metrics['total_events']}, by_category={
                 metrics['by_category']}")
 
@@ -661,8 +682,7 @@ class TestRealLeadService:
         assert lead.industry == "E-commerce"
         assert lead.business_email == "buyer@shop.com"
         assert lead.email_verified is False
-        print(
-            f"  Lead captured: {
+        print(f"  Lead captured: {
                 lead.lead_id}, industry={
                 lead.industry}, email={
                 lead.business_email}")
@@ -691,25 +711,20 @@ class TestRealLeadService:
         assert lead.sentiment_summary is not None
         assert lead.sentiment_summary["frustration_score"] == 45
         assert lead.sentiment_summary["emotion"] == "frustrated"
-        print(
-            f"  Lead with sentiment: frustration={
+        print(f"  Lead with sentiment: frustration={
                 lead.sentiment_summary['frustration_score']}")
 
     def test_update_lead_status(self):
         """update_lead_status changes lead status."""
         from app.services.lead_service import capture_lead, update_lead_status
 
-        capture_lead(
-            "s3", "user_status", session_context={
-                "business_email": "a@b.com"})
-        updated = update_lead_status(
-            "user_status", "contacted", email_verified=True)
+        capture_lead("s3", "user_status", session_context={"business_email": "a@b.com"})
+        updated = update_lead_status("user_status", "contacted", email_verified=True)
 
         assert updated is not None
         assert updated.lead_status == "contacted"
         assert updated.email_verified is True
-        print(
-            f"  Lead status updated: {
+        print(f"  Lead status updated: {
                 updated.lead_status}, verified={
                 updated.email_verified}")
 
@@ -751,8 +766,7 @@ class TestRealKnowledgeBase:
 
         result = build_context_knowledge(ctx)
         # Should return something (even if empty string) without crashing
-        print(
-            f"  KB result type: {
+        print(f"  KB result type: {
                 type(result).__name__}, length: {
                 len(result) if result else 0}")
         # Don't assert content since KB might be empty in test env
@@ -785,7 +799,10 @@ class TestRealGracefulEscalation:
 
     def test_evaluate_escalation_callable(self):
         """evaluate_escalation can be called."""
-        from app.core.graceful_escalation import GracefulEscalationManager, EscalationContext
+        from app.core.graceful_escalation import (
+            GracefulEscalationManager,
+            EscalationContext,
+        )
 
         manager = GracefulEscalationManager()
         ctx = EscalationContext(
@@ -800,19 +817,20 @@ class TestRealGracefulEscalation:
 
         try:
             result = manager.evaluate_escalation("test_co", ctx)
-            print(
-                f"  Escalation evaluation: should_escalate={
+            print(f"  Escalation evaluation: should_escalate={
                     result[0]}, severity={
                     result[2]}")
         except Exception as e:
             # The method might have internal dependencies that fail
-            print(
-                f"  Escalation evaluation error (graceful): {
+            print(f"  Escalation evaluation error (graceful): {
                     type(e).__name__}")
 
     def test_create_escalation_callable(self):
         """create_escalation can be called."""
-        from app.core.graceful_escalation import GracefulEscalationManager, EscalationContext
+        from app.core.graceful_escalation import (
+            GracefulEscalationManager,
+            EscalationContext,
+        )
 
         manager = GracefulEscalationManager()
         ctx = EscalationContext(
@@ -828,8 +846,7 @@ class TestRealGracefulEscalation:
         try:
             record = manager.create_escalation("test_co", ctx)
             if record:
-                print(
-                    f"  Escalation created: id={
+                print(f"  Escalation created: id={
                         record.escalation_id}, channel={
                         record.channel}")
             else:
@@ -855,13 +872,14 @@ class TestPipelineWithRealServices:
         assert analyzer is not None
 
         # Run the pipeline with real services
-        with mock.patch.object(jarvis, "_try_ai_providers", return_value="AI response here"):
+        with mock.patch.object(
+            jarvis, "_try_ai_providers", return_value="AI response here"
+        ):
             result = jarvis._call_ai_provider(
                 system_prompt="You are Jarvis.",
                 history=[],
                 user_message="I am very frustrated and angry with this service!",
-                context={
-                    "detected_stage": "discovery"},
+                context={"detected_stage": "discovery"},
                 session_id="s_test",
                 user_id="u_test",
                 company_id="c_test",
@@ -875,8 +893,7 @@ class TestPipelineWithRealServices:
         print(f"  Message type: {msg_type}")
         print(f"  Sentiment in metadata: {metadata.get('sentiment')}")
         print(f"  Tone recommendation: {metadata.get('tone_recommendation')}")
-        print(
-            f"  Escalation triggered: {
+        print(f"  Escalation triggered: {
                 metadata.get('escalation_triggered')}")
 
         # The sentiment data should be real (not None) because the service is importable
@@ -884,8 +901,7 @@ class TestPipelineWithRealServices:
         if metadata.get("sentiment"):
             assert isinstance(metadata["sentiment"], dict)
             assert "frustration_score" in metadata["sentiment"]
-            print(
-                f"  ✓ SENTIMENT IS REAL: frustration={
+            print(f"  ✓ SENTIMENT IS REAL: frustration={
                     metadata['sentiment']['frustration_score']}")
         else:
             print("  ✗ Sentiment is None — service call may have failed internally")
@@ -894,15 +910,21 @@ class TestPipelineWithRealServices:
         """PROVE: Pipeline produces DIFFERENT metadata for happy vs angry messages."""
         with mock.patch.object(jarvis, "_try_ai_providers", return_value="Response"):
             result_happy = jarvis._call_ai_provider(
-                "You are Jarvis.", [], "I love PARWA, it's wonderful!",
+                "You are Jarvis.",
+                [],
+                "I love PARWA, it's wonderful!",
                 {"detected_stage": "discovery"},
                 company_id="c1",
             )
 
         with mock.patch.object(jarvis, "_try_ai_providers", return_value="Response"):
             result_angry = jarvis._call_ai_provider(
-                "You are Jarvis.", [], "This is absolutely unacceptable and disgusting!", {
-                    "detected_stage": "discovery"}, company_id="c1", )
+                "You are Jarvis.",
+                [],
+                "This is absolutely unacceptable and disgusting!",
+                {"detected_stage": "discovery"},
+                company_id="c1",
+            )
 
         meta_happy = result_happy[2]
         meta_angry = result_angry[2]
@@ -945,9 +967,14 @@ class TestPipelineWithRealServices:
                 del sys.modules[mod]
 
         try:
-            with mock.patch.object(jarvis, "_try_ai_providers", return_value="Fallback response"):
+            with mock.patch.object(
+                jarvis, "_try_ai_providers", return_value="Fallback response"
+            ):
                 result = jarvis._call_ai_provider(
-                    "BASE", [], "hello", {},
+                    "BASE",
+                    [],
+                    "hello",
+                    {},
                 )
 
             content, msg_type, metadata, knowledge = result
@@ -957,7 +984,8 @@ class TestPipelineWithRealServices:
             assert metadata.get("sentiment") is None
             assert metadata.get("escalation_triggered") is False
             print(
-                "\n  ✓ Pipeline works when all services fail — returns fallback response")
+                "\n  ✓ Pipeline works when all services fail — returns fallback response"
+            )
         finally:
             # Restore modules
             for mod, obj in saved.items():
@@ -1000,8 +1028,7 @@ class TestDiagnosticWhyUserCantSeeChanges:
             source = inspect.getsource(func)
             assert "except" in source, f"{func_name} missing except handler"
             # Most use bare except or Exception
-            print(
-                f"  [SILENT] {func_name}: try/except found (failures invisible)")
+            print(f"  [SILENT] {func_name}: try/except found (failures invisible)")
 
     def test_visible_vs_invisible_services(self):
         """DIAGNOSTIC: Classify services by visibility."""
@@ -1026,24 +1053,34 @@ class TestDiagnosticWhyUserCantSeeChanges:
         """DIAGNOSTIC: Sentiment injection adds guidance, not content change."""
         # Standard message
         prompt_standard = jarvis._inject_sentiment_into_prompt(
-            "You are Jarvis.", {"frustration_score": 10, "emotion": "happy",
-                                "urgency_level": "low", "tone_recommendation": "standard",
-                                "conversation_trend": "stable"}, "standard",
+            "You are Jarvis.",
+            {
+                "frustration_score": 10,
+                "emotion": "happy",
+                "urgency_level": "low",
+                "tone_recommendation": "standard",
+                "conversation_trend": "stable",
+            },
+            "standard",
         )
 
         # De-escalation message
         prompt_deescalation = jarvis._inject_sentiment_into_prompt(
-            "You are Jarvis.", {"frustration_score": 90, "emotion": "angry",
-                                "urgency_level": "critical", "tone_recommendation": "de-escalation",
-                                "conversation_trend": "worsening"}, "de-escalation",
+            "You are Jarvis.",
+            {
+                "frustration_score": 90,
+                "emotion": "angry",
+                "urgency_level": "critical",
+                "tone_recommendation": "de-escalation",
+                "conversation_trend": "worsening",
+            },
+            "de-escalation",
         )
 
-        print(
-            f"\n  Standard prompt additions: {
+        print(f"\n  Standard prompt additions: {
                 len(prompt_standard)
                 - len('You are Jarvis.')} chars")
-        print(
-            f"  De-escalation prompt additions: {
+        print(f"  De-escalation prompt additions: {
                 len(prompt_deescalation)
                 - len('You are Jarvis.')} chars")
         print("  Both still start with 'You are Jarvis.'")
@@ -1053,12 +1090,16 @@ class TestDiagnosticWhyUserCantSeeChanges:
         """DIAGNOSTIC: Response formatters only add periods/empathy."""
         # Happy response
         formatted_happy = jarvis._apply_response_formatters(
-            "PARWA has great features", "co1", {"frustration_score": 10},
+            "PARWA has great features",
+            "co1",
+            {"frustration_score": 10},
         )
 
         # Frustrated response
         formatted_frustrated = jarvis._apply_response_formatters(
-            "PARWA has great features", "co1", {"frustration_score": 60},
+            "PARWA has great features",
+            "co1",
+            {"frustration_score": 60},
         )
 
         print(f"\n  Happy formatted: '{formatted_happy}'")

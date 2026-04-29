@@ -102,7 +102,8 @@ class TestTierBoundaryOverflow:
     """
 
     def test_mini_parwa_medium_step_degrades_to_light(
-        self, router: SmartRouter,
+        self,
+        router: SmartRouter,
     ):
         """MAD_ATOM_REASONING normally maps to MEDIUM. Under mini_parwa
         (LIGHT-only), it must degrade to LIGHT, never upgrade to MEDIUM."""
@@ -113,13 +114,14 @@ class TestTierBoundaryOverflow:
                 AtomicStepType.MAD_ATOM_REASONING,
             )
         assert isinstance(decision, RoutingDecision)
-        assert decision.tier != ModelTier.MEDIUM, (
-            "mini_parwa must NEVER get MEDIUM tier — tier boundary overflow"
-        )
+        assert (
+            decision.tier != ModelTier.MEDIUM
+        ), "mini_parwa must NEVER get MEDIUM tier — tier boundary overflow"
         assert decision.tier in (ModelTier.LIGHT, ModelTier.GUARDRAIL)
 
     def test_mini_parwa_reflexion_cycle_never_gets_heavy(
-        self, router: SmartRouter,
+        self,
+        router: SmartRouter,
     ):
         """REFLEXION_CYCLE is MEDIUM normally. Under mini_parwa it must
         stay at LIGHT tier."""
@@ -134,7 +136,8 @@ class TestTierBoundaryOverflow:
         assert decision.tier in (ModelTier.LIGHT, ModelTier.GUARDRAIL)
 
     def test_parwa_draft_response_complex_never_gets_heavy(
-        self, router: SmartRouter,
+        self,
+        router: SmartRouter,
     ):
         """DRAFT_RESPONSE_COMPLEX maps to MEDIUM. Under parwa (no HEAVY),
         it must stay MEDIUM and never silently upgrade to HEAVY."""
@@ -152,7 +155,8 @@ class TestTierBoundaryOverflow:
         )
 
     def test_all_light_steps_stay_light_under_parwa_high(
-        self, router: SmartRouter,
+        self,
+        router: SmartRouter,
     ):
         """LIGHT-mapped steps must never be routed to MEDIUM or HEAVY
         even under parwa_high which has access to all tiers."""
@@ -178,7 +182,8 @@ class TestTierBoundaryOverflow:
                 )
 
     def test_all_medium_steps_get_medium_under_parwa_high(
-        self, router: SmartRouter,
+        self,
+        router: SmartRouter,
     ):
         """MEDIUM-mapped steps should get MEDIUM under parwa_high."""
         medium_steps = [
@@ -199,12 +204,12 @@ class TestTierBoundaryOverflow:
                     ModelTier.HEAVY,
                     ModelTier.LIGHT,
                 ), (
-                    f"Step {step.value} got unexpected tier "
-                    f"{decision.tier.value}"
+                    f"Step {step.value} got unexpected tier " f"{decision.tier.value}"
                 )
 
     def test_daily_limit_exhaustion_stays_within_variant_boundary(
-        self, router: SmartRouter,
+        self,
+        router: SmartRouter,
     ):
         """When ALL LIGHT models hit daily limits under mini_parwa,
         the router must NOT upgrade to MEDIUM — it should use
@@ -214,7 +219,8 @@ class TestTierBoundaryOverflow:
             if config.tier == ModelTier.LIGHT:
                 for _ in range(config.max_requests_per_day):
                     router._health.record_success(
-                        config.provider, config.model_id,
+                        config.provider,
+                        config.model_id,
                     )
 
         with patch("app.core.smart_router.logger"):
@@ -224,12 +230,14 @@ class TestTierBoundaryOverflow:
                 AtomicStepType.INTENT_CLASSIFICATION,
             )
         # Must still be LIGHT tier (emergency fallback), never MEDIUM
-        assert decision.tier in (ModelTier.LIGHT, ModelTier.GUARDRAIL), (
-            f"Tier boundary violated: got {decision.tier.value}"
-        )
+        assert decision.tier in (
+            ModelTier.LIGHT,
+            ModelTier.GUARDRAIL,
+        ), f"Tier boundary violated: got {decision.tier.value}"
 
     def test_concurrent_routing_all_respects_variant_boundary(
-        self, router: SmartRouter,
+        self,
+        router: SmartRouter,
     ):
         """Concurrent route() calls must all respect variant boundaries."""
         steps = [
@@ -262,7 +270,8 @@ class TestTierBoundaryOverflow:
             )
 
     def test_guardrail_always_gets_guardrail_tier_regardless_of_variant(
-        self, router: SmartRouter,
+        self,
+        router: SmartRouter,
     ):
         """GUARDRAIL_CHECK must always get GUARDRAIL tier, even under
         mini_parwa which doesn't explicitly list it in its allowed set
@@ -298,7 +307,8 @@ class TestTemplateInjectionPrevention:
     """
 
     def test_malicious_variable_name_in_template_left_as_is(
-        self, template_manager: PromptTemplateManager,
+        self,
+        template_manager: PromptTemplateManager,
     ):
         """Template containing Jinja2 sandbox-escape patterns like
         {{__class__}} must be rendered as plain text, not executed."""
@@ -323,7 +333,8 @@ class TestTemplateInjectionPrevention:
         assert "Alice" in rendered
 
     def test_injection_via_variable_value_not_executed(
-        self, template_manager: PromptTemplateManager,
+        self,
+        template_manager: PromptTemplateManager,
     ):
         """If a variable VALUE contains {{malicious}} markers, they
         must NOT be recursively rendered."""
@@ -343,7 +354,8 @@ class TestTemplateInjectionPrevention:
         assert "Evil Corp" in rendered
 
     def test_template_with_jinja2_control_structures_not_executed(
-        self, template_manager: PromptTemplateManager,
+        self,
+        template_manager: PromptTemplateManager,
     ):
         """Jinja2 control structures like {% for %} and {% if %} must
         be treated as literal text when they appear in template_text."""
@@ -395,7 +407,8 @@ class TestTemplateInjectionPrevention:
         assert "func()" not in variables
 
     def test_render_with_none_variables_dict_does_not_crash(
-        self, template_manager: PromptTemplateManager,
+        self,
+        template_manager: PromptTemplateManager,
     ):
         """BC-008: Passing None for variables must not crash."""
         with patch("app.core.prompt_templates.logger"):
@@ -405,7 +418,8 @@ class TestTemplateInjectionPrevention:
         assert "{{" in rendered  # Variables left unresolved
 
     def test_render_with_empty_variables_dict_does_not_crash(
-        self, template_manager: PromptTemplateManager,
+        self,
+        template_manager: PromptTemplateManager,
     ):
         """BC-008: Passing empty dict must not crash."""
         with patch("app.core.prompt_templates.logger"):
@@ -414,7 +428,8 @@ class TestTemplateInjectionPrevention:
         assert "{{company_name}}" in rendered  # Left as-is
 
     def test_non_string_values_safely_coerced(
-        self, template_manager: PromptTemplateManager,
+        self,
+        template_manager: PromptTemplateManager,
     ):
         """Non-string variable values must be str()-coerced, not cause
         exceptions."""
@@ -438,7 +453,8 @@ class TestTemplateInjectionPrevention:
         assert "None" in rendered  # None coerced
 
     def test_add_template_with_injection_payload_stored_safely(
-        self, template_manager: PromptTemplateManager,
+        self,
+        template_manager: PromptTemplateManager,
     ):
         """Adding a template with injection content must store it
         verbatim without executing anything."""
@@ -458,9 +474,7 @@ class TestTemplateInjectionPrevention:
         assert retrieved.template_text == injection_template.template_text
         # Rendering should leave injection patterns as text
         rendered = template_manager.render_template("custom_inject", {})
-        assert (
-            "{{__class__.__bases__[0].__subclasses__()}}" in rendered
-        )
+        assert "{{__class__.__bases__[0].__subclasses__()}}" in rendered
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -496,8 +510,7 @@ class TestCacheInvalidationRaceCondition:
         mock_db_base.init_db = MagicMock()
 
         # Also mock the TechniqueCache model it imports
-        mock_variant_engine = types.ModuleType(
-            "database.models.variant_engine")
+        mock_variant_engine = types.ModuleType("database.models.variant_engine")
         mock_variant_engine.TechniqueCache = MagicMock
 
         # Only patch if not already imported
@@ -521,6 +534,7 @@ class TestCacheInvalidationRaceCondition:
                 cleanup_expired_entries as _cee,
                 DEFAULT_CACHE_TTL_HOURS as _dtth,
             )
+
             # Bind to self for test methods
             self.safe_parse_json = _spj
             self.validate_cache_result = _vcr
@@ -599,7 +613,9 @@ class TestCacheInvalidationRaceCondition:
         mock_db._store = store  # type: ignore[attr-defined]
         return mock_db
 
-    @pytest.mark.skip(reason="Flaky mock state — covered by test_w8_high_gaps cache isolation tests")
+    @pytest.mark.skip(
+        reason="Flaky mock state — covered by test_w8_high_gaps cache isolation tests"
+    )
     def test_invalidate_removes_entry_so_get_returns_none(self):
         """After invalidate_cached_result, get_cached_result must
         return None for the same key."""
@@ -698,11 +714,11 @@ class TestCacheInvalidationRaceCondition:
             assert len(errors) == 0, f"Errors during concurrent ops: {errors}"
             # All reads after invalidation must be None
             for r in results:
-                assert r is None, (
-                    f"Stale data returned after invalidation: {r}"
-                )
+                assert r is None, f"Stale data returned after invalidation: {r}"
 
-    @pytest.mark.skip(reason="Flaky mock state — covered by test_w8_high_gaps cache isolation tests")
+    @pytest.mark.skip(
+        reason="Flaky mock state — covered by test_w8_high_gaps cache isolation tests"
+    )
     def test_upsert_after_invalidation_serves_new_data(self):
         """After invalidation + re-caching, the new value must be
         served — not the old one."""
@@ -743,9 +759,9 @@ class TestCacheInvalidationRaceCondition:
                 query_hash="hash_draft_42",
             )
             assert result is not None
-            assert result["response"] == "new_response_v2", (
-                f"Expected new_response_v2 but got {result}"
-            )
+            assert (
+                result["response"] == "new_response_v2"
+            ), f"Expected new_response_v2 but got {result}"
 
     def test_invalidate_nonexistent_key_returns_false_gracefully(self):
         """Invalidating a key that doesn't exist must return False
@@ -782,9 +798,11 @@ class TestCacheInvalidationRaceCondition:
         """BC-008: If DB raises during delete, must return False."""
         mock_entry = MagicMock()
         mock_db = MagicMock()
-        mock_db.query = MagicMock(return_value=MagicMock(
-            first=MagicMock(return_value=mock_entry),
-        ))
+        mock_db.query = MagicMock(
+            return_value=MagicMock(
+                first=MagicMock(return_value=mock_entry),
+            )
+        )
         mock_db.delete = MagicMock(
             side_effect=Exception("Constraint violation"),
         )
@@ -813,7 +831,9 @@ class TestCacheInvalidationRaceCondition:
         # Chain through MagicMock auto-attributes:
         # db.query(X).filter_by(...).first() → mock_entry
         mock_db = MagicMock()
-        mock_db.query.return_value.filter_by.return_value.first.return_value = mock_entry
+        mock_db.query.return_value.filter_by.return_value.first.return_value = (
+            mock_entry
+        )
         mock_db.commit = MagicMock()
 
         with patch("app.services.technique_cache_service.logger"):
@@ -830,14 +850,15 @@ class TestCacheInvalidationRaceCondition:
         """get_cached_result must return None for expired entries."""
         mock_entry = MagicMock()
         mock_entry.cached_result = json.dumps({"data": "old"})
-        mock_entry.ttl_expires_at = datetime.now(
-            timezone.utc) - timedelta(hours=1)
+        mock_entry.ttl_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
         mock_entry.hit_count = 5
 
         # Chain through MagicMock auto-attributes:
         # db.query(X).filter_by(...).first() → mock_entry
         mock_db = MagicMock()
-        mock_db.query.return_value.filter_by.return_value.first.return_value = mock_entry
+        mock_db.query.return_value.filter_by.return_value.first.return_value = (
+            mock_entry
+        )
 
         with patch("app.services.technique_cache_service.logger"):
             result = self.get_cached_result(
@@ -853,9 +874,11 @@ class TestCacheInvalidationRaceCondition:
         from app.exceptions import ParwaBaseError
 
         mock_db = MagicMock()
-        mock_db.query = MagicMock(return_value=MagicMock(
-            first=MagicMock(return_value=None),
-        ))
+        mock_db.query = MagicMock(
+            return_value=MagicMock(
+                first=MagicMock(return_value=None),
+            )
+        )
 
         # Non-serializable object (a set)
         with patch("app.services.technique_cache_service.logger"):

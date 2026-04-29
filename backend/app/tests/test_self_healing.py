@@ -168,24 +168,24 @@ class TestHealingRules:
         assert "confidence_drop_lower" in ids
 
     def test_set_custom_rules(self, engine):
-        custom = [HealingRule(
-            rule_id="custom_rule",
-            condition_type="custom_condition",
-            action_type="custom_action",
-            priority=1,
-        )]
+        custom = [
+            HealingRule(
+                rule_id="custom_rule",
+                condition_type="custom_condition",
+                action_type="custom_action",
+                priority=1,
+            )
+        ]
         engine.set_rules(COMPANY_ID, custom)
         rules = engine.get_rules(COMPANY_ID)
         assert len(rules) == 1
         assert rules[0].rule_id == "custom_rule"
 
     def test_enable_rule(self, engine):
-        result = engine.enable_rule(
-            COMPANY_ID, "consecutive_failures_disable", False)
+        result = engine.enable_rule(COMPANY_ID, "consecutive_failures_disable", False)
         assert result is True
         rules = engine.get_rules(COMPANY_ID)
-        rule = [r for r in rules if r.rule_id
-                == "consecutive_failures_disable"][0]
+        rule = [r for r in rules if r.rule_id == "consecutive_failures_disable"][0]
         assert rule.enabled is False
 
     def test_enable_nonexistent_rule(self, engine):
@@ -195,8 +195,9 @@ class TestHealingRules:
     def test_rules_isolated_per_company(self, engine):
         engine.enable_rule(COMPANY_ID, "consecutive_failures_disable", False)
         rules_other = engine.get_rules(ANOTHER_COMPANY)
-        rule = [r for r in rules_other if r.rule_id
-                == "consecutive_failures_disable"][0]
+        rule = [r for r in rules_other if r.rule_id == "consecutive_failures_disable"][
+            0
+        ]
         assert rule.enabled is True  # Still enabled for other company
 
 
@@ -208,68 +209,107 @@ class TestHealingRules:
 class TestRecordQueryResult:
     def test_record_success_returns_list(self, engine):
         actions = engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=85.0, latency_ms=100.0,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=85.0,
+            latency_ms=100.0,
         )
         assert isinstance(actions, list)
 
     def test_record_failure_returns_list(self, engine):
         actions = engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=30.0, latency_ms=100.0, error="timeout",
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=30.0,
+            latency_ms=100.0,
+            error="timeout",
         )
         assert isinstance(actions, list)
 
     def test_record_creates_provider_state(self, engine):
         engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=85.0, latency_ms=100.0,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=85.0,
+            latency_ms=100.0,
         )
-        ps = engine.get_provider_state(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps is not None
         assert ps.provider == PROVIDER
 
     def test_record_success_resets_failures(self, engine):
         engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=85.0, latency_ms=100.0, error="fail",
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=85.0,
+            latency_ms=100.0,
+            error="fail",
         )
         engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=85.0, latency_ms=100.0,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=85.0,
+            latency_ms=100.0,
         )
-        ps = engine.get_provider_state(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.consecutive_failures == 0
 
     def test_record_failure_increments_failures(self, engine):
         for _ in range(3):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=50.0, latency_ms=100.0, error="timeout",
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=50.0,
+                latency_ms=100.0,
+                error="timeout",
             )
-        ps = engine.get_provider_state(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.consecutive_failures == 3
 
     def test_record_updates_last_success(self, engine):
         engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=85.0, latency_ms=100.0,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=85.0,
+            latency_ms=100.0,
         )
-        ps = engine.get_provider_state(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.last_success is not None
         assert _parse_iso(ps.last_success) is not None
 
     def test_record_updates_last_failure(self, engine):
         engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=50.0, latency_ms=100.0, error="timeout",
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=50.0,
+            latency_ms=100.0,
+            error="timeout",
         )
-        ps = engine.get_provider_state(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.last_failure is not None
 
 
@@ -282,21 +322,31 @@ class TestConsecutiveFailures:
     def test_no_action_below_limit(self, engine):
         for _ in range(4):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=50.0, latency_ms=100.0, error="fail",
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=50.0,
+                latency_ms=100.0,
+                error="fail",
             )
-        ps = engine.get_provider_state(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.status != "disabled"
 
     def test_disable_at_limit(self, engine):
         for _ in range(5):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=50.0, latency_ms=100.0, error="fail",
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=50.0,
+                latency_ms=100.0,
+                error="fail",
             )
-        ps = engine.get_provider_state(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.status == "disabled"
         assert ps.traffic_percentage == 0
         assert ps.disabled_at is not None
@@ -304,26 +354,36 @@ class TestConsecutiveFailures:
     def test_disable_creates_healing_action(self, engine):
         for _ in range(5):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=50.0, latency_ms=100.0, error="fail",
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=50.0,
+                latency_ms=100.0,
+                error="fail",
             )
         history = engine.get_healing_history(COMPANY_ID)
         disable_actions = [
-            a for a in history
-            if a.action_type == ActionType.PROVIDER_DISABLE.value
+            a for a in history if a.action_type == ActionType.PROVIDER_DISABLE.value
         ]
         assert len(disable_actions) > 0
 
     def test_failure_count_in_action_details(self, engine):
         for _ in range(5):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=50.0, latency_ms=100.0, error="fail",
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=50.0,
+                latency_ms=100.0,
+                error="fail",
             )
         history = engine.get_healing_history(COMPANY_ID)
         disable_action = [
-            a for a in history
-            if a.action_type == ActionType.PROVIDER_DISABLE.value
+            a for a in history if a.action_type == ActionType.PROVIDER_DISABLE.value
         ][0]
         assert disable_action.details["consecutive_failures"] >= 5
 
@@ -338,16 +398,26 @@ class TestErrorSpike:
         # First 20 successful, then 20 failures
         for _ in range(20):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=85.0, latency_ms=100.0,
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=85.0,
+                latency_ms=100.0,
             )
         for _ in range(20):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=50.0, latency_ms=100.0, error="fail",
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=50.0,
+                latency_ms=100.0,
+                error="fail",
             )
-        ps = engine.get_provider_state(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         # Should be disabled due to both consecutive failures AND error spike
         assert ps.status == "disabled"
 
@@ -356,7 +426,11 @@ class TestErrorSpike:
         for i in range(50):
             error = "fail" if i % 10 == 0 else None
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
                 confidence_score=85.0 if not error else 50.0,
                 latency_ms=100.0,
                 error=error,
@@ -376,32 +450,45 @@ class TestLatencySpike:
         # Normal latencies first
         for _ in range(15):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=85.0, latency_ms=50.0,
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=85.0,
+                latency_ms=50.0,
             )
         # Spike latencies
         for _ in range(15):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=85.0, latency_ms=500.0,
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=85.0,
+                latency_ms=500.0,
             )
         history = engine.get_healing_history(COMPANY_ID)
         switch_actions = [
-            a for a in history
-            if a.action_type == ActionType.PROVIDER_SWITCH.value
+            a for a in history if a.action_type == ActionType.PROVIDER_SWITCH.value
         ]
         assert len(switch_actions) > 0
 
     def test_no_spike_steady_latency(self, engine):
         for _ in range(30):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=85.0, latency_ms=100.0,
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=85.0,
+                latency_ms=100.0,
             )
         history = engine.get_healing_history(COMPANY_ID)
         switch_actions = [
-            a for a in history
-            if a.action_type == ActionType.PROVIDER_SWITCH.value
+            a for a in history if a.action_type == ActionType.PROVIDER_SWITCH.value
         ]
         assert len(switch_actions) == 0
 
@@ -415,8 +502,13 @@ class TestConfidenceDrop:
     def test_threshold_lowered_on_drop(self, engine):
         for _ in range(10):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=70.0, latency_ms=100.0,  # below 85
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=70.0,
+                latency_ms=100.0,  # below 85
             )
         threshold = engine.get_current_threshold(COMPANY_ID, VARIANT_PARWA)
         assert threshold < 85.0  # Should be lowered
@@ -425,8 +517,13 @@ class TestConfidenceDrop:
         # Mini parwa: default 95, floor 80
         for _ in range(50):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_MINI, PROVIDER, MODEL_ID, TIER,
-                confidence_score=30.0, latency_ms=100.0,
+                COMPANY_ID,
+                VARIANT_MINI,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=30.0,
+                latency_ms=100.0,
             )
         threshold = engine.get_current_threshold(COMPANY_ID, VARIANT_MINI)
         assert threshold >= _floor_threshold(VARIANT_MINI)
@@ -434,13 +531,17 @@ class TestConfidenceDrop:
     def test_confidence_action_recorded(self, engine):
         for _ in range(10):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=70.0, latency_ms=100.0,
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=70.0,
+                latency_ms=100.0,
             )
         history = engine.get_healing_history(COMPANY_ID)
         threshold_actions = [
-            a for a in history
-            if a.action_type == ActionType.THRESHOLD_LOWER.value
+            a for a in history if a.action_type == ActionType.THRESHOLD_LOWER.value
         ]
         assert len(threshold_actions) > 0
 
@@ -455,8 +556,13 @@ class TestConfidenceRecovery:
         # First lower the threshold
         for _ in range(10):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=70.0, latency_ms=100.0,
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=70.0,
+                latency_ms=100.0,
             )
         lowered = engine.get_current_threshold(COMPANY_ID, VARIANT_PARWA)
         assert lowered < 85.0
@@ -464,8 +570,13 @@ class TestConfidenceRecovery:
         # Now recovery: 20 consecutive high scores
         for _ in range(20):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=95.0, latency_ms=100.0,
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=95.0,
+                latency_ms=100.0,
             )
         restored = engine.get_current_threshold(COMPANY_ID, VARIANT_PARWA)
         assert restored == 85.0  # Restored to original
@@ -479,13 +590,19 @@ class TestConfidenceRecovery:
 class TestRateLimitHandling:
     def test_rate_limit_triggers_switch(self, engine):
         engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=50.0, latency_ms=100.0,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=50.0,
+            latency_ms=100.0,
             error="rate_limit_exceeded",
         )
         history = engine.get_healing_history(COMPANY_ID)
         switch_actions = [
-            a for a in history
+            a
+            for a in history
             if a.action_type == ActionType.PROVIDER_SWITCH.value
             and a.details.get("message", "").find("Rate limit") >= 0
         ]
@@ -493,13 +610,19 @@ class TestRateLimitHandling:
 
     def test_non_rate_limit_error_no_switch(self, engine):
         engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=50.0, latency_ms=100.0,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=50.0,
+            latency_ms=100.0,
             error="generic_error",
         )
         history = engine.get_healing_history(COMPANY_ID)
         rate_switches = [
-            a for a in history
+            a
+            for a in history
             if a.action_type == ActionType.PROVIDER_SWITCH.value
             and "rate_limit" in a.condition_type
         ]
@@ -516,20 +639,29 @@ class TestProviderRecovery:
         # Disable provider first
         for _ in range(5):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=50.0, latency_ms=100.0, error="fail",
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=50.0,
+                latency_ms=100.0,
+                error="fail",
             )
-        ps = engine.get_provider_state(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.status == "disabled"
 
         # Now succeed — should start recovery
         engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=85.0, latency_ms=100.0,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=85.0,
+            latency_ms=100.0,
         )
-        ps = engine.get_provider_state(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.status == "recovering"
         assert ps.traffic_percentage > 0
 
@@ -537,34 +669,54 @@ class TestProviderRecovery:
         # Disable first
         for _ in range(5):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=50.0, latency_ms=100.0, error="fail",
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=50.0,
+                latency_ms=100.0,
+                error="fail",
             )
 
         # Recovery stage 1
         engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=85.0, latency_ms=100.0,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=85.0,
+            latency_ms=100.0,
         )
-        ps = engine.get_provider_state(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.recovery_stage >= 1
         assert ps.traffic_percentage > 0
 
     def test_recovery_records_action(self, engine):
         for _ in range(5):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=50.0, latency_ms=100.0, error="fail",
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=50.0,
+                latency_ms=100.0,
+                error="fail",
             )
         engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=85.0, latency_ms=100.0,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=85.0,
+            latency_ms=100.0,
         )
         history = engine.get_healing_history(COMPANY_ID)
         recovery_actions = [
-            a for a in history
-            if a.action_type == ActionType.TRAFFIC_RAMP_UP.value
+            a for a in history if a.action_type == ActionType.TRAFFIC_RAMP_UP.value
         ]
         assert len(recovery_actions) > 0
 
@@ -577,39 +729,52 @@ class TestProviderRecovery:
 class TestManualEnableDisable:
     def test_manual_disable(self, engine):
         result = engine.manually_disable_provider(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
             reason="admin_maintenance",
         )
         assert result is True
-        ps = engine.get_provider_state(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.status == "disabled"
         assert ps.disabled_reason == "admin_maintenance"
         assert ps.traffic_percentage == 0
 
     def test_manual_enable(self, engine):
         engine.manually_disable_provider(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
         )
         result = engine.manually_enable_provider(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
         )
         assert result is True
-        ps = engine.get_provider_state(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.status == "healthy"
         assert ps.traffic_percentage == 100
         assert ps.consecutive_failures == 0
 
     def test_manual_enable_nonexistent(self, engine):
         result = engine.manually_enable_provider(
-            COMPANY_ID, VARIANT_PARWA, "nonexistent", "model",
+            COMPANY_ID,
+            VARIANT_PARWA,
+            "nonexistent",
+            "model",
         )
         assert result is False
 
     def test_manual_disable_records_action(self, engine):
         engine.manually_disable_provider(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
         )
         history = engine.get_healing_history(COMPANY_ID)
         manual = [a for a in history if a.rule_id == "manual"]
@@ -630,8 +795,14 @@ class TestHealingHistory:
     def test_history_records_actions(self, engine):
         for _ in range(5):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=50.0, latency_ms=100.0, error="fail",
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=50.0,
+                latency_ms=100.0,
+                error="fail",
             )
         history = engine.get_healing_history(COMPANY_ID)
         assert len(history) > 0
@@ -639,8 +810,14 @@ class TestHealingHistory:
     def test_history_has_required_fields(self, engine):
         for _ in range(5):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=50.0, latency_ms=100.0, error="fail",
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=50.0,
+                latency_ms=100.0,
+                error="fail",
             )
         history = engine.get_healing_history(COMPANY_ID)
         action = history[0]
@@ -653,17 +830,27 @@ class TestHealingHistory:
     def test_history_isolated_per_company(self, engine):
         for _ in range(5):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=50.0, latency_ms=100.0, error="fail",
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=50.0,
+                latency_ms=100.0,
+                error="fail",
             )
         other_history = engine.get_healing_history(ANOTHER_COMPANY)
         assert other_history == []
 
     def test_history_pruned_to_max(self, engine):
         from app.core.self_healing_engine import _MAX_HEALING_HISTORY
+
         for _ in range(_MAX_HEALING_HISTORY + 20):
             engine.manually_disable_provider(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID,
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
                 reason=f"test_{_}",
             )
         history = engine.get_healing_history(COMPANY_ID)
@@ -683,14 +870,22 @@ class TestActiveHealings:
     def test_active_after_disable(self, engine):
         for _ in range(5):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=50.0, latency_ms=100.0, error="fail",
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=50.0,
+                latency_ms=100.0,
+                error="fail",
             )
         active = engine.get_active_healings(COMPANY_ID)
         # At least one action should be in triggered/in_progress state
         triggered = [
-            a for a in active
-            if a.status in (
+            a
+            for a in active
+            if a.status
+            in (
                 HealingStatus.TRIGGERED.value,
                 HealingStatus.IN_PROGRESS.value,
             )
@@ -710,8 +905,13 @@ class TestVariantHealthSummary:
 
     def test_healthy_variant(self, engine):
         engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=90.0, latency_ms=100.0,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=90.0,
+            latency_ms=100.0,
         )
         summaries = engine.get_variant_health(COMPANY_ID)
         parwa = [s for s in summaries if s.variant == VARIANT_PARWA]
@@ -722,8 +922,14 @@ class TestVariantHealthSummary:
     def test_unhealthy_variant(self, engine):
         for _ in range(5):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=50.0, latency_ms=100.0, error="fail",
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=50.0,
+                latency_ms=100.0,
+                error="fail",
             )
         summaries = engine.get_variant_health(COMPANY_ID)
         parwa = [s for s in summaries if s.variant == VARIANT_PARWA]
@@ -733,8 +939,13 @@ class TestVariantHealthSummary:
 
     def test_threshold_in_summary(self, engine):
         engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=90.0, latency_ms=100.0,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=90.0,
+            latency_ms=100.0,
         )
         summaries = engine.get_variant_health(COMPANY_ID)
         parwa = [s for s in summaries if s.variant == VARIANT_PARWA][0]
@@ -743,8 +954,13 @@ class TestVariantHealthSummary:
 
     def test_provider_status_in_summary(self, engine):
         engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=90.0, latency_ms=100.0,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=90.0,
+            latency_ms=100.0,
         )
         summaries = engine.get_variant_health(COMPANY_ID)
         parwa = [s for s in summaries if s.variant == VARIANT_PARWA][0]
@@ -765,8 +981,13 @@ class TestSystemHealth:
 
     def test_system_tracks_companies(self, engine):
         engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=90.0, latency_ms=100.0,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=90.0,
+            latency_ms=100.0,
         )
         health = engine.get_system_health()
         assert health["total_companies"] >= 1
@@ -778,8 +999,14 @@ class TestSystemHealth:
     def test_system_includes_company_summaries(self, engine):
         for _ in range(5):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=50.0, latency_ms=100.0, error="fail",
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=50.0,
+                latency_ms=100.0,
+                error="fail",
             )
         health = engine.get_system_health()
         assert COMPANY_ID in health["companies"]
@@ -795,17 +1022,29 @@ class TestPerVariantIsolation:
         # Disable in parwa
         for _ in range(5):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=50.0, latency_ms=100.0, error="fail",
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=50.0,
+                latency_ms=100.0,
+                error="fail",
             )
         ps_parwa = engine.get_provider_state(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
         )
         assert ps_parwa.status == "disabled"
 
         # Same provider in mini_parwa should be fine
         ps_mini = engine.get_provider_state(
-            COMPANY_ID, VARIANT_MINI, PROVIDER, MODEL_ID,
+            COMPANY_ID,
+            VARIANT_MINI,
+            PROVIDER,
+            MODEL_ID,
         )
         assert ps_mini is None  # Never used in mini_parwa
 
@@ -820,8 +1059,13 @@ class TestPerVariantIsolation:
         # Drop in parwa
         for _ in range(10):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=70.0, latency_ms=100.0,
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=70.0,
+                latency_ms=100.0,
             )
         thresh_parwa = engine.get_current_threshold(COMPANY_ID, VARIANT_PARWA)
         thresh_mini = engine.get_current_threshold(COMPANY_ID, VARIANT_MINI)
@@ -837,18 +1081,26 @@ class TestPerVariantIsolation:
 class TestRecordProviderStatus:
     def test_record_unhealthy_status(self, engine):
         engine.record_provider_status(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, "unhealthy",
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            "unhealthy",
         )
-        ps = engine.get_provider_state(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.status == "unhealthy"
 
     def test_record_creates_provider_if_missing(self, engine):
         engine.record_provider_status(
-            COMPANY_ID, VARIANT_PARWA, "cerebras", "llama-8b", "degraded",
+            COMPANY_ID,
+            VARIANT_PARWA,
+            "cerebras",
+            "llama-8b",
+            "degraded",
         )
         ps = engine.get_provider_state(
-            COMPANY_ID, VARIANT_PARWA, "cerebras", "llama-8b")
+            COMPANY_ID, VARIANT_PARWA, "cerebras", "llama-8b"
+        )
         assert ps is not None
         assert ps.provider == "cerebras"
 
@@ -862,15 +1114,25 @@ class TestEdgeCases:
     def test_empty_company_id(self, engine):
         # Should not crash
         actions = engine.record_query_result(
-            "", VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=85.0, latency_ms=100.0,
+            "",
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=85.0,
+            latency_ms=100.0,
         )
         assert isinstance(actions, list)
 
     def test_unknown_variant(self, engine):
         engine.record_query_result(
-            COMPANY_ID, "unknown_variant", PROVIDER, MODEL_ID, TIER,
-            confidence_score=85.0, latency_ms=100.0,
+            COMPANY_ID,
+            "unknown_variant",
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=85.0,
+            latency_ms=100.0,
         )
         thresh = engine.get_current_threshold(COMPANY_ID, "unknown_variant")
         assert thresh == 85.0  # Default
@@ -878,8 +1140,14 @@ class TestEdgeCases:
     def test_reset_clears_everything(self, engine):
         for _ in range(5):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=50.0, latency_ms=100.0, error="fail",
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=50.0,
+                latency_ms=100.0,
+                error="fail",
             )
         assert len(engine.get_healing_history(COMPANY_ID)) > 0
         engine.reset()
@@ -896,28 +1164,49 @@ class TestEdgeCases:
         assert engine.get_variant_health("nonexistent") == []
 
     def test_provider_state_unknown(self, engine):
-        assert engine.get_provider_state(
-            COMPANY_ID, VARIANT_PARWA, "nope", "nope",
-        ) is None
+        assert (
+            engine.get_provider_state(
+                COMPANY_ID,
+                VARIANT_PARWA,
+                "nope",
+                "nope",
+            )
+            is None
+        )
 
     def test_zero_latency(self, engine):
         actions = engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=85.0, latency_ms=0.0,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=85.0,
+            latency_ms=0.0,
         )
         assert isinstance(actions, list)
 
     def test_negative_confidence(self, engine):
         actions = engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=-10.0, latency_ms=100.0,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=-10.0,
+            latency_ms=100.0,
         )
         assert isinstance(actions, list)
 
     def test_confidence_above_100(self, engine):
         actions = engine.record_query_result(
-            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-            confidence_score=150.0, latency_ms=100.0,
+            COMPANY_ID,
+            VARIANT_PARWA,
+            PROVIDER,
+            MODEL_ID,
+            TIER,
+            confidence_score=150.0,
+            latency_ms=100.0,
         )
         assert isinstance(actions, list)
 
@@ -925,8 +1214,13 @@ class TestEdgeCases:
         # Sequential calls should not crash
         for i in range(10):
             engine.record_query_result(
-                COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
-                confidence_score=85.0, latency_ms=float(50 + i),
+                COMPANY_ID,
+                VARIANT_PARWA,
+                PROVIDER,
+                MODEL_ID,
+                TIER,
+                confidence_score=85.0,
+                latency_ms=float(50 + i),
             )
         history = engine.get_healing_history(COMPANY_ID)
         assert isinstance(history, list)
@@ -940,15 +1234,20 @@ class TestEdgeCases:
 class TestDataClassStructure:
     def test_healing_rule(self):
         rule = HealingRule(
-            rule_id="test", condition_type="test_cond",
-            action_type="test_act", priority=5,
+            rule_id="test",
+            condition_type="test_cond",
+            action_type="test_act",
+            priority=5,
         )
         assert rule.enabled is True
 
     def test_healing_action(self):
         action = HealingAction(
-            timestamp=_now_utc(), company_id="co", variant="parwa",
-            condition_type="test", action_type="test_act",
+            timestamp=_now_utc(),
+            company_id="co",
+            variant="parwa",
+            condition_type="test",
+            action_type="test_act",
         )
         assert action.status == HealingStatus.TRIGGERED.value
 
@@ -969,8 +1268,10 @@ class TestDataClassStructure:
 
     def test_threshold_adjustment(self):
         ta = ThresholdAdjustment(
-            original_threshold=85.0, current_threshold=80.0,
-            adjusted_at=_now_utc(), reason="test",
+            original_threshold=85.0,
+            current_threshold=80.0,
+            adjusted_at=_now_utc(),
+            reason="test",
         )
         assert ta.current_threshold == 80.0
 
@@ -993,18 +1294,19 @@ class TestRealConcurrency:
             try:
                 for j in range(20):
                     engine.record_query_result(
-                        "co_concurrent", "parwa",
-                        f"provider_{wid % 3}", f"model_{wid % 3}", "medium",
-                        90.0, 100.0 + wid + j,
+                        "co_concurrent",
+                        "parwa",
+                        f"provider_{wid % 3}",
+                        f"model_{wid % 3}",
+                        "medium",
+                        90.0,
+                        100.0 + wid + j,
                         error="timeout" if j % 7 == 0 else None,
                     )
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=worker, args=(i,))
-            for i in range(5)
-        ]
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(5)]
         for t in threads:
             t.start()
         for t in threads:
@@ -1027,8 +1329,13 @@ class TestRealConcurrency:
             try:
                 for i in range(10):
                     engine.record_query_result(
-                        "co_rw", "parwa", "google", "gemini-pro", "medium",
-                        90.0 if i % 2 == 0 else 40.0, 100.0,
+                        "co_rw",
+                        "parwa",
+                        "google",
+                        "gemini-pro",
+                        "medium",
+                        90.0 if i % 2 == 0 else 40.0,
+                        100.0,
                         error="fail" if i % 5 == 0 else None,
                     )
             except Exception as e:
@@ -1071,8 +1378,14 @@ class TestMidRecoveryFailure:
         # First, disable provider via consecutive failures
         for i in range(5):
             engine.record_query_result(
-                "co_mid_rec", "parwa", "google", "gemini-pro", "medium",
-                50.0, 100.0, error="timeout",
+                "co_mid_rec",
+                "parwa",
+                "google",
+                "gemini-pro",
+                "medium",
+                50.0,
+                100.0,
+                error="timeout",
             )
 
         health = engine.get_variant_health("co_mid_rec")
@@ -1085,8 +1398,13 @@ class TestMidRecoveryFailure:
             return_value=9999,
         ):
             engine.record_query_result(
-                "co_mid_rec", "parwa", "google", "gemini-pro", "medium",
-                90.0, 100.0,
+                "co_mid_rec",
+                "parwa",
+                "google",
+                "gemini-pro",
+                "medium",
+                90.0,
+                100.0,
             )
 
         # Should be in recovering state
@@ -1097,8 +1415,14 @@ class TestMidRecoveryFailure:
         # Now send a failure during recovery
         # (no mock — cooldown is real, but the failure just increments consecutive_failures)
         engine.record_query_result(
-            "co_mid_rec", "parwa", "google", "gemini-pro", "medium",
-            50.0, 100.0, error="timeout",
+            "co_mid_rec",
+            "parwa",
+            "google",
+            "gemini-pro",
+            "medium",
+            50.0,
+            100.0,
+            error="timeout",
         )
 
         # Provider stays recovering (failure doesn't auto-re-disable)
@@ -1108,20 +1432,23 @@ class TestMidRecoveryFailure:
         # The design: failures during recovery don't revert to disabled;
         # they only increment consecutive_failures. Provider stays recovering
         # until explicitly disabled by a rule check.
-        assert parwa.provider_status["google:gemini-pro"] in (
-            "recovering", "disabled")
+        assert parwa.provider_status["google:gemini-pro"] in ("recovering", "disabled")
 
-    def test_failure_mid_recovery_accumulates_consecutive_failures(
-            self,
-            engine):
+    def test_failure_mid_recovery_accumulates_consecutive_failures(self, engine):
         """Consecutive failures during recovery should keep incrementing."""
         import unittest.mock
 
         # Disable provider
         for i in range(5):
             engine.record_query_result(
-                "co_mid_acc", "parwa", "google", "gemini-pro", "medium",
-                50.0, 100.0, error="timeout",
+                "co_mid_acc",
+                "parwa",
+                "google",
+                "gemini-pro",
+                "medium",
+                50.0,
+                100.0,
+                error="timeout",
             )
 
         # Recover to stage 1
@@ -1130,15 +1457,26 @@ class TestMidRecoveryFailure:
             return_value=9999,
         ):
             engine.record_query_result(
-                "co_mid_acc", "parwa", "google", "gemini-pro", "medium",
-                90.0, 100.0,
+                "co_mid_acc",
+                "parwa",
+                "google",
+                "gemini-pro",
+                "medium",
+                90.0,
+                100.0,
             )
 
         # Send 3 more failures
         for i in range(3):
             engine.record_query_result(
-                "co_mid_acc", "parwa", "google", "gemini-pro", "medium",
-                50.0, 100.0, error="timeout",
+                "co_mid_acc",
+                "parwa",
+                "google",
+                "gemini-pro",
+                "medium",
+                50.0,
+                100.0,
+                error="timeout",
             )
 
         with engine._lock:
@@ -1163,8 +1501,14 @@ class TestFullRecoveryProgression:
         # Disable provider first
         for i in range(5):
             engine.record_query_result(
-                "co_full_rec", "parwa", "google", "gemini-pro", "medium",
-                50.0, 100.0, error="timeout",
+                "co_full_rec",
+                "parwa",
+                "google",
+                "gemini-pro",
+                "medium",
+                50.0,
+                100.0,
+                error="timeout",
             )
 
         health = engine.get_variant_health("co_full_rec")
@@ -1177,8 +1521,13 @@ class TestFullRecoveryProgression:
             return_value=9999,
         ):
             engine.record_query_result(
-                "co_full_rec", "parwa", "google", "gemini-pro", "medium",
-                90.0, 100.0,
+                "co_full_rec",
+                "parwa",
+                "google",
+                "gemini-pro",
+                "medium",
+                90.0,
+                100.0,
             )
         with engine._lock:
             ps = engine._state["co_full_rec"]["parwa"].provider_states[
@@ -1193,8 +1542,13 @@ class TestFullRecoveryProgression:
             return_value=9999,
         ):
             engine.record_query_result(
-                "co_full_rec", "parwa", "google", "gemini-pro", "medium",
-                90.0, 100.0,
+                "co_full_rec",
+                "parwa",
+                "google",
+                "gemini-pro",
+                "medium",
+                90.0,
+                100.0,
             )
         with engine._lock:
             assert ps.traffic_percentage == 25
@@ -1205,8 +1559,13 @@ class TestFullRecoveryProgression:
             return_value=9999,
         ):
             engine.record_query_result(
-                "co_full_rec", "parwa", "google", "gemini-pro", "medium",
-                90.0, 100.0,
+                "co_full_rec",
+                "parwa",
+                "google",
+                "gemini-pro",
+                "medium",
+                90.0,
+                100.0,
             )
         with engine._lock:
             assert ps.traffic_percentage == 50
@@ -1217,8 +1576,13 @@ class TestFullRecoveryProgression:
             return_value=9999,
         ):
             engine.record_query_result(
-                "co_full_rec", "parwa", "google", "gemini-pro", "medium",
-                90.0, 100.0,
+                "co_full_rec",
+                "parwa",
+                "google",
+                "gemini-pro",
+                "medium",
+                90.0,
+                100.0,
             )
         with engine._lock:
             assert ps.status == "healthy"
@@ -1240,18 +1604,28 @@ class TestCooldownEnforcement:
         # Trigger consecutive failures disable
         for i in range(5):
             engine.record_query_result(
-                "co_cd", "parwa", "google", "gemini-pro", "medium",
-                50.0, 100.0, error="timeout",
+                "co_cd",
+                "parwa",
+                "google",
+                "gemini-pro",
+                "medium",
+                50.0,
+                100.0,
+                error="timeout",
             )
 
         # One more failure — cooldown active, should NOT produce new action
         actions = engine.record_query_result(
-            "co_cd", "parwa", "google", "gemini-pro", "medium",
-            50.0, 100.0, error="timeout",
+            "co_cd",
+            "parwa",
+            "google",
+            "gemini-pro",
+            "medium",
+            50.0,
+            100.0,
+            error="timeout",
         )
-        disable_actions = [
-            a for a in actions if a.action_type == "provider_disable"
-        ]
+        disable_actions = [a for a in actions if a.action_type == "provider_disable"]
         assert len(disable_actions) == 0
 
     def test_cooldown_expired_allows_action(self, engine):
@@ -1261,8 +1635,14 @@ class TestCooldownEnforcement:
         # Trigger disable
         for i in range(5):
             engine.record_query_result(
-                "co_cd2", "parwa", "google", "gemini-pro", "medium",
-                50.0, 100.0, error="timeout",
+                "co_cd2",
+                "parwa",
+                "google",
+                "gemini-pro",
+                "medium",
+                50.0,
+                100.0,
+                error="timeout",
             )
 
         # Mock cooldown as expired
@@ -1271,14 +1651,18 @@ class TestCooldownEnforcement:
             return_value=9999,
         ):
             actions = engine.record_query_result(
-                "co_cd2", "parwa", "google", "gemini-pro", "medium",
-                50.0, 100.0, error="timeout",
+                "co_cd2",
+                "parwa",
+                "google",
+                "gemini-pro",
+                "medium",
+                50.0,
+                100.0,
+                error="timeout",
             )
         # With cooldown expired and consecutive_failures >= threshold,
         # it should fire disable action again
-        disable_actions = [
-            a for a in actions if a.action_type == "provider_disable"
-        ]
+        disable_actions = [a for a in actions if a.action_type == "provider_disable"]
         assert len(disable_actions) >= 1
 
 
@@ -1290,21 +1674,30 @@ class TestCooldownEnforcement:
 class TestVariantIsolationAdvanced:
     """Gap 14: Same provider disabled in one variant, healthy in another."""
 
-    def test_same_provider_disabled_in_parwa_healthy_in_mini_parwa(
-            self,
-            engine):
+    def test_same_provider_disabled_in_parwa_healthy_in_mini_parwa(self, engine):
         """Same provider disabled in parwa should be healthy in mini_parwa."""
         # Disable google in parwa
         for i in range(5):
             engine.record_query_result(
-                "co_iso", "parwa", "google", "gemini-pro", "medium",
-                50.0, 100.0, error="timeout",
+                "co_iso",
+                "parwa",
+                "google",
+                "gemini-pro",
+                "medium",
+                50.0,
+                100.0,
+                error="timeout",
             )
 
         # Use google successfully in mini_parwa
         engine.record_query_result(
-            "co_iso", "mini_parwa", "google", "gemini-pro", "light",
-            96.0, 50.0,
+            "co_iso",
+            "mini_parwa",
+            "google",
+            "gemini-pro",
+            "light",
+            96.0,
+            50.0,
         )
 
         health = engine.get_variant_health("co_iso")
@@ -1355,11 +1748,15 @@ class TestHistoryPruningBoundary:
 
     def test_exactly_at_max_no_prune(self, engine):
         from app.core.self_healing_engine import _MAX_HEALING_HISTORY
+
         for i in range(_MAX_HEALING_HISTORY):
             action = HealingAction(
-                timestamp=_now_utc(), company_id="co_hprune",
-                variant="parwa", condition_type="test",
-                action_type="no_action", rule_id=f"rule_{i}",
+                timestamp=_now_utc(),
+                company_id="co_hprune",
+                variant="parwa",
+                condition_type="test",
+                action_type="no_action",
+                rule_id=f"rule_{i}",
             )
             engine._record_action("co_hprune", action)
         history = engine.get_healing_history("co_hprune")
@@ -1367,11 +1764,15 @@ class TestHistoryPruningBoundary:
 
     def test_at_max_plus_one_prunes(self, engine):
         from app.core.self_healing_engine import _MAX_HEALING_HISTORY
+
         for i in range(_MAX_HEALING_HISTORY + 1):
             action = HealingAction(
-                timestamp=_now_utc(), company_id="co_hprune2",
-                variant="parwa", condition_type="test",
-                action_type="no_action", rule_id=f"rule_{i}",
+                timestamp=_now_utc(),
+                company_id="co_hprune2",
+                variant="parwa",
+                condition_type="test",
+                action_type="no_action",
+                rule_id=f"rule_{i}",
             )
             engine._record_action("co_hprune2", action)
         history = engine.get_healing_history("co_hprune2")
@@ -1393,8 +1794,14 @@ class TestRecoveryReturnBehavior:
         # Disable provider
         for i in range(5):
             engine.record_query_result(
-                "co_ret", "parwa", "google", "gemini-pro", "medium",
-                50.0, 100.0, error="timeout",
+                "co_ret",
+                "parwa",
+                "google",
+                "gemini-pro",
+                "medium",
+                50.0,
+                100.0,
+                error="timeout",
             )
 
         # Clear history
@@ -1407,20 +1814,21 @@ class TestRecoveryReturnBehavior:
             return_value=9999,
         ):
             result = engine.record_query_result(
-                "co_ret", "parwa", "google", "gemini-pro", "medium",
-                90.0, 100.0,
+                "co_ret",
+                "parwa",
+                "google",
+                "gemini-pro",
+                "medium",
+                90.0,
+                100.0,
             )
 
         # Recovery action should be in history
         history = engine.get_healing_history("co_ret")
-        recovery_history = [
-            a for a in history if a.rule_id == "recovery"
-        ]
+        recovery_history = [a for a in history if a.rule_id == "recovery"]
         assert len(recovery_history) >= 1
 
         # The return value only contains healing check actions,
         # not the recovery action from inside record_query_result
-        return_recovery = [
-            a for a in result if a.rule_id == "recovery"
-        ]
+        return_recovery = [a for a in result if a.rule_id == "recovery"]
         assert len(return_recovery) == 0

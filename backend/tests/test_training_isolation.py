@@ -16,7 +16,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # Module-level stubs
 DatasetIsolationResult = None  # type: ignore[assignment,misc]
 TrainingDataIsolationService = None  # type: ignore[assignment,misc]
@@ -40,13 +39,16 @@ def _mock_logger():
             TrainingDataset,
             VALID_VARIANT_TYPES,
         )
-        globals().update({
-            "DatasetIsolationResult": DatasetIsolationResult,
-            "TrainingDataIsolationService": TrainingDataIsolationService,
-            "TrainingDataRecord": TrainingDataRecord,
-            "TrainingDataset": TrainingDataset,
-            "VALID_VARIANT_TYPES": VALID_VARIANT_TYPES,
-        })
+
+        globals().update(
+            {
+                "DatasetIsolationResult": DatasetIsolationResult,
+                "TrainingDataIsolationService": TrainingDataIsolationService,
+                "TrainingDataRecord": TrainingDataRecord,
+                "TrainingDataset": TrainingDataset,
+                "VALID_VARIANT_TYPES": VALID_VARIANT_TYPES,
+            }
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -196,7 +198,7 @@ def mock_redis():
             return []
         if stop == -1:
             return list(lst[start:])
-        return list(lst[start: stop + 1])
+        return list(lst[start : stop + 1])
 
     # ── key ops ──
 
@@ -264,9 +266,14 @@ def _seed_dataset(
     Returns the storage_path string.
     """
     store = mock_redis_obj._store
-    storage_path = ":".join([
-        "training_data", company_id, variant_type, dataset_id,
-    ])
+    storage_path = ":".join(
+        [
+            "training_data",
+            company_id,
+            variant_type,
+            dataset_id,
+        ]
+    )
     meta_key = storage_path + ":meta"
     store[meta_key] = {
         "dataset_id": dataset_id,
@@ -281,9 +288,13 @@ def _seed_dataset(
         "storage_path": storage_path,
         "is_active": "1" if is_active else "0",
     }
-    idx_key = ":".join([
-        "training_data", company_id, "datasets",
-    ])
+    idx_key = ":".join(
+        [
+            "training_data",
+            company_id,
+            "datasets",
+        ]
+    )
     s = store.get(idx_key)
     if not isinstance(s, set):
         s = set()
@@ -583,10 +594,14 @@ class TestCreateDataset:
     async def test_generates_unique_dataset_id(self, mock_redis):
         with _patch_get_redis(mock_redis):
             ds1 = await self.service.create_dataset(
-                company_id="c1", variant_type="parwa", name="DS1",
+                company_id="c1",
+                variant_type="parwa",
+                name="DS1",
             )
             ds2 = await self.service.create_dataset(
-                company_id="c1", variant_type="parwa", name="DS2",
+                company_id="c1",
+                variant_type="parwa",
+                name="DS2",
             )
         assert ds1.dataset_id != ds2.dataset_id
 
@@ -606,7 +621,9 @@ class TestCreateDataset:
     async def test_default_is_active_true(self, mock_redis):
         with _patch_get_redis(mock_redis):
             ds = await self.service.create_dataset(
-                company_id="c1", variant_type="parwa", name="Test",
+                company_id="c1",
+                variant_type="parwa",
+                name="Test",
             )
         assert ds.is_active is True
 
@@ -731,7 +748,10 @@ class TestAddRecords:
         """Records are stored under the variant-isolated path."""
         ds_id = "ds-isolated"
         sp = _seed_dataset(
-            mock_redis, ds_id, "c1", "mini_parwa",
+            mock_redis,
+            ds_id,
+            "c1",
+            "mini_parwa",
         )
         with _patch_get_redis(mock_redis):
             await self.service.add_records(
@@ -740,7 +760,9 @@ class TestAddRecords:
                 records=[{"content": "Isolated record"}],
             )
             records = await mock_redis.lrange(
-                sp + ":records", 0, -1,
+                sp + ":records",
+                0,
+                -1,
             )
         assert len(records) == 1
         data = json.loads(records[0])
@@ -784,7 +806,11 @@ class TestGetDataset:
     async def test_get_existing_dataset(self, mock_redis):
         ds_id = "ds-get-1"
         _seed_dataset(
-            mock_redis, ds_id, "c1", "parwa", "My Dataset",
+            mock_redis,
+            ds_id,
+            "c1",
+            "parwa",
+            "My Dataset",
         )
         with _patch_get_redis(mock_redis):
             ds = await self.service.get_dataset(ds_id, "c1")
@@ -805,7 +831,8 @@ class TestGetDataset:
         _seed_dataset(mock_redis, ds_id, "c1", "parwa")
         with _patch_get_redis(mock_redis):
             ds = await self.service.get_dataset(
-                ds_id, "other-company",
+                ds_id,
+                "other-company",
             )
         assert ds is None
 
@@ -813,7 +840,10 @@ class TestGetDataset:
     async def test_returns_full_dataset_with_all_fields(self, mock_redis):
         ds_id = "ds-full"
         _seed_dataset(
-            mock_redis, ds_id, "c1", "parwa_high",
+            mock_redis,
+            ds_id,
+            "c1",
+            "parwa_high",
             name="Full DS",
             description="Full description",
             record_count=42,
@@ -831,7 +861,11 @@ class TestGetDataset:
     async def test_inactive_dataset_still_returned(self, mock_redis):
         ds_id = "ds-inactive"
         _seed_dataset(
-            mock_redis, ds_id, "c1", "parwa", is_active=False,
+            mock_redis,
+            ds_id,
+            "c1",
+            "parwa",
+            is_active=False,
         )
         with _patch_get_redis(mock_redis):
             ds = await self.service.get_dataset(ds_id, "c1")
@@ -842,7 +876,10 @@ class TestGetDataset:
     async def test_metadata_included(self, mock_redis):
         ds_id = "ds-meta"
         _seed_dataset(
-            mock_redis, ds_id, "c1", "shared",
+            mock_redis,
+            ds_id,
+            "c1",
+            "shared",
             metadata={"shared_with": "all"},
         )
         with _patch_get_redis(mock_redis):
@@ -864,10 +901,18 @@ class TestListDatasets:
     @pytest.mark.asyncio
     async def test_list_all_for_company(self, mock_redis):
         _seed_dataset(
-            mock_redis, "ds-list-1", "c1", "parwa", "DS1",
+            mock_redis,
+            "ds-list-1",
+            "c1",
+            "parwa",
+            "DS1",
         )
         _seed_dataset(
-            mock_redis, "ds-list-2", "c1", "mini_parwa", "DS2",
+            mock_redis,
+            "ds-list-2",
+            "c1",
+            "mini_parwa",
+            "DS2",
         )
         with _patch_get_redis(mock_redis):
             result = await self.service.list_datasets("c1")
@@ -879,14 +924,23 @@ class TestListDatasets:
     @pytest.mark.asyncio
     async def test_filter_by_variant_type(self, mock_redis):
         _seed_dataset(
-            mock_redis, "ds-f1", "c1", "parwa", "Parwa DS",
+            mock_redis,
+            "ds-f1",
+            "c1",
+            "parwa",
+            "Parwa DS",
         )
         _seed_dataset(
-            mock_redis, "ds-f2", "c1", "mini_parwa", "Mini DS",
+            mock_redis,
+            "ds-f2",
+            "c1",
+            "mini_parwa",
+            "Mini DS",
         )
         with _patch_get_redis(mock_redis):
             result = await self.service.list_datasets(
-                "c1", variant_type="parwa",
+                "c1",
+                variant_type="parwa",
             )
         assert len(result) == 1
         assert result[0].variant_type == "parwa"
@@ -902,7 +956,10 @@ class TestListDatasets:
         for i in range(4):
             _seed_dataset(
                 mock_redis,
-                f"ds-multi-{i}", "c1", "parwa", f"Dataset {i}",
+                f"ds-multi-{i}",
+                "c1",
+                "parwa",
+                f"Dataset {i}",
             )
         with _patch_get_redis(mock_redis):
             result = await self.service.list_datasets("c1")
@@ -911,10 +968,18 @@ class TestListDatasets:
     @pytest.mark.asyncio
     async def test_shared_datasets_included(self, mock_redis):
         _seed_dataset(
-            mock_redis, "ds-shared-1", "c1", "shared", "Shared",
+            mock_redis,
+            "ds-shared-1",
+            "c1",
+            "shared",
+            "Shared",
         )
         _seed_dataset(
-            mock_redis, "ds-priv-1", "c1", "parwa", "Private",
+            mock_redis,
+            "ds-priv-1",
+            "c1",
+            "parwa",
+            "Private",
         )
         with _patch_get_redis(mock_redis):
             result = await self.service.list_datasets("c1")
@@ -925,10 +990,18 @@ class TestListDatasets:
     @pytest.mark.asyncio
     async def test_different_companies_not_leaked(self, mock_redis):
         _seed_dataset(
-            mock_redis, "ds-co-a", "company-A", "parwa", "A",
+            mock_redis,
+            "ds-co-a",
+            "company-A",
+            "parwa",
+            "A",
         )
         _seed_dataset(
-            mock_redis, "ds-co-b", "company-B", "parwa", "B",
+            mock_redis,
+            "ds-co-b",
+            "company-B",
+            "parwa",
+            "B",
         )
         with _patch_get_redis(mock_redis):
             result_a = await self.service.list_datasets("company-A")
@@ -953,11 +1026,16 @@ class TestValidateIsolation:
     async def test_valid_isolated_dataset(self, mock_redis):
         ds_id = "ds-iso-clean"
         _seed_dataset(
-            mock_redis, ds_id, "c1", "parwa", "Clean DS",
+            mock_redis,
+            ds_id,
+            "c1",
+            "parwa",
+            "Clean DS",
         )
         with _patch_get_redis(mock_redis):
             result = await self.service.validate_isolation(
-                ds_id, "c1",
+                ds_id,
+                "c1",
             )
         assert result.is_isolated is True
         assert result.violations == []
@@ -969,15 +1047,17 @@ class TestValidateIsolation:
         _seed_dataset(mock_redis, ds_id, "c1", "parwa", "Main")
         # Inject metadata under mini_parwa path (simulates leakage)
         with _patch_get_redis(mock_redis):
-            other_meta_key = (
-                "training_data:c1:mini_parwa:" + ds_id + ":meta"
+            other_meta_key = "training_data:c1:mini_parwa:" + ds_id + ":meta"
+            await mock_redis.hset(
+                other_meta_key,
+                mapping={
+                    "dataset_id": ds_id,
+                    "variant_type": "mini_parwa",
+                },
             )
-            await mock_redis.hset(other_meta_key, mapping={
-                "dataset_id": ds_id,
-                "variant_type": "mini_parwa",
-            })
             result = await self.service.validate_isolation(
-                ds_id, "c1",
+                ds_id,
+                "c1",
             )
         assert result.is_isolated is False
         assert len(result.violations) > 0
@@ -987,7 +1067,8 @@ class TestValidateIsolation:
     async def test_nonexistent_dataset_safe_default(self, mock_redis):
         with _patch_get_redis(mock_redis):
             result = await self.service.validate_isolation(
-                "ghost-id", "c1",
+                "ghost-id",
+                "c1",
             )
         assert result.is_isolated is False
         assert len(result.violations) > 0
@@ -998,7 +1079,8 @@ class TestValidateIsolation:
         _seed_dataset(mock_redis, ds_id, "c1", "parwa", "Mine")
         with _patch_get_redis(mock_redis):
             result = await self.service.validate_isolation(
-                ds_id, "other-company",
+                ds_id,
+                "other-company",
             )
         assert result.is_isolated is False
 
@@ -1006,11 +1088,16 @@ class TestValidateIsolation:
     async def test_shared_dataset_no_violations(self, mock_redis):
         ds_id = "ds-iso-shared"
         _seed_dataset(
-            mock_redis, ds_id, "c1", "shared", "Shared DS",
+            mock_redis,
+            ds_id,
+            "c1",
+            "shared",
+            "Shared DS",
         )
         with _patch_get_redis(mock_redis):
             result = await self.service.validate_isolation(
-                ds_id, "c1",
+                ds_id,
+                "c1",
             )
         assert result.is_isolated is True
         assert result.violations == []
@@ -1019,11 +1106,16 @@ class TestValidateIsolation:
     async def test_all_variant_paths_checked(self, mock_redis):
         ds_id = "ds-iso-paths"
         _seed_dataset(
-            mock_redis, ds_id, "c1", "parwa", "Paths DS",
+            mock_redis,
+            ds_id,
+            "c1",
+            "parwa",
+            "Paths DS",
         )
         with _patch_get_redis(mock_redis):
             result = await self.service.validate_isolation(
-                ds_id, "c1",
+                ds_id,
+                "c1",
             )
         # Should have checked meta, records, index for expected path
         assert len(result.checked_paths) >= 3
@@ -1032,11 +1124,16 @@ class TestValidateIsolation:
     async def test_checked_paths_populated(self, mock_redis):
         ds_id = "ds-iso-cp"
         _seed_dataset(
-            mock_redis, ds_id, "c1", "parwa", "CP DS",
+            mock_redis,
+            ds_id,
+            "c1",
+            "parwa",
+            "CP DS",
         )
         with _patch_get_redis(mock_redis):
             result = await self.service.validate_isolation(
-                ds_id, "c1",
+                ds_id,
+                "c1",
             )
         for path in result.checked_paths:
             assert isinstance(path, str)
@@ -1048,12 +1145,11 @@ class TestValidateIsolation:
         ds_id = "ds-iso-flag"
         _seed_dataset(mock_redis, ds_id, "c1", "parwa", "Flag DS")
         with _patch_get_redis(mock_redis):
-            other_records_key = (
-                "training_data:c1:mini_parwa:" + ds_id + ":records"
-            )
+            other_records_key = "training_data:c1:mini_parwa:" + ds_id + ":records"
             await mock_redis.rpush(other_records_key, "contaminated")
             result = await self.service.validate_isolation(
-                ds_id, "c1",
+                ds_id,
+                "c1",
             )
         assert result.cross_variant_access_attempted is True
 
@@ -1086,11 +1182,16 @@ class TestDeleteDataset:
     async def test_wrong_company_returns_false(self, mock_redis):
         ds_id = "ds-del-wrong"
         _seed_dataset(
-            mock_redis, ds_id, "c1", "parwa", "Not Yours",
+            mock_redis,
+            ds_id,
+            "c1",
+            "parwa",
+            "Not Yours",
         )
         with _patch_get_redis(mock_redis):
             result = await self.service.delete_dataset(
-                ds_id, "wrong-company",
+                ds_id,
+                "wrong-company",
             )
         assert result is False
 
@@ -1098,7 +1199,11 @@ class TestDeleteDataset:
     async def test_records_also_deleted(self, mock_redis):
         ds_id = "ds-del-records"
         sp = _seed_dataset(
-            mock_redis, ds_id, "c1", "parwa", "With Recs",
+            mock_redis,
+            ds_id,
+            "c1",
+            "parwa",
+            "With Recs",
         )
         with _patch_get_redis(mock_redis):
             await mock_redis.rpush(
@@ -1113,7 +1218,11 @@ class TestDeleteDataset:
     async def test_metadata_cleaned_up(self, mock_redis):
         ds_id = "ds-del-meta"
         sp = _seed_dataset(
-            mock_redis, ds_id, "c1", "parwa", "Cleanup",
+            mock_redis,
+            ds_id,
+            "c1",
+            "parwa",
+            "Cleanup",
         )
         with _patch_get_redis(mock_redis):
             await self.service.delete_dataset(ds_id, "c1")
@@ -1124,7 +1233,11 @@ class TestDeleteDataset:
     async def test_shared_dataset_deletion(self, mock_redis):
         ds_id = "ds-del-shared"
         _seed_dataset(
-            mock_redis, ds_id, "c1", "shared", "Shared Del",
+            mock_redis,
+            ds_id,
+            "c1",
+            "shared",
+            "Shared Del",
         )
         with _patch_get_redis(mock_redis):
             result = await self.service.delete_dataset(ds_id, "c1")
@@ -1153,8 +1266,12 @@ class TestGetDatasetStats:
     @pytest.mark.asyncio
     async def test_single_dataset_stats(self, mock_redis):
         _seed_dataset(
-            mock_redis, "ds-stat-1", "c1", "parwa",
-            record_count=25, is_active=True,
+            mock_redis,
+            "ds-stat-1",
+            "c1",
+            "parwa",
+            record_count=25,
+            is_active=True,
         )
         with _patch_get_redis(mock_redis):
             stats = await self.service.get_dataset_stats("c1")
@@ -1166,10 +1283,17 @@ class TestGetDatasetStats:
     @pytest.mark.asyncio
     async def test_multiple_datasets_aggregated(self, mock_redis):
         _seed_dataset(
-            mock_redis, "ds-stat-a", "c1", "parwa", record_count=10,
+            mock_redis,
+            "ds-stat-a",
+            "c1",
+            "parwa",
+            record_count=10,
         )
         _seed_dataset(
-            mock_redis, "ds-stat-b", "c1", "mini_parwa",
+            mock_redis,
+            "ds-stat-b",
+            "c1",
+            "mini_parwa",
             record_count=20,
         )
         with _patch_get_redis(mock_redis):
@@ -1180,13 +1304,24 @@ class TestGetDatasetStats:
     @pytest.mark.asyncio
     async def test_per_variant_breakdown(self, mock_redis):
         _seed_dataset(
-            mock_redis, "ds-vb-1", "c1", "parwa", record_count=10,
+            mock_redis,
+            "ds-vb-1",
+            "c1",
+            "parwa",
+            record_count=10,
         )
         _seed_dataset(
-            mock_redis, "ds-vb-2", "c1", "parwa", record_count=15,
+            mock_redis,
+            "ds-vb-2",
+            "c1",
+            "parwa",
+            record_count=15,
         )
         _seed_dataset(
-            mock_redis, "ds-vb-3", "c1", "mini_parwa",
+            mock_redis,
+            "ds-vb-3",
+            "c1",
+            "mini_parwa",
             record_count=5,
         )
         with _patch_get_redis(mock_redis):
@@ -1203,7 +1338,9 @@ class TestGetDatasetStats:
         for i in range(5):
             _seed_dataset(
                 mock_redis,
-                f"ds-trc-{i}", "c1", "parwa",
+                f"ds-trc-{i}",
+                "c1",
+                "parwa",
                 record_count=(i + 1) * 10,
             )
         with _patch_get_redis(mock_redis):
@@ -1235,11 +1372,17 @@ class TestExportDataset:
     async def test_export_json_format(self, mock_redis):
         ds_id = "ds-exp-json"
         _seed_dataset(
-            mock_redis, ds_id, "c1", "parwa", "Export Me",
+            mock_redis,
+            ds_id,
+            "c1",
+            "parwa",
+            "Export Me",
         )
         with _patch_get_redis(mock_redis):
             result = await self.service.export_dataset(
-                ds_id, "c1", format="json",
+                ds_id,
+                "c1",
+                format="json",
             )
         assert "dataset" in result
         assert "records" in result
@@ -1250,8 +1393,12 @@ class TestExportDataset:
     async def test_export_with_records(self, mock_redis):
         ds_id = "ds-exp-recs"
         sp = _seed_dataset(
-            mock_redis, ds_id, "c1", "parwa",
-            "With Recs", record_count=2,
+            mock_redis,
+            ds_id,
+            "c1",
+            "parwa",
+            "With Recs",
+            record_count=2,
         )
         rec1 = json.dumps({"record_id": "r1", "content": "Hello"})
         rec2 = json.dumps({"record_id": "r2", "content": "World"})
@@ -1273,12 +1420,17 @@ class TestExportDataset:
     async def test_wrong_company_raises_error(self, mock_redis):
         ds_id = "ds-exp-wrong"
         _seed_dataset(
-            mock_redis, ds_id, "c1", "parwa", "Not Yours",
+            mock_redis,
+            ds_id,
+            "c1",
+            "parwa",
+            "Not Yours",
         )
         with _patch_get_redis(mock_redis):
             with pytest.raises(Exception) as exc_info:
                 await self.service.export_dataset(
-                    ds_id, "wrong-company",
+                    ds_id,
+                    "wrong-company",
                 )
             assert exc_info.value.error_code == "DATASET_NOT_FOUND"
 
@@ -1286,7 +1438,11 @@ class TestExportDataset:
     async def test_records_included_in_export(self, mock_redis):
         ds_id = "ds-exp-inc"
         sp = _seed_dataset(
-            mock_redis, ds_id, "c1", "parwa", "Export Inc",
+            mock_redis,
+            ds_id,
+            "c1",
+            "parwa",
+            "Export Inc",
         )
         with _patch_get_redis(mock_redis):
             await mock_redis.rpush(
@@ -1315,7 +1471,9 @@ class TestCheckCrossVariantAccess:
         _seed_dataset(mock_redis, ds_id, "c1", "parwa", "Same")
         with _patch_get_redis(mock_redis):
             result = await self.service.check_cross_variant_access(
-                ds_id, "parwa", "c1",
+                ds_id,
+                "parwa",
+                "c1",
             )
         assert result is False
 
@@ -1323,11 +1481,17 @@ class TestCheckCrossVariantAccess:
     async def test_different_variant_is_cross(self, mock_redis):
         ds_id = "ds-cv-diff"
         _seed_dataset(
-            mock_redis, ds_id, "c1", "parwa", "Owned by Parwa",
+            mock_redis,
+            ds_id,
+            "c1",
+            "parwa",
+            "Owned by Parwa",
         )
         with _patch_get_redis(mock_redis):
             result = await self.service.check_cross_variant_access(
-                ds_id, "mini_parwa", "c1",
+                ds_id,
+                "mini_parwa",
+                "c1",
             )
         assert result is True
 
@@ -1335,11 +1499,17 @@ class TestCheckCrossVariantAccess:
     async def test_mini_parwa_to_parwa_is_cross(self, mock_redis):
         ds_id = "ds-cv-mp"
         _seed_dataset(
-            mock_redis, ds_id, "c1", "mini_parwa", "Mini DS",
+            mock_redis,
+            ds_id,
+            "c1",
+            "mini_parwa",
+            "Mini DS",
         )
         with _patch_get_redis(mock_redis):
             result = await self.service.check_cross_variant_access(
-                ds_id, "parwa", "c1",
+                ds_id,
+                "parwa",
+                "c1",
             )
         assert result is True
 
@@ -1349,7 +1519,9 @@ class TestCheckCrossVariantAccess:
         _seed_dataset(mock_redis, ds_id, "c1", "parwa", "Parwa DS")
         with _patch_get_redis(mock_redis):
             result = await self.service.check_cross_variant_access(
-                ds_id, "parwa_high", "c1",
+                ds_id,
+                "parwa_high",
+                "c1",
             )
         assert result is True
 
@@ -1357,11 +1529,17 @@ class TestCheckCrossVariantAccess:
     async def test_parwa_high_to_mini_parwa_is_cross(self, mock_redis):
         ds_id = "ds-cv-hm"
         _seed_dataset(
-            mock_redis, ds_id, "c1", "parwa_high", "High DS",
+            mock_redis,
+            ds_id,
+            "c1",
+            "parwa_high",
+            "High DS",
         )
         with _patch_get_redis(mock_redis):
             result = await self.service.check_cross_variant_access(
-                ds_id, "mini_parwa", "c1",
+                ds_id,
+                "mini_parwa",
+                "c1",
             )
         assert result is True
 
@@ -1369,11 +1547,17 @@ class TestCheckCrossVariantAccess:
     async def test_shared_dataset_no_cross(self, mock_redis):
         ds_id = "ds-cv-shared"
         _seed_dataset(
-            mock_redis, ds_id, "c1", "shared", "Shared DS",
+            mock_redis,
+            ds_id,
+            "c1",
+            "shared",
+            "Shared DS",
         )
         with _patch_get_redis(mock_redis):
             result = await self.service.check_cross_variant_access(
-                ds_id, "parwa", "c1",
+                ds_id,
+                "parwa",
+                "c1",
             )
         assert result is False
 
@@ -1381,7 +1565,9 @@ class TestCheckCrossVariantAccess:
     async def test_nonexistent_dataset_safe_default(self, mock_redis):
         with _patch_get_redis(mock_redis):
             result = await self.service.check_cross_variant_access(
-                "ghost", "parwa", "c1",
+                "ghost",
+                "parwa",
+                "c1",
             )
         assert result is False
 
@@ -1392,7 +1578,9 @@ class TestCheckCrossVariantAccess:
         with _patch_get_redis(mock_redis):
             with pytest.raises(Exception) as exc_info:
                 await self.service.check_cross_variant_access(
-                    ds_id, "unknown_variant", "c1",
+                    ds_id,
+                    "unknown_variant",
+                    "c1",
                 )
             assert exc_info.value.error_code == "INVALID_VARIANT_TYPE"
 
@@ -1435,19 +1623,21 @@ class TestRedisFailures:
         good_redis = MagicMock()
         # get_dataset works but pipeline fails
         good_redis.sismember = AsyncMock(return_value=True)
-        good_redis.hgetall = AsyncMock(return_value={
-            "dataset_id": ds_id,
-            "company_id": "c1",
-            "variant_type": "parwa",
-            "name": "Test",
-            "description": "",
-            "record_count": "0",
-            "created_at": "2025-01-01",
-            "updated_at": "2025-01-01",
-            "metadata": "{}",
-            "storage_path": f"training_data:c1:parwa:{ds_id}",
-            "is_active": "1",
-        })
+        good_redis.hgetall = AsyncMock(
+            return_value={
+                "dataset_id": ds_id,
+                "company_id": "c1",
+                "variant_type": "parwa",
+                "name": "Test",
+                "description": "",
+                "record_count": "0",
+                "created_at": "2025-01-01",
+                "updated_at": "2025-01-01",
+                "metadata": "{}",
+                "storage_path": f"training_data:c1:parwa:{ds_id}",
+                "is_active": "1",
+            }
+        )
         good_redis.rpush = AsyncMock(return_value=1)
         mock_pipeline = MagicMock()
         mock_pipeline.rpush = MagicMock()
@@ -1512,7 +1702,8 @@ class TestRedisFailures:
             return_value=broken_redis,
         ):
             result = await self.service.validate_isolation(
-                "any-id", "c1",
+                "any-id",
+                "c1",
             )
         # Safe default: is_isolated=False, violation about not found
         assert result.is_isolated is False
@@ -1582,7 +1773,9 @@ class TestValidationHelpers:
     async def test_empty_company_id_raises(self):
         with pytest.raises(Exception) as exc_info:
             await self.service.create_dataset(
-                company_id="", variant_type="parwa", name="Test",
+                company_id="",
+                variant_type="parwa",
+                name="Test",
             )
         assert exc_info.value.error_code == "INVALID_COMPANY_ID"
 
@@ -1590,7 +1783,9 @@ class TestValidationHelpers:
     async def test_whitespace_company_id_raises(self):
         with pytest.raises(Exception) as exc_info:
             await self.service.create_dataset(
-                company_id="   ", variant_type="parwa", name="Test",
+                company_id="   ",
+                variant_type="parwa",
+                name="Test",
             )
         assert exc_info.value.error_code == "INVALID_COMPANY_ID"
 
@@ -1616,6 +1811,8 @@ class TestValidationHelpers:
         ):
             with pytest.raises(Exception) as exc_info:
                 await self.service.create_dataset(
-                    company_id="c1", variant_type="parwa", name="",
+                    company_id="c1",
+                    variant_type="parwa",
+                    name="",
                 )
             assert exc_info.value.error_code == "INVALID_DATASET_NAME"

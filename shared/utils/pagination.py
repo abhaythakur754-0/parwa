@@ -7,7 +7,6 @@ to prevent DoS attacks via extremely large page sizes.
 
 from typing import NamedTuple
 
-
 # Hard limits — cannot be overridden
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100

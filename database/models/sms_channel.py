@@ -96,11 +96,16 @@ class SMSMessage(Base):
 
     # Twilio tracking
     twilio_message_sid = Column(
-        String(64), nullable=True, unique=True, index=True,
+        String(64),
+        nullable=True,
+        unique=True,
+        index=True,
     )
     twilio_account_sid = Column(String(64), nullable=True)
     twilio_status = Column(
-        String(20), nullable=False, default="queued",
+        String(20),
+        nullable=False,
+        default="queued",
     )
     twilio_error_code = Column(Integer, nullable=True)
     twilio_error_message = Column(Text, nullable=True)
@@ -136,13 +141,15 @@ class SMSMessage(Base):
     delivered_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
         onupdate=lambda: datetime.utcnow(),
     )
 
     # Relationships
     conversation = relationship(
-        "SMSConversation", back_populates="messages",
+        "SMSConversation",
+        back_populates="messages",
     )
     ticket = relationship("Ticket", foreign_keys=[ticket_id])
 
@@ -177,7 +184,9 @@ class SMSMessage(Base):
         ),
         Index(
             "ix_sms_company_from_to",
-            "company_id", "from_number", "to_number",
+            "company_id",
+            "from_number",
+            "to_number",
         ),
         {"schema": None},
     )
@@ -206,15 +215,11 @@ class SMSMessage(Base):
             "is_opt_out": self.is_opt_out,
             "error_message": self.error_message,
             "retry_count": self.retry_count,
-            "sent_at": (
-                self.sent_at.isoformat() if self.sent_at else None
-            ),
+            "sent_at": (self.sent_at.isoformat() if self.sent_at else None),
             "delivered_at": (
                 self.delivered_at.isoformat() if self.delivered_at else None
             ),
-            "created_at": (
-                self.created_at.isoformat() if self.created_at else None
-            ),
+            "created_at": (self.created_at.isoformat() if self.created_at else None),
         }
 
 
@@ -264,13 +269,15 @@ class SMSConversation(Base):
 
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
         onupdate=lambda: datetime.utcnow(),
     )
 
     # Relationships
     messages = relationship(
-        "SMSMessage", back_populates="conversation",
+        "SMSMessage",
+        back_populates="conversation",
         cascade="all, delete-orphan",
         order_by="SMSMessage.created_at",
     )
@@ -278,7 +285,9 @@ class SMSConversation(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "company_id", "customer_number", "twilio_number",
+            "company_id",
+            "customer_number",
+            "twilio_number",
             name="uq_sms_conversation_numbers",
         ),
         CheckConstraint("message_count >= 0", name="ck_sms_conv_msg_count"),
@@ -296,20 +305,13 @@ class SMSConversation(Base):
             "customer_id": self.customer_id,
             "message_count": self.message_count,
             "last_message_at": (
-                self.last_message_at.isoformat()
-                if self.last_message_at else None
+                self.last_message_at.isoformat() if self.last_message_at else None
             ),
             "is_opted_out": self.is_opted_out,
             "opt_out_keyword": self.opt_out_keyword,
-            "opt_out_at": (
-                self.opt_out_at.isoformat() if self.opt_out_at else None
-            ),
-            "created_at": (
-                self.created_at.isoformat() if self.created_at else None
-            ),
-            "updated_at": (
-                self.updated_at.isoformat() if self.updated_at else None
-            ),
+            "opt_out_at": (self.opt_out_at.isoformat() if self.opt_out_at else None),
+            "created_at": (self.created_at.isoformat() if self.created_at else None),
+            "updated_at": (self.updated_at.isoformat() if self.updated_at else None),
         }
 
 
@@ -351,36 +353,42 @@ class SMSChannelConfig(Base):
 
     # TCPA opt-out keywords (BC-010)
     opt_out_keywords = Column(
-        Text, nullable=False,
+        Text,
+        nullable=False,
         default="STOP,STOPALL,UNSUBSCRIBE,CANCEL,QUIT,END",
     )
     opt_in_keywords = Column(
-        Text, nullable=False,
+        Text,
+        nullable=False,
         default="START,YES,UNSTOP,CONTINUE",
     )
     opt_out_response = Column(
-        Text, nullable=False,
+        Text,
+        nullable=False,
         default="You have been opted out. Reply START to resume.",
     )
 
     # Auto-reply
     auto_reply_enabled = Column(Boolean, nullable=False, default=False)
     auto_reply_message = Column(
-        Text, nullable=True,
+        Text,
+        nullable=True,
         default="Thanks for your message! An agent will respond shortly.",
     )
     auto_reply_delay_seconds = Column(Integer, nullable=False, default=10)
 
     # After-hours
     after_hours_message = Column(
-        Text, nullable=True,
+        Text,
+        nullable=True,
         default="We're currently closed. We'll respond during business hours.",
     )
     business_hours_json = Column(Text, default="{}")
 
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
         onupdate=lambda: datetime.utcnow(),
     )
 
@@ -421,10 +429,6 @@ class SMSChannelConfig(Base):
             "auto_reply_delay_seconds": self.auto_reply_delay_seconds,
             "after_hours_message": self.after_hours_message,
             "business_hours": self.business_hours_json,
-            "created_at": (
-                self.created_at.isoformat() if self.created_at else None
-            ),
-            "updated_at": (
-                self.updated_at.isoformat() if self.updated_at else None
-            ),
+            "created_at": (self.created_at.isoformat() if self.created_at else None),
+            "updated_at": (self.updated_at.isoformat() if self.updated_at else None),
         }

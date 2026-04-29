@@ -15,8 +15,14 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Column, String, Text, Integer, Boolean,
-    DateTime, ForeignKey, Index,
+    Column,
+    String,
+    Text,
+    Integer,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -113,7 +119,9 @@ class EmailDeliveryEvent(Base):
             "recipient_name": self.recipient_name,
             "brevo_message_id": self.brevo_message_id,
             "brevo_event_id": self.brevo_event_id,
-            "outbound_email_id": str(self.outbound_email_id) if self.outbound_email_id else None,
+            "outbound_email_id": (
+                str(self.outbound_email_id) if self.outbound_email_id else None
+            ),
             "ticket_id": str(self.ticket_id) if self.ticket_id else None,
             "reason": self.reason,
             "bounce_type": self.bounce_type,

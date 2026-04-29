@@ -91,6 +91,7 @@ class SystemStatusService:
             return self._redis
         try:
             from app.core.redis import get_redis
+
             self._redis = await get_redis()
             return self._redis
         except Exception as exc:
@@ -162,16 +163,13 @@ class SystemStatusService:
             "cached": False,
             "checks_total": len(subsystems),
             "checks_healthy": sum(
-                1 for s in subsystems.values()
-                if s.get("status") == "healthy"
+                1 for s in subsystems.values() if s.get("status") == "healthy"
             ),
             "checks_degraded": sum(
-                1 for s in subsystems.values()
-                if s.get("status") == "degraded"
+                1 for s in subsystems.values() if s.get("status") == "degraded"
             ),
             "checks_unhealthy": sum(
-                1 for s in subsystems.values()
-                if s.get("status") == "unhealthy"
+                1 for s in subsystems.values() if s.get("status") == "unhealthy"
             ),
         }
 
@@ -212,7 +210,9 @@ class SystemStatusService:
             from app.core.redis import make_key
 
             history_key = make_key(
-                self.company_id, "system_status", "history",
+                self.company_id,
+                "system_status",
+                "history",
             )
 
             # Get all history entries
@@ -232,13 +232,16 @@ class SystemStatusService:
                         if point.get("timestamp", "") > to_timestamp:
                             continue
 
-                    points.append({
-                        "timestamp": point.get("timestamp", ""),
-                        "overall_status": point.get("overall_status", "unknown"),
-                        "subsystems_summary": point.get(
-                            "subsystems_summary", {},
-                        ),
-                    })
+                    points.append(
+                        {
+                            "timestamp": point.get("timestamp", ""),
+                            "overall_status": point.get("overall_status", "unknown"),
+                            "subsystems_summary": point.get(
+                                "subsystems_summary",
+                                {},
+                            ),
+                        }
+                    )
                 except (json.JSONDecodeError, TypeError):
                     continue
 
@@ -277,7 +280,9 @@ class SystemStatusService:
             from app.core.redis import make_key
 
             incidents_key = make_key(
-                self.company_id, "system_status", "incidents",
+                self.company_id,
+                "system_status",
+                "incidents",
             )
             raw_incidents = await redis.lrange(incidents_key, 0, -1)
 
@@ -286,21 +291,25 @@ class SystemStatusService:
                     incident = json.loads(entry)
                     # Filter to unresolved
                     if incident.get("resolved_at") is None:
-                        incidents.append({
-                            "incident_id": incident.get("incident_id", ""),
-                            "subsystem": incident.get("subsystem", ""),
-                            "previous_status": incident.get(
-                                "previous_status", "",
-                            ),
-                            "current_status": incident.get(
-                                "current_status", "",
-                            ),
-                            "severity": incident.get("severity", "medium"),
-                            "description": incident.get("description"),
-                            "detected_at": incident.get("detected_at", ""),
-                            "resolved_at": None,
-                            "metadata": incident.get("metadata", {}),
-                        })
+                        incidents.append(
+                            {
+                                "incident_id": incident.get("incident_id", ""),
+                                "subsystem": incident.get("subsystem", ""),
+                                "previous_status": incident.get(
+                                    "previous_status",
+                                    "",
+                                ),
+                                "current_status": incident.get(
+                                    "current_status",
+                                    "",
+                                ),
+                                "severity": incident.get("severity", "medium"),
+                                "description": incident.get("description"),
+                                "detected_at": incident.get("detected_at", ""),
+                                "resolved_at": None,
+                                "metadata": incident.get("metadata", {}),
+                            }
+                        )
                 except (json.JSONDecodeError, TypeError):
                     continue
 
@@ -343,7 +352,8 @@ class SystemStatusService:
             "previous_status": previous_status,
             "current_status": current_status,
             "severity": severity,
-            "description": description or (
+            "description": description
+            or (
                 f"{subsystem} transitioned from {previous_status} "
                 f"to {current_status}"
             ),
@@ -358,16 +368,20 @@ class SystemStatusService:
                 from app.core.redis import make_key
 
                 incidents_key = make_key(
-                    self.company_id, "system_status", "incidents",
+                    self.company_id,
+                    "system_status",
+                    "incidents",
                 )
                 await redis.lpush(
-                    incidents_key, json.dumps(incident),
+                    incidents_key,
+                    json.dumps(incident),
                 )
                 # Keep max 100 incidents
                 await redis.ltrim(incidents_key, 0, 99)
                 # Auto-resolve previous incidents for this subsystem
                 await self._auto_resolve_subsystem_incidents(
-                    redis, subsystem,
+                    redis,
+                    subsystem,
                 )
             except Exception as exc:
                 logger.warning(
@@ -417,7 +431,8 @@ class SystemStatusService:
                         "daily_limit": info.get("daily_limit", 0),
                         "daily_remaining": info.get("daily_remaining", 0),
                         "consecutive_failures": info.get(
-                            "consecutive_failures", 0,
+                            "consecutive_failures",
+                            0,
                         ),
                         "last_error": info.get("last_error", ""),
                         "rate_limited": info.get("rate_limited", False),
@@ -556,7 +571,8 @@ class SystemStatusService:
                 from app.core.health import check_external_service
 
                 sub = await check_external_service(
-                    f"integration_{name}", url,
+                    f"integration_{name}",
+                    url,
                 )
                 result[f"integration_{name}"] = {
                     "name": f"integration_{name}",
@@ -641,7 +657,9 @@ class SystemStatusService:
 
             key = make_key(self.company_id, "system_status", "snapshot")
             await redis.set(
-                key, json.dumps(response), ex=SNAPSHOT_TTL_SECONDS,
+                key,
+                json.dumps(response),
+                ex=SNAPSHOT_TTL_SECONDS,
             )
         except Exception as exc:
             logger.warning(
@@ -660,7 +678,9 @@ class SystemStatusService:
             from app.core.redis import make_key
 
             history_key = make_key(
-                self.company_id, "system_status", "history",
+                self.company_id,
+                "system_status",
+                "history",
             )
 
             # Build subsystems summary
@@ -676,7 +696,8 @@ class SystemStatusService:
             }
 
             await redis.lpush(
-                history_key, json.dumps(point),
+                history_key,
+                json.dumps(point),
             )
             # Trim to max history points
             await redis.ltrim(history_key, 0, MAX_HISTORY_POINTS - 1)
@@ -693,7 +714,8 @@ class SystemStatusService:
     # ── Incident Detection ──────────────────────────────────────
 
     async def _detect_and_record_incidents(
-        self, response: Dict[str, Any],
+        self,
+        response: Dict[str, Any],
     ) -> None:
         """Detect state transitions and record incidents."""
         redis = await self._get_redis()
@@ -704,7 +726,9 @@ class SystemStatusService:
             from app.core.redis import make_key
 
             prev_key = make_key(
-                self.company_id, "system_status", "prev_snapshot",
+                self.company_id,
+                "system_status",
+                "prev_snapshot",
             )
             raw_prev = await redis.get(prev_key)
 
@@ -726,10 +750,12 @@ class SystemStatusService:
             )
             for name in all_names:
                 prev_status = prev_subsystems.get(name, {}).get(
-                    "status", "unknown",
+                    "status",
+                    "unknown",
                 )
                 curr_status = current_subsystems.get(name, {}).get(
-                    "status", "unknown",
+                    "status",
+                    "unknown",
                 )
 
                 # Skip if no change
@@ -739,7 +765,8 @@ class SystemStatusService:
                 # Skip if transitioning to "healthy" (resolve)
                 if curr_status == "healthy":
                     await self._resolve_subsystem_incident(
-                        redis, name,
+                        redis,
+                        name,
                     )
                     continue
 
@@ -747,7 +774,8 @@ class SystemStatusService:
                 severity = "medium"
                 if curr_status == "unhealthy":
                     is_critical = current_subsystems.get(name, {}).get(
-                        "is_critical", False,
+                        "is_critical",
+                        False,
                     )
                     severity = "critical" if is_critical else "high"
                 elif curr_status == "degraded":
@@ -775,14 +803,18 @@ class SystemStatusService:
             )
 
     async def _auto_resolve_subsystem_incidents(
-        self, redis, subsystem: str,
+        self,
+        redis,
+        subsystem: str,
     ) -> None:
         """Auto-resolve previous incidents for a subsystem."""
         try:
             from app.core.redis import make_key
 
             incidents_key = make_key(
-                self.company_id, "system_status", "incidents",
+                self.company_id,
+                "system_status",
+                "incidents",
             )
             raw_incidents = await redis.lrange(incidents_key, 0, -1)
 
@@ -815,7 +847,9 @@ class SystemStatusService:
             )
 
     async def _resolve_subsystem_incident(
-        self, redis, subsystem: str,
+        self,
+        redis,
+        subsystem: str,
     ) -> None:
         """Mark incidents for a subsystem as resolved."""
         await self._auto_resolve_subsystem_incidents(redis, subsystem)
@@ -824,7 +858,8 @@ class SystemStatusService:
 
     @staticmethod
     def _empty_history_response(
-        from_ts: Optional[str], to_ts: Optional[str],
+        from_ts: Optional[str],
+        to_ts: Optional[str],
     ) -> Dict[str, Any]:
         """Return an empty history response."""
         return {

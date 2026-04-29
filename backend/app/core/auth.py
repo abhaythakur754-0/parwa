@@ -19,7 +19,6 @@ from jose import JWTError, jwt
 from app.config import get_settings
 from app.exceptions import AuthenticationError
 
-
 # JWT algorithm — HS256 is industry standard for symmetric keys
 JWT_ALGORITHM = "HS256"
 
@@ -31,7 +30,8 @@ _REFRESH_TOKEN_PEPPER = os.getenv("REFRESH_TOKEN_PEPPER")
 if not _REFRESH_TOKEN_PEPPER:
     raise RuntimeError(
         "REFRESH_TOKEN_PEPPER environment variable is required. "
-        "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'")
+        "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+    )
 
 
 def create_access_token(
@@ -60,9 +60,7 @@ def create_access_token(
     """
     settings = get_settings()
     now = datetime.now(timezone.utc)
-    expire = now + timedelta(
-        minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
-    )
+    expire = now + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         "sub": user_id,
         "company_id": company_id,
@@ -74,9 +72,7 @@ def create_access_token(
         "iat": now,
         "nbf": now,
     }
-    return jwt.encode(
-        payload, settings.JWT_SECRET_KEY, algorithm=JWT_ALGORITHM
-    )
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 
 def verify_access_token(token: str) -> dict:

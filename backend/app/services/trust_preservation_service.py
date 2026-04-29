@@ -58,8 +58,8 @@ PROTOCOL_LOG_TTL_SECONDS = 604800  # 7 * 24 * 3600
 MAX_PROTOCOL_EVENTS = 200
 
 # Debounce intervals for protocol transitions (seconds)
-GREEN_STABLE_SECONDS = 900   # 15 minutes healthy → GREEN
-AMBER_STABLE_SECONDS = 300   # 5 minutes healthy → AMBER
+GREEN_STABLE_SECONDS = 900  # 15 minutes healthy → GREEN
+AMBER_STABLE_SECONDS = 300  # 5 minutes healthy → AMBER
 
 # Subsystems considered critical for protocol evaluation
 CRITICAL_SUBSYSTEMS = {"llm_providers", "redis", "postgresql"}
@@ -69,8 +69,7 @@ SOCKETIO_EVENT_PROTOCOL_CHANGE = "trust_protocol:mode_changed"
 
 # Honesty prefixes for AMBER mode
 AMBER_HONESTY_PREFIX = (
-    "I'm experiencing some technical difficulties, "
-    "but I'm still here to help. "
+    "I'm experiencing some technical difficulties, " "but I'm still here to help. "
 )
 
 # Human handoff message for RED mode
@@ -82,14 +81,12 @@ RED_HANDOFF_MESSAGE = (
 
 # Response modifications
 AMBER_RESPONSE_SUFFIX = (
-    "\n\n*Some features may be limited due to "
-    "technical difficulties.*"
+    "\n\n*Some features may be limited due to " "technical difficulties.*"
 )
 
 # Queued response message (for RED mode)
 RED_QUEUED_MESSAGE = (
-    "[Message queued for later delivery — "
-    "system in maintenance mode]"
+    "[Message queued for later delivery — " "system in maintenance mode]"
 )
 
 
@@ -100,13 +97,15 @@ RED_QUEUED_MESSAGE = (
 
 class ProtocolMode(str, Enum):
     """Trust preservation protocol modes."""
-    GREEN = "green"    # Normal — all AI features active
-    AMBER = "amber"    # Degraded — honesty headers, simpler responses
-    RED = "red"        # Critical — AI paused, human handoff
+
+    GREEN = "green"  # Normal — all AI features active
+    AMBER = "amber"  # Degraded — honesty headers, simpler responses
+    RED = "red"  # Critical — AI paused, human handoff
 
 
 class ProtocolTransitionReason(str, Enum):
     """Reasons for protocol transitions."""
+
     AUTO_ESCALATE_CRITICAL = "auto_escalate_critical"
     AUTO_ESCALATE_DEGRADED = "auto_escalate_degraded"
     AUTO_DEESCALATE_HEALTHY = "auto_deescalate_healthy"
@@ -153,6 +152,7 @@ class TrustPreservationService:
             return self._redis
         try:
             from app.core.redis import get_redis
+
             self._redis = await get_redis()
             return self._redis
         except Exception as exc:
@@ -180,9 +180,7 @@ class TrustPreservationService:
         persisted = await self._read_persisted_state()
 
         current_mode = (
-            ProtocolMode(persisted["mode"])
-            if persisted
-            else self._current_mode
+            ProtocolMode(persisted["mode"]) if persisted else self._current_mode
         )
         manual_override = (
             persisted.get("manual_override", False)
@@ -200,6 +198,7 @@ class TrustPreservationService:
             from app.services.system_status_service import (
                 get_system_status_service,
             )
+
             svc = get_system_status_service(self.company_id)
             status_data = await svc.get_system_status()
 
@@ -275,9 +274,7 @@ class TrustPreservationService:
         await self._persist_state()
 
         # Log the transition
-        transition_reason = (
-            reason or ProtocolTransitionReason.MANUAL_OVERRIDE.value
-        )
+        transition_reason = reason or ProtocolTransitionReason.MANUAL_OVERRIDE.value
         await self._log_transition(
             previous_mode=previous_mode.value,
             new_mode=target_mode.value,
@@ -341,6 +338,7 @@ class TrustPreservationService:
             from app.services.system_status_service import (
                 get_system_status_service,
             )
+
             svc = get_system_status_service(self.company_id)
             status_data = await svc.get_system_status()
 
@@ -372,9 +370,7 @@ class TrustPreservationService:
         # Read persisted mode
         persisted = await self._read_persisted_state()
         current_mode = (
-            ProtocolMode(persisted["mode"])
-            if persisted
-            else self._current_mode
+            ProtocolMode(persisted["mode"]) if persisted else self._current_mode
         )
         manual_override = (
             persisted.get("manual_override", False)
@@ -424,8 +420,7 @@ class TrustPreservationService:
             if critical_degraded:
                 current_mode = ProtocolMode.AMBER
                 transition_reason = (
-                    ProtocolTransitionReason
-                    .AUTO_ESCALATE_DEGRADED.value
+                    ProtocolTransitionReason.AUTO_ESCALATE_DEGRADED.value
                 )
                 self._healthy_since = None
 
@@ -434,23 +429,20 @@ class TrustPreservationService:
             if critical_down:
                 current_mode = ProtocolMode.RED
                 transition_reason = (
-                    ProtocolTransitionReason
-                    .AUTO_ESCALATE_CRITICAL.value
+                    ProtocolTransitionReason.AUTO_ESCALATE_CRITICAL.value
                 )
                 self._healthy_since = None
             elif total_degraded > 2:
                 current_mode = ProtocolMode.RED
                 transition_reason = (
-                    ProtocolTransitionReason
-                    .AUTO_ESCALATE_CRITICAL.value
+                    ProtocolTransitionReason.AUTO_ESCALATE_CRITICAL.value
                 )
                 self._healthy_since = None
             # AMBER→GREEN: All healthy for 15 minutes
             elif all_healthy and healthy_duration >= GREEN_STABLE_SECONDS:
                 current_mode = ProtocolMode.GREEN
                 transition_reason = (
-                    ProtocolTransitionReason
-                    .AUTO_DEESCALATE_HEALTHY.value
+                    ProtocolTransitionReason.AUTO_DEESCALATE_HEALTHY.value
                 )
 
         elif current_mode == ProtocolMode.RED:
@@ -458,8 +450,7 @@ class TrustPreservationService:
             if all_healthy and healthy_duration >= AMBER_STABLE_SECONDS:
                 current_mode = ProtocolMode.AMBER
                 transition_reason = (
-                    ProtocolTransitionReason
-                    .AUTO_DEESCALATE_HEALTHY.value
+                    ProtocolTransitionReason.AUTO_DEESCALATE_HEALTHY.value
                 )
 
         # ── Apply Transition ────────────────────────────────
@@ -509,7 +500,8 @@ class TrustPreservationService:
         }
 
     async def get_response_wrapper(
-        self, original_response: str,
+        self,
+        original_response: str,
     ) -> Dict[str, Any]:
         """Get the response modification wrapper based on current protocol mode.
 
@@ -526,9 +518,7 @@ class TrustPreservationService:
         # Get current mode
         persisted = await self._read_persisted_state()
         current_mode = (
-            ProtocolMode(persisted["mode"])
-            if persisted
-            else self._current_mode
+            ProtocolMode(persisted["mode"]) if persisted else self._current_mode
         )
 
         if current_mode == ProtocolMode.GREEN:
@@ -617,6 +607,7 @@ class TrustPreservationService:
             from app.services.system_status_service import (
                 get_system_status_service,
             )
+
             svc = get_system_status_service(self.company_id)
             status_data = await svc.get_system_status()
 
@@ -631,20 +622,20 @@ class TrustPreservationService:
                 if sub_status in ("degraded", "unhealthy"):
                     degraded_count += 1
                     if name in CRITICAL_SUBSYSTEMS:
-                        critical_issues.append({
-                            "subsystem": name,
-                            "status": sub_status,
-                            "error": info.get("error"),
-                        })
+                        critical_issues.append(
+                            {
+                                "subsystem": name,
+                                "status": sub_status,
+                                "error": info.get("error"),
+                            }
+                        )
         except Exception:
             pass
 
         # Get current mode
         persisted = await self._read_persisted_state()
         current_mode = (
-            ProtocolMode(persisted["mode"])
-            if persisted
-            else self._current_mode
+            ProtocolMode(persisted["mode"]) if persisted else self._current_mode
         )
 
         # Calculate recovery estimate
@@ -656,9 +647,12 @@ class TrustPreservationService:
                 # No critical issues — just need 15 min stability
                 estimate_seconds = GREEN_STABLE_SECONDS
                 message = (
-                    "All critical subsystems healthy. " f"Protocol will return to GREEN in ~{
+                    "All critical subsystems healthy. "
+                    f"Protocol will return to GREEN in ~{
                         GREEN_STABLE_SECONDS
-                        // 60} " "minutes if stability maintained.")
+                        // 60} "
+                    "minutes if stability maintained."
+                )
             else:
                 # Critical subsystems degraded
                 estimate_seconds = -1  # Indeterminate
@@ -701,8 +695,7 @@ class TrustPreservationService:
 
         progress_pct = 0.0
         if required_for_next > 0 and healthy_seconds > 0:
-            progress_pct = min(
-                100.0, (healthy_seconds / required_for_next) * 100)
+            progress_pct = min(100.0, (healthy_seconds / required_for_next) * 100)
 
         return {
             "company_id": self.company_id,
@@ -740,6 +733,7 @@ class TrustPreservationService:
 
         # Strip excessive newlines (keep max 2 consecutive)
         import re
+
         simplified = re.sub(r"\n{3,}", "\n\n", simplified)
 
         # Truncate very long responses (> 2000 chars)
@@ -751,7 +745,7 @@ class TrustPreservationService:
             last_question = simplified.rfind("?")
             cutoff = max(last_period, last_excl, last_question)
             if cutoff > 1500:
-                simplified = simplified[:cutoff + 1]
+                simplified = simplified[: cutoff + 1]
 
         return simplified.strip()
 
@@ -807,7 +801,9 @@ class TrustPreservationService:
             from app.core.redis import make_key
 
             state_key = make_key(
-                self.company_id, "trust_protocol", "state",
+                self.company_id,
+                "trust_protocol",
+                "state",
             )
             state = {
                 "company_id": self.company_id,
@@ -816,7 +812,8 @@ class TrustPreservationService:
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }
             await redis.set(
-                state_key, json.dumps(state),
+                state_key,
+                json.dumps(state),
                 ex=PROTOCOL_LOG_TTL_SECONDS,
             )
         except Exception as exc:
@@ -838,7 +835,9 @@ class TrustPreservationService:
             from app.core.redis import make_key
 
             state_key = make_key(
-                self.company_id, "trust_protocol", "state",
+                self.company_id,
+                "trust_protocol",
+                "state",
             )
             raw = await redis.get(state_key)
             if raw:
@@ -864,7 +863,9 @@ class TrustPreservationService:
             from app.core.redis import make_key
 
             log_key = make_key(
-                self.company_id, "trust_protocol", "transitions",
+                self.company_id,
+                "trust_protocol",
+                "transitions",
             )
 
             event = {
@@ -889,7 +890,8 @@ class TrustPreservationService:
             )
 
     async def _get_transition_events(
-        self, limit: int = 50,
+        self,
+        limit: int = 50,
     ) -> List[Dict[str, Any]]:
         """Read protocol transition events from Redis."""
         redis = await self._get_redis()
@@ -901,7 +903,9 @@ class TrustPreservationService:
             from app.core.redis import make_key
 
             log_key = make_key(
-                self.company_id, "trust_protocol", "transitions",
+                self.company_id,
+                "trust_protocol",
+                "transitions",
             )
             raw_events = await redis.lrange(log_key, 0, limit - 1)
 
@@ -931,6 +935,7 @@ class TrustPreservationService:
         """Broadcast protocol mode change via Socket.io."""
         try:
             from app.core.socketio import get_socketio
+
             sio = get_socketio()
             if sio:
                 room = f"company:{self.company_id}"

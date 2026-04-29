@@ -12,7 +12,6 @@ Building Codes: BC-001 (tenant isolation), BC-007 (AI model),
                BC-011 (auth), BC-012 (error handling)
 """
 
-
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -80,11 +79,15 @@ async def growth_nudges(
 @router.get("/forecast")
 async def ticket_forecast(
     forecast_days: int = Query(
-        14, ge=1, le=60,
+        14,
+        ge=1,
+        le=60,
         description="Number of days to predict",
     ),
     historical_days: int = Query(
-        30, ge=7, le=90,
+        30,
+        ge=7,
+        le=90,
         description="Number of historical days for model training",
     ),
     company_id: str = Depends(get_company_id),
@@ -104,7 +107,8 @@ async def ticket_forecast(
         from app.services.analytics_intelligence_service import get_ticket_forecast
 
         data = get_ticket_forecast(
-            company_id, db,
+            company_id,
+            db,
             forecast_days=forecast_days,
             historical_days=historical_days,
         )
@@ -136,7 +140,9 @@ async def ticket_forecast(
 @router.get("/csat-trends")
 async def csat_trends(
     days: int = Query(
-        30, ge=1, le=90,
+        30,
+        ge=1,
+        le=90,
         description="Number of days for CSAT analysis",
     ),
     company_id: str = Depends(get_company_id),

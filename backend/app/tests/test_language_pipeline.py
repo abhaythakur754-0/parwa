@@ -51,7 +51,6 @@ from app.core.response_formatters import (
     create_default_registry,
 )
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # LANGUAGE DETECTOR TESTS
 # ═══════════════════════════════════════════════════════════════════════
@@ -71,7 +70,8 @@ class TestLanguageDetector:
     def test_english_long(self):
         lang, conf = self.detector.detect(
             "I need help with my account. The password reset is not working "
-            "and I have been trying for three days. Can someone please assist me?")
+            "and I have been trying for three days. Can someone please assist me?"
+        )
         assert lang == Language.ENGLISH
         assert conf > 0.3
 
@@ -115,7 +115,8 @@ class TestLanguageDetector:
     def test_german_paragraph(self):
         lang, conf = self.detector.detect(
             "Hallo, ich brauche Hilfe mit meiner Bestellung. Ich möchte eine "
-            "Rückerstattung weil das Produkt beschädigt ist. Bitte helfen Sie mir.")
+            "Rückerstattung weil das Produkt beschädigt ist. Bitte helfen Sie mir."
+        )
         assert lang == Language.GERMAN
         assert conf > 0.2
 
@@ -248,8 +249,16 @@ class TestLanguageDetector:
     def test_confidence_range(self):
         """All confidence values should be 0.0-1.0."""
         texts = [
-            "Hello", "Hola", "Bonjour", "Hallo", "Olá",
-            "你好", "こんにちは", "مرحبا", "안녕하세요", "नमस्ते",
+            "Hello",
+            "Hola",
+            "Bonjour",
+            "Hallo",
+            "Olá",
+            "你好",
+            "こんにちは",
+            "مرحبا",
+            "안녕하세요",
+            "नमस्ते",
         ]
         for text in texts:
             _, conf = self.detector.detect(text)
@@ -286,9 +295,7 @@ class TestTranslationSimulator:
         assert success is True
 
     def test_translate_spanish_sentence(self):
-        text, success = self.simulator.translate(
-            "hola gracias por favor", "es", "en"
-        )
+        text, success = self.simulator.translate("hola gracias por favor", "es", "en")
         assert "hello" in text.lower()
         assert success is True
 
@@ -343,14 +350,12 @@ class TestTranslationSimulator:
         assert success is True
 
     def test_translate_back_spanish(self):
-        text, success = self.simulator.translate_back(
-            "hello help please", "es", "en")
+        text, success = self.simulator.translate_back("hello help please", "es", "en")
         # Should have some reverse-translated words
         assert success is True
 
     def test_translate_back_chinese_suffix(self):
-        text, success = self.simulator.translate_back(
-            "hello world", "zh", "en")
+        text, success = self.simulator.translate_back("hello world", "zh", "en")
         assert "中文翻译" in text or "translated" in text.lower()
         assert success is True
 
@@ -378,15 +383,11 @@ class TestTranslationQualityChecker:
 
     def test_untranslated_segments(self):
         # "hola" is a Spanish word remaining in English text
-        score, issues = self.checker.check(
-            "Hello hola how are you", "es", "en"
-        )
+        score, issues = self.checker.check("Hello hola how are you", "es", "en")
         assert any("untranslated" in i for i in issues)
 
     def test_no_untranslated_for_same_language(self):
-        score, issues = self.checker.check(
-            "Hello hola how are you", "en", "en"
-        )
+        score, issues = self.checker.check("Hello hola how are you", "en", "en")
         assert not any("untranslated" in i for i in issues)
 
     def test_mixed_scripts_detected(self):
@@ -396,20 +397,18 @@ class TestTranslationQualityChecker:
         assert any("mixed" in i for i in issues)
 
     def test_garbled_repeated_chars(self):
-        score, issues = self.checker.check(
-            "aaaaaaaaa bbbbbbbbb test", "es", "en"
+        score, issues = self.checker.check("aaaaaaaaa bbbbbbbbb test", "es", "en")
+        assert any("garbled" in i for i in issues) or any(
+            "repeated" in i for i in issues
         )
-        assert any(
-            "garbled" in i for i in issues) or any(
-            "repeated" in i for i in issues)
 
     def test_garbled_replacement_chars(self):
         score, issues = self.checker.check(
             "Some text \ufffd\ufffd more text", "es", "en"
         )
-        assert any(
-            "garbled" in i for i in issues) or any(
-            "replacement" in i for i in issues)
+        assert any("garbled" in i for i in issues) or any(
+            "replacement" in i for i in issues
+        )
 
     def test_placeholder_detected(self):
         score, issues = self.checker.check(
@@ -461,9 +460,7 @@ class TestLanguagePipeline:
 
     @pytest.mark.asyncio
     async def test_chinese_detection(self):
-        result = await self.pipeline.process(
-            "你好，我需要帮助。", "company_123"
-        )
+        result = await self.pipeline.process("你好，我需要帮助。", "company_123")
         assert result.detected_language == Language.CHINESE
 
     @pytest.mark.asyncio
@@ -475,46 +472,41 @@ class TestLanguagePipeline:
 
     @pytest.mark.asyncio
     async def test_arabic_detection(self):
-        result = await self.pipeline.process(
-            "مرحبا، أحتاج مساعدة.", "company_123"
-        )
+        result = await self.pipeline.process("مرحبا، أحتاج مساعدة.", "company_123")
         assert result.detected_language == Language.ARABIC
 
     @pytest.mark.asyncio
     async def test_korean_detection(self):
-        result = await self.pipeline.process(
-            "안녕하세요, 도와주세요.", "company_123"
-        )
+        result = await self.pipeline.process("안녕하세요, 도와주세요.", "company_123")
         assert result.detected_language == Language.KOREAN
 
     @pytest.mark.asyncio
     async def test_hindi_detection(self):
-        result = await self.pipeline.process(
-            "नमस्ते, मुझे मदद चाहिए।", "company_123"
-        )
+        result = await self.pipeline.process("नमस्ते, मुझे मदद चाहिए।", "company_123")
         assert result.detected_language == Language.HINDI
 
     @pytest.mark.asyncio
     async def test_eight_steps(self):
         """Pipeline should always have exactly 8 steps."""
-        result = await self.pipeline.process(
-            "Hello there", "company_123"
-        )
+        result = await self.pipeline.process("Hello there", "company_123")
         assert len(result.pipeline_steps) == 8
         step_names = [s.step_name for s in result.pipeline_steps]
         expected = [
-            "detection", "confidence", "tenant_language",
-            "translate", "ai_process", "translate_back",
-            "quality_check", "fallback",
+            "detection",
+            "confidence",
+            "tenant_language",
+            "translate",
+            "ai_process",
+            "translate_back",
+            "quality_check",
+            "fallback",
         ]
         assert step_names == expected
 
     @pytest.mark.asyncio
     async def test_step_statuses_english(self):
         """For English: translate=skipped, translate_back=skipped, quality_check=skipped."""
-        result = await self.pipeline.process(
-            "Hello, I need help.", "company_123"
-        )
+        result = await self.pipeline.process("Hello, I need help.", "company_123")
         steps_by_name = {s.step_name: s.status for s in result.pipeline_steps}
         assert steps_by_name["translate"] == StepStatus.SKIPPED
         assert steps_by_name["translate_back"] == StepStatus.SKIPPED
@@ -525,9 +517,7 @@ class TestLanguagePipeline:
     @pytest.mark.asyncio
     async def test_step_statuses_spanish(self):
         """For Spanish: translate=success, translate_back=success, quality_check=success."""
-        result = await self.pipeline.process(
-            "Hola, necesito ayuda.", "company_123"
-        )
+        result = await self.pipeline.process("Hola, necesito ayuda.", "company_123")
         steps_by_name = {s.step_name: s.status for s in result.pipeline_steps}
         assert steps_by_name["translate"] == StepStatus.SUCCESS
         assert steps_by_name["translate_back"] == StepStatus.SUCCESS
@@ -564,16 +554,12 @@ class TestLanguagePipeline:
 
     @pytest.mark.asyncio
     async def test_processing_time_present(self):
-        result = await self.pipeline.process(
-            "Hello", "company_123"
-        )
+        result = await self.pipeline.process("Hello", "company_123")
         assert result.processing_time_ms >= 0
 
     @pytest.mark.asyncio
     async def test_step_durations_present(self):
-        result = await self.pipeline.process(
-            "Hello", "company_123"
-        )
+        result = await self.pipeline.process("Hello", "company_123")
         for step in result.pipeline_steps:
             assert step.duration_ms >= 0
 
@@ -635,18 +621,14 @@ class TestLanguagePipeline:
     @pytest.mark.asyncio
     async def test_fallback_not_used_on_success(self):
         """Fallback should not be used when all steps succeed."""
-        result = await self.pipeline.process(
-            "Hello, I need help.", "company_123"
-        )
+        result = await self.pipeline.process("Hello, I need help.", "company_123")
         assert result.fallback_used is False
         assert result.fallback_warning is None
 
     @pytest.mark.asyncio
     async def test_result_serialization(self):
         """PipelineResult.to_dict() should work."""
-        result = await self.pipeline.process(
-            "Hello", "company_123"
-        )
+        result = await self.pipeline.process("Hello", "company_123")
         d = result.to_dict()
         assert "original_text" in d
         assert "detected_language" in d
@@ -947,8 +929,7 @@ class TestListFormatter:
         self.ctx = FormattingContext()
 
     def test_normalize_bullets(self):
-        result = self.formatter.format(
-            "* item one\n• item two\n- item three", self.ctx)
+        result = self.formatter.format("* item one\n• item two\n- item three", self.ctx)
         lines = result.strip().split("\n")
         for line in lines:
             assert line.lstrip().startswith("- ")
@@ -1017,9 +998,7 @@ class TestLinkFormatter:
         assert "https://example.com" in result
 
     def test_trailing_punctuation_removed(self):
-        result = self.formatter.format(
-            "See https://example.com.", self.ctx
-        )
+        result = self.formatter.format("See https://example.com.", self.ctx)
         assert result.rstrip().endswith("example.com")
 
     def test_empty_response(self):
@@ -1128,7 +1107,9 @@ class TestSignatureFormatter:
 
     def test_adds_friendly_signature(self):
         ctx = FormattingContext(brand_voice="friendly")
-        text = "Your issue has been resolved. The refund has been processed successfully."
+        text = (
+            "Your issue has been resolved. The refund has been processed successfully."
+        )
         result = self.formatter.format(text, ctx)
         assert "Cheers" in result
 
@@ -1247,8 +1228,7 @@ class TestEscalationFormatter:
 
     def test_escalation_gets_header(self):
         ctx = FormattingContext(intent_type="escalation")
-        result = self.formatter.format(
-            "I am very unhappy with this service.", ctx)
+        result = self.formatter.format("I am very unhappy with this service.", ctx)
         assert "Priority:" in result
         assert "Escalation Notice" in result
 
@@ -1263,9 +1243,7 @@ class TestEscalationFormatter:
         assert "Priority:" not in result
 
     def test_vip_gets_critical(self):
-        ctx = FormattingContext(
-            intent_type="escalation", customer_tier="vip"
-        )
+        ctx = FormattingContext(intent_type="escalation", customer_tier="vip")
         result = self.formatter.format("Issue description.", ctx)
         assert "CRITICAL" in result
 
@@ -1377,17 +1355,13 @@ class TestFormatterRegistry:
     def test_apply_all_specific_formatters(self):
         self.registry.register("whitespace", WhitespaceFormatter())
         ctx = FormattingContext()
-        result = self.registry.apply_all(
-            "  hello   \n\n\nworld  ", ctx, ["whitespace"]
-        )
+        result = self.registry.apply_all("  hello   \n\n\nworld  ", ctx, ["whitespace"])
         assert result.formatted_text != "  hello   \n\n\nworld  "
         assert "whitespace" in result.formatters_applied
 
     def test_apply_all_missing_formatter(self):
         ctx = FormattingContext()
-        result = self.registry.apply_all(
-            "hello", ctx, ["nonexistent"]
-        )
+        result = self.registry.apply_all("hello", ctx, ["nonexistent"])
         assert result.formatted_text == "hello"
         assert len(result.errors) == 1
         assert "formatter_not_found" in result.errors[0]
@@ -1445,10 +1419,7 @@ class TestComposability:
         registry = create_default_registry()
         ctx = FormattingContext()
         text = "  **Hello** **World** **and** **everyone** **else** **too**  \n\n\n\n"
-        result = registry.apply_all(
-            text, ctx,
-            ["bold", "whitespace"]
-        )
+        result = registry.apply_all(text, ctx, ["bold", "whitespace"])
         # Bold formatter removes excessive bold (>5 sections)
         # Whitespace formatter cleans up newlines
         assert "\n\n\n" not in result.formatted_text
@@ -1467,9 +1438,7 @@ class TestComposability:
     def test_full_parwa_pipeline(self):
         """parwa gets 6 formatters."""
         registry = create_default_registry()
-        ctx = FormattingContext(
-            variant_type="parwa",
-            brand_voice="professional")
+        ctx = FormattingContext(variant_type="parwa", brand_voice="professional")
         text = "##Header\n- bullet\nResearch [1] and [2] show results."
         result = registry.apply_all(text, ctx)
         assert len(result.formatters_applied) == 6
@@ -1503,8 +1472,7 @@ class TestComposability:
         """Empty response should pass through all formatters."""
         registry = create_default_registry()
         ctx = FormattingContext()
-        result = registry.apply_all(
-            "", ctx, ["token_limit", "markdown", "whitespace"])
+        result = registry.apply_all("", ctx, ["token_limit", "markdown", "whitespace"])
         assert result.formatted_text == ""
 
     def test_very_long_response(self):
@@ -1563,12 +1531,8 @@ class TestFormattingContextInFormatters:
         formatter = EscalationFormatter()
         text = "I am very upset."
 
-        free_ctx = FormattingContext(
-            intent_type="escalation", customer_tier="free"
-        )
-        vip_ctx = FormattingContext(
-            intent_type="escalation", customer_tier="vip"
-        )
+        free_ctx = FormattingContext(intent_type="escalation", customer_tier="free")
+        vip_ctx = FormattingContext(intent_type="escalation", customer_tier="vip")
 
         free_result = formatter.format(text, free_ctx)
         vip_result = formatter.format(text, vip_ctx)

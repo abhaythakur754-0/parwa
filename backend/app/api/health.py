@@ -147,16 +147,18 @@ async def readiness_endpoint():
         }
     else:
         record_http_request(
-            "GET", "/ready", 503, duration / 1000,
+            "GET",
+            "/ready",
+            503,
+            duration / 1000,
         )
         from fastapi.responses import JSONResponse
+
         return JSONResponse(
             status_code=503,
             content={
                 "status": "not_ready",
-                "timestamp": (
-                    datetime.now(timezone.utc).isoformat() + "Z"
-                ),
+                "timestamp": (datetime.now(timezone.utc).isoformat() + "Z"),
                 "uptime_seconds": _get_uptime_seconds(),
                 "subsystems": readiness["subsystems"],
             },
@@ -182,9 +184,7 @@ async def metrics_endpoint(
         health = await run_health_checks(use_cache=True)
         subsystem_up = {}
         for name, sub in health.subsystems.items():
-            subsystem_up[name] = (
-                1 if sub.status == HealthStatus.HEALTHY.value else 0
-            )
+            subsystem_up[name] = 1 if sub.status == HealthStatus.HEALTHY.value else 0
     except Exception:
         subsystem_up = {}
 
@@ -194,8 +194,8 @@ async def metrics_endpoint(
     # Build info
     env = os.environ.get("ENVIRONMENT", "unknown")
     lines.append(
-        '# HELP parwa_build_info PARWA build information\n'
-        '# TYPE parwa_build_info gauge\n'
+        "# HELP parwa_build_info PARWA build information\n"
+        "# TYPE parwa_build_info gauge\n"
         f'parwa_build_info{{version="{APP_VERSION}",'
         f'environment="{env}"}} 1'
     )
@@ -203,45 +203,41 @@ async def metrics_endpoint(
     # Uptime
     uptime = _get_uptime_seconds()
     lines.append(
-        '\n# HELP parwa_uptime_seconds PARWA uptime in seconds\n'
-        '# TYPE parwa_uptime_seconds gauge\n'
-        f'parwa_uptime_seconds {uptime}'
+        "\n# HELP parwa_uptime_seconds PARWA uptime in seconds\n"
+        "# TYPE parwa_uptime_seconds gauge\n"
+        f"parwa_uptime_seconds {uptime}"
     )
 
     # Health status for each subsystem
     lines.append(
-        '\n# HELP parwa_subsystem_up '
-        'Subsystem health (1=healthy, 0=unhealthy)\n'
-        '# TYPE parwa_subsystem_up gauge'
+        "\n# HELP parwa_subsystem_up "
+        "Subsystem health (1=healthy, 0=unhealthy)\n"
+        "# TYPE parwa_subsystem_up gauge"
     )
     for name, up in subsystem_up.items():
         lines.append(f'parwa_subsystem_up{{subsystem="{name}"}} {up}')
 
     # Health summary
     lines.append(
-        '\n# HELP parwa_health_check '
-        'Aggregate health (1=healthy, 0=unhealthy)\n'
-        '# TYPE parwa_health_check gauge'
+        "\n# HELP parwa_health_check "
+        "Aggregate health (1=healthy, 0=unhealthy)\n"
+        "# TYPE parwa_health_check gauge"
     )
     if health:
-        aggregate = (
-            1 if health.status == HealthStatus.HEALTHY.value else 0
-        )
+        aggregate = 1 if health.status == HealthStatus.HEALTHY.value else 0
         lines.append(f'parwa_health_check {{status="aggregate"}} {aggregate}')
         lines.append(
-            'parwa_health_check '
-            f'{{status="checks_total"}} {health.checks_total}'
+            "parwa_health_check " f'{{status="checks_total"}} {health.checks_total}'
         )
         lines.append(
-            'parwa_health_check '
-            f'{{status="checks_healthy"}} {health.checks_healthy}'
+            "parwa_health_check " f'{{status="checks_healthy"}} {health.checks_healthy}'
         )
         lines.append(
-            'parwa_health_check '
+            "parwa_health_check "
             f'{{status="checks_degraded"}} {health.checks_degraded}'
         )
         lines.append(
-            'parwa_health_check '
+            "parwa_health_check "
             f'{{status="checks_unhealthy"}} {health.checks_unhealthy}'
         )
 

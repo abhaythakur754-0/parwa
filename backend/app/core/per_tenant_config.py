@@ -82,18 +82,12 @@ class TenantModelConfig:
 class TenantFullConfig:
     """Complete merged configuration for a tenant."""
 
-    technique: TenantTechniqueConfig = field(
-        default_factory=TenantTechniqueConfig
-    )
+    technique: TenantTechniqueConfig = field(default_factory=TenantTechniqueConfig)
     compression: TenantCompressionConfig = field(
         default_factory=TenantCompressionConfig
     )
-    workflow: TenantWorkflowConfig = field(
-        default_factory=TenantWorkflowConfig
-    )
-    model: TenantModelConfig = field(
-        default_factory=TenantModelConfig
-    )
+    workflow: TenantWorkflowConfig = field(default_factory=TenantWorkflowConfig)
+    model: TenantModelConfig = field(default_factory=TenantModelConfig)
 
 
 # ── Validation Schemas ───────────────────────────────────────────
@@ -147,9 +141,7 @@ def _mini_parwa_defaults() -> TenantFullConfig:
     return TenantFullConfig(
         technique=TenantTechniqueConfig(
             enabled_techniques=["keyword_extract", "intent_classify"],
-            disabled_techniques=[
-                "chain_of_thought", "reflexion", "self_critique"
-            ],
+            disabled_techniques=["chain_of_thought", "reflexion", "self_critique"],
             custom_thresholds={},
             token_budget_override=500,
         ),
@@ -179,8 +171,10 @@ def _parwa_defaults() -> TenantFullConfig:
     return TenantFullConfig(
         technique=TenantTechniqueConfig(
             enabled_techniques=[
-                "keyword_extract", "intent_classify",
-                "chain_of_thought", "self_critique",
+                "keyword_extract",
+                "intent_classify",
+                "chain_of_thought",
+                "self_critique",
             ],
             disabled_techniques=["reflexion"],
             custom_thresholds={},
@@ -212,8 +206,11 @@ def _high_parwa_defaults() -> TenantFullConfig:
     return TenantFullConfig(
         technique=TenantTechniqueConfig(
             enabled_techniques=[
-                "keyword_extract", "intent_classify",
-                "chain_of_thought", "reflexion", "self_critique",
+                "keyword_extract",
+                "intent_classify",
+                "chain_of_thought",
+                "reflexion",
+                "self_critique",
             ],
             disabled_techniques=[],
             custom_thresholds={
@@ -318,9 +315,7 @@ class TenantConfigManager:
         self._versions: Dict[str, int] = {}
 
         # company_id -> list of version entries
-        self._version_history: Dict[
-            str, List[ConfigVersionEntry]
-        ] = {}
+        self._version_history: Dict[str, List[ConfigVersionEntry]] = {}
 
         # Registered change callbacks
         self._change_callbacks: List[ChangeCallback] = []
@@ -349,9 +344,7 @@ class TenantConfigManager:
                 return defaults
 
             overrides = self._overrides[company_id]
-            variant = self._tenant_variants.get(
-                company_id, self._default_variant
-            )
+            variant = self._tenant_variants.get(company_id, self._default_variant)
             base = VARIANT_DEFAULTS[variant]()
 
             # Deep copy to avoid mutating shared defaults
@@ -359,22 +352,26 @@ class TenantConfigManager:
 
             if "technique" in overrides:
                 merged.technique = self._apply_overrides_dataclass(
-                    merged.technique, overrides["technique"],
+                    merged.technique,
+                    overrides["technique"],
                     TenantTechniqueConfig,
                 )
             if "compression" in overrides:
                 merged.compression = self._apply_overrides_dataclass(
-                    merged.compression, overrides["compression"],
+                    merged.compression,
+                    overrides["compression"],
                     TenantCompressionConfig,
                 )
             if "workflow" in overrides:
                 merged.workflow = self._apply_overrides_dataclass(
-                    merged.workflow, overrides["workflow"],
+                    merged.workflow,
+                    overrides["workflow"],
                     TenantWorkflowConfig,
                 )
             if "model" in overrides:
                 merged.model = self._apply_overrides_dataclass(
-                    merged.model, overrides["model"],
+                    merged.model,
+                    overrides["model"],
                     TenantModelConfig,
                 )
 
@@ -412,18 +409,14 @@ class TenantConfigManager:
         # Validate
         validation = self.validate_config(category, config_dict)
         if not validation.valid:
-            raise ValueError(
-                f"Config validation failed: {validation.errors}"
-            )
+            raise ValueError(f"Config validation failed: {validation.errors}")
 
         with self._lock:
             if company_id not in self._overrides:
                 self._overrides[company_id] = {}
                 self._versions[company_id] = 0
                 self._version_history[company_id] = []
-                self._tenant_variants[company_id] = (
-                    self._default_variant
-                )
+                self._tenant_variants[company_id] = self._default_variant
 
             # Check for variant_type change in workflow category
             if category == "workflow" and "variant_type" in config_dict:
@@ -431,9 +424,7 @@ class TenantConfigManager:
                 if new_variant in VALID_VARIANT_TYPES:
                     self._tenant_variants[company_id] = new_variant
 
-            self._overrides[company_id][category] = copy.deepcopy(
-                config_dict
-            )
+            self._overrides[company_id][category] = copy.deepcopy(config_dict)
 
             # Version tracking
             self._versions[company_id] += 1
@@ -483,12 +474,8 @@ class TenantConfigManager:
                     if not self._overrides[company_id]:
                         self._overrides.pop(company_id, None)
                         self._versions.pop(company_id, None)
-                        self._version_history.pop(
-                            company_id, None
-                        )
-                        self._tenant_variants.pop(
-                            company_id, None
-                        )
+                        self._version_history.pop(company_id, None)
+                        self._tenant_variants.pop(company_id, None)
             else:
                 self._overrides.pop(company_id, None)
                 self._versions.pop(company_id, None)
@@ -498,7 +485,8 @@ class TenantConfigManager:
             return self.get_config(company_id)
 
     def get_defaults(
-        self, variant_type: str,
+        self,
+        variant_type: str,
     ) -> TenantFullConfig:
         """Get default configuration for a variant type.
 
@@ -559,8 +547,7 @@ class TenantConfigManager:
             expected = schema[key]
             if not isinstance(value, expected):
                 errors.append(
-                    f"Field '{key}' expected {expected}, "
-                    f"got {type(value).__name__}"
+                    f"Field '{key}' expected {expected}, " f"got {type(value).__name__}"
                 )
 
         # Enum value validation
@@ -611,32 +598,20 @@ class TenantConfigManager:
         if category == "compression":
             if "max_tokens" in config_dict:
                 if config_dict["max_tokens"] <= 0:
-                    errors.append(
-                        "max_tokens must be positive"
-                    )
+                    errors.append("max_tokens must be positive")
             if "preserve_recent_n" in config_dict:
                 if config_dict["preserve_recent_n"] < 0:
-                    errors.append(
-                        "preserve_recent_n must be >= 0"
-                    )
+                    errors.append("preserve_recent_n must be >= 0")
 
         if category == "workflow":
             if "max_concurrent_workflows" in config_dict:
                 mcw = config_dict["max_concurrent_workflows"]
                 if mcw <= 0:
-                    errors.append(
-                        "max_concurrent_workflows "
-                        "must be positive"
-                    )
+                    errors.append("max_concurrent_workflows " "must be positive")
             if "checkpoint_timeout_seconds" in config_dict:
-                cts = config_dict[
-                    "checkpoint_timeout_seconds"
-                ]
+                cts = config_dict["checkpoint_timeout_seconds"]
                 if cts <= 0:
-                    errors.append(
-                        "checkpoint_timeout_seconds "
-                        "must be positive"
-                    )
+                    errors.append("checkpoint_timeout_seconds " "must be positive")
 
         if category == "model":
             if "max_tokens" in config_dict:
@@ -647,19 +622,11 @@ class TenantConfigManager:
             if "token_budget_override" in config_dict:
                 tbo = config_dict["token_budget_override"]
                 if tbo is not None and tbo < 0:
-                    errors.append(
-                        "token_budget_override must be "
-                        ">= 0 or None"
-                    )
+                    errors.append("token_budget_override must be " ">= 0 or None")
             if "custom_thresholds" in config_dict:
-                for tid, val in config_dict[
-                    "custom_thresholds"
-                ].items():
+                for tid, val in config_dict["custom_thresholds"].items():
                     if not isinstance(val, (int, float)):
-                        errors.append(
-                            f"Threshold for '{tid}' must be "
-                            "a number"
-                        )
+                        errors.append(f"Threshold for '{tid}' must be " "a number")
 
         return ValidationResult(
             valid=len(errors) == 0,
@@ -685,9 +652,7 @@ class TenantConfigManager:
                 "variant_type": self._tenant_variants.get(
                     company_id, self._default_variant
                 ),
-                "overrides": copy.deepcopy(
-                    self._overrides.get(company_id, {})
-                ),
+                "overrides": copy.deepcopy(self._overrides.get(company_id, {})),
                 "version": self._versions.get(company_id, 0),
                 "full_config": asdict(config),
             }
@@ -744,9 +709,7 @@ class TenantConfigManager:
         # Validate all categories
         for cat, cat_config in categories_to_import.items():
             if not isinstance(cat_config, dict):
-                all_errors.append(
-                    f"Category '{cat}' must be a dict"
-                )
+                all_errors.append(f"Category '{cat}' must be a dict")
                 continue
             result = self.validate_config(cat, cat_config)
             all_errors.extend(result.errors)
@@ -765,36 +728,23 @@ class TenantConfigManager:
                 self._overrides[company_id] = {}
                 self._versions[company_id] = 0
                 self._version_history[company_id] = []
-                self._tenant_variants[company_id] = (
-                    self._default_variant
-                )
+                self._tenant_variants[company_id] = self._default_variant
 
             for cat, cat_config in categories_to_import.items():
-                self._overrides[company_id][cat] = (
-                    copy.deepcopy(cat_config)
-                )
+                self._overrides[company_id][cat] = copy.deepcopy(cat_config)
 
                 # Handle variant_type change
-                if (
-                    cat == "workflow"
-                    and "variant_type" in cat_config
-                ):
+                if cat == "workflow" and "variant_type" in cat_config:
                     vt = cat_config["variant_type"]
                     if vt in VALID_VARIANT_TYPES:
-                        self._tenant_variants[
-                            company_id
-                        ] = vt
+                        self._tenant_variants[company_id] = vt
 
                 self._versions[company_id] += 1
                 self._version_history[company_id].append(
                     ConfigVersionEntry(
                         version=self._versions[company_id],
                         category=cat,
-                        timestamp=(
-                            datetime.now(
-                                timezone.utc
-                            ).isoformat()
-                        ),
+                        timestamp=(datetime.now(timezone.utc).isoformat()),
                         changes=copy.deepcopy(cat_config),
                     )
                 )
@@ -808,7 +758,8 @@ class TenantConfigManager:
     # ── Version History ─────────────────────────────────────────
 
     def get_version_history(
-        self, company_id: str,
+        self,
+        company_id: str,
     ) -> List[Dict[str, Any]]:
         """Get configuration change history for a tenant.
 
@@ -847,7 +798,8 @@ class TenantConfigManager:
         self._change_callbacks.append(callback)
 
     def remove_config_change_callback(
-        self, callback: ChangeCallback,
+        self,
+        callback: ChangeCallback,
     ) -> bool:
         """Remove a registered change callback.
 

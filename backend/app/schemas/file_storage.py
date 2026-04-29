@@ -35,8 +35,7 @@ class FileUploadResponse(BaseModel):
 
     id: str = Field(description="Unique file identifier (UUID).")
     company_id: str = Field(description="Tenant ID that owns the file.")
-    file_path: str = Field(
-        description="Logical storage path within the backend.")
+    file_path: str = Field(description="Logical storage path within the backend.")
     file_name: str = Field(description="Sanitized file name.")
     original_filename: Optional[str] = Field(
         default=None,
@@ -44,8 +43,7 @@ class FileUploadResponse(BaseModel):
     )
     content_type: str = Field(description="MIME type of the stored file.")
     size_bytes: int = Field(description="File size in bytes.")
-    checksum_md5: str = Field(
-        description="MD5 checksum for integrity verification.")
+    checksum_md5: str = Field(description="MD5 checksum for integrity verification.")
     uploaded_at: Optional[str] = Field(
         default=None,
         description="ISO-8601 upload timestamp.",

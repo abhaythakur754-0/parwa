@@ -41,7 +41,8 @@ _PAYMENT_METHODS = [
     "visa_****4242",
     "mastercard_****8888",
     "amex_****1234",
-    "bank_acct_****5678"]
+    "bank_acct_****5678",
+]
 
 
 def _mock_invoice(
@@ -58,8 +59,9 @@ def _mock_invoice(
         days=random.randint(1, 365),
     )
     due = created + timedelta(days=30)
-    paid_at = created + \
-        timedelta(days=random.randint(0, 15)) if status == "paid" else None
+    paid_at = (
+        created + timedelta(days=random.randint(0, 15)) if status == "paid" else None
+    )
 
     return {
         "invoice_id": iid,
@@ -106,7 +108,9 @@ def _mock_payment(company_id: str) -> dict[str, Any]:
         "company_id": company_id,
         "amount": round(plan["price"] * 1.08, 2),
         "currency": "USD",
-        "status": random.choice(["succeeded", "succeeded", "succeeded", "failed", "refunded"]),
+        "status": random.choice(
+            ["succeeded", "succeeded", "succeeded", "failed", "refunded"]
+        ),
         "payment_method": random.choice(_PAYMENT_METHODS),
         "description": f"{plan['name']} subscription",
         "created_at": (
@@ -163,7 +167,10 @@ class BillingTool(BaseReactTool):
                     parameters={
                         "type": "object",
                         "properties": {
-                            "invoice_id": {"type": "string", "description": "Unique invoice identifier"},
+                            "invoice_id": {
+                                "type": "string",
+                                "description": "Unique invoice identifier",
+                            },
                         },
                         "required": ["invoice_id"],
                     },
@@ -176,10 +183,23 @@ class BillingTool(BaseReactTool):
                     parameters={
                         "type": "object",
                         "properties": {
-                            "status": {"type": "string", "description": "Filter by status: paid, unpaid, overdue, void"},
-                            "limit": {"type": "integer", "description": "Max invoices (1-50)", "default": 10},
-                            "from_date": {"type": "string", "description": "ISO date start (inclusive)"},
-                            "to_date": {"type": "string", "description": "ISO date end (inclusive)"},
+                            "status": {
+                                "type": "string",
+                                "description": "Filter by status: paid, unpaid, overdue, void",
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Max invoices (1-50)",
+                                "default": 10,
+                            },
+                            "from_date": {
+                                "type": "string",
+                                "description": "ISO date start (inclusive)",
+                            },
+                            "to_date": {
+                                "type": "string",
+                                "description": "ISO date end (inclusive)",
+                            },
                         },
                         "required": [],
                     },
@@ -192,10 +212,22 @@ class BillingTool(BaseReactTool):
                     parameters={
                         "type": "object",
                         "properties": {
-                            "invoice_id": {"type": "string", "description": "Invoice to pay (optional)"},
-                            "amount": {"type": "number", "description": "Payment amount"},
-                            "payment_method": {"type": "string", "description": "Payment method token"},
-                            "description": {"type": "string", "description": "Payment description"},
+                            "invoice_id": {
+                                "type": "string",
+                                "description": "Invoice to pay (optional)",
+                            },
+                            "amount": {
+                                "type": "number",
+                                "description": "Payment amount",
+                            },
+                            "payment_method": {
+                                "type": "string",
+                                "description": "Payment method token",
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Payment description",
+                            },
                         },
                         "required": ["amount", "payment_method"],
                     },
@@ -219,9 +251,18 @@ class BillingTool(BaseReactTool):
                     parameters={
                         "type": "object",
                         "properties": {
-                            "amount": {"type": "number", "description": "Credit amount"},
-                            "reason": {"type": "string", "description": "Reason for the credit"},
-                            "expires_at": {"type": "string", "description": "ISO expiry date (optional)"},
+                            "amount": {
+                                "type": "number",
+                                "description": "Credit amount",
+                            },
+                            "reason": {
+                                "type": "string",
+                                "description": "Reason for the credit",
+                            },
+                            "expires_at": {
+                                "type": "string",
+                                "description": "ISO expiry date (optional)",
+                            },
                         },
                         "required": ["amount", "reason"],
                     },
@@ -234,8 +275,15 @@ class BillingTool(BaseReactTool):
                     parameters={
                         "type": "object",
                         "properties": {
-                            "limit": {"type": "integer", "description": "Max records (1-100)", "default": 20},
-                            "status": {"type": "string", "description": "Filter by status: succeeded, failed, refunded"},
+                            "limit": {
+                                "type": "integer",
+                                "description": "Max records (1-100)",
+                                "default": 20,
+                            },
+                            "status": {
+                                "type": "string",
+                                "description": "Filter by status: succeeded, failed, refunded",
+                            },
                         },
                         "required": [],
                     },
@@ -260,8 +308,8 @@ class BillingTool(BaseReactTool):
 
         if action == "__health_check__":
             return ToolResult(
-                success=True, error=None, data={
-                    "status": "ok"}, execution_time_ms=0)
+                success=True, error=None, data={"status": "ok"}, execution_time_ms=0
+            )
 
         handler = {
             "get_invoice": self._get_invoice,
@@ -299,24 +347,13 @@ class BillingTool(BaseReactTool):
                     data=None,
                     execution_time_ms=0,
                 )
-            return ToolResult(
-                success=True,
-                error=None,
-                data=inv,
-                execution_time_ms=0)
+            return ToolResult(success=True, error=None, data=inv, execution_time_ms=0)
 
         inv = _mock_invoice(invoice_id=invoice_id, company_id=company_id)
         self._invoices[invoice_id] = inv
-        return ToolResult(
-            success=True,
-            error=None,
-            data=inv,
-            execution_time_ms=0)
+        return ToolResult(success=True, error=None, data=inv, execution_time_ms=0)
 
-    async def _list_invoices(
-            self,
-            company_id: str,
-            **params: Any) -> ToolResult:
+    async def _list_invoices(self, company_id: str, **params: Any) -> ToolResult:
         """List invoices with optional filtering."""
         status: str | None = params.get("status")
         limit: int = min(max(params.get("limit", 10), 1), 50)
@@ -326,22 +363,15 @@ class BillingTool(BaseReactTool):
         count = min(limit, 30)
         invoices: list[dict[str, Any]] = []
         for _ in range(count):
-            st = status or random.choice(
-                ["paid", "paid", "paid", "unpaid", "overdue"])
+            st = status or random.choice(["paid", "paid", "paid", "unpaid", "overdue"])
             inv = _mock_invoice(company_id=company_id, status=st)
             invoices.append(inv)
 
         # Filter by date range
         if from_date:
-            invoices = [
-                i for i in invoices if i.get(
-                    "created_at",
-                    "") >= from_date]
+            invoices = [i for i in invoices if i.get("created_at", "") >= from_date]
         if to_date:
-            invoices = [
-                i for i in invoices if i.get(
-                    "created_at",
-                    "") <= to_date]
+            invoices = [i for i in invoices if i.get("created_at", "") <= to_date]
 
         return ToolResult(
             success=True,
@@ -354,10 +384,7 @@ class BillingTool(BaseReactTool):
             execution_time_ms=0,
         )
 
-    async def _process_payment(
-            self,
-            company_id: str,
-            **params: Any) -> ToolResult:
+    async def _process_payment(self, company_id: str, **params: Any) -> ToolResult:
         """Process a payment."""
         amount: float = params.get("amount", 0)
         payment_method: str = params.get("payment_method", "")
@@ -406,8 +433,7 @@ class BillingTool(BaseReactTool):
 
         # Deduct used credit
         if credit_applied > 0:
-            self._credits[company_id] = round(
-                credit_balance - credit_applied, 2)
+            self._credits[company_id] = round(credit_balance - credit_applied, 2)
 
         # Mark invoice as paid if applicable
         if invoice_id and invoice_id in self._invoices:
@@ -422,23 +448,15 @@ class BillingTool(BaseReactTool):
         )
 
     async def _get_subscription_status(
-            self,
-            company_id: str,
-            **params: Any) -> ToolResult:
+        self, company_id: str, **params: Any
+    ) -> ToolResult:
         """Get current subscription details."""
         sub = _mock_subscription(company_id)
         credit_balance = self._credits.get(company_id, 0.0)
         sub["credit_balance"] = credit_balance
-        return ToolResult(
-            success=True,
-            error=None,
-            data=sub,
-            execution_time_ms=0)
+        return ToolResult(success=True, error=None, data=sub, execution_time_ms=0)
 
-    async def _apply_credit(
-            self,
-            company_id: str,
-            **params: Any) -> ToolResult:
+    async def _apply_credit(self, company_id: str, **params: Any) -> ToolResult:
         """Apply account credit."""
         amount: float = params.get("amount", 0)
         reason: str = params.get("reason", "")
@@ -480,10 +498,7 @@ class BillingTool(BaseReactTool):
             execution_time_ms=0,
         )
 
-    async def _get_payment_history(
-            self,
-            company_id: str,
-            **params: Any) -> ToolResult:
+    async def _get_payment_history(self, company_id: str, **params: Any) -> ToolResult:
         """Retrieve payment history."""
         limit: int = min(max(params.get("limit", 20), 1), 100)
         status_filter: str | None = params.get("status")
@@ -500,8 +515,7 @@ class BillingTool(BaseReactTool):
 
         history = history[:limit]
 
-        total_amount = sum(p["amount"]
-                           for p in history if p["status"] == "succeeded")
+        total_amount = sum(p["amount"] for p in history if p["status"] == "succeeded")
 
         return ToolResult(
             success=True,

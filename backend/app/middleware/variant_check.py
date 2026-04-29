@@ -174,7 +174,8 @@ class VariantCheckMiddleware:
                     "current_usage": result.get("current_usage", 0),
                     "limit": result.get("limit", 0),
                     "overage_rate": result.get(
-                        "overage_rate", "$0.10/ticket",
+                        "overage_rate",
+                        "$0.10/ticket",
                     ),
                     "upgrade_url": DEFAULT_UPGRADE_URL,
                 },
@@ -225,22 +226,19 @@ class VariantCheckMiddleware:
         headers = dict(scope.get("headers", []))
 
         # 1. Check X-Company-ID header
-        raw_header = headers.get(
-            b"x-company-id",
-            b"").decode(
-            "utf-8",
-            errors="ignore").strip()
+        raw_header = (
+            headers.get(b"x-company-id", b"").decode("utf-8", errors="ignore").strip()
+        )
         if raw_header:
             return raw_header
 
         # 2. Check Authorization header for JWT
-        auth_header = headers.get(
-            b"authorization", b"").decode(
-            "utf-8", errors="ignore").strip()
+        auth_header = (
+            headers.get(b"authorization", b"").decode("utf-8", errors="ignore").strip()
+        )
         if auth_header and auth_header.lower().startswith("bearer "):
             token = auth_header[7:].strip()
-            company_id = VariantCheckMiddleware._decode_company_id_from_jwt(
-                token)
+            company_id = VariantCheckMiddleware._decode_company_id_from_jwt(token)
             if company_id:
                 return company_id
 
@@ -275,8 +273,7 @@ class VariantCheckMiddleware:
             payload = json.loads(payload_json)
 
             company_id = payload.get("company_id")
-            if company_id and isinstance(
-                    company_id, str) and company_id.strip():
+            if company_id and isinstance(company_id, str) and company_id.strip():
                 return company_id.strip()
 
             return None
@@ -313,6 +310,7 @@ class VariantCheckMiddleware:
         if limit_type != "tickets":
             # Enforce all resource limits, not just tickets
             from app.services.variant_limit_service import get_variant_limit_service
+
             limit_service = get_variant_limit_service()
             try:
                 result = limit_service.enforce_limit(company_id, limit_type)
@@ -321,10 +319,12 @@ class VariantCheckMiddleware:
                 logger.error(
                     "variant_check_enforcement_failed limit_type=%s error=%s",
                     limit_type,
-                    str(limit_err))
+                    str(limit_err),
+                )
                 return {
                     "allowed": False,
-                    "error": f"Unable to verify {limit_type} limit"}
+                    "error": f"Unable to verify {limit_type} limit",
+                }
 
         try:
             from app.services.variant_limit_service import (
@@ -343,4 +343,5 @@ class VariantCheckMiddleware:
             )
             return {
                 "allowed": False,
-                "error": "Unable to verify resource limit. Please try again."}
+                "error": "Unable to verify resource limit. Please try again.",
+            }

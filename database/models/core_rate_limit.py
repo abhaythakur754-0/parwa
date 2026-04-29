@@ -6,7 +6,11 @@ failure counts, and lockout state for progressive backoff.
 """
 
 from sqlalchemy import (
-    Column, Integer, String, DateTime, ForeignKey,
+    Column,
+    Integer,
+    String,
+    DateTime,
+    ForeignKey,
 )
 
 from database.base import Base
@@ -24,7 +28,9 @@ class RateLimitEvent(Base):
     )
     key = Column(String(255), nullable=False, index=True)
     endpoint_category = Column(
-        String(50), nullable=False, index=True,
+        String(50),
+        nullable=False,
+        index=True,
     )
     failure_count = Column(Integer, default=0)
     lockout_until = Column(DateTime, nullable=True)

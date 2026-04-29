@@ -111,8 +111,7 @@ class ChargebackService:
 
         amount = Decimal(str(amount_raw))
         if amount <= 0:
-            raise ChargebackError(
-                f"Chargeback amount must be positive, got {amount}")
+            raise ChargebackError(f"Chargeback amount must be positive, got {amount}")
 
         currency = str(event_data.get("currency", "USD")).upper()
         reason = str(event_data.get("reason", "general")).lower().strip()
@@ -121,13 +120,10 @@ class ChargebackService:
 
         with SessionLocal() as db:
             # BC-001: Validate company exists
-            company = db.query(Company).filter(
-                Company.id == str(company_id)
-            ).first()
+            company = db.query(Company).filter(Company.id == str(company_id)).first()
 
             if not company:
-                raise ChargebackError(
-                    f"Company {company_id} not found (BC-001)")
+                raise ChargebackError(f"Company {company_id} not found (BC-001)")
 
             now = datetime.now(timezone.utc)
 
@@ -185,10 +181,14 @@ class ChargebackService:
         if not company_id:
             raise ChargebackError("company_id is required (BC-001)")
 
-        subscription = db.query(Subscription).filter(
-            Subscription.company_id == str(company_id),
-            Subscription.status == "active",
-        ).first()
+        subscription = (
+            db.query(Subscription)
+            .filter(
+                Subscription.company_id == str(company_id),
+                Subscription.status == "active",
+            )
+            .first()
+        )
 
         if subscription:
             subscription.status = "payment_failed"
@@ -199,9 +199,7 @@ class ChargebackService:
             )
 
         # Update company status
-        company = db.query(Company).filter(
-            Company.id == str(company_id)
-        ).first()
+        company = db.query(Company).filter(Company.id == str(company_id)).first()
 
         if company:
             company.subscription_status = "payment_failed"
@@ -236,14 +234,19 @@ class ChargebackService:
             raise ChargebackError("company_id is required (BC-001)")
 
         with SessionLocal() as db:
-            chargeback = db.query(Chargeback).filter(
-                Chargeback.id == chargeback_id,
-                Chargeback.company_id == str(company_id),
-            ).first()
+            chargeback = (
+                db.query(Chargeback)
+                .filter(
+                    Chargeback.id == chargeback_id,
+                    Chargeback.company_id == str(company_id),
+                )
+                .first()
+            )
 
             if not chargeback:
                 raise ChargebackNotFoundError(
-                    f"Chargeback {chargeback_id} not found for company {company_id}")
+                    f"Chargeback {chargeback_id} not found for company {company_id}"
+                )
 
             return self._chargeback_to_dict(chargeback)
 
@@ -324,21 +327,22 @@ class ChargebackService:
             )
 
         with SessionLocal() as db:
-            chargeback = db.query(Chargeback).filter(
-                Chargeback.id == chargeback_id,
-            ).first()
+            chargeback = (
+                db.query(Chargeback)
+                .filter(
+                    Chargeback.id == chargeback_id,
+                )
+                .first()
+            )
 
             if not chargeback:
-                raise ChargebackNotFoundError(
-                    f"Chargeback {chargeback_id} not found"
-                )
+                raise ChargebackNotFoundError(f"Chargeback {chargeback_id} not found")
 
             # Validate status transition
             old_status = chargeback.status
             if not self._is_valid_transition(old_status, status):
                 raise ChargebackError(
-                    "Invalid chargeback status transition: "
-                    f"{old_status} → {status}"
+                    "Invalid chargeback status transition: " f"{old_status} → {status}"
                 )
 
             chargeback.status = status
@@ -388,24 +392,31 @@ class ChargebackService:
             ChargebackNotFoundError: If chargeback not found
         """
         with SessionLocal() as db:
-            chargeback = db.query(Chargeback).filter(
-                Chargeback.id == chargeback_id,
-            ).first()
+            chargeback = (
+                db.query(Chargeback)
+                .filter(
+                    Chargeback.id == chargeback_id,
+                )
+                .first()
+            )
 
             if not chargeback:
-                raise ChargebackNotFoundError(
-                    f"Chargeback {chargeback_id} not found"
-                )
+                raise ChargebackNotFoundError(f"Chargeback {chargeback_id} not found")
 
             # Get company details
-            company = db.query(Company).filter(
-                Company.id == chargeback.company_id
-            ).first()
+            company = (
+                db.query(Company).filter(Company.id == chargeback.company_id).first()
+            )
 
             # Get active subscription
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == chargeback.company_id,
-            ).order_by(Subscription.created_at.desc()).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == chargeback.company_id,
+                )
+                .order_by(Subscription.created_at.desc())
+                .first()
+            )
 
             notification = {
                 "chargeback": self._chargeback_to_dict(chargeback),
@@ -417,14 +428,20 @@ class ChargebackService:
                         company.subscription_tier if company else "Unknown"
                     ),
                 },
-                "subscription": {
-                    "id": subscription.id if subscription else None,
-                    "tier": subscription.tier if subscription else None,
-                    "status": subscription.status if subscription else None,
-                    "paddle_subscription_id": (
-                        subscription.paddle_subscription_id if subscription else None
-                    ),
-                } if subscription else None,
+                "subscription": (
+                    {
+                        "id": subscription.id if subscription else None,
+                        "tier": subscription.tier if subscription else None,
+                        "status": subscription.status if subscription else None,
+                        "paddle_subscription_id": (
+                            subscription.paddle_subscription_id
+                            if subscription
+                            else None
+                        ),
+                    }
+                    if subscription
+                    else None
+                ),
                 "alert": {
                     "type": "chargeback_received",
                     "severity": "high",
@@ -473,18 +490,20 @@ class ChargebackService:
             ChargebackNotFoundError: If chargeback not found
         """
         with SessionLocal() as db:
-            chargeback = db.query(Chargeback).filter(
-                Chargeback.id == chargeback_id,
-            ).first()
+            chargeback = (
+                db.query(Chargeback)
+                .filter(
+                    Chargeback.id == chargeback_id,
+                )
+                .first()
+            )
 
             if not chargeback:
-                raise ChargebackNotFoundError(
-                    f"Chargeback {chargeback_id} not found"
-                )
+                raise ChargebackNotFoundError(f"Chargeback {chargeback_id} not found")
 
-            company = db.query(Company).filter(
-                Company.id == chargeback.company_id
-            ).first()
+            company = (
+                db.query(Company).filter(Company.id == chargeback.company_id).first()
+            )
 
             company_name = company.name if company else "Valued Customer"
 
@@ -610,24 +629,23 @@ class ChargebackService:
             "status": chargeback.status,
             "service_stopped_at": (
                 chargeback.service_stopped_at.isoformat()
-                if chargeback.service_stopped_at else None
+                if chargeback.service_stopped_at
+                else None
             ),
             "notification_sent_at": (
                 chargeback.notification_sent_at.isoformat()
-                if chargeback.notification_sent_at else None
+                if chargeback.notification_sent_at
+                else None
             ),
             "resolved_at": (
-                chargeback.resolved_at.isoformat()
-                if chargeback.resolved_at else None
+                chargeback.resolved_at.isoformat() if chargeback.resolved_at else None
             ),
             "resolution_notes": chargeback.resolution_notes,
             "created_at": (
-                chargeback.created_at.isoformat()
-                if chargeback.created_at else None
+                chargeback.created_at.isoformat() if chargeback.created_at else None
             ),
             "updated_at": (
-                chargeback.updated_at.isoformat()
-                if chargeback.updated_at else None
+                chargeback.updated_at.isoformat() if chargeback.updated_at else None
             ),
         }
 

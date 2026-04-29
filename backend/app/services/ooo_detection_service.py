@@ -32,7 +32,6 @@ from typing import Optional
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-
 logger = logging.getLogger("parwa.ooo_detection")
 
 # ── Header-based OOO indicators (RFC 3834) ──────────────────────
@@ -46,11 +45,16 @@ OOO_HEADER_FIELDS = [
 ]
 
 OOO_AUTO_SUBMITTED_VALUES = [
-    "auto-replied", "auto-generated", "autoreplied",
+    "auto-replied",
+    "auto-generated",
+    "autoreplied",
 ]
 
 OOO_X_AUTO_RESPONSE_VALUES = [
-    "oo", "dr", "autoreply", "all",
+    "oo",
+    "dr",
+    "autoreply",
+    "all",
 ]
 
 # ── Body pattern matching ────────────────────────────────────────
@@ -63,51 +67,48 @@ OOO_BODY_PATTERNS = [
     re.compile(r"auto(?:-?)reply\s*:", re.IGNORECASE),
     re.compile(r"automatic\s+reply", re.IGNORECASE),
     re.compile(
-        r"i(?:'m| am)\s+(away|out|on vacation|on leave|travelling)",
-        re.IGNORECASE),
+        r"i(?:'m| am)\s+(away|out|on vacation|on leave|travelling)", re.IGNORECASE
+    ),
     re.compile(
-        r"will\s+be\s+(away|out|unavailable|on vacation|on leave)",
-        re.IGNORECASE),
+        r"will\s+be\s+(away|out|unavailable|on vacation|on leave)", re.IGNORECASE
+    ),
     re.compile(r"return(?:ing)?\s+(on|to|by)\s+", re.IGNORECASE),
     re.compile(r"back\s+in\s+(the\s+)?office", re.IGNORECASE),
     re.compile(
-        r"no\s+(longer|access|response)\s+(to\s+)?(?:email|mail)",
-        re.IGNORECASE),
+        r"no\s+(longer|access|response)\s+(to\s+)?(?:email|mail)", re.IGNORECASE
+    ),
     re.compile(
-        r"(?:thank|thanks)\s+for\s+(?:your|the)\s+(?:email|message)",
-        re.IGNORECASE),
+        r"(?:thank|thanks)\s+for\s+(?:your|the)\s+(?:email|message)", re.IGNORECASE
+    ),
     re.compile(r"this\s+is\s+an\s+automated", re.IGNORECASE),
     re.compile(
         r"please\s+contact\s+(?:my|another)\s+(?:colleague|manager|coworker)",
-        re.IGNORECASE),
+        re.IGNORECASE,
+    ),
     re.compile(r"limited\s+(?:internet|email)\s+access", re.IGNORECASE),
-    re.compile(
-        r"response\s+time\s+may\s+be\s+(?:delayed|slow)",
-        re.IGNORECASE),
+    re.compile(r"response\s+time\s+may\s+be\s+(?:delayed|slow)", re.IGNORECASE),
     # German
     re.compile(
-        r"(?:abwesend|urlaubsabwesenheit|automatische(?:r|s)?\s+antwort)",
-        re.IGNORECASE),
+        r"(?:abwesend|urlaubsabwesenheit|automatische(?:r|s)?\s+antwort)", re.IGNORECASE
+    ),
     re.compile(
-        r"bin\s+(?:abwesend|im\s+urlaub|nicht\s+im\s+b(?:ü|ue)ro)",
-        re.IGNORECASE),
+        r"bin\s+(?:abwesend|im\s+urlaub|nicht\s+im\s+b(?:ü|ue)ro)", re.IGNORECASE
+    ),
     # French
     re.compile(
-        r"(?:absence|absent|cong(?:é|e)|r(?:é|e)ponse\s+automatique)",
-        re.IGNORECASE),
+        r"(?:absence|absent|cong(?:é|e)|r(?:é|e)ponse\s+automatique)", re.IGNORECASE
+    ),
     re.compile(r"je\s+suis\s+(?:absent|en\s+cong(?:é|e))", re.IGNORECASE),
     # Spanish
-    re.compile(
-        r"(?:fuera\s+de|ausente|respuesta\s+autom(?:á|a)tica)",
-        re.IGNORECASE),
+    re.compile(r"(?:fuera\s+de|ausente|respuesta\s+autom(?:á|a)tica)", re.IGNORECASE),
     # Portuguese
     re.compile(
-        r"(?:fora\s+do\s+escrit(?:ó|o)rio|resposta\s+autom(?:á|a)tica)",
-        re.IGNORECASE),
+        r"(?:fora\s+do\s+escrit(?:ó|o)rio|resposta\s+autom(?:á|a)tica)", re.IGNORECASE
+    ),
     # Italian
     re.compile(
-        r"(?:fuori\s+(?: dall'?|dall')?ufficio|risposta\s+automatica)",
-        re.IGNORECASE),
+        r"(?:fuori\s+(?: dall'?|dall')?ufficio|risposta\s+automatica)", re.IGNORECASE
+    ),
     # Dutch
     re.compile(r"(?:afwezig|automatisch\s+antwoord)", re.IGNORECASE),
     # Japanese
@@ -136,7 +137,7 @@ MIN_BODY_LENGTH_FOR_PATTERN_CHECK = 20
 BODY_MIN_PATTERN_MATCHES = 2
 
 # Confidence thresholds for body-only detection (BC-012)
-BODY_CONFIDENCE_HIGH_THRESHOLD = 4   # 4+ patterns = high
+BODY_CONFIDENCE_HIGH_THRESHOLD = 4  # 4+ patterns = high
 BODY_CONFIDENCE_MEDIUM_THRESHOLD = 2  # 2-3 patterns = medium
 
 
@@ -189,8 +190,11 @@ class OOODetectionService:
         headers = {}
         if headers_str:
             try:
-                headers = json.loads(headers_str) if isinstance(
-                    headers_str, str) else headers_str
+                headers = (
+                    json.loads(headers_str)
+                    if isinstance(headers_str, str)
+                    else headers_str
+                )
             except (json.JSONDecodeError, TypeError):
                 pass
 
@@ -199,15 +203,13 @@ class OOODetectionService:
         if header_result["is_ooo"]:
             header_result["type"] = "auto_reply"
             header_result["is_auto_reply"] = True
-            detected_signals.append(
-                f"header:{
+            detected_signals.append(f"header:{
                     header_result.get(
                         'reason', '')[
                         :50]}")
             ooo_until = self._extract_return_date(
-                email_data.get(
-                    "body_text", "") or email_data.get(
-                    "body_html", ""), )
+                email_data.get("body_text", "") or email_data.get("body_html", ""),
+            )
             header_result["ooo_until"] = ooo_until
             header_result["detected_signals"] = detected_signals
             header_result["rule_ids_matched"] = rule_ids_matched
@@ -219,15 +221,13 @@ class OOODetectionService:
         if subject_result["is_ooo"]:
             subject_result["type"] = "auto_reply"
             subject_result["is_auto_reply"] = True
-            detected_signals.append(
-                f"subject:{
+            detected_signals.append(f"subject:{
                     subject_result.get(
                         'reason', '')[
                         :50]}")
             ooo_until = self._extract_return_date(
-                email_data.get(
-                    "body_text", "") or email_data.get(
-                    "body_html", ""), )
+                email_data.get("body_text", "") or email_data.get("body_html", ""),
+            )
             subject_result["ooo_until"] = ooo_until
             subject_result["detected_signals"] = detected_signals
             subject_result["rule_ids_matched"] = rule_ids_matched
@@ -239,15 +239,13 @@ class OOODetectionService:
         if body_result["is_ooo"]:
             body_result["type"] = "ooo"
             body_result["is_auto_reply"] = True
-            detected_signals.append(
-                f"body:{
+            detected_signals.append(f"body:{
                     body_result.get(
                         'reason', '')[
                         :50]}")
             ooo_until = self._extract_return_date(
-                email_data.get(
-                    "body_text", "") or email_data.get(
-                    "body_html", ""), )
+                email_data.get("body_text", "") or email_data.get("body_html", ""),
+            )
             body_result["ooo_until"] = ooo_until
             body_result["detected_signals"] = detected_signals
             body_result["rule_ids_matched"] = rule_ids_matched
@@ -259,9 +257,8 @@ class OOODetectionService:
             detected_signals.extend(custom_result.get("detected_signals", []))
             rule_ids_matched.extend(custom_result.get("rule_ids_matched", []))
             ooo_until = self._extract_return_date(
-                email_data.get(
-                    "body_text", "") or email_data.get(
-                    "body_html", ""), )
+                email_data.get("body_text", "") or email_data.get("body_html", ""),
+            )
             custom_result["ooo_until"] = ooo_until
             custom_result["detected_signals"] = detected_signals
             custom_result["rule_ids_matched"] = rule_ids_matched
@@ -270,8 +267,7 @@ class OOODetectionService:
         # Step 5: Check sender profile (frequency analysis)
         sender_email = email_data.get("sender_email", "")
         if sender_email:
-            profile_result = self._check_sender_profile(
-                company_id, sender_email)
+            profile_result = self._check_sender_profile(company_id, sender_email)
             if profile_result["is_ooo"]:
                 profile_result["detected_signals"] = detected_signals
                 profile_result["rule_ids_matched"] = rule_ids_matched
@@ -448,8 +444,7 @@ class OOODetectionService:
                 "company_id": company_id,
                 "sender_email": sender_email,
                 "ooo_count": profile.ooo_detected_count,
-                "ooo_until": str(
-                    profile.ooo_until) if profile.ooo_until else None,
+                "ooo_until": str(profile.ooo_until) if profile.ooo_until else None,
             },
         )
 
@@ -498,12 +493,15 @@ class OOODetectionService:
 
             return {
                 "is_ooo": True,
-                "event_id": str(
-                    profile.id),
-                "ooo_until": profile.ooo_until.isoformat() if profile.ooo_until else None,
+                "event_id": str(profile.id),
+                "ooo_until": (
+                    profile.ooo_until.isoformat() if profile.ooo_until else None
+                ),
                 "reason": "Active OOO profile",
                 "ooo_count": profile.ooo_detected_count,
-                "detected_at": profile.last_ooo_at.isoformat() if profile.last_ooo_at else None,
+                "detected_at": (
+                    profile.last_ooo_at.isoformat() if profile.last_ooo_at else None
+                ),
             }
 
         # Fallback: check email_delivery_event table
@@ -529,8 +527,7 @@ class OOODetectionService:
 
         return {
             "is_ooo": True,
-            "event_id": str(
-                event.id),
+            "event_id": str(event.id),
             "ooo_until": event.ooo_until.isoformat() if event.ooo_until else None,
             "reason": event.reason,
             "detected_at": event.created_at.isoformat() if event.created_at else None,
@@ -577,7 +574,9 @@ class OOODetectionService:
                     "classification": r.classification,
                     "active": r.active,
                     "match_count": r.match_count or 0,
-                    "last_matched_at": r.last_matched_at.isoformat() if r.last_matched_at else None,
+                    "last_matched_at": (
+                        r.last_matched_at.isoformat() if r.last_matched_at else None
+                    ),
                     "created_at": r.created_at.isoformat() if r.created_at else None,
                     "updated_at": r.updated_at.isoformat() if r.updated_at else None,
                 }
@@ -615,9 +614,7 @@ class OOODetectionService:
             try:
                 re.compile(pattern)
             except re.error as exc:
-                return {
-                    "status": "error",
-                    "error": f"Invalid regex: {
+                return {"status": "error", "error": f"Invalid regex: {
                         str(exc)}"}
 
         rule = OOODetectionRule(
@@ -674,14 +671,14 @@ class OOODetectionService:
             return {"status": "error", "error": "Rule not found"}
 
         # Validate regex if pattern is being updated
-        if updates.get("pattern") and updates.get(
-                "pattern_type", rule.pattern_type) == "regex":
+        if (
+            updates.get("pattern")
+            and updates.get("pattern_type", rule.pattern_type) == "regex"
+        ):
             try:
                 re.compile(updates["pattern"])
             except re.error as exc:
-                return {
-                    "status": "error",
-                    "error": f"Invalid regex: {
+                return {"status": "error", "error": f"Invalid regex: {
                         str(exc)}"}
 
         for field, value in updates.items():
@@ -776,8 +773,9 @@ class OOODetectionService:
             .limit(10)
             .all()
         )
-        top_senders = [{"email": email, "count": count}
-                       for email, count in top_senders_rows]
+        top_senders = [
+            {"email": email, "count": count} for email, count in top_senders_rows
+        ]
 
         # Count loop-prevented (cyclic classification)
         loop_prevented = by_type.get("cyclic", 0)
@@ -790,8 +788,7 @@ class OOODetectionService:
             "range_days": range_days,
         }
 
-    def cleanup_expired_profiles(
-            self, company_id: Optional[str] = None) -> int:
+    def cleanup_expired_profiles(self, company_id: Optional[str] = None) -> int:
         """Clean up expired OOO sender profiles (BC-004 Celery beat).
 
         Resets active_ooo=false for profiles where ooo_until has passed.
@@ -805,11 +802,8 @@ class OOODetectionService:
         from database.models.ooo_detection import OOOSenderProfile
 
         now = datetime.now(timezone.utc)
-        query = (
-            self.db.query(OOOSenderProfile)
-            .filter(
-                OOOSenderProfile.active_ooo,
-            )
+        query = self.db.query(OOOSenderProfile).filter(
+            OOOSenderProfile.active_ooo,
         )
         if company_id:
             query = query.filter(OOOSenderProfile.company_id == company_id)
@@ -842,12 +836,11 @@ class OOODetectionService:
         Returns dict with is_ooo, reason, detection_source, confidence.
         """
         # Check Auto-Submitted header
-        auto_submitted = str(
-            headers.get(
-                "auto-submitted",
-                "") or headers.get(
-                "auto_submitted",
-                "")).strip().lower()
+        auto_submitted = (
+            str(headers.get("auto-submitted", "") or headers.get("auto_submitted", ""))
+            .strip()
+            .lower()
+        )
         if auto_submitted in OOO_AUTO_SUBMITTED_VALUES:
             return {
                 "is_ooo": True,
@@ -858,10 +851,7 @@ class OOODetectionService:
             }
 
         # Check X-Auto-Response-Suppress
-        suppress = str(
-            headers.get(
-                "x-auto-response-suppress",
-                "")).strip().lower()
+        suppress = str(headers.get("x-auto-response-suppress", "")).strip().lower()
         if suppress in OOO_X_AUTO_RESPONSE_VALUES:
             return {
                 "is_ooo": True,
@@ -932,10 +922,12 @@ class OOODetectionService:
         for pattern in OOO_BODY_PATTERNS:
             match = pattern.search(body)
             if match:
-                matches.append({
-                    "pattern": pattern.pattern[:60],
-                    "matched_text": match.group()[:80],
-                })
+                matches.append(
+                    {
+                        "pattern": pattern.pattern[:60],
+                        "matched_text": match.group()[:80],
+                    }
+                )
 
         if len(matches) >= BODY_MIN_PATTERN_MATCHES:
             # Confidence scoring based on match count
@@ -987,15 +979,18 @@ class OOODetectionService:
         except Exception:
             return {"is_ooo": False}
 
-        if not rules or not hasattr(rules, '__iter__'):
+        if not rules or not hasattr(rules, "__iter__"):
             return {"is_ooo": False}
 
         headers_str = email_data.get("headers_json", "")
         headers = {}
         if headers_str:
             try:
-                headers = json.loads(headers_str) if isinstance(
-                    headers_str, str) else headers_str
+                headers = (
+                    json.loads(headers_str)
+                    if isinstance(headers_str, str)
+                    else headers_str
+                )
             except (json.JSONDecodeError, TypeError):
                 pass
 
@@ -1013,23 +1008,23 @@ class OOODetectionService:
                 # Check against all header values
                 for key, value in headers.items():
                     if self._match_pattern(
-                            value or "", rule.pattern, rule.pattern_type):
+                        value or "", rule.pattern, rule.pattern_type
+                    ):
                         matched = True
                         text_to_check = f"header:{key}={value}"
                         break
             elif rule.rule_type == "subject":
                 text_to_check = subject
-                matched = self._match_pattern(
-                    subject, rule.pattern, rule.pattern_type)
+                matched = self._match_pattern(subject, rule.pattern, rule.pattern_type)
             elif rule.rule_type == "body":
                 text_to_check = body
-                matched = self._match_pattern(
-                    body, rule.pattern, rule.pattern_type)
+                matched = self._match_pattern(body, rule.pattern, rule.pattern_type)
             elif rule.rule_type == "sender_behavior":
                 # Check sender email against pattern
                 text_to_check = email_data.get("sender_email", "")
                 matched = self._match_pattern(
-                    text_to_check, rule.pattern, rule.pattern_type)
+                    text_to_check, rule.pattern, rule.pattern_type
+                )
 
             if matched:
                 detected_signals.append(f"rule:{rule.pattern[:50]}")
@@ -1086,7 +1081,9 @@ class OOODetectionService:
         return False
 
     def _check_sender_profile(
-        self, company_id: str, sender_email: str,
+        self,
+        company_id: str,
+        sender_email: str,
     ) -> dict:
         """Check sender's OOO profile for frequency-based detection.
 
@@ -1104,10 +1101,13 @@ class OOODetectionService:
             from database.models.ooo_detection import OOOSenderProfile
 
             profile = (
-                self.db.query(OOOSenderProfile) .filter(
+                self.db.query(OOOSenderProfile)
+                .filter(
                     OOOSenderProfile.company_id == company_id,
                     OOOSenderProfile.sender_email == sender_email.lower().strip(),
-                ) .first())
+                )
+                .first()
+            )
 
             if not profile or not getattr(profile, "active_ooo", False):
                 return {"is_ooo": False}
@@ -1169,10 +1169,21 @@ class OOODetectionService:
                 matched_text = match.group(1)
                 # Try multiple date formats
                 for fmt in [
-                    "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%d.%m.%Y",
-                    "%B %d, %Y", "%B %d %Y", "%b %d, %Y", "%b %d %Y",
-                    "%d %B %Y", "%d %b %Y", "%m/%d/%Y",
-                    "%B %d", "%b %d", "%d %B", "%d %b",
+                    "%Y-%m-%d",
+                    "%d-%m-%Y",
+                    "%d/%m/%Y",
+                    "%d.%m.%Y",
+                    "%B %d, %Y",
+                    "%B %d %Y",
+                    "%b %d, %Y",
+                    "%b %d %Y",
+                    "%d %B %Y",
+                    "%d %b %Y",
+                    "%m/%d/%Y",
+                    "%B %d",
+                    "%b %d",
+                    "%d %B",
+                    "%d %b",
                 ]:
                     try:
                         parsed = datetime.strptime(matched_text.strip(), fmt)
@@ -1180,8 +1191,7 @@ class OOODetectionService:
                         if parsed.year == 1900:
                             parsed = parsed.replace(year=datetime.now().year)
                             if parsed < datetime.now():
-                                parsed = parsed.replace(
-                                    year=datetime.now().year + 1)
+                                parsed = parsed.replace(year=datetime.now().year + 1)
                         return parsed.isoformat()
                     except ValueError:
                         continue

@@ -50,6 +50,7 @@ DEFAULT_TICKET_LIMIT = 2000
 
 # ── Exception Classes ─────────────────────────────────────────────────────
 
+
 class UsageTrackingError(Exception):
     """Base exception for usage tracking errors."""
 
@@ -59,6 +60,7 @@ class UsageLimitExceededError(UsageTrackingError):
 
 
 # ── Service Implementation ───────────────────────────────────────────────
+
 
 class UsageTrackingService:
     """
@@ -255,15 +257,13 @@ class UsageTrackingService:
         today = datetime.now(timezone.utc).date()
 
         with SessionLocal() as db:
-            record = self._get_or_create_daily_record(
-                db, company_id_str, today)
+            record = self._get_or_create_daily_record(db, company_id_str, today)
             record.tickets_used = (record.tickets_used or 0) + count
             db.commit()
             db.refresh(record)
 
             logger.info(
-                "ticket_usage_incremented "
-                "company_id=%s date=%s count=%s total=%s",
+                "ticket_usage_incremented " "company_id=%s date=%s count=%s total=%s",
                 company_id_str,
                 today.isoformat(),
                 count,
@@ -307,17 +307,14 @@ class UsageTrackingService:
         today = datetime.now(timezone.utc).date()
 
         with SessionLocal() as db:
-            record = self._get_or_create_daily_record(
-                db, company_id_str, today)
+            record = self._get_or_create_daily_record(db, company_id_str, today)
             current = record.voice_minutes_used or Decimal("0.00")
-            record.voice_minutes_used = self._round_money(
-                current + voice_decimal)
+            record.voice_minutes_used = self._round_money(current + voice_decimal)
             db.commit()
             db.refresh(record)
 
             logger.info(
-                "voice_usage_incremented "
-                "company_id=%s date=%s minutes=%s total=%s",
+                "voice_usage_incremented " "company_id=%s date=%s minutes=%s total=%s",
                 company_id_str,
                 today.isoformat(),
                 voice_decimal,
@@ -365,30 +362,28 @@ class UsageTrackingService:
             # Aggregate all daily records for the month
             agg = (
                 db.query(
+                    func.coalesce(func.sum(UsageRecord.tickets_used), 0).label(
+                        "total_tickets"
+                    ),
+                    func.coalesce(func.sum(UsageRecord.ai_agents_used), 0).label(
+                        "total_ai_agents"
+                    ),
                     func.coalesce(
-                        func.sum(
-                            UsageRecord.tickets_used),
-                        0).label("total_tickets"),
+                        func.sum(UsageRecord.voice_minutes_used), Decimal("0.00")
+                    ).label("total_voice_minutes"),
+                    func.coalesce(func.sum(UsageRecord.overage_tickets), 0).label(
+                        "total_overage_tickets"
+                    ),
                     func.coalesce(
-                        func.sum(
-                            UsageRecord.ai_agents_used),
-                        0).label("total_ai_agents"),
-                    func.coalesce(
-                        func.sum(
-                            UsageRecord.voice_minutes_used),
-                        Decimal("0.00")).label("total_voice_minutes"),
-                    func.coalesce(
-                        func.sum(
-                            UsageRecord.overage_tickets),
-                        0).label("total_overage_tickets"),
-                    func.coalesce(
-                        func.sum(
-                            UsageRecord.overage_charges),
-                        Decimal("0.00")).label("total_overage_charges"),
-                ) .filter(
+                        func.sum(UsageRecord.overage_charges), Decimal("0.00")
+                    ).label("total_overage_charges"),
+                )
+                .filter(
                     UsageRecord.company_id == company_id_str,
                     UsageRecord.record_month == month,
-                ) .first())
+                )
+                .first()
+            )
 
             tickets_used = int(agg.total_tickets)
             ai_agents_used = int(agg.total_ai_agents)
@@ -404,8 +399,7 @@ class UsageTrackingService:
             else:
                 usage_percentage = 0.0
 
-            approaching_limit = usage_percentage >= float(
-                DEFAULT_APPROACHING_THRESHOLD)
+            approaching_limit = usage_percentage >= float(DEFAULT_APPROACHING_THRESHOLD)
             limit_exceeded = tickets_used > ticket_limit
             tickets_remaining = max(0, ticket_limit - tickets_used)
 
@@ -573,8 +567,7 @@ class UsageTrackingService:
         overage_tickets = max(0, tickets_used - ticket_limit)
 
         # BC-002: Decimal arithmetic for all money
-        overage_charges = Decimal(
-            str(overage_tickets)) * OVERAGE_RATE_PER_TICKET
+        overage_charges = Decimal(str(overage_tickets)) * OVERAGE_RATE_PER_TICKET
         overage_charges = self._round_money(overage_charges)
 
         logger.info(
@@ -633,9 +626,9 @@ class UsageTrackingService:
                     func.coalesce(func.sum(UsageRecord.overage_tickets), 0).label(
                         "total_overage_tickets"
                     ),
-                    func.coalesce(func.sum(UsageRecord.overage_charges), Decimal("0.00")).label(
-                        "total_overage_charges"
-                    ),
+                    func.coalesce(
+                        func.sum(UsageRecord.overage_charges), Decimal("0.00")
+                    ).label("total_overage_charges"),
                 )
                 .filter(UsageRecord.company_id == company_id_str)
                 .group_by(UsageRecord.record_month)
@@ -706,9 +699,7 @@ class UsageTrackingService:
             target_date = datetime.now(timezone.utc).date()
 
         with SessionLocal() as db:
-            record = self._get_or_create_daily_record(
-                db, company_id_str, target_date
-            )
+            record = self._get_or_create_daily_record(db, company_id_str, target_date)
             record.overage_tickets = overage_tickets
             record.overage_charges = self._round_money(charges_decimal)
             db.commit()
@@ -763,8 +754,7 @@ class UsageTrackingService:
 
             if record is None:
                 logger.info(
-                    "daily_usage_not_found "
-                    "company_id=%s date=%s",
+                    "daily_usage_not_found " "company_id=%s date=%s",
                     company_id_str,
                     target_date.isoformat(),
                 )
@@ -776,13 +766,12 @@ class UsageTrackingService:
                 "record_month": record.record_month,
                 "tickets_used": record.tickets_used or 0,
                 "ai_agents_used": record.ai_agents_used or 0,
-                "voice_minutes_used": str(
-                    record.voice_minutes_used or Decimal("0.00")),
+                "voice_minutes_used": str(record.voice_minutes_used or Decimal("0.00")),
                 "overage_tickets": record.overage_tickets or 0,
-                "overage_charges": str(
-                    record.overage_charges or Decimal("0.00")),
+                "overage_charges": str(record.overage_charges or Decimal("0.00")),
                 "created_at": (
-                    record.created_at.isoformat() if record.created_at else None),
+                    record.created_at.isoformat() if record.created_at else None
+                ),
             }
 
     # ═════════════════════════════════════════════════════════════════════
@@ -792,6 +781,7 @@ class UsageTrackingService:
     async def _get_redis(self):
         """Get Redis client for usage tracking."""
         from app.core.redis import get_redis
+
         return await get_redis()
 
     def _build_usage_redis_key(self, company_id: str, period_id: str) -> str:
@@ -957,8 +947,7 @@ class UsageTrackingService:
 
         if tickets_used >= ticket_limit:
             # Calculate overage charge at $0.10/ticket
-            overage_charge = Decimal(
-                str(overage_count)) * OVERAGE_RATE_PER_TICKET
+            overage_charge = Decimal(str(overage_count)) * OVERAGE_RATE_PER_TICKET
 
             return {
                 "blocked": True,
@@ -1016,23 +1005,20 @@ class UsageTrackingService:
             # Get PostgreSQL count
             with SessionLocal() as db:
                 pg_count = (
-                    db.query(
-                        func.coalesce(
-                            func.sum(
-                                UsageRecord.tickets_used),
-                            0)) .filter(
+                    db.query(func.coalesce(func.sum(UsageRecord.tickets_used), 0))
+                    .filter(
                         UsageRecord.company_id == company_id_str,
                         UsageRecord.record_month == period_id,
-                    ) .scalar())
+                    )
+                    .scalar()
+                )
                 pg_count = int(pg_count)
 
                 # If Redis count is higher, update PostgreSQL
                 if redis_count > pg_count:
                     diff = redis_count - pg_count
                     today = datetime.now(timezone.utc).date()
-                    record = self._get_or_create_daily_record(
-                        db, company_id_str, today
-                    )
+                    record = self._get_or_create_daily_record(db, company_id_str, today)
                     record.tickets_used = redis_count
                     db.commit()
 

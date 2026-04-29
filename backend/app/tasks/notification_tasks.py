@@ -288,10 +288,14 @@ def process_digest_queue_task(
             pref_service = NotificationPreferenceService(db, company_id)
 
             # Get users with digest enabled
-            users = db.query(User).filter(
-                User.company_id == company_id,
-                User.is_active,
-            ).all()
+            users = (
+                db.query(User)
+                .filter(
+                    User.company_id == company_id,
+                    User.is_active,
+                )
+                .all()
+            )
 
             processed = 0
 
@@ -302,11 +306,9 @@ def process_digest_queue_task(
 
                     if digest_settings.get("frequency") == frequency:
                         if frequency == "daily":
-                            generate_daily_digest_task.delay(
-                                company_id, user.id)
+                            generate_daily_digest_task.delay(company_id, user.id)
                         else:
-                            generate_weekly_digest_task.delay(
-                                company_id, user.id)
+                            generate_weekly_digest_task.delay(company_id, user.id)
                         processed += 1
 
                 except Exception:
@@ -341,11 +343,15 @@ def cleanup_old_notifications_task(
             cutoff = datetime.now(timezone.utc) - timedelta(days=days_old)
 
             # Delete read notifications older than cutoff
-            deleted = db.query(Notification).filter(
-                Notification.company_id == company_id,
-                Notification.read_at.isnot(None),
-                Notification.created_at < cutoff,
-            ).delete()
+            deleted = (
+                db.query(Notification)
+                .filter(
+                    Notification.company_id == company_id,
+                    Notification.read_at.isnot(None),
+                    Notification.created_at < cutoff,
+                )
+                .delete()
+            )
 
             db.commit()
 
@@ -378,10 +384,14 @@ def send_ticket_notification_task(
     try:
         with TenantContext(company_id):
             # Get ticket details
-            ticket = db.query(Ticket).filter(
-                Ticket.id == ticket_id,
-                Ticket.company_id == company_id,
-            ).first()
+            ticket = (
+                db.query(Ticket)
+                .filter(
+                    Ticket.id == ticket_id,
+                    Ticket.company_id == company_id,
+                )
+                .first()
+            )
 
             if not ticket:
                 return {"success": False, "error": "Ticket not found"}
@@ -391,14 +401,16 @@ def send_ticket_notification_task(
                 "ticket_id": ticket_id,
                 "ticket_subject": ticket.subject,
                 "customer_id": ticket.customer_id,
-                "priority": ticket.priority if hasattr(
-                    ticket,
-                    'priority') else "medium",
-                "category": ticket.category if hasattr(
-                    ticket,
-                    'category') else "general",
+                "priority": (
+                    ticket.priority if hasattr(ticket, "priority") else "medium"
+                ),
+                "category": (
+                    ticket.category if hasattr(ticket, "category") else "general"
+                ),
                 "status": ticket.status,
-                "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
+                "created_at": (
+                    ticket.created_at.isoformat() if ticket.created_at else None
+                ),
             }
 
             if additional_data:
@@ -419,9 +431,7 @@ def send_ticket_notification_task(
                     recipient_ids.append(ticket.assigned_to)
 
             if not recipient_ids:
-                return {
-                    "success": True,
-                    "message": "No recipients for notification"}
+                return {"success": True, "message": "No recipients for notification"}
 
             service = NotificationService(db, company_id)
 
@@ -454,15 +464,21 @@ def send_sla_notification_task(
 
     try:
         with TenantContext(company_id):
-            ticket = db.query(Ticket).filter(
-                Ticket.id == ticket_id,
-                Ticket.company_id == company_id,
-            ).first()
+            ticket = (
+                db.query(Ticket)
+                .filter(
+                    Ticket.id == ticket_id,
+                    Ticket.company_id == company_id,
+                )
+                .first()
+            )
 
             if not ticket:
                 return {"success": False, "error": "Ticket not found"}
 
-            event_type = "sla_warning" if notification_type == "warning" else "sla_breached"
+            event_type = (
+                "sla_warning" if notification_type == "warning" else "sla_breached"
+            )
 
             data = {
                 "ticket_id": ticket_id,
@@ -480,10 +496,14 @@ def send_sla_notification_task(
 
             # Add team leads/managers for SLA breaches
             if notification_type == "breached":
-                managers = db.query(User).filter(
-                    User.company_id == company_id,
-                    User.role.in_(["admin", "manager"]),
-                ).all()
+                managers = (
+                    db.query(User)
+                    .filter(
+                        User.company_id == company_id,
+                        User.role.in_(["admin", "manager"]),
+                    )
+                    .all()
+                )
                 recipient_ids.extend([m.id for m in managers])
 
             if not recipient_ids:
@@ -493,8 +513,7 @@ def send_sla_notification_task(
 
             result = service.send_notification(
                 event_type=event_type,
-                recipient_ids=list(
-                    set(recipient_ids)),
+                recipient_ids=list(set(recipient_ids)),
                 data=data,
                 priority="urgent" if notification_type == "breached" else "high",
                 ticket_id=ticket_id,

@@ -108,12 +108,10 @@ class TicketSearchService:
                 return [], 0, f"Query must be at least {
                     self.MIN_QUERY_LENGTH} characters"
             if len(query) > self.MAX_QUERY_LENGTH:
-                query = query[:self.MAX_QUERY_LENGTH]
+                query = query[: self.MAX_QUERY_LENGTH]
 
         # Build base query
-        base_query = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id
-        )
+        base_query = self.db.query(Ticket).filter(Ticket.company_id == self.company_id)
 
         # Join with customer for customer name/email search
         if query:
@@ -123,23 +121,29 @@ class TicketSearchService:
 
         # Apply filters
         base_query = self._apply_filters(
-            base_query, status, priority, category, assigned_to,
-            channel, customer_id, tags, is_spam, is_frozen,
-            date_from, date_to
+            base_query,
+            status,
+            priority,
+            category,
+            assigned_to,
+            channel,
+            customer_id,
+            tags,
+            is_spam,
+            is_frozen,
+            date_from,
+            date_to,
         )
 
         # Apply search query
         if query:
-            base_query = self._apply_search_query(
-                base_query, query, fuzzy
-            )
+            base_query = self._apply_search_query(base_query, query, fuzzy)
 
         # Get total count before pagination
         total = base_query.count()
 
         # Apply sorting
-        base_query = self._apply_sorting(
-            base_query, sort_by, sort_order, query)
+        base_query = self._apply_sorting(base_query, sort_by, sort_order, query)
 
         # Paginate
         offset = (page - 1) * page_size
@@ -182,10 +186,15 @@ class TicketSearchService:
         partial_lower = partial.lower()
 
         # Search in ticket subjects
-        tickets = self.db.query(Ticket.subject).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.subject.ilike(f"%{partial}%"),
-        ).limit(limit * 2).all()
+        tickets = (
+            self.db.query(Ticket.subject)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.subject.ilike(f"%{partial}%"),
+            )
+            .limit(limit * 2)
+            .all()
+        )
 
         for (subject,) in tickets:
             if subject:
@@ -199,13 +208,18 @@ class TicketSearchService:
                 break
 
         # Search in customer names/emails
-        customers = self.db.query(Customer.name, Customer.email).filter(
-            Customer.company_id == self.company_id,
-            or_(
-                Customer.name.ilike(f"%{partial}%"),
-                Customer.email.ilike(f"%{partial}%"),
+        customers = (
+            self.db.query(Customer.name, Customer.email)
+            .filter(
+                Customer.company_id == self.company_id,
+                or_(
+                    Customer.name.ilike(f"%{partial}%"),
+                    Customer.email.ilike(f"%{partial}%"),
+                ),
             )
-        ).limit(limit).all()
+            .limit(limit)
+            .all()
+        )
 
         for name, email in customers:
             if name and partial_lower in name.lower():
@@ -233,8 +247,7 @@ class TicketSearchService:
         """
         try:
             redis = get_redis()
-            key = make_key(
-                self.company_id, f"{
+            key = make_key(self.company_id, f"{
                     self.RECENT_SEARCHES_KEY}:{user_id}")
             data = redis.lrange(key, 0, self.MAX_RECENT_SEARCHES - 1)
 
@@ -263,8 +276,7 @@ class TicketSearchService:
         """
         try:
             redis = get_redis()
-            key = make_key(
-                self.company_id, f"{
+            key = make_key(self.company_id, f"{
                     self.RECENT_SEARCHES_KEY}:{user_id}")
             redis.delete(key)
             return True
@@ -356,8 +368,7 @@ class TicketSearchService:
 
         if tags:
             for tag in tags:
-                base_query = base_query.filter(
-                    Ticket.tags.contains(f'"{tag}"'))
+                base_query = base_query.filter(Ticket.tags.contains(f'"{tag}"'))
 
         return base_query
 
@@ -377,16 +388,22 @@ class TicketSearchService:
         ]
 
         # Add customer search
-        search_conditions.extend([
-            Customer.name.ilike(search_pattern),
-            Customer.email.ilike(search_pattern),
-        ])
+        search_conditions.extend(
+            [
+                Customer.name.ilike(search_pattern),
+                Customer.email.ilike(search_pattern),
+            ]
+        )
 
         # Add message content search via subquery
-        message_ticket_ids = self.db.query(TicketMessage.ticket_id).filter(
-            TicketMessage.company_id == self.company_id,
-            TicketMessage.content.ilike(search_pattern),
-        ).subquery()
+        message_ticket_ids = (
+            self.db.query(TicketMessage.ticket_id)
+            .filter(
+                TicketMessage.company_id == self.company_id,
+                TicketMessage.content.ilike(search_pattern),
+            )
+            .subquery()
+        )
 
         search_conditions.append(Ticket.id.in_(message_ticket_ids))
 
@@ -430,14 +447,14 @@ class TicketSearchService:
             relevance_case = case(
                 (Ticket.subject.ilike(f"%{query}%"), 100),
                 (Ticket.subject.ilike(f"{query}%"), 80),
-                else_=50
+                else_=50,
             )
             if sort_order == "desc":
                 base_query = base_query.order_by(
-                    desc(relevance_case), desc(Ticket.created_at))
+                    desc(relevance_case), desc(Ticket.created_at)
+                )
             else:
-                base_query = base_query.order_by(
-                    relevance_case, Ticket.created_at)
+                base_query = base_query.order_by(relevance_case, Ticket.created_at)
         else:
             # Standard column sorting
             sort_column = getattr(Ticket, sort_by, Ticket.created_at)
@@ -449,7 +466,7 @@ class TicketSearchService:
                     (Ticket.priority == TicketPriority.high.value, 2),
                     (Ticket.priority == TicketPriority.medium.value, 3),
                     (Ticket.priority == TicketPriority.low.value, 4),
-                    else_=5
+                    else_=5,
                 )
                 if sort_order == "desc":
                     base_query = base_query.order_by(priority_order)
@@ -484,24 +501,33 @@ class TicketSearchService:
         # Check subject
         if ticket.subject and query_lower in ticket.subject.lower():
             snippet = self._highlight_match(ticket.subject, query)
-            snippets.append({
-                "field": "subject",
-                "text": snippet[:max_length],
-            })
+            snippets.append(
+                {
+                    "field": "subject",
+                    "text": snippet[:max_length],
+                }
+            )
 
         # Check messages
-        messages = self.db.query(TicketMessage).filter(
-            TicketMessage.ticket_id == ticket.id,
-            TicketMessage.content.ilike(f"%{query}%"),
-        ).limit(3).all()
+        messages = (
+            self.db.query(TicketMessage)
+            .filter(
+                TicketMessage.ticket_id == ticket.id,
+                TicketMessage.content.ilike(f"%{query}%"),
+            )
+            .limit(3)
+            .all()
+        )
 
         for msg in messages:
             if msg.content:
                 snippet = self._highlight_match(msg.content, query)
-                snippets.append({
-                    "field": "message",
-                    "text": snippet[:max_length],
-                })
+                snippets.append(
+                    {
+                        "field": "message",
+                        "text": snippet[:max_length],
+                    }
+                )
 
         return snippets
 
@@ -545,8 +571,7 @@ class TicketSearchService:
 
         # Highlight the match
         pattern = re.compile(re.escape(query), re.IGNORECASE)
-        snippet = pattern.sub(
-            f"{highlight_start}\\g<0>{highlight_end}", snippet)
+        snippet = pattern.sub(f"{highlight_start}\\g<0>{highlight_end}", snippet)
 
         return snippet
 
@@ -589,15 +614,16 @@ class TicketSearchService:
         """
         try:
             redis = get_redis()
-            key = make_key(
-                self.company_id, f"{
+            key = make_key(self.company_id, f"{
                     self.RECENT_SEARCHES_KEY}:{user_id}")
 
             # Create search record
-            search_record = json.dumps({
-                "query": query,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            })
+            search_record = json.dumps(
+                {
+                    "query": query,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
 
             # Add to list (LPUSH adds to front)
             redis.lpush(key, search_record)
@@ -634,25 +660,33 @@ class TicketSearchService:
 
         # Get recent open tickets
         recent = datetime.now(timezone.utc) - timedelta(days=30)
-        tickets = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.status.in_([
-                TicketStatus.open.value,
-                TicketStatus.assigned.value,
-                TicketStatus.in_progress.value,
-            ]),
-            Ticket.created_at >= recent,
-        ).limit(100).all()
+        tickets = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.status.in_(
+                    [
+                        TicketStatus.open.value,
+                        TicketStatus.assigned.value,
+                        TicketStatus.in_progress.value,
+                    ]
+                ),
+                Ticket.created_at >= recent,
+            )
+            .limit(100)
+            .all()
+        )
 
         for ticket in tickets:
             if ticket.subject:
-                similarity = self._calculate_similarity(
-                    search_text, ticket.subject)
+                similarity = self._calculate_similarity(search_text, ticket.subject)
                 if similarity >= threshold:
-                    results.append({
-                        "ticket": self._ticket_to_dict(ticket),
-                        "similarity": similarity,
-                    })
+                    results.append(
+                        {
+                            "ticket": self._ticket_to_dict(ticket),
+                            "similarity": similarity,
+                        }
+                    )
 
         # Sort by similarity
         results.sort(key=lambda x: x["similarity"], reverse=True)

@@ -41,11 +41,14 @@ async def _emit_shadow_event(
     """
     try:
         from app.core.event_emitter import emit_shadow_event
+
         await emit_shadow_event(company_id, event_type, payload)
     except Exception as e:
         logger.warning(
             "shadow_event_emit_failed company_id=%s event=%s error=%s",
-            company_id, event_type, str(e),
+            company_id,
+            event_type,
+            str(e),
         )
 
 
@@ -58,20 +61,15 @@ def _emit_shadow_event_sync(
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
-            asyncio.create_task(
-                _emit_shadow_event(
-                    company_id,
-                    event_type,
-                    payload))
+            asyncio.create_task(_emit_shadow_event(company_id, event_type, payload))
         else:
-            loop.run_until_complete(
-                _emit_shadow_event(
-                    company_id, event_type, payload))
+            loop.run_until_complete(_emit_shadow_event(company_id, event_type, payload))
     except RuntimeError:
         # No event loop, create a new one
         asyncio.run(_emit_shadow_event(company_id, event_type, payload))
     except Exception as e:
         logger.warning("shadow_event_sync_failed: %s", str(e))
+
 
 # ── Valid modes ────────────────────────────────────────────────
 
@@ -84,11 +82,11 @@ VALID_SET_VIA = {"ui", "jarvis"}
 
 # Layer 4: Hard safety floor — these action types ALWAYS require approval
 HARD_SAFETY_ACTIONS = {
-    "refund",           # Financial transactions
-    "account_delete",   # Destructive operations
-    "data_export",      # PII exposure risk
-    "password_reset",   # Security sensitive
-    "api_key_create",   # Credential issuance
+    "refund",  # Financial transactions
+    "account_delete",  # Destructive operations
+    "data_export",  # PII exposure risk
+    "password_reset",  # Security sensitive
+    "api_key_create",  # Credential issuance
 }
 
 # Layer 1: Base risk scores by action type (0.0 = safe, 1.0 = critical)
@@ -109,7 +107,7 @@ ACTION_RISK_BASE = {
 }
 
 # Layer 1: Payload-based risk adjustments
-HIGH_REFUND_THRESHOLD = 100.0   # Refunds above $100 get extra risk
+HIGH_REFUND_THRESHOLD = 100.0  # Refunds above $100 get extra risk
 CRITICAL_REFUND_THRESHOLD = 500.0  # Refunds above $500 get even more
 
 
@@ -163,9 +161,7 @@ class ShadowModeService:
             System mode string: 'shadow', 'supervised', or 'graduated'.
         """
         with SessionLocal() as db:
-            company = db.query(Company).filter(
-                Company.id == company_id
-            ).first()
+            company = db.query(Company).filter(Company.id == company_id).first()
 
             if not company:
                 return "supervised"  # Safe default
@@ -199,19 +195,15 @@ class ShadowModeService:
             ShadowModeError: If mode is invalid.
         """
         if mode not in VALID_MODES:
-            raise InvalidModeError(
-                f"Invalid mode: {mode}. Must be one of: {
+            raise InvalidModeError(f"Invalid mode: {mode}. Must be one of: {
                     ', '.join(
                         sorted(VALID_MODES))}")
 
         with SessionLocal() as db:
-            company = db.query(Company).filter(
-                Company.id == company_id
-            ).first()
+            company = db.query(Company).filter(Company.id == company_id).first()
 
             if not company:
-                raise ShadowModeError(
-                    f"Company {company_id} not found (BC-001)")
+                raise ShadowModeError(f"Company {company_id} not found (BC-001)")
 
             old_mode = getattr(company, "system_mode", None) or "supervised"
             company.system_mode = mode
@@ -272,21 +264,15 @@ class ShadowModeService:
         """
         try:
             with SessionLocal() as db:
-                company = db.query(Company).filter(
-                    Company.id == company_id
-                ).first()
+                company = db.query(Company).filter(Company.id == company_id).first()
 
                 if not company:
-                    raise ShadowModeError(
-                        f"Company {company_id} not found (BC-001)"
-                    )
+                    raise ShadowModeError(f"Company {company_id} not found (BC-001)")
 
-                company_mode = getattr(
-                    company, "system_mode", None) or "supervised"
+                company_mode = getattr(company, "system_mode", None) or "supervised"
 
                 # ── Stage 0: Shadow Actions Remaining Check ──
-                shadow_remaining = getattr(
-                    company, "shadow_actions_remaining", None)
+                shadow_remaining = getattr(company, "shadow_actions_remaining", None)
                 if shadow_remaining is not None and shadow_remaining > 0:
                     # Force shadow mode for Stage 0 onboarding
                     return {
@@ -300,31 +286,31 @@ class ShadowModeService:
                         "layers": {
                             "layer1_heuristic": {
                                 "score": 0.5,
-                                "reason": "Stage 0 forced"},
+                                "reason": "Stage 0 forced",
+                            },
                             "layer2_preference": {
                                 "mode": None,
-                                "reason": "Stage 0 override"},
+                                "reason": "Stage 0 override",
+                            },
                             "layer3_historical": {
                                 "avg_risk": None,
-                                "reason": "Stage 0 override"},
+                                "reason": "Stage 0 override",
+                            },
                             "layer4_safety_floor": {
                                 "hard_safety": True,
-                                "reason": "Stage 0 override"},
+                                "reason": "Stage 0 override",
+                            },
                         },
                         "company_mode": "shadow",
                     }
 
                 # ── Get config thresholds from company ──
                 risk_threshold_shadow = float(
-                    getattr(
-                        company,
-                        "risk_threshold_shadow",
-                        0.7) or 0.7)
+                    getattr(company, "risk_threshold_shadow", 0.7) or 0.7
+                )
                 risk_threshold_auto = float(
-                    getattr(
-                        company,
-                        "risk_threshold_auto",
-                        0.3) or 0.3)
+                    getattr(company, "risk_threshold_auto", 0.3) or 0.3
+                )
 
                 # ── Layer 1: Heuristic Risk Score ──
                 base_score = ACTION_RISK_BASE.get(action_type, 0.5)
@@ -335,10 +321,14 @@ class ShadowModeService:
 
                 # ── Layer 2: Per-Category Preferences ──
                 action_category = self._normalize_category(action_type)
-                preference = db.query(ShadowPreference).filter(
-                    ShadowPreference.company_id == company_id,
-                    ShadowPreference.action_category == action_category,
-                ).first()
+                preference = (
+                    db.query(ShadowPreference)
+                    .filter(
+                        ShadowPreference.company_id == company_id,
+                        ShadowPreference.action_category == action_category,
+                    )
+                    .first()
+                )
 
                 preferred_mode = None
                 layer2_reason = "No per-category preference set"
@@ -349,9 +339,7 @@ class ShadowModeService:
                     )
 
                 # ── Layer 3: Historical Pattern Analysis ──
-                avg_historical = self._get_avg_risk_score(
-                    db, company_id, action_type
-                )
+                avg_historical = self._get_avg_risk_score(db, company_id, action_type)
                 layer3_reason = f"Historical avg risk: {avg_historical:.2f}"
 
                 # Blend current risk with historical (weighted average)
@@ -361,9 +349,8 @@ class ShadowModeService:
 
                 # ── Layer 4: Hard Safety Floor ──
                 hard_safety = action_type in HARD_SAFETY_ACTIONS
-                layer4_reason = (
-                    f"Hard safety: {
-                        'ALWAYS requires approval' if hard_safety else 'No override'}")
+                layer4_reason = f"Hard safety: {
+                        'ALWAYS requires approval' if hard_safety else 'No override'}"
 
                 # ── Decision Logic ──
                 # Start with company-level mode
@@ -389,9 +376,7 @@ class ShadowModeService:
                 return {
                     "mode": effective_mode,
                     "risk_score": round(risk_score, 3),
-                    "reason": self._build_decision_reason(
-                        effective_mode, risk_score
-                    ),
+                    "reason": self._build_decision_reason(effective_mode, risk_score),
                     "requires_approval": requires_approval,
                     "auto_execute": auto_execute,
                     "layers": {
@@ -404,7 +389,11 @@ class ShadowModeService:
                             "reason": layer2_reason,
                         },
                         "layer3_historical": {
-                            "avg_risk": round(avg_historical, 3) if avg_historical is not None else None,
+                            "avg_risk": (
+                                round(avg_historical, 3)
+                                if avg_historical is not None
+                                else None
+                            ),
                             "reason": layer3_reason,
                         },
                         "layer4_safety_floor": {
@@ -420,7 +409,9 @@ class ShadowModeService:
         except Exception:
             logger.error(
                 "evaluate_action_risk_failed company_id=%s action_type=%s",
-                company_id, action_type, exc_info=True,
+                company_id,
+                action_type,
+                exc_info=True,
             )
             # Safe fallback: always require approval
             return {
@@ -430,18 +421,13 @@ class ShadowModeService:
                 "requires_approval": True,
                 "auto_execute": False,
                 "layers": {
-                    "layer1_heuristic": {
-                        "score": 0.5,
-                        "reason": "Fallback"},
-                    "layer2_preference": {
-                        "mode": None,
-                        "reason": "N/A"},
-                    "layer3_historical": {
-                        "avg_risk": None,
-                        "reason": "N/A"},
+                    "layer1_heuristic": {"score": 0.5, "reason": "Fallback"},
+                    "layer2_preference": {"mode": None, "reason": "N/A"},
+                    "layer3_historical": {"avg_risk": None, "reason": "N/A"},
                     "layer4_safety_floor": {
                         "hard_safety": True,
-                        "reason": "Safety fallback"},
+                        "reason": "Safety fallback",
+                    },
                 },
                 "company_mode": "supervised",
             }
@@ -512,7 +498,8 @@ class ShadowModeService:
     # ═══════════════════════════════════════════════════════════════
 
     def get_shadow_preferences(
-        self, company_id: str,
+        self,
+        company_id: str,
     ) -> List[Dict[str, Any]]:
         """
         Get all shadow mode preferences for a company.
@@ -524,9 +511,13 @@ class ShadowModeService:
             List of preference dicts.
         """
         with SessionLocal() as db:
-            prefs = db.query(ShadowPreference).filter(
-                ShadowPreference.company_id == company_id,
-            ).all()
+            prefs = (
+                db.query(ShadowPreference)
+                .filter(
+                    ShadowPreference.company_id == company_id,
+                )
+                .all()
+            )
 
             return [self._preference_to_dict(p) for p in prefs]
 
@@ -561,10 +552,14 @@ class ShadowModeService:
             )
 
         with SessionLocal() as db:
-            existing = db.query(ShadowPreference).filter(
-                ShadowPreference.company_id == company_id,
-                ShadowPreference.action_category == action_category,
-            ).first()
+            existing = (
+                db.query(ShadowPreference)
+                .filter(
+                    ShadowPreference.company_id == company_id,
+                    ShadowPreference.action_category == action_category,
+                )
+                .first()
+            )
 
             now = datetime.utcnow()
 
@@ -609,7 +604,9 @@ class ShadowModeService:
             return self._preference_to_dict(pref)
 
     def delete_shadow_preference(
-        self, company_id: str, action_category: str,
+        self,
+        company_id: str,
+        action_category: str,
     ) -> Dict[str, Any]:
         """
         Remove a shadow mode preference, resetting to default.
@@ -622,10 +619,14 @@ class ShadowModeService:
             Dict confirming deletion.
         """
         with SessionLocal() as db:
-            deleted = db.query(ShadowPreference).filter(
-                ShadowPreference.company_id == company_id,
-                ShadowPreference.action_category == action_category,
-            ).delete(synchronize_session=False)
+            deleted = (
+                db.query(ShadowPreference)
+                .filter(
+                    ShadowPreference.company_id == company_id,
+                    ShadowPreference.action_category == action_category,
+                )
+                .delete(synchronize_session=False)
+            )
 
             db.commit()
 
@@ -657,10 +658,14 @@ class ShadowModeService:
             Count of pending entries (manager_decision is NULL).
         """
         with SessionLocal() as db:
-            count = db.query(sa_func.count(ShadowLog.id)).filter(
-                ShadowLog.company_id == company_id,
-                ShadowLog.manager_decision.is_(None),
-            ).scalar()
+            count = (
+                db.query(sa_func.count(ShadowLog.id))
+                .filter(
+                    ShadowLog.company_id == company_id,
+                    ShadowLog.manager_decision.is_(None),
+                )
+                .scalar()
+            )
 
             return count or 0
 
@@ -690,9 +695,13 @@ class ShadowModeService:
             ShadowModeError: If entry already resolved.
         """
         with SessionLocal() as db:
-            entry = db.query(ShadowLog).filter(
-                ShadowLog.id == shadow_log_id,
-            ).first()
+            entry = (
+                db.query(ShadowLog)
+                .filter(
+                    ShadowLog.id == shadow_log_id,
+                )
+                .first()
+            )
 
             if not entry:
                 raise ShadowLogNotFoundError(
@@ -710,16 +719,15 @@ class ShadowModeService:
             entry.resolved_at = datetime.utcnow()
 
             # Decrement shadow_actions_remaining for Stage 0
-            company = db.query(Company).filter(
-                Company.id == entry.company_id
-            ).first()
+            company = db.query(Company).filter(Company.id == entry.company_id).first()
             if company:
                 remaining = getattr(company, "shadow_actions_remaining", None)
                 if remaining is not None and remaining > 0:
                     company.shadow_actions_remaining = remaining - 1
                     logger.info(
                         "stage_0_decremented company_id=%s remaining=%d",
-                        entry.company_id, remaining - 1,
+                        entry.company_id,
+                        remaining - 1,
                     )
 
             db.commit()
@@ -727,7 +735,9 @@ class ShadowModeService:
 
             logger.info(
                 "shadow_action_approved id=%s manager=%s company_id=%s",
-                shadow_log_id, manager_id, entry.company_id,
+                shadow_log_id,
+                manager_id,
+                entry.company_id,
             )
 
             # Emit Socket.io event
@@ -766,9 +776,13 @@ class ShadowModeService:
             ShadowModeError: If entry already resolved.
         """
         with SessionLocal() as db:
-            entry = db.query(ShadowLog).filter(
-                ShadowLog.id == shadow_log_id,
-            ).first()
+            entry = (
+                db.query(ShadowLog)
+                .filter(
+                    ShadowLog.id == shadow_log_id,
+                )
+                .first()
+            )
 
             if not entry:
                 raise ShadowLogNotFoundError(
@@ -789,7 +803,9 @@ class ShadowModeService:
 
             logger.info(
                 "shadow_action_rejected id=%s manager=%s company_id=%s",
-                shadow_log_id, manager_id, entry.company_id,
+                shadow_log_id,
+                manager_id,
+                entry.company_id,
             )
 
             # Emit Socket.io event
@@ -831,9 +847,13 @@ class ShadowModeService:
             ShadowModeError: If entry was not auto-approved.
         """
         with SessionLocal() as db:
-            entry = db.query(ShadowLog).filter(
-                ShadowLog.id == shadow_log_id,
-            ).first()
+            entry = (
+                db.query(ShadowLog)
+                .filter(
+                    ShadowLog.id == shadow_log_id,
+                )
+                .first()
+            )
 
             if not entry:
                 raise ShadowLogNotFoundError(
@@ -845,8 +865,7 @@ class ShadowModeService:
             executed_action = ExecutedAction(
                 company_id=entry.company_id,
                 action_type=entry.action_type,
-                action_data=str(
-                    entry.action_payload) if entry.action_payload else None,
+                action_data=str(entry.action_payload) if entry.action_payload else None,
                 executed_by=manager_id,
                 created_at=datetime.utcnow(),
             )
@@ -857,8 +876,9 @@ class ShadowModeService:
                 company_id=entry.company_id,
                 executed_action_id=executed_action.id,
                 undo_type="reversal",
-                original_data=str(
-                    entry.action_payload) if entry.action_payload else None,
+                original_data=(
+                    str(entry.action_payload) if entry.action_payload else None
+                ),
                 undo_data=None,
                 undo_reason=reason,
                 undone_by=manager_id,
@@ -876,7 +896,10 @@ class ShadowModeService:
 
             logger.info(
                 "shadow_action_undone shadow_id=%s undo_id=%s manager=%s reason=%s",
-                shadow_log_id, undo_log.id, manager_id, reason[:100],
+                shadow_log_id,
+                undo_log.id,
+                manager_id,
+                reason[:100],
             )
 
             # Emit Socket.io event
@@ -898,7 +921,9 @@ class ShadowModeService:
                 "undo_type": undo_log.undo_type,
                 "reason": reason,
                 "undone_by": manager_id,
-                "created_at": undo_log.created_at.isoformat() if undo_log.created_at else None,
+                "created_at": (
+                    undo_log.created_at.isoformat() if undo_log.created_at else None
+                ),
             }
 
     # ═══════════════════════════════════════════════════════════════
@@ -938,17 +963,13 @@ class ShadowModeService:
 
             # Apply filters
             if filters.get("action_type"):
-                query = query.filter(
-                    ShadowLog.action_type == filters["action_type"]
-                )
+                query = query.filter(ShadowLog.action_type == filters["action_type"])
 
             if filters.get("mode"):
                 query = query.filter(ShadowLog.mode == filters["mode"])
 
             if filters.get("decision"):
-                query = query.filter(
-                    ShadowLog.manager_decision == filters["decision"]
-                )
+                query = query.filter(ShadowLog.manager_decision == filters["decision"])
 
             if filters.get("date_from"):
                 try:
@@ -979,16 +1000,13 @@ class ShadowModeService:
             items = query.offset(offset).limit(page_size).all()
 
             return {
-                "items": [
-                    self._shadow_log_to_dict(i) for i in items],
+                "items": [self._shadow_log_to_dict(i) for i in items],
                 "total": total,
                 "page": page,
                 "page_size": page_size,
                 "total_pages": (
-                    total
-                    + page_size
-                    - 1)
-                // page_size if page_size > 0 else 0,
+                    (total + page_size - 1) // page_size if page_size > 0 else 0
+                ),
             }
 
     # ═══════════════════════════════════════════════════════════════
@@ -1010,61 +1028,83 @@ class ShadowModeService:
         """
         with SessionLocal() as db:
             # Total actions
-            total = db.query(sa_func.count(ShadowLog.id)).filter(
-                ShadowLog.company_id == company_id,
-            ).scalar() or 0
+            total = (
+                db.query(sa_func.count(ShadowLog.id))
+                .filter(
+                    ShadowLog.company_id == company_id,
+                )
+                .scalar()
+                or 0
+            )
 
             # Pending count
-            pending = db.query(sa_func.count(ShadowLog.id)).filter(
-                ShadowLog.company_id == company_id,
-                ShadowLog.manager_decision.is_(None),
-            ).scalar() or 0
+            pending = (
+                db.query(sa_func.count(ShadowLog.id))
+                .filter(
+                    ShadowLog.company_id == company_id,
+                    ShadowLog.manager_decision.is_(None),
+                )
+                .scalar()
+                or 0
+            )
 
             # Approved count
-            approved = db.query(sa_func.count(ShadowLog.id)).filter(
-                ShadowLog.company_id == company_id,
-                ShadowLog.manager_decision == "approved",
-            ).scalar() or 0
+            approved = (
+                db.query(sa_func.count(ShadowLog.id))
+                .filter(
+                    ShadowLog.company_id == company_id,
+                    ShadowLog.manager_decision == "approved",
+                )
+                .scalar()
+                or 0
+            )
 
             # Rejected count
-            rejected = db.query(sa_func.count(ShadowLog.id)).filter(
-                ShadowLog.company_id == company_id,
-                ShadowLog.manager_decision == "rejected",
-            ).scalar() or 0
+            rejected = (
+                db.query(sa_func.count(ShadowLog.id))
+                .filter(
+                    ShadowLog.company_id == company_id,
+                    ShadowLog.manager_decision == "rejected",
+                )
+                .scalar()
+                or 0
+            )
 
             # Average risk score
-            avg_risk_result = db.query(
-                sa_func.avg(ShadowLog.jarvis_risk_score)
-            ).filter(
-                ShadowLog.company_id == company_id,
-                ShadowLog.jarvis_risk_score.isnot(None),
-            ).scalar()
+            avg_risk_result = (
+                db.query(sa_func.avg(ShadowLog.jarvis_risk_score))
+                .filter(
+                    ShadowLog.company_id == company_id,
+                    ShadowLog.jarvis_risk_score.isnot(None),
+                )
+                .scalar()
+            )
 
-            avg_risk = round(
-                float(avg_risk_result),
-                3) if avg_risk_result else 0.0
+            avg_risk = round(float(avg_risk_result), 3) if avg_risk_result else 0.0
 
             # Mode distribution
-            mode_dist_rows = db.query(
-                ShadowLog.mode, sa_func.count(ShadowLog.id)
-            ).filter(
-                ShadowLog.company_id == company_id,
-            ).group_by(ShadowLog.mode).all()
+            mode_dist_rows = (
+                db.query(ShadowLog.mode, sa_func.count(ShadowLog.id))
+                .filter(
+                    ShadowLog.company_id == company_id,
+                )
+                .group_by(ShadowLog.mode)
+                .all()
+            )
 
-            mode_distribution = {
-                row[0]: row[1] for row in mode_dist_rows
-            }
+            mode_distribution = {row[0]: row[1] for row in mode_dist_rows}
 
             # Action type distribution
-            action_dist_rows = db.query(
-                ShadowLog.action_type, sa_func.count(ShadowLog.id)
-            ).filter(
-                ShadowLog.company_id == company_id,
-            ).group_by(ShadowLog.action_type).all()
+            action_dist_rows = (
+                db.query(ShadowLog.action_type, sa_func.count(ShadowLog.id))
+                .filter(
+                    ShadowLog.company_id == company_id,
+                )
+                .group_by(ShadowLog.action_type)
+                .all()
+            )
 
-            action_type_distribution = {
-                row[0]: row[1] for row in action_dist_rows
-            }
+            action_type_distribution = {row[0]: row[1] for row in action_dist_rows}
 
             resolved = approved + rejected
             approval_rate = (
@@ -1112,11 +1152,15 @@ class ShadowModeService:
             raise ShadowModeError(f"Invalid decision: {decision}")
 
         with SessionLocal() as db:
-            entries = db.query(ShadowLog).filter(
-                ShadowLog.id.in_(shadow_log_ids),
-                ShadowLog.company_id == company_id,
-                ShadowLog.manager_decision.is_(None),
-            ).all()
+            entries = (
+                db.query(ShadowLog)
+                .filter(
+                    ShadowLog.id.in_(shadow_log_ids),
+                    ShadowLog.company_id == company_id,
+                    ShadowLog.manager_decision.is_(None),
+                )
+                .all()
+            )
 
             resolved = 0
             skipped = 0
@@ -1135,7 +1179,11 @@ class ShadowModeService:
             logger.info(
                 "shadow_batch_resolve company_id=%s decision=%s "
                 "resolved=%d skipped=%d manager=%s",
-                company_id, decision, resolved, skipped, manager_id,
+                company_id,
+                decision,
+                resolved,
+                skipped,
+                manager_id,
             )
 
             return {
@@ -1171,9 +1219,13 @@ class ShadowModeService:
             ShadowLogNotFoundError: If entry not found.
         """
         with SessionLocal() as db:
-            entry = db.query(ShadowLog).filter(
-                ShadowLog.id == shadow_log_id,
-            ).first()
+            entry = (
+                db.query(ShadowLog)
+                .filter(
+                    ShadowLog.id == shadow_log_id,
+                )
+                .first()
+            )
 
             if not entry:
                 raise ShadowLogNotFoundError(
@@ -1181,15 +1233,15 @@ class ShadowModeService:
                 )
 
             entry.mode = "shadow"
-            entry.manager_note = (
-                f"[ESCALATED by {manager_id}] {reason or ''}"
-            ).strip()
+            entry.manager_note = (f"[ESCALATED by {manager_id}] {reason or ''}").strip()
             db.commit()
             db.refresh(entry)
 
             logger.info(
                 "shadow_action_escalated id=%s manager=%s company_id=%s",
-                shadow_log_id, manager_id, entry.company_id,
+                shadow_log_id,
+                manager_id,
+                entry.company_id,
             )
 
             return self._shadow_log_to_dict(entry)
@@ -1229,14 +1281,16 @@ class ShadowModeService:
 
         # PII indicators in payload
         if payload:
-            text_fields = " ".join(str(v)
-                                   for v in payload.values() if isinstance(v, str))
+            text_fields = " ".join(
+                str(v) for v in payload.values() if isinstance(v, str)
+            )
             pii_indicators = [
                 "ssn",
                 "social_security",
                 "credit_card",
                 "dob",
-                "date_of_birth"]
+                "date_of_birth",
+            ]
             for indicator in pii_indicators:
                 if indicator in text_fields.lower():
                     score += 0.2
@@ -1251,13 +1305,15 @@ class ShadowModeService:
         action_type: str,
     ) -> Optional[float]:
         """Get the average historical risk score for an action type."""
-        result = db.query(
-            sa_func.avg(ShadowLog.jarvis_risk_score)
-        ).filter(
-            ShadowLog.company_id == company_id,
-            ShadowLog.action_type == action_type,
-            ShadowLog.jarvis_risk_score.isnot(None),
-        ).scalar()
+        result = (
+            db.query(sa_func.avg(ShadowLog.jarvis_risk_score))
+            .filter(
+                ShadowLog.company_id == company_id,
+                ShadowLog.action_type == action_type,
+                ShadowLog.jarvis_risk_score.isnot(None),
+            )
+            .scalar()
+        )
 
         return float(result) if result is not None else None
 
@@ -1323,9 +1379,7 @@ class ShadowModeService:
             "resolved_at": (
                 entry.resolved_at.isoformat() if entry.resolved_at else None
             ),
-            "created_at": (
-                entry.created_at.isoformat() if entry.created_at else None
-            ),
+            "created_at": (entry.created_at.isoformat() if entry.created_at else None),
         }
 
     @staticmethod
@@ -1337,7 +1391,5 @@ class ShadowModeService:
             "action_category": pref.action_category,
             "preferred_mode": pref.preferred_mode,
             "set_via": pref.set_via,
-            "updated_at": (
-                pref.updated_at.isoformat() if pref.updated_at else None
-            ),
+            "updated_at": (pref.updated_at.isoformat() if pref.updated_at else None),
         }

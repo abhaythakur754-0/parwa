@@ -76,9 +76,13 @@ def reconcile_subscriptions(self) -> Dict[str, Any]:
     db = SessionLocal()
     try:
         # Get all companies with paddle_subscription_id
-        companies = db.query(Company).filter(
-            Company.paddle_subscription_id.isnot(None),
-        ).all()
+        companies = (
+            db.query(Company)
+            .filter(
+                Company.paddle_subscription_id.isnot(None),
+            )
+            .all()
+        )
 
         paddle = _get_sync_paddle_client()
 
@@ -93,10 +97,14 @@ def reconcile_subscriptions(self) -> Dict[str, Any]:
                 paddle_data = paddle_sub.get("data", {})
 
                 # Get from DB
-                db_sub = db.query(Subscription).filter(
-                    Subscription.company_id == str(company.id),
-                    Subscription.status == "active",
-                ).first()
+                db_sub = (
+                    db.query(Subscription)
+                    .filter(
+                        Subscription.company_id == str(company.id),
+                        Subscription.status == "active",
+                    )
+                    .first()
+                )
 
                 if not db_sub:
                     logger.warning(
@@ -112,11 +120,13 @@ def reconcile_subscriptions(self) -> Dict[str, Any]:
                 )
 
                 if discrepancies:
-                    results["discrepancies"].append({
-                        "company_id": str(company.id),
-                        "subscription_id": str(db_sub.id),
-                        "issues": discrepancies,
-                    })
+                    results["discrepancies"].append(
+                        {
+                            "company_id": str(company.id),
+                            "subscription_id": str(db_sub.id),
+                            "issues": discrepancies,
+                        }
+                    )
 
                     # Update DB to match Paddle
                     _update_subscription_from_paddle(
@@ -198,9 +208,13 @@ def reconcile_transactions(self) -> Dict[str, Any]:
     db = SessionLocal()
     try:
         # Get all companies with paddle_customer_id
-        companies = db.query(Company).filter(
-            Company.paddle_customer_id.isnot(None),
-        ).all()
+        companies = (
+            db.query(Company)
+            .filter(
+                Company.paddle_customer_id.isnot(None),
+            )
+            .all()
+        )
 
         paddle = _get_sync_paddle_client()
 
@@ -220,9 +234,13 @@ def reconcile_transactions(self) -> Dict[str, Any]:
                         continue
 
                     # Check if exists in DB
-                    existing = db.query(Transaction).filter(
-                        Transaction.paddle_transaction_id == txn_id,
-                    ).first()
+                    existing = (
+                        db.query(Transaction)
+                        .filter(
+                            Transaction.paddle_transaction_id == txn_id,
+                        )
+                        .first()
+                    )
 
                     if not existing:
                         # Create missing transaction
@@ -238,10 +256,12 @@ def reconcile_transactions(self) -> Dict[str, Any]:
                         db.add(txn)
                         results["synced"] += 1
 
-                        results["missing_transactions"].append({
-                            "company_id": str(company.id),
-                            "transaction_id": txn_id,
-                        })
+                        results["missing_transactions"].append(
+                            {
+                                "company_id": str(company.id),
+                                "transaction_id": txn_id,
+                            }
+                        )
 
                 db.commit()
 
@@ -308,9 +328,13 @@ def reconcile_usage(self) -> Dict[str, Any]:
     db = SessionLocal()
     try:
         # Get all active companies
-        companies = db.query(Company).filter(
-            Company.subscription_status == "active",
-        ).all()
+        companies = (
+            db.query(Company)
+            .filter(
+                Company.subscription_status == "active",
+            )
+            .all()
+        )
 
         for company in companies:
             results["checked"] += 1
@@ -318,10 +342,14 @@ def reconcile_usage(self) -> Dict[str, Any]:
             try:
                 # Get current month's usage from DB
                 current_month = datetime.now(timezone.utc).strftime("%Y-%m")
-                usage = db.query(UsageRecord).filter(
-                    UsageRecord.company_id == str(company.id),
-                    UsageRecord.record_month == current_month,
-                ).first()
+                usage = (
+                    db.query(UsageRecord)
+                    .filter(
+                        UsageRecord.company_id == str(company.id),
+                        UsageRecord.record_month == current_month,
+                    )
+                    .first()
+                )
 
                 if not usage:
                     # Calculate from tickets table if no usage record
@@ -332,10 +360,15 @@ def reconcile_usage(self) -> Dict[str, Any]:
                         day=1, hour=0, minute=0, second=0, microsecond=0
                     )
 
-                    ticket_count = db.query(func.count(Ticket.id)).filter(
-                        Ticket.company_id == str(company.id),
-                        Ticket.created_at >= month_start,
-                    ).scalar() or 0
+                    ticket_count = (
+                        db.query(func.count(Ticket.id))
+                        .filter(
+                            Ticket.company_id == str(company.id),
+                            Ticket.created_at >= month_start,
+                        )
+                        .scalar()
+                        or 0
+                    )
 
                     # Create usage record
                     usage = UsageRecord(
@@ -409,33 +442,30 @@ def reconcile_all(self) -> Dict[str, Any]:
 
 # ── Helper Functions ────────────────────────────────────────────────────
 
+
 def _get_sync_paddle_client():
     """Get Paddle client with sync methods."""
     paddle = get_paddle_client()
 
     # Add sync wrappers if not present
-    if not hasattr(paddle, 'get_subscription_sync'):
+    if not hasattr(paddle, "get_subscription_sync"):
         import asyncio
 
         def get_subscription_sync(subscription_id):
             loop = asyncio.new_event_loop()
             try:
-                return loop.run_until_complete(
-                    paddle.get_subscription(subscription_id)
-                )
+                return loop.run_until_complete(paddle.get_subscription(subscription_id))
             finally:
                 loop.close()
 
         paddle.get_subscription_sync = get_subscription_sync
 
-    if not hasattr(paddle, 'list_transactions_sync'):
+    if not hasattr(paddle, "list_transactions_sync"):
 
         def list_transactions_sync(**kwargs):
             loop = asyncio.new_event_loop()
             try:
-                return loop.run_until_complete(
-                    paddle.list_transactions(**kwargs)
-                )
+                return loop.run_until_complete(paddle.list_transactions(**kwargs))
             finally:
                 loop.close()
 
@@ -458,9 +488,7 @@ def _compare_subscription(
     # Compare status
     paddle_status = paddle_data.get("status")
     if paddle_status and db_sub.status != paddle_status:
-        discrepancies.append(
-            f"status: db={db_sub.status} paddle={paddle_status}"
-        )
+        discrepancies.append(f"status: db={db_sub.status} paddle={paddle_status}")
 
     # Compare tier (from items)
     items = paddle_data.get("items", [])
@@ -469,16 +497,20 @@ def _compare_subscription(
         # Would need mapping from price_id to tier name
 
     # Compare billing period
-    paddle_period_start = paddle_data.get(
-        "current_billing_period", {}).get("starts_at")
-    paddle_period_end = paddle_data.get(
-        "current_billing_period", {}).get("ends_at")
+    paddle_period_start = paddle_data.get("current_billing_period", {}).get("starts_at")
+    paddle_period_end = paddle_data.get("current_billing_period", {}).get("ends_at")
 
     if paddle_period_start and db_sub.current_period_start:
-        db_start = db_sub.current_period_start.isoformat(
-        ) if db_sub.current_period_start else None
-        paddle_start = paddle_period_start.replace(
-            "Z", "+00:00") if isinstance(paddle_period_start, str) else paddle_period_start
+        db_start = (
+            db_sub.current_period_start.isoformat()
+            if db_sub.current_period_start
+            else None
+        )
+        paddle_start = (
+            paddle_period_start.replace("Z", "+00:00")
+            if isinstance(paddle_period_start, str)
+            else paddle_period_start
+        )
         # Compare with tolerance for timezone differences
 
     return discrepancies

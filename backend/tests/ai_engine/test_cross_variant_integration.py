@@ -96,38 +96,41 @@ def _mock_logger():
             ConflictSeverity,
             ResolutionStrategy,
         )
-        globals().update({
-            "CrossVariantRouter": CrossVariantRouter,
-            "CrossVariantRoutingError": CrossVariantRoutingError,
-            "ChannelType": ChannelType,
-            "RoutingDecisionType": RoutingDecisionType,
-            "EscalationReason": EscalationReason,
-            "ChannelMapping": ChannelMapping,
-            "EscalationPath": EscalationPath,
-            "RoutingResult": RoutingResult,
-            "CapacitySnapshot": CapacitySnapshot,
-            "QueuedTicket": QueuedTicket,
-            "CAPACITY_THRESHOLD_PCT": CAPACITY_THRESHOLD_PCT,
-            "ESCALATION_FALLBACK_SECONDS": ESCALATION_FALLBACK_SECONDS,
-            "AI_OVERLOAD_FLAG": AI_OVERLOAD_FLAG,
-            "ESCALATION_CHAIN": ESCALATION_CHAIN,
-            "VALID_VARIANTS": VALID_VARIANTS,
-            "DEFAULT_CHANNEL_MAPPINGS": DEFAULT_CHANNEL_MAPPINGS,
-            "VariantTransitionHandler": VariantTransitionHandler,
-            "TransitionType": TransitionType,
-            "TransitionStatus": TransitionStatus,
-            "VariantCapabilities": VariantCapabilities,
-            "InFlightTicket": InFlightTicket,
-            "TransitionRecord": TransitionRecord,
-            "DeactivationNotice": DeactivationNotice,
-            "VARIANT_RANKING": VARIANT_RANKING,
-            "CrossVariantInteractionService": CrossVariantInteractionService,
-            "ConfidenceEscalationResult": ConfidenceEscalationResult,
-            "HandoffContext": HandoffContext,
-            "HandoffResult": HandoffResult,
-            "ConflictSeverity": ConflictSeverity,
-            "ResolutionStrategy": ResolutionStrategy,
-        })
+
+        globals().update(
+            {
+                "CrossVariantRouter": CrossVariantRouter,
+                "CrossVariantRoutingError": CrossVariantRoutingError,
+                "ChannelType": ChannelType,
+                "RoutingDecisionType": RoutingDecisionType,
+                "EscalationReason": EscalationReason,
+                "ChannelMapping": ChannelMapping,
+                "EscalationPath": EscalationPath,
+                "RoutingResult": RoutingResult,
+                "CapacitySnapshot": CapacitySnapshot,
+                "QueuedTicket": QueuedTicket,
+                "CAPACITY_THRESHOLD_PCT": CAPACITY_THRESHOLD_PCT,
+                "ESCALATION_FALLBACK_SECONDS": ESCALATION_FALLBACK_SECONDS,
+                "AI_OVERLOAD_FLAG": AI_OVERLOAD_FLAG,
+                "ESCALATION_CHAIN": ESCALATION_CHAIN,
+                "VALID_VARIANTS": VALID_VARIANTS,
+                "DEFAULT_CHANNEL_MAPPINGS": DEFAULT_CHANNEL_MAPPINGS,
+                "VariantTransitionHandler": VariantTransitionHandler,
+                "TransitionType": TransitionType,
+                "TransitionStatus": TransitionStatus,
+                "VariantCapabilities": VariantCapabilities,
+                "InFlightTicket": InFlightTicket,
+                "TransitionRecord": TransitionRecord,
+                "DeactivationNotice": DeactivationNotice,
+                "VARIANT_RANKING": VARIANT_RANKING,
+                "CrossVariantInteractionService": CrossVariantInteractionService,
+                "ConfidenceEscalationResult": ConfidenceEscalationResult,
+                "HandoffContext": HandoffContext,
+                "HandoffResult": HandoffResult,
+                "ConflictSeverity": ConflictSeverity,
+                "ResolutionStrategy": ResolutionStrategy,
+            }
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -207,8 +210,7 @@ class TestSameVariantOverlap:
         router = _fresh_router()
         router.update_capacity(CO, "mini_parwa", 50, 100)
         results = [
-            router.route_ticket(CO, f"T-ov-{i}", ChannelType.CHAT)
-            for i in range(5)
+            router.route_ticket(CO, f"T-ov-{i}", ChannelType.CHAT) for i in range(5)
         ]
         for r in results:
             assert r.decision == RoutingDecisionType.ROUTE
@@ -263,7 +265,10 @@ class TestMultiAgentCollision:
         def worker():
             try:
                 r = router.escalate_ticket(
-                    CO, "T-COL-1", "mini_parwa", "parwa",
+                    CO,
+                    "T-COL-1",
+                    "mini_parwa",
+                    "parwa",
                     EscalationReason.MANUAL_REQUEST,
                 )
                 results.append(r)
@@ -291,10 +296,7 @@ class TestMultiAgentCollision:
             except Exception as exc:
                 errors.append(exc)
 
-        threads = [
-            threading.Thread(
-                target=worker, args=(
-                    i,)) for i in range(8)]
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(8)]
         for t in threads:
             t.start()
         for t in threads:
@@ -309,16 +311,16 @@ class TestMultiAgentCollision:
         def worker(tid: int):
             try:
                 router.escalate_ticket(
-                    CO, f"T-COL-H-{tid}", "mini_parwa", "parwa",
+                    CO,
+                    f"T-COL-H-{tid}",
+                    "mini_parwa",
+                    "parwa",
                     EscalationReason.MANUAL_REQUEST,
                 )
             except Exception as exc:
                 errors.append(exc)
 
-        threads = [
-            threading.Thread(
-                target=worker, args=(
-                    i,)) for i in range(5)]
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(5)]
         for t in threads:
             t.start()
         for t in threads:
@@ -442,8 +444,12 @@ class TestCrossVariantStateSharing:
         svc = _fresh_interaction()
         history = [
             {"role": "user", "content": "Hello", "timestamp": "2025-01-01T00:00:00Z"},
-            {"role": "agent", "content": "Hi!", "variant": "mini_parwa",
-             "timestamp": "2025-01-01T00:00:05Z"},
+            {
+                "role": "agent",
+                "content": "Hi!",
+                "variant": "mini_parwa",
+                "timestamp": "2025-01-01T00:00:05Z",
+            },
         ]
         result = svc.initiate_handoff(
             company_id=CO,
@@ -471,7 +477,10 @@ class TestPriorityBasedRouting:
         router = _fresh_router()
         router.update_capacity(CO, "mini_parwa", 30, 100)
         result = router.route_ticket(
-            CO, "T-PR-1", ChannelType.CHAT, complexity_score=0.9,
+            CO,
+            "T-PR-1",
+            ChannelType.CHAT,
+            complexity_score=0.9,
         )
         assert result.decision == RoutingDecisionType.ESCALATE
         assert result.target_variant == "parwa"
@@ -479,7 +488,10 @@ class TestPriorityBasedRouting:
     def test_force_variant_overrides_channel_mapping(self):
         router = _fresh_router()
         result = router.route_ticket(
-            CO, "T-PR-2", ChannelType.CHAT, force_variant="parwa_high",
+            CO,
+            "T-PR-2",
+            ChannelType.CHAT,
+            force_variant="parwa_high",
         )
         assert result.target_variant == "parwa_high"
         assert result.decision == RoutingDecisionType.ROUTE
@@ -488,7 +500,10 @@ class TestPriorityBasedRouting:
         router = _fresh_router()
         router.update_capacity(CO, "parwa_high", 95, 100)
         result = router.route_ticket(
-            CO, "T-PR-3", ChannelType.CHAT, force_variant="parwa_high",
+            CO,
+            "T-PR-3",
+            ChannelType.CHAT,
+            force_variant="parwa_high",
         )
         assert result.decision == RoutingDecisionType.HUMAN_OVERRIDE
 
@@ -513,7 +528,10 @@ class TestPriorityBasedRouting:
         router = _fresh_router()
         router.update_capacity(CO, "parwa", 95, 100)
         result = router.route_ticket(
-            CO, "T-PR-6", ChannelType.EMAIL, complexity_score=0.9,
+            CO,
+            "T-PR-6",
+            ChannelType.EMAIL,
+            complexity_score=0.9,
         )
         assert result.decision == RoutingDecisionType.ESCALATE
 
@@ -573,7 +591,10 @@ class TestFallbackRouting:
         router = _fresh_router()
         router.update_capacity(CO, "parwa", 95, 100)
         result = router.escalate_ticket(
-            CO, "T-FB-6", "mini_parwa", "parwa",
+            CO,
+            "T-FB-6",
+            "mini_parwa",
+            "parwa",
             EscalationReason.CAPACITY_EXCEEDED,
         )
         assert result.decision == RoutingDecisionType.ESCALATE
@@ -706,9 +727,7 @@ class TestUpgradeParwaToHigh:
         cap_low = handler._capabilities["parwa"]
         cap_high = handler._capabilities["parwa_high"]
         assert cap_high.max_tier > cap_low.max_tier
-        assert len(
-            cap_high.allowed_techniques) > len(
-            cap_low.allowed_techniques)
+        assert len(cap_high.allowed_techniques) > len(cap_low.allowed_techniques)
         assert cap_high.max_agents > cap_low.max_agents
 
     def test_upgrade_confidence_threshold_changes(self):
@@ -866,10 +885,14 @@ class TestStateMigrationDuringTransition:
     def test_handoff_context_transfer_during_upgrade(self):
         svc = _fresh_interaction()
         handler = _fresh_handler()
-        history = [{"role": "user", "content": "Help",
-                    "timestamp": "2025-01-01T00:00:00Z"}, ]
+        history = [
+            {"role": "user", "content": "Help", "timestamp": "2025-01-01T00:00:00Z"},
+        ]
         svc.initiate_handoff(
-            CO, "T-SM-5", "mini_parwa", "parwa",
+            CO,
+            "T-SM-5",
+            "mini_parwa",
+            "parwa",
             conversation_history=history,
         )
         ctx = svc.get_handoff_context(CO, "T-SM-5", "parwa")
@@ -938,20 +961,26 @@ class TestFailedTransitionRollback:
     def test_upgrade_same_variant_returns_error(self):
         handler = _fresh_handler()
         record = handler.initiate_upgrade(CO, "parwa", "parwa")
-        error_msg = record.details.get(
-            "error", "") if isinstance(
-            record.details.get("error"), str) else ""
+        error_msg = (
+            record.details.get("error", "")
+            if isinstance(record.details.get("error"), str)
+            else ""
+        )
         assert (
-            "Not an upgrade" in error_msg) or record.status != TransitionStatus.ACTIVE
+            "Not an upgrade" in error_msg
+        ) or record.status != TransitionStatus.ACTIVE
 
     def test_downgrade_same_variant_returns_error(self):
         handler = _fresh_handler()
         record = handler.initiate_downgrade(CO, "parwa", "parwa")
-        error_msg = record.details.get(
-            "error", "") if isinstance(
-            record.details.get("error"), str) else ""
+        error_msg = (
+            record.details.get("error", "")
+            if isinstance(record.details.get("error"), str)
+            else ""
+        )
         assert (
-            "Not a downgrade" in error_msg) or record.status != TransitionStatus.ACTIVE
+            "Not a downgrade" in error_msg
+        ) or record.status != TransitionStatus.ACTIVE
 
     def test_upgrade_reverse_direction_rejected(self):
         handler = _fresh_handler()
@@ -1008,7 +1037,8 @@ class TestRapidBackToBackTransitions:
         handler.register_ticket(CO, "T-RB-4", "mini_parwa")
         handler.initiate_upgrade(CO, "mini_parwa", "parwa")
         handler.complete_transition(
-            CO, list(handler._transition_history.keys())[-1],
+            CO,
+            list(handler._transition_history.keys())[-1],
         )
         handler.initiate_upgrade(CO, "parwa", "parwa_high")
         # complete_transition for the second upgrade has NOT been called,
@@ -1102,14 +1132,14 @@ class TestEdgeCasesRouter:
 
     def test_route_ticket_none_channel(self):
         router = _fresh_router()
-        result = router.route_ticket(
-            CO, "T-EC-1", None)  # type: ignore[arg-type]
+        result = router.route_ticket(CO, "T-EC-1", None)  # type: ignore[arg-type]
         assert isinstance(result, RoutingResult)
 
     def test_escalate_ticket_none_inputs(self):
         router = _fresh_router()
         result = router.escalate_ticket(
-            CO, None, None, None, None)  # type: ignore[arg-type]
+            CO, None, None, None, None
+        )  # type: ignore[arg-type]
         assert isinstance(result, RoutingResult)
 
     def test_should_escalate_unknown_variant(self):
@@ -1136,18 +1166,14 @@ class TestEdgeCasesRouter:
         def worker(tid: int):
             try:
                 ch = ChannelType.CHAT if tid % 2 == 0 else ChannelType.PHONE
-                router.route_ticket(
-                    CO, f"T-TS-{tid}", ch, complexity_score=tid / 25.0)
+                router.route_ticket(CO, f"T-TS-{tid}", ch, complexity_score=tid / 25.0)
                 router.should_escalate(CO, "mini_parwa")
                 router.get_capacity(CO, "parwa")
                 router.update_capacity(CO, "parwa", tid * 3, 100)
             except Exception as exc:
                 errors.append(exc)
 
-        threads = [
-            threading.Thread(
-                target=worker, args=(
-                    i,)) for i in range(20)]
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(20)]
         for t in threads:
             t.start()
         for t in threads:
@@ -1161,7 +1187,8 @@ class TestEdgeCasesTransitionHandler:
     def test_register_ticket_none_company_id(self):
         handler = _fresh_handler()
         ticket = handler.register_ticket(
-            None, "T-EC-2", "mini_parwa")  # type: ignore[arg-type]
+            None, "T-EC-2", "mini_parwa"
+        )  # type: ignore[arg-type]
         assert isinstance(ticket, InFlightTicket)
 
     def test_get_ticket_nonexistent(self):
@@ -1204,10 +1231,7 @@ class TestEdgeCasesTransitionHandler:
             except Exception as exc:
                 errors.append(exc)
 
-        threads = [
-            threading.Thread(
-                target=worker, args=(
-                    i,)) for i in range(10)]
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(10)]
         for t in threads:
             t.start()
         for t in threads:
@@ -1221,27 +1245,36 @@ class TestEdgeCasesInteraction:
     def test_evaluate_confidence_none_variant(self):
         svc = _fresh_interaction()
         result = svc.evaluate_confidence_escalation(
-            CO, "T-EC-4", None, 0.5, "Q", "A",  # type: ignore[arg-type]
+            CO,
+            "T-EC-4",
+            None,
+            0.5,
+            "Q",
+            "A",  # type: ignore[arg-type]
         )
         assert isinstance(result, ConfidenceEscalationResult)
 
     def test_handoff_none_inputs(self):
         svc = _fresh_interaction()
         result = svc.initiate_handoff(
-            None, None, None, None, None,  # type: ignore[arg-type]
+            None,
+            None,
+            None,
+            None,
+            None,  # type: ignore[arg-type]
         )
         assert isinstance(result, HandoffResult)
 
     def test_get_handoff_context_none(self):
         svc = _fresh_interaction()
-        ctx = svc.get_handoff_context(
-            None, None, None)  # type: ignore[arg-type]
+        ctx = svc.get_handoff_context(None, None, None)  # type: ignore[arg-type]
         assert ctx is None
 
     def test_acknowledge_handoff_none(self):
         svc = _fresh_interaction()
-        assert svc.acknowledge_handoff(
-            None, None, None) is False  # type: ignore[arg-type]
+        assert (
+            svc.acknowledge_handoff(None, None, None) is False
+        )  # type: ignore[arg-type]
 
     def test_get_active_handoffs_none(self):
         svc = _fresh_interaction()
@@ -1335,8 +1368,9 @@ class TestRouterTransitionIntegration:
     def test_handoff_after_upgrade_context_preserved(self):
         svc = _fresh_interaction()
         handler = _fresh_handler()
-        history = [{"role": "user", "content": "Q1",
-                    "timestamp": "2025-01-01T00:00:00Z"}]
+        history = [
+            {"role": "user", "content": "Q1", "timestamp": "2025-01-01T00:00:00Z"}
+        ]
         svc.initiate_handoff(CO, "T-IN-5", "mini_parwa", "parwa", history)
         handler.register_ticket(CO, "T-IN-5", "mini_parwa")
         handler.initiate_upgrade(CO, "mini_parwa", "parwa")
@@ -1348,12 +1382,22 @@ class TestRouterTransitionIntegration:
     def test_conflict_detection_across_transition(self):
         svc = _fresh_interaction()
         svc.register_response(
-            CO, "T-IN-6", "CUST-1", "mini_parwa", "chat",
-            "Response A", 0.70,
+            CO,
+            "T-IN-6",
+            "CUST-1",
+            "mini_parwa",
+            "chat",
+            "Response A",
+            0.70,
         )
         svc.register_response(
-            CO, "T-IN-7", "CUST-1", "parwa", "email",
-            "Response B", 0.50,
+            CO,
+            "T-IN-7",
+            "CUST-1",
+            "parwa",
+            "email",
+            "Response B",
+            0.50,
         )
         conflicts = svc.check_conflicts(CO, "CUST-1")
         assert len(conflicts) >= 1

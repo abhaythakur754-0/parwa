@@ -70,6 +70,7 @@ except Exception:
 
 class GuardrailsAction(str, Enum):
     """Actions from guardrails check."""
+
     ALLOW = "allow"
     BLOCK = "block"
     FLAG_FOR_REVIEW = "flag_for_review"
@@ -79,6 +80,7 @@ class GuardrailsAction(str, Enum):
 @dataclass
 class GuardrailsCheckResult:
     """Result of guardrails check on LLM response."""
+
     action: GuardrailsAction
     original_response: str
     safe_response: Optional[str] = None
@@ -184,12 +186,11 @@ def check_llm_response(
             logger.info(
                 "Shadow mode bypass: downgrading BLOCK to FLAG_FOR_REVIEW "
                 "for company_id=%s shadow_mode=%s",
-                company_id, shadow_mode,
+                company_id,
+                shadow_mode,
             )
             action = GuardrailsAction.FLAG_FOR_REVIEW
-            flagged_layers.extend(
-                [r.split(":")[0] for r in blocked_reasons]
-            )
+            flagged_layers.extend([r.split(":")[0] for r in blocked_reasons])
             blocked_reasons = []
 
         # Record Prometheus metrics
@@ -207,8 +208,7 @@ def check_llm_response(
                 ).observe(duration)
                 if action == GuardrailsAction.BLOCK:
                     for reason in blocked_reasons:
-                        layer = reason.split(
-                            ":")[0] if ":" in reason else "unknown"
+                        layer = reason.split(":")[0] if ":" in reason else "unknown"
                         _guardrails_blocks.labels(
                             company_id=company_id,
                             variant_type=variant_type,
@@ -220,7 +220,9 @@ def check_llm_response(
         return GuardrailsCheckResult(
             action=action,
             original_response=response_content,
-            safe_response=response_content if action != GuardrailsAction.BLOCK else None,
+            safe_response=(
+                response_content if action != GuardrailsAction.BLOCK else None
+            ),
             report=report,
             blocked_reasons=blocked_reasons,
             flagged_layers=flagged_layers,
@@ -232,7 +234,8 @@ def check_llm_response(
         # BC-008: Guardrails failure should not crash - fail open with logging
         logger.exception(
             "Guardrails check failed for company_id=%s, allowing response: %s",
-            company_id, str(e),
+            company_id,
+            str(e),
         )
         return GuardrailsCheckResult(
             action=GuardrailsAction.ALLOW,
@@ -264,13 +267,15 @@ def handle_blocked_response(
     # Log the block
     logger.warning(
         "Response blocked for company_id=%s reasons=%s",
-        result.company_id, result.blocked_reasons,
+        result.company_id,
+        result.blocked_reasons,
     )
 
     # Try to route through BlockedResponseManager if available
     if blocked_manager is not None:
         try:
             from app.core.blocked_response_manager import BlockedResponse
+
             blocked = BlockedResponse(
                 company_id=result.company_id,
                 original_response=result.original_response,
@@ -301,18 +306,21 @@ def _get_safe_fallback_response(blocked_reasons: List[str]) -> str:
 
     This response is customer-facing and should be professional.
     """
-    if any("hate_speech" in r.lower() or "violence" in r.lower()
-           for r in blocked_reasons):
+    if any(
+        "hate_speech" in r.lower() or "violence" in r.lower() for r in blocked_reasons
+    ):
         return (
             "I apologize, but I'm not able to provide a response to that request. "
             "Please feel free to rephrase your question or ask about something else. "
-            "I'm here to help!")
+            "I'm here to help!"
+        )
 
     if any("pii" in r.lower() for r in blocked_reasons):
         return (
             "For your security, I've withheld some information from my response. "
             "If you need specific details, please contact our support team directly. "
-            "How else can I assist you today?")
+            "How else can I assist you today?"
+        )
 
     if any("policy" in r.lower() for r in blocked_reasons):
         return (
@@ -322,8 +330,10 @@ def _get_safe_fallback_response(blocked_reasons: List[str]) -> str:
         )
 
     # Generic safe response
-    return ("I apologize, but I'm unable to provide a complete response to your request. "
-            "Please try rephrasing your question, or contact our support team for further assistance.")
+    return (
+        "I apologize, but I'm unable to provide a complete response to your request. "
+        "Please try rephrasing your question, or contact our support team for further assistance."
+    )
 
 
 # ── Day 4 Output Scanners (Day 1 Sprint wiring) ──────────────────
@@ -356,21 +366,24 @@ def _run_day4_output_scanners(
     # Scanner 1: PII Output Scan (Layer 11)
     try:
         from app.core.pii_redaction_engine import PIIDetector
+
         pii_detector = PIIDetector()
         pii_matches = pii_detector.detect(response_content)
         if pii_matches:
             high_conf_pii = [m for m in pii_matches if m.confidence >= 0.80]
             if high_conf_pii:
                 pii_types = sorted({m.pii_type for m in high_conf_pii})
-                issues.append({
-                    "scanner": "pii_output_scan",
-                    "severity": "critical",
-                    "reason": (
-                        "PII detected in LLM output: "
-                        f"{', '.join(pii_types)} "
-                        f"({len(high_conf_pii)} instance(s))"
-                    ),
-                })
+                issues.append(
+                    {
+                        "scanner": "pii_output_scan",
+                        "severity": "critical",
+                        "reason": (
+                            "PII detected in LLM output: "
+                            f"{', '.join(pii_types)} "
+                            f"({len(high_conf_pii)} instance(s))"
+                        ),
+                    }
+                )
                 logger.warning(
                     "PII detected in LLM output for company_id=%s types=%s count=%d",
                     company_id,
@@ -380,9 +393,11 @@ def _run_day4_output_scanners(
         # Record metrics
         if _METRICS_ENABLED:
             try:
-                action = "block" if pii_matches and any(
-                    m.confidence >= 0.80 for m in pii_matches
-                ) else "allow"
+                action = (
+                    "block"
+                    if pii_matches and any(m.confidence >= 0.80 for m in pii_matches)
+                    else "allow"
+                )
                 _output_scans_total.labels(
                     company_id=company_id,
                     scanner="pii_output_scan",
@@ -391,29 +406,28 @@ def _run_day4_output_scanners(
             except Exception:
                 pass
     except Exception as e:
-        logger.error(
-            "PII output scan failed for company_id=%s: %s",
-            company_id,
-            e)
+        logger.error("PII output scan failed for company_id=%s: %s", company_id, e)
 
     # Scanner 2: Prompt Injection Output Scan (Layer 10)
     try:
         from app.core.prompt_injection_defense import PromptInjectionDetector
+
         injection_detector = PromptInjectionDetector()
         injection_result = injection_detector.scan(
             query=response_content,  # Scan the OUTPUT for injection remnants
             company_id=company_id,
         )
-        if injection_result and getattr(
-                injection_result, "is_injection", False):
-            issues.append({
-                "scanner": "prompt_injection_output",
-                "severity": "high",
-                "reason": (
-                    "Prompt injection remnants in LLM output: "
-                    f"{getattr(injection_result, 'reason', 'unknown')}"
-                ),
-            })
+        if injection_result and getattr(injection_result, "is_injection", False):
+            issues.append(
+                {
+                    "scanner": "prompt_injection_output",
+                    "severity": "high",
+                    "reason": (
+                        "Prompt injection remnants in LLM output: "
+                        f"{getattr(injection_result, 'reason', 'unknown')}"
+                    ),
+                }
+            )
             logger.warning(
                 "Prompt injection remnants in LLM output for company_id=%s",
                 company_id,
@@ -421,9 +435,12 @@ def _run_day4_output_scanners(
         # Record metrics
         if _METRICS_ENABLED:
             try:
-                action = "block" if injection_result and getattr(
-                    injection_result, "is_injection", False
-                ) else "allow"
+                action = (
+                    "block"
+                    if injection_result
+                    and getattr(injection_result, "is_injection", False)
+                    else "allow"
+                )
                 _output_scans_total.labels(
                     company_id=company_id,
                     scanner="prompt_injection_output",
@@ -433,13 +450,13 @@ def _run_day4_output_scanners(
                 pass
     except Exception as e:
         logger.error(
-            "Prompt injection output scan failed for company_id=%s: %s",
-            company_id,
-            e)
+            "Prompt injection output scan failed for company_id=%s: %s", company_id, e
+        )
 
     # Scanner 3: Info Leak Guard (Layer 9)
     try:
         from app.core.info_leak_guard import InfoLeakGuard
+
         info_leak_guard = InfoLeakGuard()
         leak_result = info_leak_guard.scan(
             response=response_content,
@@ -447,19 +464,21 @@ def _run_day4_output_scanners(
         )
         if leak_result and getattr(leak_result, "has_leak", False):
             leak_action = getattr(leak_result, "action", "allow")
-            categories = sorted({
-                m.category for m in getattr(leak_result, "matches", [])
-            })
+            categories = sorted(
+                {m.category for m in getattr(leak_result, "matches", [])}
+            )
             severity = "high" if leak_action == "block" else "medium"
-            issues.append({
-                "scanner": "info_leak_guard",
-                "severity": severity,
-                "reason": (
-                    "Information leak in LLM output: "
-                    f"categories={', '.join(categories)} "
-                    f"action={leak_action}"
-                ),
-            })
+            issues.append(
+                {
+                    "scanner": "info_leak_guard",
+                    "severity": severity,
+                    "reason": (
+                        "Information leak in LLM output: "
+                        f"categories={', '.join(categories)} "
+                        f"action={leak_action}"
+                    ),
+                }
+            )
             logger.warning(
                 "Info leak detected in LLM output for company_id=%s categories=%s",
                 company_id,
@@ -468,10 +487,9 @@ def _run_day4_output_scanners(
         # Record metrics
         if _METRICS_ENABLED:
             try:
-                action = getattr(
-                    leak_result,
-                    "action",
-                    "allow") if leak_result else "allow"
+                action = (
+                    getattr(leak_result, "action", "allow") if leak_result else "allow"
+                )
                 _output_scans_total.labels(
                     company_id=company_id,
                     scanner="info_leak_guard",
@@ -481,9 +499,8 @@ def _run_day4_output_scanners(
                 pass
     except Exception as e:
         logger.error(
-            "Info leak output scan failed for company_id=%s: %s",
-            company_id,
-            e)
+            "Info leak output scan failed for company_id=%s: %s", company_id, e
+        )
 
     return issues
 
@@ -543,7 +560,8 @@ def apply_guardrails_to_llm_result(
         output["original_content_blocked"] = True
         logger.info(
             "Guardrails BLOCKED response for company_id=%s reasons=%s",
-            company_id, result.blocked_reasons[:3],
+            company_id,
+            result.blocked_reasons[:3],
         )
 
     elif result.action == GuardrailsAction.FLAG_FOR_REVIEW:
@@ -551,7 +569,8 @@ def apply_guardrails_to_llm_result(
         output["flagged_layers"] = result.flagged_layers
         logger.info(
             "Guardrails FLAGGED response for company_id=%s layers=%s",
-            company_id, result.flagged_layers,
+            company_id,
+            result.flagged_layers,
         )
 
     else:

@@ -100,9 +100,7 @@ class ReActToolRegistry:
 
     def get_available_actions(self) -> dict[str, list[str]]:
         """Return {tool_name: [action1, action2, ...]} for all tools."""
-        return {
-            name: tool.actions for name, tool in self._tools.items()
-        }
+        return {name: tool.actions for name, tool in self._tools.items()}
 
     # ── Execution ───────────────────────────────────────────────
 
@@ -165,6 +163,7 @@ class ReActToolRegistry:
         Each call is independently safe — failures do not affect
         other calls.
         """
+
         async def _safe_execute(call: ToolCall) -> ToolResult:
             try:
                 return await self.execute_tool(

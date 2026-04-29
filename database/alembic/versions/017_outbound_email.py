@@ -61,12 +61,8 @@ def upgrade() -> None:
             server_default=sa.func.now(),
         ),
     )
-    op.create_index(
-        "ix_outbound_emails_company_id", "outbound_emails", ["company_id"]
-    )
-    op.create_index(
-        "ix_outbound_emails_ticket_id", "outbound_emails", ["ticket_id"]
-    )
+    op.create_index("ix_outbound_emails_company_id", "outbound_emails", ["company_id"])
+    op.create_index("ix_outbound_emails_ticket_id", "outbound_emails", ["ticket_id"])
     op.create_index(
         "ix_outbound_company_ticket",
         "outbound_emails",

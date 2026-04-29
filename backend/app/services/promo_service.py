@@ -79,25 +79,21 @@ class _PromoService:
             )
 
         if discount_type == "percentage" and discount_value > Decimal("100"):
-            raise PromoError(
-                "Percentage discount cannot exceed 100% (PROMO-002)"
-            )
+            raise PromoError("Percentage discount cannot exceed 100% (PROMO-002)")
 
         if discount_value <= 0:
-            raise PromoError(
-                "Discount value must be positive (PROMO-003)"
-            )
+            raise PromoError("Discount value must be positive (PROMO-003)")
 
         with SessionLocal() as db:
             # Check for existing code
-            existing = db.query(PromoCode).filter(
-                PromoCode.code == code.upper().strip()
-            ).first()
+            existing = (
+                db.query(PromoCode)
+                .filter(PromoCode.code == code.upper().strip())
+                .first()
+            )
 
             if existing:
-                raise PromoError(
-                    f"Promo code '{code}' already exists (PROMO-004)"
-                )
+                raise PromoError(f"Promo code '{code}' already exists (PROMO-004)")
 
             promo = PromoCode(
                 code=code.upper().strip(),
@@ -145,10 +141,14 @@ class _PromoService:
         company hasn't used before.
         """
         with SessionLocal() as db:
-            promo = db.query(PromoCode).filter(
-                PromoCode.code == code.upper().strip(),
-                PromoCode.is_active,
-            ).first()
+            promo = (
+                db.query(PromoCode)
+                .filter(
+                    PromoCode.code == code.upper().strip(),
+                    PromoCode.is_active,
+                )
+                .first()
+            )
 
             if not promo:
                 raise PromoNotFoundError(
@@ -181,19 +181,24 @@ class _PromoService:
             if promo.applies_to_tiers and tier:
                 if tier not in promo.applies_to_tiers:
                     raise PromoTierMismatchError(
-                        f"Promo code '{code}' does not apply to tier '{tier}'. " f"Valid tiers: {
-                            promo.applies_to_tiers} (PROMO-009)")
+                        f"Promo code '{code}' does not apply to tier '{tier}'. "
+                        f"Valid tiers: {
+                            promo.applies_to_tiers} (PROMO-009)"
+                    )
 
             # Check company hasn't used before
-            prev_use = db.query(CompanyPromoUse).filter(
-                CompanyPromoUse.company_id == str(company_id),
-                CompanyPromoUse.promo_code_id == promo.id,
-            ).first()
+            prev_use = (
+                db.query(CompanyPromoUse)
+                .filter(
+                    CompanyPromoUse.company_id == str(company_id),
+                    CompanyPromoUse.promo_code_id == promo.id,
+                )
+                .first()
+            )
 
             if prev_use:
                 raise PromoAlreadyUsedError(
-                    f"Company has already used promo code '{code}' "
-                    "(PROMO-010)"
+                    f"Company has already used promo code '{code}' " "(PROMO-010)"
                 )
 
             return {
@@ -202,9 +207,7 @@ class _PromoService:
                 "discount_type": promo.discount_type,
                 "discount_value": str(promo.discount_value),
                 "remaining_uses": (
-                    promo.max_uses - promo.used_count
-                    if promo.max_uses
-                    else None
+                    promo.max_uses - promo.used_count if promo.max_uses else None
                 ),
             }
 
@@ -224,9 +227,11 @@ class _PromoService:
         validation = self.validate_promo_code(code, company_id)
 
         with SessionLocal() as db:
-            promo = db.query(PromoCode).filter(
-                PromoCode.code == code.upper().strip()
-            ).first()
+            promo = (
+                db.query(PromoCode)
+                .filter(PromoCode.code == code.upper().strip())
+                .first()
+            )
 
             if not promo:
                 raise PromoNotFoundError("Promo code not found (PROMO-011)")
@@ -244,17 +249,16 @@ class _PromoService:
                 tier = subscription.tier
                 try:
                     from database.models.billing_extended import get_variant_limits
+
                     limits = get_variant_limits(tier)
                     if limits:
-                        base_amount = limits.get(
-                            "price_monthly", Decimal("0.00"))
+                        base_amount = limits.get("price_monthly", Decimal("0.00"))
                 except Exception:
                     pass
 
             # Calculate discount
             if promo.discount_type == "percentage":
-                discount_amount = base_amount * \
-                    (promo.discount_value / Decimal("100"))
+                discount_amount = base_amount * (promo.discount_value / Decimal("100"))
             else:
                 discount_amount = promo.discount_value
 
@@ -291,9 +295,7 @@ class _PromoService:
     def list_promo_codes(self) -> List[Dict[str, Any]]:
         """Admin: List all promo codes with usage stats."""
         with SessionLocal() as db:
-            promos = db.query(PromoCode).order_by(
-                PromoCode.created_at.desc()
-            ).all()
+            promos = db.query(PromoCode).order_by(PromoCode.created_at.desc()).all()
 
             return [
                 {
@@ -314,9 +316,9 @@ class _PromoService:
     def deactivate_promo_code(self, promo_code_id: str) -> Dict[str, Any]:
         """Admin: Deactivate a promo code."""
         with SessionLocal() as db:
-            promo = db.query(PromoCode).filter(
-                PromoCode.id == str(promo_code_id)
-            ).first()
+            promo = (
+                db.query(PromoCode).filter(PromoCode.id == str(promo_code_id)).first()
+            )
 
             if not promo:
                 raise PromoNotFoundError(

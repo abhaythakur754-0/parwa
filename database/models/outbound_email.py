@@ -13,8 +13,15 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Column, String, Text, Integer, Float, Boolean,
-    DateTime, ForeignKey, Index,
+    Column,
+    String,
+    Text,
+    Integer,
+    Float,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
 )
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -107,7 +114,9 @@ class OutboundEmail(Base):
             "brevo_message_id": self.brevo_message_id,
             "delivery_status": self.delivery_status,
             "ticket_id": str(self.ticket_id),
-            "ticket_message_id": str(self.ticket_message_id) if self.ticket_message_id else None,
+            "ticket_message_id": (
+                str(self.ticket_message_id) if self.ticket_message_id else None
+            ),
             "role": self.role,
             "model_used": self.model_used,
             "confidence": self.confidence,
@@ -116,7 +125,9 @@ class OutboundEmail(Base):
             "error_message": self.error_message,
             "retry_count": self.retry_count,
             "sent_at": self.sent_at.isoformat() if self.sent_at else None,
-            "delivered_at": self.delivered_at.isoformat() if self.delivered_at else None,
+            "delivered_at": (
+                self.delivered_at.isoformat() if self.delivered_at else None
+            ),
             "bounced_at": self.bounced_at.isoformat() if self.bounced_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

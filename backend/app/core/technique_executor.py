@@ -102,7 +102,8 @@ class TechniqueExecutor:
     # ── Main Pipeline ──────────────────────────────────────────────
 
     async def execute_pipeline(
-        self, state: ConversationState,
+        self,
+        state: ConversationState,
     ) -> tuple[ConversationState, PipelineResult]:
         """
         Execute the full technique pipeline on the given state.
@@ -136,7 +137,8 @@ class TechniqueExecutor:
         # 4. Execute each technique
         for activation in sorted_activations:
             detail = await self._execute_with_infrastructure(
-                activation, state,
+                activation,
+                state,
             )
             pipeline_result.details.append(detail)
 
@@ -286,9 +288,7 @@ class TechniqueExecutor:
             exec_time = (time.monotonic() - exec_start) * 1000
 
             detail.status = "success"
-            detail.tokens_used = (
-                info.estimated_tokens if info else 0
-            )
+            detail.tokens_used = info.estimated_tokens if info else 0
             detail.exec_time_ms = exec_time
 
             # Store in cache
@@ -320,9 +320,7 @@ class TechniqueExecutor:
         except Exception as exc:
             detail.status = "error"
             detail.error = str(exc)
-            detail.exec_time_ms = (
-                time.monotonic() * 1000 - start_ms
-            )
+            detail.exec_time_ms = time.monotonic() * 1000 - start_ms
 
             logger.warning(
                 "executor_technique_error",
@@ -377,9 +375,7 @@ class TechniqueExecutor:
                     fb_id.value}"
 
                 fb_info = TECHNIQUE_REGISTRY.get(fb_id)
-                detail.tokens_used = (
-                    fb_info.estimated_tokens if fb_info else 0
-                )
+                detail.tokens_used = fb_info.estimated_tokens if fb_info else 0
 
                 logger.info(
                     "executor_fallback_applied",

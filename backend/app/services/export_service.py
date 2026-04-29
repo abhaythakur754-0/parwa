@@ -41,7 +41,13 @@ logger = get_logger("export_service")
 # ══════════════════════════════════════════════════════════════════
 
 VALID_REPORT_TYPES = {
-    "summary", "tickets", "agents", "sla", "csat", "forecast", "full",
+    "summary",
+    "tickets",
+    "agents",
+    "sla",
+    "csat",
+    "forecast",
+    "full",
 }
 VALID_FORMATS = {"csv", "pdf"}
 
@@ -213,31 +219,36 @@ def generate_csv_report(
         # Get data based on report type
         if report_type == "tickets":
             rows = _get_ticket_csv_data(
-                company_id, date_range_start, date_range_end, filters)
+                company_id, date_range_start, date_range_end, filters
+            )
         elif report_type == "summary":
             rows = _get_summary_csv_data(
-                company_id, date_range_start, date_range_end, filters)
+                company_id, date_range_start, date_range_end, filters
+            )
         elif report_type == "agents":
             rows = _get_agents_csv_data(
-                company_id, date_range_start, date_range_end, filters)
+                company_id, date_range_start, date_range_end, filters
+            )
         elif report_type == "sla":
             rows = _get_sla_csv_data(
-                company_id,
-                date_range_start,
-                date_range_end,
-                filters)
+                company_id, date_range_start, date_range_end, filters
+            )
         elif report_type == "csat":
             rows = _get_csat_csv_data(
-                company_id, date_range_start, date_range_end, filters)
+                company_id, date_range_start, date_range_end, filters
+            )
         elif report_type == "forecast":
             rows = _get_forecast_csv_data(
-                company_id, date_range_start, date_range_end, filters)
+                company_id, date_range_start, date_range_end, filters
+            )
         elif report_type == "full":
             rows = _get_full_csv_data(
-                company_id, date_range_start, date_range_end, filters)
+                company_id, date_range_start, date_range_end, filters
+            )
         else:
             rows = _get_summary_csv_data(
-                company_id, date_range_start, date_range_end, filters)
+                company_id, date_range_start, date_range_end, filters
+            )
 
         if not rows:
             return {"error": "No data available for the selected filters"}
@@ -302,11 +313,14 @@ def generate_pdf_report(
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
             from reportlab.lib.units import mm
             from reportlab.platypus import (
-                SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
+                SimpleDocTemplate,
+                Table,
+                TableStyle,
+                Paragraph,
+                Spacer,
             )
 
-            file_path = os.path.join(
-                EXPORT_DIR, f"{
+            file_path = os.path.join(EXPORT_DIR, f"{
                     job_id or uuid.uuid4()}.pdf")
 
             doc = SimpleDocTemplate(
@@ -346,58 +360,79 @@ def generate_pdf_report(
                 "forecast": "PARWA Volume Forecast Report",
                 "full": "PARWA Full Analytics Report",
             }
-            elements.append(Paragraph(
-                report_titles.get(report_type, "PARWA Report"),
-                title_style,
-            ))
-            elements.append(Paragraph(
-                f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}  |  "
-                f"Period: {date_range_start or 'All time'} to {date_range_end or 'Now'}",
-                subtitle_style,
-            ))
+            elements.append(
+                Paragraph(
+                    report_titles.get(report_type, "PARWA Report"),
+                    title_style,
+                )
+            )
+            elements.append(
+                Paragraph(
+                    f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}  |  "
+                    f"Period: {date_range_start or 'All time'} to {date_range_end or 'Now'}",
+                    subtitle_style,
+                )
+            )
             elements.append(Spacer(1, 12))
 
             # Get CSV data and convert to table
             if report_type == "tickets":
                 rows = _get_ticket_csv_data(
-                    company_id, date_range_start, date_range_end, filters)
+                    company_id, date_range_start, date_range_end, filters
+                )
             elif report_type == "summary":
                 rows = _get_summary_csv_data(
-                    company_id, date_range_start, date_range_end, filters)
+                    company_id, date_range_start, date_range_end, filters
+                )
             elif report_type == "agents":
                 rows = _get_agents_csv_data(
-                    company_id, date_range_start, date_range_end, filters)
+                    company_id, date_range_start, date_range_end, filters
+                )
             elif report_type == "sla":
                 rows = _get_sla_csv_data(
-                    company_id, date_range_start, date_range_end, filters)
+                    company_id, date_range_start, date_range_end, filters
+                )
             elif report_type == "csat":
                 rows = _get_csat_csv_data(
-                    company_id, date_range_start, date_range_end, filters)
+                    company_id, date_range_start, date_range_end, filters
+                )
             elif report_type == "forecast":
                 rows = _get_forecast_csv_data(
-                    company_id, date_range_start, date_range_end, filters)
+                    company_id, date_range_start, date_range_end, filters
+                )
             elif report_type == "full":
                 rows = _get_full_csv_data(
-                    company_id, date_range_start, date_range_end, filters)
+                    company_id, date_range_start, date_range_end, filters
+                )
             else:
                 rows = _get_summary_csv_data(
-                    company_id, date_range_start, date_range_end, filters)
+                    company_id, date_range_start, date_range_end, filters
+                )
 
             if rows:
                 # Build table
                 table = Table(rows)
-                table.setStyle(TableStyle([
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, -1), 8),
-                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
-                    ("TOPPADDING", (0, 0), (-1, -1), 4),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                ]))
+                table.setStyle(
+                    TableStyle(
+                        [
+                            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+                            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                            ("FONTSIZE", (0, 0), (-1, -1), 8),
+                            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                            (
+                                "ROWBACKGROUNDS",
+                                (0, 1),
+                                (-1, -1),
+                                [colors.white, colors.HexColor("#f8f9fa")],
+                            ),
+                            ("TOPPADDING", (0, 0), (-1, -1), 4),
+                            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                        ]
+                    )
+                )
                 elements.append(table)
 
             doc.build(elements)
@@ -423,8 +458,12 @@ def generate_pdf_report(
                 message="Falling back to CSV generation",
             )
             return generate_csv_report(
-                company_id, report_type,
-                date_range_start, date_range_end, filters, job_id,
+                company_id,
+                report_type,
+                date_range_start,
+                date_range_end,
+                filters,
+                job_id,
             )
 
     except Exception as exc:
@@ -460,13 +499,15 @@ def _get_summary_csv_data(
 
             rows = [["KPI", "Value", "Previous", "Change %", "Unit"]]
             for kpi in kpis:
-                rows.append([
-                    kpi.get("label", ""),
-                    str(kpi.get("value", "")),
-                    str(kpi.get("previous_value", "")),
-                    str(kpi.get("change_pct", "")),
-                    kpi.get("unit", ""),
-                ])
+                rows.append(
+                    [
+                        kpi.get("label", ""),
+                        str(kpi.get("value", "")),
+                        str(kpi.get("previous_value", "")),
+                        str(kpi.get("change_pct", "")),
+                        kpi.get("unit", ""),
+                    ]
+                )
 
             return rows
         finally:
@@ -502,21 +543,32 @@ def _get_ticket_csv_data(
             tickets = query.order_by(desc(Ticket.created_at)).limit(5000).all()
 
             rows = [
-                ["Ticket ID", "Subject", "Status", "Priority", "Category",
-                 "Created At", "Updated At", "Assigned To", "Channel"],
+                [
+                    "Ticket ID",
+                    "Subject",
+                    "Status",
+                    "Priority",
+                    "Category",
+                    "Created At",
+                    "Updated At",
+                    "Assigned To",
+                    "Channel",
+                ],
             ]
             for t in tickets:
-                rows.append([
-                    str(t.id),
-                    t.subject or "",
-                    t.status or "",
-                    t.priority or "",
-                    t.category or "",
-                    t.created_at.isoformat() if t.created_at else "",
-                    t.updated_at.isoformat() if t.updated_at else "",
-                    str(t.assigned_to or ""),
-                    getattr(t, "channel", "") or "",
-                ])
+                rows.append(
+                    [
+                        str(t.id),
+                        t.subject or "",
+                        t.status or "",
+                        t.priority or "",
+                        t.category or "",
+                        t.created_at.isoformat() if t.created_at else "",
+                        t.updated_at.isoformat() if t.updated_at else "",
+                        str(t.assigned_to or ""),
+                        getattr(t, "channel", "") or "",
+                    ]
+                )
 
             return rows
         finally:
@@ -534,7 +586,8 @@ def _get_agents_csv_data(
     """Get agent performance report CSV data."""
     try:
         from app.services.ticket_analytics_service import (
-            TicketAnalyticsService, DateRange,
+            TicketAnalyticsService,
+            DateRange,
         )
         from database.base import SessionLocal
 
@@ -556,20 +609,30 @@ def _get_agents_csv_data(
             metrics = svc.get_agent_metrics(dr)
 
             rows = [
-                ["Agent ID", "Agent Name", "Assigned", "Resolved", "Open",
-                 "Resolution Rate", "CSAT Avg", "CSAT Count"],
+                [
+                    "Agent ID",
+                    "Agent Name",
+                    "Assigned",
+                    "Resolved",
+                    "Open",
+                    "Resolution Rate",
+                    "CSAT Avg",
+                    "CSAT Count",
+                ],
             ]
             for m in metrics:
-                rows.append([
-                    m.agent_id,
-                    m.agent_name or "",
-                    str(m.tickets_assigned),
-                    str(m.tickets_resolved),
-                    str(m.tickets_open),
-                    f"{m.resolution_rate:.1%}",
-                    str(m.csat_avg or ""),
-                    str(m.csat_count),
-                ])
+                rows.append(
+                    [
+                        m.agent_id,
+                        m.agent_name or "",
+                        str(m.tickets_assigned),
+                        str(m.tickets_resolved),
+                        str(m.tickets_open),
+                        f"{m.resolution_rate:.1%}",
+                        str(m.csat_avg or ""),
+                        str(m.csat_count),
+                    ]
+                )
 
             return rows
         finally:
@@ -587,7 +650,8 @@ def _get_sla_csv_data(
     """Get SLA report CSV data."""
     try:
         from app.services.ticket_analytics_service import (
-            TicketAnalyticsService, DateRange,
+            TicketAnalyticsService,
+            DateRange,
         )
         from database.base import SessionLocal
 
@@ -609,16 +673,15 @@ def _get_sla_csv_data(
             sla = svc.get_sla_metrics(dr)
 
             rows = [["SLA Metric", "Value"]]
-            rows.append(["Total Tickets with SLA",
-                        str(sla.total_tickets_with_sla)])
+            rows.append(["Total Tickets with SLA", str(sla.total_tickets_with_sla)])
             rows.append(["Breached Count", str(sla.breached_count)])
             rows.append(["Approaching Count", str(sla.approaching_count)])
             rows.append(["Compliant Count", str(sla.compliant_count)])
             rows.append(["Compliance Rate", f"{sla.compliance_rate:.1%}"])
-            rows.append(["Avg First Response (min)", str(
-                sla.avg_first_response_minutes or "")])
-            rows.append(["Avg Resolution (min)", str(
-                sla.avg_resolution_minutes or "")])
+            rows.append(
+                ["Avg First Response (min)", str(sla.avg_first_response_minutes or "")]
+            )
+            rows.append(["Avg Resolution (min)", str(sla.avg_resolution_minutes or "")])
 
             return rows
         finally:
@@ -644,30 +707,36 @@ def _get_csat_csv_data(
 
             rows = [["Date", "Avg Rating", "Total Ratings"]]
             for day in data.get("daily_trend", []):
-                rows.append([
-                    day["date"],
-                    str(day["avg_rating"]),
-                    str(day["total_ratings"]),
-                ])
+                rows.append(
+                    [
+                        day["date"],
+                        str(day["avg_rating"]),
+                        str(day["total_ratings"]),
+                    ]
+                )
 
             # Add breakdowns
             rows.append([])
             rows.append(["CSAT by Agent", "Avg Rating", "Total Ratings"])
             for agent in data.get("by_agent", []):
-                rows.append([
-                    agent["dimension_name"],
-                    str(agent["avg_rating"]),
-                    str(agent["total_ratings"]),
-                ])
+                rows.append(
+                    [
+                        agent["dimension_name"],
+                        str(agent["avg_rating"]),
+                        str(agent["total_ratings"]),
+                    ]
+                )
 
             rows.append([])
             rows.append(["CSAT by Category", "Avg Rating", "Total Ratings"])
             for cat in data.get("by_category", []):
-                rows.append([
-                    cat["dimension_name"],
-                    str(cat["avg_rating"]),
-                    str(cat["total_ratings"]),
-                ])
+                rows.append(
+                    [
+                        cat["dimension_name"],
+                        str(cat["avg_rating"]),
+                        str(cat["total_ratings"]),
+                    ]
+                )
 
             return rows
         finally:
@@ -694,27 +763,35 @@ def _get_forecast_csv_data(
             rows = [["Date", "Type", "Value", "Lower Bound", "Upper Bound"]]
 
             for point in data.get("historical", []):
-                rows.append([
-                    point["date"], "Historical",
-                    str(point.get("actual", "")), "", "",
-                ])
+                rows.append(
+                    [
+                        point["date"],
+                        "Historical",
+                        str(point.get("actual", "")),
+                        "",
+                        "",
+                    ]
+                )
 
             for point in data.get("forecast", []):
-                rows.append([
-                    point["date"], "Forecast",
-                    str(point.get("predicted", "")),
-                    str(point.get("lower_bound", "")),
-                    str(point.get("upper_bound", "")),
-                ])
+                rows.append(
+                    [
+                        point["date"],
+                        "Forecast",
+                        str(point.get("predicted", "")),
+                        str(point.get("lower_bound", "")),
+                        str(point.get("upper_bound", "")),
+                    ]
+                )
 
             rows.append([])
             rows.append(["Metric", "Value"])
             rows.append(["Model", data.get("model_type", "")])
             rows.append(["Trend Direction", data.get("trend_direction", "")])
-            rows.append(["Avg Daily Volume", str(
-                data.get("avg_daily_volume", ""))])
-            rows.append(["Seasonality Detected", str(
-                data.get("seasonality_detected", ""))])
+            rows.append(["Avg Daily Volume", str(data.get("avg_daily_volume", ""))])
+            rows.append(
+                ["Seasonality Detected", str(data.get("seasonality_detected", ""))]
+            )
 
             return rows
         finally:

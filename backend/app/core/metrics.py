@@ -42,6 +42,7 @@ class CounterMetric:
         value: Current counter value.
         labels: Label set -> value mapping for labeled counters.
     """
+
     name: str
     help_text: str
     value: float = 0.0
@@ -80,7 +81,7 @@ class CounterMetric:
         ]
         for label_key, val in sorted(self.labels.items()):
             if label_key:
-                lines.append(f'{self.name}{{{label_key}}} {val}')
+                lines.append(f"{self.name}{{{label_key}}} {val}")
         return "\n".join(lines)
 
 
@@ -94,6 +95,7 @@ class GaugeMetric:
         value: Current gauge value.
         labels: Label set -> value mapping.
     """
+
     name: str
     help_text: str
     value: float = 0.0
@@ -137,7 +139,7 @@ class GaugeMetric:
         ]
         for label_key, val in sorted(self.labels.items()):
             if label_key:
-                lines.append(f'{self.name}{{{label_key}}} {val}')
+                lines.append(f"{self.name}{{{label_key}}} {val}")
         return "\n".join(lines)
 
 
@@ -156,11 +158,24 @@ class HistogramMetric:
         sum_value: Sum of all observed values.
         count: Total number of observations.
     """
+
     name: str
     help_text: str
-    buckets: List[float] = field(default_factory=lambda: [
-        0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10,
-    ])
+    buckets: List[float] = field(
+        default_factory=lambda: [
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            1,
+            2.5,
+            5,
+            10,
+        ]
+    )
     counts: Dict[float, int] = field(default_factory=dict)
     sum_value: float = 0.0
     count: int = 0
@@ -212,9 +227,7 @@ class HistogramMetric:
             le = f"{b}"
             if b == float("inf"):
                 le = "+Inf"
-            lines.append(
-                f'{self.name}_bucket{{le="{le}"}} {self.counts.get(b, 0)}'
-            )
+            lines.append(f'{self.name}_bucket{{le="{le}"}} {self.counts.get(b, 0)}')
         lines.append(f"{self.name}_count {self.count}")
         lines.append(f"{self.name}_sum {self.sum_value}")
 
@@ -228,12 +241,8 @@ class HistogramMetric:
                     f'{self.name}_bucket{{le="{le}",{label_key}}} '
                     f'{entry["counts"].get(b, 0)}'
                 )
-            lines.append(
-                f'{self.name}_count{{{label_key}}} {entry["count"]}'
-            )
-            lines.append(
-                f'{self.name}_sum{{{label_key}}} {entry["sum"]}'
-            )
+            lines.append(f'{self.name}_count{{{label_key}}} {entry["count"]}')
+            lines.append(f'{self.name}_sum{{{label_key}}} {entry["sum"]}')
 
         return "\n".join(lines)
 
@@ -253,29 +262,37 @@ class MetricsRegistry:
         self._lock = threading.Lock()
 
     def counter(
-        self, name: str, help_text: str,
+        self,
+        name: str,
+        help_text: str,
     ) -> CounterMetric:
         """Get or create a counter metric."""
         with self._lock:
             if name not in self._metrics:
                 self._metrics[name] = CounterMetric(
-                    name=name, help_text=help_text,
+                    name=name,
+                    help_text=help_text,
                 )
             return self._metrics[name]
 
     def gauge(
-        self, name: str, help_text: str,
+        self,
+        name: str,
+        help_text: str,
     ) -> GaugeMetric:
         """Get or create a gauge metric."""
         with self._lock:
             if name not in self._metrics:
                 self._metrics[name] = GaugeMetric(
-                    name=name, help_text=help_text,
+                    name=name,
+                    help_text=help_text,
                 )
             return self._metrics[name]
 
     def histogram(
-        self, name: str, help_text: str,
+        self,
+        name: str,
+        help_text: str,
         buckets: Optional[List[float]] = None,
     ) -> HistogramMetric:
         """Get or create a histogram metric."""
@@ -362,7 +379,9 @@ redis_operation_duration = registry.histogram(
 
 
 def record_http_request(
-    method: str, path: str, status_code: int,
+    method: str,
+    path: str,
+    status_code: int,
     duration: float,
 ) -> None:
     """Record an HTTP request metric.
@@ -393,7 +412,9 @@ def record_http_request(
 
 
 def record_celery_task(
-    task_name: str, status: str, duration: float,
+    task_name: str,
+    status: str,
+    duration: float,
 ) -> None:
     """Record a Celery task execution metric.
 
@@ -463,7 +484,9 @@ def _normalize_path(path: str) -> str:
     # Replace UUIDs with :id
     path = re.sub(
         r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
-        ":id", path, flags=re.IGNORECASE,
+        ":id",
+        path,
+        flags=re.IGNORECASE,
     )
 
     # Replace numeric segments with :id (but keep version numbers)

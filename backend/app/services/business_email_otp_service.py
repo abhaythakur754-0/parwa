@@ -50,22 +50,31 @@ def _hash_otp(otp: str) -> str:
 def _generate_otp() -> str:
     """Generate a random 6-digit OTP."""
     # Use cryptographically secure random number
-    return ''.join([str(secrets.randbelow(10)) for _ in range(OTP_LENGTH)])
+    return "".join([str(secrets.randbelow(10)) for _ in range(OTP_LENGTH)])
 
 
 def _is_valid_business_email(email: str) -> bool:
     """Check if email looks like a business email (not free providers)."""
-    if not email or '@' not in email:
+    if not email or "@" not in email:
         return False
 
     # Common free email providers to reject
     free_providers = [
-        'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
-        'aol.com', 'icloud.com', 'mail.com', 'protonmail.com',
-        'zoho.com', 'yandex.com', 'qq.com', '163.com',
+        "gmail.com",
+        "yahoo.com",
+        "hotmail.com",
+        "outlook.com",
+        "aol.com",
+        "icloud.com",
+        "mail.com",
+        "protonmail.com",
+        "zoho.com",
+        "yandex.com",
+        "qq.com",
+        "163.com",
     ]
 
-    domain = email.split('@')[-1].lower()
+    domain = email.split("@")[-1].lower()
     return domain not in free_providers
 
 
@@ -96,7 +105,7 @@ def send_business_email_otp(
     email = email.lower().strip()
 
     # Validate email format
-    if not email or '@' not in email:
+    if not email or "@" not in email:
         raise ValidationError(
             message="Invalid email address.",
             details={"email": email},
@@ -106,23 +115,25 @@ def send_business_email_otp(
     if not _is_valid_business_email(email):
         raise ValidationError(
             message="Please use your business email address. Free email providers (Gmail, Yahoo, etc.) are not accepted.",
-            details={
-                "email": email},
+            details={"email": email},
         )
 
     # Rate limit check: count OTPs created in last hour
     one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
-    recent_otps = db.query(BusinessEmailOTP).filter(
-        BusinessEmailOTP.email == email,
-        BusinessEmailOTP.company_id == company_id,
-        BusinessEmailOTP.created_at >= one_hour_ago,
-    ).count()
+    recent_otps = (
+        db.query(BusinessEmailOTP)
+        .filter(
+            BusinessEmailOTP.email == email,
+            BusinessEmailOTP.company_id == company_id,
+            BusinessEmailOTP.created_at >= one_hour_ago,
+        )
+        .count()
+    )
 
     if recent_otps >= MAX_REQUESTS_PER_HOUR:
         raise RateLimitError(
             message="Too many OTP requests. Please wait before requesting another code.",
-            details={
-                "retry_after_seconds": 3600},
+            details={"retry_after_seconds": 3600},
         )
 
     # Invalidate any previous unverified OTPs for this email
@@ -130,15 +141,16 @@ def send_business_email_otp(
         BusinessEmailOTP.email == email,
         BusinessEmailOTP.company_id == company_id,
         BusinessEmailOTP.verified is False,  # noqa: E712
-    ).update({"expires_at": datetime.now(timezone.utc)})  # Expire them
+    ).update(
+        {"expires_at": datetime.now(timezone.utc)}
+    )  # Expire them
 
     # Generate new OTP
     otp_code = _generate_otp()
     otp_hash = _hash_otp(otp_code)
 
     # Calculate expiry
-    expires_at = datetime.now(timezone.utc) + \
-        timedelta(minutes=OTP_EXPIRY_MINUTES)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRY_MINUTES)
 
     # Store OTP
     otp_record = BusinessEmailOTP(
@@ -217,7 +229,7 @@ def verify_business_email_otp(
     otp_code = otp_code.strip()
 
     # Basic validation
-    if not email or '@' not in email:
+    if not email or "@" not in email:
         raise ValidationError(
             message="Invalid email address.",
             details={"email": email},
@@ -250,8 +262,7 @@ def verify_business_email_otp(
         # Anti-enumeration: same error for all failure cases
         raise ValidationError(
             message="Invalid or expired verification code. Please request a new code.",
-            details={
-                "error": "not_found_or_expired"},
+            details={"error": "not_found_or_expired"},
         )
 
     # Check if too many attempts
@@ -275,9 +286,7 @@ def verify_business_email_otp(
         raise ValidationError(
             message=f"Invalid verification code. {remaining} attempt(s) remaining.",
             details={
-                "attempts_remaining": max(
-                    remaining,
-                    0),
+                "attempts_remaining": max(remaining, 0),
             },
         )
 
@@ -317,10 +326,14 @@ def check_business_email_verified(
     """
     email = email.lower().strip()
 
-    verified_otp = db.query(BusinessEmailOTP).filter(
-        BusinessEmailOTP.email == email,
-        BusinessEmailOTP.company_id == company_id,
-        BusinessEmailOTP.verified is True,  # noqa: E712
-    ).first()
+    verified_otp = (
+        db.query(BusinessEmailOTP)
+        .filter(
+            BusinessEmailOTP.email == email,
+            BusinessEmailOTP.company_id == company_id,
+            BusinessEmailOTP.verified is True,  # noqa: E712
+        )
+        .first()
+    )
 
     return verified_otp is not None

@@ -47,14 +47,13 @@ os.environ.setdefault("SECRET_KEY", "test_secret")
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET_KEY", "test_jwt")
-os.environ.setdefault(
-    "DATA_ENCRYPTION_KEY",
-    "12345678901234567890123456789012")
+os.environ.setdefault("DATA_ENCRYPTION_KEY", "12345678901234567890123456789012")
 
 
 # ══════════════════════════════════════════════════════════════════
 # HELPERS
 # ══════════════════════════════════════════════════════════════════
+
 
 def _make_request(
     query: str = "How do I reset my password?",
@@ -177,6 +176,7 @@ class _MockReserveResult:
 # FIXTURES
 # ══════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture
 def mock_redis():
     """Async mock for Redis client."""
@@ -201,7 +201,9 @@ def gen(mock_redis):
         patch("app.core.smart_router.SmartRouter") as MockRouter,
         patch("app.services.brand_voice_service.BrandVoiceService") as MockBrand,
         patch("app.services.token_budget_service.TokenBudgetService") as MockBudget,
-        patch("app.services.response_template_service.ResponseTemplateService") as MockTemplate,
+        patch(
+            "app.services.response_template_service.ResponseTemplateService"
+        ) as MockTemplate,
     ):
         generator = ResponseGenerator(redis_client=mock_redis)
 
@@ -271,29 +273,33 @@ class TestResponseGeneratorInit:
 
     def test_init_with_no_redis(self):
         """Generator initializes with None redis_client."""
-        with patch("app.core.sentiment_engine.SentimentAnalyzer"), \
-                patch("app.core.rag_retrieval.RAGRetriever"), \
-                patch("app.core.rag_reranking.CrossEncoderReranker"), \
-                patch("app.core.rag_reranking.ContextWindowAssembler"), \
-                patch("app.core.clara_quality_gate.CLARAQualityGate"), \
-                patch("app.core.smart_router.SmartRouter"), \
-                patch("app.services.brand_voice_service.BrandVoiceService"), \
-                patch("app.services.token_budget_service.TokenBudgetService"), \
-                patch("app.services.response_template_service.ResponseTemplateService"):
+        with (
+            patch("app.core.sentiment_engine.SentimentAnalyzer"),
+            patch("app.core.rag_retrieval.RAGRetriever"),
+            patch("app.core.rag_reranking.CrossEncoderReranker"),
+            patch("app.core.rag_reranking.ContextWindowAssembler"),
+            patch("app.core.clara_quality_gate.CLARAQualityGate"),
+            patch("app.core.smart_router.SmartRouter"),
+            patch("app.services.brand_voice_service.BrandVoiceService"),
+            patch("app.services.token_budget_service.TokenBudgetService"),
+            patch("app.services.response_template_service.ResponseTemplateService"),
+        ):
             g = ResponseGenerator()
             assert g.redis_client is None
 
     def test_init_with_redis(self, mock_redis):
         """Generator stores the provided redis_client."""
-        with patch("app.core.sentiment_engine.SentimentAnalyzer"), \
-                patch("app.core.rag_retrieval.RAGRetriever"), \
-                patch("app.core.rag_reranking.CrossEncoderReranker"), \
-                patch("app.core.rag_reranking.ContextWindowAssembler"), \
-                patch("app.core.clara_quality_gate.CLARAQualityGate"), \
-                patch("app.core.smart_router.SmartRouter"), \
-                patch("app.services.brand_voice_service.BrandVoiceService"), \
-                patch("app.services.token_budget_service.TokenBudgetService"), \
-                patch("app.services.response_template_service.ResponseTemplateService"):
+        with (
+            patch("app.core.sentiment_engine.SentimentAnalyzer"),
+            patch("app.core.rag_retrieval.RAGRetriever"),
+            patch("app.core.rag_reranking.CrossEncoderReranker"),
+            patch("app.core.rag_reranking.ContextWindowAssembler"),
+            patch("app.core.clara_quality_gate.CLARAQualityGate"),
+            patch("app.core.smart_router.SmartRouter"),
+            patch("app.services.brand_voice_service.BrandVoiceService"),
+            patch("app.services.token_budget_service.TokenBudgetService"),
+            patch("app.services.response_template_service.ResponseTemplateService"),
+        ):
             g = ResponseGenerator(redis_client=mock_redis)
             assert g.redis_client is mock_redis
 
@@ -414,8 +420,7 @@ class TestDraftInProgress:
         mock_redis.get.return_value = "agent-123"
         req = _make_request(ticket_id="tkt-001")
         result = await gen.generate(req)
-        assert any(
-            "draft_in_progress" in issue for issue in result.quality_issues)
+        assert any("draft_in_progress" in issue for issue in result.quality_issues)
 
     @pytest.mark.asyncio
     async def test_no_draft_allows_generation(self, gen, mock_redis):
@@ -427,21 +432,15 @@ class TestDraftInProgress:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
         gen.smart_router.async_execute_llm_call = AsyncMock(
             return_value={"content": "Here is your answer."}
         )
-        gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result()
-        )
+        gen.clara_gate.evaluate = AsyncMock(return_value=_make_clara_result())
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
@@ -463,21 +462,15 @@ class TestDraftInProgress:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
         gen.smart_router.async_execute_llm_call = AsyncMock(
             return_value={"content": "Response despite Redis error."}
         )
-        gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result()
-        )
+        gen.clara_gate.evaluate = AsyncMock(return_value=_make_clara_result())
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
@@ -499,21 +492,15 @@ class TestDraftInProgress:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
         gen.smart_router.async_execute_llm_call = AsyncMock(
             return_value={"content": "No draft check needed."}
         )
-        gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result()
-        )
+        gen.clara_gate.evaluate = AsyncMock(return_value=_make_clara_result())
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
@@ -620,11 +607,10 @@ class TestRateLimiting:
         mock_template = MagicMock()
         mock_template.id = "tpl-1"
         mock_template.name = "rate_limit_template"
-        gen.template_service.find_best_template = AsyncMock(
-            return_value=mock_template
-        )
+        gen.template_service.find_best_template = AsyncMock(return_value=mock_template)
         gen.template_service.render_template = AsyncMock(
-            return_value="We've received your message. An agent will respond shortly.")
+            return_value="We've received your message. An agent will respond shortly."
+        )
         with patch("app.core.response_formatters.create_default_registry"):
             req = _make_request(customer_id="cust-1")
             result = await gen.generate(req)
@@ -647,27 +633,19 @@ class TestSentimentAnalysis:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
         gen.smart_router.async_execute_llm_call = AsyncMock(
             return_value={"content": "Response"}
         )
-        gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result()
-        )
+        gen.clara_gate.evaluate = AsyncMock(return_value=_make_clara_result())
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
-        gen.brand_voice.merge_with_brand_voice = AsyncMock(
-            return_value="Response"
-        )
+        gen.brand_voice.merge_with_brand_voice = AsyncMock(return_value="Response")
         with patch("app.core.response_formatters.create_default_registry"):
             with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 history = [{"role": "user", "content": "Hello"}]
@@ -689,21 +667,15 @@ class TestSentimentAnalysis:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
         gen.smart_router.async_execute_llm_call = AsyncMock(
             return_value={"content": "Default sentiment response"}
         )
-        gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result()
-        )
+        gen.clara_gate.evaluate = AsyncMock(return_value=_make_clara_result())
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
@@ -725,21 +697,15 @@ class TestSentimentAnalysis:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
         gen.smart_router.async_execute_llm_call = AsyncMock(
             return_value={"content": "OK"}
         )
-        gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result()
-        )
+        gen.clara_gate.evaluate = AsyncMock(return_value=_make_clara_result())
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
@@ -780,29 +746,21 @@ class TestRAGRetrieval:
         gen.rag_retriever.retrieve = AsyncMock(
             return_value=_make_rag_result(chunks=[chunk])
         )
-        gen.reranker.rerank = AsyncMock(
-            return_value=_make_rag_result(chunks=[chunk])
-        )
+        gen.reranker.rerank = AsyncMock(return_value=_make_rag_result(chunks=[chunk]))
         assembled = MagicMock()
         assembled.context_string = "Assembled context."
         assembled.citations = []
         gen.assembler.assemble.return_value = assembled
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
         gen.smart_router.async_execute_llm_call = AsyncMock(
             return_value={"content": "RAG-based response"}
         )
-        gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result()
-        )
+        gen.clara_gate.evaluate = AsyncMock(return_value=_make_clara_result())
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
@@ -825,21 +783,15 @@ class TestRAGRetrieval:
             side_effect=RuntimeError("RAG service down")
         )
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
         gen.smart_router.async_execute_llm_call = AsyncMock(
             return_value={"content": "Response without RAG"}
         )
-        gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result()
-        )
+        gen.clara_gate.evaluate = AsyncMock(return_value=_make_clara_result())
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
@@ -865,29 +817,21 @@ class TestRAGRetrieval:
         gen.rag_retriever.retrieve = AsyncMock(
             return_value=_make_rag_result(chunks=[chunk])
         )
-        gen.reranker.rerank = AsyncMock(
-            side_effect=RuntimeError("Reranker down")
-        )
+        gen.reranker.rerank = AsyncMock(side_effect=RuntimeError("Reranker down"))
         assembled = MagicMock()
         assembled.context_string = "Assembled from original."
         assembled.citations = []
         gen.assembler.assemble.return_value = assembled
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
         gen.smart_router.async_execute_llm_call = AsyncMock(
             return_value={"content": "Response with unranked RAG"}
         )
-        gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result()
-        )
+        gen.clara_gate.evaluate = AsyncMock(return_value=_make_clara_result())
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
@@ -911,26 +855,18 @@ class TestRAGRetrieval:
         gen.rag_retriever.retrieve = AsyncMock(
             return_value=_make_rag_result(chunks=[chunk])
         )
-        gen.reranker.rerank = AsyncMock(
-            return_value=_make_rag_result(chunks=[chunk])
-        )
+        gen.reranker.rerank = AsyncMock(return_value=_make_rag_result(chunks=[chunk]))
         gen.assembler.assemble.side_effect = RuntimeError("Assembly failed")
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
         gen.smart_router.async_execute_llm_call = AsyncMock(
             return_value={"content": "Response with raw chunks"}
         )
-        gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result()
-        )
+        gen.clara_gate.evaluate = AsyncMock(return_value=_make_clara_result())
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
@@ -951,21 +887,15 @@ class TestRAGRetrieval:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
         gen.smart_router.async_execute_llm_call = AsyncMock(
             return_value={"content": "No RAG needed."}
         )
-        gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result()
-        )
+        gen.clara_gate.evaluate = AsyncMock(return_value=_make_clara_result())
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
@@ -996,17 +926,15 @@ class TestTokenBudget:
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
         gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult(
-                can_fit=False, overflow_amount=500))
+            return_value=_MockOverflowResult(can_fit=False, overflow_amount=500)
+        )
         gen.token_budget.reserve_tokens = AsyncMock(
             return_value=_MockReserveResult(success=True)
         )
         mock_template = MagicMock()
         mock_template.id = "tpl-budget"
         mock_template.name = "budget_template"
-        gen.template_service.find_best_template = AsyncMock(
-            return_value=mock_template
-        )
+        gen.template_service.find_best_template = AsyncMock(return_value=mock_template)
         gen.template_service.render_template = AsyncMock(
             return_value="Budget exhausted. Template response."
         )
@@ -1023,17 +951,13 @@ class TestTokenBudget:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
         gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult(
-                success=False, remaining_after_reserve=0))
+            return_value=_MockReserveResult(success=False, remaining_after_reserve=0)
+        )
         mock_template = MagicMock()
         mock_template.id = "tpl-reserve"
-        gen.template_service.find_best_template = AsyncMock(
-            return_value=mock_template
-        )
+        gen.template_service.find_best_template = AsyncMock(return_value=mock_template)
         gen.template_service.render_template = AsyncMock(
             return_value="Reserve failed template."
         )
@@ -1050,9 +974,7 @@ class TestTokenBudget:
         )
         mock_template = MagicMock()
         mock_template.id = "tpl-force"
-        gen.template_service.find_best_template = AsyncMock(
-            return_value=mock_template
-        )
+        gen.template_service.find_best_template = AsyncMock(return_value=mock_template)
         gen.template_service.render_template = AsyncMock(
             return_value="Forced template response."
         )
@@ -1077,9 +999,7 @@ class TestTokenBudget:
         gen.smart_router.async_execute_llm_call = AsyncMock(
             return_value={"content": "Despite budget error"}
         )
-        gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result()
-        )
+        gen.clara_gate.evaluate = AsyncMock(return_value=_make_clara_result())
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
@@ -1109,12 +1029,8 @@ class TestCLARAQualityGate:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
@@ -1122,8 +1038,8 @@ class TestCLARAQualityGate:
             return_value={"content": "CLARA approved response"}
         )
         gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result(
-                overall_pass=True, overall_score=0.9))
+            return_value=_make_clara_result(overall_pass=True, overall_score=0.9)
+        )
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
@@ -1145,12 +1061,8 @@ class TestCLARAQualityGate:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
@@ -1158,15 +1070,11 @@ class TestCLARAQualityGate:
             return_value={"content": "Bad response"}
         )
         gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result(
-                overall_pass=False, overall_score=0.2
-            )
+            return_value=_make_clara_result(overall_pass=False, overall_score=0.2)
         )
         mock_template = MagicMock()
         mock_template.id = "tpl-clara-fail"
-        gen.template_service.find_best_template = AsyncMock(
-            return_value=mock_template
-        )
+        gen.template_service.find_best_template = AsyncMock(return_value=mock_template)
         gen.template_service.render_template = AsyncMock(
             return_value="CLARA failed template."
         )
@@ -1184,12 +1092,8 @@ class TestCLARAQualityGate:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
@@ -1207,9 +1111,7 @@ class TestCLARAQualityGate:
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
-        gen.brand_voice.merge_with_brand_voice = AsyncMock(
-            return_value=clara_improved
-        )
+        gen.brand_voice.merge_with_brand_voice = AsyncMock(return_value=clara_improved)
         with patch("app.core.response_formatters.create_default_registry"):
             with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request()
@@ -1224,12 +1126,8 @@ class TestCLARAQualityGate:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
@@ -1242,9 +1140,7 @@ class TestCLARAQualityGate:
         # CLARA fails -> template fallback
         mock_template = MagicMock()
         mock_template.id = "tpl-clara-err"
-        gen.template_service.find_best_template = AsyncMock(
-            return_value=mock_template
-        )
+        gen.template_service.find_best_template = AsyncMock(return_value=mock_template)
         gen.template_service.render_template = AsyncMock(
             return_value="CLARA error template."
         )
@@ -1318,9 +1214,7 @@ class TestBrandVoice:
 
     def test_system_prompt_custom_instructions(self, gen):
         """Custom instructions appear in system prompt."""
-        config = _make_brand_config(
-            custom_instructions="Always use bullet points."
-        )
+        config = _make_brand_config(custom_instructions="Always use bullet points.")
         req = _make_request()
         prompt = gen._build_system_prompt(
             brand_config=config,
@@ -1444,12 +1338,8 @@ class TestBrandVoice:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(
             side_effect=RuntimeError("Brand service down")
         )
@@ -1460,9 +1350,7 @@ class TestBrandVoice:
         gen.smart_router.async_execute_llm_call = AsyncMock(
             return_value={"content": "Despite brand failure"}
         )
-        gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result()
-        )
+        gen.clara_gate.evaluate = AsyncMock(return_value=_make_clara_result())
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
@@ -1515,8 +1403,7 @@ class TestMessageBuilding:
             rag_context="KB context here",
         )
         assert any(
-            m["role"] == "system" and "KB context" in m["content"]
-            for m in messages
+            m["role"] == "system" and "KB context" in m["content"] for m in messages
         )
 
     def test_messages_no_rag_context(self, gen):
@@ -1532,10 +1419,7 @@ class TestMessageBuilding:
 
     def test_messages_history_limited_to_10(self, gen):
         """Conversation history is limited to last 10 messages."""
-        history = [
-            {"role": "user", "content": f"Message {i}"}
-            for i in range(20)
-        ]
+        history = [{"role": "user", "content": f"Message {i}"} for i in range(20)]
         messages = gen._build_messages(
             system_prompt="Be helpful.",
             conversation_history=history,
@@ -1562,9 +1446,7 @@ class TestMessageBuilding:
             query="Latest",
             rag_context="",
         )
-        user_assistant = [
-            m for m in messages if m["role"] in ("user", "assistant")
-        ]
+        user_assistant = [m for m in messages if m["role"] in ("user", "assistant")]
         # Only "Valid" from history + current query = 2
         assert len(user_assistant) == 2
 
@@ -1585,21 +1467,15 @@ class TestLLMGeneration:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
         gen.smart_router.async_execute_llm_call = AsyncMock(
             return_value={"content": "LLM generated response."}
         )
-        gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result()
-        )
+        gen.clara_gate.evaluate = AsyncMock(return_value=_make_clara_result())
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
@@ -1621,12 +1497,8 @@ class TestLLMGeneration:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
@@ -1635,9 +1507,7 @@ class TestLLMGeneration:
         )
         mock_template = MagicMock()
         mock_template.id = "tpl-empty"
-        gen.template_service.find_best_template = AsyncMock(
-            return_value=mock_template
-        )
+        gen.template_service.find_best_template = AsyncMock(return_value=mock_template)
         gen.template_service.render_template = AsyncMock(
             return_value="Empty LLM template."
         )
@@ -1654,12 +1524,8 @@ class TestLLMGeneration:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
@@ -1668,9 +1534,7 @@ class TestLLMGeneration:
         )
         mock_template = MagicMock()
         mock_template.id = "tpl-llm-err"
-        gen.template_service.find_best_template = AsyncMock(
-            return_value=mock_template
-        )
+        gen.template_service.find_best_template = AsyncMock(return_value=mock_template)
         gen.template_service.render_template = AsyncMock(
             return_value="LLM error template."
         )
@@ -1706,9 +1570,7 @@ class TestTemplateFallback:
         mock_template = MagicMock()
         mock_template.id = "tpl-ok"
         mock_template.name = "general_template"
-        gen.template_service.find_best_template = AsyncMock(
-            return_value=mock_template
-        )
+        gen.template_service.find_best_template = AsyncMock(return_value=mock_template)
         gen.template_service.render_template = AsyncMock(
             return_value="Template rendered text."
         )
@@ -1729,9 +1591,7 @@ class TestTemplateFallback:
         """Empty rendered template returns None."""
         mock_template = MagicMock()
         mock_template.id = "tpl-empty-render"
-        gen.template_service.find_best_template = AsyncMock(
-            return_value=mock_template
-        )
+        gen.template_service.find_best_template = AsyncMock(return_value=mock_template)
         gen.template_service.render_template = AsyncMock(return_value="")
         result = await gen._fallback_to_template(
             request=_make_request(),
@@ -1760,17 +1620,11 @@ class TestTemplateFallback:
         """Template variables include customer name from metadata."""
         mock_template = MagicMock()
         mock_template.id = "tpl-cust"
-        gen.template_service.find_best_template = AsyncMock(
-            return_value=mock_template
-        )
-        gen.template_service.render_template = AsyncMock(
-            return_value="Hello Alice!"
-        )
+        gen.template_service.find_best_template = AsyncMock(return_value=mock_template)
+        gen.template_service.render_template = AsyncMock(return_value="Hello Alice!")
         with patch("app.core.response_formatters.create_default_registry"):
             result = await gen._fallback_to_template(
-                request=_make_request(
-                    customer_metadata={"name": "Alice"}
-                ),
+                request=_make_request(customer_metadata={"name": "Alice"}),
                 sentiment_score=0.5,
                 pipeline_start=time.monotonic(),
                 reason="test",
@@ -1794,28 +1648,20 @@ class TestEmptyResponseResult:
         assert result.confidence_score == 0.0
 
     def test_draft_in_progress_reason(self, gen):
-        result = gen._empty_response_result(
-            time.monotonic(), "draft_in_progress"
-        )
+        result = gen._empty_response_result(time.monotonic(), "draft_in_progress")
         assert result.response_text == ""
 
     def test_other_reasons_give_generic_response(self, gen):
-        result = gen._empty_response_result(
-            time.monotonic(), "all_generation_failed"
-        )
+        result = gen._empty_response_result(time.monotonic(), "all_generation_failed")
         assert "support agent" in result.response_text
 
     def test_empty_result_has_quality_issues(self, gen):
-        result = gen._empty_response_result(
-            time.monotonic(), "test_reason"
-        )
+        result = gen._empty_response_result(time.monotonic(), "test_reason")
         assert len(result.quality_issues) > 0
         assert "test_reason" in result.quality_issues[0]
 
     def test_empty_result_not_template(self, gen):
-        result = gen._empty_response_result(
-            time.monotonic(), "any"
-        )
+        result = gen._empty_response_result(time.monotonic(), "any")
         assert result.template_used is False
 
 
@@ -1841,21 +1687,15 @@ class TestUtilityMethods:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
         gen.smart_router.async_execute_llm_call = AsyncMock(
             return_value={"content": "Batch response"}
         )
-        gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result()
-        )
+        gen.clara_gate.evaluate = AsyncMock(return_value=_make_clara_result())
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
@@ -1864,9 +1704,7 @@ class TestUtilityMethods:
         )
         with patch("app.core.response_formatters.create_default_registry"):
             with patch("app.core.smart_router.AtomicStepType", MagicMock()):
-                reqs = [
-                    _make_request(
-                        conversation_id=f"conv-{i}") for i in range(3)]
+                reqs = [_make_request(conversation_id=f"conv-{i}") for i in range(3)]
                 results = await gen.generate_batch(reqs)
                 assert len(results) == 3
 
@@ -1909,8 +1747,7 @@ class TestUtilityMethods:
         assert status["daily_remaining"] == RATE_LIMIT_DAILY_MAX
 
     @pytest.mark.asyncio
-    async def test_get_customer_rate_limit_status_with_counts(
-            self, gen, mock_redis):
+    async def test_get_customer_rate_limit_status_with_counts(self, gen, mock_redis):
         """Rate limit status reflects actual Redis counts."""
         mock_redis.get.side_effect = ["5", "30"]
         status = await gen.get_customer_rate_limit_status("co-1", "cust-1")
@@ -1941,8 +1778,7 @@ class TestUtilityMethods:
         mock_status.available_tokens = 8500
         mock_status.percentage_used = 5.0
         mock_status.warning_level = "normal"
-        gen.token_budget.get_budget_status = AsyncMock(
-            return_value=mock_status)
+        gen.token_budget.get_budget_status = AsyncMock(return_value=mock_status)
         status = await gen.get_generation_status("conv-1", "co-1")
         assert status["max_tokens"] == 10000
         assert status["warning_level"] == "normal"
@@ -1994,24 +1830,16 @@ class TestFullPipeline:
         gen.rag_retriever.retrieve = AsyncMock(
             return_value=_make_rag_result(chunks=[chunk])
         )
-        gen.reranker.rerank = AsyncMock(
-            return_value=_make_rag_result(chunks=[chunk])
-        )
+        gen.reranker.rerank = AsyncMock(return_value=_make_rag_result(chunks=[chunk]))
         assembled = MagicMock()
         assembled.context_string = "Assembled KB context."
         assembled.citations = [
-            MagicMock(
-                to_dict=MagicMock(
-                    return_value={
-                        "source": "kb"}))]
+            MagicMock(to_dict=MagicMock(return_value={"source": "kb"}))
+        ]
         gen.assembler.assemble.return_value = assembled
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.token_budget.finalize_tokens = AsyncMock()
         brand_config = _make_brand_config()
         gen.brand_voice.get_config = AsyncMock(return_value=brand_config)
@@ -2023,11 +1851,10 @@ class TestFullPipeline:
                 "model": "gpt-4",
                 "provider": "openai",
                 "tier": "medium",
-            })
+            }
+        )
         gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result(
-                overall_pass=True, overall_score=0.92
-            )
+            return_value=_make_clara_result(overall_pass=True, overall_score=0.92)
         )
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
@@ -2064,12 +1891,8 @@ class TestFullPipeline:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         brand_config = _make_brand_config()
         gen.brand_voice.get_config = AsyncMock(return_value=brand_config)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
@@ -2077,9 +1900,7 @@ class TestFullPipeline:
         gen.smart_router.async_execute_llm_call = AsyncMock(
             return_value={"content": "Response with issues"}
         )
-        gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result()
-        )
+        gen.clara_gate.evaluate = AsyncMock(return_value=_make_clara_result())
         validation = MagicMock()
         validation.is_valid = False
         validation.violations = ["Used prohibited word: 'sorry'"]
@@ -2104,27 +1925,19 @@ class TestFullPipeline:
         )
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
-        gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult()
-        )
-        gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult()
-        )
+        gen.token_budget.check_overflow = AsyncMock(return_value=_MockOverflowResult())
+        gen.token_budget.reserve_tokens = AsyncMock(return_value=_MockReserveResult())
         gen.brand_voice.get_config = AsyncMock(return_value=None)
         gen.brand_voice.get_response_guidelines = AsyncMock(return_value=None)
         gen.smart_router.route = MagicMock(return_value=MagicMock())
         gen.smart_router.async_execute_llm_call = AsyncMock(
             return_value={"content": "Mini response"}
         )
-        gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result()
-        )
+        gen.clara_gate.evaluate = AsyncMock(return_value=_make_clara_result())
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
-        gen.brand_voice.merge_with_brand_voice = AsyncMock(
-            return_value="Mini response"
-        )
+        gen.brand_voice.merge_with_brand_voice = AsyncMock(return_value="Mini response")
         with patch("app.core.response_formatters.create_default_registry"):
             with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request(variant_type="mini_parwa")

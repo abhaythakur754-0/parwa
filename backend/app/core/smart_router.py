@@ -36,6 +36,7 @@ logger = logging.getLogger("parwa.smart_router")
 # litellm.acompletion() for unified provider switching.
 try:
     import litellm
+
     _HAS_LITELLM = True
 except ImportError:
     _HAS_LITELLM = False
@@ -47,6 +48,7 @@ except ImportError:
 
 class ModelProvider(str, Enum):
     """Supported LLM providers (all free tiers)."""
+
     GOOGLE = "google"
     CEREBRAS = "cerebras"
     GROQ = "groq"
@@ -54,6 +56,7 @@ class ModelProvider(str, Enum):
 
 class ModelTier(str, Enum):
     """Model complexity tiers matching PARWA pricing."""
+
     LIGHT = "light"
     MEDIUM = "medium"
     HEAVY = "heavy"
@@ -62,6 +65,7 @@ class ModelTier(str, Enum):
 
 class AtomicStepType(str, Enum):
     """All MAKER framework atomic step types."""
+
     INTENT_CLASSIFICATION = "intent_classification"
     PII_REDACTION = "pii_redaction"
     SENTIMENT_ANALYSIS = "sentiment_analysis"
@@ -88,6 +92,7 @@ class AtomicStepType(str, Enum):
 @dataclass
 class ModelConfig:
     """Full configuration for a single model in the registry."""
+
     provider: ModelProvider
     model_id: str
     display_name: str
@@ -187,7 +192,6 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
             AtomicStepType.ESCALATE_TO_HUMAN,
         ],
     ),
-
     # ── MEDIUM Tier (8% of calls) ──
     # Gemini 3.1 Flash-Lite - Free tier: 500 RPD, 250K TPM, 15 RPM
     "gemini-3.1-flash-lite-google": ModelConfig(
@@ -264,7 +268,6 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
             AtomicStepType.REFLEXION_CYCLE,
         ],
     ),
-
     # ── HEAVY Tier (2% of calls) ──
     "gpt-oss-120b-groq": ModelConfig(
         provider=ModelProvider.GROQ,
@@ -314,7 +317,6 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
             AtomicStepType.REFLEXION_CYCLE,
         ],
     ),
-
     # ── GUARDRAIL Tier (separate) ──
     "llama-guard-4-12b-groq": ModelConfig(
         provider=ModelProvider.GROQ,
@@ -337,8 +339,10 @@ VARIANT_MODEL_ACCESS: Dict[str, Set[ModelTier]] = {
     "mini_parwa": {ModelTier.LIGHT, ModelTier.GUARDRAIL},
     "parwa": {ModelTier.LIGHT, ModelTier.MEDIUM, ModelTier.GUARDRAIL},
     "high_parwa": {
-        ModelTier.LIGHT, ModelTier.MEDIUM,
-        ModelTier.HEAVY, ModelTier.GUARDRAIL,
+        ModelTier.LIGHT,
+        ModelTier.MEDIUM,
+        ModelTier.HEAVY,
+        ModelTier.GUARDRAIL,
     },
 }
 
@@ -378,6 +382,7 @@ TIER_FALLBACK_ORDER: List[ModelTier] = [
 @dataclass
 class ProviderUsage:
     """Tracks usage and health for a single provider+model combination."""
+
     provider: ModelProvider
     model_id: str
     daily_count: int = 0
@@ -424,17 +429,15 @@ class ProviderHealthTracker:
         if today != self._last_daily_reset:
             logger.info(
                 "Daily usage reset triggered for %s (was %s)",
-                today, self._last_daily_reset,
+                today,
+                self._last_daily_reset,
             )
             self._last_daily_reset = today
             ProviderHealthTracker._shared_last_daily_reset = today
             for usage in self._usage.values():
                 usage.daily_count = 0
 
-    def _ensure_usage(
-            self,
-            registry_key: str,
-            config: ModelConfig) -> ProviderUsage:
+    def _ensure_usage(self, registry_key: str, config: ModelConfig) -> ProviderUsage:
         """Get or create ProviderUsage for a registry key."""
         if registry_key not in self._usage:
             self._usage[registry_key] = ProviderUsage(
@@ -462,7 +465,8 @@ class ProviderHealthTracker:
 
         usage = self._ensure_usage(
             registry_key,
-            config or ModelConfig(
+            config
+            or ModelConfig(
                 provider=provider,
                 model_id=model_id,
                 display_name=model_id,
@@ -492,7 +496,9 @@ class ProviderHealthTracker:
 
         logger.debug(
             "Recorded success for %s (daily=%d, minute_tokens=%d)",
-            registry_key, usage.daily_count, usage.minute_count,
+            registry_key,
+            usage.daily_count,
+            usage.minute_count,
         )
 
     def record_rate_limit(
@@ -514,24 +520,36 @@ class ProviderHealthTracker:
 
         usage = self._ensure_usage(
             registry_key,
-            config or ModelConfig(
-                provider=provider, model_id=model_id,
-                display_name=model_id, tier=ModelTier.LIGHT,
-                priority=99, max_requests_per_day=14400,
-                max_tokens_per_minute=30000, context_window=8192,
-                api_endpoint_base="", is_openai_compatible=True,
+            config
+            or ModelConfig(
+                provider=provider,
+                model_id=model_id,
+                display_name=model_id,
+                tier=ModelTier.LIGHT,
+                priority=99,
+                max_requests_per_day=14400,
+                max_tokens_per_minute=30000,
+                context_window=8192,
+                api_endpoint_base="",
+                is_openai_compatible=True,
             ),
         )
 
         cooldown = max(
-            retry_after_seconds if retry_after_seconds > 0 else self.RATE_LIMIT_RETRY_AFTER_DEFAULT,
+            (
+                retry_after_seconds
+                if retry_after_seconds > 0
+                else self.RATE_LIMIT_RETRY_AFTER_DEFAULT
+            ),
             self.RATE_LIMIT_COOLDOWN_SECONDS,
         )
         usage.rate_limited_until = time.time() + cooldown
         usage.last_error = f"rate_limited_for_{cooldown}s"
         logger.warning(
             "Rate limited: %s for %d seconds (retry_after=%d)",
-            registry_key, cooldown, retry_after_seconds,
+            registry_key,
+            cooldown,
+            retry_after_seconds,
         )
 
     def record_failure(
@@ -550,7 +568,8 @@ class ProviderHealthTracker:
 
         usage = self._ensure_usage(
             registry_key,
-            config or ModelConfig(
+            config
+            or ModelConfig(
                 provider=provider,
                 model_id=model_id,
                 display_name=model_id,
@@ -578,7 +597,9 @@ class ProviderHealthTracker:
         else:
             logger.debug(
                 "Recorded failure for %s (consecutive=%d): %s",
-                registry_key, usage.consecutive_failures, error_msg,
+                registry_key,
+                usage.consecutive_failures,
+                error_msg,
             )
 
     def is_available(self, provider: ModelProvider, model_id: str) -> bool:
@@ -602,7 +623,9 @@ class ProviderHealthTracker:
         if usage.daily_count >= usage.daily_limit:
             logger.debug(
                 "%s: daily limit reached (%d/%d)",
-                registry_key, usage.daily_count, usage.daily_limit,
+                registry_key,
+                usage.daily_count,
+                usage.daily_limit,
             )
             return False
 
@@ -617,7 +640,9 @@ class ProviderHealthTracker:
         return self._usage[registry_key].daily_count
 
     def get_daily_remaining(
-        self, provider: ModelProvider, model_id: str,
+        self,
+        provider: ModelProvider,
+        model_id: str,
     ) -> int:
         """Get remaining daily requests for a provider+model."""
         registry_key = f"{model_id}-{provider.value}"
@@ -626,18 +651,25 @@ class ProviderHealthTracker:
             return MODEL_REGISTRY.get(
                 registry_key,
                 ModelConfig(
-                    provider=provider, model_id=model_id,
-                    display_name=model_id, tier=ModelTier.LIGHT,
-                    priority=99, max_requests_per_day=14400,
-                    max_tokens_per_minute=30000, context_window=8192,
-                    api_endpoint_base="", is_openai_compatible=True,
+                    provider=provider,
+                    model_id=model_id,
+                    display_name=model_id,
+                    tier=ModelTier.LIGHT,
+                    priority=99,
+                    max_requests_per_day=14400,
+                    max_tokens_per_minute=30000,
+                    context_window=8192,
+                    api_endpoint_base="",
+                    is_openai_compatible=True,
                 ),
             ).max_requests_per_day
         usage = self._usage[registry_key]
         return max(0, usage.daily_limit - usage.daily_count)
 
     def check_rate_limit(
-        self, provider: ModelProvider, model_id: str,
+        self,
+        provider: ModelProvider,
+        model_id: str,
     ) -> bool:
         """Check if a provider+model is currently rate limited."""
         registry_key = f"{model_id}-{provider.value}"
@@ -650,8 +682,7 @@ class ProviderHealthTracker:
         """Force-reset all daily counters."""
         for usage in self._usage.values():
             usage.daily_count = 0
-        self._last_daily_reset = datetime.now(
-            timezone.utc).strftime("%Y-%m-%d")
+        self._last_daily_reset = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         logger.info("Daily counts force-reset")
 
     def get_all_status(self) -> dict:
@@ -665,9 +696,7 @@ class ProviderHealthTracker:
                 "is_healthy": usage.is_healthy,
                 "daily_count": usage.daily_count,
                 "daily_limit": usage.daily_limit,
-                "daily_remaining": max(
-                    0,
-                    usage.daily_limit - usage.daily_count),
+                "daily_remaining": max(0, usage.daily_limit - usage.daily_count),
                 "minute_count": usage.minute_count,
                 "minute_limit": usage.minute_limit,
                 "consecutive_failures": usage.consecutive_failures,
@@ -709,6 +738,7 @@ class RateLimitError(Exception):
 @dataclass
 class RoutingDecision:
     """Result of the Smart Router's routing decision for one atomic step."""
+
     atomic_step_type: AtomicStepType
     model_config: ModelConfig
     provider: ModelProvider
@@ -779,7 +809,9 @@ class SmartRouter:
             logger.exception(
                 "Smart Router routing failed, returning safe LIGHT fallback "
                 "(company_id=%s, step=%s, variant=%s)",
-                company_id, atomic_step.value, variant_type,
+                company_id,
+                atomic_step.value,
+                variant_type,
             )
             # Return first LIGHT model as ultimate fallback
             first_light = self._get_first_light_model()
@@ -817,17 +849,21 @@ class SmartRouter:
                     step.value,
                 )
                 first_light = self._get_first_light_model()
-                decisions.append(RoutingDecision(
-                    atomic_step_type=step,
-                    model_config=first_light,
-                    provider=first_light.provider,
-                    tier=ModelTier.LIGHT,
-                    variant_type=variant_type,
-                    routing_reason="batch_emergency_fallback",
-                ))
+                decisions.append(
+                    RoutingDecision(
+                        atomic_step_type=step,
+                        model_config=first_light,
+                        provider=first_light.provider,
+                        tier=ModelTier.LIGHT,
+                        variant_type=variant_type,
+                        routing_reason="batch_emergency_fallback",
+                    )
+                )
         logger.info(
             "Batch routing complete: %d steps for company_id=%s, variant=%s",
-            len(decisions), company_id, variant_type,
+            len(decisions),
+            company_id,
+            variant_type,
         )
         return decisions
 
@@ -849,14 +885,18 @@ class SmartRouter:
         """
         try:
             return self._execute_llm_call_safe(
-                company_id, routing_decision, messages,
-                temperature, max_tokens,
+                company_id,
+                routing_decision,
+                messages,
+                temperature,
+                max_tokens,
             )
         except Exception:
             # BC-008: Last resort fallback
             logger.exception(
                 "execute_llm_call failed entirely (company_id=%s, model=%s)",
-                company_id, routing_decision.model_config.model_id,
+                company_id,
+                routing_decision.model_config.model_id,
             )
             return {
                 "content": "",
@@ -886,13 +926,17 @@ class SmartRouter:
         """
         try:
             return await self._execute_llm_call_safe_async(
-                company_id, routing_decision, messages,
-                temperature, max_tokens,
+                company_id,
+                routing_decision,
+                messages,
+                temperature,
+                max_tokens,
             )
         except Exception:
             logger.exception(
                 "async_execute_llm_call failed (company_id=%s, model=%s)",
-                company_id, routing_decision.model_config.model_id,
+                company_id,
+                routing_decision.model_config.model_id,
             )
             return {
                 "content": "",
@@ -1067,7 +1111,8 @@ class SmartRouter:
         except Exception as e:
             logger.exception(
                 "Guardrails integration failed for company_id=%s: %s",
-                company_id, str(e),
+                company_id,
+                str(e),
             )
             result["guardrails_error"] = str(e)
             result["guardrails_action"] = "allow"
@@ -1084,13 +1129,11 @@ class SmartRouter:
     ) -> RoutingDecision:
         """Safe routing with fallback chain."""
         allowed_tiers = self._get_allowed_tiers(variant_type)
-        target_tier = self._get_step_tier(
-            atomic_step, allowed_tiers, query_signals)
+        target_tier = self._get_step_tier(atomic_step, allowed_tiers, query_signals)
 
         # GUARDRAIL is special -- always allowed, never downgraded
         if target_tier == ModelTier.GUARDRAIL:
-            model, fallbacks = self._select_model(
-                ModelTier.GUARDRAIL, query_signals)
+            model, fallbacks = self._select_model(ModelTier.GUARDRAIL, query_signals)
             return RoutingDecision(
                 atomic_step_type=atomic_step,
                 model_config=model,
@@ -1106,7 +1149,11 @@ class SmartRouter:
         model, fallbacks = self._select_model(target_tier, query_signals)
         if model is not None and self._is_model_available(model):
             reason = self._build_routing_reason(
-                target_tier, model, query_signals, atomic_step, variant_type,
+                target_tier,
+                model,
+                query_signals,
+                atomic_step,
+                variant_type,
             )
             return RoutingDecision(
                 atomic_step_type=atomic_step,
@@ -1126,7 +1173,8 @@ class SmartRouter:
             logger.warning(
                 "Primary model unavailable for tier=%s step=%s, "
                 "using fallback within tier: %s",
-                target_tier.value, atomic_step.value,
+                target_tier.value,
+                atomic_step.value,
                 fallback_model.display_name,
             )
             return RoutingDecision(
@@ -1145,8 +1193,10 @@ class SmartRouter:
             logger.warning(
                 "All models in tier=%s unavailable for step=%s, "
                 "degraded to tier=%s: %s",
-                target_tier.value, atomic_step.value,
-                lower_model.tier.value, lower_model.display_name,
+                target_tier.value,
+                atomic_step.value,
+                lower_model.tier.value,
+                lower_model.display_name,
             )
             return RoutingDecision(
                 atomic_step_type=atomic_step,
@@ -1155,8 +1205,7 @@ class SmartRouter:
                 tier=lower_model.tier,
                 variant_type=variant_type,
                 routing_reason=(
-                    f"degraded_from_{target_tier.value}_"
-                    f"to_{lower_model.tier.value}"
+                    f"degraded_from_{target_tier.value}_" f"to_{lower_model.tier.value}"
                 ),
                 estimated_tokens=self._estimate_tokens(atomic_step),
             )
@@ -1218,7 +1267,9 @@ class SmartRouter:
                 logger.info(
                     "Step %s: recommended tier=%s not allowed by variant, "
                     "degraded to tier=%s",
-                    atomic_step.value, recommended.value, tier.value,
+                    atomic_step.value,
+                    recommended.value,
+                    tier.value,
                 )
                 return tier
 
@@ -1236,8 +1287,7 @@ class SmartRouter:
         Returns (primary_model, fallback_models_list).
         """
         tier_models = [
-            config for config in MODEL_REGISTRY.values()
-            if config.tier == tier
+            config for config in MODEL_REGISTRY.values() if config.tier == tier
         ]
         tier_models.sort(key=lambda m: m.priority)
 
@@ -1259,7 +1309,8 @@ class SmartRouter:
             fallbacks = tier_models[1:]
             logger.warning(
                 "No available model in tier=%s, forcing primary: %s",
-                tier.value, primary.display_name,
+                tier.value,
+                primary.display_name,
             )
 
         return primary, fallbacks
@@ -1267,14 +1318,14 @@ class SmartRouter:
     def _is_model_available(self, model_config: ModelConfig) -> bool:
         """Check if a model's provider is healthy and under rate limits."""
         return self._health.is_available(
-            model_config.provider, model_config.model_id,
+            model_config.provider,
+            model_config.model_id,
         )
 
     def _fallback_within_tier(self, tier: ModelTier) -> Optional[ModelConfig]:
         """Find next available model in the same tier."""
         tier_models = [
-            config for config in MODEL_REGISTRY.values()
-            if config.tier == tier
+            config for config in MODEL_REGISTRY.values() if config.tier == tier
         ]
         tier_models.sort(key=lambda m: m.priority)
 
@@ -1423,7 +1474,8 @@ class SmartRouter:
                         max_tokens=max_tokens,
                     )
                     self._health.record_success(
-                        provider, model_id,
+                        provider,
+                        model_id,
                         tokens_used=result.get("tokens_used", 0),
                     )
                     return result
@@ -1440,26 +1492,34 @@ class SmartRouter:
                         company_id=company_id,
                     )
                     self._health.record_success(
-                        provider, model_id,
+                        provider,
+                        model_id,
                         tokens_used=result.get("tokens_used", 0),
                     )
                     return result
             except RateLimitError as rle:
                 self._health.record_rate_limit(
-                    provider, model_id,
+                    provider,
+                    model_id,
                     retry_after_seconds=rle.retry_after,
                 )
                 logger.warning(
                     "Rate limited: %s model=%s attempt=%d retry_after=%d",
-                    provider.value, model_id, attempt + 1, rle.retry_after,
+                    provider.value,
+                    model_id,
+                    attempt + 1,
+                    rle.retry_after,
                 )
                 if attempt < self.MAX_RETRIES:
                     continue
             except Exception as exc:
                 # If litellm auth fails, switch to raw HTTP for remaining
                 # retries
-                if use_litellm and api_key and (
-                        "auth" in str(exc).lower() or "api_key" in str(exc).lower()):
+                if (
+                    use_litellm
+                    and api_key
+                    and ("auth" in str(exc).lower() or "api_key" in str(exc).lower())
+                ):
                     logger.warning(
                         "LiteLLM auth failed, switching to raw HTTP: %s",
                         str(exc),
@@ -1470,7 +1530,10 @@ class SmartRouter:
                 self._health.record_failure(provider, model_id, str(exc))
                 logger.warning(
                     "Call failed: %s model=%s attempt=%d error=%s",
-                    provider.value, model_id, attempt + 1, str(exc),
+                    provider.value,
+                    model_id,
+                    attempt + 1,
+                    str(exc),
                 )
                 if attempt < self.MAX_RETRIES:
                     continue
@@ -1493,7 +1556,9 @@ class SmartRouter:
                 except Exception as exc:
                     logger.warning(
                         "Fallback failed: %s model=%s error=%s",
-                        fb.provider.value, fb.model_id, str(exc),
+                        fb.provider.value,
+                        fb.model_id,
+                        str(exc),
                     )
                     continue
 
@@ -1538,7 +1603,8 @@ class SmartRouter:
                         max_tokens=max_tokens,
                     )
                     self._health.record_success(
-                        provider, model_id,
+                        provider,
+                        model_id,
                         tokens_used=result.get("tokens_used", 0),
                     )
                     return result
@@ -1561,13 +1627,15 @@ class SmartRouter:
                             company_id=company_id,
                         )
                     self._health.record_success(
-                        provider, model_id,
+                        provider,
+                        model_id,
                         tokens_used=result.get("tokens_used", 0),
                     )
                     return result
             except RateLimitError as rle:
                 self._health.record_rate_limit(
-                    provider, model_id,
+                    provider,
+                    model_id,
                     retry_after_seconds=rle.retry_after,
                 )
                 if attempt < self.MAX_RETRIES:
@@ -1612,9 +1680,7 @@ class SmartRouter:
     # ── LiteLLM Integration (BC-007) ──────────────────────────────
 
     @staticmethod
-    def _build_litellm_model_name(
-            provider: ModelProvider,
-            model_id: str) -> str:
+    def _build_litellm_model_name(provider: ModelProvider, model_id: str) -> str:
         """Build the LiteLLM model name from provider and model_id.
 
         LiteLLM uses format: provider/model_id for custom providers.
@@ -1666,9 +1732,9 @@ class SmartRouter:
             "model": model_id,
             "provider": provider.value,
             "finish_reason": choice.finish_reason or "stop",
-            "tokens_used": getattr(usage, 'total_tokens', 0),
-            "prompt_tokens": getattr(usage, 'prompt_tokens', 0),
-            "completion_tokens": getattr(usage, 'completion_tokens', 0),
+            "tokens_used": getattr(usage, "total_tokens", 0),
+            "prompt_tokens": getattr(usage, "prompt_tokens", 0),
+            "completion_tokens": getattr(usage, "completion_tokens", 0),
         }
 
     async def _call_litellm_async(
@@ -1707,9 +1773,9 @@ class SmartRouter:
             "model": model_id,
             "provider": provider.value,
             "finish_reason": choice.finish_reason or "stop",
-            "tokens_used": getattr(usage, 'total_tokens', 0),
-            "prompt_tokens": getattr(usage, 'prompt_tokens', 0),
-            "completion_tokens": getattr(usage, 'completion_tokens', 0),
+            "tokens_used": getattr(usage, "total_tokens", 0),
+            "prompt_tokens": getattr(usage, "prompt_tokens", 0),
+            "completion_tokens": getattr(usage, "completion_tokens", 0),
         }
 
     def _get_api_key(self, provider: ModelProvider) -> Optional[str]:
@@ -1721,12 +1787,8 @@ class SmartRouter:
         - Cerebras: CEREBRAS_API_KEY
         """
         key_map = {
-            ModelProvider.CEREBRAS: (
-                os.environ.get("CEREBRAS_API_KEY")
-            ),
-            ModelProvider.GROQ: (
-                os.environ.get("GROQ_API_KEY")
-            ),
+            ModelProvider.CEREBRAS: (os.environ.get("CEREBRAS_API_KEY")),
+            ModelProvider.GROQ: (os.environ.get("GROQ_API_KEY")),
             ModelProvider.GOOGLE: (
                 os.environ.get("GOOGLE_API_KEY")
                 or os.environ.get("GEMINI_API_KEY")
@@ -1739,6 +1801,7 @@ class SmartRouter:
         if not key:
             try:
                 from app.config import get_settings
+
                 settings = get_settings()
                 if provider == ModelProvider.CEREBRAS:
                     key = getattr(settings, "CEREBRAS_API_KEY", None)
@@ -1802,16 +1865,21 @@ class SmartRouter:
                 content = msg.get("content", "")
                 if isinstance(content, str):
                     body["contents"].append(
-                        {"role": role, "parts": [{"text": content}]})
+                        {"role": role, "parts": [{"text": content}]}
+                    )
                 elif isinstance(content, list):
-                    parts = [{"text": p.get("text", "")}
-                             for p in content if isinstance(p, dict)]
+                    parts = [
+                        {"text": p.get("text", "")}
+                        for p in content
+                        if isinstance(p, dict)
+                    ]
                     body["contents"].append({"role": role, "parts": parts})
 
         try:
             with httpx.Client(timeout=30.0) as client:
                 response = client.post(
-                    model_config.base_url, headers=headers, json=body)
+                    model_config.base_url, headers=headers, json=body
+                )
                 response.raise_for_status()
                 data = response.json()
 
@@ -1821,19 +1889,21 @@ class SmartRouter:
                 # Parse Google format
                 candidates = data.get("candidates", [])
                 if candidates:
-                    text_parts = candidates[0].get(
-                        "content", {}).get("parts", [])
+                    text_parts = candidates[0].get("content", {}).get("parts", [])
                     return {
-                        "choices": [{
-                            "message": {"role": "assistant", "content": text_parts[0].get("text", "")}
-                        }],
+                        "choices": [
+                            {
+                                "message": {
+                                    "role": "assistant",
+                                    "content": text_parts[0].get("text", ""),
+                                }
+                            }
+                        ],
                         "usage": data.get("usageMetadata", {}),
                     }
-                return {"choices": [
-                    {"message": {"role": "assistant", "content": ""}}]}
+                return {"choices": [{"message": {"role": "assistant", "content": ""}}]}
         except Exception as exc:
-            raise RuntimeError(
-                f"LLM call failed for {
+            raise RuntimeError(f"LLM call failed for {
                     model_config.model_id}: {exc}") from exc
 
     @staticmethod
@@ -1848,6 +1918,7 @@ class SmartRouter:
 
         # Lazy import of config for API key
         from app.config import get_settings
+
         settings = get_settings()
         api_key = settings.GOOGLE_AI_API_KEY
 
@@ -1880,9 +1951,7 @@ class SmartRouter:
             },
         }
         if system_instruction:
-            payload["systemInstruction"] = {
-                "parts": [{"text": system_instruction}]
-            }
+            payload["systemInstruction"] = {"parts": [{"text": system_instruction}]}
 
         timeout = aiohttp.ClientTimeout(total=30)
         async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -1905,9 +1974,7 @@ class SmartRouter:
                     )
                 if resp.status != 200:
                     text = await resp.text()
-                    raise RuntimeError(
-                        f"Google API error {resp.status}: {text}"
-                    )
+                    raise RuntimeError(f"Google API error {resp.status}: {text}")
                 data = await resp.json()
 
         # Parse response
@@ -1945,6 +2012,7 @@ class SmartRouter:
         import aiohttp
 
         from app.config import get_settings
+
         settings = get_settings()
 
         # Select API key based on provider

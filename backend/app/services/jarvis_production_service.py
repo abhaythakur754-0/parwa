@@ -36,10 +36,11 @@ logger = logging.getLogger(__name__)
 
 # ── Enums ───────────────────────────────────────────────────────────
 
+
 class VariantTier(str, Enum):
-    STARTER = "starter"      # $999 - Basic awareness
-    GROWTH = "growth"        # $2,499 - Full awareness + SMS/Email control
-    HIGH = "high"            # $3,999 - Deep insights + pattern detection
+    STARTER = "starter"  # $999 - Basic awareness
+    GROWTH = "growth"  # $2,499 - Full awareness + SMS/Email control
+    HIGH = "high"  # $3,999 - Deep insights + pattern detection
 
 
 class AlertSeverity(str, Enum):
@@ -99,8 +100,13 @@ TIER_FEATURES = {
         "predictive_analytics": False,
         "priority_response": False,
         "memory_retention_days": 7,
-        "alert_types": ["error_spike", "integration_down", "queue_overflow",
-                        "ticket_limit_warning", "vip_customer_issue"],
+        "alert_types": [
+            "error_spike",
+            "integration_down",
+            "queue_overflow",
+            "ticket_limit_warning",
+            "vip_customer_issue",
+        ],
     },
     VariantTier.HIGH: {
         "awareness_level": "deep",
@@ -129,6 +135,7 @@ DRAFT_REQUIRED_ACTIONS = {
 
 # ── Session Management ───────────────────────────────────────────────
 
+
 def get_or_create_session(
     db: Session,
     user_id: str,
@@ -138,11 +145,15 @@ def get_or_create_session(
     """Get existing session or create new Production Jarvis session."""
 
     # Try to find active session
-    session = db.query(JarvisProductionSession).filter(
-        JarvisProductionSession.user_id == user_id,
-        JarvisProductionSession.company_id == company_id,
-        JarvisProductionSession.is_active,
-    ).first()
+    session = (
+        db.query(JarvisProductionSession)
+        .filter(
+            JarvisProductionSession.user_id == user_id,
+            JarvisProductionSession.company_id == company_id,
+            JarvisProductionSession.is_active,
+        )
+        .first()
+    )
 
     if session:
         # Update last interaction
@@ -152,8 +163,9 @@ def get_or_create_session(
         return session
 
     # Create new session
-    features = TIER_FEATURES.get(VariantTier(
-        variant_tier), TIER_FEATURES[VariantTier.STARTER])
+    features = TIER_FEATURES.get(
+        VariantTier(variant_tier), TIER_FEATURES[VariantTier.STARTER]
+    )
 
     session = JarvisProductionSession(
         user_id=user_id,
@@ -182,6 +194,7 @@ def get_or_create_session(
 
 
 # ── Activity Tracking (Awareness System) ─────────────────────────────
+
 
 def track_activity(
     db: Session,
@@ -232,19 +245,23 @@ def _update_today_tasks(
     description: Optional[str],
 ) -> None:
     """Update today's task list in session."""
-    session = db.query(JarvisProductionSession).filter(
-        JarvisProductionSession.id == session_id
-    ).first()
+    session = (
+        db.query(JarvisProductionSession)
+        .filter(JarvisProductionSession.id == session_id)
+        .first()
+    )
     if not session:
         return
 
     try:
         tasks = json.loads(session.today_tasks_json or "[]")
-        tasks.append({
-            "time": datetime.now(timezone.utc).isoformat(),
-            "event": event_name,
-            "description": description,
-        })
+        tasks.append(
+            {
+                "time": datetime.now(timezone.utc).isoformat(),
+                "event": event_name,
+                "description": description,
+            }
+        )
         # Keep only last 100 tasks
         session.today_tasks_json = json.dumps(tasks[-100:])
         db.flush()
@@ -275,8 +292,7 @@ def get_recent_activities(
     if event_types:
         query = query.filter(JarvisActivityEvent.event_type.in_(event_types))
 
-    return query.order_by(
-        desc(JarvisActivityEvent.created_at)).limit(limit).all()
+    return query.order_by(desc(JarvisActivityEvent.created_at)).limit(limit).all()
 
 
 def get_user_activity_summary(
@@ -290,11 +306,15 @@ def get_user_activity_summary(
         hour=0, minute=0, second=0, microsecond=0
     )
 
-    activities = db.query(JarvisActivityEvent).filter(
-        JarvisActivityEvent.company_id == company_id,
-        JarvisActivityEvent.user_id == user_id,
-        JarvisActivityEvent.created_at >= today_start,
-    ).all()
+    activities = (
+        db.query(JarvisActivityEvent)
+        .filter(
+            JarvisActivityEvent.company_id == company_id,
+            JarvisActivityEvent.user_id == user_id,
+            JarvisActivityEvent.created_at >= today_start,
+        )
+        .all()
+    )
 
     # Group by category
     by_category = {}
@@ -302,11 +322,13 @@ def get_user_activity_summary(
         cat = act.event_category
         if cat not in by_category:
             by_category[cat] = []
-        by_category[cat].append({
-            "event": act.event_name,
-            "description": act.description,
-            "time": act.created_at.isoformat() if act.created_at else None,
-        })
+        by_category[cat].append(
+            {
+                "event": act.event_name,
+                "description": act.description,
+                "time": act.created_at.isoformat() if act.created_at else None,
+            }
+        )
 
     return {
         "user_id": user_id,
@@ -318,6 +340,7 @@ def get_user_activity_summary(
 
 
 # ── Memory System ────────────────────────────────────────────────────
+
 
 def store_memory(
     db: Session,
@@ -333,16 +356,21 @@ def store_memory(
     """Store a memory for later recall."""
 
     # Check if memory already exists
-    existing = db.query(JarvisMemory).filter(
-        JarvisMemory.company_id == company_id,
-        JarvisMemory.user_id == user_id,
-        JarvisMemory.category == category,
-        JarvisMemory.memory_key == key,
-    ).first()
+    existing = (
+        db.query(JarvisMemory)
+        .filter(
+            JarvisMemory.company_id == company_id,
+            JarvisMemory.user_id == user_id,
+            JarvisMemory.category == category,
+            JarvisMemory.memory_key == key,
+        )
+        .first()
+    )
 
     if existing:
-        existing.memory_value = json.dumps(value) if isinstance(
-            value, (dict, list)) else str(value)
+        existing.memory_value = (
+            json.dumps(value) if isinstance(value, (dict, list)) else str(value)
+        )
         existing.importance = importance
         existing.expires_at = expires_at
         existing.updated_at = datetime.now(timezone.utc)
@@ -355,10 +383,9 @@ def store_memory(
         user_id=user_id,
         category=category,
         memory_key=key,
-        memory_value=json.dumps(value) if isinstance(
-            value,
-            (dict,
-             list)) else str(value),
+        memory_value=(
+            json.dumps(value) if isinstance(value, (dict, list)) else str(value)
+        ),
         importance=importance,
         expires_at=expires_at,
     )
@@ -391,10 +418,14 @@ def recall_memory(
     if key:
         query = query.filter(JarvisMemory.memory_key == key)
 
-    memories = query.order_by(
-        desc(JarvisMemory.importance),
-        desc(JarvisMemory.updated_at),
-    ).limit(limit).all()
+    memories = (
+        query.order_by(
+            desc(JarvisMemory.importance),
+            desc(JarvisMemory.updated_at),
+        )
+        .limit(limit)
+        .all()
+    )
 
     # Update access count
     for mem in memories:
@@ -415,16 +446,20 @@ def get_memory_value(
 ) -> Any:
     """Get a specific memory value."""
 
-    memory = db.query(JarvisMemory).filter(
-        JarvisMemory.company_id == company_id,
-        JarvisMemory.user_id == user_id,
-        JarvisMemory.category == category,
-        JarvisMemory.memory_key == key,
-        or_(
-            JarvisMemory.expires_at.is_(None),
-            JarvisMemory.expires_at > datetime.now(timezone.utc),
-        ),
-    ).first()
+    memory = (
+        db.query(JarvisMemory)
+        .filter(
+            JarvisMemory.company_id == company_id,
+            JarvisMemory.user_id == user_id,
+            JarvisMemory.category == category,
+            JarvisMemory.memory_key == key,
+            or_(
+                JarvisMemory.expires_at.is_(None),
+                JarvisMemory.expires_at > datetime.now(timezone.utc),
+            ),
+        )
+        .first()
+    )
 
     if not memory:
         return default
@@ -440,6 +475,7 @@ def get_memory_value(
 
 
 # ── Action Executor (Direct vs Draft) ────────────────────────────────
+
 
 def should_use_draft(
     action_type: str,
@@ -473,11 +509,7 @@ def should_use_draft(
         return True
 
     # Check for irreversible indicators
-    if params.get(
-        "irreversible",
-        False) or action_type in [
-        "delete",
-            "remove"]:
+    if params.get("irreversible", False) or action_type in ["delete", "remove"]:
         return True
 
     # Check user confidence
@@ -516,13 +548,15 @@ def execute_direct_action(
 
     try:
         # Route to appropriate handler
-        result = asyncio.run(_execute_action_internal(
-            db=db,
-            company_id=company_id,
-            user_id=user_id,
-            action_type=action_type,
-            params=params,
-        ))
+        result = asyncio.run(
+            _execute_action_internal(
+                db=db,
+                company_id=company_id,
+                user_id=user_id,
+                action_type=action_type,
+                params=params,
+            )
+        )
 
         action_log.status = "success"
         action_log.output_json = json.dumps(result)
@@ -593,10 +627,14 @@ def approve_and_execute_draft(
 ) -> Tuple[bool, Dict[str, Any], Optional[str]]:
     """Approve and execute a pending draft."""
 
-    draft = db.query(JarvisDraft).filter(
-        JarvisDraft.id == draft_id,
-        JarvisDraft.status == "pending",
-    ).first()
+    draft = (
+        db.query(JarvisDraft)
+        .filter(
+            JarvisDraft.id == draft_id,
+            JarvisDraft.status == "pending",
+        )
+        .first()
+    )
 
     if not draft:
         return False, {}, "Draft not found or already processed"
@@ -615,16 +653,17 @@ def approve_and_execute_draft(
     # Execute the draft
     try:
         content = json.loads(draft.content_json)
-        recipients = json.loads(
-            draft.recipients_json) if draft.recipients_json else []
+        recipients = json.loads(draft.recipients_json) if draft.recipients_json else []
 
-        result = asyncio.run(_execute_action_internal(
-            db=db,
-            company_id=draft.company_id,
-            user_id=draft.user_id,
-            action_type=draft.draft_type,
-            params={**content, "recipients": recipients},
-        ))
+        result = asyncio.run(
+            _execute_action_internal(
+                db=db,
+                company_id=draft.company_id,
+                user_id=draft.user_id,
+                action_type=draft.draft_type,
+                params={**content, "recipients": recipients},
+            )
+        )
 
         draft.status = "completed"
         draft.executed_at = datetime.now(timezone.utc)
@@ -664,10 +703,14 @@ def cancel_draft(
 ) -> bool:
     """Cancel a pending draft."""
 
-    draft = db.query(JarvisDraft).filter(
-        JarvisDraft.id == draft_id,
-        JarvisDraft.status == "pending",
-    ).first()
+    draft = (
+        db.query(JarvisDraft)
+        .filter(
+            JarvisDraft.id == draft_id,
+            JarvisDraft.status == "pending",
+        )
+        .first()
+    )
 
     if not draft:
         return False
@@ -678,6 +721,7 @@ def cancel_draft(
 
 
 # ── Proactive Alert System ───────────────────────────────────────────
+
 
 def create_alert(
     db: Session,
@@ -702,7 +746,9 @@ def create_alert(
         severity=severity,
         title=title,
         message=message,
-        suggested_action_json=json.dumps(suggested_action) if suggested_action else None,
+        suggested_action_json=(
+            json.dumps(suggested_action) if suggested_action else None
+        ),
         related_entity_type=related_entity_type,
         related_entity_id=related_entity_id,
     )
@@ -734,8 +780,9 @@ def get_active_alerts(
 
     if min_severity:
         severity_order = ["low", "medium", "high", "critical"]
-        severity_idx = severity_order.index(
-            min_severity) if min_severity in severity_order else 0
+        severity_idx = (
+            severity_order.index(min_severity) if min_severity in severity_order else 0
+        )
         allowed_severities = severity_order[severity_idx:]
         query = query.filter(JarvisAlert.severity.in_(allowed_severities))
 
@@ -753,9 +800,13 @@ def acknowledge_alert(
 ) -> Optional[JarvisAlert]:
     """Acknowledge an alert."""
 
-    alert = db.query(JarvisAlert).filter(
-        JarvisAlert.id == alert_id,
-    ).first()
+    alert = (
+        db.query(JarvisAlert)
+        .filter(
+            JarvisAlert.id == alert_id,
+        )
+        .first()
+    )
 
     if not alert:
         return None
@@ -774,9 +825,13 @@ def dismiss_alert(
 ) -> Optional[JarvisAlert]:
     """Dismiss an alert."""
 
-    alert = db.query(JarvisAlert).filter(
-        JarvisAlert.id == alert_id,
-    ).first()
+    alert = (
+        db.query(JarvisAlert)
+        .filter(
+            JarvisAlert.id == alert_id,
+        )
+        .first()
+    )
 
     if not alert:
         return None
@@ -790,6 +845,7 @@ def dismiss_alert(
 
 # ── System Status Awareness ──────────────────────────────────────────
 
+
 def get_system_overview(
     db: Session,
     company_id: str,
@@ -802,27 +858,39 @@ def get_system_overview(
         hour=0, minute=0, second=0, microsecond=0
     )
 
-    activities_today = db.query(JarvisActivityEvent).filter(
-        JarvisActivityEvent.company_id == company_id,
-        JarvisActivityEvent.created_at >= today_start,
-    ).count()
+    activities_today = (
+        db.query(JarvisActivityEvent)
+        .filter(
+            JarvisActivityEvent.company_id == company_id,
+            JarvisActivityEvent.created_at >= today_start,
+        )
+        .count()
+    )
 
     # Get active alerts
     active_alerts = get_active_alerts(db, company_id, user_id)
 
     # Get pending drafts
-    pending_drafts = db.query(JarvisDraft).filter(
-        JarvisDraft.company_id == company_id,
-        JarvisDraft.user_id == user_id,
-        JarvisDraft.status == "pending",
-    ).count()
+    pending_drafts = (
+        db.query(JarvisDraft)
+        .filter(
+            JarvisDraft.company_id == company_id,
+            JarvisDraft.user_id == user_id,
+            JarvisDraft.status == "pending",
+        )
+        .count()
+    )
 
     # Get recent errors
-    recent_errors = db.query(JarvisActivityEvent).filter(
-        JarvisActivityEvent.company_id == company_id,
-        JarvisActivityEvent.event_type == "error",
-        JarvisActivityEvent.created_at >= today_start,
-    ).count()
+    recent_errors = (
+        db.query(JarvisActivityEvent)
+        .filter(
+            JarvisActivityEvent.company_id == company_id,
+            JarvisActivityEvent.event_type == "error",
+            JarvisActivityEvent.created_at >= today_start,
+        )
+        .count()
+    )
 
     return {
         "company_id": company_id,
@@ -841,6 +909,7 @@ def get_system_overview(
 
 
 # ── Helper Functions ──────────────────────────────────────────────────
+
 
 async def _execute_action_internal(
     db: Session,
@@ -894,6 +963,7 @@ async def _execute_send_sms(
 
     try:
         from app.services.sms_channel_service import SMSChannelService
+
         sms_service = SMSChannelService(db, company_id)
         result = await sms_service.send_sms(to=to, message=message)
         return {"success": True, "message_sid": result.get("sid"), "to": to}
@@ -902,6 +972,7 @@ async def _execute_send_sms(
         try:
             from app.providers.sms.twilio import TwilioSMSProvider
             from app.core.config import get_settings
+
             settings = get_settings()
             provider = TwilioSMSProvider(
                 account_sid=settings.TWILIO_ACCOUNT_SID,
@@ -909,10 +980,7 @@ async def _execute_send_sms(
                 from_number=settings.TWILIO_PHONE_NUMBER,
             )
             result = provider.send(to=to, message=message)
-            return {
-                "success": True,
-                "message_sid": result.get("sid"),
-                "to": to}
+            return {"success": True, "message_sid": result.get("sid"), "to": to}
         except Exception as e2:
             return {"success": False, "error": str(e2)}
 
@@ -927,14 +995,14 @@ async def _execute_send_email(
 
     to = params.get("to") or params.get("email")
     subject = params.get("subject", "Message from PARWA")
-    body = params.get("body") or params.get(
-        "message") or params.get("html_content")
+    body = params.get("body") or params.get("message") or params.get("html_content")
 
     if not to or not body:
         raise ValidationError(message="Missing 'to' or 'body' parameter")
 
     try:
         from app.services.email_service import send_email
+
         send_email(to=to, subject=subject, html_content=body)
         return {"success": True, "to": to, "subject": subject}
     except Exception as e:
@@ -942,16 +1010,14 @@ async def _execute_send_email(
         try:
             from app.providers.email.brevo import BrevoEmailProvider
             from app.core.config import get_settings
+
             settings = get_settings()
             provider = BrevoEmailProvider(
                 api_key=settings.BREVO_API_KEY,
                 from_email=settings.BREVO_FROM_EMAIL,
             )
             result = provider.send(to=to, subject=subject, html_content=body)
-            return {
-                "success": True,
-                "message_id": result.get("messageId"),
-                "to": to}
+            return {"success": True, "message_id": result.get("messageId"), "to": to}
         except Exception as e2:
             return {"success": False, "error": str(e2)}
 
@@ -975,15 +1041,20 @@ async def _execute_bulk_sms(
         phone = recipient.get("phone") or recipient.get("to")
         if phone:
             try:
-                result = await _execute_send_sms(db, company_id, user_id, {
-                    "to": phone,
-                    "message": message,
-                })
+                result = await _execute_send_sms(
+                    db,
+                    company_id,
+                    user_id,
+                    {
+                        "to": phone,
+                        "message": message,
+                    },
+                )
                 results.append(
-                    {"phone": phone, "success": result.get("success", False)})
+                    {"phone": phone, "success": result.get("success", False)}
+                )
             except Exception as e:
-                results.append(
-                    {"phone": phone, "success": False, "error": str(e)})
+                results.append({"phone": phone, "success": False, "error": str(e)})
 
     success_count = len([r for r in results if r.get("success")])
     return {
@@ -1014,16 +1085,21 @@ async def _execute_bulk_email(
         email = recipient.get("email") or recipient.get("to")
         if email:
             try:
-                result = await _execute_send_email(db, company_id, user_id, {
-                    "to": email,
-                    "subject": subject,
-                    "body": body,
-                })
+                result = await _execute_send_email(
+                    db,
+                    company_id,
+                    user_id,
+                    {
+                        "to": email,
+                        "subject": subject,
+                        "body": body,
+                    },
+                )
                 results.append(
-                    {"email": email, "success": result.get("success", False)})
+                    {"email": email, "success": result.get("success", False)}
+                )
             except Exception as e:
-                results.append(
-                    {"email": email, "success": False, "error": str(e)})
+                results.append({"email": email, "success": False, "error": str(e)})
 
     success_count = len([r for r in results if r.get("success")])
     return {
@@ -1047,6 +1123,7 @@ async def _execute_pause_ai(
 
     try:
         from app.services.pause_service import PauseService
+
         pause_service = PauseService(db, company_id)
         await pause_service.pause(scope=scope, reason=reason, paused_by=user_id)
         return {"success": True, "scope": scope, "reason": reason}
@@ -1066,6 +1143,7 @@ async def _execute_resume_ai(
 
     try:
         from app.services.pause_service import PauseService
+
         pause_service = PauseService(db, company_id)
         await pause_service.resume(scope=scope)
         return {"success": True, "scope": scope}
@@ -1084,18 +1162,27 @@ async def _execute_undo(
     action_id = params.get("action_id")
 
     if action_id:
-        action = db.query(JarvisActionLog).filter(
-            JarvisActionLog.id == action_id,
-            JarvisActionLog.company_id == company_id,
-        ).first()
+        action = (
+            db.query(JarvisActionLog)
+            .filter(
+                JarvisActionLog.id == action_id,
+                JarvisActionLog.company_id == company_id,
+            )
+            .first()
+        )
     else:
         # Get last undoable action
-        action = db.query(JarvisActionLog).filter(
-            JarvisActionLog.company_id == company_id,
-            JarvisActionLog.can_undo,
-            JarvisActionLog.status == "success",
-            JarvisActionLog.undone_at.is_(None),
-        ).order_by(desc(JarvisActionLog.created_at)).first()
+        action = (
+            db.query(JarvisActionLog)
+            .filter(
+                JarvisActionLog.company_id == company_id,
+                JarvisActionLog.can_undo,
+                JarvisActionLog.status == "success",
+                JarvisActionLog.undone_at.is_(None),
+            )
+            .order_by(desc(JarvisActionLog.created_at))
+            .first()
+        )
 
     if not action:
         return {"success": False, "error": "No undoable action found"}
@@ -1143,14 +1230,19 @@ def _can_undo_action(action_type: str) -> bool:
 
     # Undoable actions
     undoable = {
-        "pause_ai", "resume_ai", "update_settings",
-        "send_sms", "send_email",  # Can mark for review
+        "pause_ai",
+        "resume_ai",
+        "update_settings",
+        "send_sms",
+        "send_email",  # Can mark for review
     }
 
     # Not undoable
     not_undoable = {
-        "bulk_sms", "bulk_email",  # Already sent
-        "delete", "remove",
+        "bulk_sms",
+        "bulk_email",  # Already sent
+        "delete",
+        "remove",
     }
 
     return action_type in undoable

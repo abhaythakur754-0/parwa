@@ -11,11 +11,12 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-
 # ── Capability Schemas (SG-01) ─────────────────────────────────
+
 
 class VariantCapabilityResponse(BaseModel):
     """Full capability record from variant_ai_capabilities."""
+
     id: str
     company_id: str
     variant_type: str
@@ -34,6 +35,7 @@ class VariantCapabilityResponse(BaseModel):
 
 class VariantCapabilityUpdate(BaseModel):
     """Request body for updating a capability config."""
+
     config_json: dict = Field(
         default_factory=dict,
         description="Per-feature configuration overrides",
@@ -46,8 +48,10 @@ class VariantCapabilityUpdate(BaseModel):
 
 # ── Instance Schemas (SG-37) ───────────────────────────────────
 
+
 class VariantInstanceCreate(BaseModel):
     """Request body for creating a variant instance."""
+
     instance_name: str = Field(
         min_length=1,
         max_length=255,
@@ -70,6 +74,7 @@ class VariantInstanceCreate(BaseModel):
 
 class VariantInstanceResponse(BaseModel):
     """Full instance record from variant_instances."""
+
     id: str
     company_id: str
     instance_name: str
@@ -90,6 +95,7 @@ class VariantInstanceResponse(BaseModel):
 
 class VariantInstanceUpdate(BaseModel):
     """Request body for updating a variant instance."""
+
     status: Optional[str] = Field(
         default=None,
         description="New status value",
@@ -106,8 +112,10 @@ class VariantInstanceUpdate(BaseModel):
 
 # ── Summary Schemas ─────────────────────────────────────────────
 
+
 class VariantFeatureSummary(BaseModel):
     """Feature count summary per variant type."""
+
     variant_type: str
     total_features: int
     enabled_features: int
@@ -116,6 +124,7 @@ class VariantFeatureSummary(BaseModel):
 
 class VariantCapacitySummary(BaseModel):
     """Aggregate capacity across instances."""
+
     total_active_instances: int
     total_max_concurrent: int
     total_active_tickets: int

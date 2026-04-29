@@ -31,7 +31,6 @@ from app.core.load_aware_distribution import (
     DEFAULT_INSTANCE_WEIGHT,
 )
 
-
 # ═══════════════════════════════════════════════════════════════════
 # FIXTURES
 # ═══════════════════════════════════════════════════════════════════
@@ -55,7 +54,10 @@ def _register_instances(
     for i in range(count):
         iid = f"inst_{i}"
         dist.register_instance(
-            company_id, iid, variant_type, channel,
+            company_id,
+            iid,
+            variant_type,
+            channel,
         )
         instance_ids.append(iid)
     return instance_ids
@@ -97,7 +99,10 @@ class TestRegisterInstance:
     def test_register_returns_instance_info(self, dist):
         """Should return an InstanceInfo object on success."""
         info = dist.register_instance(
-            "co_1", "inst_1", "parwa", "email,chat",
+            "co_1",
+            "inst_1",
+            "parwa",
+            "email,chat",
         )
         assert info is not None
         assert isinstance(info, InstanceInfo)
@@ -113,29 +118,44 @@ class TestRegisterInstance:
     def test_register_with_custom_capacity(self, dist):
         """Should accept custom capacity_config."""
         info = dist.register_instance(
-            "co_1", "inst_1", "parwa", capacity_config={
-                "max_concurrent_tickets": 100, "token_budget_share": 500_000}, )
+            "co_1",
+            "inst_1",
+            "parwa",
+            capacity_config={
+                "max_concurrent_tickets": 100,
+                "token_budget_share": 500_000,
+            },
+        )
         assert info.max_concurrent == 100
         assert info.token_budget == 500_000
 
     def test_register_with_custom_weight(self, dist):
         """Should accept custom routing weight."""
         info = dist.register_instance(
-            "co_1", "inst_1", "parwa", weight=2.5,
+            "co_1",
+            "inst_1",
+            "parwa",
+            weight=2.5,
         )
         assert info.weight == 2.5
 
     def test_register_negative_weight_clamped(self, dist):
         """Negative weight should be clamped to default."""
         info = dist.register_instance(
-            "co_1", "inst_1", "parwa", weight=-1.0,
+            "co_1",
+            "inst_1",
+            "parwa",
+            weight=-1.0,
         )
         assert info.weight == DEFAULT_INSTANCE_WEIGHT
 
     def test_register_zero_weight_clamped(self, dist):
         """Zero weight should be clamped to default."""
         info = dist.register_instance(
-            "co_1", "inst_1", "parwa", weight=0.0,
+            "co_1",
+            "inst_1",
+            "parwa",
+            weight=0.0,
         )
         assert info.weight == DEFAULT_INSTANCE_WEIGHT
 
@@ -192,13 +212,11 @@ class TestUpdateInstanceLoad:
     def test_update_existing_instance(self, dist):
         """Should return True when instance is found."""
         dist.register_instance("co_1", "inst_1", "parwa")
-        assert dist.update_instance_load(
-            "co_1", "inst_1", active_tickets=10) is True
+        assert dist.update_instance_load("co_1", "inst_1", active_tickets=10) is True
 
     def test_update_nonexistent_instance(self, dist):
         """Should return False when instance not found."""
-        assert dist.update_instance_load(
-            "co_1", "inst_99", active_tickets=5) is False
+        assert dist.update_instance_load("co_1", "inst_99", active_tickets=5) is False
 
     def test_active_tickets_set(self, dist):
         """Should update current_load to active_tickets."""
@@ -233,10 +251,8 @@ class TestUpdateInstanceLoad:
         """Negative values should be clamped to zero."""
         dist.register_instance("co_1", "inst_1", "parwa")
         dist.update_instance_load(
-            "co_1",
-            "inst_1",
-            active_tickets=-5,
-            queued_tickets=-3)
+            "co_1", "inst_1", active_tickets=-5, queued_tickets=-3
+        )
         instances = dist.get_all_instances("co_1")
         assert instances[0].current_load == 0
         assert instances[0].queued_count == 0
@@ -244,7 +260,9 @@ class TestUpdateInstanceLoad:
     def test_auto_overload_at_90_percent(self, dist):
         """Should auto-mark as OVERLOADED at 90% utilization."""
         dist.register_instance(
-            "co_1", "inst_1", "parwa",
+            "co_1",
+            "inst_1",
+            "parwa",
             capacity_config={"max_concurrent_tickets": 100},
         )
         # 90/100 = 90% → triggers overload
@@ -255,7 +273,9 @@ class TestUpdateInstanceLoad:
     def test_below_90_not_overloaded(self, dist):
         """Below 90% should not trigger auto-overload."""
         dist.register_instance(
-            "co_1", "inst_1", "parwa",
+            "co_1",
+            "inst_1",
+            "parwa",
             capacity_config={"max_concurrent_tickets": 100},
         )
         dist.update_instance_load("co_1", "inst_1", active_tickets=89)
@@ -269,21 +289,21 @@ class TestUpdateInstanceStatus:
     def test_mark_unhealthy(self, dist):
         """Should mark instance as UNHEALTHY."""
         dist.register_instance("co_1", "inst_1", "parwa")
-        assert dist.update_instance_status(
-            "co_1", "inst_1", InstanceStatus.UNHEALTHY)
+        assert dist.update_instance_status("co_1", "inst_1", InstanceStatus.UNHEALTHY)
         instances = dist.get_all_instances("co_1")
         assert instances[0].status == InstanceStatus.UNHEALTHY
 
     def test_mark_inactive(self, dist):
         """Should mark instance as INACTIVE."""
         dist.register_instance("co_1", "inst_1", "parwa")
-        assert dist.update_instance_status(
-            "co_1", "inst_1", InstanceStatus.INACTIVE)
+        assert dist.update_instance_status("co_1", "inst_1", InstanceStatus.INACTIVE)
 
     def test_unhealthy_nonexistent(self, dist):
         """Should return False for nonexistent instance."""
-        assert dist.update_instance_status(
-            "co_1", "inst_99", InstanceStatus.UNHEALTHY) is False
+        assert (
+            dist.update_instance_status("co_1", "inst_99", InstanceStatus.UNHEALTHY)
+            is False
+        )
 
     def test_unhealthy_clears_sticky_sessions(self, dist):
         """Going UNHEALTHY should clear all sticky sessions for the instance."""
@@ -338,8 +358,7 @@ class TestDistribute:
         """Preferred channel should filter eligible instances."""
         dist.register_instance("co_1", "inst_1", "parwa", "email")
         dist.register_instance("co_1", "inst_2", "parwa", "chat")
-        result = dist.distribute(
-            "co_1", "parwa", "tkt_1", preferred_channel="chat")
+        result = dist.distribute("co_1", "parwa", "tkt_1", preferred_channel="chat")
         assert result.instance_id == "inst_2"
 
     def test_variant_type_filtering(self, dist):
@@ -362,11 +381,15 @@ class TestDistribute:
     def test_overloaded_falls_to_no_instance(self, dist):
         """When all instances are OVERLOADED, they are not routable, so no_instance_available."""
         dist.register_instance(
-            "co_1", "inst_1", "parwa",
+            "co_1",
+            "inst_1",
+            "parwa",
             capacity_config={"max_concurrent_tickets": 100},
         )
         dist.register_instance(
-            "co_1", "inst_2", "parwa",
+            "co_1",
+            "inst_2",
+            "parwa",
             capacity_config={"max_concurrent_tickets": 100},
         )
         dist.update_instance_load("co_1", "inst_1", active_tickets=95)
@@ -397,8 +420,7 @@ class TestStickySessions:
 
     def test_register_sticky_nonexistent_instance(self, dist):
         """Should return False for nonexistent instance."""
-        assert dist.register_sticky_session(
-            "co_1", "tkt_1", "inst_99") is False
+        assert dist.register_sticky_session("co_1", "tkt_1", "inst_99") is False
 
     def test_get_sticky_instance(self, dist):
         """Should return the pinned instance_id."""
@@ -437,8 +459,7 @@ class TestCleanupExpiredSessions:
         """Should remove sessions that have expired."""
         dist.register_instance("co_1", "inst_1", "parwa")
         # Register with very short TTL
-        dist.register_sticky_session(
-            "co_1", "tkt_old", "inst_1", ttl_seconds=0.001)
+        dist.register_sticky_session("co_1", "tkt_old", "inst_1", ttl_seconds=0.001)
         time.sleep(0.01)
         cleaned = dist.cleanup_expired_sessions("co_1")
         assert cleaned >= 1
@@ -447,8 +468,7 @@ class TestCleanupExpiredSessions:
     def test_cleanup_respects_max_age(self, dist):
         """Should remove sessions exceeding max_age_seconds."""
         dist.register_instance("co_1", "inst_1", "parwa")
-        dist.register_sticky_session(
-            "co_1", "tkt_old", "inst_1", ttl_seconds=9999)
+        dist.register_sticky_session("co_1", "tkt_old", "inst_1", ttl_seconds=9999)
         time.sleep(0.01)
         cleaned = dist.cleanup_expired_sessions("co_1", max_age_seconds=0.001)
         assert cleaned >= 1
@@ -471,8 +491,7 @@ class TestFailover:
         """Should reroute ticket to least-loaded alternate instance."""
         dist.register_instance("co_1", "inst_1", "parwa")
         dist.register_instance("co_1", "inst_2", "parwa")
-        result = dist.failover_ticket(
-            "co_1", "tkt_1", "inst_1", "health_check_failed")
+        result = dist.failover_ticket("co_1", "tkt_1", "inst_1", "health_check_failed")
         assert result is not None
         assert result.instance_id == "inst_2"
         assert result.routing_method == RoutingMethod.FAILOVER.value
@@ -534,16 +553,8 @@ class TestGetLoadSummary:
         """Summary should aggregate totals across instances."""
         dist.register_instance("co_1", "inst_1", "parwa")
         dist.register_instance("co_1", "inst_2", "parwa")
-        dist.update_instance_load(
-            "co_1",
-            "inst_1",
-            active_tickets=10,
-            queued_tickets=5)
-        dist.update_instance_load(
-            "co_1",
-            "inst_2",
-            active_tickets=20,
-            queued_tickets=3)
+        dist.update_instance_load("co_1", "inst_1", active_tickets=10, queued_tickets=5)
+        dist.update_instance_load("co_1", "inst_2", active_tickets=20, queued_tickets=3)
 
         summary = dist.get_instance_load_summary("co_1")
         assert summary["total_instances"] == 2
@@ -554,7 +565,9 @@ class TestGetLoadSummary:
     def test_summary_utilization(self, dist):
         """Should calculate aggregate utilization percentage."""
         dist.register_instance(
-            "co_1", "inst_1", "parwa",
+            "co_1",
+            "inst_1",
+            "parwa",
             capacity_config={"max_concurrent_tickets": 200},
         )
         dist.update_instance_load("co_1", "inst_1", active_tickets=50)
@@ -586,11 +599,15 @@ class TestRebalanceWeights:
     def test_low_utilization_boosts_weight(self, dist):
         """Under-utilized instance should get increased weight."""
         dist.register_instance(
-            "co_1", "inst_1", "parwa",
+            "co_1",
+            "inst_1",
+            "parwa",
             capacity_config={"max_concurrent_tickets": 100},
         )
         dist.register_instance(
-            "co_1", "inst_2", "parwa",
+            "co_1",
+            "inst_2",
+            "parwa",
             capacity_config={"max_concurrent_tickets": 100},
         )
         dist.update_instance_load("co_1", "inst_1", active_tickets=5)
@@ -605,11 +622,15 @@ class TestRebalanceWeights:
     def test_high_utilization_reduces_weight(self, dist):
         """Over-utilized instance should get reduced weight."""
         dist.register_instance(
-            "co_1", "inst_1", "parwa",
+            "co_1",
+            "inst_1",
+            "parwa",
             capacity_config={"max_concurrent_tickets": 100},
         )
         dist.register_instance(
-            "co_1", "inst_2", "parwa",
+            "co_1",
+            "inst_2",
+            "parwa",
             capacity_config={"max_concurrent_tickets": 100},
         )
         dist.update_instance_load("co_1", "inst_1", active_tickets=90)
@@ -622,11 +643,15 @@ class TestRebalanceWeights:
     def test_equal_utilization_no_changes(self, dist):
         """Equal utilization should produce no weight changes."""
         dist.register_instance(
-            "co_1", "inst_1", "parwa",
+            "co_1",
+            "inst_1",
+            "parwa",
             capacity_config={"max_concurrent_tickets": 100},
         )
         dist.register_instance(
-            "co_1", "inst_2", "parwa",
+            "co_1",
+            "inst_2",
+            "parwa",
             capacity_config={"max_concurrent_tickets": 100},
         )
         dist.update_instance_load("co_1", "inst_1", active_tickets=50)
@@ -685,7 +710,9 @@ class TestInstanceInfoProperties:
     def test_utilization_pct(self):
         """utilization_pct should be load / max_concurrent."""
         info = InstanceInfo(
-            instance_id="i1", company_id="c1", variant_type="parwa",
+            instance_id="i1",
+            company_id="c1",
+            variant_type="parwa",
             capacity_config={"max_concurrent_tickets": 100},
             current_load=25,
         )
@@ -694,7 +721,9 @@ class TestInstanceInfoProperties:
     def test_utilization_pct_zero_max(self):
         """utilization_pct should return 1.0 when max_concurrent is 0."""
         info = InstanceInfo(
-            instance_id="i1", company_id="c1", variant_type="parwa",
+            instance_id="i1",
+            company_id="c1",
+            variant_type="parwa",
             capacity_config={"max_concurrent_tickets": 0},
             current_load=10,
         )
@@ -703,8 +732,11 @@ class TestInstanceInfoProperties:
     def test_effective_load(self):
         """effective_load should combine active + queued * factor."""
         info = InstanceInfo(
-            instance_id="i1", company_id="c1", variant_type="parwa",
-            current_load=10, queued_count=4,
+            instance_id="i1",
+            company_id="c1",
+            variant_type="parwa",
+            current_load=10,
+            queued_count=4,
         )
         # 10 + 4 * 0.5 = 12.0
         assert info.effective_load == 12.0
@@ -712,7 +744,9 @@ class TestInstanceInfoProperties:
     def test_available_capacity(self):
         """available_capacity should be max - current."""
         info = InstanceInfo(
-            instance_id="i1", company_id="c1", variant_type="parwa",
+            instance_id="i1",
+            company_id="c1",
+            variant_type="parwa",
             capacity_config={"max_concurrent_tickets": 100},
             current_load=30,
         )
@@ -721,7 +755,9 @@ class TestInstanceInfoProperties:
     def test_available_capacity_no_negative(self):
         """available_capacity should not go below 0."""
         info = InstanceInfo(
-            instance_id="i1", company_id="c1", variant_type="parwa",
+            instance_id="i1",
+            company_id="c1",
+            variant_type="parwa",
             capacity_config={"max_concurrent_tickets": 10},
             current_load=50,
         )
@@ -730,7 +766,9 @@ class TestInstanceInfoProperties:
     def test_is_routable_active(self):
         """ACTIVE instances should be routable."""
         info = InstanceInfo(
-            instance_id="i1", company_id="c1", variant_type="parwa",
+            instance_id="i1",
+            company_id="c1",
+            variant_type="parwa",
             status=InstanceStatus.ACTIVE,
         )
         assert info.is_routable is True
@@ -738,7 +776,9 @@ class TestInstanceInfoProperties:
     def test_is_routable_overloaded(self):
         """OVERLOADED instances should not be routable."""
         info = InstanceInfo(
-            instance_id="i1", company_id="c1", variant_type="parwa",
+            instance_id="i1",
+            company_id="c1",
+            variant_type="parwa",
             status=InstanceStatus.OVERLOADED,
         )
         assert info.is_routable is False
@@ -746,7 +786,9 @@ class TestInstanceInfoProperties:
     def test_is_routable_warming(self):
         """WARMING instances should be routable."""
         info = InstanceInfo(
-            instance_id="i1", company_id="c1", variant_type="parwa",
+            instance_id="i1",
+            company_id="c1",
+            variant_type="parwa",
             status=InstanceStatus.WARMING,
         )
         assert info.is_routable is True
@@ -754,7 +796,9 @@ class TestInstanceInfoProperties:
     def test_to_dict(self):
         """to_dict should return a dict with all expected keys."""
         info = InstanceInfo(
-            instance_id="i1", company_id="c1", variant_type="parwa",
+            instance_id="i1",
+            company_id="c1",
+            variant_type="parwa",
         )
         d = info.to_dict()
         assert "instance_id" in d
@@ -773,11 +817,15 @@ class TestEdgeCases:
     def test_all_instances_overloaded_returns_no_instance(self, dist):
         """All instances OVERLOADED are not routable, returns no_instance_available."""
         dist.register_instance(
-            "co_1", "inst_1", "parwa",
+            "co_1",
+            "inst_1",
+            "parwa",
             capacity_config={"max_concurrent_tickets": 100},
         )
         dist.register_instance(
-            "co_1", "inst_2", "parwa",
+            "co_1",
+            "inst_2",
+            "parwa",
             capacity_config={"max_concurrent_tickets": 100},
         )
         dist.update_instance_load("co_1", "inst_1", active_tickets=95)
@@ -848,9 +896,8 @@ class TestThreadSafety:
                 errors.append(str(e))
 
         threads = [
-            threading.Thread(
-                target=do_distribute, args=(
-                    i,)) for i in range(100)]
+            threading.Thread(target=do_distribute, args=(i,)) for i in range(100)
+        ]
         for t in threads:
             t.start()
         for t in threads:

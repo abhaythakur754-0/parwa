@@ -19,7 +19,6 @@ Uses mock/patch patterns. DB-dependent tests skip if no DATABASE_URL.
 import unittest
 from unittest.mock import MagicMock, patch
 
-
 # ══════════════════════════════════════════════════════════════════
 # F-045: EXPORT REPORTS (no DB dependency)
 # ══════════════════════════════════════════════════════════════════
@@ -30,6 +29,7 @@ class TestExportReports(unittest.TestCase):
 
     def setUp(self):
         import app.services.export_service as export_svc
+
         export_svc._export_jobs.clear()
 
     def test_export_csv_summary(self):
@@ -127,12 +127,11 @@ class TestExportReports(unittest.TestCase):
             "sla",
             "csat",
             "forecast",
-            "full"]
+            "full",
+        ]
         for rt in report_types:
             result = create_export_job("test-company", rt, "csv")
-            self.assertIsNone(
-                result.get("error"),
-                f"Report type {rt} should not error")
+            self.assertIsNone(result.get("error"), f"Report type {rt} should not error")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -145,27 +144,36 @@ class TestDashboardSchemas(unittest.TestCase):
 
     def test_dashboard_home_response(self):
         from app.schemas.dashboard import DashboardHomeResponse
+
         schema = DashboardHomeResponse()
         self.assertIsNotNone(schema)
 
     def test_activity_event(self):
         from app.schemas.dashboard import ActivityEvent
+
         event = ActivityEvent(
-            event_id="123", event_type="status_changed",
-            description="Status changed", created_at="2025-01-01T00:00:00Z",
+            event_id="123",
+            event_type="status_changed",
+            description="Status changed",
+            created_at="2025-01-01T00:00:00Z",
         )
         self.assertEqual(event.event_type, "status_changed")
 
     def test_kpi_data(self):
         from app.schemas.dashboard import KPIData
+
         kpi = KPIData(
-            key="test", label="Test KPI", value=42,
-            unit="count", sparkline=[1, 2, 3],
+            key="test",
+            label="Test KPI",
+            value=42,
+            unit="count",
+            sparkline=[1, 2, 3],
         )
         self.assertEqual(kpi.value, 42)
 
     def test_adaptation_day_data(self):
         from app.schemas.dashboard import AdaptationDayData
+
         day = AdaptationDayData(
             date="2025-01-01",
             ai_accuracy=4.2,
@@ -179,72 +187,103 @@ class TestDashboardSchemas(unittest.TestCase):
 
     def test_savings_snapshot(self):
         from app.schemas.dashboard import SavingsSnapshot
+
         snap = SavingsSnapshot(
-            period="2025-01", date="2025-01-01",
-            tickets_ai=500, tickets_human=200,
-            ai_cost=75.0, human_cost=1600.0,
-            savings=1525.0, cumulative_savings=5000.0,
+            period="2025-01",
+            date="2025-01-01",
+            tickets_ai=500,
+            tickets_human=200,
+            ai_cost=75.0,
+            human_cost=1600.0,
+            savings=1525.0,
+            cumulative_savings=5000.0,
         )
         self.assertEqual(snap.savings, 1525.0)
 
     def test_workforce_split(self):
         from app.schemas.dashboard import WorkforceSplit
+
         split = WorkforceSplit(
-            period="2025-W01", date="2025-01-06",
-            ai_tickets=300, human_tickets=100,
-            ai_pct=75.0, human_pct=25.0, total=400,
+            period="2025-W01",
+            date="2025-01-06",
+            ai_tickets=300,
+            human_tickets=100,
+            ai_pct=75.0,
+            human_pct=25.0,
+            total=400,
         )
         self.assertEqual(split.ai_pct, 75.0)
 
     def test_forecast_point(self):
         from app.schemas.dashboard import ForecastPoint
+
         point = ForecastPoint(
-            date="2025-02-01", predicted=120.5,
-            lower_bound=80.0, upper_bound=160.0,
+            date="2025-02-01",
+            predicted=120.5,
+            lower_bound=80.0,
+            upper_bound=160.0,
         )
         self.assertEqual(point.predicted, 120.5)
 
     def test_growth_nudge(self):
         from app.schemas.dashboard import GrowthNudge
+
         nudge = GrowthNudge(
-            nudge_id="n1", nudge_type="scaling",
-            severity="recommendation", title="Volume increasing",
-            message="Consider upgrading", detected_at="2025-01-01T00:00:00Z",
+            nudge_id="n1",
+            nudge_type="scaling",
+            severity="recommendation",
+            title="Volume increasing",
+            message="Consider upgrading",
+            detected_at="2025-01-01T00:00:00Z",
         )
         self.assertEqual(nudge.severity, "recommendation")
 
     def test_csat_day_data(self):
         from app.schemas.dashboard import CSATDayData
+
         day = CSATDayData(
-            date="2025-01-01", avg_rating=4.3, total_ratings=50,
+            date="2025-01-01",
+            avg_rating=4.3,
+            total_ratings=50,
             distribution={"5": 30, "4": 15, "3": 5},
         )
         self.assertEqual(day.total_ratings, 50)
 
     def test_export_request(self):
         from app.schemas.dashboard import ExportRequest
+
         req = ExportRequest(report_type="summary", format="csv")
         self.assertEqual(req.format, "csv")
 
     def test_export_job_response(self):
         from app.schemas.dashboard import ExportJobResponse
+
         job = ExportJobResponse(
-            job_id="j1", report_type="summary", format="csv",
-            status="completed", created_at="2025-01-01T00:00:00Z",
+            job_id="j1",
+            report_type="summary",
+            format="csv",
+            status="completed",
+            created_at="2025-01-01T00:00:00Z",
         )
         self.assertEqual(job.status, "completed")
 
     def test_widget_config(self):
         from app.schemas.dashboard import WidgetConfig
+
         widget = WidgetConfig(
-            widget_id="w1", widget_type="kpi", title="Test",
+            widget_id="w1",
+            widget_type="kpi",
+            title="Test",
         )
         self.assertEqual(widget.widget_type, "kpi")
 
     def test_metrics_response(self):
         from app.schemas.dashboard import MetricsResponse
+
         resp = MetricsResponse(
-            kpis=[], period="last_30d", generated_at="2025-01-01T00:00:00Z",
+            kpis=[],
+            period="last_30d",
+            generated_at="2025-01-01T00:00:00Z",
         )
         self.assertEqual(resp.period, "last_30d")
 
@@ -261,8 +300,11 @@ class TestInternalHelpers(unittest.TestCase):
         from app.services.dashboard_service import _build_kpi
 
         kpi = _build_kpi(
-            key="test", label="Test", value=100,
-            previous_value=80, unit="count",
+            key="test",
+            label="Test",
+            value=100,
+            previous_value=80,
+            unit="count",
         )
         self.assertEqual(kpi["value"], 100)
         self.assertEqual(kpi["change_pct"], 25.0)
@@ -279,8 +321,11 @@ class TestInternalHelpers(unittest.TestCase):
         from app.services.dashboard_service import _build_kpi
 
         kpi = _build_kpi(
-            key="test", label="Test", value=50,
-            previous_value=100, unit="count",
+            key="test",
+            label="Test",
+            value=50,
+            previous_value=100,
+            unit="count",
         )
         self.assertEqual(kpi["change_pct"], -50.0)
         self.assertEqual(kpi["change_direction"], "down")
@@ -329,6 +374,7 @@ class TestInternalHelpers(unittest.TestCase):
 
         # Create data with high variance between weekdays
         import datetime
+
         base = datetime.datetime(2025, 1, 6)  # Monday
         variable_data = []
         for i in range(21):
@@ -371,8 +417,10 @@ class TestDashboardServiceWithMock(unittest.TestCase):
         self.assertIn("activity_feed", result)
         self.assertIn("generated_at", result)
 
-    @patch("app.services.dashboard_service._get_ticket_summary",
-           side_effect=Exception("DB down"))
+    @patch(
+        "app.services.dashboard_service._get_ticket_summary",
+        side_effect=Exception("DB down"),
+    )
     @patch("app.services.dashboard_service._get_kpi_cards", return_value={})
     @patch("app.services.dashboard_service._get_sla_summary", return_value={})
     @patch("app.services.dashboard_service._get_volume_trend", return_value=[])
@@ -392,13 +440,17 @@ class TestDashboardServiceWithMock(unittest.TestCase):
 class TestActivityFeedWithMock(unittest.TestCase):
     """Test activity feed with mocked DB queries."""
 
-    @patch("app.services.dashboard_service._enrich_actor_names",
-           side_effect=lambda e, db: e)
+    @patch(
+        "app.services.dashboard_service._enrich_actor_names",
+        side_effect=lambda e, db: e,
+    )
     def test_activity_feed_empty(self, mock_enrich):
         from app.services.dashboard_service import get_activity_feed
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = []
+        mock_db.query.return_value.filter.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = (
+            []
+        )
 
         result = get_activity_feed("test-co", mock_db)
 
@@ -412,21 +464,27 @@ class TestKeyMetricsWithMock(unittest.TestCase):
 
     @patch("app.services.dashboard_service._count_tickets", return_value=100)
     @patch("app.services.dashboard_service._count_tickets_by_status", return_value=40)
-    @patch("app.services.dashboard_service._get_avg_first_response_time",
-           return_value=2.5)
+    @patch(
+        "app.services.dashboard_service._get_avg_first_response_time", return_value=2.5
+    )
     @patch("app.services.dashboard_service._get_avg_resolution_time", return_value=8.0)
-    @patch("app.services.dashboard_service._get_sla_compliance_rate",
-           return_value=0.95)
+    @patch("app.services.dashboard_service._get_sla_compliance_rate", return_value=0.95)
     @patch("app.services.dashboard_service._get_avg_csat", return_value=4.2)
-    @patch("app.services.dashboard_service._count_tickets_by_assignee_type", return_value=30)
+    @patch(
+        "app.services.dashboard_service._count_tickets_by_assignee_type",
+        return_value=30,
+    )
     @patch("app.services.dashboard_service._count_breached_sla", return_value=3)
     @patch("app.services.dashboard_service._count_tickets_by_priority", return_value=5)
-    @patch("app.services.dashboard_service._get_daily_counts",
-           return_value=[10.0] * 30)
-    @patch("app.services.dashboard_service._get_daily_resolution_rate",
-           return_value=[40.0] * 30)
-    @patch("app.services.dashboard_service._flag_anomalies",
-           side_effect=lambda k, db, c, s, e: k)
+    @patch("app.services.dashboard_service._get_daily_counts", return_value=[10.0] * 30)
+    @patch(
+        "app.services.dashboard_service._get_daily_resolution_rate",
+        return_value=[40.0] * 30,
+    )
+    @patch(
+        "app.services.dashboard_service._flag_anomalies",
+        side_effect=lambda k, db, c, s, e: k,
+    )
     def test_key_metrics_structure(self, *mocks):
         from app.services.dashboard_service import get_key_metrics
 

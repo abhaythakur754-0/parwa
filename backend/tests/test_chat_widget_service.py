@@ -16,7 +16,6 @@ import os
 from unittest.mock import MagicMock, patch
 import pytest
 
-
 # Ensure conftest runs first
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -24,6 +23,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # ═══════════════════════════════════════════════════════════
 # Fixtures
 # ═══════════════════════════════════════════════════════════
+
 
 @pytest.fixture
 def mock_db():
@@ -47,6 +47,7 @@ def company_id():
 def chat_service(mock_db, company_id):
     """Provide ChatWidgetService with mocked dependencies."""
     from app.services.chat_widget_service import ChatWidgetService
+
     service = ChatWidgetService(mock_db, company_id)
     service._emit_chat_event = MagicMock()
     return service
@@ -56,6 +57,7 @@ def chat_service(mock_db, company_id):
 # Session Tests
 # ═══════════════════════════════════════════════════════════
 
+
 class TestCreateSession:
     """Tests for chat session creation."""
 
@@ -64,8 +66,7 @@ class TestCreateSession:
         # Setup — refresh() must assign the id before to_dict() is called
         mock_session = MagicMock()
         mock_session.id = None
-        mock_session.to_dict.return_value = {
-            "id": "session-001", "status": "active"}
+        mock_session.to_dict.return_value = {"id": "session-001", "status": "active"}
 
         def _refresh(obj):
             obj.id = "session-001"
@@ -74,13 +75,20 @@ class TestCreateSession:
         mock_db.commit = MagicMock()
         mock_db.refresh = MagicMock(side_effect=_refresh)
 
-        with patch.object(chat_service, "_get_widget_config", return_value=None), \
-                patch.object(chat_service, "_generate_visitor_token", return_value="hmac-token-123"), \
-                patch("database.models.chat_widget.ChatWidgetSession", return_value=mock_session):
-            result = chat_service.create_session(company_id, {
-                "visitor_name": "John",
-                "visitor_email": "john@test.com",
-            })
+        with patch.object(
+            chat_service, "_get_widget_config", return_value=None
+        ), patch.object(
+            chat_service, "_generate_visitor_token", return_value="hmac-token-123"
+        ), patch(
+            "database.models.chat_widget.ChatWidgetSession", return_value=mock_session
+        ):
+            result = chat_service.create_session(
+                company_id,
+                {
+                    "visitor_name": "John",
+                    "visitor_email": "john@test.com",
+                },
+            )
 
         assert result["status"] == "created"
         assert result["visitor_token"] == "hmac-token-123"
@@ -94,25 +102,33 @@ class TestCreateSession:
         mock_config.is_enabled = False
 
         with patch.object(chat_service, "_get_widget_config", return_value=mock_config):
-            result = chat_service.create_session(company_id, {
-                "visitor_name": "John",
-            })
+            result = chat_service.create_session(
+                company_id,
+                {
+                    "visitor_name": "John",
+                },
+            )
 
         assert result["status"] == "error"
         assert "disabled" in result["error"]
 
-    def test_create_session_missing_required_fields(
-            self, chat_service, company_id):
+    def test_create_session_missing_required_fields(self, chat_service, company_id):
         """Test session creation when required visitor fields are missing."""
         mock_config = MagicMock()
         mock_config.is_enabled = True
         mock_config.require_visitor_email = True
 
-        with patch.object(chat_service, "_get_widget_config", return_value=mock_config), \
-                patch.object(chat_service, "_check_required_visitor_fields", return_value=["email"]):
-            result = chat_service.create_session(company_id, {
-                "visitor_name": "John",
-            })
+        with patch.object(
+            chat_service, "_get_widget_config", return_value=mock_config
+        ), patch.object(
+            chat_service, "_check_required_visitor_fields", return_value=["email"]
+        ):
+            result = chat_service.create_session(
+                company_id,
+                {
+                    "visitor_name": "John",
+                },
+            )
 
         assert result["status"] == "error"
         assert "email" in result["error"]
@@ -126,12 +142,10 @@ class TestSessionAssignment:
         mock_session = MagicMock()
         mock_session.assigned_agent_id = None
         mock_session.status = "active"
-        mock_session.to_dict.return_value = {
-            "id": "session-001", "status": "assigned"}
+        mock_session.to_dict.return_value = {"id": "session-001", "status": "assigned"}
 
         with patch.object(chat_service, "get_session", return_value=mock_session):
-            result = chat_service.assign_session(
-                "session-001", company_id, "agent-001")
+            result = chat_service.assign_session("session-001", company_id, "agent-001")
 
         assert result["status"] == "assigned"
         assert mock_session.assigned_agent_id == "agent-001"
@@ -141,8 +155,7 @@ class TestSessionAssignment:
     def test_assign_session_not_found(self, chat_service, company_id):
         """Test assignment when session doesn't exist."""
         with patch.object(chat_service, "get_session", return_value=None):
-            result = chat_service.assign_session(
-                "nonexistent", company_id, "agent-001")
+            result = chat_service.assign_session("nonexistent", company_id, "agent-001")
 
         assert result["status"] == "error"
         assert "not found" in result["error"]
@@ -155,8 +168,7 @@ class TestCloseSession:
         """Test successful session close."""
         mock_session = MagicMock()
         mock_session.status = "assigned"
-        mock_session.to_dict.return_value = {
-            "id": "session-001", "status": "closed"}
+        mock_session.to_dict.return_value = {"id": "session-001", "status": "closed"}
 
         with patch.object(chat_service, "get_session", return_value=mock_session):
             result = chat_service.close_session("session-001", company_id)
@@ -171,11 +183,11 @@ class TestCloseSession:
 # Message Tests
 # ═══════════════════════════════════════════════════════════
 
+
 class TestSendMessage:
     """Tests for message sending."""
 
-    def test_send_visitor_message_success(
-            self, chat_service, mock_db, company_id):
+    def test_send_visitor_message_success(self, chat_service, mock_db, company_id):
         """Test successful visitor message."""
         mock_session = MagicMock()
         mock_session.status = "active"
@@ -186,17 +198,20 @@ class TestSendMessage:
 
         mock_message = MagicMock()
         mock_message.id = None
-        mock_message.to_dict.return_value = {
-            "id": "msg-001", "content": "Hello"}
+        mock_message.to_dict.return_value = {"id": "msg-001", "content": "Hello"}
 
         def _refresh(obj):
             obj.id = "msg-001"
 
         mock_db.refresh = MagicMock(side_effect=_refresh)
 
-        with patch.object(chat_service, "get_session", return_value=mock_session), \
-                patch.object(chat_service, "_check_visitor_rate_limit", return_value=None), \
-                patch("database.models.chat_widget.ChatWidgetMessage", return_value=mock_message):
+        with patch.object(
+            chat_service, "get_session", return_value=mock_session
+        ), patch.object(
+            chat_service, "_check_visitor_rate_limit", return_value=None
+        ), patch(
+            "database.models.chat_widget.ChatWidgetMessage", return_value=mock_message
+        ):
             result = chat_service.send_message(
                 session_id="session-001",
                 company_id=company_id,
@@ -240,9 +255,13 @@ class TestSendMessage:
         mock_session = MagicMock()
         mock_session.status = "active"
 
-        with patch.object(chat_service, "get_session", return_value=mock_session), \
-            patch.object(chat_service, "_check_visitor_rate_limit",
-                         return_value="BC-006: rate limit exceeded"):
+        with patch.object(
+            chat_service, "get_session", return_value=mock_session
+        ), patch.object(
+            chat_service,
+            "_check_visitor_rate_limit",
+            return_value="BC-006: rate limit exceeded",
+        ):
             result = chat_service.send_message(
                 session_id="session-001",
                 company_id=company_id,
@@ -279,8 +298,7 @@ class TestTypingIndicator:
 class TestMarkRead:
     """Tests for mark messages read."""
 
-    def test_mark_messages_read_success(
-            self, chat_service, mock_db, company_id):
+    def test_mark_messages_read_success(self, chat_service, mock_db, company_id):
         """Test marking messages as read."""
         mock_session = MagicMock()
         mock_msg1 = MagicMock()
@@ -320,14 +338,14 @@ class TestMarkRead:
 # CSAT Rating Tests
 # ═══════════════════════════════════════════════════════════
 
+
 class TestCsatRating:
     """Tests for CSAT rating submission."""
 
     def test_submit_rating_success(self, chat_service, mock_db, company_id):
         """Test successful CSAT rating."""
         mock_session = MagicMock()
-        mock_session.to_dict.return_value = {
-            "id": "session-001", "csat_rating": 5}
+        mock_session.to_dict.return_value = {"id": "session-001", "csat_rating": 5}
 
         with patch.object(chat_service, "get_session", return_value=mock_session):
             result = chat_service.submit_csat_rating(
@@ -357,6 +375,7 @@ class TestCsatRating:
 # Widget Config Tests
 # ═══════════════════════════════════════════════════════════
 
+
 class TestWidgetConfig:
     """Tests for widget configuration management."""
 
@@ -377,8 +396,7 @@ class TestWidgetConfig:
         assert result.widget_title == "Chat"
         mock_db.query.assert_called_once()
 
-    def test_get_or_create_widget_config_existing(
-            self, chat_service, company_id):
+    def test_get_or_create_widget_config_existing(self, chat_service, company_id):
         """Test getting existing config."""
         mock_config = MagicMock()
 
@@ -387,8 +405,7 @@ class TestWidgetConfig:
 
         assert result is mock_config
 
-    def test_get_or_create_widget_config_new(
-            self, chat_service, mock_db, company_id):
+    def test_get_or_create_widget_config_new(self, chat_service, mock_db, company_id):
         """Test creating new config when none exists."""
         with patch.object(chat_service, "get_widget_config", return_value=None):
             mock_config = MagicMock()
@@ -403,7 +420,9 @@ class TestWidgetConfig:
         mock_config = MagicMock()
         mock_config.to_dict.return_value = {"widget_title": "Updated"}
 
-        with patch.object(chat_service, "get_or_create_widget_config", return_value=mock_config):
+        with patch.object(
+            chat_service, "get_or_create_widget_config", return_value=mock_config
+        ):
             result = chat_service.update_widget_config(
                 company_id,
                 {"widget_title": "Updated Title"},
@@ -417,6 +436,7 @@ class TestWidgetConfig:
 # Canned Response Tests
 # ═══════════════════════════════════════════════════════════
 
+
 class TestCannedResponses:
     """Tests for canned response CRUD."""
 
@@ -424,15 +444,17 @@ class TestCannedResponses:
         """Test creating a canned response."""
         mock_response = MagicMock()
         mock_response.id = None
-        mock_response.to_dict.return_value = {
-            "id": "cr-001", "title": "Greeting"}
+        mock_response.to_dict.return_value = {"id": "cr-001", "title": "Greeting"}
 
         def _refresh(obj):
             obj.id = "cr-001"
 
         mock_db.refresh = MagicMock(side_effect=_refresh)
 
-        with patch("app.services.chat_widget_service.CannedResponse", return_value=mock_response):
+        with patch(
+            "app.services.chat_widget_service.CannedResponse",
+            return_value=mock_response,
+        ):
             result = chat_service.create_canned_response(
                 company_id,
                 {"title": "Greeting", "content": "Hello! How can I help?"},
@@ -447,17 +469,18 @@ class TestCannedResponses:
         mock_query = MagicMock()
         mock_query.filter = MagicMock(return_value=mock_query)
         mock_query.order_by = MagicMock(return_value=mock_query)
-        mock_query.all = MagicMock(return_value=[
-            MagicMock(to_dict=lambda: {"id": "cr-001", "title": "Greeting"}),
-        ])
+        mock_query.all = MagicMock(
+            return_value=[
+                MagicMock(to_dict=lambda: {"id": "cr-001", "title": "Greeting"}),
+            ]
+        )
         mock_db.query = MagicMock(return_value=mock_query)
 
         items = chat_service.list_canned_responses(company_id)
 
         assert len(items) == 1
 
-    def test_update_canned_response_not_found(
-            self, chat_service, mock_db, company_id):
+    def test_update_canned_response_not_found(self, chat_service, mock_db, company_id):
         """Test updating nonexistent canned response."""
         mock_query = MagicMock()
         # Each .filter() call returns the same query for chaining
@@ -467,9 +490,13 @@ class TestCannedResponses:
 
         with patch("app.services.chat_widget_service.CannedResponse") as MockCR:
             MockCR.id == "nonexistent"
-            mock_db.query.return_value.filter.return_value.filter.return_value.first.return_value = None
+            mock_db.query.return_value.filter.return_value.filter.return_value.first.return_value = (
+                None
+            )
             result = chat_service.update_canned_response(
-                "nonexistent", company_id, {"title": "New Title"},
+                "nonexistent",
+                company_id,
+                {"title": "New Title"},
             )
 
         assert result["status"] == "error"
@@ -493,6 +520,7 @@ class TestCannedResponses:
 # Visitor Token Tests (BC-011)
 # ═══════════════════════════════════════════════════════════
 
+
 class TestVisitorToken:
     """Tests for HMAC visitor token (BC-011)."""
 
@@ -505,20 +533,20 @@ class TestVisitorToken:
     def test_verify_valid_token(self, chat_service, company_id):
         """Test verifying a valid token."""
         token = chat_service.generate_visitor_token("session-001", company_id)
-        result = chat_service.verify_visitor_token(
-            "session-001", company_id, token)
+        result = chat_service.verify_visitor_token("session-001", company_id, token)
         assert result is True
 
     def test_verify_invalid_token(self, chat_service, company_id):
         """Test verifying an invalid token."""
         result = chat_service.verify_visitor_token(
-            "session-001", company_id, "invalid-token-here",
+            "session-001",
+            company_id,
+            "invalid-token-here",
         )
         assert result is False
 
     def test_verify_wrong_session(self, chat_service, company_id):
         """Test verifying token for wrong session."""
         token = chat_service.generate_visitor_token("session-001", company_id)
-        result = chat_service.verify_visitor_token(
-            "session-999", company_id, token)
+        result = chat_service.verify_visitor_token("session-999", company_id, token)
         assert result is False

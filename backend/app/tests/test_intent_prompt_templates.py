@@ -11,7 +11,6 @@ from app.services.intent_prompt_templates import (
     PromptTemplateRegistry,
 )
 
-
 # ── Template Count ───────────────────────────────────────────────────
 
 
@@ -30,11 +29,7 @@ class TestTemplateCount:
         registry = PromptTemplateRegistry()
         templates = registry.list_all_templates()
         types = {t["response_type"] for t in templates}
-        assert types == {
-            "empathetic",
-            "informational",
-            "resolution",
-            "follow_up"}
+        assert types == {"empathetic", "informational", "resolution", "follow_up"}
 
 
 # ── Coverage ─────────────────────────────────────────────────────────
@@ -42,9 +37,18 @@ class TestTemplateCount:
 
 class TestCoverage:
     INTENTS = [
-        "refund", "technical", "billing", "complaint", "feature_request",
-        "general", "cancellation", "shipping", "inquiry", "escalation",
-        "account", "feedback",
+        "refund",
+        "technical",
+        "billing",
+        "complaint",
+        "feature_request",
+        "general",
+        "cancellation",
+        "shipping",
+        "inquiry",
+        "escalation",
+        "account",
+        "feedback",
     ]
     RESPONSE_TYPES = ["empathetic", "informational", "resolution", "follow_up"]
 
@@ -108,23 +112,19 @@ class TestVariantFiltering:
 
     def test_mini_parwa_cannot_get_resolution(self):
         """Mini PARWA should not access resolution templates."""
-        template = self.registry.get_template(
-            "refund", "resolution", "mini_parwa")
+        template = self.registry.get_template("refund", "resolution", "mini_parwa")
         assert template is None
 
     def test_mini_parwa_can_get_empathetic(self):
-        template = self.registry.get_template(
-            "refund", "empathetic", "mini_parwa")
+        template = self.registry.get_template("refund", "empathetic", "mini_parwa")
         assert template is not None
 
     def test_mini_parwa_can_get_informational(self):
-        template = self.registry.get_template(
-            "refund", "informational", "mini_parwa")
+        template = self.registry.get_template("refund", "informational", "mini_parwa")
         assert template is not None
 
     def test_mini_parwa_can_get_follow_up(self):
-        template = self.registry.get_template(
-            "refund", "follow_up", "mini_parwa")
+        template = self.registry.get_template("refund", "follow_up", "mini_parwa")
         assert template is not None
 
     def test_parwa_gets_resolution(self):
@@ -132,21 +132,18 @@ class TestVariantFiltering:
         assert template is not None
 
     def test_high_parwa_gets_resolution(self):
-        template = self.registry.get_template(
-            "refund", "resolution", "high_parwa")
+        template = self.registry.get_template("refund", "resolution", "high_parwa")
         assert template is not None
 
     def test_all_variants_get_empathetic(self):
         for variant in ("mini_parwa", "parwa", "high_parwa"):
-            template = self.registry.get_template(
-                "billing", "empathetic", variant)
+            template = self.registry.get_template("billing", "empathetic", variant)
             assert template is not None, f"empathetic not available for {variant}"
 
     def test_resolution_restricted(self):
         """Resolution templates should exclude mini_parwa."""
         templates = self.registry.list_all_templates()
-        resolution = [
-            t for t in templates if t["response_type"] == "resolution"]
+        resolution = [t for t in templates if t["response_type"] == "resolution"]
         for t in resolution:
             assert "mini_parwa" not in t["variant_access"]
 
@@ -168,9 +165,18 @@ class TestGetTemplatesForIntent:
     def test_all_intents_have_4(self):
         registry = PromptTemplateRegistry()
         for intent in [
-            "refund", "technical", "billing", "complaint", "feature_request",
-            "general", "cancellation", "shipping", "inquiry", "escalation",
-            "account", "feedback",
+            "refund",
+            "technical",
+            "billing",
+            "complaint",
+            "feature_request",
+            "general",
+            "cancellation",
+            "shipping",
+            "inquiry",
+            "escalation",
+            "account",
+            "feedback",
         ]:
             templates = registry.get_templates_for_intent(intent)
             assert len(templates) == 4, f"{intent} has {

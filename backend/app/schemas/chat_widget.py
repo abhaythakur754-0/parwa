@@ -8,11 +8,12 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-
 # ── Chat Widget Session Schemas ────────────────────────────────
+
 
 class ChatSessionCreate(BaseModel):
     """Request to create a new chat widget session."""
+
     company_id: str = Field(..., min_length=1, max_length=36)
     visitor_name: Optional[str] = Field(None, max_length=100)
     visitor_email: Optional[str] = Field(None, max_length=254)
@@ -26,6 +27,7 @@ class ChatSessionCreate(BaseModel):
 
 class ChatSessionResponse(BaseModel):
     """Chat session data returned by API."""
+
     id: str
     company_id: str
     visitor_name: Optional[str]
@@ -47,6 +49,7 @@ class ChatSessionResponse(BaseModel):
 
 class ChatSessionListResponse(BaseModel):
     """Paginated list of chat sessions."""
+
     items: List[ChatSessionResponse]
     total: int
     page: int
@@ -56,8 +59,10 @@ class ChatSessionListResponse(BaseModel):
 
 # ── Chat Message Schemas ──────────────────────────────────────
 
+
 class ChatMessageCreate(BaseModel):
     """Request to send a message in a chat session."""
+
     session_id: str = Field(..., min_length=1, max_length=36)
     content: Optional[str] = Field(None, max_length=10000)
     message_type: str = Field("text", max_length=20)
@@ -70,6 +75,7 @@ class ChatMessageCreate(BaseModel):
 
 class ChatMessageResponse(BaseModel):
     """Chat message data returned by API."""
+
     id: str
     session_id: str
     company_id: str
@@ -91,6 +97,7 @@ class ChatMessageResponse(BaseModel):
 
 class ChatMessageListResponse(BaseModel):
     """Paginated list of chat messages."""
+
     items: List[ChatMessageResponse]
     total: int
     page: int
@@ -100,8 +107,10 @@ class ChatMessageListResponse(BaseModel):
 
 # ── Typing Indicator Schema ────────────────────────────────────
 
+
 class TypingIndicator(BaseModel):
     """Typing indicator event."""
+
     session_id: str
     user_id: Optional[str]
     role: str = Field("visitor", pattern="^(visitor|agent|bot|system)$")
@@ -110,8 +119,10 @@ class TypingIndicator(BaseModel):
 
 # ── CSAT Rating Schema ────────────────────────────────────────
 
+
 class CsatRatingSubmit(BaseModel):
     """CSAT rating submission from visitor."""
+
     session_id: str = Field(..., min_length=1, max_length=36)
     rating: int = Field(..., ge=1, le=5)
     comment: Optional[str] = Field(None, max_length=1000)
@@ -119,8 +130,10 @@ class CsatRatingSubmit(BaseModel):
 
 # ── Widget Config Schemas ──────────────────────────────────────
 
+
 class WidgetConfigUpdate(BaseModel):
     """Request to update widget configuration."""
+
     widget_title: Optional[str] = Field(None, max_length=100)
     welcome_message: Optional[str] = Field(None, max_length=2000)
     placeholder_text: Optional[str] = Field(None, max_length=200)
@@ -143,6 +156,7 @@ class WidgetConfigUpdate(BaseModel):
 
 class WidgetConfigResponse(BaseModel):
     """Widget configuration returned by API (public)."""
+
     id: str
     company_id: str
     widget_title: str
@@ -163,8 +177,10 @@ class WidgetConfigResponse(BaseModel):
 
 # ── Widget Embed Code Schema ──────────────────────────────────
 
+
 class WidgetEmbedResponse(BaseModel):
     """Widget embed code for website integration."""
+
     company_id: str
     widget_id: str
     embed_url: str
@@ -173,8 +189,10 @@ class WidgetEmbedResponse(BaseModel):
 
 # ── Canned Response Schemas ────────────────────────────────────
 
+
 class CannedResponseCreate(BaseModel):
     """Request to create a canned response."""
+
     title: str = Field(..., min_length=1, max_length=200)
     content: str = Field(..., min_length=1)
     category: str = Field("general", max_length=50)
@@ -184,6 +202,7 @@ class CannedResponseCreate(BaseModel):
 
 class CannedResponseUpdate(BaseModel):
     """Request to update a canned response."""
+
     title: Optional[str] = Field(None, max_length=200)
     content: Optional[str] = None
     category: Optional[str] = Field(None, max_length=50)
@@ -194,6 +213,7 @@ class CannedResponseUpdate(BaseModel):
 
 class CannedResponseResponse(BaseModel):
     """Canned response data returned by API."""
+
     id: str
     company_id: str
     title: str

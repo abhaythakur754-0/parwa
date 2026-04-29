@@ -116,10 +116,12 @@ class InstanceInfo:
     variant_type: str
     status: InstanceStatus = InstanceStatus.ACTIVE
     channel_assignment: str = "email,chat,web_widget"
-    capacity_config: Dict[str, Any] = field(default_factory=lambda: {
-        "max_concurrent_tickets": DEFAULT_MAX_CONCURRENT_TICKETS,
-        "token_budget_share": DEFAULT_TOKEN_BUDGET_SHARE,
-    })
+    capacity_config: Dict[str, Any] = field(
+        default_factory=lambda: {
+            "max_concurrent_tickets": DEFAULT_MAX_CONCURRENT_TICKETS,
+            "token_budget_share": DEFAULT_TOKEN_BUDGET_SHARE,
+        }
+    )
     current_load: int = 0
     queued_count: int = 0
     tokens_used_today: int = 0
@@ -135,14 +137,16 @@ class InstanceInfo:
     def max_concurrent(self) -> int:
         """Maximum concurrent tickets this instance can handle."""
         return self.capacity_config.get(
-            "max_concurrent_tickets", DEFAULT_MAX_CONCURRENT_TICKETS,
+            "max_concurrent_tickets",
+            DEFAULT_MAX_CONCURRENT_TICKETS,
         )
 
     @property
     def token_budget(self) -> int:
         """Daily token budget share for this instance."""
         return self.capacity_config.get(
-            "token_budget_share", DEFAULT_TOKEN_BUDGET_SHARE,
+            "token_budget_share",
+            DEFAULT_TOKEN_BUDGET_SHARE,
         )
 
     @property
@@ -160,8 +164,7 @@ class InstanceInfo:
         started consuming resources yet).
         """
         return (
-            float(self.current_load)
-            + self.queued_count * QUEUE_PRESSURE_WEIGHT_FACTOR
+            float(self.current_load) + self.queued_count * QUEUE_PRESSURE_WEIGHT_FACTOR
         )
 
     @property
@@ -467,9 +470,7 @@ class LoadAwareDistributor:
             if not instance.is_routable:
                 continue
             if preferred_channel:
-                channels = [
-                    ch.strip() for ch in instance.channel_assignment.split(",")
-                ]
+                channels = [ch.strip() for ch in instance.channel_assignment.split(",")]
                 if preferred_channel.strip() not in channels:
                     continue
             result.append(instance)
@@ -520,13 +521,16 @@ class LoadAwareDistributor:
                 logger.warning(
                     "register_instance: weight must be > 0, got %.4f for "
                     "instance_id=%s — using default %.1f",
-                    weight, instance_id, DEFAULT_INSTANCE_WEIGHT,
+                    weight,
+                    instance_id,
+                    DEFAULT_INSTANCE_WEIGHT,
                 )
                 weight = DEFAULT_INSTANCE_WEIGHT
 
             # Validate capacity_config
             max_concurrent = config.get(
-                "max_concurrent_tickets", DEFAULT_MAX_CONCURRENT_TICKETS,
+                "max_concurrent_tickets",
+                DEFAULT_MAX_CONCURRENT_TICKETS,
             )
             if not isinstance(max_concurrent, int) or max_concurrent < 1:
                 logger.warning(
@@ -569,16 +573,15 @@ class LoadAwareDistributor:
                 variant_type,
                 channel_assignment,
                 weight,
-                config.get(
-                    "max_concurrent_tickets",
-                    DEFAULT_MAX_CONCURRENT_TICKETS),
+                config.get("max_concurrent_tickets", DEFAULT_MAX_CONCURRENT_TICKETS),
                 status.value,
             )
             return instance
         except Exception:
             logger.exception(
                 "register_instance failed for company_id=%s, instance_id=%s",
-                company_id, instance_id,
+                company_id,
+                instance_id,
             )
             return None
 
@@ -608,7 +611,8 @@ class LoadAwareDistributor:
                     logger.debug(
                         "deregister_instance: instance_id=%s not found for "
                         "company_id=%s — nothing to remove",
-                        instance_id, company_id,
+                        instance_id,
+                        company_id,
                     )
                     return False
 
@@ -620,15 +624,19 @@ class LoadAwareDistributor:
 
                 # Clean up round-robin counter if this was the only instance
                 variant_key = (company_id, instance.variant_type)
-                remaining = [inst for (cid, _), inst in self._instances.items(
-                ) if cid == company_id and inst.variant_type == instance.variant_type]
+                remaining = [
+                    inst
+                    for (cid, _), inst in self._instances.items()
+                    if cid == company_id and inst.variant_type == instance.variant_type
+                ]
                 if not remaining:
                     self._rr_counter.pop(variant_key, None)
 
                 # Clear failover history referencing this instance
                 if company_id in self._failover_history:
                     self._failover_history[company_id] = [
-                        evt for evt in self._failover_history[company_id]
+                        evt
+                        for evt in self._failover_history[company_id]
                         if evt.from_instance_id != instance_id
                     ]
 
@@ -644,7 +652,8 @@ class LoadAwareDistributor:
         except Exception:
             logger.exception(
                 "deregister_instance failed for company_id=%s, instance_id=%s",
-                company_id, instance_id,
+                company_id,
+                instance_id,
             )
             return False
 
@@ -683,7 +692,8 @@ class LoadAwareDistributor:
                     logger.warning(
                         "update_instance_load: instance_id=%s not found for "
                         "company_id=%s",
-                        instance_id, company_id,
+                        instance_id,
+                        company_id,
                     )
                     return False
 
@@ -693,15 +703,13 @@ class LoadAwareDistributor:
                     instance.tokens_used_today = max(0, tokens_used)
 
                 # Auto-detect overload status
-                if (
-                    instance.status == InstanceStatus.ACTIVE
-                    and instance.is_overloaded
-                ):
+                if instance.status == InstanceStatus.ACTIVE and instance.is_overloaded:
                     instance.status = InstanceStatus.OVERLOADED
                     logger.warning(
                         "Instance auto-marked OVERLOADED: instance_id=%s, "
                         "load=%d/%d (%.1f%%) for company_id=%s",
-                        instance_id, instance.current_load,
+                        instance_id,
+                        instance.current_load,
                         instance.max_concurrent,
                         instance.utilization_pct * 100,
                         company_id,
@@ -710,7 +718,10 @@ class LoadAwareDistributor:
             logger.debug(
                 "Load updated: company_id=%s, instance_id=%s, active=%d, "
                 "queued=%d, tokens=%d",
-                company_id, instance_id, active_tickets, queued_tickets,
+                company_id,
+                instance_id,
+                active_tickets,
+                queued_tickets,
                 instance.tokens_used_today,
             )
             return True
@@ -749,7 +760,8 @@ class LoadAwareDistributor:
                     logger.warning(
                         "update_instance_status: instance_id=%s not found "
                         "for company_id=%s",
-                        instance_id, company_id,
+                        instance_id,
+                        company_id,
                     )
                     return False
 
@@ -766,7 +778,8 @@ class LoadAwareDistributor:
                     for session_key in list(session_keys):
                         session_map_key = (company_id, session_key)
                         session = self._sticky_sessions.pop(
-                            session_map_key, None,
+                            session_map_key,
+                            None,
                         )
                         if session is not None:
                             invalidated += 1
@@ -778,7 +791,10 @@ class LoadAwareDistributor:
                     logger.warning(
                         "Instance %s → UNHEALTHY: company_id=%s, "
                         "instance_id=%s, sticky_sessions_invalidated=%d",
-                        old_status.value, company_id, instance_id, invalidated,
+                        old_status.value,
+                        company_id,
+                        instance_id,
+                        invalidated,
                     )
 
                 # When recovering from OVERLOADED, restore to ACTIVE
@@ -791,19 +807,23 @@ class LoadAwareDistributor:
                     logger.info(
                         "Instance auto-recovered OVERLOADED → ACTIVE: "
                         "company_id=%s, instance_id=%s",
-                        company_id, instance_id,
+                        company_id,
+                        instance_id,
                     )
 
             logger.info(
                 "Instance status: company_id=%s, instance_id=%s, %s → %s",
-                company_id, instance_id, old_status.value, status.value,
+                company_id,
+                instance_id,
+                old_status.value,
+                status.value,
             )
             return True
         except Exception:
             logger.exception(
-                "update_instance_status failed for company_id=%s, "
-                "instance_id=%s",
-                company_id, instance_id,
+                "update_instance_status failed for company_id=%s, " "instance_id=%s",
+                company_id,
+                instance_id,
             )
             return False
 
@@ -862,14 +882,18 @@ class LoadAwareDistributor:
 
                 # ── Step 2: Eligible instances ───────────────────
                 eligible = self._get_eligible_instances(
-                    company_id, variant_type, preferred_channel,
+                    company_id,
+                    variant_type,
+                    preferred_channel,
                 )
 
                 if not eligible:
                     logger.warning(
                         "No eligible instances for company_id=%s, "
                         "variant=%s, channel=%s",
-                        company_id, variant_type, preferred_channel or "(any)",
+                        company_id,
+                        variant_type,
+                        preferred_channel or "(any)",
                     )
                     stats.no_instance_available += 1
                     stats.total_distributions += 1
@@ -883,7 +907,8 @@ class LoadAwareDistributor:
                         reason=(
                             "No eligible instances available. All instances "
                             "may be unhealthy, inactive, or filtered out by "
-                            "channel assignment."),
+                            "channel assignment."
+                        ),
                     )
 
                 # ── Step 3: Weighted round-robin ──────────────────
@@ -910,7 +935,9 @@ class LoadAwareDistributor:
             logger.exception(
                 "distribute failed for company_id=%s, variant=%s, "
                 "ticket_id=%s — returning no_instance_available",
-                company_id, variant_type, ticket_id,
+                company_id,
+                variant_type,
+                ticket_id,
             )
             return DistributionResult(
                 instance_id="",
@@ -966,7 +993,9 @@ class LoadAwareDistributor:
                 logger.debug(
                     "Sticky session expired: company_id=%s, "
                     "session_key=%s, instance_id=%s",
-                    company_id, session_key, session.instance_id,
+                    company_id,
+                    session_key,
+                    session.instance_id,
                 )
                 continue
 
@@ -985,7 +1014,9 @@ class LoadAwareDistributor:
                 logger.info(
                     "Sticky session invalidated (instance unavailable): "
                     "company_id=%s, session_key=%s, instance_id=%s",
-                    company_id, session_key, session.instance_id,
+                    company_id,
+                    session_key,
+                    session.instance_id,
                 )
                 continue
 
@@ -1001,7 +1032,10 @@ class LoadAwareDistributor:
             logger.info(
                 "Sticky routing hit: company_id=%s, session_key=%s → "
                 "instance_id=%s, variant=%s",
-                company_id, session_key, instance.instance_id, variant_type,
+                company_id,
+                session_key,
+                instance.instance_id,
+                variant_type,
             )
             return DistributionResult(
                 instance_id=instance.instance_id,
@@ -1057,7 +1091,8 @@ class LoadAwareDistributor:
 
         # Try non-overloaded candidates first
         non_overloaded = [
-            inst for inst in eligible
+            inst
+            for inst in eligible
             if not inst.is_overloaded and inst.available_capacity > 0
         ]
 
@@ -1076,9 +1111,14 @@ class LoadAwareDistributor:
                 "Round-robin routing: company_id=%s, variant=%s → "
                 "instance_id=%s (index=%d, weight=%.2f, "
                 "load=%d/%d, candidates=%d)",
-                company_id, variant_type, selected.instance_id, idx,
-                selected.weight, selected.current_load,
-                selected.max_concurrent, len(non_ol_candidates),
+                company_id,
+                variant_type,
+                selected.instance_id,
+                idx,
+                selected.weight,
+                selected.current_load,
+                selected.max_concurrent,
+                len(non_ol_candidates),
             )
             stats.round_robin_routes += 1
             return DistributionResult(
@@ -1115,8 +1155,11 @@ class LoadAwareDistributor:
             "Least-loaded routing (all overloaded): company_id=%s, "
             "variant=%s → instance_id=%s (effective_load=%.1f, "
             "load=%d/%d)",
-            company_id, variant_type, selected.instance_id,
-            selected.effective_load, selected.current_load,
+            company_id,
+            variant_type,
+            selected.instance_id,
+            selected.effective_load,
+            selected.current_load,
             selected.max_concurrent,
         )
         return DistributionResult(
@@ -1183,13 +1226,18 @@ class LoadAwareDistributor:
         try:
             with self._lock:
                 return self._register_sticky_internal(
-                    company_id, session_key, instance_id, ttl_seconds,
+                    company_id,
+                    session_key,
+                    instance_id,
+                    ttl_seconds,
                 )
         except Exception:
             logger.exception(
                 "register_sticky_session failed for company_id=%s, "
                 "session_key=%s, instance_id=%s",
-                company_id, session_key, instance_id,
+                company_id,
+                session_key,
+                instance_id,
             )
             return False
 
@@ -1207,7 +1255,8 @@ class LoadAwareDistributor:
             logger.warning(
                 "register_sticky_session: instance_id=%s not found for "
                 "company_id=%s — cannot pin session",
-                instance_id, company_id,
+                instance_id,
+                company_id,
             )
             return False
 
@@ -1236,7 +1285,10 @@ class LoadAwareDistributor:
         logger.debug(
             "Sticky session registered: company_id=%s, session_key=%s → "
             "instance_id=%s, ttl=%.0fs",
-            company_id, session_key, instance_id, ttl_seconds,
+            company_id,
+            session_key,
+            instance_id,
+            ttl_seconds,
         )
         return True
 
@@ -1276,9 +1328,9 @@ class LoadAwareDistributor:
                 return session.instance_id
         except Exception:
             logger.exception(
-                "get_sticky_instance failed for company_id=%s, "
-                "session_key=%s",
-                company_id, session_key,
+                "get_sticky_instance failed for company_id=%s, " "session_key=%s",
+                company_id,
+                session_key,
             )
             return None
 
@@ -1315,14 +1367,16 @@ class LoadAwareDistributor:
                 logger.info(
                     "Sticky session cleared: company_id=%s, session_key=%s, "
                     "was_instance_id=%s",
-                    company_id, session_key, session.instance_id,
+                    company_id,
+                    session_key,
+                    session.instance_id,
                 )
                 return True
         except Exception:
             logger.exception(
-                "clear_sticky_session failed for company_id=%s, "
-                "session_key=%s",
-                company_id, session_key,
+                "clear_sticky_session failed for company_id=%s, " "session_key=%s",
+                company_id,
+                session_key,
             )
             return False
 
@@ -1377,11 +1431,9 @@ class LoadAwareDistributor:
                 logger.info(
                     "Expired session cleanup: company_id=%s, "
                     "sessions_cleaned=%d, remaining=%d",
-                    company_id, cleaned,
-                    sum(
-                        1 for (cid, _) in self._sticky_sessions
-                        if cid == company_id
-                    ),
+                    company_id,
+                    cleaned,
+                    sum(1 for (cid, _) in self._sticky_sessions if cid == company_id),
                 )
             return cleaned
         except Exception:
@@ -1430,7 +1482,8 @@ class LoadAwareDistributor:
                     logger.warning(
                         "failover_ticket: source instance_id=%s not found "
                         "for company_id=%s — cannot determine variant_type",
-                        from_instance_id, company_id,
+                        from_instance_id,
+                        company_id,
                     )
                     return None
 
@@ -1438,8 +1491,10 @@ class LoadAwareDistributor:
 
                 # Get eligible instances (exclude the source)
                 eligible = [
-                    inst for inst in self._get_eligible_instances(
-                        company_id, variant_type,
+                    inst
+                    for inst in self._get_eligible_instances(
+                        company_id,
+                        variant_type,
                     )
                     if inst.instance_id != from_instance_id
                 ]
@@ -1448,7 +1503,9 @@ class LoadAwareDistributor:
                     logger.error(
                         "failover_ticket: no eligible target instances for "
                         "company_id=%s, variant=%s, from_instance=%s",
-                        company_id, variant_type, from_instance_id,
+                        company_id,
+                        variant_type,
+                        from_instance_id,
                     )
                     stats.failover_count += 1
                     return None
@@ -1488,17 +1545,21 @@ class LoadAwareDistributor:
                 # Keep failover history bounded
                 max_history = 10_000
                 if len(self._failover_history[company_id]) > max_history:
-                    self._failover_history[company_id] = (
-                        self._failover_history[company_id][-max_history // 2:]
-                    )
+                    self._failover_history[company_id] = self._failover_history[
+                        company_id
+                    ][-max_history // 2 :]
 
                 stats.failover_count += 1
 
             logger.warning(
                 "Failover: ticket_id=%s, company_id=%s, %s → %s, "
                 "variant=%s, reason=%s",
-                ticket_id, company_id, from_instance_id,
-                target.instance_id, variant_type, reason,
+                ticket_id,
+                company_id,
+                from_instance_id,
+                target.instance_id,
+                variant_type,
+                reason,
             )
             return DistributionResult(
                 instance_id=target.instance_id,
@@ -1517,7 +1578,9 @@ class LoadAwareDistributor:
             logger.exception(
                 "failover_ticket failed for company_id=%s, ticket_id=%s, "
                 "from_instance=%s",
-                company_id, ticket_id, from_instance_id,
+                company_id,
+                ticket_id,
+                from_instance_id,
             )
             return None
 
@@ -1552,7 +1615,8 @@ class LoadAwareDistributor:
         except Exception:
             logger.exception(
                 "get_all_instances failed for company_id=%s, variant=%s",
-                company_id, variant_type,
+                company_id,
+                variant_type,
             )
             return []
 
@@ -1597,9 +1661,7 @@ class LoadAwareDistributor:
                 instance_summaries.append(inst.to_dict())
 
             agg_utilization = (
-                (total_active / total_capacity * 100.0)
-                if total_capacity > 0
-                else 0.0
+                (total_active / total_capacity * 100.0) if total_capacity > 0 else 0.0
             )
 
             summary: Dict[str, Any] = {
@@ -1610,7 +1672,8 @@ class LoadAwareDistributor:
                 "total_queued_tickets": total_queued,
                 "total_capacity": total_capacity,
                 "total_available_capacity": max(
-                    0, total_capacity - total_active,
+                    0,
+                    total_capacity - total_active,
                 ),
                 "aggregate_utilization_pct": round(agg_utilization, 2),
                 "total_tokens_used_today": total_tokens,
@@ -1622,9 +1685,9 @@ class LoadAwareDistributor:
             return summary
         except Exception:
             logger.exception(
-                "get_instance_load_summary failed for company_id=%s, "
-                "variant=%s",
-                company_id, variant_type,
+                "get_instance_load_summary failed for company_id=%s, " "variant=%s",
+                company_id,
+                variant_type,
             )
             return {
                 "company_id": company_id,
@@ -1664,7 +1727,8 @@ class LoadAwareDistributor:
         try:
             with self._lock:
                 instances = [
-                    inst for (cid, _iid), inst in self._instances.items()
+                    inst
+                    for (cid, _iid), inst in self._instances.items()
                     if cid == company_id and inst.variant_type == variant_type
                 ]
 
@@ -1672,7 +1736,9 @@ class LoadAwareDistributor:
                     logger.info(
                         "rebalance_weights: need ≥ 2 instances for "
                         "company_id=%s, variant=%s (found %d) — skipping",
-                        company_id, variant_type, len(instances),
+                        company_id,
+                        variant_type,
+                        len(instances),
                     )
                     return {
                         "company_id": company_id,
@@ -1708,20 +1774,24 @@ class LoadAwareDistributor:
                         continue
 
                     inst.weight = new_weight
-                    changes.append({
-                        "instance_id": inst.instance_id,
-                        "old_weight": round(old_weight, 4),
-                        "new_weight": new_weight,
-                        "utilisation_pct": round(utilisation * 100, 2),
-                        "adjustment_factor": round(adjustment, 4),
-                    })
+                    changes.append(
+                        {
+                            "instance_id": inst.instance_id,
+                            "old_weight": round(old_weight, 4),
+                            "new_weight": new_weight,
+                            "utilisation_pct": round(utilisation * 100, 2),
+                            "adjustment_factor": round(adjustment, 4),
+                        }
+                    )
 
                 # Log results
                 if changes:
                     logger.info(
                         "Weights rebalanced: company_id=%s, variant=%s, "
                         "changes=%d: %s",
-                        company_id, variant_type, len(changes),
+                        company_id,
+                        variant_type,
+                        len(changes),
                         ", ".join(
                             f"{c['instance_id']}: {c['old_weight']:.2f}→"
                             f"{c['new_weight']:.2f}"
@@ -1732,7 +1802,8 @@ class LoadAwareDistributor:
                     logger.info(
                         "Weights rebalanced: company_id=%s, variant=%s — "
                         "no changes needed (all within tolerance)",
-                        company_id, variant_type,
+                        company_id,
+                        variant_type,
                     )
 
                 return {
@@ -1742,15 +1813,15 @@ class LoadAwareDistributor:
                     "changes_count": len(changes),
                     "changes": changes,
                     "current_weights": {
-                        inst.instance_id: round(inst.weight, 4)
-                        for inst in instances
+                        inst.instance_id: round(inst.weight, 4) for inst in instances
                     },
                     "rebalanced_at_utc": self._utc_now_iso(),
                 }
         except Exception:
             logger.exception(
                 "rebalance_weights failed for company_id=%s, variant=%s",
-                company_id, variant_type,
+                company_id,
+                variant_type,
             )
             return {
                 "company_id": company_id,
@@ -1786,7 +1857,8 @@ class LoadAwareDistributor:
 
                 # Count active sticky sessions
                 active_sessions = sum(
-                    1 for (cid, _), session in self._sticky_sessions.items()
+                    1
+                    for (cid, _), session in self._sticky_sessions.items()
                     if cid == company_id and not session.is_expired
                 )
 
@@ -1799,9 +1871,7 @@ class LoadAwareDistributor:
                         )
 
                 # Recent failover events (last 50)
-                recent_failovers = [
-                    evt.to_dict() for evt in failover_events[-50:]
-                ]
+                recent_failovers = [evt.to_dict() for evt in failover_events[-50:]]
 
             return {
                 "company_id": company_id,
@@ -1879,7 +1949,8 @@ class LoadAwareDistributor:
         except Exception:
             logger.exception(
                 "get_instance_info failed for company_id=%s, instance_id=%s",
-                company_id, instance_id,
+                company_id,
+                instance_id,
             )
             return None
 
@@ -1900,7 +1971,8 @@ class LoadAwareDistributor:
         try:
             with self._lock:
                 session_keys = self._instance_sessions.get(
-                    (company_id, instance_id), set(),
+                    (company_id, instance_id),
+                    set(),
                 )
                 result: List[Dict[str, Any]] = []
                 for skey in session_keys:
@@ -1908,22 +1980,26 @@ class LoadAwareDistributor:
                         (company_id, skey),
                     )
                     if session is not None:
-                        result.append({
-                            "session_key": session.session_key,
-                            "instance_id": session.instance_id,
-                            "age_seconds": round(session.age_seconds, 1),
-                            "last_used_seconds_ago": round(
-                                time.time() - session.last_used, 1,
-                            ),
-                            "ttl_seconds": session.ttl_seconds,
-                            "is_expired": session.is_expired,
-                        })
+                        result.append(
+                            {
+                                "session_key": session.session_key,
+                                "instance_id": session.instance_id,
+                                "age_seconds": round(session.age_seconds, 1),
+                                "last_used_seconds_ago": round(
+                                    time.time() - session.last_used,
+                                    1,
+                                ),
+                                "ttl_seconds": session.ttl_seconds,
+                                "is_expired": session.is_expired,
+                            }
+                        )
                 return result
         except Exception:
             logger.exception(
                 "get_instance_sticky_sessions failed for company_id=%s, "
                 "instance_id=%s",
-                company_id, instance_id,
+                company_id,
+                instance_id,
             )
             return []
 
@@ -1949,17 +2025,17 @@ class LoadAwareDistributor:
                 if key in self._rr_counter:
                     self._rr_counter[key] = 0
                     logger.info(
-                        "Round-robin counter reset: company_id=%s, "
-                        "variant=%s",
-                        company_id, variant_type,
+                        "Round-robin counter reset: company_id=%s, " "variant=%s",
+                        company_id,
+                        variant_type,
                     )
                     return True
                 return False
         except Exception:
             logger.exception(
-                "reset_round_robin_counter failed for company_id=%s, "
-                "variant=%s",
-                company_id, variant_type,
+                "reset_round_robin_counter failed for company_id=%s, " "variant=%s",
+                company_id,
+                variant_type,
             )
             return False
 
@@ -1979,8 +2055,7 @@ class LoadAwareDistributor:
             with self._lock:
                 # Collect instance IDs to clean up
                 instance_keys = [
-                    k for k, _ in self._instances.items()
-                    if k[0] == company_id
+                    k for k, _ in self._instances.items() if k[0] == company_id
                 ]
 
                 # Remove instances
@@ -1990,16 +2065,14 @@ class LoadAwareDistributor:
 
                 # Remove sticky sessions for this company
                 sticky_keys_to_remove = [
-                    key for (cid, _) in self._sticky_sessions
-                    if cid == company_id
+                    key for (cid, _) in self._sticky_sessions if cid == company_id
                 ]
                 for key in sticky_keys_to_remove:
                     self._sticky_sessions.pop(key, None)
 
                 # Remove round-robin counters
                 rr_keys_to_remove = [
-                    key for (cid, _) in self._rr_counter
-                    if cid == company_id
+                    key for (cid, _) in self._rr_counter if cid == company_id
                 ]
                 for key in rr_keys_to_remove:
                     self._rr_counter.pop(key, None)
@@ -2016,8 +2089,10 @@ class LoadAwareDistributor:
             logger.info(
                 "All data cleared for company_id=%s (instances=%d, "
                 "sticky_sessions=%d, rr_counters=%d)",
-                company_id, len(instance_keys),
-                len(sticky_keys_to_remove), len(rr_keys_to_remove),
+                company_id,
+                len(instance_keys),
+                len(sticky_keys_to_remove),
+                len(rr_keys_to_remove),
             )
         except Exception:
             logger.exception(

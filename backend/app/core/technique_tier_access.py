@@ -38,9 +38,7 @@ _CACHE_TTL_SECONDS: int = 60
 # Fallback: Tier 3 → Tier 1
 _FALLBACK_T3_TO_T1: Dict[str, str] = {
     TechniqueID.GST.value: TechniqueID.CLARA.value,
-    TechniqueID.UNIVERSE_OF_THOUGHTS.value: (
-        TechniqueID.CLARA.value
-    ),
+    TechniqueID.UNIVERSE_OF_THOUGHTS.value: (TechniqueID.CLARA.value),
     TechniqueID.TREE_OF_THOUGHTS.value: TechniqueID.CLARA.value,
     TechniqueID.SELF_CONSISTENCY.value: TechniqueID.CRP.value,
     TechniqueID.REFLEXION.value: TechniqueID.GSD.value,
@@ -72,32 +70,18 @@ _TECHNIQUE_TO_TIER: Dict[str, str] = {
     TechniqueID.CRP.value: TechniqueTier.TIER_1.value,
     TechniqueID.GSD.value: TechniqueTier.TIER_1.value,
     # Tier 2
-    TechniqueID.CHAIN_OF_THOUGHT.value: (
-        TechniqueTier.TIER_2.value
-    ),
-    TechniqueID.REVERSE_THINKING.value: (
-        TechniqueTier.TIER_2.value
-    ),
+    TechniqueID.CHAIN_OF_THOUGHT.value: (TechniqueTier.TIER_2.value),
+    TechniqueID.REVERSE_THINKING.value: (TechniqueTier.TIER_2.value),
     TechniqueID.REACT.value: TechniqueTier.TIER_2.value,
     TechniqueID.STEP_BACK.value: TechniqueTier.TIER_2.value,
-    TechniqueID.THREAD_OF_THOUGHT.value: (
-        TechniqueTier.TIER_2.value
-    ),
+    TechniqueID.THREAD_OF_THOUGHT.value: (TechniqueTier.TIER_2.value),
     # Tier 3
     TechniqueID.GST.value: TechniqueTier.TIER_3.value,
-    TechniqueID.UNIVERSE_OF_THOUGHTS.value: (
-        TechniqueTier.TIER_3.value
-    ),
-    TechniqueID.TREE_OF_THOUGHTS.value: (
-        TechniqueTier.TIER_3.value
-    ),
-    TechniqueID.SELF_CONSISTENCY.value: (
-        TechniqueTier.TIER_3.value
-    ),
+    TechniqueID.UNIVERSE_OF_THOUGHTS.value: (TechniqueTier.TIER_3.value),
+    TechniqueID.TREE_OF_THOUGHTS.value: (TechniqueTier.TIER_3.value),
+    TechniqueID.SELF_CONSISTENCY.value: (TechniqueTier.TIER_3.value),
     TechniqueID.REFLEXION.value: TechniqueTier.TIER_3.value,
-    TechniqueID.LEAST_TO_MOST.value: (
-        TechniqueTier.TIER_3.value
-    ),
+    TechniqueID.LEAST_TO_MOST.value: (TechniqueTier.TIER_3.value),
 }
 
 _TIER_1_TECHNIQUES = [
@@ -196,11 +180,7 @@ class TechniqueTierAccessChecker:
 
     def _build_variant_configs(self) -> None:
         """Build tier configurations for all 3 variants."""
-        all_techniques = (
-            _TIER_1_TECHNIQUES
-            + _TIER_2_TECHNIQUES
-            + _TIER_3_TECHNIQUES
-        )
+        all_techniques = _TIER_1_TECHNIQUES + _TIER_2_TECHNIQUES + _TIER_3_TECHNIQUES
 
         # mini_parwa: Tier 1 only
         t1_blocked = list(_TIER_2_TECHNIQUES + _TIER_3_TECHNIQUES)
@@ -222,9 +202,7 @@ class TechniqueTierAccessChecker:
         self._configs["parwa"] = VariantTierConfig(
             variant_type="parwa",
             max_tier=2,
-            allowed_techniques=(
-                _TIER_1_TECHNIQUES + _TIER_2_TECHNIQUES
-            ),
+            allowed_techniques=(_TIER_1_TECHNIQUES + _TIER_2_TECHNIQUES),
             blocked_techniques=t2_blocked,
             fallback_map=t2_fallback,
         )
@@ -241,13 +219,17 @@ class TechniqueTierAccessChecker:
     # ── Cache Helpers (W9-GAP-029) ────────────────────────────────
 
     def _cache_key(
-        self, technique_id: str, variant_type: str,
+        self,
+        technique_id: str,
+        variant_type: str,
     ) -> str:
         """Build a deterministic cache key."""
         return f"{technique_id}:{variant_type}"
 
     def _get_cached(
-        self, technique_id: str, variant_type: str,
+        self,
+        technique_id: str,
+        variant_type: str,
     ) -> Optional[TierAccessResult]:
         """Return cached result if still valid (60s TTL)."""
         key = self._cache_key(technique_id, variant_type)
@@ -260,7 +242,9 @@ class TechniqueTierAccessChecker:
         return None
 
     def _set_cached(
-        self, technique_id: str, variant_type: str,
+        self,
+        technique_id: str,
+        variant_type: str,
         result: TierAccessResult,
     ) -> None:
         """Store result in cache with timestamp."""
@@ -307,7 +291,9 @@ class TechniqueTierAccessChecker:
             return cached
 
         result = self._evaluate_access(
-            technique_id, variant_type, company_id,
+            technique_id,
+            variant_type,
+            company_id,
         )
 
         # Store in cache
@@ -335,18 +321,18 @@ class TechniqueTierAccessChecker:
             return TierAccessResult(
                 technique=technique_id,
                 requested_tier=_TECHNIQUE_TO_TIER.get(
-                    technique_id, "",
+                    technique_id,
+                    "",
                 ),
                 decision=TierAccessDecision.BLOCKED,
                 variant_type=variant_type,
-                reason=(
-                    "unknown_variant_treated_as_restricted"
-                ),
+                reason=("unknown_variant_treated_as_restricted"),
                 max_allowed_tier="",
             )
 
         technique_tier = _TECHNIQUE_TO_TIER.get(
-            technique_id, "",
+            technique_id,
+            "",
         )
         max_allowed = f"tier_{config.max_tier}"
 
@@ -387,7 +373,8 @@ class TechniqueTierAccessChecker:
         if fallback:
             decision = TierAccessDecision.DOWNGRADED
             effective_tier = _TECHNIQUE_TO_TIER.get(
-                fallback, "tier_1",
+                fallback,
+                "tier_1",
             )
             reason = (
                 f"technique_{technique_tier}_exceeds_"
@@ -406,10 +393,7 @@ class TechniqueTierAccessChecker:
             log_level = "warning"
 
         # W9-GAP-030: Log every blocked/downgraded attempt
-        log_fn = (
-            logger.info if log_level == "info"
-            else logger.warning
-        )
+        log_fn = logger.info if log_level == "info" else logger.warning
         log_fn(
             "tier_access_denied",
             company_id=company_id,
@@ -444,9 +428,7 @@ class TechniqueTierAccessChecker:
         """Check multiple techniques at once."""
         results: List[TierAccessResult] = []
         for tid in technique_ids:
-            results.append(
-                self.check_access(tid, variant_type, company_id)
-            )
+            results.append(self.check_access(tid, variant_type, company_id))
         return results
 
     def filter_techniques(
@@ -490,7 +472,8 @@ class TechniqueTierAccessChecker:
     # ── Query Methods ─────────────────────────────────────────────
 
     def get_allowed_techniques(
-        self, variant_type: str,
+        self,
+        variant_type: str,
     ) -> List[str]:
         """Get all techniques a variant can use."""
         config = self._configs.get(variant_type)
@@ -499,14 +482,13 @@ class TechniqueTierAccessChecker:
         return list(config.allowed_techniques)
 
     def get_blocked_techniques(
-        self, variant_type: str,
+        self,
+        variant_type: str,
     ) -> List[str]:
         """Get all techniques blocked for a variant."""
         config = self._configs.get(variant_type)
         if config is None:
-            return list(
-                _TIER_2_TECHNIQUES + _TIER_3_TECHNIQUES
-            )
+            return list(_TIER_2_TECHNIQUES + _TIER_3_TECHNIQUES)
         return list(config.blocked_techniques)
 
     def get_tier_for_technique(self, technique_id: str) -> str:
@@ -531,26 +513,21 @@ class TechniqueTierAccessChecker:
         perspective so callers know whether the upgrade
         unlocks, keeps, or still blocks the technique.
         """
-        technique_id = (
-            technique_id.strip().lower()
-            if technique_id else ""
-        )
-        from_variant = (
-            from_variant.strip().lower()
-            if from_variant else ""
-        )
-        to_variant = (
-            to_variant.strip().lower()
-            if to_variant else ""
-        )
+        technique_id = technique_id.strip().lower() if technique_id else ""
+        from_variant = from_variant.strip().lower() if from_variant else ""
+        to_variant = to_variant.strip().lower() if to_variant else ""
 
         # Check original access
         original = self.check_access(
-            technique_id, from_variant, company_id,
+            technique_id,
+            from_variant,
+            company_id,
         )
         # Check target access
         target = self.check_access(
-            technique_id, to_variant, company_id,
+            technique_id,
+            to_variant,
+            company_id,
         )
 
         # Build an enriched result showing the upgrade path
@@ -597,9 +574,7 @@ class TechniqueTierAccessChecker:
         details: List[Dict] = []
 
         for tid in techniques:
-            tid_clean = (
-                tid.strip().lower() if tid else ""
-            )
+            tid_clean = tid.strip().lower() if tid else ""
             if not tid_clean:
                 continue
 
@@ -614,15 +589,10 @@ class TechniqueTierAccessChecker:
 
             if result.decision == TierAccessDecision.ALLOWED:
                 allowed.append(tid_clean)
-            elif (
-                result.decision
-                == TierAccessDecision.DOWNGRADED
-            ):
+            elif result.decision == TierAccessDecision.DOWNGRADED:
                 downgraded.append(tid_clean)
                 if result.fallback_technique:
-                    allowed.append(
-                        result.fallback_technique
-                    )
+                    allowed.append(result.fallback_technique)
             else:
                 blocked.append(tid_clean)
 
@@ -641,7 +611,8 @@ class TechniqueTierAccessChecker:
     # ── Config Access ─────────────────────────────────────────────
 
     def get_variant_config(
-        self, variant_type: str,
+        self,
+        variant_type: str,
     ) -> Optional[VariantTierConfig]:
         """Get full config for a variant.
 
@@ -667,7 +638,8 @@ class TechniqueTierAccessChecker:
         return variant_type in self._configs
 
     def get_technique_count_for_variant(
-        self, variant_type: str,
+        self,
+        variant_type: str,
     ) -> Dict[str, int]:
         """Return count of allowed/blocked techniques."""
         config = self._configs.get(variant_type)
@@ -676,14 +648,13 @@ class TechniqueTierAccessChecker:
         return {
             "allowed": len(config.allowed_techniques),
             "blocked": len(config.blocked_techniques),
-            "total": (
-                len(config.allowed_techniques)
-                + len(config.blocked_techniques)
-            ),
+            "total": (len(config.allowed_techniques) + len(config.blocked_techniques)),
         }
 
     def get_fallback_for_technique(
-        self, technique_id: str, variant_type: str,
+        self,
+        technique_id: str,
+        variant_type: str,
     ) -> Optional[str]:
         """Get the fallback technique for a blocked
         technique on a specific variant."""

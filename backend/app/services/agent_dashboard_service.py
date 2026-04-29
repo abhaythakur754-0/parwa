@@ -116,8 +116,12 @@ class AgentDashboardService:
             return {
                 "cards": [],
                 "status_counts": {
-                    "active": 0, "training": 0, "paused": 0,
-                    "error": 0, "cold_start": 0, "total": 0,
+                    "active": 0,
+                    "training": 0,
+                    "paused": 0,
+                    "error": 0,
+                    "cold_start": 0,
+                    "total": 0,
                 },
             }
 
@@ -141,10 +145,14 @@ class AgentDashboardService:
         from database.models.agent import Agent, InstructionSet
         from app.exceptions import NotFoundError
 
-        agent = db.query(Agent).filter(
-            Agent.id == agent_id,
-            Agent.company_id == self.company_id,
-        ).first()
+        agent = (
+            db.query(Agent)
+            .filter(
+                Agent.id == agent_id,
+                Agent.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not agent:
             raise NotFoundError(
@@ -167,17 +175,22 @@ class AgentDashboardService:
                 from app.services.agent_provisioning_service import (
                     get_agent_provisioning_service,
                 )
+
                 svc = get_agent_provisioning_service(self.company_id)
                 card["setup_status"] = svc.get_setup_status(agent_id, db)
             except Exception:
                 card["setup_status"] = None
 
         # Active instruction set
-        active_set = db.query(InstructionSet).filter(
-            InstructionSet.agent_id == agent_id,
-            InstructionSet.company_id == self.company_id,
-            InstructionSet.status == "active",
-        ).first()
+        active_set = (
+            db.query(InstructionSet)
+            .filter(
+                InstructionSet.agent_id == agent_id,
+                InstructionSet.company_id == self.company_id,
+                InstructionSet.status == "active",
+            )
+            .first()
+        )
 
         if active_set:
             card["active_instruction_set"] = {
@@ -203,12 +216,18 @@ class AgentDashboardService:
         from database.models.agent import Agent
 
         try:
-            rows = db.query(
-                Agent.status, func.count(Agent.id),
-            ).filter(
-                Agent.company_id == self.company_id,
-                Agent.status != "deprovisioned",
-            ).group_by(Agent.status).all()
+            rows = (
+                db.query(
+                    Agent.status,
+                    func.count(Agent.id),
+                )
+                .filter(
+                    Agent.company_id == self.company_id,
+                    Agent.status != "deprovisioned",
+                )
+                .group_by(Agent.status)
+                .all()
+            )
 
             counts: Dict[str, int] = {
                 "active": 0,
@@ -237,8 +256,12 @@ class AgentDashboardService:
                 error=str(exc),
             )
             return {
-                "active": 0, "training": 0, "paused": 0,
-                "error": 0, "cold_start": 0, "total": 0,
+                "active": 0,
+                "training": 0,
+                "paused": 0,
+                "error": 0,
+                "cold_start": 0,
+                "total": 0,
             }
 
     def get_agent_realtime_metrics(
@@ -261,10 +284,14 @@ class AgentDashboardService:
         from database.models.agent import Agent
         from app.exceptions import NotFoundError
 
-        agent = db.query(Agent).filter(
-            Agent.id == agent_id,
-            Agent.company_id == self.company_id,
-        ).first()
+        agent = (
+            db.query(Agent)
+            .filter(
+                Agent.id == agent_id,
+                Agent.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not agent:
             raise NotFoundError(
@@ -307,10 +334,14 @@ class AgentDashboardService:
         from database.models.agent import Agent
         from app.exceptions import NotFoundError, ValidationError
 
-        agent = db.query(Agent).filter(
-            Agent.id == agent_id,
-            Agent.company_id == self.company_id,
-        ).first()
+        agent = (
+            db.query(Agent)
+            .filter(
+                Agent.id == agent_id,
+                Agent.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not agent:
             raise NotFoundError(
@@ -320,8 +351,7 @@ class AgentDashboardService:
 
         if agent.status not in _PAUSE_ALLOWED_FROM:
             raise ValidationError(
-                message=(
-                    f"Cannot pause agent in '{
+                message=(f"Cannot pause agent in '{
                         agent.status}' status. " f"Only agents in {
                         list(_PAUSE_ALLOWED_FROM)} can be paused."),
                 details={
@@ -386,10 +416,14 @@ class AgentDashboardService:
         from database.models.agent import Agent
         from app.exceptions import NotFoundError, ValidationError
 
-        agent = db.query(Agent).filter(
-            Agent.id == agent_id,
-            Agent.company_id == self.company_id,
-        ).first()
+        agent = (
+            db.query(Agent)
+            .filter(
+                Agent.id == agent_id,
+                Agent.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not agent:
             raise NotFoundError(
@@ -399,8 +433,7 @@ class AgentDashboardService:
 
         if agent.status not in _RESUME_ALLOWED_FROM:
             raise ValidationError(
-                message=(
-                    f"Cannot resume agent in '{
+                message=(f"Cannot resume agent in '{
                         agent.status}' status. " f"Only agents in {
                         list(_RESUME_ALLOWED_FROM)} can be resumed."),
                 details={
@@ -478,12 +511,8 @@ class AgentDashboardService:
             "metrics": metrics,
             "sparkline_data": sparkline,
             "quick_actions": quick_actions,
-            "created_at": (
-                agent.created_at.isoformat() if agent.created_at else None
-            ),
-            "updated_at": (
-                agent.updated_at.isoformat() if agent.updated_at else None
-            ),
+            "created_at": (agent.created_at.isoformat() if agent.created_at else None),
+            "updated_at": (agent.updated_at.isoformat() if agent.updated_at else None),
             "activated_at": (
                 agent.activated_at.isoformat() if agent.activated_at else None
             ),
@@ -532,33 +561,54 @@ class AgentDashboardService:
             now = datetime.now(timezone.utc)
             since_24h = now - timedelta(hours=24)
 
-            tickets_24h = db.query(func.count(TicketAssignment.id)).join(
-                Ticket, Ticket.id == TicketAssignment.ticket_id,
-            ).filter(
-                TicketAssignment.company_id == self.company_id,
-                TicketAssignment.assignee_id == agent.id,
-                TicketAssignment.assigned_at >= since_24h,
-            ).scalar() or 0
+            tickets_24h = (
+                db.query(func.count(TicketAssignment.id))
+                .join(
+                    Ticket,
+                    Ticket.id == TicketAssignment.ticket_id,
+                )
+                .filter(
+                    TicketAssignment.company_id == self.company_id,
+                    TicketAssignment.assignee_id == agent.id,
+                    TicketAssignment.assigned_at >= since_24h,
+                )
+                .scalar()
+                or 0
+            )
 
             # ── Resolution rate (last 30 days) ──
             since_30d = now - timedelta(days=30)
 
-            total_assigned = db.query(func.count(TicketAssignment.id)).join(
-                Ticket, Ticket.id == TicketAssignment.ticket_id,
-            ).filter(
-                TicketAssignment.company_id == self.company_id,
-                TicketAssignment.assignee_id == agent.id,
-                TicketAssignment.assigned_at >= since_30d,
-            ).scalar() or 0
+            total_assigned = (
+                db.query(func.count(TicketAssignment.id))
+                .join(
+                    Ticket,
+                    Ticket.id == TicketAssignment.ticket_id,
+                )
+                .filter(
+                    TicketAssignment.company_id == self.company_id,
+                    TicketAssignment.assignee_id == agent.id,
+                    TicketAssignment.assigned_at >= since_30d,
+                )
+                .scalar()
+                or 0
+            )
 
-            resolved = db.query(func.count(TicketAssignment.id)).join(
-                Ticket, Ticket.id == TicketAssignment.ticket_id,
-            ).filter(
-                TicketAssignment.company_id == self.company_id,
-                TicketAssignment.assignee_id == agent.id,
-                TicketAssignment.assigned_at >= since_30d,
-                Ticket.status.in_(["resolved", "closed"]),
-            ).scalar() or 0
+            resolved = (
+                db.query(func.count(TicketAssignment.id))
+                .join(
+                    Ticket,
+                    Ticket.id == TicketAssignment.ticket_id,
+                )
+                .filter(
+                    TicketAssignment.company_id == self.company_id,
+                    TicketAssignment.assignee_id == agent.id,
+                    TicketAssignment.assigned_at >= since_30d,
+                    Ticket.status.in_(["resolved", "closed"]),
+                )
+                .scalar()
+                or 0
+            )
 
             resolution_rate = (
                 round(resolved / total_assigned * 100, 1)
@@ -567,27 +617,41 @@ class AgentDashboardService:
             )
 
             # ── CSAT average ──
-            avg_csat = db.query(func.avg(TicketFeedback.rating)).join(
-                Ticket, Ticket.id == TicketFeedback.ticket_id,
-            ).join(
-                TicketAssignment,
-                TicketAssignment.ticket_id == Ticket.id,
-            ).filter(
-                TicketAssignment.company_id == self.company_id,
-                TicketAssignment.assignee_id == agent.id,
-                TicketFeedback.created_at >= since_30d,
-            ).scalar()
+            avg_csat = (
+                db.query(func.avg(TicketFeedback.rating))
+                .join(
+                    Ticket,
+                    Ticket.id == TicketFeedback.ticket_id,
+                )
+                .join(
+                    TicketAssignment,
+                    TicketAssignment.ticket_id == Ticket.id,
+                )
+                .filter(
+                    TicketAssignment.company_id == self.company_id,
+                    TicketAssignment.assignee_id == agent.id,
+                    TicketFeedback.created_at >= since_30d,
+                )
+                .scalar()
+            )
             csat_avg = round(float(avg_csat), 2) if avg_csat else None
 
             # ── Escalation rate ──
-            escalated = db.query(func.count(TicketAssignment.id)).join(
-                Ticket, Ticket.id == TicketAssignment.ticket_id,
-            ).filter(
-                TicketAssignment.company_id == self.company_id,
-                TicketAssignment.assignee_id == agent.id,
-                TicketAssignment.assigned_at >= since_30d,
-                Ticket.status.in_(["escalated", "awaiting_human"]),
-            ).scalar() or 0
+            escalated = (
+                db.query(func.count(TicketAssignment.id))
+                .join(
+                    Ticket,
+                    Ticket.id == TicketAssignment.ticket_id,
+                )
+                .filter(
+                    TicketAssignment.company_id == self.company_id,
+                    TicketAssignment.assignee_id == agent.id,
+                    TicketAssignment.assigned_at >= since_30d,
+                    Ticket.status.in_(["escalated", "awaiting_human"]),
+                )
+                .scalar()
+                or 0
+            )
 
             escalation_rate = (
                 round(escalated / total_assigned * 100, 1)
@@ -598,12 +662,16 @@ class AgentDashboardService:
             # ── Avg confidence — from AI metadata on tickets ──
             # Best-effort: look for ai_confidence on tickets assigned to agent
             avg_confidence = self._get_avg_confidence(
-                agent.id, db, since_30d,
+                agent.id,
+                db,
+                since_30d,
             )
 
             # ── Avg handling time (minutes) ──
             avg_handling_time = self._get_avg_handling_time(
-                agent.id, db, since_30d,
+                agent.id,
+                db,
+                since_30d,
             )
 
             return {
@@ -646,15 +714,20 @@ class AgentDashboardService:
             if "ai_confidence" not in ticket_model:
                 return None
 
-            avg_conf = db.query(func.avg(Ticket.ai_confidence)).join(
-                TicketAssignment,
-                TicketAssignment.ticket_id == Ticket.id,
-            ).filter(
-                TicketAssignment.company_id == self.company_id,
-                TicketAssignment.assignee_id == agent_id,
-                TicketAssignment.assigned_at >= since,
-                Ticket.ai_confidence.isnot(None),
-            ).scalar()
+            avg_conf = (
+                db.query(func.avg(Ticket.ai_confidence))
+                .join(
+                    TicketAssignment,
+                    TicketAssignment.ticket_id == Ticket.id,
+                )
+                .filter(
+                    TicketAssignment.company_id == self.company_id,
+                    TicketAssignment.assignee_id == agent_id,
+                    TicketAssignment.assigned_at >= since,
+                    Ticket.ai_confidence.isnot(None),
+                )
+                .scalar()
+            )
 
             return round(float(avg_conf), 1) if avg_conf else None
 
@@ -673,21 +746,27 @@ class AgentDashboardService:
 
             from sqlalchemy import func as sa_func
 
-            avg_minutes = db.query(
-                sa_func.avg(
-                    sa_func.extract(
-                        'epoch',
-                        Ticket.first_response_at
-                        - Ticket.created_at)
-                    / 60)).join(
-                TicketAssignment,
-                TicketAssignment.ticket_id == Ticket.id,
-            ).filter(
-                TicketAssignment.company_id == self.company_id,
-                TicketAssignment.assignee_id == agent_id,
-                TicketAssignment.assigned_at >= since,
-                Ticket.first_response_at.isnot(None),
-            ).scalar()
+            avg_minutes = (
+                db.query(
+                    sa_func.avg(
+                        sa_func.extract(
+                            "epoch", Ticket.first_response_at - Ticket.created_at
+                        )
+                        / 60
+                    )
+                )
+                .join(
+                    TicketAssignment,
+                    TicketAssignment.ticket_id == Ticket.id,
+                )
+                .filter(
+                    TicketAssignment.company_id == self.company_id,
+                    TicketAssignment.assignee_id == agent_id,
+                    TicketAssignment.assigned_at >= since,
+                    Ticket.first_response_at.isnot(None),
+                )
+                .scalar()
+            )
 
             return round(float(avg_minutes), 1) if avg_minutes else None
 
@@ -712,7 +791,8 @@ class AgentDashboardService:
         """
         try:
             from database.models.tickets import (
-                Ticket, TicketAssignment,
+                Ticket,
+                TicketAssignment,
             )
 
             now = datetime.now(timezone.utc)
@@ -722,24 +802,38 @@ class AgentDashboardService:
                 day_start = now - timedelta(days=i)
                 day_end = day_start + timedelta(days=1)
 
-                total = db.query(func.count(TicketAssignment.id)).join(
-                    Ticket, Ticket.id == TicketAssignment.ticket_id,
-                ).filter(
-                    TicketAssignment.company_id == self.company_id,
-                    TicketAssignment.assignee_id == agent.id,
-                    TicketAssignment.assigned_at >= day_start,
-                    TicketAssignment.assigned_at < day_end,
-                ).scalar() or 0
+                total = (
+                    db.query(func.count(TicketAssignment.id))
+                    .join(
+                        Ticket,
+                        Ticket.id == TicketAssignment.ticket_id,
+                    )
+                    .filter(
+                        TicketAssignment.company_id == self.company_id,
+                        TicketAssignment.assignee_id == agent.id,
+                        TicketAssignment.assigned_at >= day_start,
+                        TicketAssignment.assigned_at < day_end,
+                    )
+                    .scalar()
+                    or 0
+                )
 
-                resolved = db.query(func.count(TicketAssignment.id)).join(
-                    Ticket, Ticket.id == TicketAssignment.ticket_id,
-                ).filter(
-                    TicketAssignment.company_id == self.company_id,
-                    TicketAssignment.assignee_id == agent.id,
-                    TicketAssignment.assigned_at >= day_start,
-                    TicketAssignment.assigned_at < day_end,
-                    Ticket.status.in_(["resolved", "closed"]),
-                ).scalar() or 0
+                resolved = (
+                    db.query(func.count(TicketAssignment.id))
+                    .join(
+                        Ticket,
+                        Ticket.id == TicketAssignment.ticket_id,
+                    )
+                    .filter(
+                        TicketAssignment.company_id == self.company_id,
+                        TicketAssignment.assignee_id == agent.id,
+                        TicketAssignment.assigned_at >= day_start,
+                        TicketAssignment.assigned_at < day_end,
+                        Ticket.status.in_(["resolved", "closed"]),
+                    )
+                    .scalar()
+                    or 0
+                )
 
                 rate = (resolved / total * 100) if total > 0 else 0.0
                 points.append(round(rate, 1))
@@ -770,64 +864,83 @@ class AgentDashboardService:
 
         # Pause action
         if agent.status in _PAUSE_ALLOWED_FROM:
-            actions.append({
-                "action": "pause",
-                "allowed": True,
-                "reason": None,
-            })
+            actions.append(
+                {
+                    "action": "pause",
+                    "allowed": True,
+                    "reason": None,
+                }
+            )
         elif agent.status == "paused":
-            actions.append({
-                "action": "pause",
-                "allowed": False,
-                "reason": "Agent is already paused",
-            })
+            actions.append(
+                {
+                    "action": "pause",
+                    "allowed": False,
+                    "reason": "Agent is already paused",
+                }
+            )
         else:
-            actions.append({
-                "action": "pause",
-                "allowed": False,
-                "reason": f"Cannot pause agent in '{agent.status}' status",
-            })
+            actions.append(
+                {
+                    "action": "pause",
+                    "allowed": False,
+                    "reason": f"Cannot pause agent in '{agent.status}' status",
+                }
+            )
 
         # Resume action
         if agent.status in _RESUME_ALLOWED_FROM:
-            actions.append({
-                "action": "resume",
-                "allowed": True,
-                "reason": None,
-            })
+            actions.append(
+                {
+                    "action": "resume",
+                    "allowed": True,
+                    "reason": None,
+                }
+            )
         elif agent.status in _PAUSE_ALLOWED_FROM:
-            actions.append({
-                "action": "resume",
-                "allowed": False,
-                "reason": "Agent is not paused",
-            })
+            actions.append(
+                {
+                    "action": "resume",
+                    "allowed": False,
+                    "reason": "Agent is not paused",
+                }
+            )
         else:
-            actions.append({
-                "action": "resume",
-                "allowed": False,
-                "reason": f"Cannot resume agent in '{agent.status}' status",
-            })
+            actions.append(
+                {
+                    "action": "resume",
+                    "allowed": False,
+                    "reason": f"Cannot resume agent in '{agent.status}' status",
+                }
+            )
 
         # Retrain action
         # BC-007: Retrain only allowed when agent has a model checkpoint
         can_retrain = bool(agent.model_checkpoint_id) and agent.status in (
-            "active", "paused", "error",
+            "active",
+            "paused",
+            "error",
         )
-        actions.append({
-            "action": "retrain",
-            "allowed": can_retrain,
-            "reason": (
-                None if can_retrain
-                else "No model checkpoint available or agent not in valid state"
-            ),
-        })
+        actions.append(
+            {
+                "action": "retrain",
+                "allowed": can_retrain,
+                "reason": (
+                    None
+                    if can_retrain
+                    else "No model checkpoint available or agent not in valid state"
+                ),
+            }
+        )
 
         # View metrics — always allowed
-        actions.append({
-            "action": "view_metrics",
-            "allowed": True,
-            "reason": None,
-        })
+        actions.append(
+            {
+                "action": "view_metrics",
+                "allowed": True,
+                "reason": None,
+            }
+        )
 
         return actions
 

@@ -55,14 +55,10 @@ def set_tenant_context(company_id: str) -> None:
         ValueError: If company_id is empty or not a string.
     """
     if not company_id or not isinstance(company_id, str):
-        raise ValueError(
-            "company_id must be a non-empty string (BC-001)"
-        )
+        raise ValueError("company_id must be a non-empty string (BC-001)")
     company_id = company_id.strip()
     if not company_id:
-        raise ValueError(
-            "company_id must not be whitespace-only (BC-001)"
-        )
+        raise ValueError("company_id must not be whitespace-only (BC-001)")
     _tenant_ctx_var.set(company_id)
     _tenant_local.company_id = company_id
 

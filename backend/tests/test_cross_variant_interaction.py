@@ -67,27 +67,30 @@ def _mock_logger():
             ESCALATION_CHAIN,
             VALID_VARIANTS,
         )
-        globals().update({
-            "CrossVariantInteractionService": CrossVariantInteractionService,
-            "ConfidenceEscalationResult": ConfidenceEscalationResult,
-            "HandoffContext": HandoffContext,
-            "HandoffResult": HandoffResult,
-            "RegisteredResponse": RegisteredResponse,
-            "ConflictCheckResult": ConflictCheckResult,
-            "ConflictResult": ConflictResult,
-            "ResolutionResult": ResolutionResult,
-            "CustomerInteractionSummary": CustomerInteractionSummary,
-            "ConfidenceHistoryEntry": ConfidenceHistoryEntry,
-            "EscalationReason": EscalationReason,
-            "ConflictSeverity": ConflictSeverity,
-            "ResolutionStrategy": ResolutionStrategy,
-            "HandoffStatus": HandoffStatus,
-            "CrossVariantInteractionError": CrossVariantInteractionError,
-            "CONFIDENCE_THRESHOLDS": CONFIDENCE_THRESHOLDS,
-            "CONFLICT_TIME_WINDOW_SECONDS": CONFLICT_TIME_WINDOW_SECONDS,
-            "ESCALATION_CHAIN": ESCALATION_CHAIN,
-            "VALID_VARIANTS": VALID_VARIANTS,
-        })
+
+        globals().update(
+            {
+                "CrossVariantInteractionService": CrossVariantInteractionService,
+                "ConfidenceEscalationResult": ConfidenceEscalationResult,
+                "HandoffContext": HandoffContext,
+                "HandoffResult": HandoffResult,
+                "RegisteredResponse": RegisteredResponse,
+                "ConflictCheckResult": ConflictCheckResult,
+                "ConflictResult": ConflictResult,
+                "ResolutionResult": ResolutionResult,
+                "CustomerInteractionSummary": CustomerInteractionSummary,
+                "ConfidenceHistoryEntry": ConfidenceHistoryEntry,
+                "EscalationReason": EscalationReason,
+                "ConflictSeverity": ConflictSeverity,
+                "ResolutionStrategy": ResolutionStrategy,
+                "HandoffStatus": HandoffStatus,
+                "CrossVariantInteractionError": CrossVariantInteractionError,
+                "CONFIDENCE_THRESHOLDS": CONFIDENCE_THRESHOLDS,
+                "CONFLICT_TIME_WINDOW_SECONDS": CONFLICT_TIME_WINDOW_SECONDS,
+                "ESCALATION_CHAIN": ESCALATION_CHAIN,
+                "VALID_VARIANTS": VALID_VARIANTS,
+            }
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -125,7 +128,9 @@ class TestConfidenceBasedEscalation:
         assert result.requires_human_review is False
         assert result.confidence_score == 0.50
         assert "original_query" in result.escalation_context
-        assert result.escalation_context["original_query"] == "How do I reset my password?"
+        assert (
+            result.escalation_context["original_query"] == "How do I reset my password?"
+        )
 
     def test_parwa_low_confidence_escalates_to_parwa_high(self):
         """parwa with confidence 0.30 (< 0.45) should escalate
@@ -296,10 +301,17 @@ class TestSameTicketHandoff:
         self.svc = CrossVariantInteractionService()
         self.sample_history = [
             {"role": "user", "content": "Hello", "timestamp": "2025-01-01T00:00:00Z"},
-            {"role": "agent", "content": "Hi there!", "variant": "mini_parwa",
-             "timestamp": "2025-01-01T00:00:05Z"},
-            {"role": "user", "content": "I need help with billing",
-             "timestamp": "2025-01-01T00:00:10Z"},
+            {
+                "role": "agent",
+                "content": "Hi there!",
+                "variant": "mini_parwa",
+                "timestamp": "2025-01-01T00:00:05Z",
+            },
+            {
+                "role": "user",
+                "content": "I need help with billing",
+                "timestamp": "2025-01-01T00:00:10Z",
+            },
         ]
 
     def test_initiate_handoff_success(self):
@@ -659,7 +671,9 @@ class TestMultiVariantConflictResolution:
         )
         assert resolution.resolved is True
         assert resolution.final_response == "Shipped yesterday."
-        assert resolution.strategy_used == ResolutionStrategy.MERGE_PREFER_HIGH_CONFIDENCE
+        assert (
+            resolution.strategy_used == ResolutionStrategy.MERGE_PREFER_HIGH_CONFIDENCE
+        )
         assert resolution.conflicts_merged == 2
 
     def test_resolve_conflict_human_review(self):
@@ -879,8 +893,7 @@ class TestEdgeCases:
         assert isinstance(r1, ConfidenceEscalationResult)
 
         # get_confidence_history with None
-        r2 = self.svc.get_confidence_history(
-            None, None)  # type: ignore[arg-type]
+        r2 = self.svc.get_confidence_history(None, None)  # type: ignore[arg-type]
         assert isinstance(r2, list)
 
         # initiate_handoff with bad input
@@ -894,14 +907,12 @@ class TestEdgeCases:
         assert isinstance(r3, HandoffResult)
 
         # get_handoff_context with None
-        r4 = self.svc.get_handoff_context(
-            None, None, None)  # type: ignore[arg-type]
+        r4 = self.svc.get_handoff_context(None, None, None)  # type: ignore[arg-type]
         # Should return None or HandoffContext, not crash
         assert r4 is None or isinstance(r4, HandoffContext)
 
         # acknowledge_handoff with None
-        r5 = self.svc.acknowledge_handoff(
-            None, None, None)  # type: ignore[arg-type]
+        r5 = self.svc.acknowledge_handoff(None, None, None)  # type: ignore[arg-type]
         assert isinstance(r5, bool)
 
         # get_active_handoffs with None
@@ -964,9 +975,7 @@ class TestEdgeCases:
                     ticket_id=f"TKT-{tid}",
                     from_variant="mini_parwa",
                     to_variant="parwa",
-                    conversation_history=[
-                        {"role": "user", "content": f"msg-{tid}"}
-                    ],
+                    conversation_history=[{"role": "user", "content": f"msg-{tid}"}],
                 )
                 # Register response
                 svc.register_response(
@@ -987,17 +996,16 @@ class TestEdgeCases:
                 errors.append(exc)
 
         threads = [
-            threading.Thread(target=worker, args=(i,))
-            for i in range(num_threads)
+            threading.Thread(target=worker, args=(i,)) for i in range(num_threads)
         ]
         for t in threads:
             t.start()
         for t in threads:
             t.join(timeout=10)
 
-        assert len(errors) == 0, (
-            f"Concurrent access produced {len(errors)} errors: {errors}"
-        )
+        assert (
+            len(errors) == 0
+        ), f"Concurrent access produced {len(errors)} errors: {errors}"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1038,7 +1046,10 @@ class TestConstantsAndEnums:
 
     def test_resolution_strategy_values(self):
         assert ResolutionStrategy.NO_ACTION.value == "no_action"
-        assert ResolutionStrategy.MERGE_PREFER_HIGH_CONFIDENCE.value == "merge_prefer_high_confidence"
+        assert (
+            ResolutionStrategy.MERGE_PREFER_HIGH_CONFIDENCE.value
+            == "merge_prefer_high_confidence"
+        )
         assert ResolutionStrategy.HUMAN_REVIEW.value == "human_review"
 
     def test_handoff_status_values(self):

@@ -132,9 +132,7 @@ class KnowledgeBaseManager:
                     company_id=self.company_id,  # BC-001
                     content=chunk_data["content"],
                     chunk_index=chunk_data["chunk_index"],
-                    embedding=(
-                        json.dumps(embedding) if embedding else None
-                    ),
+                    embedding=(json.dumps(embedding) if embedding else None),
                 )
                 self.db.add(chunk)
                 stored_count += 1
@@ -205,9 +203,7 @@ class KnowledgeBaseManager:
         )
 
         # Reconstruct content from existing chunks
-        content = "\n\n".join(
-            c.content for c in existing_chunks if c.content
-        )
+        content = "\n\n".join(c.content for c in existing_chunks if c.content)
 
         # Delete existing chunks
         deleted_count = self.delete_document_chunks(document_id)
@@ -345,9 +341,7 @@ class KnowledgeBaseManager:
                 logger.warning("embedding_skipped_no_api_key")
                 return None
 
-            url = (
-                f"{_EMBEDDING_API_BASE}/{_EMBEDDING_MODEL}:embedContent"
-            )
+            url = f"{_EMBEDDING_API_BASE}/{_EMBEDDING_MODEL}:embedContent"
 
             payload = {
                 "model": f"models/{_EMBEDDING_MODEL}",
@@ -371,18 +365,14 @@ class KnowledgeBaseManager:
             response.raise_for_status()
 
             data = response.json()
-            embedding = (
-                data.get("embedding", {})
-                .get("values")
-            )
+            embedding = data.get("embedding", {}).get("values")
 
             if not embedding or not isinstance(embedding, list):
                 logger.warning(
                     "embedding_response_missing_values",
-                    response_keys=list(
-                        data.keys()) if isinstance(
-                        data,
-                        dict) else "non-dict",
+                    response_keys=(
+                        list(data.keys()) if isinstance(data, dict) else "non-dict"
+                    ),
                 )
                 return None
 

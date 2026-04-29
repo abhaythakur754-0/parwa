@@ -100,8 +100,7 @@ class SentimentMappingResult:
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dictionary."""
         return {
-            "recommended_techniques": [
-                t.value for t in self.recommended_techniques],
+            "recommended_techniques": [t.value for t in self.recommended_techniques],
             "technique_reasons": self.technique_reasons,
             "priority_override": self.priority_override,
             "escalation_recommended": self.escalation_recommended,
@@ -276,8 +275,7 @@ class SentimentTechniqueMapper:
         recommended = deduped
 
         # ── Apply variant filtering (GAP-001) ────────────────────
-        tier_limit = VARIANT_TIER_LIMITS.get(
-            variant_type, TechniqueTier.TIER_1)
+        tier_limit = VARIANT_TIER_LIMITS.get(variant_type, TechniqueTier.TIER_1)
         limit_order = TIER_ORDER.get(tier_limit, 1)
 
         filtered: List[TechniqueID] = []

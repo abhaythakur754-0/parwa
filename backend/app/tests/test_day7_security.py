@@ -33,9 +33,7 @@ NGINX_PATH = os.path.join(_PROJECT_ROOT, "nginx", "nginx.conf")
 NGINX_DEFAULT_PATH = os.path.join(
     _PROJECT_ROOT, "infra", "docker", "nginx-default.conf"
 )
-NGINX_CONF_PATH = os.path.join(
-    _PROJECT_ROOT, "infra", "docker", "nginx.conf"
-)
+NGINX_CONF_PATH = os.path.join(_PROJECT_ROOT, "infra", "docker", "nginx.conf")
 
 
 # ── Helper ─────────────────────────────────────────────────────────
@@ -177,7 +175,9 @@ class TestM1_PhoneOTPSecure:
         content = _read_file(
             os.path.join(
                 os.path.dirname(__file__),
-                "..", "services", "phone_otp_service.py",
+                "..",
+                "services",
+                "phone_otp_service.py",
             )
         )
         assert "secrets.randbelow(1000000)" in content
@@ -188,7 +188,9 @@ class TestM1_PhoneOTPSecure:
         content = _read_file(
             os.path.join(
                 os.path.dirname(__file__),
-                "..", "services", "phone_otp_service.py",
+                "..",
+                "services",
+                "phone_otp_service.py",
             )
         )
         assert ".zfill(6)" in content
@@ -205,13 +207,14 @@ class TestM1_PhoneOTPSecure:
         content = _read_file(
             os.path.join(
                 os.path.dirname(__file__),
-                "..", "services", "phone_otp_service.py",
+                "..",
+                "services",
+                "phone_otp_service.py",
             )
         )
         # The line should NOT have .upper() anymore
         otp_lines = [
-            item for item in content.split("\n")
-            if "secrets.randbelow" in item
+            item for item in content.split("\n") if "secrets.randbelow" in item
         ]
         assert len(otp_lines) == 1
         assert ".upper()" not in otp_lines[0]
@@ -230,7 +233,9 @@ class TestM2_OTPNotInSubject:
         content = _read_file(
             os.path.join(
                 os.path.dirname(__file__),
-                "..", "services", "business_email_otp_service.py",
+                "..",
+                "services",
+                "business_email_otp_service.py",
             )
         )
         # Should NOT have the code in subject
@@ -241,7 +246,9 @@ class TestM2_OTPNotInSubject:
         content = _read_file(
             os.path.join(
                 os.path.dirname(__file__),
-                "..", "services", "business_email_otp_service.py",
+                "..",
+                "services",
+                "business_email_otp_service.py",
             )
         )
         assert 'subject="Your PARWA Verification Code"' in content
@@ -260,7 +267,9 @@ class TestE4_LockoutDurationLeak:
         content = _read_file(
             os.path.join(
                 os.path.dirname(__file__),
-                "..", "services", "auth_service.py",
+                "..",
+                "services",
+                "auth_service.py",
             )
         )
         # Should NOT have f-string with remaining seconds
@@ -272,7 +281,9 @@ class TestE4_LockoutDurationLeak:
         content = _read_file(
             os.path.join(
                 os.path.dirname(__file__),
-                "..", "services", "auth_service.py",
+                "..",
+                "services",
+                "auth_service.py",
             )
         )
         assert "Try again later" in content
@@ -291,7 +302,9 @@ class TestE5_WebhookInvalidJSON:
         content = _read_file(
             os.path.join(
                 os.path.dirname(__file__),
-                "..", "api", "webhooks.py",
+                "..",
+                "api",
+                "webhooks.py",
             )
         )
         # The old pattern should be gone
@@ -302,7 +315,9 @@ class TestE5_WebhookInvalidJSON:
         content = _read_file(
             os.path.join(
                 os.path.dirname(__file__),
-                "..", "api", "webhooks.py",
+                "..",
+                "api",
+                "webhooks.py",
             )
         )
         assert "INVALID_JSON" in content
@@ -322,7 +337,9 @@ class TestE6_GoogleOAuthTokenInfo:
         content = _read_file(
             os.path.join(
                 os.path.dirname(__file__),
-                "..", "services", "auth_service.py",
+                "..",
+                "services",
+                "auth_service.py",
             )
         )
         assert "TODO(E6)" in content
@@ -343,7 +360,9 @@ class TestE7_PasswordResetURL:
         content = _read_file(
             os.path.join(
                 os.path.dirname(__file__),
-                "..", "services", "password_reset_service.py",
+                "..",
+                "services",
+                "password_reset_service.py",
             )
         )
         assert '"https://parwa.ai/reset-password"' not in content
@@ -353,7 +372,9 @@ class TestE7_PasswordResetURL:
         content = _read_file(
             os.path.join(
                 os.path.dirname(__file__),
-                "..", "services", "password_reset_service.py",
+                "..",
+                "services",
+                "password_reset_service.py",
             )
         )
         assert "FRONTEND_URL" in content
@@ -373,7 +394,9 @@ class TestC8_MFAProperException:
         content = _read_file(
             os.path.join(
                 os.path.dirname(__file__),
-                "..", "api", "mfa.py",
+                "..",
+                "api",
+                "mfa.py",
             )
         )
         assert "raise Exception(" not in content
@@ -383,7 +406,9 @@ class TestC8_MFAProperException:
         content = _read_file(
             os.path.join(
                 os.path.dirname(__file__),
-                "..", "api", "mfa.py",
+                "..",
+                "api",
+                "mfa.py",
             )
         )
         assert "AuthenticationError" in content
@@ -426,7 +451,9 @@ class TestB5_FailClosedRateLimiting:
         content = _read_file(
             os.path.join(
                 os.path.dirname(__file__),
-                "..", "middleware", "rate_limit.py",
+                "..",
+                "middleware",
+                "rate_limit.py",
             )
         )
         assert "TODO(B5)" in content
@@ -446,7 +473,9 @@ class TestB6_SocketIOJWTValidation:
         content = _read_file(
             os.path.join(
                 os.path.dirname(__file__),
-                "..", "core", "socketio.py",
+                "..",
+                "core",
+                "socketio.py",
             )
         )
         assert "TODO(B6)" in content

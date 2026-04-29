@@ -28,7 +28,6 @@ import unittest.mock as mock
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Module import — use same approach as test_jarvis_behavioral_before_after.py
 # ---------------------------------------------------------------------------
@@ -46,8 +45,7 @@ _mock_db_jarvis.JarvisMessage = mock.MagicMock
 _mock_db_jarvis.JarvisKnowledgeUsed = mock.MagicMock
 _mock_db_jarvis.JarvisActionTicket = mock.MagicMock
 _mock_app_exceptions.NotFoundError = type("NotFoundError", (Exception,), {})
-_mock_app_exceptions.ValidationError = type(
-    "ValidationError", (Exception,), {})
+_mock_app_exceptions.ValidationError = type("ValidationError", (Exception,), {})
 _mock_app_exceptions.RateLimitError = type("RateLimitError", (Exception,), {})
 _mock_app_exceptions.InternalError = type("InternalError", (Exception,), {})
 
@@ -77,10 +75,15 @@ _mock_app = _DynamicModule("app")
 sys.modules["app"] = _mock_app
 
 _JARVIS_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "app", "services", "jarvis_service.py",
+    os.path.dirname(__file__),
+    "..",
+    "app",
+    "services",
+    "jarvis_service.py",
 )
 _spec = importlib.util.spec_from_file_location(
-    "app.services.jarvis_service", _JARVIS_PATH,
+    "app.services.jarvis_service",
+    _JARVIS_PATH,
 )
 jarvis = importlib.util.module_from_spec(_spec)
 sys.modules["app.services"] = jarvis
@@ -92,6 +95,7 @@ _spec.loader.exec_module(jarvis)
 # HELPER: Create a mock service module and register it
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def _register_mock_module(module_path, class_name, class_obj=None):
     """Register a mock module with a class in sys.modules."""
     if class_obj is None:
@@ -102,7 +106,7 @@ def _register_mock_module(module_path, class_name, class_obj=None):
     sys.modules[module_path] = mod
     # Ensure parent packages exist
     for i in range(len(parts) - 1):
-        parent = ".".join(parts[:i + 1])
+        parent = ".".join(parts[: i + 1])
         if parent not in sys.modules:
             sys.modules[parent] = types.ModuleType(parent)
     return class_obj
@@ -111,6 +115,7 @@ def _register_mock_module(module_path, class_name, class_obj=None):
 # ═══════════════════════════════════════════════════════════════════════
 # 1. AIService — enrich_system_prompt
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestAIServiceUnit:
     """Unit tests for AIService.enrich_system_prompt integration.
@@ -124,8 +129,7 @@ class TestAIServiceUnit:
         """AIService enrich_system_prompt is imported inside _call_ai_provider."""
         source = jarvis._call_ai_provider.__code__.co_names
         # The function uses 'enrich_system_prompt' as a local import
-        assert "enrich_system_prompt" in source or hasattr(
-            jarvis, "_call_ai_provider")
+        assert "enrich_system_prompt" in source or hasattr(jarvis, "_call_ai_provider")
 
     def test_ai_service_is_called_with_correct_params(self):
         """When AIService works, it receives all required parameters."""
@@ -133,7 +137,11 @@ class TestAIServiceUnit:
 
         with mock.patch.dict(
             sys.modules,
-            {"app.services.ai_service": mock.MagicMock(enrich_system_prompt=mock_enrich)},
+            {
+                "app.services.ai_service": mock.MagicMock(
+                    enrich_system_prompt=mock_enrich
+                )
+            },
         ):
             # Re-import the module to pick up the mock
             result = jarvis._call_ai_provider(
@@ -205,16 +213,21 @@ class TestAIServiceUnit:
 
     def test_ai_service_enrichment_changes_system_prompt(self):
         """When AIService works, the system_prompt is modified."""
-        mock_enrich = mock.MagicMock(
-            return_value="ENRICHED_WITH_SENTIMENT_AND_KB")
+        mock_enrich = mock.MagicMock(return_value="ENRICHED_WITH_SENTIMENT_AND_KB")
 
         with mock.patch.dict(
             sys.modules,
-            {"app.services.ai_service": mock.MagicMock(enrich_system_prompt=mock_enrich)},
+            {
+                "app.services.ai_service": mock.MagicMock(
+                    enrich_system_prompt=mock_enrich
+                )
+            },
         ):
             # We need to also mock the AI provider call so we can verify
             # the enriched prompt was passed to it
-            with mock.patch.object(jarvis, "_try_ai_providers", return_value="AI response"):
+            with mock.patch.object(
+                jarvis, "_try_ai_providers", return_value="AI response"
+            ):
                 result = jarvis._call_ai_provider(
                     system_prompt="ORIGINAL",
                     history=[],
@@ -231,6 +244,7 @@ class TestAIServiceUnit:
 # ═══════════════════════════════════════════════════════════════════════
 # 2. KnowledgeBase — jarvis_knowledge_service
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestKnowledgeBaseUnit:
     """Unit tests for KnowledgeBase (jarvis_knowledge_service) integration.
@@ -265,21 +279,32 @@ class TestKnowledgeBaseUnit:
     def test_kb_adds_content_to_prompt(self):
         """When KB service works, it adds content to the system prompt."""
         mock_build_kb = mock.MagicMock(
-            return_value="## KB: PARWA pricing starts at $49/mo")
+            return_value="## KB: PARWA pricing starts at $49/mo"
+        )
 
         # We need to patch JarvisSession.id at the class level
         # since build_system_prompt uses it as a filter column
         with mock.patch.dict(
             sys.modules,
-            {"app.services.jarvis_knowledge_service": mock.MagicMock(build_context_knowledge=mock_build_kb)},
-        ), mock.patch.object(_mock_db_jarvis.JarvisSession, "id", mock.MagicMock(), create=True):
+            {
+                "app.services.jarvis_knowledge_service": mock.MagicMock(
+                    build_context_knowledge=mock_build_kb
+                )
+            },
+        ), mock.patch.object(
+            _mock_db_jarvis.JarvisSession, "id", mock.MagicMock(), create=True
+        ):
             mock_db = mock.MagicMock()
             mock_session = mock.MagicMock()
-            mock_session.context_json = json.dumps({
-                "industry": "SaaS",
-                "detected_stage": "discovery",
-            })
-            mock_db.query.return_value.filter.return_value.first.return_value = mock_session
+            mock_session.context_json = json.dumps(
+                {
+                    "industry": "SaaS",
+                    "detected_stage": "discovery",
+                }
+            )
+            mock_db.query.return_value.filter.return_value.first.return_value = (
+                mock_session
+            )
 
             prompt = jarvis.build_system_prompt(mock_db, "session1")
 
@@ -291,17 +316,21 @@ class TestKnowledgeBaseUnit:
         # Make the import raise an exception
         mock_kb_module = mock.MagicMock()
         mock_kb_module.build_context_knowledge.side_effect = Exception(
-            "KB service down")
+            "KB service down"
+        )
 
         with mock.patch.dict(
             sys.modules,
             {"app.services.jarvis_knowledge_service": mock_kb_module},
-        ), mock.patch.object(_mock_db_jarvis.JarvisSession, "id", mock.MagicMock(), create=True):
+        ), mock.patch.object(
+            _mock_db_jarvis.JarvisSession, "id", mock.MagicMock(), create=True
+        ):
             mock_db = mock.MagicMock()
             mock_session = mock.MagicMock()
-            mock_session.context_json = json.dumps(
-                {"detected_stage": "welcome"})
-            mock_db.query.return_value.filter.return_value.first.return_value = mock_session
+            mock_session.context_json = json.dumps({"detected_stage": "welcome"})
+            mock_db.query.return_value.filter.return_value.first.return_value = (
+                mock_session
+            )
 
             # Should NOT raise
             prompt = jarvis.build_system_prompt(mock_db, "session1")
@@ -312,6 +341,7 @@ class TestKnowledgeBaseUnit:
 # ═══════════════════════════════════════════════════════════════════════
 # 3. TrainingDataIsolation — trained response lookup
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestTrainingDataUnit:
     """Unit tests for TrainingDataIsolation integration.
@@ -328,9 +358,13 @@ class TestTrainingDataUnit:
 
     def test_lookup_returns_none_when_service_missing(self):
         """_lookup_trained_response returns None when service can't be imported."""
-        with mock.patch.dict(sys.modules, {"app.services.training_data_isolation": None}):
+        with mock.patch.dict(
+            sys.modules, {"app.services.training_data_isolation": None}
+        ):
             result = jarvis._lookup_trained_response(
-                "how to reset password", {}, "company1",
+                "how to reset password",
+                {},
+                "company1",
             )
         # Should return None gracefully (not crash)
         assert result is None
@@ -404,14 +438,12 @@ class TestTrainingDataUnit:
             return None
 
         import asyncio
+
         try:
             result = asyncio.run(_mock_search())
         except RuntimeError:
             with concurrent.futures.ThreadPoolExecutor() as pool:
-                result = pool.submit(
-                    asyncio.run,
-                    _mock_search()).result(
-                    timeout=3)
+                result = pool.submit(asyncio.run, _mock_search()).result(timeout=3)
 
         assert result is not None, f"Expected trained response, got: {result}"
         assert "reset" in result.lower()
@@ -420,10 +452,12 @@ class TestTrainingDataUnit:
     def test_lookup_returns_none_when_no_match(self):
         """_lookup_trained_response returns None when no pattern matches."""
         mock_record = mock.MagicMock()
-        mock_record.get = mock.MagicMock(side_effect=lambda k, d=None: {
-            "query": "shipping policy for returns",
-            "response": "Our shipping policy allows returns within 30 days.",
-        }.get(k, d))
+        mock_record.get = mock.MagicMock(
+            side_effect=lambda k, d=None: {
+                "query": "shipping policy for returns",
+                "response": "Our shipping policy allows returns within 30 days.",
+            }.get(k, d)
+        )
 
         mock_dataset = mock.MagicMock()
         mock_dataset.is_active = True
@@ -436,10 +470,16 @@ class TestTrainingDataUnit:
 
         with mock.patch.dict(
             sys.modules,
-            {"app.services.training_data_isolation": mock.MagicMock(TrainingDataIsolationService=lambda: mock_svc)},
+            {
+                "app.services.training_data_isolation": mock.MagicMock(
+                    TrainingDataIsolationService=lambda: mock_svc
+                )
+            },
         ):
             result = jarvis._lookup_trained_response(
-                "I want to buy a demo pack", {}, "company1",
+                "I want to buy a demo pack",
+                {},
+                "company1",
             )
 
         # No match — words don't overlap enough
@@ -448,12 +488,20 @@ class TestTrainingDataUnit:
     def test_lookup_called_in_pipeline(self):
         """_lookup_trained_response IS called during _call_ai_provider."""
         with mock.patch.object(
-            jarvis, "_lookup_trained_response", return_value="Use this trained response",
+            jarvis,
+            "_lookup_trained_response",
+            return_value="Use this trained response",
         ) as mock_lookup:
-            with mock.patch.object(jarvis, "_try_ai_providers", return_value="AI response"):
+            with mock.patch.object(
+                jarvis, "_try_ai_providers", return_value="AI response"
+            ):
                 with mock.patch.dict(
                     sys.modules,
-                    {"app.services.ai_service": mock.MagicMock(enrich_system_prompt=lambda **kw: kw.get("base_prompt", ""))},
+                    {
+                        "app.services.ai_service": mock.MagicMock(
+                            enrich_system_prompt=lambda **kw: kw.get("base_prompt", "")
+                        )
+                    },
                 ):
                     result = jarvis._call_ai_provider(
                         system_prompt="base",
@@ -473,6 +521,7 @@ class TestTrainingDataUnit:
 # ═══════════════════════════════════════════════════════════════════════
 # 4. ConversationService — context management
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestConversationServiceUnit:
     """Unit tests for ConversationService integration.
@@ -496,7 +545,11 @@ class TestConversationServiceUnit:
 
         with mock.patch.dict(
             sys.modules,
-            {"app.services.conversation_service": mock.MagicMock(create_conversation=mock_create)},
+            {
+                "app.services.conversation_service": mock.MagicMock(
+                    create_conversation=mock_create
+                )
+            },
         ):
             jarvis._init_conversation_context(
                 session_id="sess1",
@@ -525,23 +578,29 @@ class TestConversationServiceUnit:
 
     def test_track_message_calls_service(self):
         """_track_conversation_message calls ConversationService functions."""
-        mock_get_ctx = mock.MagicMock(return_value=mock.MagicMock(
-            turn_count=5,
-            sentiment_trend="stable",
-        ))
-        mock_add_msg = mock.MagicMock(return_value=mock.MagicMock(
-            turn_count=6,
-            sentiment_trend="improving",
-        ))
+        mock_get_ctx = mock.MagicMock(
+            return_value=mock.MagicMock(
+                turn_count=5,
+                sentiment_trend="stable",
+            )
+        )
+        mock_add_msg = mock.MagicMock(
+            return_value=mock.MagicMock(
+                turn_count=6,
+                sentiment_trend="improving",
+            )
+        )
 
         ctx = {}
         with mock.patch.dict(
             sys.modules,
-            {"app.services.conversation_service": mock.MagicMock(
-                ConversationContext=mock.MagicMock,
-                add_message_to_context=mock_add_msg,
-                get_conversation_context=mock_get_ctx,
-            )},
+            {
+                "app.services.conversation_service": mock.MagicMock(
+                    ConversationContext=mock.MagicMock,
+                    add_message_to_context=mock_add_msg,
+                    get_conversation_context=mock_get_ctx,
+                )
+            },
         ):
             jarvis._track_conversation_message(
                 session_id="sess1",
@@ -557,25 +616,31 @@ class TestConversationServiceUnit:
 
     def test_track_message_with_sentiment(self):
         """_track_conversation_message passes sentiment_data to the service."""
-        mock_get_ctx = mock.MagicMock(return_value=mock.MagicMock(
-            turn_count=3,
-            sentiment_trend="declining",
-        ))
-        mock_add_msg = mock.MagicMock(return_value=mock.MagicMock(
-            turn_count=4,
-            sentiment_trend="declining",
-        ))
+        mock_get_ctx = mock.MagicMock(
+            return_value=mock.MagicMock(
+                turn_count=3,
+                sentiment_trend="declining",
+            )
+        )
+        mock_add_msg = mock.MagicMock(
+            return_value=mock.MagicMock(
+                turn_count=4,
+                sentiment_trend="declining",
+            )
+        )
 
         sentiment = {"frustration_score": 40, "emotion": "annoyed"}
         ctx = {}
 
         with mock.patch.dict(
             sys.modules,
-            {"app.services.conversation_service": mock.MagicMock(
-                ConversationContext=mock.MagicMock,
-                add_message_to_context=mock_add_msg,
-                get_conversation_context=mock_get_ctx,
-            )},
+            {
+                "app.services.conversation_service": mock.MagicMock(
+                    ConversationContext=mock.MagicMock,
+                    add_message_to_context=mock_add_msg,
+                    get_conversation_context=mock_get_ctx,
+                )
+            },
         ):
             jarvis._track_conversation_message(
                 session_id="sess1",
@@ -606,6 +671,7 @@ class TestConversationServiceUnit:
 # ═══════════════════════════════════════════════════════════════════════
 # 5. AnalyticsService — event tracking
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestAnalyticsServiceUnit:
     """Unit tests for AnalyticsService integration.
@@ -669,16 +735,13 @@ class TestAnalyticsServiceUnit:
         assert jarvis._get_analytics_category("variants_selected") == "funnel"
         assert jarvis._get_analytics_category("email_provided") == "funnel"
         assert jarvis._get_analytics_category("email_verified") == "funnel"
-        assert jarvis._get_analytics_category(
-            "demo_pack_purchased") == "payment"
+        assert jarvis._get_analytics_category("demo_pack_purchased") == "payment"
         assert jarvis._get_analytics_category("payment_initiated") == "payment"
         assert jarvis._get_analytics_category("payment_completed") == "payment"
         assert jarvis._get_analytics_category("handoff_completed") == "session"
         assert jarvis._get_analytics_category("lead_captured") == "lead"
-        assert jarvis._get_analytics_category(
-            "sentiment_analyzed") == "sentiment"
-        assert jarvis._get_analytics_category(
-            "escalation_triggered") == "escalation"
+        assert jarvis._get_analytics_category("sentiment_analyzed") == "sentiment"
+        assert jarvis._get_analytics_category("escalation_triggered") == "escalation"
         assert jarvis._get_analytics_category("unknown_event") == "general"
 
     def test_track_event_silent_failure(self):
@@ -705,6 +768,7 @@ class TestAnalyticsServiceUnit:
 # 6. LeadService — lead capture
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestLeadServiceUnit:
     """Unit tests for LeadService integration.
 
@@ -720,10 +784,12 @@ class TestLeadServiceUnit:
 
         with mock.patch.dict(
             sys.modules,
-            {"app.services.lead_service": mock.MagicMock(
-                capture_lead=mock_capture,
-                update_lead_status=mock_update,
-            )},
+            {
+                "app.services.lead_service": mock.MagicMock(
+                    capture_lead=mock_capture,
+                    update_lead_status=mock_update,
+                )
+            },
         ):
             mock_db = mock.MagicMock()
             mock_session = mock.MagicMock()
@@ -758,17 +824,17 @@ class TestLeadServiceUnit:
 
         with mock.patch.dict(
             sys.modules,
-            {"app.services.lead_service": mock.MagicMock(
-                capture_lead=mock_capture,
-                update_lead_status=mock_update,
-            )},
+            {
+                "app.services.lead_service": mock.MagicMock(
+                    capture_lead=mock_capture,
+                    update_lead_status=mock_update,
+                )
+            },
         ):
             mock_db = mock.MagicMock()
             mock_session = mock.MagicMock()
             mock_session.company_id = "co1"
-            ctx = {
-                "business_email": "test@example.com",
-                "email_verified": True}
+            ctx = {"business_email": "test@example.com", "email_verified": True}
 
             jarvis._capture_lead_from_session(
                 db=mock_db,
@@ -811,7 +877,9 @@ class TestLeadServiceUnit:
                     capture_lead=mock_capture,
                     update_lead_status=mock_update,
                 ),
-                "app.services.analytics_service": mock.MagicMock(track_event=mock_track),
+                "app.services.analytics_service": mock.MagicMock(
+                    track_event=mock_track
+                ),
             },
         ):
             mock_session = mock.MagicMock()
@@ -828,14 +896,17 @@ class TestLeadServiceUnit:
 
         # Should track variants_selected event
         analytics_calls = [c for c in mock_track.call_args_list]
-        event_types = [c[1]["event_type"] if c[1].get(
-            "event_type") else None for c in analytics_calls]
+        event_types = [
+            c[1]["event_type"] if c[1].get("event_type") else None
+            for c in analytics_calls
+        ]
         assert "variants_selected" in event_types
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # 7. SentimentAnalyzer — sentiment analysis
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestSentimentAnalyzerUnit:
     """Unit tests for SentimentAnalyzer integration.
@@ -871,7 +942,11 @@ class TestSentimentAnalyzerUnit:
 
         with mock.patch.dict(
             sys.modules,
-            {"app.core.sentiment_engine": mock.MagicMock(SentimentAnalyzer=lambda: mock_analyzer)},
+            {
+                "app.core.sentiment_engine": mock.MagicMock(
+                    SentimentAnalyzer=lambda: mock_analyzer
+                )
+            },
         ):
             result = jarvis._run_sentiment_analysis(
                 user_message="This is terrible!",
@@ -908,7 +983,11 @@ class TestSentimentAnalyzerUnit:
 
         with mock.patch.dict(
             sys.modules,
-            {"app.core.sentiment_engine": mock.MagicMock(SentimentAnalyzer=lambda: mock_analyzer)},
+            {
+                "app.core.sentiment_engine": mock.MagicMock(
+                    SentimentAnalyzer=lambda: mock_analyzer
+                )
+            },
         ):
             jarvis._run_sentiment_analysis(
                 user_message="What is pricing?",
@@ -949,15 +1028,21 @@ class TestSentimentAnalyzerUnit:
     def test_sentiment_silent_failure(self):
         """_run_sentiment_analysis doesn't crash when service raises."""
         mock_analyzer = mock.MagicMock()
-        mock_analyzer.analyze = mock.AsyncMock(
-            side_effect=RuntimeError("async issue"))
+        mock_analyzer.analyze = mock.AsyncMock(side_effect=RuntimeError("async issue"))
 
         with mock.patch.dict(
             sys.modules,
-            {"app.core.sentiment_engine": mock.MagicMock(SentimentAnalyzer=lambda: mock_analyzer)},
+            {
+                "app.core.sentiment_engine": mock.MagicMock(
+                    SentimentAnalyzer=lambda: mock_analyzer
+                )
+            },
         ):
             result = jarvis._run_sentiment_analysis(
-                "hello", [], "co1", {},
+                "hello",
+                [],
+                "co1",
+                {},
             )
         assert result is None  # Graceful failure
 
@@ -965,6 +1050,7 @@ class TestSentimentAnalyzerUnit:
 # ═══════════════════════════════════════════════════════════════════════
 # 8. GracefulEscalationManager — escalation
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestGracefulEscalationUnit:
     """Unit tests for GracefulEscalationManager integration.
@@ -976,10 +1062,7 @@ class TestGracefulEscalationUnit:
 
     def test_escalation_returns_none_when_low_frustration(self):
         """_evaluate_escalation returns None when frustration < 60."""
-        sentiment = {
-            "frustration_score": 30,
-            "emotion": "calm",
-            "urgency_level": "low"}
+        sentiment = {"frustration_score": 30, "emotion": "calm", "urgency_level": "low"}
 
         result = jarvis._evaluate_escalation(
             session_id="s1",
@@ -1007,7 +1090,10 @@ class TestGracefulEscalationUnit:
 
         # Test 1: Low frustration → no escalation
         low_result = jarvis._evaluate_escalation(
-            "s1", "u1", "co1", "msg",
+            "s1",
+            "u1",
+            "co1",
+            "msg",
             {"frustration_score": 30, "emotion": "calm", "urgency_level": "low"},
             {},
         )
@@ -1016,8 +1102,15 @@ class TestGracefulEscalationUnit:
         # Test 2: High frustration but service unavailable → returns None silently
         # This is the DIAGNOSTIC: the service exists but can't be imported
         high_result = jarvis._evaluate_escalation(
-            "s1", "u1", "co1", "I am furious!",
-            {"frustration_score": 85, "emotion": "furious", "urgency_level": "critical"},
+            "s1",
+            "u1",
+            "co1",
+            "I am furious!",
+            {
+                "frustration_score": 85,
+                "emotion": "furious",
+                "urgency_level": "critical",
+            },
             {},
         )
         # The function will try to import graceful_escalation
@@ -1037,29 +1130,38 @@ class TestGracefulEscalationUnit:
         we verify the logic by inspecting the source code.
         """
         import inspect
+
         source = inspect.getsource(jarvis._evaluate_escalation)
 
         # Verify the severity logic exists in the source
-        assert '80' in source, "Should have high threshold (80)"
-        assert '60' in source, "Should have medium threshold (60)"
-        assert 'high' in source.lower(), "Should have 'high' severity"
-        assert 'medium' in source.lower(), "Should have 'medium' severity"
+        assert "80" in source, "Should have high threshold (80)"
+        assert "60" in source, "Should have medium threshold (60)"
+        assert "high" in source.lower(), "Should have 'high' severity"
+        assert "medium" in source.lower(), "Should have 'medium' severity"
 
         # Verify frustration threshold check
-        assert 'frustration_score' in source, "Should check frustration_score"
+        assert "frustration_score" in source, "Should check frustration_score"
 
         # The function checks: frustration >= 60 before calling escalation
         # This is the gating condition
-        assert 'frustration_score' in source and (
-            '60' in source or '>= 60' in source)
+        assert "frustration_score" in source and ("60" in source or ">= 60" in source)
 
     def test_escalation_silent_failure(self):
         """_evaluate_escalation returns None when service is missing."""
         sys.modules.pop("app.core.graceful_escalation", None)
         try:
             result = jarvis._evaluate_escalation(
-                "s1", "u1", "co1", "msg", {
-                    "frustration_score": 90, "emotion": "furious", "urgency_level": "high"}, {}, )
+                "s1",
+                "u1",
+                "co1",
+                "msg",
+                {
+                    "frustration_score": 90,
+                    "emotion": "furious",
+                    "urgency_level": "high",
+                },
+                {},
+            )
             assert result is None
         except Exception:
             pytest.fail("_evaluate_escalation should not raise")
@@ -1072,10 +1174,17 @@ class TestGracefulEscalationUnit:
         # Looking at the source: "if frustration >= 60: escalation_record = _evaluate_escalation(...)"
         # We verify this behavior directly
         with mock.patch.object(jarvis, "_evaluate_escalation") as mock_esc:
-            with mock.patch.object(jarvis, "_run_sentiment_analysis", return_value=None):
-                with mock.patch.object(jarvis, "_try_ai_providers", return_value="response"):
+            with mock.patch.object(
+                jarvis, "_run_sentiment_analysis", return_value=None
+            ):
+                with mock.patch.object(
+                    jarvis, "_try_ai_providers", return_value="response"
+                ):
                     jarvis._call_ai_provider(
-                        "prompt", [], "msg", {},
+                        "prompt",
+                        [],
+                        "msg",
+                        {},
                     )
 
         # When sentiment is None, escalation should NOT be called
@@ -1085,6 +1194,7 @@ class TestGracefulEscalationUnit:
 # ═══════════════════════════════════════════════════════════════════════
 # DIAGNOSTIC: Why the user can't see changes
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestDiagnosticWhyNoVisibleChange:
     """
@@ -1125,9 +1235,12 @@ class TestDiagnosticWhyNoVisibleChange:
 
             # Check the function source for try/except pattern
             import inspect
+
             source = inspect.getsource(func)
             assert "try:" in source, f"{func_name} missing try block for {service_name}"
-            assert "except" in source, f"{func_name} missing except block for {service_name}"
+            assert (
+                "except" in source
+            ), f"{func_name} missing except block for {service_name}"
 
     def test_services_are_fire_and_forget(self):
         """Most service calls are fire-and-forget — return value is ignored."""
@@ -1165,6 +1278,7 @@ class TestDiagnosticWhyNoVisibleChange:
         # Verify sentiment injection only happens when sentiment_data is not
         # None
         import inspect
+
         source = inspect.getsource(jarvis._call_ai_provider)
         # The code should check "if sentiment_data:" before injecting
         assert "if sentiment_data" in source
@@ -1180,6 +1294,7 @@ class TestDiagnosticWhyNoVisibleChange:
         This makes KB effect inconsistent or invisible.
         """
         import inspect
+
         source = inspect.getsource(jarvis.build_system_prompt)
         assert "try:" in source  # KB import is in a try block
         assert "if knowledge_section:" in source  # Only added if non-None

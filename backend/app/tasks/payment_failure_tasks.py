@@ -68,9 +68,7 @@ def stop_service_immediately(
 
         with SessionLocal() as db:
             # Verify company is in payment_failed status
-            company = db.query(Company).filter(
-                Company.id == company_id
-            ).first()
+            company = db.query(Company).filter(Company.id == company_id).first()
 
             if not company:
                 raise ValueError(f"Company {company_id} not found")
@@ -78,10 +76,15 @@ def stop_service_immediately(
             # Stop AI agents (update their status)
             try:
                 from database.models.core import AIAgent
-                agents = db.query(AIAgent).filter(
-                    AIAgent.company_id == company_id,
-                    AIAgent.status == "active",
-                ).all()
+
+                agents = (
+                    db.query(AIAgent)
+                    .filter(
+                        AIAgent.company_id == company_id,
+                        AIAgent.status == "active",
+                    )
+                    .all()
+                )
                 for agent in agents:
                     agent.status = "paused"
                     agent.paused_reason = "payment_failed"
@@ -102,31 +105,44 @@ def stop_service_immediately(
                 # Try alternate model path
                 try:
                     from sqlalchemy import text
+
                     db.execute(
                         text(
                             "UPDATE ai_agents SET status = 'paused', paused_reason = 'payment_failed', paused_at = NOW() "
-                            "WHERE company_id = :cid AND status = 'active'"), {
-                            "cid": company_id})
-                    count_result = db.execute(text(
-                        "SELECT COUNT(*) FROM ai_agents WHERE company_id = :cid AND status = 'paused' AND paused_reason = 'payment_failed'"
-                    ), {"cid": company_id})
+                            "WHERE company_id = :cid AND status = 'active'"
+                        ),
+                        {"cid": company_id},
+                    )
+                    count_result = db.execute(
+                        text(
+                            "SELECT COUNT(*) FROM ai_agents WHERE company_id = :cid AND status = 'paused' AND paused_reason = 'payment_failed'"
+                        ),
+                        {"cid": company_id},
+                    )
                     results["agents_stopped"] = count_result.scalar() or 0
                     logger.info(
                         "stopped_agents_via_fallback company_id=%s count=%d",
-                        company_id, results["agents_stopped"],
+                        company_id,
+                        results["agents_stopped"],
                     )
                 except Exception as fallback_err:
                     logger.error(
                         "stop_agents_fallback_failed company_id=%s error=%s",
-                        company_id, str(fallback_err),
+                        company_id,
+                        str(fallback_err),
                     )
 
             # Freeze open tickets
             from database.models.ticket import Ticket
-            open_tickets = db.query(Ticket).filter(
-                Ticket.company_id == company_id,
-                Ticket.status.in_(["open", "pending", "in_progress"]),
-            ).all()
+
+            open_tickets = (
+                db.query(Ticket)
+                .filter(
+                    Ticket.company_id == company_id,
+                    Ticket.status.in_(["open", "pending", "in_progress"]),
+                )
+                .all()
+            )
 
             for ticket in open_tickets:
                 # Bug B5 FIX: Store the ORIGINAL status BEFORE changing it
@@ -160,8 +176,7 @@ def stop_service_immediately(
 
     except Exception as exc:
         logger.error(
-            "stop_service_immediately_failed "
-            "company_id=%s error=%s",
+            "stop_service_immediately_failed " "company_id=%s error=%s",
             company_id,
             str(exc)[:200],
         )
@@ -209,9 +224,7 @@ def resume_service(
         }
 
         with SessionLocal() as db:
-            company = db.query(Company).filter(
-                Company.id == company_id
-            ).first()
+            company = db.query(Company).filter(Company.id == company_id).first()
 
             if not company:
                 raise ValueError(f"Company {company_id} not found")
@@ -219,11 +232,16 @@ def resume_service(
             # Resume AI agents that were paused due to payment failure
             try:
                 from database.models.core import AIAgent
-                agents = db.query(AIAgent).filter(
-                    AIAgent.company_id == company_id,
-                    AIAgent.status == "paused",
-                    AIAgent.paused_reason == "payment_failed",
-                ).all()
+
+                agents = (
+                    db.query(AIAgent)
+                    .filter(
+                        AIAgent.company_id == company_id,
+                        AIAgent.status == "paused",
+                        AIAgent.paused_reason == "payment_failed",
+                    )
+                    .all()
+                )
                 for agent in agents:
                     agent.status = "active"
                     agent.paused_reason = None
@@ -238,37 +256,50 @@ def resume_service(
             except Exception as agent_err:
                 logger.error(
                     "resume_agents_failed company_id=%s error=%s",
-                    company_id, str(agent_err),
+                    company_id,
+                    str(agent_err),
                 )
                 try:
                     from sqlalchemy import text
-                    db.execute(text(
-                        "UPDATE ai_agents SET status = 'active', paused_reason = NULL, paused_at = NULL "
-                        "WHERE company_id = :cid AND status = 'paused' AND paused_reason = 'payment_failed'"
-                    ), {"cid": company_id})
-                    count_result = db.execute(text(
-                        "SELECT COUNT(*) FROM ai_agents WHERE company_id = :cid AND status = 'active'"
-                    ), {"cid": company_id})
+
+                    db.execute(
+                        text(
+                            "UPDATE ai_agents SET status = 'active', paused_reason = NULL, paused_at = NULL "
+                            "WHERE company_id = :cid AND status = 'paused' AND paused_reason = 'payment_failed'"
+                        ),
+                        {"cid": company_id},
+                    )
+                    count_result = db.execute(
+                        text(
+                            "SELECT COUNT(*) FROM ai_agents WHERE company_id = :cid AND status = 'active'"
+                        ),
+                        {"cid": company_id},
+                    )
                     results["agents_resumed"] = count_result.scalar() or 0
                 except Exception as fallback_err:
                     logger.error(
                         "resume_agents_fallback_failed company_id=%s error=%s",
-                        company_id, str(fallback_err),
+                        company_id,
+                        str(fallback_err),
                     )
 
             # Unfreeze tickets
             from database.models.ticket import Ticket
-            frozen_tickets = db.query(Ticket).filter(
-                Ticket.company_id == company_id,
-                Ticket.status == "frozen",
-            ).all()
+
+            frozen_tickets = (
+                db.query(Ticket)
+                .filter(
+                    Ticket.company_id == company_id,
+                    Ticket.status == "frozen",
+                )
+                .all()
+            )
 
             for ticket in frozen_tickets:
                 # Restore to previous status (Bug B5 fix: use stored original
                 # status)
                 ticket.metadata_json = ticket.metadata_json or {}
-                original_status = ticket.metadata_json.get(
-                    "pre_freeze_status", "open")
+                original_status = ticket.metadata_json.get("pre_freeze_status", "open")
                 # If original_status is still 'frozen' (shouldn't happen), fall
                 # back to 'open'
                 if original_status == "frozen":
@@ -300,8 +331,7 @@ def resume_service(
 
     except Exception as exc:
         logger.error(
-            "resume_service_failed "
-            "company_id=%s error=%s",
+            "resume_service_failed " "company_id=%s error=%s",
             company_id,
             str(exc)[:200],
         )
@@ -343,28 +373,28 @@ def send_payment_failed_notification(
         from database.models.billing_extended import PaymentFailure
 
         with SessionLocal() as db:
-            company = db.query(Company).filter(
-                Company.id == company_id
-            ).first()
+            company = db.query(Company).filter(Company.id == company_id).first()
 
             if not company:
                 raise ValueError(f"Company {company_id} not found")
 
-            failure = db.query(PaymentFailure).filter(
-                PaymentFailure.id == failure_id
-            ).first()
+            failure = (
+                db.query(PaymentFailure).filter(PaymentFailure.id == failure_id).first()
+            )
 
             if not failure:
                 raise ValueError(f"Payment failure {failure_id} not found")
 
             # Get subscription for variant info
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == company_id
-            ).order_by(Subscription.created_at.desc()).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(Subscription.company_id == company_id)
+                .order_by(Subscription.created_at.desc())
+                .first()
+            )
 
             variant = subscription.tier if subscription else "unknown"
-            amount = float(
-                failure.amount_attempted) if failure.amount_attempted else 0
+            amount = float(failure.amount_attempted) if failure.amount_attempted else 0
 
             # Send email notification
             # In production, this would use the email service
@@ -372,7 +402,7 @@ def send_payment_failed_notification(
                 "sending_payment_failed_email "
                 "company_id=%s email=%s variant=%s amount=%s",
                 company_id,
-                company.email if hasattr(company, 'email') else 'unknown',
+                company.email if hasattr(company, "email") else "unknown",
                 variant,
                 amount,
             )
@@ -419,8 +449,7 @@ def send_payment_failed_notification(
 
     except Exception as exc:
         logger.error(
-            "send_payment_failed_notification_failed "
-            "company_id=%s error=%s",
+            "send_payment_failed_notification_failed " "company_id=%s error=%s",
             company_id,
             str(exc)[:200],
         )
@@ -455,16 +484,13 @@ def send_service_resumed_notification(
     """
     try:
         with SessionLocal() as db:
-            company = db.query(Company).filter(
-                Company.id == company_id
-            ).first()
+            company = db.query(Company).filter(Company.id == company_id).first()
 
             if not company:
                 raise ValueError(f"Company {company_id} not found")
 
             logger.info(
-                "sending_service_resumed_email "
-                "company_id=%s transaction_id=%s",
+                "sending_service_resumed_email " "company_id=%s transaction_id=%s",
                 company_id,
                 transaction_id,
             )
@@ -504,8 +530,7 @@ def send_service_resumed_notification(
 
     except Exception as exc:
         logger.error(
-            "send_service_resumed_notification_failed "
-            "company_id=%s error=%s",
+            "send_service_resumed_notification_failed " "company_id=%s error=%s",
             company_id,
             str(exc)[:200],
         )
@@ -590,10 +615,14 @@ def check_stopped_services(self) -> dict:
             from database.models.billing_extended import PaymentFailure
 
             # Get unresolved payment failures
-            failures = db.query(PaymentFailure).filter(
-                PaymentFailure.resolved is False,
-                PaymentFailure.notification_sent is False,
-            ).all()
+            failures = (
+                db.query(PaymentFailure)
+                .filter(
+                    PaymentFailure.resolved is False,
+                    PaymentFailure.notification_sent is False,
+                )
+                .all()
+            )
 
             for failure in failures:
                 results["total_checked"] += 1
@@ -607,10 +636,12 @@ def check_stopped_services(self) -> dict:
                     )
                     results["notifications_missing"] += 1
                 except Exception as e:
-                    results["errors"].append({
-                        "failure_id": failure.id,
-                        "error": str(e)[:50],
-                    })
+                    results["errors"].append(
+                        {
+                            "failure_id": failure.id,
+                            "error": str(e)[:50],
+                        }
+                    )
 
         logger.info(
             "check_stopped_services_completed "

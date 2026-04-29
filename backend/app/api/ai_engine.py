@@ -61,12 +61,8 @@ def _serialize_capability(cap) -> dict:
         "technique_tier": cap.technique_tier,
         "is_enabled": cap.is_enabled,
         "config": config,
-        "created_at": (
-            cap.created_at.isoformat() if cap.created_at else None
-        ),
-        "updated_at": (
-            cap.updated_at.isoformat() if cap.updated_at else None
-        ),
+        "created_at": (cap.created_at.isoformat() if cap.created_at else None),
+        "updated_at": (cap.updated_at.isoformat() if cap.updated_at else None),
     }
 
 
@@ -97,15 +93,10 @@ def _serialize_instance(inst) -> dict:
         "active_tickets_count": inst.active_tickets_count,
         "total_tickets_handled": inst.total_tickets_handled,
         "last_activity_at": (
-            inst.last_activity_at.isoformat()
-            if inst.last_activity_at else None
+            inst.last_activity_at.isoformat() if inst.last_activity_at else None
         ),
-        "created_at": (
-            inst.created_at.isoformat() if inst.created_at else None
-        ),
-        "updated_at": (
-            inst.updated_at.isoformat() if inst.updated_at else None
-        ),
+        "created_at": (inst.created_at.isoformat() if inst.created_at else None),
+        "updated_at": (inst.updated_at.isoformat() if inst.updated_at else None),
     }
 
 
@@ -118,12 +109,8 @@ def _serialize_distribution(dist) -> dict:
         "ticket_id": dist.ticket_id,
         "strategy": dist.distribution_strategy,
         "status": dist.status,
-        "assigned_at": (
-            dist.assigned_at.isoformat() if dist.assigned_at else None
-        ),
-        "completed_at": (
-            dist.completed_at.isoformat() if dist.completed_at else None
-        ),
+        "assigned_at": (dist.assigned_at.isoformat() if dist.assigned_at else None),
+        "completed_at": (dist.completed_at.isoformat() if dist.completed_at else None),
         "escalation_target": dist.escalation_target_instance_id,
         "rebalance_from": dist.rebalance_from_instance_id,
         "billing_charged_to": dist.billing_charged_to_instance,
@@ -896,7 +883,8 @@ def reset_budget(
         result = service.reset_daily_budgets(company_id)
         # Also try to get and reset monthly usage
         monthly_usage = service.get_usage(
-            company_id=company_id, budget_type="monthly",
+            company_id=company_id,
+            budget_type="monthly",
         )
         result["monthly_reset"] = True
         result["monthly_status"] = monthly_usage.get("status")
@@ -970,15 +958,17 @@ def get_router_providers(
         if tier not in providers[provider]["tiers"]:
             providers[provider]["tiers"][tier] = []
 
-        providers[provider]["tiers"][tier].append({
-            "registry_key": key,
-            "model_id": config.model_id,
-            "display_name": config.display_name,
-            "priority": config.priority,
-            "context_window": config.context_window,
-            "max_requests_per_day": config.max_requests_per_day,
-            "is_openai_compatible": config.is_openai_compatible,
-        })
+        providers[provider]["tiers"][tier].append(
+            {
+                "registry_key": key,
+                "model_id": config.model_id,
+                "display_name": config.display_name,
+                "priority": config.priority,
+                "context_window": config.context_window,
+                "max_requests_per_day": config.max_requests_per_day,
+                "is_openai_compatible": config.is_openai_compatible,
+            }
+        )
         providers[provider]["total_models"] += 1
 
     # Add variant access info
@@ -1069,18 +1059,9 @@ def get_failover_status(
 
     # Summary
     total = len(states)
-    healthy = sum(
-        1 for s in states.values()
-        if s.get("state") == "healthy"
-    )
-    degraded = sum(
-        1 for s in states.values()
-        if s.get("state") == "degraded"
-    )
-    circuit_open = sum(
-        1 for s in states.values()
-        if s.get("state") == "circuit_open"
-    )
+    healthy = sum(1 for s in states.values() if s.get("state") == "healthy")
+    degraded = sum(1 for s in states.values() if s.get("state") == "degraded")
+    circuit_open = sum(1 for s in states.values() if s.get("state") == "circuit_open")
 
     return {
         "status": "ok",

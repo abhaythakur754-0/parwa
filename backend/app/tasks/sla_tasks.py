@@ -54,28 +54,40 @@ def run_sla_check(self, company_id: str) -> Dict[str, Any]:
 
     try:
         # Get all active SLA timers
-        active_timers = db.query(SLATimer).filter(
-            SLATimer.company_id == company_id,
-            SLATimer.is_breached is False,  # noqa: E712
-            SLATimer.resolved_at == None,  # noqa: E711
-        ).all()
+        active_timers = (
+            db.query(SLATimer)
+            .filter(
+                SLATimer.company_id == company_id,
+                SLATimer.is_breached is False,  # noqa: E712
+                SLATimer.resolved_at == None,  # noqa: E711
+            )
+            .all()
+        )
 
         breaches_detected = 0
         warnings_sent = 0
 
         for timer in active_timers:
             # Get the policy
-            policy = db.query(SLAPolicy).filter(
-                SLAPolicy.id == timer.policy_id,
-            ).first()
+            policy = (
+                db.query(SLAPolicy)
+                .filter(
+                    SLAPolicy.id == timer.policy_id,
+                )
+                .first()
+            )
 
             if not policy:
                 continue
 
             # Get the ticket
-            ticket = db.query(Ticket).filter(
-                Ticket.id == timer.ticket_id,
-            ).first()
+            ticket = (
+                db.query(Ticket)
+                .filter(
+                    Ticket.id == timer.ticket_id,
+                )
+                .first()
+            )
 
             if not ticket or ticket.status in [
                 TicketStatus.closed.value,
@@ -134,9 +146,7 @@ def run_sla_check(self, company_id: str) -> Dict[str, Any]:
                         ),
                     )
 
-                    logger.warning(
-                        f"Resolution SLA breached for ticket {ticket.id}"
-                    )
+                    logger.warning(f"Resolution SLA breached for ticket {ticket.id}")
 
             # Check for approaching breach (75% threshold - PS17)
             else:
@@ -210,10 +220,14 @@ def send_sla_warning(
 
     try:
         # Get ticket details
-        ticket = db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == company_id,
-        ).first()
+        ticket = (
+            db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             return {"sent": False, "reason": "ticket_not_found"}
@@ -227,9 +241,7 @@ def send_sla_warning(
         # 3. Log the warning for analytics
 
         # For now, we log and return success
-        logger.info(
-            f"SLA warning sent for ticket {ticket_id} to agent {assigned_to}"
-        )
+        logger.info(f"SLA warning sent for ticket {ticket_id} to agent {assigned_to}")
 
         return {
             "sent": True,
@@ -280,10 +292,14 @@ def send_sla_breach_notification(
 
     try:
         # Get ticket
-        ticket = db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == company_id,
-        ).first()
+        ticket = (
+            db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             return {"sent": False, "reason": "ticket_not_found"}
@@ -292,9 +308,7 @@ def send_sla_breach_notification(
         if ticket.priority != TicketPriority.critical.value:
             old_priority = ticket.priority
             ticket.priority = TicketPriority.critical.value
-            ticket.escalation_level = min(
-                (ticket.escalation_level or 1) + 1, 3
-            )
+            ticket.escalation_level = min((ticket.escalation_level or 1) + 1, 3)
             logger.info(
                 f"Escalated ticket {ticket_id} priority from "
                 f"{old_priority} to critical"
@@ -345,10 +359,14 @@ def check_first_response_sla(
     db = SessionLocal()
 
     try:
-        timer = db.query(SLATimer).filter(
-            SLATimer.ticket_id == ticket_id,
-            SLATimer.company_id == company_id,
-        ).first()
+        timer = (
+            db.query(SLATimer)
+            .filter(
+                SLATimer.ticket_id == ticket_id,
+                SLATimer.company_id == company_id,
+            )
+            .first()
+        )
 
         if not timer:
             return {"checked": False, "reason": "timer_not_found"}
@@ -356,9 +374,13 @@ def check_first_response_sla(
         if not timer.first_response_at:
             return {"checked": False, "reason": "no_first_response"}
 
-        policy = db.query(SLAPolicy).filter(
-            SLAPolicy.id == timer.policy_id,
-        ).first()
+        policy = (
+            db.query(SLAPolicy)
+            .filter(
+                SLAPolicy.id == timer.policy_id,
+            )
+            .first()
+        )
 
         if not policy:
             return {"checked": False, "reason": "policy_not_found"}
@@ -516,9 +538,13 @@ def check_all_company_slas(self) -> Dict[str, Any]:
 
     try:
         # Get all active companies
-        active_companies = db.query(Company).filter(
-            Company.status == 'active',
-        ).all()
+        active_companies = (
+            db.query(Company)
+            .filter(
+                Company.status == "active",
+            )
+            .all()
+        )
 
         companies_checked = 0
         total_breaches = 0
@@ -532,9 +558,7 @@ def check_all_company_slas(self) -> Dict[str, Any]:
                 total_breaches += result.get("breaches_detected", 0)
                 total_warnings += result.get("warnings_sent", 0)
             except Exception as e:
-                logger.error(
-                    f"SLA check failed for company {company.id}: {e}"
-                )
+                logger.error(f"SLA check failed for company {company.id}: {e}")
 
         logger.info(
             f"SLA check complete: {companies_checked} companies, "
@@ -575,9 +599,13 @@ def daily_sla_report_all(self) -> Dict[str, Any]:
 
     try:
         # Get all active companies
-        active_companies = db.query(Company).filter(
-            Company.status == 'active',
-        ).all()
+        active_companies = (
+            db.query(Company)
+            .filter(
+                Company.status == "active",
+            )
+            .all()
+        )
 
         reports_generated = 0
         reports_failed = 0

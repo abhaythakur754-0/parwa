@@ -12,7 +12,15 @@ from datetime import datetime
 import uuid
 
 from sqlalchemy import (
-    Boolean, Column, Date, DateTime, Integer, Numeric, String, Text, ForeignKey
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    ForeignKey,
 )
 
 from database.base import Base
@@ -27,8 +35,10 @@ class Subscription(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     tier = Column(String(50), nullable=False)
     status = Column(String(50), nullable=False)
@@ -88,8 +98,10 @@ class Invoice(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     paddle_invoice_id = Column(String(255))
     amount = Column(Numeric(10, 2), nullable=False)  # BC-002
@@ -106,8 +118,10 @@ class OverageCharge(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     date = Column(Date, nullable=False)
     tickets_over_limit = Column(Integer, nullable=False, default=0)
@@ -122,8 +136,10 @@ class Transaction(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     paddle_transaction_id = Column(String(255))
     amount = Column(Numeric(10, 2), nullable=False)  # BC-002
@@ -139,8 +155,10 @@ class CancellationRequest(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
     reason = Column(Text, nullable=False)

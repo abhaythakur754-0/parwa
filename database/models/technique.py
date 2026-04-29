@@ -17,8 +17,17 @@ from datetime import datetime
 import uuid
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Float, Integer, Numeric, String, Text,
-    ForeignKey, UniqueConstraint, Index,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    ForeignKey,
+    UniqueConstraint,
+    Index,
 )
 from sqlalchemy.orm import relationship
 
@@ -30,6 +39,7 @@ def _uuid() -> str:
 
 
 # ── Technique Configurations (per-tenant settings) ──────────────────
+
 
 class TechniqueConfiguration(Base):
     """
@@ -47,8 +57,10 @@ class TechniqueConfiguration(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
 
     technique_id = Column(String(50), nullable=False)
@@ -77,17 +89,20 @@ class TechniqueConfiguration(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "company_id", "technique_id",
+            "company_id",
+            "technique_id",
             name="uq_technique_config_company",
         ),
         Index(
             "ix_tech_config_company_tier",
-            "company_id", "tier",
+            "company_id",
+            "tier",
         ),
     )
 
 
 # ── Technique Executions (activation logs) ──────────────────────────
+
 
 class TechniqueExecution(Base):
     """
@@ -99,8 +114,10 @@ class TechniqueExecution(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
 
     ticket_id = Column(String(36), nullable=True, index=True)
@@ -148,16 +165,19 @@ class TechniqueExecution(Base):
     __table_args__ = (
         Index(
             "ix_tech_exec_company_date",
-            "company_id", "created_at",
+            "company_id",
+            "created_at",
         ),
         Index(
             "ix_tech_exec_technique_date",
-            "technique_id", "created_at",
+            "technique_id",
+            "created_at",
         ),
     )
 
 
 # ── Technique Versions (A/B testing) ────────────────────────────────
+
 
 class TechniqueVersion(Base):
     """
@@ -171,8 +191,10 @@ class TechniqueVersion(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
 
     technique_id = Column(String(50), nullable=False)
@@ -213,11 +235,14 @@ class TechniqueVersion(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "company_id", "technique_id", "version",
+            "company_id",
+            "technique_id",
+            "version",
             name="uq_technique_version",
         ),
         Index(
             "ix_tech_ver_company_tech",
-            "company_id", "technique_id",
+            "company_id",
+            "technique_id",
         ),
     )

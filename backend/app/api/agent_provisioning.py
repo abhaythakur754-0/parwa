@@ -127,12 +127,19 @@ def create_checkout(
         paddle_customer_id = None
         # Try to get paddle_customer_id from company record
         from database.models.core import Company
-        company = db.query(Company).filter(
-            Company.id == company_id,
-        ).first()
+
+        company = (
+            db.query(Company)
+            .filter(
+                Company.id == company_id,
+            )
+            .first()
+        )
         if company:
             paddle_customer_id = getattr(
-                company, "paddle_customer_id", None,
+                company,
+                "paddle_customer_id",
+                None,
             )
 
         result = svc.create_checkout(
@@ -157,6 +164,7 @@ def create_checkout(
             ValidationError,
             InternalError,
         )
+
         if isinstance(exc, (ValidationError, NotFoundError, InternalError)):
             raise
         logger.error(
@@ -203,6 +211,7 @@ def get_provisioning_status(
         from app.exceptions import (
             ValidationError,
         )
+
         if isinstance(exc, (NotFoundError, ValidationError)):
             raise
         logger.error(

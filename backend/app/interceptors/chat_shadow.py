@@ -22,6 +22,7 @@ logger = logging.getLogger("parwa.interceptors.chat")
 
 # ── Chat Shadow Interceptor ────────────────────────────────────────
 
+
 class ChatShadowInterceptor(ShadowInterceptor):
     """
     Interceptor for outbound chat widget messages in the shadow mode system.
@@ -134,8 +135,8 @@ class ChatShadowInterceptor(ShadowInterceptor):
                     "mode": mode,
                     "requires_hold": True,
                     "reason": eval_result.get(
-                        "reason",
-                        "Chat message requires manager approval"),
+                        "reason", "Chat message requires manager approval"
+                    ),
                 }
 
             else:
@@ -192,7 +193,9 @@ class ChatShadowInterceptor(ShadowInterceptor):
             # BC-008: Never crash the caller
             logger.error(
                 "chat_intercept_failed company_id=%s error=%s",
-                company_id, str(e), exc_info=True,
+                company_id,
+                str(e),
+                exc_info=True,
             )
 
             return {
@@ -248,7 +251,10 @@ class ChatShadowInterceptor(ShadowInterceptor):
         except Exception as e:
             logger.error(
                 "chat_queue_save_failed company_id=%s log_id=%s error=%s",
-                company_id, shadow_log_id, str(e), exc_info=True,
+                company_id,
+                shadow_log_id,
+                str(e),
+                exc_info=True,
             )
             return {
                 "queue_id": None,
@@ -290,8 +296,10 @@ class ChatShadowInterceptor(ShadowInterceptor):
                 company_id=company_id,
             )
 
-            return {"success": True, "message_uuid": result.get(
-                "uuid") or result.get("message_uuid"), }
+            return {
+                "success": True,
+                "message_uuid": result.get("uuid") or result.get("message_uuid"),
+            }
 
         except Exception as e:
             logger.error(
@@ -335,27 +343,29 @@ class ChatShadowInterceptor(ShadowInterceptor):
                 total = query.count()
 
                 offset = (page - 1) * page_size
-                items = query.order_by(
-                    ChatShadowQueue.created_at.desc()
-                ).offset(offset).limit(page_size).all()
+                items = (
+                    query.order_by(ChatShadowQueue.created_at.desc())
+                    .offset(offset)
+                    .limit(page_size)
+                    .all()
+                )
 
                 return {
-                    "items": [
-                        self._queue_entry_to_dict(item) for item in items],
+                    "items": [self._queue_entry_to_dict(item) for item in items],
                     "total": total,
                     "page": page,
                     "page_size": page_size,
                     "total_pages": (
-                        total
-                        + page_size
-                        - 1)
-                    // page_size if page_size > 0 else 0,
+                        (total + page_size - 1) // page_size if page_size > 0 else 0
+                    ),
                 }
 
         except Exception as e:
             logger.error(
                 "get_queued_chat_failed company_id=%s error=%s",
-                company_id, str(e), exc_info=True,
+                company_id,
+                str(e),
+                exc_info=True,
             )
             return {
                 "items": [],
@@ -390,11 +400,15 @@ class ChatShadowInterceptor(ShadowInterceptor):
         """
         try:
             with SessionLocal() as db:
-                queue_entry = db.query(ChatShadowQueue).filter(
-                    ChatShadowQueue.id == queue_id,
-                    ChatShadowQueue.company_id == company_id,
-                    ChatShadowQueue.status == "pending",
-                ).first()
+                queue_entry = (
+                    db.query(ChatShadowQueue)
+                    .filter(
+                        ChatShadowQueue.id == queue_id,
+                        ChatShadowQueue.company_id == company_id,
+                        ChatShadowQueue.status == "pending",
+                    )
+                    .first()
+                )
 
                 if not queue_entry:
                     return {
@@ -415,7 +429,8 @@ class ChatShadowInterceptor(ShadowInterceptor):
 
                 # Track if message was edited
                 was_edited = bool(
-                    edited_message and edited_message != queue_entry.message_text)
+                    edited_message and edited_message != queue_entry.message_text
+                )
                 if was_edited:
                     queue_entry.was_edited = True
                     queue_entry.original_message = queue_entry.message_text
@@ -502,11 +517,15 @@ class ChatShadowInterceptor(ShadowInterceptor):
         """
         try:
             with SessionLocal() as db:
-                queue_entry = db.query(ChatShadowQueue).filter(
-                    ChatShadowQueue.id == queue_id,
-                    ChatShadowQueue.company_id == company_id,
-                    ChatShadowQueue.status == "pending",
-                ).first()
+                queue_entry = (
+                    db.query(ChatShadowQueue)
+                    .filter(
+                        ChatShadowQueue.id == queue_id,
+                        ChatShadowQueue.company_id == company_id,
+                        ChatShadowQueue.status == "pending",
+                    )
+                    .first()
+                )
 
                 if not queue_entry:
                     return {
@@ -546,7 +565,10 @@ class ChatShadowInterceptor(ShadowInterceptor):
         except Exception as e:
             logger.error(
                 "reject_queued_chat_failed company_id=%s queue_id=%s error=%s",
-                company_id, queue_id, str(e), exc_info=True,
+                company_id,
+                queue_id,
+                str(e),
+                exc_info=True,
             )
             return {
                 "success": False,

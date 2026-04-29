@@ -71,10 +71,14 @@ class CollisionService:
             Dict with current viewers and collision status
         """
         # Verify ticket exists and belongs to company
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")
@@ -85,8 +89,7 @@ class CollisionService:
         current_viewers = self._get_viewers_from_redis(redis_key)
 
         # Check for collision
-        has_collision = len(
-            current_viewers) > 0 and user_id not in current_viewers
+        has_collision = len(current_viewers) > 0 and user_id not in current_viewers
 
         # Add user to viewers
         current_viewers.add(user_id)
@@ -216,9 +219,13 @@ class CollisionService:
         if not user_ids:
             return []
 
-        users = self.db.query(User).filter(
-            User.id.in_(user_ids),
-        ).all()
+        users = (
+            self.db.query(User)
+            .filter(
+                User.id.in_(user_ids),
+            )
+            .all()
+        )
 
         user_map = {u.id: u for u in users}
 
@@ -226,17 +233,21 @@ class CollisionService:
         for user_id in user_ids:
             user = user_map.get(user_id)
             if user:
-                result.append({
-                    "user_id": user_id,
-                    "name": user.name,
-                    "email": user.email,
-                })
+                result.append(
+                    {
+                        "user_id": user_id,
+                        "name": user.name,
+                        "email": user.email,
+                    }
+                )
             else:
-                result.append({
-                    "user_id": user_id,
-                    "name": "Unknown",
-                    "email": None,
-                })
+                result.append(
+                    {
+                        "user_id": user_id,
+                        "name": "Unknown",
+                        "email": None,
+                    }
+                )
 
         return result
 
@@ -250,12 +261,16 @@ class CollisionService:
     ) -> TicketCollision:
         """Log a collision event to the database."""
         # Check if there's an active collision record for this user
-        existing = self.db.query(TicketCollision).filter(
-            TicketCollision.company_id == self.company_id,
-            TicketCollision.ticket_id == ticket_id,
-            TicketCollision.user_id == user_id,
-            TicketCollision.is_active,
-        ).first()
+        existing = (
+            self.db.query(TicketCollision)
+            .filter(
+                TicketCollision.company_id == self.company_id,
+                TicketCollision.ticket_id == ticket_id,
+                TicketCollision.user_id == user_id,
+                TicketCollision.is_active,
+            )
+            .first()
+        )
 
         if existing:
             # Update existing record
@@ -291,9 +306,11 @@ class CollisionService:
             TicketCollision.ticket_id == ticket_id,
             TicketCollision.user_id == user_id,
             TicketCollision.is_active,
-        ).update({
-            "is_active": False,
-        })
+        ).update(
+            {
+                "is_active": False,
+            }
+        )
 
         self.db.commit()
 
@@ -322,11 +339,12 @@ class CollisionService:
 
         total = query.count()
 
-        collisions = query.order_by(
-            TicketCollision.started_at.desc()
-        ).offset(
-            (page - 1) * page_size
-        ).limit(page_size).all()
+        collisions = (
+            query.order_by(TicketCollision.started_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+            .all()
+        )
 
         # Get user details
         user_ids = {c.user_id for c in collisions}
@@ -336,14 +354,18 @@ class CollisionService:
         results = []
         for c in collisions:
             user = user_map.get(c.user_id)
-            results.append({
-                "id": c.id,
-                "user_id": c.user_id,
-                "user_name": user.name if user else "Unknown",
-                "started_at": c.started_at.isoformat() if c.started_at else None,
-                "last_activity_at": c.last_activity_at.isoformat() if c.last_activity_at else None,
-                "is_active": c.is_active,
-            })
+            results.append(
+                {
+                    "id": c.id,
+                    "user_id": c.user_id,
+                    "user_name": user.name if user else "Unknown",
+                    "started_at": c.started_at.isoformat() if c.started_at else None,
+                    "last_activity_at": (
+                        c.last_activity_at.isoformat() if c.last_activity_at else None
+                    ),
+                    "is_active": c.is_active,
+                }
+            )
 
         return {
             "ticket_id": ticket_id,
@@ -393,12 +415,8 @@ class CollisionService:
         if session_data:
             try:
                 data = json.loads(session_data)
-                data["last_activity_at"] = datetime.now(
-                    timezone.utc).isoformat()
-                self.redis.setex(
-                    user_session_key,
-                    self.VIEWER_TTL,
-                    json.dumps(data))
+                data["last_activity_at"] = datetime.now(timezone.utc).isoformat()
+                self.redis.setex(user_session_key, self.VIEWER_TTL, json.dumps(data))
             except (json.JSONDecodeError, TypeError):
                 pass
 
@@ -408,9 +426,11 @@ class CollisionService:
             TicketCollision.ticket_id == ticket_id,
             TicketCollision.user_id == user_id,
             TicketCollision.is_active,
-        ).update({
-            "last_activity_at": datetime.now(timezone.utc),
-        })
+        ).update(
+            {
+                "last_activity_at": datetime.now(timezone.utc),
+            }
+        )
         self.db.commit()
 
         viewer_details = self._get_viewer_details(current_viewers)
@@ -434,16 +454,21 @@ class CollisionService:
         """
         # Mark all active sessions as inactive
         # Redis handles the actual viewer tracking, DB is for history
-        cutoff = datetime.now(timezone.utc) - \
-            timedelta(seconds=self.VIEWER_TTL * 2)
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=self.VIEWER_TTL * 2)
 
-        result = self.db.query(TicketCollision).filter(
-            TicketCollision.company_id == self.company_id,
-            TicketCollision.is_active,
-            TicketCollision.last_activity_at < cutoff,
-        ).update({
-            "is_active": False,
-        })
+        result = (
+            self.db.query(TicketCollision)
+            .filter(
+                TicketCollision.company_id == self.company_id,
+                TicketCollision.is_active,
+                TicketCollision.last_activity_at < cutoff,
+            )
+            .update(
+                {
+                    "is_active": False,
+                }
+            )
+        )
 
         self.db.commit()
 

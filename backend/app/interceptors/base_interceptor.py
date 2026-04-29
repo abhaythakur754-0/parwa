@@ -49,6 +49,7 @@ class ShadowInterceptor:
         """Initialize the interceptor with a ShadowModeService instance."""
         # Lazy import to avoid circular dependencies
         from app.services.shadow_mode_service import ShadowModeService
+
         self._shadow_service = ShadowModeService()
 
     def evaluate_shadow(
@@ -133,7 +134,10 @@ class ShadowInterceptor:
             # BC-008: Never crash the caller - return safe defaults
             logger.error(
                 "shadow_evaluation_failed company_id=%s action=%s error=%s",
-                company_id, action_type, str(e), exc_info=True,
+                company_id,
+                action_type,
+                str(e),
+                exc_info=True,
             )
 
             # Create a fallback log entry
@@ -192,7 +196,9 @@ class ShadowInterceptor:
         except Exception as log_error:
             logger.error(
                 "fallback_log_failed company_id=%s action=%s error=%s",
-                company_id, action_type, str(log_error),
+                company_id,
+                action_type,
+                str(log_error),
             )
             return None
 
@@ -249,7 +255,9 @@ class ShadowInterceptor:
 
                 logger.info(
                     "undo_log_created company_id=%s action=%s executed_id=%s",
-                    company_id, action_type, executed.id,
+                    company_id,
+                    action_type,
+                    executed.id,
                 )
 
                 return executed.id
@@ -257,7 +265,10 @@ class ShadowInterceptor:
         except Exception as e:
             logger.error(
                 "undo_log_failed company_id=%s action=%s error=%s",
-                company_id, action_type, str(e), exc_info=True,
+                company_id,
+                action_type,
+                str(e),
+                exc_info=True,
             )
             return None
 
@@ -288,13 +299,18 @@ class ShadowInterceptor:
             )
             logger.info(
                 "queued_action_approved company_id=%s log_id=%s manager=%s",
-                company_id, shadow_log_id, manager_id,
+                company_id,
+                shadow_log_id,
+                manager_id,
             )
             return result
         except Exception as e:
             logger.error(
                 "approve_queued_failed company_id=%s log_id=%s error=%s",
-                company_id, shadow_log_id, str(e), exc_info=True,
+                company_id,
+                shadow_log_id,
+                str(e),
+                exc_info=True,
             )
             return {
                 "success": False,
@@ -328,13 +344,18 @@ class ShadowInterceptor:
             )
             logger.info(
                 "queued_action_rejected company_id=%s log_id=%s manager=%s",
-                company_id, shadow_log_id, manager_id,
+                company_id,
+                shadow_log_id,
+                manager_id,
             )
             return result
         except Exception as e:
             logger.error(
                 "reject_queued_failed company_id=%s log_id=%s error=%s",
-                company_id, shadow_log_id, str(e), exc_info=True,
+                company_id,
+                shadow_log_id,
+                str(e),
+                exc_info=True,
             )
             return {
                 "success": False,

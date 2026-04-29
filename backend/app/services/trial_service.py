@@ -65,18 +65,20 @@ class _TrialService:
 
             if not subscription:
                 raise TrialError(
-                    f"No subscription found for company {company_id} (TRIAL-001)")
+                    f"No subscription found for company {company_id} (TRIAL-001)"
+                )
 
             now = datetime.now(timezone.utc)
 
             # Check if trial already active
-            if getattr(
-                subscription,
-                "trial_ends_at",
-                    None) and subscription.trial_ends_at > now:
+            if (
+                getattr(subscription, "trial_ends_at", None)
+                and subscription.trial_ends_at > now
+            ):
                 raise TrialAlreadyActiveError(
                     f"Trial already active for company {company_id}. " f"Ends at {
-                        subscription.trial_ends_at.isoformat()} (TRIAL-002)")
+                        subscription.trial_ends_at.isoformat()} (TRIAL-002)"
+                )
 
             trial_ends = now + timedelta(days=trial_days)
 
@@ -169,7 +171,8 @@ class _TrialService:
 
             if not subscription:
                 raise TrialError(
-                    f"No subscription found for company {company_id} (TRIAL-003)")
+                    f"No subscription found for company {company_id} (TRIAL-003)"
+                )
 
             now = datetime.now(timezone.utc)
             trial_ends = getattr(subscription, "trial_ends_at", None)
@@ -215,11 +218,15 @@ class _TrialService:
             for days_before in REMINDER_DAYS:
                 target_date = now + timedelta(days=days_before)
 
-                subscriptions = db.query(Subscription).filter(
-                    Subscription.trial_ends_at.isnot(None),
-                    Subscription.trial_ends_at <= target_date,
-                    Subscription.status == "active",
-                ).all()
+                subscriptions = (
+                    db.query(Subscription)
+                    .filter(
+                        Subscription.trial_ends_at.isnot(None),
+                        Subscription.trial_ends_at <= target_date,
+                        Subscription.status == "active",
+                    )
+                    .all()
+                )
 
                 for sub in subscriptions:
                     if days_before == 0:
@@ -227,9 +234,7 @@ class _TrialService:
                     elif days_before == 1:
                         subject = "Your PARWA trial ends tomorrow"
                     else:
-                        subject = (
-                            f"Your PARWA trial ends in {days_before} days"
-                        )
+                        subject = f"Your PARWA trial ends in {days_before} days"
 
                     logger.info(
                         "trial_reminder company_id=%s days_remaining=%s subject='%s'",
@@ -253,11 +258,15 @@ class _TrialService:
         expired_count = 0
 
         with SessionLocal() as db:
-            expired_subs = db.query(Subscription).filter(
-                Subscription.trial_ends_at.isnot(None),
-                Subscription.trial_ends_at < now,
-                Subscription.status == "active",
-            ).all()
+            expired_subs = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.trial_ends_at.isnot(None),
+                    Subscription.trial_ends_at < now,
+                    Subscription.status == "active",
+                )
+                .all()
+            )
 
             for sub in expired_subs:
                 sub.status = "trial_expired"

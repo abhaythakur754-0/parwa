@@ -26,6 +26,7 @@ def _mock_logger_and_lock():
     # holds self._lock then calls _get_rapid_count which also acquires it.
     with patch("app.logger.get_logger", return_value=MagicMock()):
         import app.services.anti_arbitrage_service as _svc_mod
+
         _orig_lock = _svc_mod.threading.Lock
         _svc_mod.threading.Lock = _svc_mod.threading.RLock
         try:
@@ -39,6 +40,7 @@ def _mock_logger_and_lock():
                 CapacityCheck as _CapacityCheck,
                 ArbitrageAlert as _ArbitrageAlert,
             )
+
             globals()["AntiArbitrageService"] = _AntiArbitrageService
             globals()["AntiArbitrageError"] = _AntiArbitrageError
             globals()["AntiArbitrageConfig"] = _AntiArbitrageConfig
@@ -174,9 +176,11 @@ class TestConfig:
             max_weighted_capacity=5.0,
             capacity_weights={"mini_parwa": 1.0},
             ticket_limits={"mini_parwa": 500},
-            alert_thresholds={"rapid_instance_creation": 1,
-                              "capacity_threshold_pct": 50,
-                              "critical_threshold_pct": 90},
+            alert_thresholds={
+                "rapid_instance_creation": 1,
+                "capacity_threshold_pct": 50,
+                "critical_threshold_pct": 90,
+            },
         )
         assert cfg.max_instances_per_variant == 3
         assert cfg.max_weighted_capacity == 5.0
@@ -244,6 +248,7 @@ class TestDataclasses:
 
     def test_variant_instance_is_dataclass(self):
         from dataclasses import is_dataclass
+
         assert is_dataclass(VariantInstance)
 
     # -- CapacityCheck --
@@ -318,6 +323,7 @@ class TestDataclasses:
 
     def test_capacity_check_is_dataclass(self):
         from dataclasses import is_dataclass
+
         assert is_dataclass(CapacityCheck)
 
     # -- ArbitrageAlert --
@@ -385,6 +391,7 @@ class TestDataclasses:
 
     def test_alert_is_dataclass(self):
         from dataclasses import is_dataclass
+
         assert is_dataclass(ArbitrageAlert)
 
 
@@ -501,9 +508,7 @@ class TestRegisterInstance:
         svc.reset("company")
         result = svc.register_instance("company", "inst-1", "parwa_high")
         # parwa_high weight=7.5, max=7.5 → 100% ≥ 80% threshold → FLAGGED
-        assert result.action in (
-            InstanceAction.ALLOWED,
-            InstanceAction.FLAGGED)
+        assert result.action in (InstanceAction.ALLOWED, InstanceAction.FLAGGED)
 
     def test_register_increases_instance_count(self):
         svc = AntiArbitrageService(config=self._make_config())
@@ -557,7 +562,7 @@ class TestRegisterInstance:
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         svc.register_instance("company", "inst-1", "mini_parwa")  # 1.0
-        svc.register_instance("company", "inst-2", "parwa")       # 3.5
+        svc.register_instance("company", "inst-2", "parwa")  # 3.5
         cap = svc.calculate_weighted_capacity("company")
         assert cap == pytest.approx(3.5)
 
@@ -636,14 +641,8 @@ class TestRemoveInstance:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {
-                "mini_parwa": 1.0,
-                "parwa": 2.5,
-                "parwa_high": 7.5},
-            "ticket_limits": {
-                "mini_parwa": 2000,
-                "parwa": 5000,
-                "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -682,12 +681,10 @@ class TestRemoveInstance:
         for i in range(5):
             svc.register_instance("company", f"inst-{i}", "mini_parwa")
         # 6th should be flagged (6.0/7.5 = 80%)
-        result_flagged = svc.register_instance(
-            "company", "inst-5", "mini_parwa")
+        result_flagged = svc.register_instance("company", "inst-5", "mini_parwa")
         assert result_flagged.action == InstanceAction.FLAGGED
         # 7th should be flagged too (7.0/7.5 = 93.3%)
-        result_flagged2 = svc.register_instance(
-            "company", "inst-6", "mini_parwa")
+        result_flagged2 = svc.register_instance("company", "inst-6", "mini_parwa")
         assert result_flagged2.action == InstanceAction.FLAGGED
         # Remove one
         svc.remove_instance("company", "inst-0")
@@ -700,8 +697,7 @@ class TestRemoveInstance:
             svc.register_instance("company", f"inst-{i}", "mini_parwa")
         svc.remove_instance("company", "inst-0")
         # Now 4 instances = 4.0/7.5 = 53.3% → allowed
-        result_allowed = svc.register_instance(
-            "company", "inst-new", "mini_parwa")
+        result_allowed = svc.register_instance("company", "inst-new", "mini_parwa")
         assert result_allowed.action == InstanceAction.ALLOWED
 
     def test_remove_invalid_company_id_raises(self):
@@ -748,14 +744,8 @@ class TestCapacityCalculation:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {
-                "mini_parwa": 1.0,
-                "parwa": 2.5,
-                "parwa_high": 7.5},
-            "ticket_limits": {
-                "mini_parwa": 2000,
-                "parwa": 5000,
-                "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -799,7 +789,7 @@ class TestCapacityCalculation:
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         svc.register_instance("company", "inst-1", "mini_parwa")  # 1.0
-        svc.register_instance("company", "inst-2", "parwa")       # 3.5
+        svc.register_instance("company", "inst-2", "parwa")  # 3.5
         svc.register_instance("company", "inst-3", "mini_parwa")  # 4.5
         assert svc.calculate_weighted_capacity("company") == pytest.approx(4.5)
 
@@ -807,7 +797,7 @@ class TestCapacityCalculation:
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         svc.register_instance("company", "inst-1", "mini_parwa")  # 1.0
-        svc.register_instance("company", "inst-2", "parwa")       # 3.5
+        svc.register_instance("company", "inst-2", "parwa")  # 3.5
         svc.register_instance("company", "inst-3", "parwa_high")  # 11.0
         # parwa_high alone exceeds 7.5 capacity, so inst-3 is blocked
         cap = svc.calculate_weighted_capacity("company")
@@ -848,14 +838,8 @@ class TestW9GAP014:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {
-                "mini_parwa": 1.0,
-                "parwa": 2.5,
-                "parwa_high": 7.5},
-            "ticket_limits": {
-                "mini_parwa": 2000,
-                "parwa": 5000,
-                "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -870,8 +854,7 @@ class TestW9GAP014:
         svc.reset("company")
         # First 5 are ALLOWED (< 80%), 6th and 7th are FLAGGED
         for i in range(5):
-            result = svc.register_instance(
-                "company", f"inst-{i}", "mini_parwa")
+            result = svc.register_instance("company", f"inst-{i}", "mini_parwa")
             assert result.action == InstanceAction.ALLOWED, f"Failed at i={i}"
         # 6th: 6.0/7.5 = 80% → FLAGGED
         r6 = svc.register_instance("company", "inst-5", "mini_parwa")
@@ -897,9 +880,8 @@ class TestW9GAP014:
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         svc.register_instance(
-            "company",
-            "inst-1",
-            "parwa_high")  # 7.5 — exactly at limit
+            "company", "inst-1", "parwa_high"
+        )  # 7.5 — exactly at limit
         # parwa_high exactly equals max_weighted_capacity (7.5), allowed
         cap = svc.calculate_weighted_capacity("company")
         assert cap == 7.5
@@ -980,14 +962,8 @@ class TestW9GAP025:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {
-                "mini_parwa": 1.0,
-                "parwa": 2.5,
-                "parwa_high": 7.5},
-            "ticket_limits": {
-                "mini_parwa": 2000,
-                "parwa": 5000,
-                "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -1003,9 +979,10 @@ class TestW9GAP025:
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         for i in range(5):
-            result = svc.register_instance(
-                "company", f"inst-{i}", "mini_parwa")
-            assert result.action == InstanceAction.ALLOWED, f"inst-{i} should be allowed"
+            result = svc.register_instance("company", f"inst-{i}", "mini_parwa")
+            assert (
+                result.action == InstanceAction.ALLOWED
+            ), f"inst-{i} should be allowed"
         # 6th and 7th are flagged (80% and 93.3%)
         r6 = svc.register_instance("company", "inst-5", "mini_parwa")
         assert r6.action == InstanceAction.FLAGGED
@@ -1021,9 +998,10 @@ class TestW9GAP025:
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         for i in range(5):
-            result = svc.register_instance(
-                "company", f"inst-{i}", "mini_parwa")
-            assert result.action == InstanceAction.ALLOWED, f"inst-{i} should be allowed"
+            result = svc.register_instance("company", f"inst-{i}", "mini_parwa")
+            assert (
+                result.action == InstanceAction.ALLOWED
+            ), f"inst-{i} should be allowed"
         # 6th: 80% → FLAGGED (not blocked)
         r6 = svc.register_instance("company", "inst-5", "mini_parwa")
         assert r6.action in (InstanceAction.FLAGGED, InstanceAction.ALLOWED)
@@ -1042,8 +1020,8 @@ class TestW9GAP025:
         cfg.alert_thresholds["critical_threshold_pct"] = 101
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa")       # 2.5
-        svc.register_instance("company", "inst-2", "parwa")       # 5.0
+        svc.register_instance("company", "inst-1", "parwa")  # 2.5
+        svc.register_instance("company", "inst-2", "parwa")  # 5.0
         svc.register_instance("company", "inst-3", "mini_parwa")  # 6.0
         r4 = svc.register_instance("company", "inst-4", "mini_parwa")  # 7.0
         assert r4.action == InstanceAction.ALLOWED
@@ -1086,8 +1064,7 @@ class TestW9GAP025:
         allowed_count = 0
         blocked_count = 0
         for i in range(10):
-            result = svc.register_instance(
-                "company", f"inst-{i}", "mini_parwa")
+            result = svc.register_instance("company", f"inst-{i}", "mini_parwa")
             if result.action == InstanceAction.ALLOWED:
                 allowed_count += 1
             elif result.action == InstanceAction.BLOCKED:
@@ -1108,19 +1085,17 @@ class TestW9GAP025:
         assert result.action in (
             InstanceAction.FLAGGED,
             InstanceAction.BLOCKED,
-            InstanceAction.ALLOWED)
+            InstanceAction.ALLOWED,
+        )
         if result.action != InstanceAction.BLOCKED:
             result2 = svc.register_instance("company", "inst-2", "mini_parwa")
             assert result2.action == InstanceAction.BLOCKED
 
     def test_custom_max_capacity_allows_more(self):
-        svc = AntiArbitrageService(
-            config=self._make_config(
-                max_weighted_capacity=15.0))
+        svc = AntiArbitrageService(config=self._make_config(max_weighted_capacity=15.0))
         svc.reset("company")
         for i in range(10):
-            result = svc.register_instance(
-                "company", f"inst-{i}", "mini_parwa")
+            result = svc.register_instance("company", f"inst-{i}", "mini_parwa")
             assert result.action == InstanceAction.ALLOWED
 
 
@@ -1136,14 +1111,8 @@ class TestSuspiciousPatterns:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {
-                "mini_parwa": 1.0,
-                "parwa": 2.5,
-                "parwa_high": 7.5},
-            "ticket_limits": {
-                "mini_parwa": 2000,
-                "parwa": 5000,
-                "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 3,
                 "capacity_threshold_pct": 80,
@@ -1171,8 +1140,7 @@ class TestSuspiciousPatterns:
         svc.register_instance("company", "inst-2", "mini_parwa")
         svc.register_instance("company", "inst-3", "mini_parwa")
         alerts = svc.detect_suspicious_patterns("company")
-        rapid_alerts = [a for a in alerts if a.alert_type
-                        == "rapid_instance_creation"]
+        rapid_alerts = [a for a in alerts if a.alert_type == "rapid_instance_creation"]
         assert len(rapid_alerts) == 1
         assert rapid_alerts[0].level == ArbitrageAlertLevel.HIGH
 
@@ -1186,8 +1154,7 @@ class TestSuspiciousPatterns:
         for i in range(7):
             svc.register_instance("company", f"inst-{i}", "mini_parwa")
         alerts = svc.detect_suspicious_patterns("company")
-        gaming_alerts = [
-            a for a in alerts if a.alert_type == "capacity_gaming"]
+        gaming_alerts = [a for a in alerts if a.alert_type == "capacity_gaming"]
         assert len(gaming_alerts) == 1
         assert gaming_alerts[0].level == ArbitrageAlertLevel.MEDIUM
 
@@ -1198,15 +1165,11 @@ class TestSuspiciousPatterns:
         cfg.alert_thresholds["critical_threshold_pct"] = 95
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa")       # 2.5
-        svc.register_instance("company", "inst-2", "parwa")       # 5.0
-        svc.register_instance(
-            "company",
-            "inst-3",
-            "parwa")       # 7.5 = 100% >= 95%
+        svc.register_instance("company", "inst-1", "parwa")  # 2.5
+        svc.register_instance("company", "inst-2", "parwa")  # 5.0
+        svc.register_instance("company", "inst-3", "parwa")  # 7.5 = 100% >= 95%
         alerts = svc.detect_suspicious_patterns("company")
-        gaming_alerts = [
-            a for a in alerts if a.alert_type == "capacity_gaming"]
+        gaming_alerts = [a for a in alerts if a.alert_type == "capacity_gaming"]
         assert len(gaming_alerts) == 1
         assert gaming_alerts[0].level == ArbitrageAlertLevel.CRITICAL
 
@@ -1220,8 +1183,7 @@ class TestSuspiciousPatterns:
         for i in range(5):
             svc.register_instance("company", f"inst-{i}", "mini_parwa")
         alerts = svc.detect_suspicious_patterns("company")
-        hoarding = [a for a in alerts if a.alert_type
-                    == "single_variant_hoarding"]
+        hoarding = [a for a in alerts if a.alert_type == "single_variant_hoarding"]
         assert len(hoarding) == 1
         assert hoarding[0].level == ArbitrageAlertLevel.HIGH
 
@@ -1243,8 +1205,7 @@ class TestSuspiciousPatterns:
         for i in range(5):
             svc2.register_instance("company", f"inst-{i}", "parwa")
         alerts = svc2.detect_suspicious_patterns("company")
-        hoarding = [a for a in alerts if a.alert_type
-                    == "single_variant_hoarding"]
+        hoarding = [a for a in alerts if a.alert_type == "single_variant_hoarding"]
         assert len(hoarding) == 0
 
     def test_multiple_alert_types_simultaneously(self):
@@ -1280,8 +1241,7 @@ class TestSuspiciousPatterns:
         for i in range(4):
             svc.register_instance("company", f"inst-{i}", "mini_parwa")
         alerts = svc.detect_suspicious_patterns("company")
-        hoarding = [a for a in alerts if a.alert_type
-                    == "single_variant_hoarding"]
+        hoarding = [a for a in alerts if a.alert_type == "single_variant_hoarding"]
         assert len(hoarding) == 0
 
 
@@ -1297,14 +1257,8 @@ class TestAlerts:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {
-                "mini_parwa": 1.0,
-                "parwa": 2.5,
-                "parwa_high": 7.5},
-            "ticket_limits": {
-                "mini_parwa": 2000,
-                "parwa": 5000,
-                "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -1351,16 +1305,8 @@ class TestAlerts:
     def test_get_alerts_unresolved_only(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        a1 = svc._create_alert(
-            "company",
-            ArbitrageAlertLevel.HIGH,
-            "test",
-            "alert 1")
-        a2 = svc._create_alert(
-            "company",
-            ArbitrageAlertLevel.MEDIUM,
-            "test",
-            "alert 2")
+        a1 = svc._create_alert("company", ArbitrageAlertLevel.HIGH, "test", "alert 1")
+        a2 = svc._create_alert("company", ArbitrageAlertLevel.MEDIUM, "test", "alert 2")
         svc.resolve_alert("company", a1.alert_id)
         unresolved = svc.get_alerts("company", unresolved_only=True)
         assert len(unresolved) == 1
@@ -1369,11 +1315,7 @@ class TestAlerts:
     def test_get_alerts_all_includes_resolved(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        a1 = svc._create_alert(
-            "company",
-            ArbitrageAlertLevel.HIGH,
-            "test",
-            "alert 1")
+        a1 = svc._create_alert("company", ArbitrageAlertLevel.HIGH, "test", "alert 1")
         svc.resolve_alert("company", a1.alert_id)
         all_alerts = svc.get_alerts("company", unresolved_only=False)
         assert len(all_alerts) == 1
@@ -1382,8 +1324,7 @@ class TestAlerts:
     def test_resolve_alert_returns_true(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        alert = svc._create_alert(
-            "company", ArbitrageAlertLevel.LOW, "test", "desc")
+        alert = svc._create_alert("company", ArbitrageAlertLevel.LOW, "test", "desc")
         result = svc.resolve_alert("company", alert.alert_id)
         assert result is True
 
@@ -1396,8 +1337,7 @@ class TestAlerts:
     def test_resolve_alert_marks_resolved(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        alert = svc._create_alert(
-            "company", ArbitrageAlertLevel.HIGH, "test", "desc")
+        alert = svc._create_alert("company", ArbitrageAlertLevel.HIGH, "test", "desc")
         assert alert.resolved is False
         svc.resolve_alert("company", alert.alert_id)
         assert alert.resolved is True
@@ -1406,11 +1346,7 @@ class TestAlerts:
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         svc._create_alert("company", ArbitrageAlertLevel.LOW, "test", "first")
-        svc._create_alert(
-            "company",
-            ArbitrageAlertLevel.HIGH,
-            "test",
-            "second")
+        svc._create_alert("company", ArbitrageAlertLevel.HIGH, "test", "second")
         alerts = svc.get_alerts("company")
         # Most recent first
         assert alerts[0].description == "second"
@@ -1454,14 +1390,8 @@ class TestInstanceSummary:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {
-                "mini_parwa": 1.0,
-                "parwa": 2.5,
-                "parwa_high": 7.5},
-            "ticket_limits": {
-                "mini_parwa": 2000,
-                "parwa": 5000,
-                "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -1510,10 +1440,7 @@ class TestInstanceSummary:
     def test_summary_utilisation_pct(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance(
-            "company",
-            "inst-1",
-            "parwa")  # 2.5 / 7.5 = 33.33%
+        svc.register_instance("company", "inst-1", "parwa")  # 2.5 / 7.5 = 33.33%
         summary = svc.get_instance_summary("company")
         assert summary["utilisation_pct"] == pytest.approx(33.33, abs=0.01)
 
@@ -1576,14 +1503,8 @@ class TestBC008:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {
-                "mini_parwa": 1.0,
-                "parwa": 2.5,
-                "parwa_high": 7.5},
-            "ticket_limits": {
-                "mini_parwa": 2000,
-                "parwa": 5000,
-                "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -1603,7 +1524,9 @@ class TestBC008:
     def test_check_capacity_graceful_on_error(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        with patch.object(svc, "calculate_weighted_capacity", side_effect=RuntimeError("boom")):
+        with patch.object(
+            svc, "calculate_weighted_capacity", side_effect=RuntimeError("boom")
+        ):
             result = svc.check_capacity("company")
         assert isinstance(result, CapacityCheck)
         assert result.action == InstanceAction.ALLOWED
@@ -1612,7 +1535,9 @@ class TestBC008:
     def test_register_instance_graceful_on_error(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        with patch.object(svc, "check_instance_creation_allowed", side_effect=RuntimeError("boom")):
+        with patch.object(
+            svc, "check_instance_creation_allowed", side_effect=RuntimeError("boom")
+        ):
             result = svc.register_instance("company", "inst-1", "mini_parwa")
         assert isinstance(result, CapacityCheck)
         assert result.action == InstanceAction.ALLOWED
@@ -1634,7 +1559,11 @@ class TestBC008:
     def test_get_alerts_graceful_on_error(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        with patch.object(svc, "_alerts", new_callable=lambda: MagicMock(side_effect=RuntimeError("boom"))):
+        with patch.object(
+            svc,
+            "_alerts",
+            new_callable=lambda: MagicMock(side_effect=RuntimeError("boom")),
+        ):
             # Use a direct attribute mock approach
             svc._alerts = None  # type: ignore[assignment]
             result = svc.get_alerts("company")
@@ -1643,7 +1572,11 @@ class TestBC008:
     def test_resolve_alert_graceful_on_error(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        with patch.object(svc, "_alerts", new_callable=lambda: MagicMock(side_effect=RuntimeError("boom"))):
+        with patch.object(
+            svc,
+            "_alerts",
+            new_callable=lambda: MagicMock(side_effect=RuntimeError("boom")),
+        ):
             svc._alerts = None  # type: ignore[assignment]
             result = svc.resolve_alert("company", "alert-1")
         assert result is False
@@ -1651,7 +1584,9 @@ class TestBC008:
     def test_get_instance_summary_graceful_on_error(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        with patch.object(svc, "calculate_weighted_capacity", side_effect=RuntimeError("boom")):
+        with patch.object(
+            svc, "calculate_weighted_capacity", side_effect=RuntimeError("boom")
+        ):
             result = svc.get_instance_summary("company")
         assert isinstance(result, dict)
         assert result["total_instances"] == 0
@@ -1680,14 +1615,8 @@ class TestEdgeCases:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {
-                "mini_parwa": 1.0,
-                "parwa": 2.5,
-                "parwa_high": 7.5},
-            "ticket_limits": {
-                "mini_parwa": 2000,
-                "parwa": 5000,
-                "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -1752,8 +1681,7 @@ class TestEdgeCases:
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
         for i in range(50):
-            result = svc.register_instance(
-                "company", f"inst-{i}", "parwa_high")
+            result = svc.register_instance("company", f"inst-{i}", "parwa_high")
             assert result.action == InstanceAction.ALLOWED, f"inst-{i}: {
                 result.action.value} - {
                 result.reason}"
@@ -1840,7 +1768,8 @@ class TestEdgeCases:
         svc.reset("company")
         svc.register_instance("company", "inst-1", "parwa_high")  # 7.5
         result = svc.register_instance(
-            "company", "inst-2", "mini_parwa")  # would be 8.5
+            "company", "inst-2", "mini_parwa"
+        )  # would be 8.5
         assert result.action == InstanceAction.BLOCKED
 
     def test_check_capacity_returns_allowed_when_empty(self):
@@ -1866,10 +1795,7 @@ class TestEdgeCases:
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
         for i in range(6):
-            svc.register_instance(
-                "company",
-                f"inst-{i}",
-                "mini_parwa")  # 6.0 = 80%
+            svc.register_instance("company", f"inst-{i}", "mini_parwa")  # 6.0 = 80%
         result = svc.check_capacity("company")
         assert result.action == InstanceAction.FLAGGED
 
@@ -1886,6 +1812,7 @@ class TestEdgeCases:
 
         def failing_config():
             raise RuntimeError("boom")
+
         svc.get_variant_config = failing_config
         # BC-008: should not crash. But since we replaced the method,
         # calling it will raise. The BC-008 is in the original implementation.
@@ -1908,14 +1835,8 @@ class TestRapidCreationTracking:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {
-                "mini_parwa": 1.0,
-                "parwa": 2.5,
-                "parwa_high": 7.5},
-            "ticket_limits": {
-                "mini_parwa": 2000,
-                "parwa": 5000,
-                "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 3,
                 "capacity_threshold_pct": 80,
@@ -1990,14 +1911,8 @@ class TestRedisFallbacks:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {
-                "mini_parwa": 1.0,
-                "parwa": 2.5,
-                "parwa_high": 7.5},
-            "ticket_limits": {
-                "mini_parwa": 2000,
-                "parwa": 5000,
-                "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -2075,14 +1990,8 @@ class TestCheckCapacityDetail:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {
-                "mini_parwa": 1.0,
-                "parwa": 2.5,
-                "parwa_high": 7.5},
-            "ticket_limits": {
-                "mini_parwa": 2000,
-                "parwa": 5000,
-                "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -2110,8 +2019,8 @@ class TestCheckCapacityDetail:
 
     def test_check_capacity_max_instances_from_config(self):
         svc = AntiArbitrageService(
-            config=self._make_config(
-                max_instances_per_variant=5))
+            config=self._make_config(max_instances_per_variant=5)
+        )
         svc.reset("company")
         result = svc.check_capacity("company")
         assert result.max_instances == 5
@@ -2137,10 +2046,7 @@ class TestCheckCapacityDetail:
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
         for i in range(6):
-            svc.register_instance(
-                "company",
-                f"inst-{i}",
-                "mini_parwa")  # 6.0 = 80%
+            svc.register_instance("company", f"inst-{i}", "mini_parwa")  # 6.0 = 80%
         result = svc.check_capacity("company")
         assert "alert threshold" in result.reason
 
@@ -2150,6 +2056,7 @@ class TestAntiArbitrageError:
 
     def test_error_is_parwa_base_error(self):
         from app.exceptions import ParwaBaseError
+
         err = AntiArbitrageError(
             error_code="TEST",
             message="test message",

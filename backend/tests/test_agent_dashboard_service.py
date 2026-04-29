@@ -31,10 +31,10 @@ from app.services.agent_dashboard_service import (
     _RESUME_ALLOWED_FROM,
 )
 
-
 # ══════════════════════════════════════════════════════════════════
 # FIXTURES
 # ══════════════════════════════════════════════════════════════════
+
 
 @pytest.fixture
 def company_id():
@@ -87,6 +87,7 @@ def _make_mock_agent(
 # CONSTANTS TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestConstants:
     def test_sparkline_days(self):
         assert SPARKLINE_DAYS == 14
@@ -101,6 +102,7 @@ class TestConstants:
 # ══════════════════════════════════════════════════════════════════
 # SERVICE FACTORY TESTS
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestServiceFactory:
     def test_get_service_cached(self, company_id):
@@ -122,22 +124,23 @@ class TestServiceFactory:
 # GET AGENT STATUS COUNTS TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestGetAgentStatusCounts:
     def test_counts_empty_tenant(self, service, mock_db):
-        mock_db.query.return_value.filter.return_value \
-            .group_by.return_value.all.return_value = []
+        mock_db.query.return_value.filter.return_value.group_by.return_value.all.return_value = (
+            []
+        )
         counts = service.get_agent_status_counts(mock_db)
         assert counts["total"] == 0
         assert counts["active"] == 0
 
     def test_counts_mixed_statuses(self, service, mock_db):
-        mock_db.query.return_value.filter.return_value \
-            .group_by.return_value.all.return_value = [
-                ("active", 3),
-                ("training", 1),
-                ("paused", 2),
-                ("error", 1),
-            ]
+        mock_db.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+            ("active", 3),
+            ("training", 1),
+            ("paused", 2),
+            ("error", 1),
+        ]
         counts = service.get_agent_status_counts(mock_db)
         assert counts["total"] == 7
         assert counts["active"] == 3
@@ -146,11 +149,10 @@ class TestGetAgentStatusCounts:
         assert counts["error"] == 1
 
     def test_initializing_maps_to_cold_start(self, service, mock_db):
-        mock_db.query.return_value.filter.return_value \
-            .group_by.return_value.all.return_value = [
-                ("initializing", 2),
-                ("active", 1),
-            ]
+        mock_db.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+            ("initializing", 2),
+            ("active", 1),
+        ]
         counts = service.get_agent_status_counts(mock_db)
         assert counts["cold_start"] == 2
         assert counts["active"] == 1
@@ -167,13 +169,16 @@ class TestGetAgentStatusCounts:
 # GET AGENT CARDS TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestGetAgentCards:
     def test_returns_cards_and_counts(self, service, mock_db):
         agent = _make_mock_agent()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.all.return_value = [agent]
-        mock_db.query.return_value.filter.return_value \
-            .group_by.return_value.all.return_value = [("active", 1)]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [
+            agent
+        ]
+        mock_db.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+            ("active", 1)
+        ]
 
         result = service.get_agent_cards(mock_db)
         assert "cards" in result
@@ -183,10 +188,12 @@ class TestGetAgentCards:
 
     def test_excludes_deprovisioned(self, service, mock_db):
         agent = _make_mock_agent()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.all.return_value = [agent]
-        mock_db.query.return_value.filter.return_value \
-            .group_by.return_value.all.return_value = [("active", 1)]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [
+            agent
+        ]
+        mock_db.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+            ("active", 1)
+        ]
 
         result = service.get_agent_cards(mock_db)
         # Verify that the filter excludes deprovisioned agents
@@ -209,10 +216,12 @@ class TestGetAgentCards:
         assert len(result["cards"]) == 1
 
     def test_empty_result(self, service, mock_db):
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.all.return_value = []
-        mock_db.query.return_value.filter.return_value \
-            .group_by.return_value.all.return_value = []
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = (
+            []
+        )
+        mock_db.query.return_value.filter.return_value.group_by.return_value.all.return_value = (
+            []
+        )
 
         result = service.get_agent_cards(mock_db)
         assert len(result["cards"]) == 0
@@ -227,10 +236,12 @@ class TestGetAgentCards:
 
     def test_card_has_required_fields(self, service, mock_db):
         agent = _make_mock_agent()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.all.return_value = [agent]
-        mock_db.query.return_value.filter.return_value \
-            .group_by.return_value.all.return_value = [("active", 1)]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [
+            agent
+        ]
+        mock_db.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+            ("active", 1)
+        ]
 
         result = service.get_agent_cards(mock_db)
         card = result["cards"][0]
@@ -245,10 +256,12 @@ class TestGetAgentCards:
 
     def test_initializing_shows_cold_start(self, service, mock_db):
         agent = _make_mock_agent(status="initializing")
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.all.return_value = [agent]
-        mock_db.query.return_value.filter.return_value \
-            .group_by.return_value.all.return_value = [("initializing", 1)]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [
+            agent
+        ]
+        mock_db.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+            ("initializing", 1)
+        ]
 
         result = service.get_agent_cards(mock_db)
         assert result["cards"][0]["status"] == "cold_start"
@@ -258,13 +271,15 @@ class TestGetAgentCards:
 # GET AGENT CARD DETAIL TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestGetAgentCard:
     def test_returns_enriched_card(self, service, mock_db):
         agent = _make_mock_agent()
         mock_db.query.return_value.filter.return_value.first.return_value = agent
         # Mock InstructionSet query
-        mock_db.query.return_value.filter.return_value \
-            .filter.return_value.filter.return_value.first.return_value = None
+        mock_db.query.return_value.filter.return_value.filter.return_value.filter.return_value.first.return_value = (
+            None
+        )
 
         result = service.get_agent_card("agent-123", mock_db)
         assert result["id"] == "agent-123"
@@ -302,19 +317,24 @@ class TestGetAgentCard:
 # REALTIME METRICS TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestRealtimeMetrics:
     def test_returns_metrics_with_timestamp(self, service, mock_db):
         agent = _make_mock_agent()
         mock_db.query.return_value.filter.return_value.first.return_value = agent
 
-        with patch.object(service, "_compute_metrics", return_value={
-            "resolution_rate": 85.5,
-            "csat_avg": 4.2,
-            "avg_confidence": 92.0,
-            "escalation_rate": 5.0,
-            "avg_handling_time": 12.3,
-            "tickets_handled_24h": 42,
-        }):
+        with patch.object(
+            service,
+            "_compute_metrics",
+            return_value={
+                "resolution_rate": 85.5,
+                "csat_avg": 4.2,
+                "avg_confidence": 92.0,
+                "escalation_rate": 5.0,
+                "avg_handling_time": 12.3,
+                "tickets_handled_24h": 42,
+            },
+        ):
             result = service.get_agent_realtime_metrics("agent-123", mock_db)
 
         assert result["agent_id"] == "agent-123"
@@ -333,14 +353,14 @@ class TestRealtimeMetrics:
 # PAUSE AGENT TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestPauseAgent:
     def test_pause_active_agent(self, service, mock_db):
         agent = _make_mock_agent(status="active")
         mock_db.query.return_value.filter.return_value.first.return_value = agent
 
         with patch.object(service, "_emit_status_change"):
-            result = service.pause_agent(
-                "agent-123", mock_db, user_id="user-1")
+            result = service.pause_agent("agent-123", mock_db, user_id="user-1")
 
         assert result["previous_status"] == "active"
         assert result["new_status"] == "paused"
@@ -388,14 +408,14 @@ class TestPauseAgent:
 # RESUME AGENT TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestResumeAgent:
     def test_resume_paused_agent(self, service, mock_db):
         agent = _make_mock_agent(status="paused")
         mock_db.query.return_value.filter.return_value.first.return_value = agent
 
         with patch.object(service, "_emit_status_change"):
-            result = service.resume_agent(
-                "agent-123", mock_db, user_id="user-1")
+            result = service.resume_agent("agent-123", mock_db, user_id="user-1")
 
         assert result["previous_status"] == "paused"
         assert result["new_status"] == "active"
@@ -442,6 +462,7 @@ class TestResumeAgent:
 # METRICS COMPUTATION TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestMetricsComputation:
     def test_non_active_returns_none_metrics(self, service, mock_db):
         agent = _make_mock_agent(status="training")
@@ -466,12 +487,15 @@ class TestMetricsComputation:
         agent = _make_mock_agent(status="active")
         # Mock all queries to return 0
         mock_scalar = MagicMock(return_value=0)
-        mock_db.query.return_value.join.return_value.filter.return_value \
-            .scalar.return_value = mock_scalar
-        mock_db.query.return_value.join.return_value.join.return_value \
-            .filter.return_value.scalar.return_value = None
-        mock_db.query.return_value.join.return_value.join.return_value \
-            .filter.return_value.all.return_value = []
+        mock_db.query.return_value.join.return_value.filter.return_value.scalar.return_value = (
+            mock_scalar
+        )
+        mock_db.query.return_value.join.return_value.join.return_value.filter.return_value.scalar.return_value = (
+            None
+        )
+        mock_db.query.return_value.join.return_value.join.return_value.filter.return_value.all.return_value = (
+            []
+        )
 
         metrics = service._compute_metrics(agent, mock_db)
         assert metrics["resolution_rate"] is None
@@ -491,19 +515,22 @@ class TestMetricsComputation:
 # SPARKLINE TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestSparkline:
     def test_returns_14_points(self, service, mock_db):
         agent = _make_mock_agent()
-        mock_db.query.return_value.join.return_value.filter.return_value \
-            .scalar.return_value = 0
+        mock_db.query.return_value.join.return_value.filter.return_value.scalar.return_value = (
+            0
+        )
 
         sparkline = service._compute_sparkline(agent, mock_db)
         assert len(sparkline) == 14
 
     def test_all_zeros_when_no_data(self, service, mock_db):
         agent = _make_mock_agent()
-        mock_db.query.return_value.join.return_value.filter.return_value \
-            .scalar.return_value = 0
+        mock_db.query.return_value.join.return_value.filter.return_value.scalar.return_value = (
+            0
+        )
 
         sparkline = service._compute_sparkline(agent, mock_db)
         assert all(v == 0.0 for v in sparkline)
@@ -520,6 +547,7 @@ class TestSparkline:
 # ══════════════════════════════════════════════════════════════════
 # QUICK ACTIONS TESTS
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestQuickActions:
     def test_active_agent_has_pause_allowed(self, service):
@@ -563,9 +591,7 @@ class TestQuickActions:
         assert resume["allowed"] is False
 
     def test_retrain_allowed_with_checkpoint(self, service):
-        agent = _make_mock_agent(
-            status="active",
-            model_checkpoint_id="ckpt-abc")
+        agent = _make_mock_agent(status="active", model_checkpoint_id="ckpt-abc")
         actions = service._compute_quick_actions(agent)
 
         retrain = next(a for a in actions if a["action"] == "retrain")
@@ -597,6 +623,7 @@ class TestQuickActions:
 # SOCKET.IO EMISSION TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestSocketEmission:
     def test_emit_status_change_calls_emit(self, service):
         # Patch at the source module — emit_to_tenant is imported lazily
@@ -612,7 +639,9 @@ class TestSocketEmission:
 
     def test_emit_failure_does_not_raise(self, service):
         """BC-005: Socket.io failure must never break the caller."""
-        with patch("app.core.socketio.emit_to_tenant", side_effect=Exception("Socket error")):
+        with patch(
+            "app.core.socketio.emit_to_tenant", side_effect=Exception("Socket error")
+        ):
             # Should not raise — the method wraps Socket.io in try/except
             service._emit_status_change(
                 agent_id="agent-123",
@@ -625,11 +654,13 @@ class TestSocketEmission:
 # CARD BUILDER TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestCardBuilder:
     def test_card_structure(self, service, mock_db):
         agent = _make_mock_agent()
-        mock_db.query.return_value.join.return_value.filter.return_value \
-            .scalar.return_value = 0
+        mock_db.query.return_value.join.return_value.filter.return_value.scalar.return_value = (
+            0
+        )
 
         card = service._build_agent_card(agent, mock_db)
         assert card["id"] == "agent-123"
@@ -643,8 +674,9 @@ class TestCardBuilder:
 
     def test_card_activated_at(self, service, mock_db):
         agent = _make_mock_agent()
-        mock_db.query.return_value.join.return_value.filter.return_value \
-            .scalar.return_value = 0
+        mock_db.query.return_value.join.return_value.filter.return_value.scalar.return_value = (
+            0
+        )
 
         card = service._build_agent_card(agent, mock_db)
         assert card["activated_at"] is not None
@@ -654,10 +686,10 @@ class TestCardBuilder:
 # JSON PARSER TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestJsonParser:
     def test_valid_json(self):
-        assert AgentDashboardService._parse_json(
-            '{"key": "value"}') == {"key": "value"}
+        assert AgentDashboardService._parse_json('{"key": "value"}') == {"key": "value"}
 
     def test_none_returns_empty(self):
         assert AgentDashboardService._parse_json(None) == {}

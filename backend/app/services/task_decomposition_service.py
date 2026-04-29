@@ -23,19 +23,24 @@ from app.exceptions import (
     NotFoundError,
 )
 
-
 # ══════════════════════════════════════════════════════════════════
 # CONSTANTS
 # ══════════════════════════════════════════════════════════════════
 
 VALID_SUBTASK_STATUSES = {
-    "pending", "in_progress", "blocked",
-    "completed", "skipped",
+    "pending",
+    "in_progress",
+    "blocked",
+    "completed",
+    "skipped",
 }
 
 DEFAULT_JSON_PATH = os.path.join(
     os.path.dirname(__file__),
-    "..", "..", "..", "..",
+    "..",
+    "..",
+    "..",
+    "..",
     "documents",
     "phase3_task_decomposition.json",
 )
@@ -46,6 +51,7 @@ _DATA_KEY = "decompositions"
 # ══════════════════════════════════════════════════════════════════
 # DATA CLASSES
 # ══════════════════════════════════════════════════════════════════
+
 
 @dataclass
 class SubTask:
@@ -115,6 +121,7 @@ class TaskDecomposition:
 # VALIDATION HELPERS
 # ══════════════════════════════════════════════════════════════════
 
+
 def _validate_feature_id(feature_id: str) -> None:
     """Validate feature_id is non-empty."""
     if not feature_id or not isinstance(feature_id, str):
@@ -135,9 +142,7 @@ def _validate_feature_name(feature_name: str) -> None:
         or not feature_name.strip()
     ):
         raise ValidationError(
-            message=(
-                "feature_name is required and cannot be empty"
-            ),
+            message=("feature_name is required and cannot be empty"),
         )
 
 
@@ -156,50 +161,31 @@ def _validate_sub_tasks(
     for i, st in enumerate(sub_tasks):
         if not isinstance(st, dict):
             raise ValidationError(
-                message=(
-                    f"sub_tasks[{i}] must be a dict"
-                ),
+                message=(f"sub_tasks[{i}] must be a dict"),
             )
         # task_id
         if "task_id" not in st:
             raise ValidationError(
-                message=(
-                    f"sub_tasks[{i}] missing 'task_id'"
-                ),
+                message=(f"sub_tasks[{i}] missing 'task_id'"),
             )
         tid = st["task_id"]
-        if (
-            not isinstance(tid, str) or not tid.strip()
-        ):
+        if not isinstance(tid, str) or not tid.strip():
             raise ValidationError(
-                message=(
-                    f"sub_tasks[{i}] task_id must be a "
-                    "non-empty string"
-                ),
+                message=(f"sub_tasks[{i}] task_id must be a " "non-empty string"),
             )
         if tid in seen_ids:
             raise ValidationError(
-                message=(
-                    f"Duplicate task_id '{tid}' in sub_tasks"
-                ),
+                message=(f"Duplicate task_id '{tid}' in sub_tasks"),
             )
         seen_ids.add(tid)
         # name
         if "name" not in st:
             raise ValidationError(
-                message=(
-                    f"sub_tasks[{i}] missing 'name'"
-                ),
+                message=(f"sub_tasks[{i}] missing 'name'"),
             )
-        if (
-            not isinstance(st["name"], str)
-            or not st["name"].strip()
-        ):
+        if not isinstance(st["name"], str) or not st["name"].strip():
             raise ValidationError(
-                message=(
-                    f"sub_tasks[{i}] name must be a "
-                    "non-empty string"
-                ),
+                message=(f"sub_tasks[{i}] name must be a " "non-empty string"),
             )
         # estimate_hours
         hours = st.get("estimate_hours", 0)
@@ -207,36 +193,23 @@ def _validate_sub_tasks(
             h = float(hours)
             if h < 0:
                 raise ValidationError(
-                    message=(
-                        f"sub_tasks[{i}] estimate_hours "
-                        "cannot be negative"
-                    ),
+                    message=(f"sub_tasks[{i}] estimate_hours " "cannot be negative"),
                 )
         except (TypeError, ValueError):
             raise ValidationError(
-                message=(
-                    f"sub_tasks[{i}] estimate_hours must "
-                    "be a number"
-                ),
+                message=(f"sub_tasks[{i}] estimate_hours must " "be a number"),
             )
         # dependencies
         deps = st.get("dependencies", [])
         if not isinstance(deps, list):
             raise ValidationError(
-                message=(
-                    f"sub_tasks[{i}] dependencies must be "
-                    "a list"
-                ),
+                message=(f"sub_tasks[{i}] dependencies must be " "a list"),
             )
         for dep in deps:
-            if (
-                not isinstance(dep, str)
-                or not dep.strip()
-            ):
+            if not isinstance(dep, str) or not dep.strip():
                 raise ValidationError(
                     message=(
-                        f"sub_tasks[{i}] each dependency "
-                        "must be a non-empty string"
+                        f"sub_tasks[{i}] each dependency " "must be a non-empty string"
                     ),
                 )
         # status
@@ -253,9 +226,7 @@ def _validate_sub_tasks(
         agent = st.get("agent", "")
         if not isinstance(agent, str):
             raise ValidationError(
-                message=(
-                    f"sub_tasks[{i}] agent must be a string"
-                ),
+                message=(f"sub_tasks[{i}] agent must be a string"),
             )
 
 
@@ -285,10 +256,7 @@ def _validate_task_id(task_id: str) -> None:
 def _validate_agent_name(agent_name: Optional[str]) -> None:
     """Validate agent_name filter (can be None for no filter)."""
     if agent_name is not None:
-        if (
-            not isinstance(agent_name, str)
-            or not agent_name.strip()
-        ):
+        if not isinstance(agent_name, str) or not agent_name.strip():
             raise ValidationError(
                 message="agent_name must be a non-empty string",
             )
@@ -297,6 +265,7 @@ def _validate_agent_name(agent_name: Optional[str]) -> None:
 # ══════════════════════════════════════════════════════════════════
 # SERVICE CLASS
 # ══════════════════════════════════════════════════════════════════
+
 
 class TaskDecompositionService:
     """
@@ -335,9 +304,7 @@ class TaskDecompositionService:
                 return
             for fid, fdata in data.items():
                 if isinstance(fdata, dict):
-                    self._decompositions[fid] = (
-                        TaskDecomposition.from_dict(fdata)
-                    )
+                    self._decompositions[fid] = TaskDecomposition.from_dict(fdata)
         except (json.JSONDecodeError, OSError, KeyError):
             self._decompositions = {}
 
@@ -347,10 +314,7 @@ class TaskDecompositionService:
         parent = os.path.dirname(self._json_path)
         if parent:
             os.makedirs(parent, exist_ok=True)
-        data = {
-            fid: decomp.to_dict()
-            for fid, decomp in self._decompositions.items()
-        }
+        data = {fid: decomp.to_dict() for fid, decomp in self._decompositions.items()}
         with open(self._json_path, "w") as f:
             json.dump({_DATA_KEY: data}, f, indent=2)
 
@@ -404,8 +368,10 @@ class TaskDecompositionService:
                         st.get("estimate_hours", 0),
                     ),
                     dependencies=[
-                        d.strip() for d in st.get(
-                            "dependencies", [],
+                        d.strip()
+                        for d in st.get(
+                            "dependencies",
+                            [],
                         )
                     ],
                     agent=st.get("agent", "").strip(),
@@ -418,7 +384,8 @@ class TaskDecompositionService:
         return decomp
 
     def get_decomposition(
-        self, feature_id: str,
+        self,
+        feature_id: str,
     ) -> Optional[TaskDecomposition]:
         """
         Get a feature's decomposition.
@@ -504,9 +471,7 @@ class TaskDecompositionService:
         decomp = self._decompositions.get(fid)
         if decomp is None:
             raise NotFoundError(
-                message=(
-                    f"Feature '{fid}' not found"
-                ),
+                message=(f"Feature '{fid}' not found"),
             )
 
         for st in decomp.sub_tasks:
@@ -515,10 +480,7 @@ class TaskDecompositionService:
                 return st
 
         raise NotFoundError(
-            message=(
-                f"Sub-task '{tid}' not found in feature "
-                f"'{fid}'"
-            ),
+            message=(f"Sub-task '{tid}' not found in feature " f"'{fid}'"),
         )
 
     def get_agent_workload(self, agent_name: str) -> dict:
@@ -547,9 +509,7 @@ class TaskDecompositionService:
         status_counts: dict[str, int] = {}
         total_hours = 0.0
         for st in sub_tasks:
-            status_counts[st.status] = (
-                status_counts.get(st.status, 0) + 1
-            )
+            status_counts[st.status] = status_counts.get(st.status, 0) + 1
             total_hours += st.estimate_hours
 
         return {
@@ -590,15 +550,17 @@ class TaskDecompositionService:
                         unmet.append(dep_id)
 
                 if unmet or st.status == "blocked":
-                    blocked.append({
-                        "feature_id": decomp.feature_id,
-                        "feature_name": decomp.feature_name,
-                        "task_id": st.task_id,
-                        "task_name": st.name,
-                        "agent": st.agent,
-                        "status": st.status,
-                        "unmet_dependencies": unmet,
-                    })
+                    blocked.append(
+                        {
+                            "feature_id": decomp.feature_id,
+                            "feature_name": decomp.feature_name,
+                            "task_id": st.task_id,
+                            "task_name": st.name,
+                            "agent": st.agent,
+                            "status": st.status,
+                            "unmet_dependencies": unmet,
+                        }
+                    )
 
         return blocked
 
@@ -658,26 +620,31 @@ class TaskDecompositionService:
                     f_completed / max(f_total, 1) * 100,
                     1,
                 )
-                if f_total > 0 else 0.0
+                if f_total > 0
+                else 0.0
             )
-            feature_breakdown.append({
-                "feature_id": decomp.feature_id,
-                "feature_name": decomp.feature_name,
-                "total_tasks": f_total,
-                "completed_tasks": f_completed,
-                "completion_pct": feat_pct,
-                "total_hours": round(f_hours, 2),
-                "completed_hours": round(
-                    f_completed_hours, 2,
-                ),
-            })
+            feature_breakdown.append(
+                {
+                    "feature_id": decomp.feature_id,
+                    "feature_name": decomp.feature_name,
+                    "total_tasks": f_total,
+                    "completed_tasks": f_completed,
+                    "completion_pct": feat_pct,
+                    "total_hours": round(f_hours, 2),
+                    "completed_hours": round(
+                        f_completed_hours,
+                        2,
+                    ),
+                }
+            )
 
         overall_pct = (
             round(
                 completed / max(total_sub_tasks, 1) * 100,
                 1,
             )
-            if total_sub_tasks > 0 else 0.0
+            if total_sub_tasks > 0
+            else 0.0
         )
 
         return {
@@ -689,7 +656,8 @@ class TaskDecompositionService:
             "in_progress_sub_tasks": in_progress,
             "skipped_sub_tasks": skipped,
             "total_estimated_hours": round(
-                total_hours, 2,
+                total_hours,
+                2,
             ),
             "completed_hours": round(completed_hours, 2),
             "completion_pct": overall_pct,
@@ -707,9 +675,7 @@ class TaskDecompositionService:
         """
         result: dict[str, list[str]] = {}
         for decomp in self._decompositions.values():
-            result[decomp.feature_id] = [
-                st.task_id for st in decomp.sub_tasks
-            ]
+            result[decomp.feature_id] = [st.task_id for st in decomp.sub_tasks]
         return result
 
     def get_task_feature_map(self) -> dict[str, str]:
@@ -726,7 +692,8 @@ class TaskDecompositionService:
         return result
 
     def delete_decomposition(
-        self, feature_id: str,
+        self,
+        feature_id: str,
     ) -> TaskDecomposition:
         """
         Delete a feature's decomposition.
@@ -746,8 +713,6 @@ class TaskDecompositionService:
         decomp = self._decompositions.pop(fid, None)
         if decomp is None:
             raise NotFoundError(
-                message=(
-                    f"Feature '{fid}' not found"
-                ),
+                message=(f"Feature '{fid}' not found"),
             )
         return decomp

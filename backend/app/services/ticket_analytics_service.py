@@ -36,6 +36,7 @@ logger = get_logger("ticket_analytics")
 
 class IntervalType(str, Enum):
     """Time interval types for trend analysis."""
+
     HOUR = "hour"
     DAY = "day"
     WEEK = "week"
@@ -45,6 +46,7 @@ class IntervalType(str, Enum):
 @dataclass
 class DateRange:
     """Date range filter for analytics queries."""
+
     start_date: datetime
     end_date: datetime
 
@@ -80,6 +82,7 @@ class DateRange:
 @dataclass
 class TicketSummary:
     """Summary statistics for tickets."""
+
     total_tickets: int = 0
     open_tickets: int = 0
     in_progress_tickets: int = 0
@@ -107,6 +110,7 @@ class TicketSummary:
 @dataclass
 class TrendPoint:
     """A single point in a trend series."""
+
     timestamp: datetime
     count: int
     label: str
@@ -115,6 +119,7 @@ class TrendPoint:
 @dataclass
 class CategoryDistribution:
     """Category distribution data."""
+
     category: str
     count: int
     percentage: float
@@ -123,6 +128,7 @@ class CategoryDistribution:
 @dataclass
 class SLAMetrics:
     """SLA performance metrics."""
+
     total_tickets_with_sla: int = 0
     breached_count: int = 0
     approaching_count: int = 0
@@ -136,6 +142,7 @@ class SLAMetrics:
 @dataclass
 class AgentMetrics:
     """Per-agent performance metrics."""
+
     agent_id: str
     agent_name: Optional[str] = None
     tickets_assigned: int = 0
@@ -155,9 +162,7 @@ class TicketAnalyticsService:
         self.db = db
         self.company_id = company_id
 
-    def get_summary(
-            self,
-            date_range: Optional[DateRange] = None) -> TicketSummary:
+    def get_summary(self, date_range: Optional[DateRange] = None) -> TicketSummary:
         """Get summary statistics for tickets.
 
         Args:
@@ -166,9 +171,7 @@ class TicketAnalyticsService:
         Returns:
             TicketSummary with counts and rates
         """
-        query = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id
-        )
+        query = self.db.query(Ticket).filter(Ticket.company_id == self.company_id)
 
         if date_range:
             query = query.filter(
@@ -185,8 +188,7 @@ class TicketAnalyticsService:
             status_counts[status.value] = 0
 
         for ticket in tickets:
-            status_counts[ticket.status] = status_counts.get(
-                ticket.status, 0) + 1
+            status_counts[ticket.status] = status_counts.get(ticket.status, 0) + 1
 
         # Count by priority
         priority_counts = {}
@@ -194,8 +196,9 @@ class TicketAnalyticsService:
             priority_counts[priority.value] = 0
 
         for ticket in tickets:
-            priority_counts[ticket.priority] = priority_counts.get(
-                ticket.priority, 0) + 1
+            priority_counts[ticket.priority] = (
+                priority_counts.get(ticket.priority, 0) + 1
+            )
 
         total = len(tickets)
         resolved_count = status_counts.get(TicketStatus.resolved.value, 0)
@@ -216,8 +219,12 @@ class TicketAnalyticsService:
             in_progress_tickets=status_counts.get(TicketStatus.in_progress.value, 0),
             resolved_tickets=resolved_count,
             closed_tickets=closed_count,
-            awaiting_client_tickets=status_counts.get(TicketStatus.awaiting_client.value, 0),
-            awaiting_human_tickets=status_counts.get(TicketStatus.awaiting_human.value, 0),
+            awaiting_client_tickets=status_counts.get(
+                TicketStatus.awaiting_client.value, 0
+            ),
+            awaiting_human_tickets=status_counts.get(
+                TicketStatus.awaiting_human.value, 0
+            ),
             critical_tickets=priority_counts.get(TicketPriority.critical.value, 0),
             high_tickets=priority_counts.get(TicketPriority.high.value, 0),
             medium_tickets=priority_counts.get(TicketPriority.medium.value, 0),
@@ -271,11 +278,13 @@ class TicketAnalyticsService:
             key = current.strftime(time_format)
             label = self._format_label(current, interval)
 
-            trends.append(TrendPoint(
-                timestamp=current,
-                count=groups.get(key, 0),
-                label=label,
-            ))
+            trends.append(
+                TrendPoint(
+                    timestamp=current,
+                    count=groups.get(key, 0),
+                    label=label,
+                )
+            )
 
             current = self._increment_by_interval(current, interval)
 
@@ -293,9 +302,7 @@ class TicketAnalyticsService:
         Returns:
             List of CategoryDistribution objects
         """
-        query = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id
-        )
+        query = self.db.query(Ticket).filter(Ticket.company_id == self.company_id)
 
         if date_range:
             query = query.filter(
@@ -304,10 +311,14 @@ class TicketAnalyticsService:
             )
 
         # Group by category
-        result = query.with_entities(
-            Ticket.category,
-            func.count(Ticket.id).label("count"),
-        ).group_by(Ticket.category).all()
+        result = (
+            query.with_entities(
+                Ticket.category,
+                func.count(Ticket.id).label("count"),
+            )
+            .group_by(Ticket.category)
+            .all()
+        )
 
         total = sum(row.count for row in result if row.category)
 
@@ -315,11 +326,13 @@ class TicketAnalyticsService:
         for row in result:
             if row.category:
                 percentage = (row.count / total * 100) if total > 0 else 0
-                distributions.append(CategoryDistribution(
-                    category=row.category,
-                    count=row.count,
-                    percentage=round(percentage, 1),
-                ))
+                distributions.append(
+                    CategoryDistribution(
+                        category=row.category,
+                        count=row.count,
+                        percentage=round(percentage, 1),
+                    )
+                )
 
         # Sort by count descending
         distributions.sort(key=lambda x: x.count, reverse=True)
@@ -338,9 +351,7 @@ class TicketAnalyticsService:
         Returns:
             SLAMetrics with compliance and timing data
         """
-        query = self.db.query(SLATimer).filter(
-            SLATimer.company_id == self.company_id
-        )
+        query = self.db.query(SLATimer).filter(SLATimer.company_id == self.company_id)
 
         if date_range:
             query = query.filter(
@@ -364,8 +375,7 @@ class TicketAnalyticsService:
         first_response_times = []
         for t in timers:
             if t.first_response_at and t.created_at:
-                minutes = (t.first_response_at
-                           - t.created_at).total_seconds() / 60
+                minutes = (t.first_response_at - t.created_at).total_seconds() / 60
                 first_response_times.append(minutes)
 
         resolution_times = []
@@ -385,11 +395,13 @@ class TicketAnalyticsService:
             compliance_rate=1.0 - (breached_count / total) if total > 0 else 1.0,
             avg_first_response_minutes=(
                 sum(first_response_times) / len(first_response_times)
-                if first_response_times else None
+                if first_response_times
+                else None
             ),
             avg_resolution_minutes=(
                 sum(resolution_times) / len(resolution_times)
-                if resolution_times else None
+                if resolution_times
+                else None
             ),
         )
 
@@ -457,23 +469,27 @@ class TicketAnalyticsService:
                 continue
 
             if ticket.status in [
-                    TicketStatus.resolved.value,
-                    TicketStatus.closed.value]:
+                TicketStatus.resolved.value,
+                TicketStatus.closed.value,
+            ]:
                 agent_data[agent_id]["resolved"].add(ticket.id)
             else:
                 agent_data[agent_id]["open"].add(ticket.id)
 
         # Get CSAT data
-        csat_query = self.db.query(
-            Ticket.assigned_to,
-            func.avg(TicketFeedback.rating).label("avg_rating"),
-            func.count(TicketFeedback.id).label("count"),
-        ).join(
-            TicketFeedback, Ticket.id == TicketFeedback.ticket_id
-        ).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.assigned_to.in_(agent_data.keys()),
-        ).group_by(Ticket.assigned_to)
+        csat_query = (
+            self.db.query(
+                Ticket.assigned_to,
+                func.avg(TicketFeedback.rating).label("avg_rating"),
+                func.count(TicketFeedback.id).label("count"),
+            )
+            .join(TicketFeedback, Ticket.id == TicketFeedback.ticket_id)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.assigned_to.in_(agent_data.keys()),
+            )
+            .group_by(Ticket.assigned_to)
+        )
 
         if date_range:
             csat_query = csat_query.filter(
@@ -482,9 +498,8 @@ class TicketAnalyticsService:
             )
 
         csat_data = {
-            row.assigned_to: (
-                row.avg_rating,
-                row.count) for row in csat_query.all()}
+            row.assigned_to: (row.avg_rating, row.count) for row in csat_query.all()
+        }
 
         # Get user names
         user_ids = list(agent_data.keys())
@@ -502,16 +517,18 @@ class TicketAnalyticsService:
 
             csat_avg, csat_count = csat_data.get(agent_id, (None, 0))
 
-            metrics.append(AgentMetrics(
-                agent_id=agent_id,
-                agent_name=user_names.get(agent_id),
-                tickets_assigned=assigned,
-                tickets_resolved=resolved_count,
-                tickets_open=open_count,
-                resolution_rate=resolution_rate,
-                csat_avg=round(float(csat_avg), 2) if csat_avg else None,
-                csat_count=csat_count,
-            ))
+            metrics.append(
+                AgentMetrics(
+                    agent_id=agent_id,
+                    agent_name=user_names.get(agent_id),
+                    tickets_assigned=assigned,
+                    tickets_resolved=resolved_count,
+                    tickets_open=open_count,
+                    resolution_rate=resolution_rate,
+                    csat_avg=round(float(csat_avg), 2) if csat_avg else None,
+                    csat_count=csat_count,
+                )
+            )
 
         # Sort by tickets resolved descending
         metrics.sort(key=lambda x: x.tickets_resolved, reverse=True)
@@ -520,26 +537,26 @@ class TicketAnalyticsService:
 
     # ── Helper Methods ─────────────────────────────────────────────────────
 
-    def _calculate_avg_resolution_time(
-            self, tickets: List[Ticket]) -> Optional[float]:
+    def _calculate_avg_resolution_time(self, tickets: List[Ticket]) -> Optional[float]:
         """Calculate average resolution time in hours."""
         times = []
         for ticket in tickets:
             if ticket.closed_at and ticket.created_at:
-                hours = (
-                    ticket.closed_at - ticket.created_at).total_seconds() / 3600
+                hours = (ticket.closed_at - ticket.created_at).total_seconds() / 3600
                 times.append(hours)
 
         return sum(times) / len(times) if times else None
 
     def _calculate_avg_first_response_time(
-            self, tickets: List[Ticket]) -> Optional[float]:
+        self, tickets: List[Ticket]
+    ) -> Optional[float]:
         """Calculate average first response time in hours."""
         times = []
         for ticket in tickets:
             if ticket.first_response_at and ticket.created_at:
-                hours = (ticket.first_response_at
-                         - ticket.created_at).total_seconds() / 3600
+                hours = (
+                    ticket.first_response_at - ticket.created_at
+                ).total_seconds() / 3600
                 times.append(hours)
 
         return sum(times) / len(times) if times else None
@@ -564,10 +581,7 @@ class TicketAnalyticsService:
         }
         return labels[interval]
 
-    def _increment_by_interval(
-            self,
-            dt: datetime,
-            interval: IntervalType) -> datetime:
+    def _increment_by_interval(self, dt: datetime, interval: IntervalType) -> datetime:
         """Increment datetime by interval."""
         deltas = {
             IntervalType.HOUR: timedelta(hours=1),

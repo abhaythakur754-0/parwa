@@ -26,7 +26,10 @@ logger = logging.getLogger("parwa.tasks")
 )
 @with_company_id
 def send_welcome_email_task(
-    self, company_id: str, user_email: str, user_name: str,
+    self,
+    company_id: str,
+    user_email: str,
+    user_name: str,
 ) -> dict:
     """Send welcome email to a new user (BC-006 skeleton).
 
@@ -62,7 +65,10 @@ def send_welcome_email_task(
 )
 @with_company_id
 def process_webhook_task(
-    self, company_id: str, event_type: str, payload: dict,
+    self,
+    company_id: str,
+    event_type: str,
+    payload: dict,
 ) -> dict:
     """Process an incoming webhook event (BC-003 skeleton).
 
@@ -98,7 +104,9 @@ def process_webhook_task(
 )
 @with_company_id
 def calculate_analytics_task(
-    self, company_id: str, metric_type: str,
+    self,
+    company_id: str,
+    metric_type: str,
 ) -> dict:
     """Calculate analytics for a company (skeleton).
 

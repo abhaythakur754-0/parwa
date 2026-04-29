@@ -62,20 +62,23 @@ def upgrade() -> None:
         "ix_email_delivery_events_event_type", "email_delivery_events", ["event_type"]
     )
     op.create_index(
-        "ix_delivery_company_event", "email_delivery_events", ["company_id", "event_type"]
+        "ix_delivery_company_event",
+        "email_delivery_events",
+        ["company_id", "event_type"],
     )
     op.create_index(
         "ix_delivery_recipient", "email_delivery_events", ["recipient_email"]
     )
     op.create_index(
-        "ix_delivery_brevo_event", "email_delivery_events", ["brevo_event_id"], unique=True
+        "ix_delivery_brevo_event",
+        "email_delivery_events",
+        ["brevo_event_id"],
+        unique=True,
     )
     op.create_index(
         "ix_delivery_outbound", "email_delivery_events", ["outbound_email_id"]
     )
-    op.create_index(
-        "ix_delivery_processed", "email_delivery_events", ["is_processed"]
-    )
+    op.create_index("ix_delivery_processed", "email_delivery_events", ["is_processed"])
     op.create_index(
         "ix_delivery_next_retry", "email_delivery_events", ["next_retry_at"]
     )

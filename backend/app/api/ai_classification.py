@@ -29,12 +29,8 @@ router = APIRouter(
 class ClassifyRequest(BaseModel):
     text: str = Field(..., min_length=1, description="Text to classify")
     company_id: str = Field(..., description="Tenant company ID")
-    variant_type: str = Field(
-        default="parwa",
-        description="PARWA variant type")
-    use_ai: bool = Field(
-        default=True,
-        description="Use AI classification if available")
+    variant_type: str = Field(default="parwa", description="PARWA variant type")
+    use_ai: bool = Field(default=True, description="Use AI classification if available")
 
 
 class BatchClassifyRequest(BaseModel):
@@ -54,6 +50,7 @@ def _get_engine():
     global _engine
     if _engine is None:
         from app.core.classification_engine import ClassificationEngine
+
         _engine = ClassificationEngine()
     return _engine
 
@@ -62,6 +59,7 @@ def _get_mapper():
     global _mapper
     if _mapper is None:
         from app.services.intent_technique_mapper import IntentTechniqueMapper
+
         _mapper = IntentTechniqueMapper()
     return _mapper
 
@@ -83,8 +81,7 @@ async def classify_text(req: ClassifyRequest) -> Dict[str, Any]:
         "primary_intent": result.primary_intent,
         "primary_confidence": result.primary_confidence,
         "secondary_intents": [
-            {"intent": i, "confidence": c}
-            for i, c in result.secondary_intents
+            {"intent": i, "confidence": c} for i, c in result.secondary_intents
         ],
         "all_scores": result.all_scores,
         "classification_method": result.classification_method,
@@ -97,6 +94,7 @@ async def classify_text(req: ClassifyRequest) -> Dict[str, Any]:
 async def list_intents() -> Dict[str, Any]:
     """List all supported intent types."""
     from app.core.classification_engine import IntentType
+
     intents = [t.value for t in IntentType]
     return {"intents": intents, "count": len(intents)}
 
@@ -113,16 +111,17 @@ async def batch_classify(req: BatchClassifyRequest) -> Dict[str, Any]:
             variant_type=req.variant_type,
             use_ai=req.use_ai,
         )
-        results.append({
-            "text": text[:100],
-            "primary_intent": result.primary_intent,
-            "primary_confidence": result.primary_confidence,
-            "secondary_intents": [
-                {"intent": i, "confidence": c}
-                for i, c in result.secondary_intents
-            ],
-            "classification_method": result.classification_method,
-        })
+        results.append(
+            {
+                "text": text[:100],
+                "primary_intent": result.primary_intent,
+                "primary_confidence": result.primary_confidence,
+                "secondary_intents": [
+                    {"intent": i, "confidence": c} for i, c in result.secondary_intents
+                ],
+                "classification_method": result.classification_method,
+            }
+        )
     return {"results": results, "count": len(results)}
 
 
@@ -155,21 +154,18 @@ async def get_all_mappings(
     if variant_type:
         filtered = {}
         for intent, mapping in all_mappings.items():
-            result = mapper.map_intent(
-                intent=intent, variant_type=variant_type)
+            result = mapper.map_intent(intent=intent, variant_type=variant_type)
             filtered[intent] = {
-                "selected_techniques": [
-                    t.value for t in result.selected_techniques],
-                "selected_tiers": [
-                    t.value for t in result.selected_tiers],
+                "selected_techniques": [t.value for t in result.selected_techniques],
+                "selected_tiers": [t.value for t in result.selected_tiers],
                 "fallback_applied": result.fallback_applied,
-                "blocked_count": len(
-                    result.blocked_techniques),
+                "blocked_count": len(result.blocked_techniques),
             }
         return {
             "mappings": filtered,
             "variant_type": variant_type,
-            "count": len(filtered)}
+            "count": len(filtered),
+        }
 
     return {
         "mappings": {
@@ -196,8 +192,7 @@ async def list_prompt_templates(
     registry = PromptTemplateRegistry()
 
     if intent and response_type:
-        template = registry.get_template(
-            intent, response_type, variant_type or "parwa")
+        template = registry.get_template(intent, response_type, variant_type or "parwa")
         if not template:
             raise HTTPException(status_code=404, detail="Template not found")
         return {
@@ -215,12 +210,8 @@ async def list_prompt_templates(
     if intent:
         templates = [t for t in templates if t["intent"] == intent]
     if response_type:
-        templates = [
-            t for t in templates if t["response_type"] == response_type]
+        templates = [t for t in templates if t["response_type"] == response_type]
     if variant_type:
-        templates = [
-            t for t in templates
-            if variant_type in t["variant_access"]
-        ]
+        templates = [t for t in templates if variant_type in t["variant_access"]]
 
     return {"templates": templates, "count": len(templates)}

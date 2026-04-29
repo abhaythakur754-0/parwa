@@ -22,8 +22,7 @@ class EnterpriseBillingService:
     def enable_manual_billing(self, company_id: str) -> Dict[str, Any]:
         """Set billing_method='manual'."""
         with SessionLocal() as db:
-            company = db.query(Company).filter(
-                Company.id == company_id).first()
+            company = db.query(Company).filter(Company.id == company_id).first()
             if not company:
                 raise EnterpriseBillingError("Company not found")
 
@@ -45,8 +44,7 @@ class EnterpriseBillingService:
     ) -> Dict[str, Any]:
         """Admin creates manual invoice."""
         with SessionLocal() as db:
-            company = db.query(Company).filter(
-                Company.id == company_id).first()
+            company = db.query(Company).filter(Company.id == company_id).first()
             if not company:
                 raise EnterpriseBillingError("Company not found")
 
@@ -74,8 +72,7 @@ class EnterpriseBillingService:
     def mark_invoice_paid(self, invoice_id: str) -> Dict[str, Any]:
         """Admin marks PO received."""
         with SessionLocal() as db:
-            invoice = db.query(Invoice).filter(
-                Invoice.id == invoice_id).first()
+            invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
             if not invoice:
                 raise EnterpriseBillingError("Invoice not found")
 
@@ -92,8 +89,7 @@ class EnterpriseBillingService:
     def get_enterprise_billing_status(self, company_id: str) -> Dict[str, Any]:
         """Return billing method and status."""
         with SessionLocal() as db:
-            company = db.query(Company).filter(
-                Company.id == company_id).first()
+            company = db.query(Company).filter(Company.id == company_id).first()
             if not company:
                 return {"status": "not_found"}
 

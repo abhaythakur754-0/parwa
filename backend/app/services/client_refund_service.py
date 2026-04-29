@@ -120,20 +120,20 @@ class ClientRefundService:
             ClientRefundNotFoundError: Refund not found or access denied
         """
         with SessionLocal() as db:
-            refund = db.query(ClientRefund).filter(
-                ClientRefund.id == refund_id,
-            ).first()
+            refund = (
+                db.query(ClientRefund)
+                .filter(
+                    ClientRefund.id == refund_id,
+                )
+                .first()
+            )
 
             if not refund:
-                raise ClientRefundNotFoundError(
-                    f"Refund request {refund_id} not found"
-                )
+                raise ClientRefundNotFoundError(f"Refund request {refund_id} not found")
 
             # BC-001: Validate company_id
             if refund.company_id != str(company_id):
-                raise ClientRefundNotFoundError(
-                    "Refund request not found"
-                )
+                raise ClientRefundNotFoundError("Refund request not found")
 
             return self._to_dict(refund)
 
@@ -168,9 +168,14 @@ class ClientRefundService:
                 query = query.filter(ClientRefund.status == status)
 
             total = query.count()
-            refunds = query.order_by(
-                desc(ClientRefund.created_at),
-            ).offset(offset).limit(page_size).all()
+            refunds = (
+                query.order_by(
+                    desc(ClientRefund.created_at),
+                )
+                .offset(offset)
+                .limit(page_size)
+                .all()
+            )
 
             return {
                 "refunds": [self._to_dict(r) for r in refunds],
@@ -207,15 +212,17 @@ class ClientRefundService:
             ClientRefundError: Refund not in pending status
         """
         with SessionLocal() as db:
-            refund = db.query(ClientRefund).filter(
-                ClientRefund.id == refund_id,
-                ClientRefund.company_id == str(company_id),
-            ).first()
+            refund = (
+                db.query(ClientRefund)
+                .filter(
+                    ClientRefund.id == refund_id,
+                    ClientRefund.company_id == str(company_id),
+                )
+                .first()
+            )
 
             if not refund:
-                raise ClientRefundNotFoundError(
-                    f"Refund request {refund_id} not found"
-                )
+                raise ClientRefundNotFoundError(f"Refund request {refund_id} not found")
 
             if refund.status != "pending":
                 raise ClientRefundError(
@@ -255,15 +262,17 @@ class ClientRefundService:
             Updated refund request dict
         """
         with SessionLocal() as db:
-            refund = db.query(ClientRefund).filter(
-                ClientRefund.id == refund_id,
-                ClientRefund.company_id == str(company_id),
-            ).first()
+            refund = (
+                db.query(ClientRefund)
+                .filter(
+                    ClientRefund.id == refund_id,
+                    ClientRefund.company_id == str(company_id),
+                )
+                .first()
+            )
 
             if not refund:
-                raise ClientRefundNotFoundError(
-                    f"Refund request {refund_id} not found"
-                )
+                raise ClientRefundNotFoundError(f"Refund request {refund_id} not found")
 
             refund.status = "failed"
             # Could add failure_reason column if needed
@@ -296,15 +305,17 @@ class ClientRefundService:
             Updated refund request dict
         """
         with SessionLocal() as db:
-            refund = db.query(ClientRefund).filter(
-                ClientRefund.id == refund_id,
-                ClientRefund.company_id == str(company_id),
-            ).first()
+            refund = (
+                db.query(ClientRefund)
+                .filter(
+                    ClientRefund.id == refund_id,
+                    ClientRefund.company_id == str(company_id),
+                )
+                .first()
+            )
 
             if not refund:
-                raise ClientRefundNotFoundError(
-                    f"Refund request {refund_id} not found"
-                )
+                raise ClientRefundNotFoundError(f"Refund request {refund_id} not found")
 
             if refund.status != "pending":
                 raise ClientRefundError(
@@ -344,10 +355,15 @@ class ClientRefundService:
         cutoff = datetime.now(timezone.utc) - timedelta(days=months * 30)
 
         with SessionLocal() as db:
-            refunds = db.query(ClientRefund).filter(
-                ClientRefund.company_id == str(company_id),
-                ClientRefund.created_at >= cutoff,
-            ).order_by(desc(ClientRefund.created_at)).all()
+            refunds = (
+                db.query(ClientRefund)
+                .filter(
+                    ClientRefund.company_id == str(company_id),
+                    ClientRefund.created_at >= cutoff,
+                )
+                .order_by(desc(ClientRefund.created_at))
+                .all()
+            )
 
             return [self._to_dict(r) for r in refunds]
 
@@ -365,15 +381,18 @@ class ClientRefundService:
             Stats dict with counts and totals
         """
         with SessionLocal() as db:
-            refunds = db.query(ClientRefund).filter(
-                ClientRefund.company_id == str(company_id),
-            ).all()
+            refunds = (
+                db.query(ClientRefund)
+                .filter(
+                    ClientRefund.company_id == str(company_id),
+                )
+                .all()
+            )
 
             total_count = len(refunds)
             total_amount = sum(r.amount or Decimal("0") for r in refunds)
             pending_count = sum(1 for r in refunds if r.status == "pending")
-            processed_count = sum(
-                1 for r in refunds if r.status == "processed")
+            processed_count = sum(1 for r in refunds if r.status == "processed")
             failed_count = sum(1 for r in refunds if r.status == "failed")
 
             return {
@@ -390,12 +409,13 @@ class ClientRefundService:
             "id": refund.id,
             "company_id": refund.company_id,
             "ticket_id": refund.ticket_id,
-            "amount": str(
-                refund.amount) if refund.amount else "0.00",
+            "amount": str(refund.amount) if refund.amount else "0.00",
             "currency": refund.currency or "USD",
             "reason": refund.reason or "",
             "status": refund.status,
-            "processed_at": refund.processed_at.isoformat() if refund.processed_at else None,
+            "processed_at": (
+                refund.processed_at.isoformat() if refund.processed_at else None
+            ),
             "created_at": refund.created_at.isoformat() if refund.created_at else None,
             "updated_at": refund.updated_at.isoformat() if refund.updated_at else None,
         }

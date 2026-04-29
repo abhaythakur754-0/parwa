@@ -25,13 +25,13 @@ MAX_ATTEMPTS = 5
 
 def _hash_code(code: str) -> str:
     """Hash an OTP code using SHA-256."""
-    return hashlib.sha256(
-        code.encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256(code.encode("utf-8")).hexdigest()
 
 
 def send_otp(
-    db: Session, phone_number: str, company_id: str,
+    db: Session,
+    phone_number: str,
+    company_id: str,
 ) -> dict:
     """Send an OTP code to the given phone number.
 
@@ -72,17 +72,19 @@ def send_otp(
     if os.environ.get("ENVIRONMENT") != "test":
         try:
             from app.config import get_settings
+
             settings = get_settings()
             if settings.TWILIO_ACCOUNT_SID:
                 success = _send_via_twilio(
-                    phone_number, code, settings,
+                    phone_number,
+                    code,
+                    settings,
                 )
                 if not success:
                     # L22: Don't store OTP if Twilio send failed
                     db.rollback()
                     return {
-                        "message": "Failed to send OTP. "
-                        "Please try again.",
+                        "message": "Failed to send OTP. " "Please try again.",
                         "expires_in": 0,
                     }
         except Exception as exc:
@@ -94,8 +96,7 @@ def send_otp(
             # L22: Return error instead of silently failing
             db.rollback()
             return {
-                "message": "Failed to send OTP. "
-                "Please try again.",
+                "message": "Failed to send OTP. " "Please try again.",
                 "expires_in": 0,
             }
 
@@ -194,7 +195,9 @@ def verify_otp(
 
 
 def _send_via_twilio(
-    phone_number: str, code: str, settings,
+    phone_number: str,
+    code: str,
+    settings,
 ) -> bool:
     """Send OTP via Twilio SMS.
 

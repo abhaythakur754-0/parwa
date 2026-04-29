@@ -46,10 +46,10 @@ from app.core.techniques.base import (
     QuerySignals,
 )
 
-
 # ══════════════════════════════════════════════════════════════════
 # FIXTURES
 # ══════════════════════════════════════════════════════════════════
+
 
 @pytest.fixture
 def sample_conversation_state() -> ConversationState:
@@ -67,28 +67,17 @@ def sample_conversation_state() -> ConversationState:
             confidence_score=0.85,
         ),
         gsd_state=GSDState.DIAGNOSIS,
-        gsd_history=[
-            GSDState.NEW,
-            GSDState.GREETING,
-            GSDState.DIAGNOSIS],
-        technique_results={
-            "chain_of_thought": {
-                "result": "analyzing refund request"}},
+        gsd_history=[GSDState.NEW, GSDState.GREETING, GSDState.DIAGNOSIS],
+        technique_results={"chain_of_thought": {"result": "analyzing refund request"}},
         token_usage=450,
         technique_token_budget=1500,
-        response_parts=[
-            "I understand you want a refund.",
-            "Let me check your order."],
+        response_parts=["I understand you want a refund.", "Let me check your order."],
         final_response="",
         ticket_id="ticket_123",
         conversation_id="conv_456",
         company_id="company_789",
-        reasoning_thread=[
-            "Step 1: Verify order",
-            "Step 2: Check refund policy"],
-        reflexion_trace={
-            "iteration": 1,
-            "critique": "Need more details"},
+        reasoning_thread=["Step 1: Verify order", "Step 2: Check refund policy"],
+        reflexion_trace={"iteration": 1, "critique": "Need more details"},
     )
 
 
@@ -97,11 +86,21 @@ def complex_conversation_state() -> ConversationState:
     """Create a complex ConversationState with nested variables and long history."""
     # Create 15 turns of history
     gsd_history = [
-        GSDState.NEW, GSDState.GREETING, GSDState.DIAGNOSIS,
-        GSDState.RESOLUTION, GSDState.FOLLOW_UP, GSDState.DIAGNOSIS,
-        GSDState.RESOLUTION, GSDState.ESCALATE, GSDState.HUMAN_HANDOFF,
-        GSDState.DIAGNOSIS, GSDState.RESOLUTION, GSDState.FOLLOW_UP,
-        GSDState.CLOSED, GSDState.NEW, GSDState.GREETING,
+        GSDState.NEW,
+        GSDState.GREETING,
+        GSDState.DIAGNOSIS,
+        GSDState.RESOLUTION,
+        GSDState.FOLLOW_UP,
+        GSDState.DIAGNOSIS,
+        GSDState.RESOLUTION,
+        GSDState.ESCALATE,
+        GSDState.HUMAN_HANDOFF,
+        GSDState.DIAGNOSIS,
+        GSDState.RESOLUTION,
+        GSDState.FOLLOW_UP,
+        GSDState.CLOSED,
+        GSDState.NEW,
+        GSDState.GREETING,
     ]
 
     # Create 500-token technique stack
@@ -111,7 +110,9 @@ def complex_conversation_state() -> ConversationState:
             "steps": [f"Step {i}: Processing..." for i in range(20)],
         },
         "react": {
-            "tool_calls": [{"tool": f"tool_{i}", "result": f"result_{i}"} for i in range(15)],
+            "tool_calls": [
+                {"tool": f"tool_{i}", "result": f"result_{i}"} for i in range(15)
+            ],
         },
         "reflexion": {
             "iterations": [
@@ -177,6 +178,7 @@ def escalation_manager() -> GracefulEscalationManager:
 # GAP 1: State Serialization Round-Trip Fidelity
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestGap1StateSerializationFidelity:
     """
     GAP 1 (CRITICAL): State serialization round-trip fidelity failure
@@ -189,11 +191,11 @@ class TestGap1StateSerializationFidelity:
     """
 
     def test_serialize_deserialize_simple_state(
-            self, state_serializer, sample_conversation_state):
+        self, state_serializer, sample_conversation_state
+    ):
         """Test basic round-trip serialization fidelity."""
         # Serialize
-        serialized = state_serializer.serialize_state(
-            sample_conversation_state)
+        serialized = state_serializer.serialize_state(sample_conversation_state)
 
         # Verify serialized is JSON-safe
         assert isinstance(serialized, dict)
@@ -214,11 +216,11 @@ class TestGap1StateSerializationFidelity:
         assert deserialized.final_response == sample_conversation_state.final_response
 
     def test_serialize_deserialize_complex_state(
-            self, state_serializer, complex_conversation_state):
+        self, state_serializer, complex_conversation_state
+    ):
         """Test round-trip fidelity with complex state (15 turns, nested variables, 500-token stack)."""
         # Serialize
-        serialized = state_serializer.serialize_state(
-            complex_conversation_state)
+        serialized = state_serializer.serialize_state(complex_conversation_state)
 
         # Verify JSON serialization works
         json_str = _safe_json_dumps(serialized)
@@ -231,21 +233,26 @@ class TestGap1StateSerializationFidelity:
         assert deserialized.query == complex_conversation_state.query
         assert deserialized.gsd_state == complex_conversation_state.gsd_state
         assert len(deserialized.gsd_history) == len(
-            complex_conversation_state.gsd_history)
+            complex_conversation_state.gsd_history
+        )
         assert deserialized.token_usage == complex_conversation_state.token_usage
-        assert deserialized.technique_token_budget == complex_conversation_state.technique_token_budget
+        assert (
+            deserialized.technique_token_budget
+            == complex_conversation_state.technique_token_budget
+        )
         assert len(deserialized.response_parts) == len(
-            complex_conversation_state.response_parts)
+            complex_conversation_state.response_parts
+        )
         assert len(deserialized.reasoning_thread) == len(
-            complex_conversation_state.reasoning_thread)
+            complex_conversation_state.reasoning_thread
+        )
 
         # Verify technique_results preserved
         assert "chain_of_thought" in deserialized.technique_results
         assert "react" in deserialized.technique_results
         assert "reflexion" in deserialized.technique_results
 
-    def test_serialize_deserialize_unicode_special_chars(
-            self, state_serializer):
+    def test_serialize_deserialize_unicode_special_chars(self, state_serializer):
         """Test round-trip with unicode, emojis, and special characters."""
         state = ConversationState(
             query="Unicode test: 你好世界 🌍 ñoño café résumé",
@@ -281,10 +288,13 @@ class TestGap1StateSerializationFidelity:
         assert "🌍" in deserialized.query
         assert "ñoño" in deserialized.query
         assert "你好" in deserialized.technique_results.get("unicode_key", "")
-        assert "🎉" in deserialized.response_parts[1] if deserialized.response_parts else ""
+        assert (
+            "🎉" in deserialized.response_parts[1]
+            if deserialized.response_parts
+            else ""
+        )
 
-    def test_serialize_deserialize_maximum_length_values(
-            self, state_serializer):
+    def test_serialize_deserialize_maximum_length_values(self, state_serializer):
         """Test round-trip with maximum length values."""
         # Create state with large values
         large_technique_results = {
@@ -317,10 +327,10 @@ class TestGap1StateSerializationFidelity:
         assert len(deserialized.reasoning_thread) == 100
 
     def test_signals_round_trip_preservation(
-            self, state_serializer, sample_conversation_state):
+        self, state_serializer, sample_conversation_state
+    ):
         """Test that QuerySignals are preserved correctly during round-trip."""
-        serialized = state_serializer.serialize_state(
-            sample_conversation_state)
+        serialized = state_serializer.serialize_state(sample_conversation_state)
         deserialized = state_serializer.deserialize_state(serialized)
 
         # Verify all signals preserved
@@ -329,27 +339,49 @@ class TestGap1StateSerializationFidelity:
 
         if original_signals and deserialized_signals:
             assert deserialized_signals.intent_type == original_signals.intent_type
-            assert abs(
-                deserialized_signals.sentiment_score
-                - original_signals.sentiment_score) < 0.001
-            assert abs(
-                deserialized_signals.query_complexity
-                - original_signals.query_complexity) < 0.001
-            assert abs(
-                deserialized_signals.monetary_value
-                - original_signals.monetary_value) < 0.01
+            assert (
+                abs(
+                    deserialized_signals.sentiment_score
+                    - original_signals.sentiment_score
+                )
+                < 0.001
+            )
+            assert (
+                abs(
+                    deserialized_signals.query_complexity
+                    - original_signals.query_complexity
+                )
+                < 0.001
+            )
+            assert (
+                abs(
+                    deserialized_signals.monetary_value
+                    - original_signals.monetary_value
+                )
+                < 0.01
+            )
             assert deserialized_signals.customer_tier == original_signals.customer_tier
             assert deserialized_signals.turn_count == original_signals.turn_count
-            assert abs(deserialized_signals.frustration_score
-                       - original_signals.frustration_score) < 0.001
-            assert abs(
-                deserialized_signals.confidence_score
-                - original_signals.confidence_score) < 0.001
+            assert (
+                abs(
+                    deserialized_signals.frustration_score
+                    - original_signals.frustration_score
+                )
+                < 0.001
+            )
+            assert (
+                abs(
+                    deserialized_signals.confidence_score
+                    - original_signals.confidence_score
+                )
+                < 0.001
+            )
 
 
 # ══════════════════════════════════════════════════════════════════
 # GAP 2: Redis/PostgreSQL Failover Data Loss
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestGap2RedisPostgreSQLFailover:
     """
@@ -363,14 +395,17 @@ class TestGap2RedisPostgreSQLFailover:
 
     @pytest.mark.asyncio
     async def test_redis_failure_fallback_to_postgresql(
-            self, state_serializer, complex_conversation_state):
+        self, state_serializer, complex_conversation_state
+    ):
         """Test that when Redis is unavailable, PostgreSQL provides complete state."""
         company_id = "company_failover_test"
         ticket_id = "ticket_failover_test"
 
         # Mock Redis to fail
-        with patch.object(state_serializer, '_save_to_redis', return_value=False):
-            with patch.object(state_serializer, '_save_to_postgresql', return_value=True):
+        with patch.object(state_serializer, "_save_to_redis", return_value=False):
+            with patch.object(
+                state_serializer, "_save_to_postgresql", return_value=True
+            ):
                 # Save should succeed with PostgreSQL fallback
                 result = await state_serializer.save_state(
                     ticket_id=ticket_id,
@@ -383,14 +418,17 @@ class TestGap2RedisPostgreSQLFailover:
 
     @pytest.mark.asyncio
     async def test_load_state_redis_failure_fallback(
-            self, state_serializer, complex_conversation_state):
+        self, state_serializer, complex_conversation_state
+    ):
         """Test loading state when Redis is unavailable but PostgreSQL has data."""
         company_id = "company_load_failover"
         ticket_id = "ticket_load_failover"
 
         # First, save to PostgreSQL (mock Redis failure)
-        with patch.object(state_serializer, '_save_to_redis', return_value=False):
-            with patch.object(state_serializer, '_save_to_postgresql', return_value=True):
+        with patch.object(state_serializer, "_save_to_redis", return_value=False):
+            with patch.object(
+                state_serializer, "_save_to_postgresql", return_value=True
+            ):
                 await state_serializer.save_state(
                     ticket_id=ticket_id,
                     company_id=company_id,
@@ -398,10 +436,12 @@ class TestGap2RedisPostgreSQLFailover:
                 )
 
         # Now try to load with Redis failing
-        with patch.object(state_serializer, '_load_from_redis', return_value=None):
+        with patch.object(state_serializer, "_load_from_redis", return_value=None):
             # Mock PostgreSQL to return the saved state
             mock_state = complex_conversation_state
-            with patch.object(state_serializer, '_load_from_postgresql', return_value=mock_state):
+            with patch.object(
+                state_serializer, "_load_from_postgresql", return_value=mock_state
+            ):
                 loaded = await state_serializer.load_state(
                     ticket_id=ticket_id,
                     company_id=company_id,
@@ -411,20 +451,21 @@ class TestGap2RedisPostgreSQLFailover:
                 assert loaded is not None
                 assert loaded.query == complex_conversation_state.query
                 assert loaded.gsd_state == complex_conversation_state.gsd_state
-                assert len(
-                    loaded.gsd_history) == len(
-                    complex_conversation_state.gsd_history)
+                assert len(loaded.gsd_history) == len(
+                    complex_conversation_state.gsd_history
+                )
                 assert loaded.token_usage == complex_conversation_state.token_usage
 
     @pytest.mark.asyncio
     async def test_complete_data_preservation_on_redis_failure(
-            self, state_serializer, complex_conversation_state):
+        self, state_serializer, complex_conversation_state
+    ):
         """Verify no data loss when Redis fails during save operation."""
         company_id = "company_data_preservation"
         ticket_id = "ticket_data_preservation"
 
         # Mock complete Redis failure
-        with patch.object(state_serializer, '_save_to_redis', return_value=False):
+        with patch.object(state_serializer, "_save_to_redis", return_value=False):
             # Mock successful PostgreSQL save
             saved_data = {}
 
@@ -432,7 +473,9 @@ class TestGap2RedisPostgreSQLFailover:
                 saved_data.update(kwargs)
                 return True
 
-            with patch.object(state_serializer, '_save_to_postgresql', side_effect=mock_pg_save):
+            with patch.object(
+                state_serializer, "_save_to_postgresql", side_effect=mock_pg_save
+            ):
                 result = await state_serializer.save_state(
                     ticket_id=ticket_id,
                     company_id=company_id,
@@ -441,17 +484,20 @@ class TestGap2RedisPostgreSQLFailover:
 
                 assert result.success
                 # Verify all state components were passed to PostgreSQL
-                assert 'state_json' in saved_data
+                assert "state_json" in saved_data
 
     @pytest.mark.asyncio
     async def test_both_backends_fail_raises_error(
-            self, state_serializer, sample_conversation_state):
+        self, state_serializer, sample_conversation_state
+    ):
         """Test that error is raised when both Redis and PostgreSQL fail."""
         company_id = "company_both_fail"
         ticket_id = "ticket_both_fail"
 
-        with patch.object(state_serializer, '_save_to_redis', return_value=False):
-            with patch.object(state_serializer, '_save_to_postgresql', return_value=False):
+        with patch.object(state_serializer, "_save_to_redis", return_value=False):
+            with patch.object(
+                state_serializer, "_save_to_postgresql", return_value=False
+            ):
                 with pytest.raises(StateSerializationError):
                     await state_serializer.save_state(
                         ticket_id=ticket_id,
@@ -463,6 +509,7 @@ class TestGap2RedisPostgreSQLFailover:
 # ══════════════════════════════════════════════════════════════════
 # GAP 3: Distributed Lock Contention Deadlock
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestGap3DistributedLockDeadlock:
     """
@@ -496,7 +543,8 @@ class TestGap3DistributedLockDeadlock:
 
     @pytest.mark.asyncio
     async def test_concurrent_state_modifications_no_deadlock(
-            self, state_serializer, sample_conversation_state):
+        self, state_serializer, sample_conversation_state
+    ):
         """Test that concurrent modifications don't cause deadlocks."""
         company_id = "company_concurrent"
         ticket_id = "ticket_concurrent"
@@ -518,8 +566,12 @@ class TestGap3DistributedLockDeadlock:
                 )
 
                 # Mock the save operations
-                with patch.object(state_serializer, '_save_to_redis', return_value=True):
-                    with patch.object(state_serializer, '_save_to_postgresql', return_value=True):
+                with patch.object(
+                    state_serializer, "_save_to_redis", return_value=True
+                ):
+                    with patch.object(
+                        state_serializer, "_save_to_postgresql", return_value=True
+                    ):
                         result = await state_serializer.save_state(
                             ticket_id=ticket_id,
                             company_id=company_id,
@@ -555,6 +607,7 @@ class TestGap3DistributedLockDeadlock:
 # GAP 4: Tenant Isolation Breach in State Keys
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestGap4TenantIsolationStateKeys:
     """
     GAP 4 (HIGH): Tenant isolation breach in state keys
@@ -581,7 +634,8 @@ class TestGap4TenantIsolationStateKeys:
 
     @pytest.mark.asyncio
     async def test_load_state_tenant_isolation(
-            self, state_serializer, sample_conversation_state):
+        self, state_serializer, sample_conversation_state
+    ):
         """Verify that loading state returns only the correct tenant's state."""
         company_a = "company_isolation_a"
         company_b = "company_isolation_b"
@@ -605,7 +659,8 @@ class TestGap4TenantIsolationStateKeys:
         )
 
         # Mock Redis/PostgreSQL to return state_a for company_a
-        with patch.object(state_serializer, '_load_from_redis') as mock_redis:
+        with patch.object(state_serializer, "_load_from_redis") as mock_redis:
+
             def redis_side_effect(tid, cid):
                 if cid == company_a:
                     return state_a
@@ -629,7 +684,8 @@ class TestGap4TenantIsolationStateKeys:
 
     @pytest.mark.asyncio
     async def test_missing_company_id_rejected(
-            self, state_serializer, sample_conversation_state):
+        self, state_serializer, sample_conversation_state
+    ):
         """Test that operations with missing/empty company_id are rejected."""
         ticket_id = "ticket_no_company"
 
@@ -655,7 +711,8 @@ class TestGap4TenantIsolationStateKeys:
         )
 
         # Mock to return state_a for company_a only
-        with patch.object(state_serializer, '_load_from_redis') as mock_redis:
+        with patch.object(state_serializer, "_load_from_redis") as mock_redis:
+
             def redis_side_effect(tid, cid):
                 if cid == company_a:
                     return state_a
@@ -671,6 +728,7 @@ class TestGap4TenantIsolationStateKeys:
 # ══════════════════════════════════════════════════════════════════
 # GAP 5: GSD Transition Validation Bypass
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestGap5GSDTransitionValidation:
     """
@@ -704,10 +762,10 @@ class TestGap5GSDTransitionValidation:
         ]
 
         for from_state, to_state in valid_transitions:
-            result = asyncio.run(
-                gsd_engine.can_transition(
-                    from_state, to_state))
-            assert result, f"Transition {from_state} -> {to_state} should be valid for PARWA"
+            result = asyncio.run(gsd_engine.can_transition(from_state, to_state))
+            assert (
+                result
+            ), f"Transition {from_state} -> {to_state} should be valid for PARWA"
 
     def test_invalid_transitions_parwa_variant(self, gsd_engine):
         """Test that invalid transitions are rejected for PARWA variant."""
@@ -717,7 +775,7 @@ class TestGap5GSDTransitionValidation:
         # Invalid transitions
         invalid_transitions = [
             ("new", "resolution"),  # Skip greeting
-            ("new", "diagnosis"),   # Skip greeting
+            ("new", "diagnosis"),  # Skip greeting
             ("greeting", "resolution"),  # Skip diagnosis
             ("diagnosis", "follow_up"),  # Skip resolution
             ("diagnosis", "closed"),  # Skip resolution
@@ -725,10 +783,10 @@ class TestGap5GSDTransitionValidation:
         ]
 
         for from_state, to_state in invalid_transitions:
-            result = asyncio.run(
-                gsd_engine.can_transition(
-                    from_state, to_state))
-            assert not result, f"Transition {from_state} -> {to_state} should be INVALID for PARWA"
+            result = asyncio.run(gsd_engine.can_transition(from_state, to_state))
+            assert (
+                not result
+            ), f"Transition {from_state} -> {to_state} should be INVALID for PARWA"
 
     def test_valid_transitions_mini_parwa_variant(self, gsd_engine):
         """Test transitions for MINI_PARWA variant (simplified flow)."""
@@ -744,10 +802,14 @@ class TestGap5GSDTransitionValidation:
         ]
 
         for from_state, to_state in valid_transitions:
-            result = asyncio.run(gsd_engine.can_transition_with_variant(
-                from_state, to_state, "mini_parwa"
-            ))
-            assert result, f"Transition {from_state} -> {to_state} should be valid for MINI_PARWA"
+            result = asyncio.run(
+                gsd_engine.can_transition_with_variant(
+                    from_state, to_state, "mini_parwa"
+                )
+            )
+            assert (
+                result
+            ), f"Transition {from_state} -> {to_state} should be valid for MINI_PARWA"
 
     def test_escalation_not_allowed_mini_parwa(self, gsd_engine):
         """Test that escalation is not available in MINI_PARWA."""
@@ -755,9 +817,11 @@ class TestGap5GSDTransitionValidation:
         gsd_engine.update_config("test_mini_esc", config)
 
         # Escalate should NOT be allowed from any state in MINI_PARWA
-        result = asyncio.run(gsd_engine.can_transition_with_variant(
-            "diagnosis", "escalate", "mini_parwa"
-        ))
+        result = asyncio.run(
+            gsd_engine.can_transition_with_variant(
+                "diagnosis", "escalate", "mini_parwa"
+            )
+        )
         assert not result, "Escalation should NOT be allowed in MINI_PARWA"
 
     @pytest.mark.asyncio
@@ -802,15 +866,18 @@ class TestGap5GSDTransitionValidation:
         gsd_engine.update_config("test_high", config)
 
         # HUMAN_HANDOFF -> DIAGNOSIS should be valid in PARWA_HIGH
-        result = asyncio.run(gsd_engine.can_transition_with_variant(
-            "human_handof", "diagnosis", "high_parwa"
-        ))
+        result = asyncio.run(
+            gsd_engine.can_transition_with_variant(
+                "human_handof", "diagnosis", "high_parwa"
+            )
+        )
         assert result, "HUMAN_HANDOFF -> DIAGNOSIS should be valid for PARWA_HIGH"
 
 
 # ══════════════════════════════════════════════════════════════════
 # GAP 6: Auto-Escalation Trigger Race Condition
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestGap6AutoEscalationRaceCondition:
     """
@@ -842,7 +909,8 @@ class TestGap6AutoEscalationRaceCondition:
         )
 
         should_escalate, rules, severity = escalation_manager.evaluate_escalation(
-            company_id, context)
+            company_id, context
+        )
 
         assert should_escalate, "Should escalate at exactly 80 frustration"
 
@@ -862,7 +930,8 @@ class TestGap6AutoEscalationRaceCondition:
         )
 
         should_escalate, rules, severity = escalation_manager.evaluate_escalation(
-            company_id, context)
+            company_id, context
+        )
 
         assert should_escalate, "Should escalate above 80 frustration"
 
@@ -882,7 +951,8 @@ class TestGap6AutoEscalationRaceCondition:
         )
 
         should_escalate, rules, severity = escalation_manager.evaluate_escalation(
-            company_id, context)
+            company_id, context
+        )
 
         assert not should_escalate, "Should NOT escalate below 80 frustration"
 
@@ -906,7 +976,8 @@ class TestGap6AutoEscalationRaceCondition:
                 frustration_score=score,
             )
             should_esc, _, _ = escalation_manager.evaluate_escalation(
-                company_id, context)
+                company_id, context
+            )
             results.append((score, should_esc))
 
         # Verify correct escalation decisions
@@ -961,7 +1032,8 @@ class TestGap6AutoEscalationRaceCondition:
                     frustration_score=score,
                 )
                 should_esc, _, _ = escalation_manager.evaluate_escalation(
-                    company_id, context)
+                    company_id, context
+                )
                 results.append((score, should_esc))
             except Exception as e:
                 errors.append((score, str(e)))
@@ -978,6 +1050,7 @@ class TestGap6AutoEscalationRaceCondition:
 # ══════════════════════════════════════════════════════════════════
 # GAP 7: History Ring Buffer Overflow Corruption
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestGap7HistoryRingBufferOverflow:
     """
@@ -1017,8 +1090,9 @@ class TestGap7HistoryRingBufferOverflow:
                 state.gsd_history = state.gsd_history[-max_entries:]
 
         # Verify history size is limited
-        assert len(state.gsd_history) <= max_entries, \
-            f"History should be limited to {max_entries}, got {len(state.gsd_history)}"
+        assert (
+            len(state.gsd_history) <= max_entries
+        ), f"History should be limited to {max_entries}, got {len(state.gsd_history)}"
 
     @pytest.mark.asyncio
     async def test_append_history_maintains_limit(self, gsd_engine):
@@ -1086,8 +1160,11 @@ class TestGap7HistoryRingBufferOverflow:
 
         # Create history exceeding limit
         history = [
-            GSDState.NEW, GSDState.GREETING, GSDState.DIAGNOSIS,
-            GSDState.RESOLUTION, GSDState.FOLLOW_UP
+            GSDState.NEW,
+            GSDState.GREETING,
+            GSDState.DIAGNOSIS,
+            GSDState.RESOLUTION,
+            GSDState.FOLLOW_UP,
         ]  # 5 entries, max is 3
 
         # Simulate ring buffer removal
@@ -1125,6 +1202,7 @@ class TestGap7HistoryRingBufferOverflow:
 # INTEGRATION TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestWeek12Integration:
     """Integration tests combining multiple fixed gaps."""
 
@@ -1157,8 +1235,10 @@ class TestWeek12Integration:
         )
 
         # Mock save operations
-        with patch.object(state_serializer, '_save_to_redis', return_value=True):
-            with patch.object(state_serializer, '_save_to_postgresql', return_value=True):
+        with patch.object(state_serializer, "_save_to_redis", return_value=True):
+            with patch.object(
+                state_serializer, "_save_to_postgresql", return_value=True
+            ):
                 result = await state_serializer.save_state(
                     ticket_id="ticket_integration",
                     company_id=company_a,

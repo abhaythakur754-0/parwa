@@ -74,15 +74,15 @@ class TestDefaultTemplates:
     def test_all_defaults_have_valid_categories(self, svc):
         valid_cats = {c.value for c in TemplateCategory}
         for tmpl in svc.list_default_templates():
-            assert tmpl.category in valid_cats, (
-                f"{tmpl.name} has invalid category: {tmpl.category}"
-            )
+            assert (
+                tmpl.category in valid_cats
+            ), f"{tmpl.name} has invalid category: {tmpl.category}"
 
     def test_all_defaults_have_real_content(self, svc):
         for tmpl in svc.list_default_templates():
-            assert len(tmpl.content.strip()) > 50, (
-                f"{tmpl.name} content is too short / empty"
-            )
+            assert (
+                len(tmpl.content.strip()) > 50
+            ), f"{tmpl.name} content is too short / empty"
 
     def test_all_defaults_have_variables_extracted(self, svc):
         for tmpl in svc.list_default_templates():
@@ -92,9 +92,9 @@ class TestDefaultTemplates:
 
     def test_all_defaults_version_starts_at_one(self, svc):
         for tmpl in svc.list_default_templates():
-            assert tmpl.version == 1, (
-                f"{tmpl.name} version should be 1, got {tmpl.version}"
-            )
+            assert (
+                tmpl.version == 1
+            ), f"{tmpl.name} version should be 1, got {tmpl.version}"
 
     def test_all_defaults_status_is_active(self, svc):
         for tmpl in svc.list_default_templates():
@@ -221,7 +221,8 @@ class TestTemplateCRUD:
             description="desc",
         )
         archived = svc.archive_template(
-            company_id=COMPANY_ID, template_id=tmpl.id,
+            company_id=COMPANY_ID,
+            template_id=tmpl.id,
         )
         assert archived.status == TemplateStatus.ARCHIVED.value
 
@@ -234,7 +235,8 @@ class TestTemplateCRUD:
             description="desc",
         )
         result = svc.delete_template(
-            company_id=COMPANY_ID, template_id=tmpl.id,
+            company_id=COMPANY_ID,
+            template_id=tmpl.id,
         )
         assert result is True
 
@@ -247,7 +249,8 @@ class TestTemplateCRUD:
         defaults = svc.list_default_templates()
         default_id = defaults[0].id
         result = svc.delete_template(
-            company_id=COMPANY_ID, template_id=default_id,
+            company_id=COMPANY_ID,
+            template_id=default_id,
         )
         assert result is False
 
@@ -481,10 +484,14 @@ class TestVariantOverrides:
             content="MINI intent: {{customer_message}}",
         )
         parwa_tmpl = svc.get_template(
-            COMPANY_ID, "classification_intent", variant_type="parwa",
+            COMPANY_ID,
+            "classification_intent",
+            variant_type="parwa",
         )
         mini_tmpl = svc.get_template(
-            COMPANY_ID, "classification_intent", variant_type="mini_parwa",
+            COMPANY_ID,
+            "classification_intent",
+            variant_type="mini_parwa",
         )
         assert "PARWA intent:" in parwa_tmpl.content
         assert "MINI intent:" in mini_tmpl.content
@@ -668,7 +675,8 @@ class TestABTesting:
             template_b_name="response_moderate",
         )
         fetched = svc.get_ab_test(
-            company_id=COMPANY_ID, test_id=test.id,
+            company_id=COMPANY_ID,
+            test_id=test.id,
         )
         assert fetched is not None
         assert fetched.name == "get_test"
@@ -700,8 +708,7 @@ class TestABTesting:
         # With traffic_split=1.0, B should always be selected.
         # The name could be either response_simple or response_moderate
         # depending on which the test matched. But it should be one of the two.
-        assert rendered.template_name in (
-            "response_simple", "response_moderate")
+        assert rendered.template_name in ("response_simple", "response_moderate")
 
     def test_render_with_ab_test_returns_one_of_two(self, svc):
         """A/B test should return one of the two template names."""
@@ -795,7 +802,8 @@ class TestABTesting:
         test.winner = "a"
 
         fetched = svc.get_ab_test(
-            company_id=COMPANY_ID, test_id=test.id,
+            company_id=COMPANY_ID,
+            test_id=test.id,
         )
         assert fetched.status == ABTestStatus.COMPLETED.value
         assert fetched.winner == "a"
@@ -938,8 +946,7 @@ class TestEdgeCases:
     """Long content, unicode, empty inputs, service reset."""
 
     def test_very_long_template_content(self, svc):
-        long_content = "This is a very long template. " * \
-            500 + "End with {{var}}."
+        long_content = "This is a very long template. " * 500 + "End with {{var}}."
         tmpl = svc.create_template(
             company_id=COMPANY_ID,
             name="long_template",
@@ -1092,8 +1099,7 @@ class TestAdditionalCoverage:
         templates = svc.list_templates(company_id=COMPANY_ID)
         # Should have 10 entries (custom replaces default by name)
         assert len(templates) == 10
-        cs_templates = [t for t in templates if t.name
-                        == "customer_support_system"]
+        cs_templates = [t for t in templates if t.name == "customer_support_system"]
         assert len(cs_templates) == 1
         assert cs_templates[0].is_default is False
 

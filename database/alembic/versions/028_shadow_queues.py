@@ -6,7 +6,7 @@ Create Date: 2026-04-17
 
 Adds:
 - email_shadow_queue table
-- sms_shadow_queue table  
+- sms_shadow_queue table
 - chat_shadow_queue table
 """
 
@@ -26,7 +26,8 @@ def upgrade():
         "email_shadow_queue",
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column(
-            "company_id", sa.String(36),
+            "company_id",
+            sa.String(36),
             sa.ForeignKey("companies.id", ondelete="CASCADE"),
             nullable=False,
         ),
@@ -44,29 +45,40 @@ def upgrade():
         sa.Column("template_data", postgresql.JSONB, default={}),
         sa.Column("attachments", postgresql.JSONB, default=[]),
         sa.Column(
-            "status", sa.String(20), nullable=False,
+            "status",
+            sa.String(20),
+            nullable=False,
             server_default="pending",
         ),
         sa.Column("message_id", sa.String(255)),
         sa.Column("sent_at", sa.DateTime(timezone=True)),
         sa.Column("error_message", sa.Text),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True),
-            nullable=False, server_default=sa.func.now(),
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
         ),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
     )
-    
-    op.create_index("idx_email_shadow_queue_company", "email_shadow_queue", ["company_id"])
+
+    op.create_index(
+        "idx_email_shadow_queue_company", "email_shadow_queue", ["company_id"]
+    )
     op.create_index("idx_email_shadow_queue_status", "email_shadow_queue", ["status"])
-    op.create_index("idx_email_shadow_queue_shadow_log", "email_shadow_queue", ["shadow_log_id"])
+    op.create_index(
+        "idx_email_shadow_queue_shadow_log", "email_shadow_queue", ["shadow_log_id"]
+    )
 
     # ── SMS Shadow Queue ───────────────────────────────────────
     op.create_table(
         "sms_shadow_queue",
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column(
-            "company_id", sa.String(36),
+            "company_id",
+            sa.String(36),
             sa.ForeignKey("companies.id", ondelete="CASCADE"),
             nullable=False,
         ),
@@ -77,7 +89,9 @@ def upgrade():
         sa.Column("ticket_id", sa.String(36), sa.ForeignKey("tickets.id")),
         sa.Column("media_urls", postgresql.JSONB, default=[]),
         sa.Column(
-            "status", sa.String(20), nullable=False,
+            "status",
+            sa.String(20),
+            nullable=False,
             server_default="pending",
         ),
         sa.Column("message_sid", sa.String(100)),
@@ -85,22 +99,29 @@ def upgrade():
         sa.Column("error_code", sa.String(20)),
         sa.Column("error_message", sa.Text),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True),
-            nullable=False, server_default=sa.func.now(),
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
         ),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
     )
-    
+
     op.create_index("idx_sms_shadow_queue_company", "sms_shadow_queue", ["company_id"])
     op.create_index("idx_sms_shadow_queue_status", "sms_shadow_queue", ["status"])
-    op.create_index("idx_sms_shadow_queue_shadow_log", "sms_shadow_queue", ["shadow_log_id"])
+    op.create_index(
+        "idx_sms_shadow_queue_shadow_log", "sms_shadow_queue", ["shadow_log_id"]
+    )
 
     # ── Chat Shadow Queue ───────────────────────────────────────
     op.create_table(
         "chat_shadow_queue",
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column(
-            "company_id", sa.String(36),
+            "company_id",
+            sa.String(36),
             sa.ForeignKey("companies.id", ondelete="CASCADE"),
             nullable=False,
         ),
@@ -114,23 +135,35 @@ def upgrade():
         sa.Column("edited_message", sa.Text),
         sa.Column("was_edited", sa.Boolean, default=False),
         sa.Column(
-            "status", sa.String(20), nullable=False,
+            "status",
+            sa.String(20),
+            nullable=False,
             server_default="pending",
         ),
         sa.Column("message_uuid", sa.String(100)),
         sa.Column("sent_at", sa.DateTime(timezone=True)),
         sa.Column("error_message", sa.Text),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True),
-            nullable=False, server_default=sa.func.now(),
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
         ),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
     )
-    
-    op.create_index("idx_chat_shadow_queue_company", "chat_shadow_queue", ["company_id"])
+
+    op.create_index(
+        "idx_chat_shadow_queue_company", "chat_shadow_queue", ["company_id"]
+    )
     op.create_index("idx_chat_shadow_queue_status", "chat_shadow_queue", ["status"])
-    op.create_index("idx_chat_shadow_queue_session", "chat_shadow_queue", ["session_id"])
-    op.create_index("idx_chat_shadow_queue_shadow_log", "chat_shadow_queue", ["shadow_log_id"])
+    op.create_index(
+        "idx_chat_shadow_queue_session", "chat_shadow_queue", ["session_id"]
+    )
+    op.create_index(
+        "idx_chat_shadow_queue_shadow_log", "chat_shadow_queue", ["shadow_log_id"]
+    )
 
 
 def downgrade():
@@ -140,13 +173,13 @@ def downgrade():
     op.drop_index("idx_chat_shadow_queue_status", table_name="chat_shadow_queue")
     op.drop_index("idx_chat_shadow_queue_company", table_name="chat_shadow_queue")
     op.drop_table("chat_shadow_queue")
-    
+
     # SMS shadow queue
     op.drop_index("idx_sms_shadow_queue_shadow_log", table_name="sms_shadow_queue")
     op.drop_index("idx_sms_shadow_queue_status", table_name="sms_shadow_queue")
     op.drop_index("idx_sms_shadow_queue_company", table_name="sms_shadow_queue")
     op.drop_table("sms_shadow_queue")
-    
+
     # Email shadow queue
     op.drop_index("idx_email_shadow_queue_shadow_log", table_name="email_shadow_queue")
     op.drop_index("idx_email_shadow_queue_status", table_name="email_shadow_queue")

@@ -47,10 +47,12 @@ REVIEWER_1 = "reviewer-alice"
 REVIEWER_2 = "reviewer-bob"
 QUERY_TEXT = "How do I reset my password?"
 RESPONSE_TEXT = "Go to Settings > Security > Reset Password."
-GUARDRAIL_REPORT_CRITICAL = {"results": [
-    {"check": "pii", "severity": "critical", "detail": "SSN detected"}], }
-GUARDRAIL_REPORT_HIGH = {"results": [
-    {"check": "toxicity", "severity": "high", "detail": "harmful content"}], }
+GUARDRAIL_REPORT_CRITICAL = {
+    "results": [{"check": "pii", "severity": "critical", "detail": "SSN detected"}],
+}
+GUARDRAIL_REPORT_HIGH = {
+    "results": [{"check": "toxicity", "severity": "high", "detail": "harmful content"}],
+}
 GUARDRAIL_REPORT_NONE = {
     "results": [{"check": "safety", "severity": "low", "detail": "all clear"}],
 }
@@ -139,30 +141,31 @@ class TestHelperFunctions:
         assert _safe_truncate("", 10) == ""
 
     def test_determine_priority_urgent_low_confidence(self):
-        assert _determine_priority(
-            20.0,
-            BlockReason.LOW_CONFIDENCE.value,
-            None) == "urgent"
+        assert (
+            _determine_priority(20.0, BlockReason.LOW_CONFIDENCE.value, None)
+            == "urgent"
+        )
 
     def test_determine_priority_high_medium_confidence(self):
-        assert _determine_priority(
-            40.0, BlockReason.LOW_CONFIDENCE.value, None) == "high"
+        assert (
+            _determine_priority(40.0, BlockReason.LOW_CONFIDENCE.value, None) == "high"
+        )
 
     def test_determine_priority_medium(self):
-        assert _determine_priority(
-            60.0,
-            BlockReason.LOW_CONFIDENCE.value,
-            None) == "medium"
+        assert (
+            _determine_priority(60.0, BlockReason.LOW_CONFIDENCE.value, None)
+            == "medium"
+        )
 
     def test_determine_priority_low(self):
-        assert _determine_priority(
-            80.0, BlockReason.LOW_CONFIDENCE.value, None) == "low"
+        assert (
+            _determine_priority(80.0, BlockReason.LOW_CONFIDENCE.value, None) == "low"
+        )
 
     def test_determine_priority_critical_guardrail(self):
         result = _determine_priority(
-            90.0,
-            BlockReason.PII_LEAK.value,
-            GUARDRAIL_REPORT_CRITICAL)
+            90.0, BlockReason.PII_LEAK.value, GUARDRAIL_REPORT_CRITICAL
+        )
         assert result == "high"
 
     def test_compute_auto_reject_at_normal(self):
@@ -170,36 +173,27 @@ class TestHelperFunctions:
         ts = _compute_auto_reject_at("medium", None, base)
         parsed = _parse_iso(ts)
         assert parsed is not None
-        assert (
-            parsed
-            - _parse_iso(base)).total_seconds() == pytest.approx(
-            72
-            * 3600,
-            abs=1)
+        assert (parsed - _parse_iso(base)).total_seconds() == pytest.approx(
+            72 * 3600, abs=1
+        )
 
     def test_compute_auto_reject_at_critical(self):
         base = "2025-01-15T10:00:00+00:00"
         ts = _compute_auto_reject_at("high", GUARDRAIL_REPORT_CRITICAL, base)
         parsed = _parse_iso(ts)
         assert parsed is not None
-        assert (
-            parsed
-            - _parse_iso(base)).total_seconds() == pytest.approx(
-            24
-            * 3600,
-            abs=1)
+        assert (parsed - _parse_iso(base)).total_seconds() == pytest.approx(
+            24 * 3600, abs=1
+        )
 
     def test_compute_auto_reject_at_urgent(self):
         base = "2025-01-15T10:00:00+00:00"
         ts = _compute_auto_reject_at("urgent", None, base)
         parsed = _parse_iso(ts)
         assert parsed is not None
-        assert (
-            parsed
-            - _parse_iso(base)).total_seconds() == pytest.approx(
-            48
-            * 3600,
-            abs=1)
+        assert (parsed - _parse_iso(base)).total_seconds() == pytest.approx(
+            48 * 3600, abs=1
+        )
 
 
 # ════════════════════════════════════════════════════════════════
@@ -305,21 +299,20 @@ class TestReviewQueue:
 
     def test_filter_by_status_pending(self, manager):
         _make_blocked(manager)
-        queue = manager.get_review_queue(
-            COMPANY_ID, status=QueueStatus.PENDING.value)
+        queue = manager.get_review_queue(COMPANY_ID, status=QueueStatus.PENDING.value)
         assert len(queue) == 1
 
     def test_filter_by_status_approved(self, manager):
         br = _make_blocked(manager)
         manager.review_response(
-            COMPANY_ID,
-            br.id,
-            REVIEWER_1,
-            ReviewAction.APPROVED.value)
+            COMPANY_ID, br.id, REVIEWER_1, ReviewAction.APPROVED.value
+        )
         queue_pending = manager.get_review_queue(
-            COMPANY_ID, status=QueueStatus.PENDING.value)
+            COMPANY_ID, status=QueueStatus.PENDING.value
+        )
         queue_approved = manager.get_review_queue(
-            COMPANY_ID, status=QueueStatus.APPROVED.value)
+            COMPANY_ID, status=QueueStatus.APPROVED.value
+        )
         assert len(queue_pending) == 0
         assert len(queue_approved) == 1
 
@@ -327,9 +320,9 @@ class TestReviewQueue:
         _make_blocked(manager, confidence_score=10.0)  # urgent
         _make_blocked(manager, confidence_score=80.0)  # low
         urgent = manager.get_review_queue(
-            COMPANY_ID, priority=ReviewPriority.URGENT.value)
-        low = manager.get_review_queue(
-            COMPANY_ID, priority=ReviewPriority.LOW.value)
+            COMPANY_ID, priority=ReviewPriority.URGENT.value
+        )
+        low = manager.get_review_queue(COMPANY_ID, priority=ReviewPriority.LOW.value)
         assert len(urgent) == 1
         assert len(low) == 1
 
@@ -370,15 +363,11 @@ class TestReviewQueue:
         br1 = _make_blocked(manager)
         br2 = _make_blocked(manager)
         manager.review_response(
-            COMPANY_ID,
-            br1.id,
-            REVIEWER_1,
-            ReviewAction.APPROVED.value)
+            COMPANY_ID, br1.id, REVIEWER_1, ReviewAction.APPROVED.value
+        )
         manager.review_response(
-            COMPANY_ID,
-            br2.id,
-            REVIEWER_1,
-            ReviewAction.REJECTED.value)
+            COMPANY_ID, br2.id, REVIEWER_1, ReviewAction.REJECTED.value
+        )
         stats = manager.get_review_queue_stats(COMPANY_ID)
         assert stats.total_approved == 1
         assert stats.total_rejected == 1
@@ -396,7 +385,10 @@ class TestReviewActions:
     def test_approve_response(self, manager):
         br = _make_blocked(manager)
         result = manager.review_response(
-            COMPANY_ID, br.id, REVIEWER_1, ReviewAction.APPROVED.value,
+            COMPANY_ID,
+            br.id,
+            REVIEWER_1,
+            ReviewAction.APPROVED.value,
         )
         assert result is not None
         assert result.status == QueueStatus.APPROVED.value
@@ -406,7 +398,10 @@ class TestReviewActions:
     def test_reject_response(self, manager):
         br = _make_blocked(manager)
         result = manager.review_response(
-            COMPANY_ID, br.id, REVIEWER_1, ReviewAction.REJECTED.value,
+            COMPANY_ID,
+            br.id,
+            REVIEWER_1,
+            ReviewAction.REJECTED.value,
         )
         assert result is not None
         assert result.status == QueueStatus.REJECTED.value
@@ -416,7 +411,9 @@ class TestReviewActions:
         br = _make_blocked(manager)
         edited = "Corrected: Go to Account Settings to reset your password."
         result = manager.review_response(
-            COMPANY_ID, br.id, REVIEWER_1,
+            COMPANY_ID,
+            br.id,
+            REVIEWER_1,
             ReviewAction.APPROVED_EDITED.value,
             edited_response=edited,
         )
@@ -428,7 +425,10 @@ class TestReviewActions:
     def test_escalate_response(self, manager):
         br = _make_blocked(manager)
         result = manager.review_response(
-            COMPANY_ID, br.id, REVIEWER_1, ReviewAction.ESCALATED.value,
+            COMPANY_ID,
+            br.id,
+            REVIEWER_1,
+            ReviewAction.ESCALATED.value,
         )
         assert result is not None
         assert result.status == QueueStatus.IN_REVIEW.value
@@ -437,13 +437,14 @@ class TestReviewActions:
     def test_double_review_is_idempotent(self, manager):
         br = _make_blocked(manager)
         manager.review_response(
-            COMPANY_ID,
-            br.id,
-            REVIEWER_1,
-            ReviewAction.APPROVED.value)
+            COMPANY_ID, br.id, REVIEWER_1, ReviewAction.APPROVED.value
+        )
         # Second review should return the item unchanged, not None
         result = manager.review_response(
-            COMPANY_ID, br.id, REVIEWER_2, ReviewAction.REJECTED.value,
+            COMPANY_ID,
+            br.id,
+            REVIEWER_2,
+            ReviewAction.REJECTED.value,
         )
         assert result is not None
         assert result.status == QueueStatus.APPROVED.value
@@ -452,12 +453,13 @@ class TestReviewActions:
     def test_double_review_after_rejection(self, manager):
         br = _make_blocked(manager)
         manager.review_response(
+            COMPANY_ID, br.id, REVIEWER_1, ReviewAction.REJECTED.value
+        )
+        result = manager.review_response(
             COMPANY_ID,
             br.id,
-            REVIEWER_1,
-            ReviewAction.REJECTED.value)
-        result = manager.review_response(
-            COMPANY_ID, br.id, REVIEWER_2, ReviewAction.APPROVED.value,
+            REVIEWER_2,
+            ReviewAction.APPROVED.value,
         )
         assert result is not None
         assert result.status == QueueStatus.REJECTED.value
@@ -465,7 +467,10 @@ class TestReviewActions:
     def test_invalid_action_converted_to_rejected(self, manager):
         br = _make_blocked(manager)
         result = manager.review_response(
-            COMPANY_ID, br.id, REVIEWER_1, "not_a_real_action",
+            COMPANY_ID,
+            br.id,
+            REVIEWER_1,
+            "not_a_real_action",
         )
         assert result is not None
         assert result.status == QueueStatus.REJECTED.value
@@ -475,7 +480,9 @@ class TestReviewActions:
         br = _make_blocked(manager)
         notes = "Reviewed carefully, looks good."
         result = manager.review_response(
-            COMPANY_ID, br.id, REVIEWER_1,
+            COMPANY_ID,
+            br.id,
+            REVIEWER_1,
             ReviewAction.APPROVED.value,
             notes=notes,
         )
@@ -486,7 +493,10 @@ class TestReviewActions:
         br = _make_blocked(manager)
         assert br.reviewed_at is None
         result = manager.review_response(
-            COMPANY_ID, br.id, REVIEWER_1, ReviewAction.APPROVED.value,
+            COMPANY_ID,
+            br.id,
+            REVIEWER_1,
+            ReviewAction.APPROVED.value,
         )
         assert result is not None
         assert result.reviewed_at is not None
@@ -495,7 +505,10 @@ class TestReviewActions:
         br = _make_blocked(manager)
         assert br.auto_reject_at != ""
         result = manager.review_response(
-            COMPANY_ID, br.id, REVIEWER_1, ReviewAction.APPROVED.value,
+            COMPANY_ID,
+            br.id,
+            REVIEWER_1,
+            ReviewAction.APPROVED.value,
         )
         assert result is not None
         assert result.auto_reject_at == ""
@@ -513,11 +526,17 @@ class TestReviewActions:
         """After escalation, item stays in_review and can be approved."""
         br = _make_blocked(manager)
         manager.review_response(
-            COMPANY_ID, br.id, REVIEWER_1, ReviewAction.ESCALATED.value,
+            COMPANY_ID,
+            br.id,
+            REVIEWER_1,
+            ReviewAction.ESCALATED.value,
         )
         # Escalated item is in_review, not finalised
         result = manager.review_response(
-            COMPANY_ID, br.id, REVIEWER_2, ReviewAction.APPROVED.value,
+            COMPANY_ID,
+            br.id,
+            REVIEWER_2,
+            ReviewAction.APPROVED.value,
         )
         assert result is not None
         assert result.status == QueueStatus.APPROVED.value
@@ -582,10 +601,8 @@ class TestAutoReject:
         """Items already approved should not be auto-rejected."""
         br = _make_blocked(manager)
         manager.review_response(
-            COMPANY_ID,
-            br.id,
-            REVIEWER_1,
-            ReviewAction.APPROVED.value)
+            COMPANY_ID, br.id, REVIEWER_1, ReviewAction.APPROVED.value
+        )
         # Set a past auto_reject_at on the now-approved item
         past = (datetime.now(timezone.utc) - timedelta(hours=100)).isoformat()
         br.auto_reject_at = past
@@ -623,16 +640,10 @@ class TestCleanup:
     def test_cleanup_removes_old_approved_records(self, manager):
         br = _make_blocked(manager)
         manager.review_response(
-            COMPANY_ID,
-            br.id,
-            REVIEWER_1,
-            ReviewAction.APPROVED.value)
+            COMPANY_ID, br.id, REVIEWER_1, ReviewAction.APPROVED.value
+        )
         # Set updated_at to 100 days ago
-        old_time = (
-            datetime.now(
-                timezone.utc)
-            - timedelta(
-                days=100)).isoformat()
+        old_time = (datetime.now(timezone.utc) - timedelta(days=100)).isoformat()
         br.updated_at = old_time
         deleted = manager.cleanup_old_records(COMPANY_ID, days=90)
         assert deleted == 1
@@ -641,15 +652,9 @@ class TestCleanup:
     def test_cleanup_removes_old_rejected_records(self, manager):
         br = _make_blocked(manager)
         manager.review_response(
-            COMPANY_ID,
-            br.id,
-            REVIEWER_1,
-            ReviewAction.REJECTED.value)
-        old_time = (
-            datetime.now(
-                timezone.utc)
-            - timedelta(
-                days=100)).isoformat()
+            COMPANY_ID, br.id, REVIEWER_1, ReviewAction.REJECTED.value
+        )
+        old_time = (datetime.now(timezone.utc) - timedelta(days=100)).isoformat()
         br.updated_at = old_time
         deleted = manager.cleanup_old_records(COMPANY_ID, days=90)
         assert deleted == 1
@@ -657,11 +662,7 @@ class TestCleanup:
     def test_pending_items_not_cleaned_up(self, manager):
         br = _make_blocked(manager)
         # Make it very old but still pending
-        old_time = (
-            datetime.now(
-                timezone.utc)
-            - timedelta(
-                days=200)).isoformat()
+        old_time = (datetime.now(timezone.utc) - timedelta(days=200)).isoformat()
         br.created_at = old_time
         br.updated_at = old_time
         deleted = manager.cleanup_old_records(COMPANY_ID, days=90)
@@ -671,16 +672,10 @@ class TestCleanup:
     def test_cleanup_respects_custom_days(self, manager):
         br = _make_blocked(manager)
         manager.review_response(
-            COMPANY_ID,
-            br.id,
-            REVIEWER_1,
-            ReviewAction.APPROVED.value)
+            COMPANY_ID, br.id, REVIEWER_1, ReviewAction.APPROVED.value
+        )
         # Set to 50 days ago
-        old_time = (
-            datetime.now(
-                timezone.utc)
-            - timedelta(
-                days=50)).isoformat()
+        old_time = (datetime.now(timezone.utc) - timedelta(days=50)).isoformat()
         br.updated_at = old_time
         # With 90-day retention, should NOT be cleaned
         assert manager.cleanup_old_records(COMPANY_ID, days=90) == 0
@@ -689,18 +684,10 @@ class TestCleanup:
 
     def test_cleanup_removes_old_auto_rejected(self, manager):
         br = _make_blocked(manager)
-        old_time = (
-            datetime.now(
-                timezone.utc)
-            - timedelta(
-                hours=200)).isoformat()
+        old_time = (datetime.now(timezone.utc) - timedelta(hours=200)).isoformat()
         br.auto_reject_at = old_time
         manager.process_auto_rejects(COMPANY_ID)
-        br.updated_at = (
-            datetime.now(
-                timezone.utc)
-            - timedelta(
-                days=100)).isoformat()
+        br.updated_at = (datetime.now(timezone.utc) - timedelta(days=100)).isoformat()
         deleted = manager.cleanup_old_records(COMPANY_ID, days=90)
         assert deleted == 1
 
@@ -727,10 +714,8 @@ class TestReviewerAssignment:
     def test_assign_only_works_on_pending(self, manager):
         br = _make_blocked(manager)
         manager.review_response(
-            COMPANY_ID,
-            br.id,
-            REVIEWER_1,
-            ReviewAction.APPROVED.value)
+            COMPANY_ID, br.id, REVIEWER_1, ReviewAction.APPROVED.value
+        )
         result = manager.assign_reviewer(COMPANY_ID, br.id, REVIEWER_2)
         # Returns item but status unchanged
         assert result is not None
@@ -769,17 +754,14 @@ class TestReviewerAssignment:
         assert workload_before[0].assigned_count == 1
         # After approval, item leaves in_review state
         manager.review_response(
-            COMPANY_ID,
-            br.id,
-            REVIEWER_1,
-            ReviewAction.APPROVED.value)
+            COMPANY_ID, br.id, REVIEWER_1, ReviewAction.APPROVED.value
+        )
         # The reviewer still exists in tracked _reviewers with assigned_count=1
         # (fallback), since no live in_review items remain for the live_count path.
         workload_after = manager.get_reviewer_workload(COMPANY_ID)
         assert len(workload_after) >= 1
         # Verify the approved item is no longer in_review by checking the queue
-        queue = manager.get_review_queue(
-            COMPANY_ID, status=QueueStatus.IN_REVIEW.value)
+        queue = manager.get_review_queue(COMPANY_ID, status=QueueStatus.IN_REVIEW.value)
         assert len(queue) == 0
 
     def test_assign_nonexistent_returns_none(self, manager):
@@ -832,10 +814,8 @@ class TestBatchOperations:
         br3 = _make_blocked(manager, query="q3")
         # Approve br2 first
         manager.review_response(
-            COMPANY_ID,
-            br2.id,
-            REVIEWER_1,
-            ReviewAction.APPROVED.value)
+            COMPANY_ID, br2.id, REVIEWER_1, ReviewAction.APPROVED.value
+        )
         results = manager.batch_review(
             COMPANY_ID,
             [br1.id, br2.id, br3.id],
@@ -859,7 +839,10 @@ class TestBatchOperations:
 
     def test_empty_batch(self, manager):
         results = manager.batch_review(
-            COMPANY_ID, [], REVIEWER_1, ReviewAction.APPROVED.value,
+            COMPANY_ID,
+            [],
+            REVIEWER_1,
+            ReviewAction.APPROVED.value,
         )
         assert results == []
 
@@ -888,8 +871,7 @@ class TestEscalation:
     def test_escalate_boosts_priority(self, manager):
         br = _make_blocked(manager, confidence_score=80.0)  # low
         assert br.priority == ReviewPriority.LOW.value
-        result = manager.escalate_response(
-            COMPANY_ID, br.id, "Needs senior review")
+        result = manager.escalate_response(COMPANY_ID, br.id, "Needs senior review")
         assert result is not None
         assert result.priority == ReviewPriority.MEDIUM.value
 
@@ -901,8 +883,7 @@ class TestEscalation:
 
     def test_escalate_high_does_not_exceed_high(self, manager):
         br = _make_blocked(manager, confidence_score=40.0)  # high
-        result = manager.escalate_response(
-            COMPANY_ID, br.id, "Critical review")
+        result = manager.escalate_response(COMPANY_ID, br.id, "Critical review")
         assert result is not None
         # HIGH caps at HIGH (not URGENT, since URGENT is not in priority_order)
         assert result.priority == ReviewPriority.HIGH.value
@@ -910,7 +891,8 @@ class TestEscalation:
     def test_escalate_reason_stored_in_notes(self, manager):
         br = _make_blocked(manager)
         result = manager.escalate_response(
-            COMPANY_ID, br.id, "Customer is VIP, needs attention")
+            COMPANY_ID, br.id, "Customer is VIP, needs attention"
+        )
         assert result is not None
         assert "Customer is VIP" in result.review_notes
 
@@ -952,12 +934,11 @@ class TestEdgeCases:
         assert len(br.original_response) <= 50_000
 
     def test_unicode_content(self, manager):
-        unicode_query = "\u00bfC\u00f3mo restablecer mi contrase\u00f1a? \ud83d\ude0a \u4f60\u597d"
+        unicode_query = (
+            "\u00bfC\u00f3mo restablecer mi contrase\u00f1a? \ud83d\ude0a \u4f60\u597d"
+        )
         unicode_response = "\u3053\u3093\u306b\u3061\u306f\u3001\u30d1\u30b9\u30ef\u30fc\u30c9\u3092\u30ea\u30bb\u30c3\u30c8\u3057\u3066\u304f\u3060\u3055\u3044\u3002"
-        br = _make_blocked(
-            manager,
-            query=unicode_query,
-            response=unicode_response)
+        br = _make_blocked(manager, query=unicode_query, response=unicode_response)
         assert "\u00bf" in br.query
         assert "\u3053" in br.original_response
 
@@ -979,7 +960,10 @@ class TestEdgeCases:
             ids.append(br.id)
         # Approve all
         results = manager.batch_review(
-            COMPANY_ID, ids, REVIEWER_1, ReviewAction.APPROVED.value,
+            COMPANY_ID,
+            ids,
+            REVIEWER_1,
+            ReviewAction.APPROVED.value,
         )
         assert len(results) == 10
         stats = manager.get_review_queue_stats(COMPANY_ID)
@@ -1076,7 +1060,10 @@ class TestUtilityMethods:
             items = manager._queue.get(co_id, {})
             for item in items.values():
                 manager.review_response(
-                    co_id, item.id, REVIEWER_1, ReviewAction.APPROVED.value,
+                    co_id,
+                    item.id,
+                    REVIEWER_1,
+                    ReviewAction.APPROVED.value,
                 )
                 item.updated_at = (
                     datetime.now(timezone.utc) - timedelta(days=100)

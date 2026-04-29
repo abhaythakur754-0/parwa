@@ -35,7 +35,6 @@ from app.core.rag_retrieval import (
     QUERY_SYNONYMS,
 )
 
-
 # =========================================================================
 # SECTION 1: MockVectorStore Tests
 # =========================================================================
@@ -201,10 +200,22 @@ class TestMockVectorStoreSearch:
     def setup_method(self):
         self.store = MockVectorStore(seed=42)
         # Add test documents
-        self.store.add_document("doc1", [{"content": "Refund policy for customer orders"}, {
-            "content": "How to return items"}], "c1", )
-        self.store.add_document("doc2", [{"content": "API endpoint configuration guide"}, {
-            "content": "Server setup instructions"}], "c1", )
+        self.store.add_document(
+            "doc1",
+            [
+                {"content": "Refund policy for customer orders"},
+                {"content": "How to return items"},
+            ],
+            "c1",
+        )
+        self.store.add_document(
+            "doc2",
+            [
+                {"content": "API endpoint configuration guide"},
+                {"content": "Server setup instructions"},
+            ],
+            "c1",
+        )
         self.store.add_document(
             "doc3",
             [{"content": "Billing invoice and payment processing"}],
@@ -213,8 +224,7 @@ class TestMockVectorStoreSearch:
 
     def test_search_returns_results(self):
         """Search with relevant embedding returns results."""
-        query_embedding = self.store._generate_embedding(
-            "refund policy orders")
+        query_embedding = self.store._generate_embedding("refund policy orders")
         results = self.store.search(query_embedding, "c1", top_k=5)
         assert len(results) > 0
 
@@ -257,13 +267,19 @@ class TestMockVectorStoreSearch:
         """Metadata filter on document_type works."""
         self.store.add_document(
             "doc_filtered",
-            [{"content": "Specific filtered content", "metadata": {"document_type": "faq"}}],
+            [
+                {
+                    "content": "Specific filtered content",
+                    "metadata": {"document_type": "faq"},
+                }
+            ],
             "c1",
         )
-        query_embedding = self.store._generate_embedding(
-            "Specific filtered content")
+        query_embedding = self.store._generate_embedding("Specific filtered content")
         results = self.store.search(
-            query_embedding, "c1", top_k=10,
+            query_embedding,
+            "c1",
+            top_k=10,
             filters={"document_type": "faq"},
         )
         for r in results:
@@ -276,10 +292,11 @@ class TestMockVectorStoreSearch:
             [{"content": "Unique source content", "metadata": {"source": "manual"}}],
             "c1",
         )
-        query_embedding = self.store._generate_embedding(
-            "Unique source content")
+        query_embedding = self.store._generate_embedding("Unique source content")
         results = self.store.search(
-            query_embedding, "c1", top_k=10,
+            query_embedding,
+            "c1",
+            top_k=10,
             filters={"source": "manual"},
         )
         for r in results:
@@ -294,7 +311,9 @@ class TestMockVectorStoreSearch:
         )
         query_embedding = self.store._generate_embedding("Tagged content")
         results = self.store.search(
-            query_embedding, "c1", top_k=10,
+            query_embedding,
+            "c1",
+            top_k=10,
             filters={"tags": ["refund"]},
         )
         for r in results:
@@ -310,7 +329,9 @@ class TestMockVectorStoreSearch:
         )
         query_embedding = self.store._generate_embedding("Multi tag content")
         results = self.store.search(
-            query_embedding, "c1", top_k=10,
+            query_embedding,
+            "c1",
+            top_k=10,
             filters={"tags": ["a", "c"]},
         )
         for r in results:
@@ -445,15 +466,23 @@ class TestRAGRetrieverBasic:
         self.store.add_document(
             "refund_doc",
             [
-                {"content": "Our refund policy allows returns within 30 days of purchase"},
-                {"content": "To process a refund, contact support with your order number"},
+                {
+                    "content": "Our refund policy allows returns within 30 days of purchase"
+                },
+                {
+                    "content": "To process a refund, contact support with your order number"
+                },
             ],
             "c1",
             {"source": "refund_policy.pd", "page": 1},
         )
         self.store.add_document(
             "tech_doc",
-            [{"content": "API endpoint /api/v1/users returns user data in JSON format"}],
+            [
+                {
+                    "content": "API endpoint /api/v1/users returns user data in JSON format"
+                }
+            ],
             "c1",
             {"source": "api_docs.md", "section": "Users"},
         )
@@ -681,20 +710,24 @@ class TestRAGRetrieverFilters:
 
     def setup_method(self):
         self.store = MockVectorStore(seed=42)
-        self.store.add_document("faq_doc",
-                                [{"content": "FAQ refund answer",
-                                  "metadata": {"document_type": "faq"}},
-                                    {"content": "FAQ billing answer",
-                                     "metadata": {"document_type": "faq"}},
-                                 ],
-                                "c1",
-                                )
-        self.store.add_document("guide_doc",
-                                [{"content": "Guide refund steps",
-                                  "metadata": {"document_type": "guide"}},
-                                 ],
-                                "c1",
-                                )
+        self.store.add_document(
+            "faq_doc",
+            [
+                {"content": "FAQ refund answer", "metadata": {"document_type": "faq"}},
+                {"content": "FAQ billing answer", "metadata": {"document_type": "faq"}},
+            ],
+            "c1",
+        )
+        self.store.add_document(
+            "guide_doc",
+            [
+                {
+                    "content": "Guide refund steps",
+                    "metadata": {"document_type": "guide"},
+                },
+            ],
+            "c1",
+        )
         self.retriever = RAGRetriever(vector_store=self.store)
 
     @pytest.mark.asyncio
@@ -747,8 +780,12 @@ class TestRAGRetrieverTopK:
         self.store = MockVectorStore(seed=42)
         self.store.add_document(
             "big_doc",
-            [{"content": f"Chunk number {i} with some shared topic words about refunds and policies"}
-             for i in range(20)],
+            [
+                {
+                    "content": f"Chunk number {i} with some shared topic words about refunds and policies"
+                }
+                for i in range(20)
+            ],
             "c1",
         )
         self.retriever = RAGRetriever(vector_store=self.store)
@@ -1019,14 +1056,16 @@ class TestRAGRetrieverCache:
     async def test_cache_hit_returns_cached_result(self):
         """Cache hit returns cached=True result."""
         cached_data = {
-            "chunks": [{
-                "chunk_id": "c1",
-                "document_id": "doc1",
-                "content": "Cached chunk",
-                "score": 0.9,
-                "metadata": {},
-                "citation": None,
-            }],
+            "chunks": [
+                {
+                    "chunk_id": "c1",
+                    "document_id": "doc1",
+                    "content": "Cached chunk",
+                    "score": 0.9,
+                    "metadata": {},
+                    "citation": None,
+                }
+            ],
             "total_found": 1,
             "retrieval_time_ms": 5.0,
             "query_embedding_time_ms": 2.0,
@@ -1138,8 +1177,10 @@ class TestRAGResultSerialization:
         result = RAGResult(
             chunks=[
                 RAGChunk(
-                    chunk_id="c1", document_id="d1",
-                    content="Test", score=0.9,
+                    chunk_id="c1",
+                    document_id="d1",
+                    content="Test",
+                    score=0.9,
                     metadata={"source": "test.pdf"},
                     citation="[Source: test.pdf]",
                 ),
@@ -1163,8 +1204,10 @@ class TestRAGResultSerialization:
     def test_rag_chunk_to_dict(self):
         """RAGChunk serializes correctly."""
         chunk = RAGChunk(
-            chunk_id="c1", document_id="d1",
-            content="Hello", score=0.85,
+            chunk_id="c1",
+            document_id="d1",
+            content="Hello",
+            score=0.85,
             metadata={"page": 3},
         )
         d = chunk.to_dict()
@@ -1234,9 +1277,7 @@ class TestReindexingManagerMark:
     @pytest.mark.asyncio
     async def test_mark_multiple_documents(self):
         """Marking multiple documents returns correct count."""
-        count = await self.manager.mark_for_reindex(
-            "c1", ["doc1", "doc2", "doc3"]
-        )
+        count = await self.manager.mark_for_reindex("c1", ["doc1", "doc2", "doc3"])
         assert count == 3
 
     @pytest.mark.asyncio
@@ -1313,7 +1354,9 @@ class TestReindexingManagerProcess:
         def fail_callback(job):
             raise RuntimeError("Processing failed")
 
-        result = await self.manager.process_reindex_queue("c1", process_fn=fail_callback)
+        result = await self.manager.process_reindex_queue(
+            "c1", process_fn=fail_callback
+        )
         assert result["failed"] == 1
         assert result["succeeded"] == 0
         assert len(result["errors"]) == 1
@@ -1326,7 +1369,9 @@ class TestReindexingManagerProcess:
         async def async_callback(job):
             return True
 
-        result = await self.manager.process_reindex_queue("c1", process_fn=async_callback)
+        result = await self.manager.process_reindex_queue(
+            "c1", process_fn=async_callback
+        )
         assert result["succeeded"] == 1
 
     @pytest.mark.asyncio
@@ -1444,7 +1489,7 @@ class TestReindexingManagerStaleDocuments:
         self.manager._doc_timestamps["c1"] = {
             "doc1": time.time() - 300,  # 5 min ago
             "doc2": time.time() - 600,  # 10 min ago (more stale)
-            "doc3": time.time() - 60,   # 1 min ago (fresh)
+            "doc3": time.time() - 60,  # 1 min ago (fresh)
         }
         stale = await self.manager.get_stale_documents("c1", max_age_minutes=5)
         assert len(stale) == 2  # doc1 and doc2 are stale
@@ -1510,9 +1555,12 @@ class TestVariantConfig:
     def test_config_has_required_keys(self):
         """Each variant config has all required keys."""
         required_keys = [
-            "similarity_threshold", "default_top_k",
-            "use_metadata_filters", "use_reranking",
-            "use_citation_tracking", "use_query_expansion",
+            "similarity_threshold",
+            "default_top_k",
+            "use_metadata_filters",
+            "use_reranking",
+            "use_citation_tracking",
+            "use_query_expansion",
             "max_retrieval_time_ms",
         ]
         for variant, config in VARIANT_CONFIG.items():
@@ -1521,15 +1569,19 @@ class TestVariantConfig:
 
     def test_thresholds_increasing(self):
         """Similarity thresholds increase with tier."""
-        assert VARIANT_CONFIG["mini_parwa"]["similarity_threshold"] < \
-            VARIANT_CONFIG["parwa"]["similarity_threshold"] < \
-            VARIANT_CONFIG["high_parwa"]["similarity_threshold"]
+        assert (
+            VARIANT_CONFIG["mini_parwa"]["similarity_threshold"]
+            < VARIANT_CONFIG["parwa"]["similarity_threshold"]
+            < VARIANT_CONFIG["high_parwa"]["similarity_threshold"]
+        )
 
     def test_top_k_increasing(self):
         """Default top_k increases with tier."""
-        assert VARIANT_CONFIG["mini_parwa"]["default_top_k"] < \
-            VARIANT_CONFIG["parwa"]["default_top_k"] < \
-            VARIANT_CONFIG["high_parwa"]["default_top_k"]
+        assert (
+            VARIANT_CONFIG["mini_parwa"]["default_top_k"]
+            < VARIANT_CONFIG["parwa"]["default_top_k"]
+            < VARIANT_CONFIG["high_parwa"]["default_top_k"]
+        )
 
 
 # =========================================================================

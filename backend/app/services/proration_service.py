@@ -247,11 +247,13 @@ class ProrationService:
             List of ProrationAudit records (most recent first)
         """
         with SessionLocal() as db:
-            audits = db.query(ProrationAudit).filter(
-                ProrationAudit.company_id == str(company_id)
-            ).order_by(
-                ProrationAudit.calculated_at.desc()
-            ).limit(limit).all()
+            audits = (
+                db.query(ProrationAudit)
+                .filter(ProrationAudit.company_id == str(company_id))
+                .order_by(ProrationAudit.calculated_at.desc())
+                .limit(limit)
+                .all()
+            )
 
             return [
                 ProrationAuditSchema(

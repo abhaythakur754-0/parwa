@@ -51,6 +51,7 @@ router = APIRouter(
 def _get_db(request: Request):
     """Get DB session from request state."""
     from database.session import get_db_session
+
     return get_db_session()
 
 
@@ -62,6 +63,7 @@ def _get_company_id(request: Request) -> Optional[str]:
 # ═══════════════════════════════════════════════════════════════════════════════
 # F-101: Mistake Threshold Endpoints
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @router.post(
     "/agents/{agent_id}/mistakes",
@@ -85,7 +87,9 @@ async def report_mistake(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -111,15 +115,17 @@ async def report_mistake(
             extra={
                 "company_id": company_id,
                 "agent_id": agent_id,
-                "error": str(exc)[
-                    :200]},
+                "error": str(exc)[:200],
+            },
         )
         return JSONResponse(
             status_code=500,
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to report mistake"}},
+                    "message": "Failed to report mistake",
+                }
+            },
         )
 
 
@@ -143,7 +149,9 @@ async def get_threshold_status(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -159,15 +167,17 @@ async def get_threshold_status(
             extra={
                 "company_id": company_id,
                 "agent_id": agent_id,
-                "error": str(exc)[
-                    :200]},
+                "error": str(exc)[:200],
+            },
         )
         return JSONResponse(
             status_code=500,
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get threshold status"}},
+                    "message": "Failed to get threshold status",
+                }
+            },
         )
 
 
@@ -192,7 +202,9 @@ async def get_mistake_history(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -215,15 +227,17 @@ async def get_mistake_history(
             extra={
                 "company_id": company_id,
                 "agent_id": agent_id,
-                "error": str(exc)[
-                    :200]},
+                "error": str(exc)[:200],
+            },
         )
         return JSONResponse(
             status_code=500,
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get mistake history"}},
+                    "message": "Failed to get mistake history",
+                }
+            },
         )
 
 
@@ -244,7 +258,9 @@ async def get_mistake_stats(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -260,21 +276,24 @@ async def get_mistake_stats(
             extra={
                 "company_id": company_id,
                 "agent_id": agent_id,
-                "error": str(exc)[
-                    :200]},
+                "error": str(exc)[:200],
+            },
         )
         return JSONResponse(
             status_code=500,
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get mistake stats"}},
+                    "message": "Failed to get mistake stats",
+                }
+            },
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # F-100: Training Run Endpoints
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @router.post(
     "/agents/{agent_id}/train",
@@ -297,7 +316,9 @@ async def start_training(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -324,15 +345,17 @@ async def start_training(
             extra={
                 "company_id": company_id,
                 "agent_id": agent_id,
-                "error": str(exc)[
-                    :200]},
+                "error": str(exc)[:200],
+            },
         )
         return JSONResponse(
             status_code=500,
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to start training"}},
+                    "message": "Failed to start training",
+                }
+            },
         )
 
 
@@ -356,7 +379,9 @@ async def list_training_runs(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -382,7 +407,9 @@ async def list_training_runs(
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to list training runs"}},
+                    "message": "Failed to list training runs",
+                }
+            },
         )
 
 
@@ -403,7 +430,9 @@ async def get_training_run(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -419,7 +448,9 @@ async def get_training_run(
                 content={
                     "error": {
                         "code": "NOT_FOUND",
-                        "message": f"Training run {run_id} not found"}},
+                        "message": f"Training run {run_id} not found",
+                    }
+                },
             )
 
         return result
@@ -427,18 +458,16 @@ async def get_training_run(
     except Exception as exc:
         logger.error(
             "get_training_run_error",
-            extra={
-                "company_id": company_id,
-                "run_id": run_id,
-                "error": str(exc)[
-                    :200]},
+            extra={"company_id": company_id, "run_id": run_id, "error": str(exc)[:200]},
         )
         return JSONResponse(
             status_code=500,
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get training run"}},
+                    "message": "Failed to get training run",
+                }
+            },
         )
 
 
@@ -459,7 +488,9 @@ async def cancel_training_run(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -473,9 +504,8 @@ async def cancel_training_run(
             return JSONResponse(
                 status_code=400,
                 content={
-                    "error": {
-                        "code": "CANNOT_CANCEL",
-                        "message": result.get("error")}},
+                    "error": {"code": "CANNOT_CANCEL", "message": result.get("error")}
+                },
             )
 
         return result
@@ -483,18 +513,16 @@ async def cancel_training_run(
     except Exception as exc:
         logger.error(
             "cancel_training_run_error",
-            extra={
-                "company_id": company_id,
-                "run_id": run_id,
-                "error": str(exc)[
-                    :200]},
+            extra={"company_id": company_id, "run_id": run_id, "error": str(exc)[:200]},
         )
         return JSONResponse(
             status_code=500,
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to cancel training run"}},
+                    "message": "Failed to cancel training run",
+                }
+            },
         )
 
 
@@ -515,7 +543,9 @@ async def get_training_stats(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -535,13 +565,16 @@ async def get_training_stats(
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get training stats"}},
+                    "message": "Failed to get training stats",
+                }
+            },
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Checkpoint Endpoints
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @router.get(
     "/training/runs/{run_id}/checkpoints/best",
@@ -560,7 +593,9 @@ async def get_best_checkpoint(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -576,7 +611,9 @@ async def get_best_checkpoint(
                 content={
                     "error": {
                         "code": "NOT_FOUND",
-                        "message": "No best checkpoint found"}},
+                        "message": "No best checkpoint found",
+                    }
+                },
             )
 
         return result
@@ -584,16 +621,14 @@ async def get_best_checkpoint(
     except Exception as exc:
         logger.error(
             "get_best_checkpoint_error",
-            extra={
-                "company_id": company_id,
-                "run_id": run_id,
-                "error": str(exc)[
-                    :200]},
+            extra={"company_id": company_id, "run_id": run_id, "error": str(exc)[:200]},
         )
         return JSONResponse(
             status_code=500,
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get best checkpoint"}},
+                    "message": "Failed to get best checkpoint",
+                }
+            },
         )

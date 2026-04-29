@@ -44,27 +44,117 @@ _SUMMARIZATION_THRESHOLD_MESSAGES: int = 15
 _VERSION_LOCK_TTL_SECONDS: int = 30
 
 # Keywords that carry conversational weight
-_HIGH_VALUE_KEYWORDS: frozenset = frozenset({
-    "problem", "issue", "error", "bug", "broken", "not working",
-    "need", "help", "please", "urgent", "asap", "important",
-    "thank", "thanks", "resolved", "fixed", "update",
-    "refund", "cancel", "return", "exchange", "order",
-    "delivery", "shipping", "payment", "charge", "billing",
-    "account", "password", "login", "signup", "register",
-    "expect", "promise", "guarantee", "deadline", "follow-up",
-})
+_HIGH_VALUE_KEYWORDS: frozenset = frozenset(
+    {
+        "problem",
+        "issue",
+        "error",
+        "bug",
+        "broken",
+        "not working",
+        "need",
+        "help",
+        "please",
+        "urgent",
+        "asap",
+        "important",
+        "thank",
+        "thanks",
+        "resolved",
+        "fixed",
+        "update",
+        "refund",
+        "cancel",
+        "return",
+        "exchange",
+        "order",
+        "delivery",
+        "shipping",
+        "payment",
+        "charge",
+        "billing",
+        "account",
+        "password",
+        "login",
+        "signup",
+        "register",
+        "expect",
+        "promise",
+        "guarantee",
+        "deadline",
+        "follow-up",
+    }
+)
 
 # Common filler words to exclude from keyword density scoring
-_STOP_WORDS: frozenset = frozenset({
-    "the", "a", "an", "is", "are", "was", "were", "be", "been",
-    "being", "have", "has", "had", "do", "does", "did", "will",
-    "would", "could", "should", "may", "might", "can", "shall",
-    "to", "o", "in", "for", "on", "with", "at", "by", "from",
-    "it", "its", "this", "that", "these", "those", "i", "me",
-    "my", "we", "our", "you", "your", "he", "she", "they",
-    "them", "their", "and", "but", "or", "so", "i", "then",
-    "not", "no", "yes", "just", "also", "very", "too",
-})
+_STOP_WORDS: frozenset = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "can",
+        "shall",
+        "to",
+        "o",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "it",
+        "its",
+        "this",
+        "that",
+        "these",
+        "those",
+        "i",
+        "me",
+        "my",
+        "we",
+        "our",
+        "you",
+        "your",
+        "he",
+        "she",
+        "they",
+        "them",
+        "their",
+        "and",
+        "but",
+        "or",
+        "so",
+        "i",
+        "then",
+        "not",
+        "no",
+        "yes",
+        "just",
+        "also",
+        "very",
+        "too",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
@@ -72,6 +162,7 @@ _STOP_WORDS: frozenset = frozenset({
 # ---------------------------------------------------------------------------
 class SummarizationMode(str, Enum):
     """Strategy used to produce a conversation summary."""
+
     EXTRACTIVE = "extractive"  # Pick key sentences
     ABSTRACTIVE = "abstractive"  # AI-generated summary
     HYBRID = "hybrid"  # Both
@@ -79,6 +170,7 @@ class SummarizationMode(str, Enum):
 
 class SummaryStatus(str, Enum):
     """Lifecycle status of a single summary artefact."""
+
     PENDING = "pending"
     COMPLETED = "completed"
     STALE = "stale"
@@ -87,6 +179,7 @@ class SummaryStatus(str, Enum):
 
 class ConversationState(str, Enum):
     """Current state of a conversation (used by external callers)."""
+
     ACTIVE = "active"
     SUMMARIZING = "summarizing"
     LOCKED = "locked"
@@ -98,18 +191,18 @@ class ConversationState(str, Enum):
 @dataclass
 class ConversationMessage:
     """A single message within a conversation."""
+
     message_id: str
     content: str
     role: str  # "customer" or "agent"
-    timestamp: datetime = field(
-        default_factory=lambda: datetime.now(
-            timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: Dict = field(default_factory=dict)
 
 
 @dataclass
 class ConversationSummary:
     """Produced summary for a conversation."""
+
     summary_id: str
     conversation_id: str
     company_id: str
@@ -123,9 +216,7 @@ class ConversationSummary:
     message_count: int = 0
     original_message_count: int = 0
     compression_ratio: float = 0.0
-    created_at: datetime = field(
-        default_factory=lambda: datetime.now(
-            timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     generation_time_ms: float = 0.0
     metadata: Dict = field(default_factory=dict)
 
@@ -133,6 +224,7 @@ class ConversationSummary:
 @dataclass
 class ConversationContext:
     """Full context object for a conversation."""
+
     conversation_id: str
     company_id: str
     messages: List[ConversationMessage] = field(default_factory=list)
@@ -147,6 +239,7 @@ class ConversationContext:
 @dataclass
 class SummarizationRequest:
     """Parameters controlling a single summarization run."""
+
     company_id: str
     conversation_id: str
     mode: SummarizationMode = SummarizationMode.HYBRID
@@ -158,6 +251,7 @@ class SummarizationRequest:
 @dataclass
 class SummarizationResult:
     """Outcome of a summarization attempt."""
+
     success: bool
     summary: Optional[ConversationSummary] = None
     error: str = ""
@@ -197,7 +291,8 @@ def _split_sentences(text: str) -> List[str]:
         "etc.",
         "vs.",
         "Jr.",
-            "Sr."):
+        "Sr.",
+    ):
         protected = protected.replace(abbr, abbr.replace(".", "DOTPROTECT"))
 
     raw_parts = re.split(r"(?<=[.!?])\s+", protected)
@@ -270,8 +365,9 @@ def _score_sentence(
     # --- 5. TF-IDF-like rarity score ---
     non_stop = [w for w in words if w not in _STOP_WORDS]
     if non_stop and total_words > 0:
-        avg_log_freq = sum(math.log(1 + word_freq.get(w, 0))
-                           for w in non_stop) / len(non_stop)
+        avg_log_freq = sum(math.log(1 + word_freq.get(w, 0)) for w in non_stop) / len(
+            non_stop
+        )
         # Lower average frequency → rarer words → higher score
         max_possible = math.log(1 + max(word_freq.values(), default=1))
         rarity_score = 1.0 - (avg_log_freq / max(1.0, max_possible))
@@ -422,9 +518,7 @@ class ConversationSummarizationService:
 
             # Count messages added after last summarization timestamp
             new_count = sum(
-                1
-                for m in ctx.messages
-                if m.timestamp > ctx.last_summarized_at
+                1 for m in ctx.messages if m.timestamp > ctx.last_summarized_at
             )
             return new_count >= threshold
         except Exception as exc:
@@ -464,8 +558,7 @@ class ConversationSummarizationService:
 
         key = _conv_key(company_id, conversation_id)
         lock = self._get_lock(key)
-        stats = self._stats.setdefault(
-            company_id, self._init_stats(company_id))
+        stats = self._stats.setdefault(company_id, self._init_stats(company_id))
 
         try:
             # Ensure company_id on request matches
@@ -482,7 +575,7 @@ class ConversationSummarizationService:
             messages = list(ctx.messages)
 
             if request.max_messages > 0:
-                messages = messages[-request.max_messages:]
+                messages = messages[-request.max_messages :]
 
             if not messages:
                 return SummarizationResult(
@@ -522,7 +615,7 @@ class ConversationSummarizationService:
                         # Refresh messages for re-run
                         messages = list(ctx.messages)
                         if request.max_messages > 0:
-                            messages = messages[-request.max_messages:]
+                            messages = messages[-request.max_messages :]
                         logger.info(
                             "summarize_version_changed_re_running",
                             extra={
@@ -553,14 +646,18 @@ class ConversationSummarizationService:
                         continue  # re-run
                     break
 
-                if result_summary is not None and result_summary.status == SummaryStatus.STALE:
+                if (
+                    result_summary is not None
+                    and result_summary.status == SummaryStatus.STALE
+                ):
                     # Second run also went stale — keep last result but mark
                     # failed
                     result_summary.status = SummaryStatus.FAILED
                     stats["failed_summarizations"] += 1
                     stats["total_messages_processed"] += len(messages)
                     self._update_stats_avg(
-                        stats, "avg_generation_time_ms",
+                        stats,
+                        "avg_generation_time_ms",
                         result_summary.generation_time_ms,
                         stats["total_summarizations"],
                     )
@@ -575,14 +672,14 @@ class ConversationSummarizationService:
                 # --- Step 5: store result ---
                 if result_summary is not None:
                     result_summary.status = SummaryStatus.COMPLETED
-                    self._summary_cache.setdefault(
-                        key, []).append(result_summary)
+                    self._summary_cache.setdefault(key, []).append(result_summary)
                     ctx.summaries.append(result_summary)
                     ctx.last_summarized_at = datetime.now(timezone.utc)
                     stats["successful_summarizations"] += 1
                     stats["total_messages_processed"] += len(messages)
                     self._update_stats_avg(
-                        stats, "avg_generation_time_ms",
+                        stats,
+                        "avg_generation_time_ms",
                         result_summary.generation_time_ms,
                         stats["total_summarizations"],
                     )
@@ -644,14 +741,10 @@ class ConversationSummarizationService:
         key_points: List[str] = []
 
         try:
-            if mode in (
-                    SummarizationMode.EXTRACTIVE,
-                    SummarizationMode.HYBRID):
+            if mode in (SummarizationMode.EXTRACTIVE, SummarizationMode.HYBRID):
                 extractive, key_points = self._extractive_summarize(messages)
 
-            if mode in (
-                    SummarizationMode.ABSTRACTIVE,
-                    SummarizationMode.HYBRID):
+            if mode in (SummarizationMode.ABSTRACTIVE, SummarizationMode.HYBRID):
                 abstractive = self._abstractive_summarize(messages)
 
             # Build hybrid summary text
@@ -752,8 +845,7 @@ class ConversationSummarizationService:
         # Derive key points — highest-scoring unique sentences, deduplicated
         seen = set()
         key_points: List[str] = []
-        for _score, _idx, sent in sorted(
-                scored, key=lambda x: x[0], reverse=True):
+        for _score, _idx, sent in sorted(scored, key=lambda x: x[0], reverse=True):
             # Normalise for dedup
             norm = re.sub(r"\s+", " ", sent.lower().strip())
             if norm not in seen and norm:
@@ -766,9 +858,7 @@ class ConversationSummarizationService:
 
     # -- abstractive summarization ------------------------------------------
 
-    def _abstractive_summarize(
-        self, messages: List[ConversationMessage]
-    ) -> str:
+    def _abstractive_summarize(self, messages: List[ConversationMessage]) -> str:
         """Generate a condensed summary.
 
         If an ``abstractive_generator`` callable was provided at
@@ -788,8 +878,7 @@ class ConversationSummarizationService:
 
         return self._rule_based_abstractive(messages)
 
-    def _rule_based_abstractive(
-            self, messages: List[ConversationMessage]) -> str:
+    def _rule_based_abstractive(self, messages: List[ConversationMessage]) -> str:
         """Built-in rule-based condensation.
 
         Strategy:
@@ -846,7 +935,8 @@ class ConversationSummarizationService:
             selected = key_excerpts[:8]
             if len(key_excerpts) > 8:
                 parts.append(
-                    "Key exchanges: " + "; ".join(selected)
+                    "Key exchanges: "
+                    + "; ".join(selected)
                     + f" (and {len(key_excerpts) - 8} more exchanges)"
                 )
             else:
@@ -854,13 +944,9 @@ class ConversationSummarizationService:
 
         # Check for high-value keywords for a topic hint
         all_text = " ".join(m.content for m in messages).lower()
-        topic_words = [
-            kw for kw in _HIGH_VALUE_KEYWORDS if kw in all_text
-        ]
+        topic_words = [kw for kw in _HIGH_VALUE_KEYWORDS if kw in all_text]
         if topic_words:
-            parts.append(
-                "Topics discussed: " + ", ".join(sorted(set(topic_words)))
-            )
+            parts.append("Topics discussed: " + ", ".join(sorted(set(topic_words))))
 
         return " ".join(parts)
 
@@ -957,17 +1043,19 @@ class ConversationSummarizationService:
                     }
                     for m in msgs
                 ],
-                "summary": {
-                    "summary_id": latest_summary.summary_id,
-                    "mode": latest_summary.mode.value,
-                    "extractive_summary": latest_summary.extractive_summary,
-                    "abstractive_summary": latest_summary.abstractive_summary,
-                    "hybrid_summary": latest_summary.hybrid_summary,
-                    "key_points": latest_summary.key_points,
-                    "compression_ratio": latest_summary.compression_ratio,
-                }
-                if latest_summary
-                else None,
+                "summary": (
+                    {
+                        "summary_id": latest_summary.summary_id,
+                        "mode": latest_summary.mode.value,
+                        "extractive_summary": latest_summary.extractive_summary,
+                        "abstractive_summary": latest_summary.abstractive_summary,
+                        "hybrid_summary": latest_summary.hybrid_summary,
+                        "key_points": latest_summary.key_points,
+                        "compression_ratio": latest_summary.compression_ratio,
+                    }
+                    if latest_summary
+                    else None
+                ),
                 "total_messages": len(ctx.messages),
                 "version": self._version_counters.get(key, 0),
                 "token_count": window_tokens,
@@ -1048,10 +1136,7 @@ class ConversationSummarizationService:
     def get_stats(self, company_id: str) -> Dict:
         """Return summarization statistics for a company."""
         try:
-            return dict(
-                self._stats.get(
-                    company_id,
-                    self._init_stats(company_id)))
+            return dict(self._stats.get(company_id, self._init_stats(company_id)))
         except Exception as exc:
             logger.error(
                 "get_stats_failed",

@@ -17,7 +17,6 @@ from app.schemas.customer import (
     IdentityMatchRequest,
 )
 
-
 router = APIRouter(
     prefix="/api/identity",
     tags=["identity"],
@@ -119,7 +118,9 @@ async def get_match_logs(
                 "input_phone": log.input_phone,
                 "matched_customer_id": log.matched_customer_id,
                 "match_method": log.match_method,
-                "confidence_score": float(log.confidence_score) if log.confidence_score else None,
+                "confidence_score": (
+                    float(log.confidence_score) if log.confidence_score else None
+                ),
                 "action_taken": log.action_taken,
                 "created_at": log.created_at.isoformat() if log.created_at else None,
             }

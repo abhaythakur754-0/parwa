@@ -36,7 +36,10 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 from app.logger import get_logger
 
 if TYPE_CHECKING:
-    from app.core.techniques.base import ConversationState as _ConversationState  # noqa: F401
+    from app.core.techniques.base import (
+        ConversationState as _ConversationState,
+    )  # noqa: F401
+
     ConversationState = _ConversationState
 
 logger = get_logger("gsd_engine")
@@ -121,6 +124,7 @@ class EscalationCooldownError(GSDEngineError):
 
 class GSDVariant(str, Enum):
     """PARWA variant identifiers for GSD configuration."""
+
     MINI_PARWA = "mini_parwa"
     PARWA = "parwa"
     PARWA_HIGH = "high_parwa"
@@ -150,13 +154,22 @@ class GSDConfig:
     escalation_cooldown_seconds: float = 300.0  # 5 minutes
     max_diagnosis_loops: int = 3
     max_history_entries: int = 100
-    auto_close_intents: List[str] = field(default_factory=lambda: [
-        "billing", "faq", "inquiry", "feedback", "general",
-    ])
+    auto_close_intents: List[str] = field(
+        default_factory=lambda: [
+            "billing",
+            "faq",
+            "inquiry",
+            "feedback",
+            "general",
+        ]
+    )
     auto_close_delay_seconds: float = 30.0
-    vip_tiers: List[str] = field(default_factory=lambda: [
-        "enterprise", "vip",
-    ])
+    vip_tiers: List[str] = field(
+        default_factory=lambda: [
+            "enterprise",
+            "vip",
+        ]
+    )
 
 
 @dataclass
@@ -240,7 +253,10 @@ MINI_TRANSITION_TABLE: Dict[str, Set[str]] = {
 
 # Escalation-eligible states (any state can escalate to ESCALATE).
 ESCALATION_ELIGIBLE_STATES: Set[str] = {
-    "greeting", "diagnosis", "resolution", "follow_up",
+    "greeting",
+    "diagnosis",
+    "resolution",
+    "follow_up",
 }
 
 
@@ -250,34 +266,75 @@ ESCALATION_ELIGIBLE_STATES: Set[str] = {
 
 # Phrases indicating customer satisfaction (for FOLLOW_UP→CLOSED).
 SATISFACTION_PHRASES: Set[str] = {
-    "thanks", "thank you", "thx", "ty", "appreciate it",
-    "resolved", "that works", "that worked", "perfect",
-    "great", "awesome", "excellent", "all good", "sorted",
-    "problem solved", "fixed", "got it", "makes sense",
-    "yes that's it", "exactly what I needed", "done",
-    "no further questions", "that's all", "nothing else",
+    "thanks",
+    "thank you",
+    "thx",
+    "ty",
+    "appreciate it",
+    "resolved",
+    "that works",
+    "that worked",
+    "perfect",
+    "great",
+    "awesome",
+    "excellent",
+    "all good",
+    "sorted",
+    "problem solved",
+    "fixed",
+    "got it",
+    "makes sense",
+    "yes that's it",
+    "exactly what I needed",
+    "done",
+    "no further questions",
+    "that's all",
+    "nothing else",
 }
 
 # Legal/sensitive intents that force escalation.
 LEGAL_INTENTS: Set[str] = {
-    "legal", "lawsuit", "attorney", "sue", "litigation",
-    "regulatory", "compliance", "breach", "gdpr",
-    "subpoena", "court", "defamation",
+    "legal",
+    "lawsuit",
+    "attorney",
+    "sue",
+    "litigation",
+    "regulatory",
+    "compliance",
+    "breach",
+    "gdpr",
+    "subpoena",
+    "court",
+    "defamation",
 }
 
 # Simple intents eligible for auto-close after resolution.
 SIMPLE_RESOLUTION_INTENTS: Set[str] = {
-    "billing", "faq", "inquiry", "feedback", "general",
-    "shipping", "account",
+    "billing",
+    "faq",
+    "inquiry",
+    "feedback",
+    "general",
+    "shipping",
+    "account",
 }
 
 # Phrases that indicate the customer has a new/ different question
 # (for FOLLOW_UP→DIAGNOSIS).
 NEW_ISSUE_PHRASES: Set[str] = {
-    "also", "another thing", "one more question", "while I'm here",
-    "by the way", "additionally", "unrelated", "different issue",
-    "new problem", "separate question", "actually i also",
-    "i also need", "there's something else",
+    "also",
+    "another thing",
+    "one more question",
+    "while I'm here",
+    "by the way",
+    "additionally",
+    "unrelated",
+    "different issue",
+    "new problem",
+    "separate question",
+    "actually i also",
+    "i also need",
+    "there's something else",
 }
 
 # Diagnostic question templates per intent type.
@@ -364,7 +421,9 @@ RESOLUTION_TIME_ESTIMATES: Dict[str, Dict[str, int]] = {
 
 # Default estimates for unknown intents.
 DEFAULT_RESOLUTION_ESTIMATE: Dict[str, int] = {
-    "low": 10, "medium": 20, "high": 45,
+    "low": 10,
+    "medium": 20,
+    "high": 45,
 }
 
 
@@ -476,10 +535,13 @@ class GSDEngine:
         # 2. Try VariantCapabilityService for authoritative lookup
         if company_id:
             try:
-                from app.services.variant_capability_service import VariantCapabilityService
+                from app.services.variant_capability_service import (
+                    VariantCapabilityService,
+                )
+
                 service = VariantCapabilityService()
                 caps = service.get_variant_capabilities(company_id)
-                if caps and hasattr(caps, 'variant_type'):
+                if caps and hasattr(caps, "variant_type"):
                     return caps.variant_type
             except Exception:
                 # BC-008: Service unavailable — fall through to default
@@ -531,15 +593,25 @@ class GSDEngine:
         from app.core.techniques.base import GSDState
 
         # Normalize target_state to string for comparison
-        target_str = target_state.value if isinstance(
-            target_state, GSDState) else str(target_state)
-        current_str = state.gsd_state.value if isinstance(
-            state.gsd_state, GSDState) else str(state.gsd_state)
+        target_str = (
+            target_state.value
+            if isinstance(target_state, GSDState)
+            else str(target_state)
+        )
+        current_str = (
+            state.gsd_state.value
+            if isinstance(state.gsd_state, GSDState)
+            else str(state.gsd_state)
+        )
 
         # Validate the transition using variant-aware check (BC-001)
         variant = self._get_variant_for_company(state.company_id)
-        if not await self.can_transition_with_variant(state.gsd_state, target_state, variant):
-            reason = await self._explain_invalid_transition(current_str, target_str, state)
+        if not await self.can_transition_with_variant(
+            state.gsd_state, target_state, variant
+        ):
+            reason = await self._explain_invalid_transition(
+                current_str, target_str, state
+            )
             raise InvalidTransitionError(
                 from_state=current_str,
                 to_state=target_str,
@@ -570,9 +642,11 @@ class GSDEngine:
 
         # Record in history (ring buffer)
         record = TransitionRecord(
-            state=target_str, timestamp=datetime.now(
-                timezone.utc).isoformat(), trigger=trigger_reason or self._default_trigger(
-                previous_state, target_str), metadata=metadata or {}, )
+            state=target_str,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            trigger=trigger_reason or self._default_trigger(previous_state, target_str),
+            metadata=metadata or {},
+        )
         self._append_history(state, record)
 
         # Emit transition event
@@ -615,13 +689,17 @@ class GSDEngine:
         """
         from app.core.techniques.base import GSDState
 
-        current = state.gsd_state.value if isinstance(
-            state.gsd_state, GSDState) else str(
-            state.gsd_state)
+        current = (
+            state.gsd_state.value
+            if isinstance(state.gsd_state, GSDState)
+            else str(state.gsd_state)
+        )
         variant = self.get_variant(state.company_id)
 
         # Check for auto-escalation first (except in mini_parwa)
-        if variant != GSDVariant.MINI_PARWA.value and await self._should_auto_escalate(state):
+        if variant != GSDVariant.MINI_PARWA.value and await self._should_auto_escalate(
+            state
+        ):
             return GSDState.ESCALATE
 
         # State-specific next-state logic
@@ -680,7 +758,9 @@ class GSDEngine:
         return state.gsd_state in terminal_states
 
     async def can_transition(
-        self, current: Any, target: Any,
+        self,
+        current: Any,
+        target: Any,
     ) -> bool:
         """Validate whether a state transition is legal.
 
@@ -698,10 +778,8 @@ class GSDEngine:
         from app.core.techniques.base import GSDState
 
         # Normalize to strings
-        current_str = current.value if isinstance(
-            current, GSDState) else str(current)
-        target_str = target.value if isinstance(
-            target, GSDState) else str(target)
+        current_str = current.value if isinstance(current, GSDState) else str(current)
+        target_str = target.value if isinstance(target, GSDState) else str(target)
 
         # Determine variant (use default PARWA for standalone checks)
         # When called with ConversationState context, variant is resolved
@@ -743,10 +821,8 @@ class GSDEngine:
         """
         from app.core.techniques.base import GSDState
 
-        current_str = current.value if isinstance(
-            current, GSDState) else str(current)
-        target_str = target.value if isinstance(
-            target, GSDState) else str(target)
+        current_str = current.value if isinstance(current, GSDState) else str(current)
+        target_str = target.value if isinstance(target, GSDState) else str(target)
 
         # Normalize to lowercase for comparison
         current_str = current_str.lower().strip()
@@ -780,7 +856,9 @@ class GSDEngine:
         return is_allowed
 
     async def get_available_transitions(
-        self, current: Any, variant: Optional[str] = None,
+        self,
+        current: Any,
+        variant: Optional[str] = None,
     ) -> List[Any]:
         """List all valid next states from the current state.
 
@@ -793,8 +871,7 @@ class GSDEngine:
         """
         from app.core.techniques.base import GSDState
 
-        current_str = current.value if isinstance(
-            current, GSDState) else str(current)
+        current_str = current.value if isinstance(current, GSDState) else str(current)
         resolved_variant = variant or GSDVariant.PARWA.value
         table = self._get_transition_table(resolved_variant)
 
@@ -816,8 +893,7 @@ class GSDEngine:
 
         return result
 
-    async def get_transition_reason(
-            self, state: ConversationState) -> Dict[str, Any]:
+    async def get_transition_reason(self, state: ConversationState) -> Dict[str, Any]:
         """Explain WHY a particular transition was or would be chosen.
 
         Analyzes the current ConversationState signals and produces
@@ -831,28 +907,34 @@ class GSDEngine:
         """
         from app.core.techniques.base import GSDState
 
-        current_str = state.gsd_state.value if isinstance(
-            state.gsd_state, GSDState) else str(state.gsd_state)
+        current_str = (
+            state.gsd_state.value
+            if isinstance(state.gsd_state, GSDState)
+            else str(state.gsd_state)
+        )
         variant = self.get_variant(state.company_id)
         config = self.get_config(state.company_id)
 
         # Gather signal data
         signals = self._extract_signal_data(state)
         next_state = await self.get_next_state(state)
-        next_str = next_state.value if isinstance(
-            next_state, GSDState) else str(next_state)
+        next_str = (
+            next_state.value if isinstance(next_state, GSDState) else str(next_state)
+        )
 
         # Build reasoning chain
         reasoning: List[Dict[str, Any]] = []
         escalation_checks = await self._evaluate_escalation_conditions(state, config)
 
         # Current state context
-        reasoning.append({
-            "step": "current_state_check",
-            "current_state": current_str,
-            "variant": variant,
-            "description": f"Conversation is in {current_str} state",
-        })
+        reasoning.append(
+            {
+                "step": "current_state_check",
+                "current_state": current_str,
+                "variant": variant,
+                "description": f"Conversation is in {current_str} state",
+            }
+        )
 
         # Escalation evaluation
         for check in escalation_checks:
@@ -863,56 +945,64 @@ class GSDEngine:
             confidence = signals.get("confidence_score", 0.0)
             intent = signals.get("intent_type", "general")
             meets_threshold = confidence >= config.confidence_threshold
-            reasoning.append({
-                "step": "confidence_evaluation",
-                "confidence_score": confidence,
-                "threshold": config.confidence_threshold,
-                "intent_type": intent,
-                "meets_threshold": meets_threshold,
-                "description": (
-                    f"Classification confidence {confidence:.2f} "
-                    f"{'≥' if meets_threshold else '<'} threshold "
-                    f"{config.confidence_threshold:.2f}"
-                ),
-            })
+            reasoning.append(
+                {
+                    "step": "confidence_evaluation",
+                    "confidence_score": confidence,
+                    "threshold": config.confidence_threshold,
+                    "intent_type": intent,
+                    "meets_threshold": meets_threshold,
+                    "description": (
+                        f"Classification confidence {confidence:.2f} "
+                        f"{'≥' if meets_threshold else '<'} threshold "
+                        f"{config.confidence_threshold:.2f}"
+                    ),
+                }
+            )
 
         # Sentiment check
         frustration = signals.get("frustration_score", 0.0)
         if frustration > 0:
-            reasoning.append({
-                "step": "frustration_check",
-                "frustration_score": frustration,
-                "escalation_threshold": config.frustration_threshold,
-                "description": (
-                    f"Frustration at {frustration:.0f}/100 "
-                    f"({'above' if frustration >= config.frustration_threshold else 'below'} "
-                    f"escalation threshold {config.frustration_threshold:.0f})"
-                ),
-            })
+            reasoning.append(
+                {
+                    "step": "frustration_check",
+                    "frustration_score": frustration,
+                    "escalation_threshold": config.frustration_threshold,
+                    "description": (
+                        f"Frustration at {frustration:.0f}/100 "
+                        f"({'above' if frustration >= config.frustration_threshold else 'below'} "
+                        f"escalation threshold {config.frustration_threshold:.0f})"
+                    ),
+                }
+            )
 
         # VIP check
         customer_tier = signals.get("customer_tier", "free")
         is_vip = customer_tier.lower() in config.vip_tiers
         if is_vip:
-            reasoning.append({
-                "step": "vip_check",
-                "customer_tier": customer_tier,
-                "is_vip": True,
-                "description": f"VIP customer ({customer_tier} tier) — escalation eligible",
-            })
+            reasoning.append(
+                {
+                    "step": "vip_check",
+                    "customer_tier": customer_tier,
+                    "is_vip": True,
+                    "description": f"VIP customer ({customer_tier} tier) — escalation eligible",
+                }
+            )
 
         # Diagnosis loop count
         diagnosis_loops = self._count_diagnosis_loops(state)
         if diagnosis_loops > 0:
-            reasoning.append({
-                "step": "loop_detection",
-                "diagnosis_loop_count": diagnosis_loops,
-                "max_loops": config.max_diagnosis_loops,
-                "description": (
-                    f"DIAGNOSIS entered {diagnosis_loops} time(s) "
-                    f"(auto-escalate at {config.max_diagnosis_loops})"
-                ),
-            })
+            reasoning.append(
+                {
+                    "step": "loop_detection",
+                    "diagnosis_loop_count": diagnosis_loops,
+                    "max_loops": config.max_diagnosis_loops,
+                    "description": (
+                        f"DIAGNOSIS entered {diagnosis_loops} time(s) "
+                        f"(auto-escalate at {config.max_diagnosis_loops})"
+                    ),
+                }
+            )
 
         return {
             "current_state": current_str,
@@ -929,7 +1019,8 @@ class GSDEngine:
     # ── Escalation Handling ───────────────────────────────────────
 
     async def handle_escalation(
-        self, state: ConversationState,
+        self,
+        state: ConversationState,
     ) -> ConversationState:
         """Handle escalation triggers for a conversation.
 
@@ -952,13 +1043,13 @@ class GSDEngine:
 
         # Check cooldown
         cooldown_remaining = await self._check_escalation_cooldown(
-            state.company_id, config.escalation_cooldown_seconds,
+            state.company_id,
+            config.escalation_cooldown_seconds,
         )
         if cooldown_remaining > 0:
             raise EscalationCooldownError(
                 cooldown_remaining_seconds=cooldown_remaining,
-                last_escalation_time=self._escalation_timestamps.get(
-                    state.company_id),
+                last_escalation_time=self._escalation_timestamps.get(state.company_id),
             )
 
         # Check if escalation is warranted
@@ -1002,7 +1093,8 @@ class GSDEngine:
         )
 
     async def reset_conversation(
-        self, state: ConversationState,
+        self,
+        state: ConversationState,
     ) -> ConversationState:
         """Reset a conversation to the NEW state.
 
@@ -1038,6 +1130,7 @@ class GSDEngine:
         # Best-effort clear Redis cooldown key
         try:
             from app.core.redis import get_redis, make_key
+
             redis = await get_redis()
             key = make_key(company_id, "escalation_cooldown")
             await redis.delete(key)
@@ -1056,7 +1149,8 @@ class GSDEngine:
     # ── Utility Methods ───────────────────────────────────────────
 
     async def get_conversation_summary(
-        self, state: ConversationState,
+        self,
+        state: ConversationState,
     ) -> Dict[str, Any]:
         """Generate a summary of the current conversation state.
 
@@ -1073,11 +1167,16 @@ class GSDEngine:
 
         signals = self._extract_signal_data(state)
         history = self._get_history_records(state)
-        current_str = state.gsd_state.value if isinstance(
-            state.gsd_state, GSDState) else str(state.gsd_state)
+        current_str = (
+            state.gsd_state.value
+            if isinstance(state.gsd_state, GSDState)
+            else str(state.gsd_state)
+        )
         diagnosis_loops = self._count_diagnosis_loops(state)
         is_terminal = await self.is_terminal(state)
-        available = await self.get_available_transitions(state.gsd_state, self.get_variant(state.company_id))
+        available = await self.get_available_transitions(
+            state.gsd_state, self.get_variant(state.company_id)
+        )
         resolution_time = await self.estimate_resolution_time(state)
 
         # Calculate time in current state
@@ -1092,7 +1191,9 @@ class GSDEngine:
             "company_id": state.company_id,
             "current_state": current_str,
             "is_terminal": is_terminal,
-            "available_transitions": [s.value if isinstance(s, GSDState) else str(s) for s in available],
+            "available_transitions": [
+                s.value if isinstance(s, GSDState) else str(s) for s in available
+            ],
             "signals": signals,
             "diagnosis_loop_count": diagnosis_loops,
             "history_entry_count": len(history),
@@ -1106,7 +1207,8 @@ class GSDEngine:
         }
 
     async def estimate_resolution_time(
-        self, state: ConversationState,
+        self,
+        state: ConversationState,
     ) -> int:
         """Estimate minutes remaining to resolution.
 
@@ -1134,12 +1236,16 @@ class GSDEngine:
 
         # Get base estimate
         intent_estimates = RESOLUTION_TIME_ESTIMATES.get(
-            intent, DEFAULT_RESOLUTION_ESTIMATE)
+            intent, DEFAULT_RESOLUTION_ESTIMATE
+        )
         base_minutes = intent_estimates.get(complexity_bucket, 20)
 
         # Adjust for current state
-        current_str = state.gsd_state.value if isinstance(
-            state.gsd_state, GSDState) else str(state.gsd_state)
+        current_str = (
+            state.gsd_state.value
+            if isinstance(state.gsd_state, GSDState)
+            else str(state.gsd_state)
+        )
         state_adjustments = {
             "new": 0,
             "greeting": 0,
@@ -1168,7 +1274,8 @@ class GSDEngine:
         return estimated
 
     async def get_diagnostic_questions(
-        self, state: ConversationState,
+        self,
+        state: ConversationState,
     ) -> List[str]:
         """Suggest next diagnostic questions based on conversation state.
 
@@ -1185,8 +1292,11 @@ class GSDEngine:
         from app.core.techniques.base import GSDState
 
         # Only relevant in DIAGNOSIS state
-        current_str = state.gsd_state.value if isinstance(
-            state.gsd_state, GSDState) else str(state.gsd_state)
+        current_str = (
+            state.gsd_state.value
+            if isinstance(state.gsd_state, GSDState)
+            else str(state.gsd_state)
+        )
         if current_str != "diagnosis":
             return []
 
@@ -1195,7 +1305,8 @@ class GSDEngine:
 
         # Get questions for this intent
         all_questions = DIAGNOSTIC_QUESTIONS.get(
-            intent, DIAGNOSTIC_QUESTIONS.get("general", []))
+            intent, DIAGNOSTIC_QUESTIONS.get("general", [])
+        )
 
         if not all_questions:
             return ["Could you tell me more about your issue?"]
@@ -1209,11 +1320,42 @@ class GSDEngine:
             query_words = set(re.findall(r"\b\w+\b", query_lower))
             # Skip common stop words for comparison
             stop_words = {
-                "the", "a", "an", "is", "are", "was", "were", "be",
-                "to", "o", "in", "for", "on", "at", "by", "with",
-                "and", "or", "but", "not", "can", "you", "your",
-                "have", "has", "had", "do", "does", "did", "what",
-                "when", "where", "how", "this", "that", "it",
+                "the",
+                "a",
+                "an",
+                "is",
+                "are",
+                "was",
+                "were",
+                "be",
+                "to",
+                "o",
+                "in",
+                "for",
+                "on",
+                "at",
+                "by",
+                "with",
+                "and",
+                "or",
+                "but",
+                "not",
+                "can",
+                "you",
+                "your",
+                "have",
+                "has",
+                "had",
+                "do",
+                "does",
+                "did",
+                "what",
+                "when",
+                "where",
+                "how",
+                "this",
+                "that",
+                "it",
             }
             content_overlap = question_words & query_words - stop_words
             # If less than 3 content words overlap, the question is novel
@@ -1228,10 +1370,7 @@ class GSDEngine:
 
         final_questions: List[str] = []
         for question in filtered:
-            q_words = set(
-                re.findall(
-                    r"\b\w+\b",
-                    question.lower())) - stop_words
+            q_words = set(re.findall(r"\b\w+\b", question.lower())) - stop_words
             overlap_with_reasoning = len(q_words & reasoning_words)
             if overlap_with_reasoning < 3:
                 final_questions.append(question)
@@ -1256,8 +1395,11 @@ class GSDEngine:
         from app.core.techniques.base import GSDState
 
         config = self.get_config(state.company_id)
-        current_str = state.gsd_state.value if isinstance(
-            state.gsd_state, GSDState) else str(state.gsd_state)
+        current_str = (
+            state.gsd_state.value
+            if isinstance(state.gsd_state, GSDState)
+            else str(state.gsd_state)
+        )
 
         # Must be in RESOLUTION or FOLLOW_UP state
         if current_str not in ("resolution", "follow_up"):
@@ -1266,7 +1408,10 @@ class GSDEngine:
         # Check if intent is eligible for auto-close
         signals = self._extract_signal_data(state)
         intent = signals.get("intent_type", "general")
-        if intent not in config.auto_close_intents and intent not in SIMPLE_RESOLUTION_INTENTS:
+        if (
+            intent not in config.auto_close_intents
+            and intent not in SIMPLE_RESOLUTION_INTENTS
+        ):
             return False
 
         # Check if the latest query indicates satisfaction
@@ -1281,13 +1426,15 @@ class GSDEngine:
             is_simple_intent = intent in SIMPLE_RESOLUTION_INTENTS
             is_brief = word_count <= 5
             has_satisfaction = any(
-                phrase in query_lower for phrase in SATISFACTION_PHRASES)
+                phrase in query_lower for phrase in SATISFACTION_PHRASES
+            )
             return is_simple_intent and (is_brief or has_satisfaction)
 
         # In FOLLOW_UP state, check for satisfaction phrases
         if current_str == "follow_up":
             has_satisfaction = any(
-                phrase in query_lower for phrase in SATISFACTION_PHRASES)
+                phrase in query_lower for phrase in SATISFACTION_PHRASES
+            )
             return has_satisfaction
 
         return False
@@ -1297,7 +1444,9 @@ class GSDEngine:
     # ═══════════════════════════════════════════════════════════
 
     async def _determine_diagnosis_next(
-        self, state: ConversationState, variant: str,
+        self,
+        state: ConversationState,
+        variant: str,
     ) -> Any:
         """Determine next state from DIAGNOSIS.
 
@@ -1339,7 +1488,9 @@ class GSDEngine:
         return GSDState.DIAGNOSIS
 
     async def _determine_resolution_next(
-        self, state: ConversationState, variant: str,
+        self,
+        state: ConversationState,
+        variant: str,
     ) -> Any:
         """Determine next state from RESOLUTION.
 
@@ -1367,7 +1518,9 @@ class GSDEngine:
         return GSDState.FOLLOW_UP
 
     async def _determine_follow_up_next(
-        self, state: ConversationState, variant: str,
+        self,
+        state: ConversationState,
+        variant: str,
     ) -> Any:
         """Determine next state from FOLLOW_UP.
 
@@ -1393,9 +1546,7 @@ class GSDEngine:
             return GSDState.CLOSED
 
         # Check for new issue signals → DIAGNOSIS
-        if query_lower and any(
-            phrase in query_lower for phrase in NEW_ISSUE_PHRASES
-        ):
+        if query_lower and any(phrase in query_lower for phrase in NEW_ISSUE_PHRASES):
             return GSDState.DIAGNOSIS
 
         # Check if the query looks like a new question (has question marks,
@@ -1404,13 +1555,19 @@ class GSDEngine:
             has_question = "?" in query_lower
             word_count = len(re.findall(r"\b\w+\b", query_lower))
             has_negation = any(
-                w in query_lower for w in (
-                    "but", "however", "wait", "actually",
-                    "no", "not", "still", "wrong",
+                w in query_lower
+                for w in (
+                    "but",
+                    "however",
+                    "wait",
+                    "actually",
+                    "no",
+                    "not",
+                    "still",
+                    "wrong",
                 )
             )
-            if (has_question and word_count > 3) or (
-                    has_negation and word_count > 5):
+            if (has_question and word_count > 3) or (has_negation and word_count > 5):
                 return GSDState.DIAGNOSIS
 
         # Default: close the conversation
@@ -1440,7 +1597,9 @@ class GSDEngine:
         return any(c.get("condition_met", False) for c in conditions)
 
     async def _evaluate_escalation_conditions(
-        self, state: ConversationState, config: GSDConfig,
+        self,
+        state: ConversationState,
+        config: GSDConfig,
     ) -> List[Dict[str, Any]]:
         """Evaluate each escalation condition independently.
 
@@ -1460,17 +1619,19 @@ class GSDEngine:
         # Condition 1: Frustration score exceeds threshold
         frustration = signals.get("frustration_score", 0.0)
         frustration_met = frustration >= config.frustration_threshold
-        results.append({
-            "condition": "frustration_exceeded",
-            "condition_met": frustration_met,
-            "frustration_score": frustration,
-            "threshold": config.frustration_threshold,
-            "description": (
-                f"Frustration {frustration:.0f} "
-                f"{'≥' if frustration_met else '<'} "
-                f"threshold {config.frustration_threshold:.0f}"
-            ),
-        })
+        results.append(
+            {
+                "condition": "frustration_exceeded",
+                "condition_met": frustration_met,
+                "frustration_score": frustration,
+                "threshold": config.frustration_threshold,
+                "description": (
+                    f"Frustration {frustration:.0f} "
+                    f"{'≥' if frustration_met else '<'} "
+                    f"threshold {config.frustration_threshold:.0f}"
+                ),
+            }
+        )
 
         # Condition 2: Legal/sensitive intent
         intent = signals.get("intent_type", "general")
@@ -1478,48 +1639,52 @@ class GSDEngine:
         has_legal_intent = intent.lower() in LEGAL_INTENTS or any(
             legal in query_lower for legal in LEGAL_INTENTS
         )
-        results.append({
-            "condition": "legal_intent",
-            "condition_met": has_legal_intent,
-            "intent_type": intent,
-            "legal_keywords_found": [
-                w for w in LEGAL_INTENTS if w in query_lower
-            ],
-            "description": (
-                f"Legal/sensitive intent detected: {intent}"
-                if has_legal_intent
-                else "No legal intent detected"
-            ),
-        })
+        results.append(
+            {
+                "condition": "legal_intent",
+                "condition_met": has_legal_intent,
+                "intent_type": intent,
+                "legal_keywords_found": [w for w in LEGAL_INTENTS if w in query_lower],
+                "description": (
+                    f"Legal/sensitive intent detected: {intent}"
+                    if has_legal_intent
+                    else "No legal intent detected"
+                ),
+            }
+        )
 
         # Condition 3: VIP customer tier
         customer_tier = signals.get("customer_tier", "free")
         is_vip = customer_tier.lower() in config.vip_tiers
-        results.append({
-            "condition": "vip_customer",
-            "condition_met": is_vip,
-            "customer_tier": customer_tier,
-            "vip_tiers": config.vip_tiers,
-            "description": (
-                f"VIP customer ({customer_tier} tier)"
-                if is_vip
-                else f"Standard customer ({customer_tier} tier)"
-            ),
-        })
+        results.append(
+            {
+                "condition": "vip_customer",
+                "condition_met": is_vip,
+                "customer_tier": customer_tier,
+                "vip_tiers": config.vip_tiers,
+                "description": (
+                    f"VIP customer ({customer_tier} tier)"
+                    if is_vip
+                    else f"Standard customer ({customer_tier} tier)"
+                ),
+            }
+        )
 
         # Condition 4: Excessive diagnosis loops
         diagnosis_loops = self._count_diagnosis_loops(state)
         loops_met = diagnosis_loops >= config.max_diagnosis_loops
-        results.append({
-            "condition": "diagnosis_loop_exceeded",
-            "condition_met": loops_met,
-            "loop_count": diagnosis_loops,
-            "max_loops": config.max_diagnosis_loops,
-            "description": (
-                f"DIAGNOSIS looped {diagnosis_loops} time(s), "
-                f"max is {config.max_diagnosis_loops}"
-            ),
-        })
+        results.append(
+            {
+                "condition": "diagnosis_loop_exceeded",
+                "condition_met": loops_met,
+                "loop_count": diagnosis_loops,
+                "max_loops": config.max_diagnosis_loops,
+                "description": (
+                    f"DIAGNOSIS looped {diagnosis_loops} time(s), "
+                    f"max is {config.max_diagnosis_loops}"
+                ),
+            }
+        )
 
         return results
 
@@ -1565,7 +1730,9 @@ class GSDEngine:
     # ═══════════════════════════════════════════════════════════
 
     def _append_history(
-        self, state: ConversationState, record: TransitionRecord,
+        self,
+        state: ConversationState,
+        record: TransitionRecord,
     ) -> None:
         """Append a transition record to the GSD history (ring buffer).
 
@@ -1597,7 +1764,8 @@ class GSDEngine:
             history.pop(0)
 
     def _get_history_records(
-        self, state: ConversationState,
+        self,
+        state: ConversationState,
     ) -> List[Dict[str, Any]]:
         """Extract history records from ConversationState.
 
@@ -1620,12 +1788,14 @@ class GSDEngine:
                 records.append(entry)
             else:
                 # Legacy format: raw GSDState value
-                records.append({
-                    "state": str(entry),
-                    "timestamp": "unknown",
-                    "trigger": "legacy_entry",
-                    "metadata": {},
-                })
+                records.append(
+                    {
+                        "state": str(entry),
+                        "timestamp": "unknown",
+                        "trigger": "legacy_entry",
+                        "metadata": {},
+                    }
+                )
         return records
 
     def _count_diagnosis_loops(self, state: ConversationState) -> int:
@@ -1646,9 +1816,11 @@ class GSDEngine:
             if state_val == "diagnosis":
                 count += 1
         # Also count if currently in diagnosis
-        current_str = state.gsd_state.value if hasattr(
-            state.gsd_state, "value") else str(
-            state.gsd_state)
+        current_str = (
+            state.gsd_state.value
+            if hasattr(state.gsd_state, "value")
+            else str(state.gsd_state)
+        )
         if current_str == "diagnosis":
             count += 1
         return count
@@ -1658,9 +1830,8 @@ class GSDEngine:
     # ═══════════════════════════════════════════════════════════
 
     def _record_escalation_timestamp(
-            self,
-            company_id: Optional[str],
-            ticket_id: Optional[str] = None) -> None:
+        self, company_id: Optional[str], ticket_id: Optional[str] = None
+    ) -> None:
         """Record the timestamp of an escalation for cooldown tracking.
 
         Persists the escalation timestamp to Redis with a 300-second TTL
@@ -1686,10 +1857,10 @@ class GSDEngine:
             async def _set_redis():
                 try:
                     from app.core.redis import get_redis, make_key
+
                     redis = await get_redis()
                     if ticket_id:
-                        key = make_key(
-                            company_id, "escalation_cooldown", ticket_id)
+                        key = make_key(company_id, "escalation_cooldown", ticket_id)
                     else:
                         key = make_key(company_id, "escalation_cooldown")
                     await redis.set(key, now_iso, ex=300)
@@ -1707,9 +1878,8 @@ class GSDEngine:
             pass  # BC-008
 
     async def _record_escalation_timestamp_async(
-            self,
-            company_id: Optional[str],
-            ticket_id: Optional[str] = None) -> None:
+        self, company_id: Optional[str], ticket_id: Optional[str] = None
+    ) -> None:
         """Async version of _record_escalation_timestamp for call sites with an event loop.
 
         Args:
@@ -1727,6 +1897,7 @@ class GSDEngine:
         # Best-effort persist to Redis with TTL
         try:
             from app.core.redis import get_redis, make_key
+
             redis = await get_redis()
             if ticket_id:
                 key = make_key(company_id, "escalation_cooldown", ticket_id)
@@ -1737,7 +1908,9 @@ class GSDEngine:
             pass  # BC-008: Redis failure is non-fatal
 
     async def _check_escalation_cooldown(
-        self, company_id: Optional[str], cooldown_seconds: float,
+        self,
+        company_id: Optional[str],
+        cooldown_seconds: float,
         ticket_id: Optional[str] = None,
     ) -> float:
         """Check if escalation cooldown is active.
@@ -1762,6 +1935,7 @@ class GSDEngine:
         # Try Redis first for authoritative cooldown
         try:
             from app.core.redis import get_redis, make_key
+
             redis = await get_redis()
             if ticket_id:
                 key = make_key(company_id, "escalation_cooldown", ticket_id)
@@ -1821,50 +1995,53 @@ class GSDEngine:
         query_signals = state.signals
         if query_signals:
             signals["query_complexity"] = getattr(
-                query_signals, "query_complexity", 0.0)
+                query_signals, "query_complexity", 0.0
+            )
             signals["confidence_score"] = getattr(
-                query_signals, "confidence_score", 1.0)
-            signals["sentiment_score"] = getattr(
-                query_signals, "sentiment_score", 0.7)
-            signals["customer_tier"] = getattr(
-                query_signals, "customer_tier", "free")
-            signals["monetary_value"] = getattr(
-                query_signals, "monetary_value", 0.0)
+                query_signals, "confidence_score", 1.0
+            )
+            signals["sentiment_score"] = getattr(query_signals, "sentiment_score", 0.7)
+            signals["customer_tier"] = getattr(query_signals, "customer_tier", "free")
+            signals["monetary_value"] = getattr(query_signals, "monetary_value", 0.0)
             signals["turn_count"] = getattr(query_signals, "turn_count", 0)
-            signals["intent_type"] = getattr(
-                query_signals, "intent_type", "general")
+            signals["intent_type"] = getattr(query_signals, "intent_type", "general")
             signals["previous_response_status"] = getattr(
-                query_signals, "previous_response_status", "none",
+                query_signals,
+                "previous_response_status",
+                "none",
             )
             signals["reasoning_loop_detected"] = getattr(
-                query_signals, "reasoning_loop_detected", False,
+                query_signals,
+                "reasoning_loop_detected",
+                False,
             )
             signals["resolution_path_count"] = getattr(
-                query_signals, "resolution_path_count", 1,
+                query_signals,
+                "resolution_path_count",
+                1,
             )
             # GAP 6 FIX: Also extract frustration_score from signals if
             # available
             signals["frustration_score"] = getattr(
-                query_signals, "frustration_score", 0.0)
+                query_signals, "frustration_score", 0.0
+            )
 
         # Extract frustration score from technique_results if available
         if state.technique_results:
-            sentiment_result = state.technique_results.get(
-                "sentiment_analysis")
+            sentiment_result = state.technique_results.get("sentiment_analysis")
             if sentiment_result and isinstance(sentiment_result, dict):
                 result_data = sentiment_result.get("result", {})
                 if isinstance(result_data, dict):
                     signals["frustration_score"] = result_data.get(
-                        "frustration_score", 0.0,
+                        "frustration_score",
+                        0.0,
                     )
                 elif hasattr(result_data, "frustration_score"):
                     signals["frustration_score"] = result_data.frustration_score
 
             # Extract classification confidence from technique_results
-            classification_result = state.technique_results.get(
-                "intent_classification")
-            if classification_result and isinstance(
-                    classification_result, dict):
+            classification_result = state.technique_results.get("intent_classification")
+            if classification_result and isinstance(classification_result, dict):
                 cls_data = classification_result.get("result", {})
                 if isinstance(cls_data, dict):
                     cls_confidence = cls_data.get("primary_confidence", 0.0)
@@ -1900,7 +2077,8 @@ class GSDEngine:
     # ═══════════════════════════════════════════════════════════
 
     def _calculate_time_in_current_state(
-        self, history: List[Dict[str, Any]],
+        self,
+        history: List[Dict[str, Any]],
     ) -> float:
         """Calculate seconds spent in the current state.
 
@@ -1927,7 +2105,8 @@ class GSDEngine:
             return 0.0
 
     def _calculate_state_distribution(
-        self, history: List[Dict[str, Any]],
+        self,
+        history: List[Dict[str, Any]],
     ) -> Dict[str, int]:
         """Calculate how many times each state has been visited.
 
@@ -1948,7 +2127,10 @@ class GSDEngine:
     # ═══════════════════════════════════════════════════════════
 
     async def _explain_invalid_transition(
-        self, from_state: str, to_state: str, state: ConversationState,
+        self,
+        from_state: str,
+        to_state: str,
+        state: ConversationState,
     ) -> str:
         """Generate a human-readable explanation for an invalid transition.
 
@@ -1977,7 +2159,9 @@ class GSDEngine:
 
         # Check variant restrictions
         if variant == GSDVariant.MINI_PARWA.value and to_state in (
-                "escalate", "human_handoff"):
+            "escalate",
+            "human_handoff",
+        ):
             return (
                 "Escalation and human handoff are not available in "
                 f"{GSDVariant.MINI_PARWA.value} variant"
@@ -2013,7 +2197,9 @@ class GSDEngine:
             ("closed", "new"): "new_message_on_closed_ticket",
         }
         return default_triggers.get(
-            (from_state, to_state), f"manual_transition_{from_state}_to_{to_state}", )
+            (from_state, to_state),
+            f"manual_transition_{from_state}_to_{to_state}",
+        )
 
     # ═══════════════════════════════════════════════════════════
     # INTERNAL: EVENT EMISSION

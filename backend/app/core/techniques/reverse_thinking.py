@@ -39,6 +39,7 @@ logger = get_logger("reverse_thinking")
 
 class ErrorType(str, Enum):
     """Predefined error categories for wrong hypothesis analysis."""
+
     FACTUAL_INCORRECT = "factual_incorrect"
     POLICY_VIOLATION = "policy_violation"
     LOGICAL_FALLACY = "logical_fallacy"
@@ -52,6 +53,7 @@ class ErrorType(str, Enum):
 
 class ProblemCategory(str, Enum):
     """Categories of customer support queries for pattern matching."""
+
     BILLING = "billing"
     REFUND = "refund"
     SUBSCRIPTION = "subscription"
@@ -66,20 +68,40 @@ class ProblemCategory(str, Enum):
 # Query patterns mapped to problem categories
 _CATEGORY_PATTERNS: List[Tuple[re.Pattern, ProblemCategory]] = [
     # Billing patterns
-    (re.compile(r"\b(bill|billing|invoice|charge|payment|fee|cost|price)\b", re.I),
-     ProblemCategory.BILLING),
+    (
+        re.compile(r"\b(bill|billing|invoice|charge|payment|fee|cost|price)\b", re.I),
+        ProblemCategory.BILLING,
+    ),
     # Refund patterns
-    (re.compile(r"\b(refund|money.?back|reimburse|credit.?back|return.?payment)\b", re.I),
-     ProblemCategory.REFUND),
+    (
+        re.compile(
+            r"\b(refund|money.?back|reimburse|credit.?back|return.?payment)\b", re.I
+        ),
+        ProblemCategory.REFUND,
+    ),
     # Subscription patterns
-    (re.compile(r"\b(subscri|plan|upgrade|downgrade|cancel.?subscription|renew|trial|tier)\b", re.I),
-     ProblemCategory.SUBSCRIPTION),
+    (
+        re.compile(
+            r"\b(subscri|plan|upgrade|downgrade|cancel.?subscription|renew|trial|tier)\b",
+            re.I,
+        ),
+        ProblemCategory.SUBSCRIPTION,
+    ),
     # Technical patterns
-    (re.compile(r"\b(bug|error|crash|broken|not.?work|fix|issue|slow|fail|login|password|install|setup|config|connect|sync|integration)\b", re.I),
-     ProblemCategory.TECHNICAL),
+    (
+        re.compile(
+            r"\b(bug|error|crash|broken|not.?work|fix|issue|slow|fail|login|password|install|setup|config|connect|sync|integration)\b",
+            re.I,
+        ),
+        ProblemCategory.TECHNICAL,
+    ),
     # Account patterns
-    (re.compile(r"\b(account|profile|email|username|settings|notification|pref)\b", re.I),
-     ProblemCategory.ACCOUNT),
+    (
+        re.compile(
+            r"\b(account|profile|email|username|settings|notification|pref)\b", re.I
+        ),
+        ProblemCategory.ACCOUNT,
+    ),
 ]
 
 # Default category fallback
@@ -89,122 +111,177 @@ _DEFAULT_CATEGORY = ProblemCategory.GENERAL
 # ── Wrong Answer Templates (per category) ───────────────────────────
 
 
-_WRONG_ANSWER_TEMPLATES: Dict[ProblemCategory,
-                              List[Dict[str,
-                                        str]]] = {ProblemCategory.BILLING: [{"hypothesis": "Your billing issue cannot be resolved; you must pay the full amount immediately regardless of discrepancies.",
-                                                                             "error_type": ErrorType.POLICY_VIOLATION,
-                                                                             "error_reason": "This ignores the dispute and review process available for billing discrepancies.",
-                                                                             "inversion": "Billing discrepancies can be reviewed and disputed. Please provide the charge details so we can investigate and apply any applicable corrections.",
-                                                                             },
-                                                                            {"hypothesis": "The charge is correct and no further action is needed on your part.",
-                                                                             "error_type": ErrorType.FACTUAL_INCORRECT,
-                                                                             "error_reason": "Assumes the charge is correct without verification against the customer's account records.",
-                                                                             "inversion": "Let's verify the charge against your account records. Could you provide the transaction date and amount so I can check for any discrepancies?",
-                                                                             },
-                                                                            {"hypothesis": "All billing issues are automatically resolved within 24 hours without any action required.",
-                                                                             "error_type": ErrorType.INCOMPLETE_INFO,
-                                                                             "error_reason": "Billing resolution timelines vary by issue type and may require customer action or documentation.",
-                                                                             "inversion": "Billing resolution timelines depend on the issue type. Some charges can be reviewed quickly, while disputes may take 3-5 business days. Let me check the specifics of your case.",
-                                                                             },
-                                                                            ],
-                                                  ProblemCategory.REFUND: [{"hypothesis": "Refunds are never issued under any circumstances once a payment is made.",
-                                                                            "error_type": ErrorType.POLICY_VIOLATION,
-                                                                            "error_reason": "This contradicts the standard refund policy which allows refunds within the eligible period.",
-                                                                            "inversion": "Refunds may be available depending on the timing and circumstances. Let me review your order to check eligibility based on our refund policy.",
-                                                                            },
-                                                                           {"hypothesis": "Your refund has already been processed and there is nothing more to discuss.",
-                                                                            "error_type": ErrorType.FACTUAL_INCORRECT,
-                                                                            "error_reason": "States the refund is processed without verifying the actual refund status in the system.",
-                                                                            "inversion": "Let me verify the current status of your refund request. I'll check the processing timeline and confirm when you can expect to receive it.",
-                                                                            },
-                                                                           {"hypothesis": "Refunds take only 1 hour to appear in your account after being approved.",
-                                                                            "error_type": ErrorType.FACTUAL_INCORRECT,
-                                                                            "error_reason": "Refund processing times are typically 3-10 business days depending on the payment method.",
-                                                                            "inversion": "Once approved, refund processing typically takes 3-10 business days depending on your payment method. I can provide more specific timing based on your case.",
-                                                                            },
-                                                                           ],
-                                                  ProblemCategory.SUBSCRIPTION: [{"hypothesis": "You cannot change your subscription plan at any time; you are locked in permanently.",
-                                                                                  "error_type": ErrorType.POLICY_VIOLATION,
-                                                                                  "error_reason": "Most subscription plans allow changes, upgrades, or downgrades with proper notice.",
-                                                                                  "inversion": "You can modify your subscription plan. Let me walk you through the available options and any prorated charges or credits that may apply.",
-                                                                                  },
-                                                                                 {"hypothesis": "Canceling your subscription will immediately delete all your data and account history.",
-                                                                                  "error_type": ErrorType.MISINTERPRETATION,
-                                                                                  "error_reason": "Cancellation does not typically result in immediate data deletion; there is usually a grace period.",
-                                                                                  "inversion": "Canceling your subscription does not immediately delete your data. You'll typically retain access until the end of your current billing period, with a grace period for data export.",
-                                                                                  },
-                                                                                 {"hypothesis": "The free trial automatically charges you the highest tier price with no notification.",
-                                                                                  "error_type": ErrorType.FACTUAL_INCORRECT,
-                                                                                  "error_reason": "Trial conversions require customer consent and typically convert to the selected plan, not the highest tier.",
-                                                                                  "inversion": "Trial periods provide full access, and you'll be notified before any charges. You can choose which plan fits your needs before the trial ends.",
-                                                                                  },
-                                                                                 ],
-                                                  ProblemCategory.TECHNICAL: [{"hypothesis": "The technical issue is entirely your fault and you need to fix it yourself with no support available.",
-                                                                               "error_type": ErrorType.POLICY_VIOLATION,
-                                                                               "error_reason": "Technical support is a standard service; issues should be investigated before assigning blame.",
-                                                                               "inversion": "Let's troubleshoot this issue together. I'll need some details about what you're experiencing so we can identify the root cause and find a solution.",
-                                                                               },
-                                                                              {"hypothesis": "The only solution is to completely reinstall the application and delete all your current data.",
-                                                                               "error_type": ErrorType.WRONG_SCOPE,
-                                                                               "error_reason": "Suggests the most extreme solution first without exploring less disruptive alternatives.",
-                                                                               "inversion": "Before considering a reinstall, let's try some less disruptive troubleshooting steps. Can you describe the exact error message or behavior you're seeing?",
-                                                                               },
-                                                                              {"hypothesis": "This technical issue affects all users equally and there is no workaround.",
-                                                                               "error_type": ErrorType.FACTUAL_INCORRECT,
-                                                                               "error_reason": "Makes an unverified claim about scope and impact without investigation.",
-                                                                               "inversion": "Let me check if this is a known issue with an existing workaround. In the meantime, could you share your browser version and operating system so I can narrow down the cause?",
-                                                                               },
-                                                                              ],
-                                                  ProblemCategory.ACCOUNT: [{"hypothesis": "Your account settings cannot be changed once the account is created.",
-                                                                             "error_type": ErrorType.POLICY_VIOLATION,
-                                                                             "error_reason": "Account settings are designed to be modifiable for user flexibility.",
-                                                                             "inversion": "Most account settings can be updated at any time. Let me know which specific settings you'd like to change and I'll guide you through the process.",
-                                                                             },
-                                                                            {"hypothesis": "To change your email, you must create an entirely new account and lose all your data.",
-                                                                             "error_type": ErrorType.WRONG_SCOPE,
-                                                                             "error_reason": "Email changes should be possible within the existing account without data loss.",
-                                                                             "inversion": "You can update your email address within your current account. I'll send a verification link to your new email to confirm the change, and your data will remain intact.",
-                                                                             },
-                                                                            {"hypothesis": "Account-related requests are processed instantly with no verification required.",
-                                                                             "error_type": ErrorType.FACTUAL_INCORRECT,
-                                                                             "error_reason": "Security verification is required for account changes to protect user data.",
-                                                                             "inversion": "For account security, some changes require identity verification. I'll guide you through the verification steps needed to complete your request safely.",
-                                                                             },
-                                                                            ],
-                                                  ProblemCategory.GENERAL: [{"hypothesis": "There is no solution to your problem and nothing can be done.",
-                                                                             "error_type": ErrorType.LOGICAL_FALLACY,
-                                                                             "error_reason": "Prematurely concludes that no solution exists without proper investigation.",
-                                                                             "inversion": "Let me look into this for you. Could you provide more details about your situation so I can find the best available solution?",
-                                                                             },
-                                                                            {"hypothesis": "The standard answer applies to all cases without exception.",
-                                                                             "error_type": ErrorType.WRONG_SCOPE,
-                                                                             "error_reason": "Assumes a one-size-fits-all answer without considering the specifics of the customer's situation.",
-                                                                             "inversion": "While there are standard processes, your specific situation may have unique aspects. Let me review the details to provide you with the most relevant guidance.",
-                                                                             },
-                                                                            {"hypothesis": "You need to wait indefinitely without any update or follow-up.",
-                                                                             "error_type": ErrorType.INCOMPLETE_INFO,
-                                                                             "error_reason": "Provides no timeline or follow-up mechanism, leaving the customer without actionable information.",
-                                                                             "inversion": "I understand the wait can be frustrating. Let me set a clear expectation for the timeline and ensure you receive updates as your request progresses.",
-                                                                             },
-                                                                            ],
-                                                  }
+_WRONG_ANSWER_TEMPLATES: Dict[ProblemCategory, List[Dict[str, str]]] = {
+    ProblemCategory.BILLING: [
+        {
+            "hypothesis": "Your billing issue cannot be resolved; you must pay the full amount immediately regardless of discrepancies.",
+            "error_type": ErrorType.POLICY_VIOLATION,
+            "error_reason": "This ignores the dispute and review process available for billing discrepancies.",
+            "inversion": "Billing discrepancies can be reviewed and disputed. Please provide the charge details so we can investigate and apply any applicable corrections.",
+        },
+        {
+            "hypothesis": "The charge is correct and no further action is needed on your part.",
+            "error_type": ErrorType.FACTUAL_INCORRECT,
+            "error_reason": "Assumes the charge is correct without verification against the customer's account records.",
+            "inversion": "Let's verify the charge against your account records. Could you provide the transaction date and amount so I can check for any discrepancies?",
+        },
+        {
+            "hypothesis": "All billing issues are automatically resolved within 24 hours without any action required.",
+            "error_type": ErrorType.INCOMPLETE_INFO,
+            "error_reason": "Billing resolution timelines vary by issue type and may require customer action or documentation.",
+            "inversion": "Billing resolution timelines depend on the issue type. Some charges can be reviewed quickly, while disputes may take 3-5 business days. Let me check the specifics of your case.",
+        },
+    ],
+    ProblemCategory.REFUND: [
+        {
+            "hypothesis": "Refunds are never issued under any circumstances once a payment is made.",
+            "error_type": ErrorType.POLICY_VIOLATION,
+            "error_reason": "This contradicts the standard refund policy which allows refunds within the eligible period.",
+            "inversion": "Refunds may be available depending on the timing and circumstances. Let me review your order to check eligibility based on our refund policy.",
+        },
+        {
+            "hypothesis": "Your refund has already been processed and there is nothing more to discuss.",
+            "error_type": ErrorType.FACTUAL_INCORRECT,
+            "error_reason": "States the refund is processed without verifying the actual refund status in the system.",
+            "inversion": "Let me verify the current status of your refund request. I'll check the processing timeline and confirm when you can expect to receive it.",
+        },
+        {
+            "hypothesis": "Refunds take only 1 hour to appear in your account after being approved.",
+            "error_type": ErrorType.FACTUAL_INCORRECT,
+            "error_reason": "Refund processing times are typically 3-10 business days depending on the payment method.",
+            "inversion": "Once approved, refund processing typically takes 3-10 business days depending on your payment method. I can provide more specific timing based on your case.",
+        },
+    ],
+    ProblemCategory.SUBSCRIPTION: [
+        {
+            "hypothesis": "You cannot change your subscription plan at any time; you are locked in permanently.",
+            "error_type": ErrorType.POLICY_VIOLATION,
+            "error_reason": "Most subscription plans allow changes, upgrades, or downgrades with proper notice.",
+            "inversion": "You can modify your subscription plan. Let me walk you through the available options and any prorated charges or credits that may apply.",
+        },
+        {
+            "hypothesis": "Canceling your subscription will immediately delete all your data and account history.",
+            "error_type": ErrorType.MISINTERPRETATION,
+            "error_reason": "Cancellation does not typically result in immediate data deletion; there is usually a grace period.",
+            "inversion": "Canceling your subscription does not immediately delete your data. You'll typically retain access until the end of your current billing period, with a grace period for data export.",
+        },
+        {
+            "hypothesis": "The free trial automatically charges you the highest tier price with no notification.",
+            "error_type": ErrorType.FACTUAL_INCORRECT,
+            "error_reason": "Trial conversions require customer consent and typically convert to the selected plan, not the highest tier.",
+            "inversion": "Trial periods provide full access, and you'll be notified before any charges. You can choose which plan fits your needs before the trial ends.",
+        },
+    ],
+    ProblemCategory.TECHNICAL: [
+        {
+            "hypothesis": "The technical issue is entirely your fault and you need to fix it yourself with no support available.",
+            "error_type": ErrorType.POLICY_VIOLATION,
+            "error_reason": "Technical support is a standard service; issues should be investigated before assigning blame.",
+            "inversion": "Let's troubleshoot this issue together. I'll need some details about what you're experiencing so we can identify the root cause and find a solution.",
+        },
+        {
+            "hypothesis": "The only solution is to completely reinstall the application and delete all your current data.",
+            "error_type": ErrorType.WRONG_SCOPE,
+            "error_reason": "Suggests the most extreme solution first without exploring less disruptive alternatives.",
+            "inversion": "Before considering a reinstall, let's try some less disruptive troubleshooting steps. Can you describe the exact error message or behavior you're seeing?",
+        },
+        {
+            "hypothesis": "This technical issue affects all users equally and there is no workaround.",
+            "error_type": ErrorType.FACTUAL_INCORRECT,
+            "error_reason": "Makes an unverified claim about scope and impact without investigation.",
+            "inversion": "Let me check if this is a known issue with an existing workaround. In the meantime, could you share your browser version and operating system so I can narrow down the cause?",
+        },
+    ],
+    ProblemCategory.ACCOUNT: [
+        {
+            "hypothesis": "Your account settings cannot be changed once the account is created.",
+            "error_type": ErrorType.POLICY_VIOLATION,
+            "error_reason": "Account settings are designed to be modifiable for user flexibility.",
+            "inversion": "Most account settings can be updated at any time. Let me know which specific settings you'd like to change and I'll guide you through the process.",
+        },
+        {
+            "hypothesis": "To change your email, you must create an entirely new account and lose all your data.",
+            "error_type": ErrorType.WRONG_SCOPE,
+            "error_reason": "Email changes should be possible within the existing account without data loss.",
+            "inversion": "You can update your email address within your current account. I'll send a verification link to your new email to confirm the change, and your data will remain intact.",
+        },
+        {
+            "hypothesis": "Account-related requests are processed instantly with no verification required.",
+            "error_type": ErrorType.FACTUAL_INCORRECT,
+            "error_reason": "Security verification is required for account changes to protect user data.",
+            "inversion": "For account security, some changes require identity verification. I'll guide you through the verification steps needed to complete your request safely.",
+        },
+    ],
+    ProblemCategory.GENERAL: [
+        {
+            "hypothesis": "There is no solution to your problem and nothing can be done.",
+            "error_type": ErrorType.LOGICAL_FALLACY,
+            "error_reason": "Prematurely concludes that no solution exists without proper investigation.",
+            "inversion": "Let me look into this for you. Could you provide more details about your situation so I can find the best available solution?",
+        },
+        {
+            "hypothesis": "The standard answer applies to all cases without exception.",
+            "error_type": ErrorType.WRONG_SCOPE,
+            "error_reason": "Assumes a one-size-fits-all answer without considering the specifics of the customer's situation.",
+            "inversion": "While there are standard processes, your specific situation may have unique aspects. Let me review the details to provide you with the most relevant guidance.",
+        },
+        {
+            "hypothesis": "You need to wait indefinitely without any update or follow-up.",
+            "error_type": ErrorType.INCOMPLETE_INFO,
+            "error_reason": "Provides no timeline or follow-up mechanism, leaving the customer without actionable information.",
+            "inversion": "I understand the wait can be frustrating. Let me set a clear expectation for the timeline and ensure you receive updates as your request progresses.",
+        },
+    ],
+}
 
 
 # ── Reserved Phrases (policy anchors) ───────────────────────────────
 
 
-_RESERVED_PHRASES: FrozenSet[str] = frozenset({
-    "refund", "cancellation", "payment", "charge", "invoice",
-    "subscription", "billing", "prorated", "policy", "deadline",
-    "contract", "termination", "credit", "debit", "amount",
-    "dispute", "verification", "security", "timeline", "eligibility",
-})
+_RESERVED_PHRASES: FrozenSet[str] = frozenset(
+    {
+        "refund",
+        "cancellation",
+        "payment",
+        "charge",
+        "invoice",
+        "subscription",
+        "billing",
+        "prorated",
+        "policy",
+        "deadline",
+        "contract",
+        "termination",
+        "credit",
+        "debit",
+        "amount",
+        "dispute",
+        "verification",
+        "security",
+        "timeline",
+        "eligibility",
+    }
+)
 
-_VALIDATION_ANCHORS: FrozenSet[str] = frozenset({
-    "verify", "review", "check", "investigate", "confirm",
-    "available", "eligible", "within", "depending on", "based on",
-    "let me", "i can", "we can", "option", "solution",
-})
+_VALIDATION_ANCHORS: FrozenSet[str] = frozenset(
+    {
+        "verify",
+        "review",
+        "check",
+        "investigate",
+        "confirm",
+        "available",
+        "eligible",
+        "within",
+        "depending on",
+        "based on",
+        "let me",
+        "i can",
+        "we can",
+        "option",
+        "solution",
+    }
+)
 
 
 # ── Data Structures ──────────────────────────────────────────────────
@@ -306,14 +383,16 @@ class ReverseThinkingProcessor:
     """
 
     def __init__(
-        self, config: Optional[ReverseThinkingConfig] = None,
+        self,
+        config: Optional[ReverseThinkingConfig] = None,
     ):
         self.config = config or ReverseThinkingConfig()
 
     # ── Step 1: Problem Statement ──────────────────────────────────
 
     async def formulate_problem_statement(
-        self, query: str,
+        self,
+        query: str,
     ) -> str:
         """
         Extract and formulate the core problem statement from the query.
@@ -346,7 +425,9 @@ class ReverseThinkingProcessor:
     # ── Step 2: Inversion Generation ───────────────────────────────
 
     async def generate_wrong_hypotheses(
-        self, query: str, category: Optional[ProblemCategory] = None,
+        self,
+        query: str,
+        category: Optional[ProblemCategory] = None,
     ) -> List[InversionHypothesis]:
         """
         Generate wrong answer hypotheses for the given query.
@@ -369,7 +450,8 @@ class ReverseThinkingProcessor:
             category = self._categorize_query(query)
 
         templates = _WRONG_ANSWER_TEMPLATES.get(
-            category, _WRONG_ANSWER_TEMPLATES[_DEFAULT_CATEGORY],
+            category,
+            _WRONG_ANSWER_TEMPLATES[_DEFAULT_CATEGORY],
         )
 
         # Limit by max_inversions config
@@ -420,13 +502,10 @@ class ReverseThinkingProcessor:
                 reasons.append(reason)
 
         # Build analysis summary
-        type_summary = ", ".join(
-            f"{et}({count})" for et, count in error_types.items()
-        )
+        type_summary = ", ".join(f"{et}({count})" for et, count in error_types.items())
 
         analysis = (
-            f"Identified {len(hypotheses)} error pattern(s) "
-            f"[{type_summary}]. "
+            f"Identified {len(hypotheses)} error pattern(s) " f"[{type_summary}]. "
         )
 
         if reasons:
@@ -500,15 +579,11 @@ class ReverseThinkingProcessor:
 
         # Check for validation anchor phrases
         anchor_count = sum(
-            1 for anchor in _VALIDATION_ANCHORS
-            if anchor in answer_lower
+            1 for anchor in _VALIDATION_ANCHORS if anchor in answer_lower
         )
 
         # Check that reserved/policy terms are used correctly
-        reserved_hits = sum(
-            1 for phrase in _RESERVED_PHRASES
-            if phrase in answer_lower
-        )
+        reserved_hits = sum(1 for phrase in _RESERVED_PHRASES if phrase in answer_lower)
 
         # Check for negative absolutes (sign of wrong answers)
         negative_absolutes = re.findall(
@@ -527,7 +602,8 @@ class ReverseThinkingProcessor:
     # ── Full Pipeline ──────────────────────────────────────────────
 
     async def process(
-        self, query: str,
+        self,
+        query: str,
     ) -> ReverseThinkingResult:
         """
         Run the full 5-step Reverse Thinking pipeline.
@@ -559,7 +635,8 @@ class ReverseThinkingProcessor:
             # Step 2: Inversion Generation
             category = self._categorize_query(query)
             hypotheses = await self.generate_wrong_hypotheses(
-                query, category,
+                query,
+                category,
             )
             if hypotheses:
                 steps_applied.append("inversion_generation")
@@ -583,7 +660,8 @@ class ReverseThinkingProcessor:
             validation_status = "skipped"
             if self.config.enable_validation:
                 validation_status = await self.validate_answer(
-                    inverted_answer, problem_statement,
+                    inverted_answer,
+                    problem_statement,
                 )
                 steps_applied.append("validation")
                 if validation_status == "passed":
@@ -599,10 +677,15 @@ class ReverseThinkingProcessor:
                 company_id=self.config.company_id,
             )
             return ReverseThinkingResult(
-                problem_statement=problem_statement if 'problem_statement' in dir() else "",
-                wrong_hypotheses=hypotheses if 'hypotheses' in dir() else [],
-                steps_applied=steps_applied + ["error_fallback"]
-                if 'steps_applied' in dir() else ["error_fallback"],
+                problem_statement=(
+                    problem_statement if "problem_statement" in dir() else ""
+                ),
+                wrong_hypotheses=hypotheses if "hypotheses" in dir() else [],
+                steps_applied=(
+                    steps_applied + ["error_fallback"]
+                    if "steps_applied" in dir()
+                    else ["error_fallback"]
+                ),
                 confidence_boost=0.0,
             )
 
@@ -648,19 +731,80 @@ class ReverseThinkingProcessor:
         Returns:
             List of key terms (lowercase, up to 5).
         """
-        _STOP_WORDS: FrozenSet[str] = frozenset({
-            "i", "me", "my", "we", "you", "your", "it", "its",
-            "is", "am", "are", "was", "were", "be", "been",
-            "have", "has", "had", "do", "does", "did",
-            "will", "would", "could", "should", "may", "might",
-            "shall", "can", "to", "o", "in", "for", "on",
-            "with", "at", "by", "from", "as", "into",
-            "the", "a", "an", "and", "or", "but", "if",
-            "not", "no", "this", "that", "these", "those",
-            "what", "how", "when", "where", "why", "who",
-            "which", "about", "up", "out", "just", "so",
-            "than", "too", "very", "also", "then",
-        })
+        _STOP_WORDS: FrozenSet[str] = frozenset(
+            {
+                "i",
+                "me",
+                "my",
+                "we",
+                "you",
+                "your",
+                "it",
+                "its",
+                "is",
+                "am",
+                "are",
+                "was",
+                "were",
+                "be",
+                "been",
+                "have",
+                "has",
+                "had",
+                "do",
+                "does",
+                "did",
+                "will",
+                "would",
+                "could",
+                "should",
+                "may",
+                "might",
+                "shall",
+                "can",
+                "to",
+                "o",
+                "in",
+                "for",
+                "on",
+                "with",
+                "at",
+                "by",
+                "from",
+                "as",
+                "into",
+                "the",
+                "a",
+                "an",
+                "and",
+                "or",
+                "but",
+                "if",
+                "not",
+                "no",
+                "this",
+                "that",
+                "these",
+                "those",
+                "what",
+                "how",
+                "when",
+                "where",
+                "why",
+                "who",
+                "which",
+                "about",
+                "up",
+                "out",
+                "just",
+                "so",
+                "than",
+                "too",
+                "very",
+                "also",
+                "then",
+            }
+        )
 
         words = re.findall(r"\b\w{3,}\b", query.lower())
         filtered = [w for w in words if w not in _STOP_WORDS]
@@ -724,22 +868,31 @@ class ReverseThinkingProcessor:
 
         # Action verbs
         action_words = [
-            "verify", "review", "check", "investigate", "confirm",
-            "provide", "guide", "walk", "ensure", "update",
+            "verify",
+            "review",
+            "check",
+            "investigate",
+            "confirm",
+            "provide",
+            "guide",
+            "walk",
+            "ensure",
+            "update",
         ]
-        action_hits = sum(
-            1 for w in action_words if w in answer.lower()
-        )
+        action_hits = sum(1 for w in action_words if w in answer.lower())
         score += action_hits * 0.5
 
         # Specificity markers
         specific_markers = [
-            "your", "the", "based on", "depending on",
-            "typically", "specific", "details",
+            "your",
+            "the",
+            "based on",
+            "depending on",
+            "typically",
+            "specific",
+            "details",
         ]
-        specific_hits = sum(
-            1 for m in specific_markers if m in answer.lower()
-        )
+        specific_hits = sum(1 for m in specific_markers if m in answer.lower())
         score += specific_hits * 0.3
 
         # Penalty for negative absolutes
@@ -768,7 +921,8 @@ class ReverseThinkingNode(BaseTechniqueNode):
     """
 
     def __init__(
-        self, config: Optional[ReverseThinkingConfig] = None,
+        self,
+        config: Optional[ReverseThinkingConfig] = None,
     ):
         self._config = config or ReverseThinkingConfig()
         self._processor = ReverseThinkingProcessor(config=self._config)
@@ -823,9 +977,9 @@ class ReverseThinkingNode(BaseTechniqueNode):
             state.signals.confidence_score = new_confidence
 
             # If we have a validated inverted answer, append to response parts
-            if (
-                result.inverted_answer
-                and result.validation_status in ("passed", "warning")
+            if result.inverted_answer and result.validation_status in (
+                "passed",
+                "warning",
             ):
                 state.response_parts.append(result.inverted_answer)
 

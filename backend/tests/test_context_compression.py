@@ -8,10 +8,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # Runtime-injected by _mock_logger fixture — satisfies flake8 F821
 # type: ignore[assignment,misc]
-ContextCompressor = CompressionConfig = CompressionInput = CompressionOutput = CompressionStrategy = CompressionLevel = ContextCompressionError = _COMPRESSION_TTL_SECONDS = _VARIANT_COMPRESSION_LEVELS = None
+ContextCompressor = CompressionConfig = CompressionInput = CompressionOutput = (
+    CompressionStrategy
+) = CompressionLevel = ContextCompressionError = _COMPRESSION_TTL_SECONDS = (
+    _VARIANT_COMPRESSION_LEVELS
+) = None
 
 
 @pytest.fixture(autouse=True)
@@ -28,17 +31,20 @@ def _mock_logger():
             _COMPRESSION_TTL_SECONDS,
             _VARIANT_COMPRESSION_LEVELS,
         )
-        globals().update({
-            "ContextCompressor": ContextCompressor,
-            "CompressionConfig": CompressionConfig,
-            "CompressionInput": CompressionInput,
-            "CompressionOutput": CompressionOutput,
-            "CompressionStrategy": CompressionStrategy,
-            "CompressionLevel": CompressionLevel,
-            "ContextCompressionError": ContextCompressionError,
-            "_COMPRESSION_TTL_SECONDS": _COMPRESSION_TTL_SECONDS,
-            "_VARIANT_COMPRESSION_LEVELS": _VARIANT_COMPRESSION_LEVELS,
-        })
+
+        globals().update(
+            {
+                "ContextCompressor": ContextCompressor,
+                "CompressionConfig": CompressionConfig,
+                "CompressionInput": CompressionInput,
+                "CompressionOutput": CompressionOutput,
+                "CompressionStrategy": CompressionStrategy,
+                "CompressionLevel": CompressionLevel,
+                "ContextCompressionError": ContextCompressionError,
+                "_COMPRESSION_TTL_SECONDS": _COMPRESSION_TTL_SECONDS,
+                "_VARIANT_COMPRESSION_LEVELS": _VARIANT_COMPRESSION_LEVELS,
+            }
+        )
 
 
 def _make_input(content=None, priorities=None, token_counts=None):
@@ -178,11 +184,13 @@ class TestCompressionOutput:
 class TestExtractiveStrategy:
     @pytest.mark.asyncio
     async def test_basic_compression(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.EXTRACTIVE,
-            level=CompressionLevel.LIGHT,
-            priority_threshold=0.3,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.EXTRACTIVE,
+                level=CompressionLevel.LIGHT,
+                priority_threshold=0.3,
+            )
+        )
         result = await comp.compress("c1", _make_input())
         assert isinstance(result, CompressionOutput)
         assert result.strategy_used == "extractive"
@@ -190,15 +198,14 @@ class TestExtractiveStrategy:
 
     @pytest.mark.asyncio
     async def test_priority_ordering(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.EXTRACTIVE,
-            level=CompressionLevel.LIGHT,
-            priority_threshold=0.3,
-        ))
-        content = [
-            "low priority item",
-            "high priority item",
-            "medium priority item"]
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.EXTRACTIVE,
+                level=CompressionLevel.LIGHT,
+                priority_threshold=0.3,
+            )
+        )
+        content = ["low priority item", "high priority item", "medium priority item"]
         priorities = [0.1, 0.9, 0.5]
         inp = CompressionInput(content=content, priorities=priorities)
         result = await comp.compress("c1", inp)
@@ -207,11 +214,13 @@ class TestExtractiveStrategy:
 
     @pytest.mark.asyncio
     async def test_preserves_high_priority(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.EXTRACTIVE,
-            level=CompressionLevel.LIGHT,
-            priority_threshold=0.3,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.EXTRACTIVE,
+                level=CompressionLevel.LIGHT,
+                priority_threshold=0.3,
+            )
+        )
         content = ["A" * 100, "B" * 100, "C" * 100]
         priorities = [0.1, 0.95, 0.1]
         inp = CompressionInput(content=content, priorities=priorities)
@@ -220,11 +229,13 @@ class TestExtractiveStrategy:
 
     @pytest.mark.asyncio
     async def test_target_tokens_respected(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.EXTRACTIVE,
-            level=CompressionLevel.AGGRESSIVE,
-            priority_threshold=0.3,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.EXTRACTIVE,
+                level=CompressionLevel.AGGRESSIVE,
+                priority_threshold=0.3,
+            )
+        )
         content = ["item"] * 20
         priorities = [0.5] * 20
         inp = CompressionInput(content=content, priorities=priorities)
@@ -234,10 +245,12 @@ class TestExtractiveStrategy:
 
     @pytest.mark.asyncio
     async def test_returns_extractive_strategy_name(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.EXTRACTIVE,
-            level=CompressionLevel.LIGHT,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.EXTRACTIVE,
+                level=CompressionLevel.LIGHT,
+            )
+        )
         result = await comp.compress("c1", _make_input())
         assert result.strategy_used == "extractive"
 
@@ -250,10 +263,12 @@ class TestExtractiveStrategy:
 class TestSlidingWindowStrategy:
     @pytest.mark.asyncio
     async def test_keeps_recent(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.SLIDING_WINDOW,
-            level=CompressionLevel.LIGHT,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.SLIDING_WINDOW,
+                level=CompressionLevel.LIGHT,
+            )
+        )
         content = ["old message", "older message", "recent message"]
         inp = CompressionInput(content=content)
         result = await comp.compress("c1", inp)
@@ -262,10 +277,12 @@ class TestSlidingWindowStrategy:
 
     @pytest.mark.asyncio
     async def test_drops_oldest(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.SLIDING_WINDOW,
-            level=CompressionLevel.AGGRESSIVE,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.SLIDING_WINDOW,
+                level=CompressionLevel.AGGRESSIVE,
+            )
+        )
         content = ["very old context message"] + ["recent"] * 10
         inp = CompressionInput(content=content)
         result = await comp.compress("c1", inp)
@@ -275,11 +292,13 @@ class TestSlidingWindowStrategy:
 
     @pytest.mark.asyncio
     async def test_preserve_recent_n(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.SLIDING_WINDOW,
-            level=CompressionLevel.LIGHT,
-            preserve_recent_n=2,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.SLIDING_WINDOW,
+                level=CompressionLevel.LIGHT,
+                preserve_recent_n=2,
+            )
+        )
         content = ["a", "b", "c", "d", "e"]
         inp = CompressionInput(content=content)
         result = await comp.compress("c1", inp)
@@ -288,9 +307,11 @@ class TestSlidingWindowStrategy:
 
     @pytest.mark.asyncio
     async def test_empty_input_returns_empty(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.SLIDING_WINDOW,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.SLIDING_WINDOW,
+            )
+        )
         inp = CompressionInput(content=[])
         result = await comp.compress("c1", inp)
         assert result.compressed_content == []
@@ -298,10 +319,12 @@ class TestSlidingWindowStrategy:
 
     @pytest.mark.asyncio
     async def test_within_budget_returns_all(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.SLIDING_WINDOW,
-            level=CompressionLevel.LIGHT,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.SLIDING_WINDOW,
+                level=CompressionLevel.LIGHT,
+            )
+        )
         # Use long content so LIGHT level keeps most of it
         content = ["word " * 50, "word " * 50, "word " * 50]
         inp = CompressionInput(content=content)
@@ -318,11 +341,13 @@ class TestSlidingWindowStrategy:
 class TestPriorityBasedStrategy:
     @pytest.mark.asyncio
     async def test_sorts_by_priority(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.PRIORITY_BASED,
-            level=CompressionLevel.LIGHT,
-            priority_threshold=0.3,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.PRIORITY_BASED,
+                level=CompressionLevel.LIGHT,
+                priority_threshold=0.3,
+            )
+        )
         content = ["low", "high", "medium"]
         priorities = [0.1, 0.9, 0.5]
         inp = CompressionInput(content=content, priorities=priorities)
@@ -331,11 +356,13 @@ class TestPriorityBasedStrategy:
 
     @pytest.mark.asyncio
     async def test_threshold_filtering(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.PRIORITY_BASED,
-            level=CompressionLevel.LIGHT,
-            priority_threshold=0.7,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.PRIORITY_BASED,
+                level=CompressionLevel.LIGHT,
+                priority_threshold=0.7,
+            )
+        )
         content = ["low", "medium", "high"]
         priorities = [0.1, 0.5, 0.9]
         inp = CompressionInput(content=content, priorities=priorities)
@@ -345,16 +372,19 @@ class TestPriorityBasedStrategy:
 
     @pytest.mark.asyncio
     async def test_keeps_high_priority_chunks(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.PRIORITY_BASED,
-            level=CompressionLevel.LIGHT,
-            priority_threshold=0.3,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.PRIORITY_BASED,
+                level=CompressionLevel.LIGHT,
+                priority_threshold=0.3,
+            )
+        )
         # All high priority — should retain most given LIGHT budget
         content = [
             "alpha beta gamma delta epsilon",
             "zeta eta theta iota kappa",
-            "lambda mu nu xi omicron"]
+            "lambda mu nu xi omicron",
+        ]
         priorities = [0.9, 0.9, 0.9]
         inp = CompressionInput(content=content, priorities=priorities)
         result = await comp.compress("c1", inp)
@@ -363,11 +393,13 @@ class TestPriorityBasedStrategy:
 
     @pytest.mark.asyncio
     async def test_fills_with_low_priority(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.PRIORITY_BASED,
-            level=CompressionLevel.LIGHT,
-            priority_threshold=0.7,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.PRIORITY_BASED,
+                level=CompressionLevel.LIGHT,
+                priority_threshold=0.7,
+            )
+        )
         content = ["low1", "high1", "low2"]
         priorities = [0.5, 0.9, 0.4]
         inp = CompressionInput(content=content, priorities=priorities)
@@ -376,11 +408,13 @@ class TestPriorityBasedStrategy:
 
     @pytest.mark.asyncio
     async def test_original_order_preserved(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.PRIORITY_BASED,
-            level=CompressionLevel.LIGHT,
-            priority_threshold=0.3,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.PRIORITY_BASED,
+                level=CompressionLevel.LIGHT,
+                priority_threshold=0.3,
+            )
+        )
         content = ["first", "second", "third"]
         priorities = [0.9, 0.5, 0.8]
         inp = CompressionInput(content=content, priorities=priorities)
@@ -400,11 +434,13 @@ class TestPriorityBasedStrategy:
 class TestAbstractiveStrategy:
     @pytest.mark.asyncio
     async def test_keeps_high_priority_verbatim(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.ABSTRACTIVE,
-            level=CompressionLevel.LIGHT,
-            priority_threshold=0.5,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.ABSTRACTIVE,
+                level=CompressionLevel.LIGHT,
+                priority_threshold=0.5,
+            )
+        )
         # Use longer strings so budget accommodates at least the high-priority
         # chunk
         content = [
@@ -420,11 +456,13 @@ class TestAbstractiveStrategy:
 
     @pytest.mark.asyncio
     async def test_summarizes_low_priority(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.ABSTRACTIVE,
-            level=CompressionLevel.AGGRESSIVE,
-            priority_threshold=0.7,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.ABSTRACTIVE,
+                level=CompressionLevel.AGGRESSIVE,
+                priority_threshold=0.7,
+            )
+        )
         content = [
             "low text one with some extra words here",
             "low text two with some extra words here",
@@ -439,15 +477,14 @@ class TestAbstractiveStrategy:
 
     @pytest.mark.asyncio
     async def test_condensed_output_for_low_priority(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.ABSTRACTIVE,
-            level=CompressionLevel.LIGHT,
-            priority_threshold=0.8,
-        ))
-        content = [
-            "First item of interest",
-            "Second item of interest",
-            "Third item"]
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.ABSTRACTIVE,
+                level=CompressionLevel.LIGHT,
+                priority_threshold=0.8,
+            )
+        )
+        content = ["First item of interest", "Second item of interest", "Third item"]
         priorities = [0.1, 0.1, 0.9]
         inp = CompressionInput(content=content, priorities=priorities)
         result = await comp.compress("c1", inp)
@@ -456,27 +493,28 @@ class TestAbstractiveStrategy:
 
     @pytest.mark.asyncio
     async def test_all_high_priority_no_summary(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.ABSTRACTIVE,
-            level=CompressionLevel.LIGHT,
-            priority_threshold=0.3,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.ABSTRACTIVE,
+                level=CompressionLevel.LIGHT,
+                priority_threshold=0.3,
+            )
+        )
         content = ["a", "b", "c"]
         priorities = [0.9, 0.8, 0.7]
         inp = CompressionInput(content=content, priorities=priorities)
         result = await comp.compress("c1", inp)
         # All high priority, no summary needed
-        assert all(
-            "Prior context summary" not in c
-            for c in result.compressed_content
-        )
+        assert all("Prior context summary" not in c for c in result.compressed_content)
 
     @pytest.mark.asyncio
     async def test_strategy_name(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.ABSTRACTIVE,
-            level=CompressionLevel.LIGHT,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.ABSTRACTIVE,
+                level=CompressionLevel.LIGHT,
+            )
+        )
         result = await comp.compress("c1", _make_input())
         assert result.strategy_used == "abstractive"
 
@@ -489,11 +527,13 @@ class TestAbstractiveStrategy:
 class TestHybridStrategy:
     @pytest.mark.asyncio
     async def test_combines_extractive_and_abstractive(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.HYBRID,
-            level=CompressionLevel.LIGHT,
-            priority_threshold=0.5,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.HYBRID,
+                level=CompressionLevel.LIGHT,
+                priority_threshold=0.5,
+            )
+        )
         content = ["low one", "low two", "high one", "high two"]
         priorities = [0.1, 0.2, 0.8, 0.9]
         inp = CompressionInput(content=content, priorities=priorities)
@@ -503,11 +543,13 @@ class TestHybridStrategy:
 
     @pytest.mark.asyncio
     async def test_high_priority_selected_first(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.HYBRID,
-            level=CompressionLevel.LIGHT,
-            priority_threshold=0.5,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.HYBRID,
+                level=CompressionLevel.LIGHT,
+                priority_threshold=0.5,
+            )
+        )
         # Use longer content so the high-priority chunk fits in the 70% budget
         content = [
             "low priority chunk with minimal relevance to the current query",
@@ -518,16 +560,17 @@ class TestHybridStrategy:
         result = await comp.compress("c1", inp)
         assert result.strategy_used == "hybrid"
         # High priority chunk should fit in the high-priority budget (70%)
-        assert any(
-            "high priority chunk" in c for c in result.compressed_content)
+        assert any("high priority chunk" in c for c in result.compressed_content)
 
     @pytest.mark.asyncio
     async def test_low_priority_condensed(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.HYBRID,
-            level=CompressionLevel.AGGRESSIVE,
-            priority_threshold=0.7,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.HYBRID,
+                level=CompressionLevel.AGGRESSIVE,
+                priority_threshold=0.7,
+            )
+        )
         # Use longer content so budget is meaningful
         content = [
             "low priority chunk a with additional context words",
@@ -543,10 +586,12 @@ class TestHybridStrategy:
 
     @pytest.mark.asyncio
     async def test_result_within_budget(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.HYBRID,
-            level=CompressionLevel.LIGHT,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.HYBRID,
+                level=CompressionLevel.LIGHT,
+            )
+        )
         content = ["a" * 100] * 10
         inp = CompressionInput(content=content)
         result = await comp.compress("c1", inp)
@@ -554,10 +599,12 @@ class TestHybridStrategy:
 
     @pytest.mark.asyncio
     async def test_strategy_name_is_hybrid(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.HYBRID,
-            level=CompressionLevel.LIGHT,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.HYBRID,
+                level=CompressionLevel.LIGHT,
+            )
+        )
         result = await comp.compress("c1", _make_input())
         assert result.strategy_used == "hybrid"
 
@@ -570,18 +617,22 @@ class TestHybridStrategy:
 class TestNoCompression:
     @pytest.mark.asyncio
     async def test_mini_parwa_none_level(self):
-        comp = ContextCompressor(CompressionConfig(
-            variant_type="mini_parwa",
-            level=CompressionLevel.NONE,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                variant_type="mini_parwa",
+                level=CompressionLevel.NONE,
+            )
+        )
         result = await comp.compress("c1", _make_input())
         assert result.strategy_used == "none"
 
     @pytest.mark.asyncio
     async def test_returns_content_as_is(self):
-        comp = ContextCompressor(CompressionConfig(
-            level=CompressionLevel.NONE,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                level=CompressionLevel.NONE,
+            )
+        )
         content = ["keep this one", "keep this too"]
         inp = CompressionInput(content=content)
         result = await comp.compress("c1", inp)
@@ -591,9 +642,11 @@ class TestNoCompression:
 
     @pytest.mark.asyncio
     async def test_empty_input_none_level(self):
-        comp = ContextCompressor(CompressionConfig(
-            level=CompressionLevel.NONE,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                level=CompressionLevel.NONE,
+            )
+        )
         inp = CompressionInput(content=[])
         result = await comp.compress("c1", inp)
         assert result.compressed_content == []
@@ -618,7 +671,8 @@ class TestCompressMain:
             "priority_based",
             "abstractive",
             "none",
-            "fallback")
+            "fallback",
+        )
 
     @pytest.mark.asyncio
     async def test_empty_input_returns_empty_output(self):
@@ -630,10 +684,12 @@ class TestCompressMain:
 
     @pytest.mark.asyncio
     async def test_error_handling_returns_original(self):
-        comp = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.EXTRACTIVE,
-            level=CompressionLevel.LIGHT,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.EXTRACTIVE,
+                level=CompressionLevel.LIGHT,
+            )
+        )
         # Force error only in the strategy method; _estimate_tokens must
         # work for the fallback to produce a valid result.
         with patch.object(comp, "_apply_extractive", side_effect=RuntimeError("boom")):
@@ -651,9 +707,11 @@ class TestCompressMain:
 
     @pytest.mark.asyncio
     async def test_wrong_variant_defaults_safely(self):
-        comp = ContextCompressor(CompressionConfig(
-            variant_type="unknown_variant",
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                variant_type="unknown_variant",
+            )
+        )
         result = await comp.compress("c1", _make_input())
         assert isinstance(result, CompressionOutput)
         assert result.strategy_used != ""
@@ -818,18 +876,22 @@ class TestCompressionStats:
 class TestCompressionInputSync:
     @pytest.mark.asyncio
     async def test_token_counts_auto_synced(self):
-        comp = ContextCompressor(CompressionConfig(
-            level=CompressionLevel.LIGHT,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                level=CompressionLevel.LIGHT,
+            )
+        )
         inp = CompressionInput(content=["hello", "world"])
         result = await comp.compress("c1", inp)
         assert isinstance(result, CompressionOutput)
 
     @pytest.mark.asyncio
     async def test_priorities_auto_synced(self):
-        comp = ContextCompressor(CompressionConfig(
-            level=CompressionLevel.LIGHT,
-        ))
+        comp = ContextCompressor(
+            CompressionConfig(
+                level=CompressionLevel.LIGHT,
+            )
+        )
         inp = CompressionInput(content=["a", "b", "c"])
         result = await comp.compress("c1", inp)
         assert isinstance(result, CompressionOutput)

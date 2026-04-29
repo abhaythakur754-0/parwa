@@ -30,6 +30,7 @@ router = APIRouter(prefix="/api/v1/email", tags=["Email Channel"])
 def _get_db(request: Request):
     """Get DB session from request state (injected by middleware)."""
     from database.session import get_db_session
+
     return get_db_session()
 
 
@@ -41,7 +42,9 @@ async def list_inbound_emails(
     request: Request,
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=200, description="Items per page"),
-    is_processed: Optional[bool] = Query(None, description="Filter by processed status"),
+    is_processed: Optional[bool] = Query(
+        None, description="Filter by processed status"
+    ),
     sender_email: Optional[str] = Query(None, description="Filter by sender email"),
 ):
     """List inbound emails with pagination and filters.
@@ -66,6 +69,7 @@ async def list_inbound_emails(
     try:
         db = _get_db(request)
         from app.services.email_channel_service import EmailChannelService
+
         service = EmailChannelService(db)
         result = service.list_inbound_emails(
             company_id=company_id,
@@ -124,6 +128,7 @@ async def get_inbound_email(
     try:
         db = _get_db(request)
         from app.services.email_channel_service import EmailChannelService
+
         service = EmailChannelService(db)
         email = service.get_inbound_email(inbound_email_id, company_id)
         if not email:
@@ -134,7 +139,8 @@ async def get_inbound_email(
                         "code": "NOT_FOUND",
                         "message": f"Inbound email {inbound_email_id} not found",
                         "details": None,
-                    }},
+                    }
+                },
             )
         return email
     except Exception as exc:
@@ -195,9 +201,14 @@ async def list_email_threads(
         total_pages = max(1, (total + page_size - 1) // page_size)
         offset = (page - 1) * page_size
 
-        items = query.order_by(
-            EmailThread.updated_at.desc(),
-        ).offset(offset).limit(page_size).all()
+        items = (
+            query.order_by(
+                EmailThread.updated_at.desc(),
+            )
+            .offset(offset)
+            .limit(page_size)
+            .all()
+        )
 
         return {
             "items": [
@@ -269,10 +280,14 @@ async def get_email_thread(
         db = _get_db(request)
         from database.models.email_channel import EmailThread
 
-        thread = db.query(EmailThread).filter(
-            EmailThread.id == thread_id,
-            EmailThread.company_id == company_id,
-        ).first()
+        thread = (
+            db.query(EmailThread)
+            .filter(
+                EmailThread.id == thread_id,
+                EmailThread.company_id == company_id,
+            )
+            .first()
+        )
 
         if not thread:
             return JSONResponse(

@@ -21,18 +21,38 @@ class PriorityService:
 
     # Priority keywords for auto-detection
     CRITICAL_KEYWORDS = [
-        "urgent", "critical", "emergency", "asap", "immediately",
-        "down", "outage", "security breach", "data loss", "production down",
+        "urgent",
+        "critical",
+        "emergency",
+        "asap",
+        "immediately",
+        "down",
+        "outage",
+        "security breach",
+        "data loss",
+        "production down",
     ]
 
     HIGH_KEYWORDS = [
-        "important", "high priority", "serious", "blocking",
-        "cannot access", "error", "failed", "broken",
+        "important",
+        "high priority",
+        "serious",
+        "blocking",
+        "cannot access",
+        "error",
+        "failed",
+        "broken",
     ]
 
     LOW_KEYWORDS = [
-        "whenever", "no rush", "low priority", "minor", "small issue",
-        "just wondering", "curious", "question",
+        "whenever",
+        "no rush",
+        "low priority",
+        "minor",
+        "small issue",
+        "just wondering",
+        "curious",
+        "question",
     ]
 
     # Priority weights for scoring
@@ -84,28 +104,19 @@ class PriorityService:
         text_lower = text.lower()
 
         # Check for critical keywords
-        critical_matches = sum(
-            1 for kw in self.CRITICAL_KEYWORDS
-            if kw in text_lower
-        )
+        critical_matches = sum(1 for kw in self.CRITICAL_KEYWORDS if kw in text_lower)
         if critical_matches > 0:
             confidence = min(0.95, 0.7 + (critical_matches * 0.1))
             return TicketPriority.critical.value, confidence
 
         # Check for high keywords
-        high_matches = sum(
-            1 for kw in self.HIGH_KEYWORDS
-            if kw in text_lower
-        )
+        high_matches = sum(1 for kw in self.HIGH_KEYWORDS if kw in text_lower)
         if high_matches > 0:
             confidence = min(0.9, 0.6 + (high_matches * 0.1))
             return TicketPriority.high.value, confidence
 
         # Check for low keywords
-        low_matches = sum(
-            1 for kw in self.LOW_KEYWORDS
-            if kw in text_lower
-        )
+        low_matches = sum(1 for kw in self.LOW_KEYWORDS if kw in text_lower)
         if low_matches > 0:
             confidence = min(0.85, 0.6 + (low_matches * 0.08))
             return TicketPriority.low.value, confidence
@@ -128,8 +139,7 @@ class PriorityService:
             Dict with first_response_minutes and resolution_minutes
         """
         base_targets = self.DEFAULT_SLA_TARGETS.get(
-            priority,
-            self.DEFAULT_SLA_TARGETS[TicketPriority.medium.value]
+            priority, self.DEFAULT_SLA_TARGETS[TicketPriority.medium.value]
         )
 
         # Adjust based on plan tier
@@ -146,9 +156,7 @@ class PriorityService:
             "first_response_minutes": int(
                 base_targets["first_response_minutes"] * multiplier
             ),
-            "resolution_minutes": int(
-                base_targets["resolution_minutes"] * multiplier
-            ),
+            "resolution_minutes": int(base_targets["resolution_minutes"] * multiplier),
         }
 
     def calculate_priority_score(

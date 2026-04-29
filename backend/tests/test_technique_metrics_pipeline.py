@@ -28,7 +28,6 @@ from app.core.technique_metrics_pipeline import (
     StdoutLogSink,
 )
 
-
 # ════════════════════════════════════════════════════════════════════
 # MetricsRecord Tests
 # ════════════════════════════════════════════════════════════════════
@@ -404,7 +403,8 @@ class TestRecordTechniqueExecution:
         collector = TechniqueMetricsCollector()
         sink = InMemoryLogSink()
         pipeline = MetricsPipeline(
-            collector=collector, sinks=[sink],
+            collector=collector,
+            sinks=[sink],
         )
         pipeline.record_technique_execution(
             technique_id="clara",
@@ -451,7 +451,8 @@ class TestRecordTechniqueExecution:
         collector = TechniqueMetricsCollector()
         sink = InMemoryLogSink()
         pipeline = MetricsPipeline(
-            collector=collector, sinks=[sink],
+            collector=collector,
+            sinks=[sink],
         )
         pipeline.record_technique_execution(
             technique_id="clara",
@@ -513,7 +514,8 @@ class TestCompanyIsolation:
         collector = TechniqueMetricsCollector()
         sink = InMemoryLogSink()
         pipeline = MetricsPipeline(
-            collector=collector, sinks=[sink],
+            collector=collector,
+            sinks=[sink],
         )
 
         pipeline.record_technique_execution(
@@ -794,10 +796,7 @@ class TestThreadSafety:
                     tenant_id="c1",
                 )
 
-        threads = [
-            threading.Thread(target=worker)
-            for _ in range(num_threads)
-        ]
+        threads = [threading.Thread(target=worker) for _ in range(num_threads)]
         for t in threads:
             t.start()
         for t in threads:
@@ -818,19 +817,14 @@ class TestThreadSafety:
                     tenant_id=company_id,
                 )
 
-        threads = [
-            threading.Thread(target=worker, args=(f"c{i}",))
-            for i in range(5)
-        ]
+        threads = [threading.Thread(target=worker, args=(f"c{i}",)) for i in range(5)]
         for t in threads:
             t.start()
         for t in threads:
             t.join()
 
         for i in range(5):
-            assert (
-                pipeline.get_company_record_count(f"c{i}") == 20
-            )
+            assert pipeline.get_company_record_count(f"c{i}") == 20
 
     def test_concurrent_summary_and_recording(self):
         """Test concurrent summary reads and writes."""

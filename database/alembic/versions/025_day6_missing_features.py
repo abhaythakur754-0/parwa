@@ -84,15 +84,30 @@ def upgrade():
     )
 
     # MF1: Trial columns on subscriptions
-    op.add_column("subscriptions", sa.Column("trial_days", sa.Integer(), server_default="0", nullable=True))
-    op.add_column("subscriptions", sa.Column("trial_started_at", sa.DateTime(), nullable=True))
-    op.add_column("subscriptions", sa.Column("trial_ends_at", sa.DateTime(), nullable=True))
+    op.add_column(
+        "subscriptions",
+        sa.Column("trial_days", sa.Integer(), server_default="0", nullable=True),
+    )
+    op.add_column(
+        "subscriptions", sa.Column("trial_started_at", sa.DateTime(), nullable=True)
+    )
+    op.add_column(
+        "subscriptions", sa.Column("trial_ends_at", sa.DateTime(), nullable=True)
+    )
 
     # MF4: Currency on companies
-    op.add_column("companies", sa.Column("currency", sa.String(3), server_default="USD", nullable=True))
+    op.add_column(
+        "companies",
+        sa.Column("currency", sa.String(3), server_default="USD", nullable=True),
+    )
 
     # MF6: Billing method on companies
-    op.add_column("companies", sa.Column("billing_method", sa.String(20), server_default="automatic", nullable=True))
+    op.add_column(
+        "companies",
+        sa.Column(
+            "billing_method", sa.String(20), server_default="automatic", nullable=True
+        ),
+    )
 
 
 def downgrade():

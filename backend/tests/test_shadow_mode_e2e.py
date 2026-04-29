@@ -29,10 +29,10 @@ from app.services.shadow_mode_service import ShadowModeService
 from database.models.shadow_mode import ShadowLog
 from database.models.core import User, Company
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def app():
@@ -83,6 +83,7 @@ def mock_shadow_service():
 # E2E Scenario 1: New Client Shadow Flow (Stage 0)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestNewClientShadowFlow:
     """
     E2E Test: New client onboarding flow with Stage 0 shadow enforcement.
@@ -97,12 +98,8 @@ class TestNewClientShadowFlow:
     @patch("app.api.shadow.get_current_user")
     @patch("app.services.shadow_mode_service.SessionLocal")
     def test_stage0_forces_shadow_mode(
-            self,
-            mock_session,
-            mock_get_user,
-            client,
-            mock_user,
-            mock_company):
+        self, mock_session, mock_get_user, client, mock_user, mock_company
+    ):
         """Test that Stage 0 clients always get shadow mode."""
         mock_get_user.return_value = mock_user
         mock_company.shadow_actions_remaining = 10
@@ -112,7 +109,9 @@ class TestNewClientShadowFlow:
         mock_session.return_value.__exit__ = MagicMock(return_value=False)
         mock_db.query.return_value.filter.return_value.first.return_value = mock_company
 
-        with patch("app.services.shadow_mode_service.ShadowModeService.evaluate_action_risk") as mock_eval:
+        with patch(
+            "app.services.shadow_mode_service.ShadowModeService.evaluate_action_risk"
+        ) as mock_eval:
             mock_eval.return_value = {
                 "mode": "shadow",
                 "risk_score": 0.2,
@@ -122,18 +121,13 @@ class TestNewClientShadowFlow:
                 "stage_0": True,
                 "shadow_actions_remaining": 10,
                 "layers": {
-                    "layer1_heuristic": {
-                        "score": 0.2,
-                        "reason": "Low risk"},
-                    "layer2_preference": {
-                        "mode": None,
-                        "reason": "No preference"},
-                    "layer3_historical": {
-                        "avg_risk": None,
-                        "reason": "No history"},
+                    "layer1_heuristic": {"score": 0.2, "reason": "Low risk"},
+                    "layer2_preference": {"mode": None, "reason": "No preference"},
+                    "layer3_historical": {"avg_risk": None, "reason": "No history"},
                     "layer4_safety_floor": {
                         "hard_safety": False,
-                        "reason": "No safety floor"},
+                        "reason": "No safety floor",
+                    },
                 },
                 "company_mode": "shadow",
             }
@@ -142,9 +136,9 @@ class TestNewClientShadowFlow:
                 "/api/shadow/evaluate",
                 json={
                     "action_type": "sms_reply",
-                    "action_payload": {
-                        "message": "Hello!",
-                        "to_number": "+1234567890"}})
+                    "action_payload": {"message": "Hello!", "to_number": "+1234567890"},
+                },
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -155,12 +149,8 @@ class TestNewClientShadowFlow:
     @patch("app.api.shadow.get_current_user")
     @patch("app.services.shadow_mode_service.SessionLocal")
     def test_stage0_counter_decrements_on_approval(
-            self,
-            mock_session,
-            mock_get_user,
-            client,
-            mock_user,
-            mock_company):
+        self, mock_session, mock_get_user, client, mock_user, mock_company
+    ):
         """Test that Stage 0 counter decrements when manager approves."""
         mock_get_user.return_value = mock_user
         mock_company.shadow_actions_remaining = 8
@@ -177,18 +167,23 @@ class TestNewClientShadowFlow:
         mock_shadow_log.manager_decision = None
         mock_shadow_log.action_payload = {}
 
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_shadow_log
+        mock_db.query.return_value.filter.return_value.first.return_value = (
+            mock_shadow_log
+        )
 
-        with patch("app.services.shadow_mode_service.ShadowModeService.approve_shadow_action") as mock_approve:
+        with patch(
+            "app.services.shadow_mode_service.ShadowModeService.approve_shadow_action"
+        ) as mock_approve:
             mock_approve.return_value = {
                 "id": mock_shadow_log.id,
                 "manager_decision": "approved",
                 "shadow_actions_remaining": 7,
             }
 
-            response = client.post(f"/api/shadow/{mock_shadow_log.id}/approve", json={
-                "note": "Approved for testing"
-            })
+            response = client.post(
+                f"/api/shadow/{mock_shadow_log.id}/approve",
+                json={"note": "Approved for testing"},
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -197,12 +192,8 @@ class TestNewClientShadowFlow:
     @patch("app.api.shadow.get_current_user")
     @patch("app.services.shadow_mode_service.SessionLocal")
     def test_stage0_graduation(
-            self,
-            mock_session,
-            mock_get_user,
-            client,
-            mock_user,
-            mock_company):
+        self, mock_session, mock_get_user, client, mock_user, mock_company
+    ):
         """Test that client graduates after 10 approved actions."""
         mock_get_user.return_value = mock_user
         # Counter at 1, should graduate after this approval
@@ -217,9 +208,13 @@ class TestNewClientShadowFlow:
         mock_shadow_log.company_id = mock_user.company_id
         mock_shadow_log.manager_decision = None
 
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_shadow_log
+        mock_db.query.return_value.filter.return_value.first.return_value = (
+            mock_shadow_log
+        )
 
-        with patch("app.services.shadow_mode_service.ShadowModeService.approve_shadow_action") as mock_approve:
+        with patch(
+            "app.services.shadow_mode_service.ShadowModeService.approve_shadow_action"
+        ) as mock_approve:
             mock_approve.return_value = {
                 "id": mock_shadow_log.id,
                 "manager_decision": "approved",
@@ -227,9 +222,10 @@ class TestNewClientShadowFlow:
                 "new_mode": "supervised",
             }
 
-            response = client.post(f"/api/shadow/{mock_shadow_log.id}/approve", json={
-                "note": "Final approval, graduation!"
-            })
+            response = client.post(
+                f"/api/shadow/{mock_shadow_log.id}/approve",
+                json={"note": "Final approval, graduation!"},
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -239,6 +235,7 @@ class TestNewClientShadowFlow:
 # ─────────────────────────────────────────────────────────────────────────────
 # E2E Scenario 2: Email Shadow Hold Flow
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestEmailShadowHoldFlow:
     """
@@ -265,17 +262,19 @@ class TestEmailShadowHoldFlow:
                 "requires_approval": True,
                 "auto_execute": False,
             }
-            mock_service.log_shadow_action.return_value = {
-                "id": str(uuid.uuid4())}
+            mock_service.log_shadow_action.return_value = {"id": str(uuid.uuid4())}
 
-            response = client.post("/api/shadow/evaluate", json={
-                "action_type": "email_reply",
-                "action_payload": {
-                    "to": "customer@example.com",
-                    "subject": "Refund Confirmation",
-                    "body": "We have processed your refund of $500."
-                }
-            })
+            response = client.post(
+                "/api/shadow/evaluate",
+                json={
+                    "action_type": "email_reply",
+                    "action_payload": {
+                        "to": "customer@example.com",
+                        "subject": "Refund Confirmation",
+                        "body": "We have processed your refund of $500.",
+                    },
+                },
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -297,9 +296,8 @@ class TestEmailShadowHoldFlow:
             }
 
             response = client.post(
-                f"/api/shadow/{shadow_log_id}/approve",
-                json={
-                    "note": "Approved"})
+                f"/api/shadow/{shadow_log_id}/approve", json={"note": "Approved"}
+            )
 
             assert response.status_code == 200
 
@@ -307,6 +305,7 @@ class TestEmailShadowHoldFlow:
 # ─────────────────────────────────────────────────────────────────────────────
 # E2E Scenario 3: SMS Auto-Execute Flow
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestSMSAutoExecuteFlow:
     """
@@ -333,16 +332,18 @@ class TestSMSAutoExecuteFlow:
                 "requires_approval": False,
                 "auto_execute": True,
             }
-            mock_service.log_shadow_action.return_value = {
-                "id": str(uuid.uuid4())}
+            mock_service.log_shadow_action.return_value = {"id": str(uuid.uuid4())}
 
-            response = client.post("/api/shadow/evaluate", json={
-                "action_type": "sms_reply",
-                "action_payload": {
-                    "to_number": "+1234567890",
-                    "body": "Thank you for your message!"
-                }
-            })
+            response = client.post(
+                "/api/shadow/evaluate",
+                json={
+                    "action_type": "sms_reply",
+                    "action_payload": {
+                        "to_number": "+1234567890",
+                        "body": "Thank you for your message!",
+                    },
+                },
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -353,6 +354,7 @@ class TestSMSAutoExecuteFlow:
 # ─────────────────────────────────────────────────────────────────────────────
 # E2E Scenario 4: Ticket Resolution Shadow
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestTicketResolutionShadow:
     """
@@ -368,7 +370,8 @@ class TestTicketResolutionShadow:
 
     @patch("app.api.shadow.get_current_user")
     def test_ticket_resolution_requires_approval(
-            self, mock_get_user, client, mock_user):
+        self, mock_get_user, client, mock_user
+    ):
         """Test high-risk ticket resolution requires approval."""
         mock_get_user.return_value = mock_user
 
@@ -381,17 +384,19 @@ class TestTicketResolutionShadow:
                 "requires_approval": True,
                 "auto_execute": False,
             }
-            mock_service.log_shadow_action.return_value = {
-                "id": str(uuid.uuid4())}
+            mock_service.log_shadow_action.return_value = {"id": str(uuid.uuid4())}
 
-            response = client.post("/api/shadow/evaluate", json={
-                "action_type": "ticket_close",
-                "action_payload": {
-                    "ticket_id": str(uuid.uuid4()),
-                    "resolution": "Refund processed",
-                    "category": "billing"
-                }
-            })
+            response = client.post(
+                "/api/shadow/evaluate",
+                json={
+                    "action_type": "ticket_close",
+                    "action_payload": {
+                        "ticket_id": str(uuid.uuid4()),
+                        "resolution": "Refund processed",
+                        "category": "billing",
+                    },
+                },
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -401,6 +406,7 @@ class TestTicketResolutionShadow:
 # ─────────────────────────────────────────────────────────────────────────────
 # E2E Scenario 5: Jarvis Command Integration
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestJarvisShadowCommands:
     """
@@ -414,8 +420,7 @@ class TestJarvisShadowCommands:
     """
 
     @patch("app.api.shadow.get_current_user")
-    def test_jarvis_set_preference_command(
-            self, mock_get_user, client, mock_user):
+    def test_jarvis_set_preference_command(self, mock_get_user, client, mock_user):
         """Test Jarvis setting shadow preference via API."""
         mock_get_user.return_value = mock_user
 
@@ -428,11 +433,14 @@ class TestJarvisShadowCommands:
                 "set_via": "jarvis",
             }
 
-            response = client.patch("/api/shadow/preferences", json={
-                "action_category": "refund",
-                "preferred_mode": "shadow",
-                "set_via": "jarvis"
-            })
+            response = client.patch(
+                "/api/shadow/preferences",
+                json={
+                    "action_category": "refund",
+                    "preferred_mode": "shadow",
+                    "set_via": "jarvis",
+                },
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -450,10 +458,9 @@ class TestJarvisShadowCommands:
                 "previous_mode": "shadow",
             }
 
-            response = client.put("/api/shadow/mode", json={
-                "mode": "supervised",
-                "set_via": "jarvis"
-            })
+            response = client.put(
+                "/api/shadow/mode", json={"mode": "supervised", "set_via": "jarvis"}
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -463,6 +470,7 @@ class TestJarvisShadowCommands:
 # ─────────────────────────────────────────────────────────────────────────────
 # E2E Scenario 6: Undo Action Flow
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestUndoActionFlow:
     """
@@ -489,9 +497,10 @@ class TestUndoActionFlow:
                 "status": "undone",
             }
 
-            response = client.post(f"/api/shadow/{shadow_log_id}/undo", json={
-                "reason": "Mistaken auto-approval"
-            })
+            response = client.post(
+                f"/api/shadow/{shadow_log_id}/undo",
+                json={"reason": "Mistaken auto-approval"},
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -501,6 +510,7 @@ class TestUndoActionFlow:
 # ─────────────────────────────────────────────────────────────────────────────
 # E2E Scenario 7: Batch Approve Flow
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestBatchApproveFlow:
     """
@@ -526,11 +536,14 @@ class TestBatchApproveFlow:
                 "failed": 0,
             }
 
-            response = client.post("/api/shadow/batch-resolve", json={
-                "shadow_log_ids": ids,
-                "decision": "approved",
-                "note": "Batch approved"
-            })
+            response = client.post(
+                "/api/shadow/batch-resolve",
+                json={
+                    "shadow_log_ids": ids,
+                    "decision": "approved",
+                    "note": "Batch approved",
+                },
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -540,6 +553,7 @@ class TestBatchApproveFlow:
 # ─────────────────────────────────────────────────────────────────────────────
 # E2E Scenario 8: Safety Floor Enforcement
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestSafetyFloorEnforcement:
     """
@@ -554,7 +568,8 @@ class TestSafetyFloorEnforcement:
 
     @patch("app.api.shadow.get_current_user")
     def test_account_delete_always_requires_approval(
-            self, mock_get_user, client, mock_user):
+        self, mock_get_user, client, mock_user
+    ):
         """Test that account_delete always requires approval regardless of mode."""
         mock_get_user.return_value = mock_user
 
@@ -569,12 +584,18 @@ class TestSafetyFloorEnforcement:
                 "layers": {
                     "layer4_safety_floor": {
                         "hard_safety": True,
-                        "reason": "Account deletion is irreversible"}}}
+                        "reason": "Account deletion is irreversible",
+                    }
+                },
+            }
 
-            response = client.post("/api/shadow/evaluate", json={
-                "action_type": "account_delete",
-                "action_payload": {"user_id": str(uuid.uuid4())}
-            })
+            response = client.post(
+                "/api/shadow/evaluate",
+                json={
+                    "action_type": "account_delete",
+                    "action_payload": {"user_id": str(uuid.uuid4())},
+                },
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -583,7 +604,8 @@ class TestSafetyFloorEnforcement:
 
     @patch("app.api.shadow.get_current_user")
     def test_high_value_refund_always_requires_approval(
-            self, mock_get_user, client, mock_user):
+        self, mock_get_user, client, mock_user
+    ):
         """Test that high-value refunds always require approval."""
         mock_get_user.return_value = mock_user
 
@@ -597,10 +619,10 @@ class TestSafetyFloorEnforcement:
                 "auto_execute": False,
             }
 
-            response = client.post("/api/shadow/evaluate", json={
-                "action_type": "refund",
-                "action_payload": {"amount": 750.00}
-            })
+            response = client.post(
+                "/api/shadow/evaluate",
+                json={"action_type": "refund", "action_payload": {"amount": 750.00}},
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -610,6 +632,7 @@ class TestSafetyFloorEnforcement:
 # ─────────────────────────────────────────────────────────────────────────────
 # E2E Scenario 9: Socket.io Real-time Updates
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestSocketRealtimeUpdates:
     """
@@ -625,34 +648,27 @@ class TestSocketRealtimeUpdates:
     @patch("app.api.shadow.get_current_user")
     @patch("app.core.event_emitter.emit_shadow_event")
     def test_action_logged_emits_event(
-            self,
-            mock_emit,
-            mock_get_user,
-            client,
-            mock_user):
+        self, mock_emit, mock_get_user, client, mock_user
+    ):
         """Test that logging an action emits socket event."""
         mock_get_user.return_value = mock_user
 
         with patch("app.services.shadow_mode_service.ShadowModeService") as MockService:
             mock_service = MockService.return_value
-            mock_service.log_shadow_action.return_value = {
-                "id": str(uuid.uuid4())}
+            mock_service.log_shadow_action.return_value = {"id": str(uuid.uuid4())}
 
-            response = client.post("/api/shadow/evaluate", json={
-                "action_type": "sms_reply",
-                "action_payload": {"body": "Test"}
-            })
+            response = client.post(
+                "/api/shadow/evaluate",
+                json={"action_type": "sms_reply", "action_payload": {"body": "Test"}},
+            )
 
             assert response.status_code == 200
 
     @patch("app.api.shadow.get_current_user")
     @patch("app.core.event_emitter.emit_shadow_event")
     def test_mode_changed_emits_event(
-            self,
-            mock_emit,
-            mock_get_user,
-            client,
-            mock_user):
+        self, mock_emit, mock_get_user, client, mock_user
+    ):
         """Test that mode change emits socket event."""
         mock_get_user.return_value = mock_user
 
@@ -663,10 +679,9 @@ class TestSocketRealtimeUpdates:
                 "previous_mode": "shadow",
             }
 
-            response = client.put("/api/shadow/mode", json={
-                "mode": "supervised",
-                "set_via": "ui"
-            })
+            response = client.put(
+                "/api/shadow/mode", json={"mode": "supervised", "set_via": "ui"}
+            )
 
             assert response.status_code == 200
 
@@ -674,6 +689,7 @@ class TestSocketRealtimeUpdates:
 # ─────────────────────────────────────────────────────────────────────────────
 # E2E Scenario 10: Dual Control Sync
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestDualControlSync:
     """
@@ -700,11 +716,14 @@ class TestDualControlSync:
                 "set_via": "ui",
             }
 
-            response = client.patch("/api/shadow/preferences", json={
-                "action_category": "email_reply",
-                "preferred_mode": "shadow",
-                "set_via": "ui"
-            })
+            response = client.patch(
+                "/api/shadow/preferences",
+                json={
+                    "action_category": "email_reply",
+                    "preferred_mode": "shadow",
+                    "set_via": "ui",
+                },
+            )
 
             assert response.status_code == 200
             # In real implementation, would verify socket event emitted
@@ -723,11 +742,14 @@ class TestDualControlSync:
                 "set_via": "jarvis",
             }
 
-            response = client.patch("/api/shadow/preferences", json={
-                "action_category": "sms_reply",
-                "preferred_mode": "graduated",
-                "set_via": "jarvis"
-            })
+            response = client.patch(
+                "/api/shadow/preferences",
+                json={
+                    "action_category": "sms_reply",
+                    "preferred_mode": "graduated",
+                    "set_via": "jarvis",
+                },
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -737,6 +759,7 @@ class TestDualControlSync:
 # ─────────────────────────────────────────────────────────────────────────────
 # Edge Case Tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestEdgeCases:
     """Tests for edge cases and defensive handling."""
@@ -755,10 +778,10 @@ class TestEdgeCases:
                 "requires_approval": True,
             }
 
-            response = client.post("/api/shadow/evaluate", json={
-                "action_type": "unknown_action",
-                "action_payload": {}
-            })
+            response = client.post(
+                "/api/shadow/evaluate",
+                json={"action_type": "unknown_action", "action_payload": {}},
+            )
 
             assert response.status_code == 200
 
@@ -771,10 +794,9 @@ class TestEdgeCases:
         mock_user.role = "agent"  # Not authorized
         mock_get_user.return_value = mock_user
 
-        response = client.put("/api/shadow/mode", json={
-            "mode": "shadow",
-            "set_via": "ui"
-        })
+        response = client.put(
+            "/api/shadow/mode", json={"mode": "shadow", "set_via": "ui"}
+        )
 
         assert response.status_code == 403
 
@@ -783,16 +805,14 @@ class TestEdgeCases:
         """Test that invalid mode is rejected."""
         mock_get_user.return_value = mock_user
 
-        response = client.put("/api/shadow/mode", json={
-            "mode": "invalid_mode",
-            "set_via": "ui"
-        })
+        response = client.put(
+            "/api/shadow/mode", json={"mode": "invalid_mode", "set_via": "ui"}
+        )
 
         assert response.status_code == 400
 
     @patch("app.api.shadow.get_current_user")
-    def test_concurrent_approval_handled(
-            self, mock_get_user, client, mock_user):
+    def test_concurrent_approval_handled(self, mock_get_user, client, mock_user):
         """Test that concurrent approval attempts are handled."""
         mock_get_user.return_value = mock_user
         shadow_log_id = str(uuid.uuid4())
@@ -807,9 +827,8 @@ class TestEdgeCases:
 
             # Simulate concurrent request
             response1 = client.post(
-                f"/api/shadow/{shadow_log_id}/approve",
-                json={
-                    "note": "First"})
+                f"/api/shadow/{shadow_log_id}/approve", json={"note": "First"}
+            )
 
             # Second call should handle already-approved state
             mock_service.approve_shadow_action.return_value = {
@@ -819,9 +838,8 @@ class TestEdgeCases:
             }
 
             response2 = client.post(
-                f"/api/shadow/{shadow_log_id}/approve",
-                json={
-                    "note": "Second"})
+                f"/api/shadow/{shadow_log_id}/approve", json={"note": "Second"}
+            )
 
             # Both should return 200 (idempotent)
             assert response1.status_code == 200
@@ -830,6 +848,7 @@ class TestEdgeCases:
 # ─────────────────────────────────────────────────────────────────────────────
 # Performance Tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestPerformance:
     """Tests for performance characteristics."""
@@ -848,11 +867,14 @@ class TestPerformance:
                 "failed": 0,
             }
 
-            response = client.post("/api/shadow/batch-resolve", json={
-                "shadow_log_ids": ids,
-                "decision": "approved",
-                "note": "Large batch test"
-            })
+            response = client.post(
+                "/api/shadow/batch-resolve",
+                json={
+                    "shadow_log_ids": ids,
+                    "decision": "approved",
+                    "note": "Large batch test",
+                },
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -865,14 +887,15 @@ class TestPerformance:
 
         with patch("database.base.SessionLocal") as mock_session:
             mock_db = MagicMock()
-            mock_session.return_value.__enter__ = MagicMock(
-                return_value=mock_db)
+            mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_session.return_value.__exit__ = MagicMock(return_value=False)
 
             # Mock count
             mock_db.query.return_value.filter.return_value.count.return_value = 10000
             # Mock paginated results
-            mock_db.query.return_value.filter.return_value.order_by.return_value.offset.return_value.limit.return_value.all.return_value = []
+            mock_db.query.return_value.filter.return_value.order_by.return_value.offset.return_value.limit.return_value.all.return_value = (
+                []
+            )
 
             response = client.get("/api/shadow/logs?page=1&limit=50")
 

@@ -26,7 +26,6 @@ from app.services.internal_note_service import InternalNoteService
 from app.exceptions import NotFoundError, ValidationError, AuthorizationError
 from app.core.event_emitter import emit_event
 
-
 router = APIRouter(
     prefix="/tickets",
     tags=["tickets", "notes"],
@@ -36,19 +35,23 @@ router = APIRouter(
 
 # ── Request/Response Schemas ───────────────────────────────────────────────
 
+
 class NoteCreate(BaseModel):
     """Create note request."""
+
     content: str = Field(..., min_length=1, max_length=50000)
     is_pinned: bool = Field(default=False)
 
 
 class NoteUpdate(BaseModel):
     """Update note request."""
+
     content: Optional[str] = Field(None, min_length=1, max_length=50000)
 
 
 class NoteResponse(BaseModel):
     """Note response."""
+
     id: str
     ticket_id: str
     author_id: str
@@ -62,6 +65,7 @@ class NoteResponse(BaseModel):
 
 class NoteListResponse(BaseModel):
     """Paginated note list response."""
+
     notes: List[NoteResponse]
     total: int
     page: int
@@ -69,6 +73,7 @@ class NoteListResponse(BaseModel):
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/{ticket_id}/notes",
@@ -241,8 +246,9 @@ async def update_note(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.delete("/{ticket_id}/notes/{note_id}",
-               status_code=http_status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{ticket_id}/notes/{note_id}", status_code=http_status.HTTP_204_NO_CONTENT
+)
 async def delete_note(
     ticket_id: str,
     note_id: str,

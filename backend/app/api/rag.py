@@ -20,7 +20,6 @@ Import patterns:
   - Dependencies: require_roles, get_company_id, get_current_user.
 """
 
-
 from fastapi import APIRouter, Depends
 
 from app.api.deps import (
@@ -189,9 +188,7 @@ def delete_document(
             "company_id": company_id,
             "deleted": deleted,
             "message": (
-                "Document deleted successfully"
-                if deleted
-                else "Document not found"
+                "Document deleted successfully" if deleted else "Document not found"
             ),
         },
     }

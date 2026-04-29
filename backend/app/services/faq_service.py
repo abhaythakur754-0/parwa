@@ -28,103 +28,78 @@ logger = logging.getLogger("parwa.faq_service")
 _faq_store: Dict[str, Dict[str, Any]] = {}
 
 # Default FAQs for new Mini Parwa instances
-DEFAULT_FAQS = [{"id": "faq_001",
-                 "question": "How do I reset my password?",
-                 "answer": "You can reset your password by clicking the 'Forgot Password' link on the login page. Enter your email address and we'll send you a reset link.",
-                 "category": "Account",
-                 "keywords": ["password",
-                              "reset",
-                              "login",
-                              "forgot"],
-                 },
-                {"id": "faq_002",
-                 "question": "What is the ticket limit for Mini Parwa?",
-                 "answer": "Mini Parwa includes 2,000 tickets per month. If you need more, you can upgrade to Parwa (5,000 tickets) or High Parwa (15,000 tickets).",
-                 "category": "Billing",
-                 "keywords": ["ticket",
-                              "limit",
-                              "quota",
-                              "usage"],
-                 },
-                {"id": "faq_003",
-                 "question": "How do I add a team member?",
-                 "answer": "Go to Settings > User Management and click 'Invite Team Member'. Enter their email and select their role. Mini Parwa supports up to 3 team members.",
-                 "category": "Team",
-                 "keywords": ["team",
-                              "member",
-                              "invite",
-                              "user",
-                              "add"],
-                 },
-                {"id": "faq_004",
-                 "question": "What AI features are included in Mini Parwa?",
-                 "answer": "Mini Parwa includes AI ticket resolution, classification, sentiment analysis, and suggested responses using our Light model. Advanced techniques and Medium/Heavy models are available in higher tiers.",
-                 "category": "AI Features",
-                 "keywords": ["ai",
-                              "features",
-                              "model",
-                              "resolution",
-                              "classification"],
-                 },
-                {"id": "faq_005",
-                 "question": "How does Shadow Mode work?",
-                 "answer": "Shadow Mode lets you preview AI actions before they're executed. You can approve, reject, or let AI auto-execute. This gives you control over automated responses while training the system.",
-                 "category": "AI Features",
-                 "keywords": ["shadow",
-                              "mode",
-                              "preview",
-                              "approve",
-                              "control"],
-                 },
-                {"id": "faq_006",
-                 "question": "Can I upgrade my plan?",
-                 "answer": "Yes! You can upgrade from Mini Parwa to Parwa or High Parwa at any time. The upgrade takes effect immediately with prorated billing. Go to Billing > Change Plan to see options.",
-                 "category": "Billing",
-                 "keywords": ["upgrade",
-                              "plan",
-                              "change",
-                              "billing"],
-                 },
-                {"id": "faq_007",
-                 "question": "What channels are supported?",
-                 "answer": "Mini Parwa supports Email and Live Chat channels. SMS and Voice channels are available in Parwa and High Parwa tiers.",
-                 "category": "Channels",
-                 "keywords": ["channel",
-                              "email",
-                              "chat",
-                              "sms",
-                              "voice"],
-                 },
-                {"id": "faq_008",
-                 "question": "How do I upload documents to the Knowledge Base?",
-                 "answer": "Go to Knowledge Base > Upload and select your documents. Mini Parwa supports up to 100 documents. Supported formats include PDF, DOCX, TXT, and Markdown.",
-                 "category": "Knowledge Base",
-                 "keywords": ["kb",
-                              "knowledge",
-                              "document",
-                              "upload",
-                              "upload"],
-                 },
-                {"id": "faq_009",
-                 "question": "What are Industry Add-ons?",
-                 "answer": "Industry Add-ons provide specialized support for E-commerce, SaaS, Logistics, and other industries. They add extra tickets and KB docs. Prices start at $39/month.",
-                 "category": "Billing",
-                 "keywords": ["industry",
-                              "addon",
-                              "ecommerce",
-                              "saas",
-                              "logistics"],
-                 },
-                {"id": "faq_010",
-                 "question": "How do I cancel my subscription?",
-                 "answer": "Go to Billing > Cancel Subscription. Your access continues until the end of your current billing period. You can reactivate anytime within 30 days with data retention.",
-                 "category": "Billing",
-                 "keywords": ["cancel",
-                              "subscription",
-                              "billing",
-                              "reactivate"],
-                 },
-                ]
+DEFAULT_FAQS = [
+    {
+        "id": "faq_001",
+        "question": "How do I reset my password?",
+        "answer": "You can reset your password by clicking the 'Forgot Password' link on the login page. Enter your email address and we'll send you a reset link.",
+        "category": "Account",
+        "keywords": ["password", "reset", "login", "forgot"],
+    },
+    {
+        "id": "faq_002",
+        "question": "What is the ticket limit for Mini Parwa?",
+        "answer": "Mini Parwa includes 2,000 tickets per month. If you need more, you can upgrade to Parwa (5,000 tickets) or High Parwa (15,000 tickets).",
+        "category": "Billing",
+        "keywords": ["ticket", "limit", "quota", "usage"],
+    },
+    {
+        "id": "faq_003",
+        "question": "How do I add a team member?",
+        "answer": "Go to Settings > User Management and click 'Invite Team Member'. Enter their email and select their role. Mini Parwa supports up to 3 team members.",
+        "category": "Team",
+        "keywords": ["team", "member", "invite", "user", "add"],
+    },
+    {
+        "id": "faq_004",
+        "question": "What AI features are included in Mini Parwa?",
+        "answer": "Mini Parwa includes AI ticket resolution, classification, sentiment analysis, and suggested responses using our Light model. Advanced techniques and Medium/Heavy models are available in higher tiers.",
+        "category": "AI Features",
+        "keywords": ["ai", "features", "model", "resolution", "classification"],
+    },
+    {
+        "id": "faq_005",
+        "question": "How does Shadow Mode work?",
+        "answer": "Shadow Mode lets you preview AI actions before they're executed. You can approve, reject, or let AI auto-execute. This gives you control over automated responses while training the system.",
+        "category": "AI Features",
+        "keywords": ["shadow", "mode", "preview", "approve", "control"],
+    },
+    {
+        "id": "faq_006",
+        "question": "Can I upgrade my plan?",
+        "answer": "Yes! You can upgrade from Mini Parwa to Parwa or High Parwa at any time. The upgrade takes effect immediately with prorated billing. Go to Billing > Change Plan to see options.",
+        "category": "Billing",
+        "keywords": ["upgrade", "plan", "change", "billing"],
+    },
+    {
+        "id": "faq_007",
+        "question": "What channels are supported?",
+        "answer": "Mini Parwa supports Email and Live Chat channels. SMS and Voice channels are available in Parwa and High Parwa tiers.",
+        "category": "Channels",
+        "keywords": ["channel", "email", "chat", "sms", "voice"],
+    },
+    {
+        "id": "faq_008",
+        "question": "How do I upload documents to the Knowledge Base?",
+        "answer": "Go to Knowledge Base > Upload and select your documents. Mini Parwa supports up to 100 documents. Supported formats include PDF, DOCX, TXT, and Markdown.",
+        "category": "Knowledge Base",
+        "keywords": ["kb", "knowledge", "document", "upload", "upload"],
+    },
+    {
+        "id": "faq_009",
+        "question": "What are Industry Add-ons?",
+        "answer": "Industry Add-ons provide specialized support for E-commerce, SaaS, Logistics, and other industries. They add extra tickets and KB docs. Prices start at $39/month.",
+        "category": "Billing",
+        "keywords": ["industry", "addon", "ecommerce", "saas", "logistics"],
+    },
+    {
+        "id": "faq_010",
+        "question": "How do I cancel my subscription?",
+        "answer": "Go to Billing > Cancel Subscription. Your access continues until the end of your current billing period. You can reactivate anytime within 30 days with data retention.",
+        "category": "Billing",
+        "keywords": ["cancel", "subscription", "billing", "reactivate"],
+    },
+]
 
 
 class FAQService:
@@ -166,14 +141,12 @@ class FAQService:
         if search:
             search_lower = search.lower()
             results = [
-                f for f in results if search_lower in f.get(
-                    "question",
-                    "").lower() or search_lower in f.get(
-                    "answer",
-                    "").lower() or any(
-                    search_lower in kw.lower() for kw in f.get(
-                        "keywords",
-                        []))]
+                f
+                for f in results
+                if search_lower in f.get("question", "").lower()
+                or search_lower in f.get("answer", "").lower()
+                or any(search_lower in kw.lower() for kw in f.get("keywords", []))
+            ]
 
         return results[:limit]
 
@@ -263,8 +236,7 @@ class FAQService:
 
     # ── AI-Friendly Methods ─────────────────────────────────────────────────
 
-    def get_faqs_for_ai(
-            self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def get_faqs_for_ai(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
         """Get FAQs relevant to a query for AI reference.
 
         This method is used by the AI pipeline to find relevant FAQs
@@ -275,13 +247,15 @@ class FAQService:
         # Format for AI consumption
         formatted = []
         for faq in results:
-            formatted.append({
-                "id": faq["id"],
-                "question": faq["question"],
-                "answer": faq["answer"],
-                "category": faq["category"],
-                "relevance": self._calculate_relevance(query, faq),
-            })
+            formatted.append(
+                {
+                    "id": faq["id"],
+                    "question": faq["question"],
+                    "answer": faq["answer"],
+                    "category": faq["category"],
+                    "relevance": self._calculate_relevance(query, faq),
+                }
+            )
 
         # Sort by relevance
         formatted.sort(key=lambda x: x["relevance"], reverse=True)
@@ -294,8 +268,7 @@ class FAQService:
 
         # Check question match
         question_words = set(faq.get("question", "").lower().split())
-        question_score = len(query_words & question_words) / \
-            max(len(query_words), 1)
+        question_score = len(query_words & question_words) / max(len(query_words), 1)
 
         # Check keyword match
         keywords = set(kw.lower() for kw in faq.get("keywords", []))

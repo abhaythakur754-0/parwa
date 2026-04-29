@@ -32,7 +32,6 @@ from app.core.techniques.chain_of_thought import (
     _SYNTHESIS_TEMPLATES,
 )
 
-
 # ── Fixtures ────────────────────────────────────────────────────────
 
 
@@ -60,8 +59,7 @@ def node() -> ChainOfThoughtNode:
 def complex_state() -> ConversationState:
     return ConversationState(
         query="How do I cancel my subscription and get a refund? Also what happens to my data?",
-        signals=QuerySignals(
-            query_complexity=0.6),
+        signals=QuerySignals(query_complexity=0.6),
     )
 
 
@@ -93,8 +91,7 @@ def empty_state() -> ConversationState:
 def high_complexity_state() -> ConversationState:
     return ConversationState(
         query="First, check the order. Then, verify the payment. Finally, confirm delivery.",
-        signals=QuerySignals(
-            query_complexity=0.8),
+        signals=QuerySignals(query_complexity=0.8),
     )
 
 
@@ -105,12 +102,7 @@ class TestQueryType:
     """Tests for the QueryType enum."""
 
     def test_all_values_exist(self):
-        expected = {
-            "multi_part",
-            "sequential",
-            "comparison",
-            "causal",
-            "single"}
+        expected = {"multi_part", "sequential", "comparison", "causal", "single"}
         actual = {qt.value for qt in QueryType}
         assert actual == expected
 
@@ -224,8 +216,12 @@ class TestCoTStep:
         step = CoTStep(step_number=1, description="test")
         d = step.to_dict()
         expected_keys = {
-            "step_number", "step_type", "description",
-            "reasoning", "validation_status", "key_terms",
+            "step_number",
+            "step_type",
+            "description",
+            "reasoning",
+            "validation_status",
+            "key_terms",
         }
         assert set(d.keys()) == expected_keys
 
@@ -321,18 +317,15 @@ class TestCoTResult:
 
     def test_to_dict_steps_applied(self):
         result = CoTResult(
-            steps_applied=[
-                "decomposition",
-                "reasoning",
-                "validation",
-                "synthesis"],
+            steps_applied=["decomposition", "reasoning", "validation", "synthesis"],
         )
         d = result.to_dict()
         assert d["steps_applied"] == [
             "decomposition",
             "reasoning",
             "validation",
-            "synthesis"]
+            "synthesis",
+        ]
 
     def test_mutable(self):
         result = CoTResult()
@@ -361,6 +354,7 @@ class TestChainOfThoughtNode:
 
     def test_tier_2(self, node):
         from app.core.technique_router import TechniqueTier
+
         assert node.technique_info.tier == TechniqueTier.TIER_2
 
     def test_node_with_custom_config(self):
@@ -384,8 +378,7 @@ class TestShouldActivate:
         assert await node.should_activate(complex_state) is True
 
     @pytest.mark.asyncio
-    async def test_complexity_exactly_04_does_not_activate(
-            self, node, boundary_state):
+    async def test_complexity_exactly_04_does_not_activate(self, node, boundary_state):
         assert await node.should_activate(boundary_state) is False
 
     @pytest.mark.asyncio
@@ -433,8 +426,7 @@ class TestShouldActivate:
         assert await node.should_activate(state) is False
 
     @pytest.mark.asyncio
-    async def test_high_complexity_activates(
-            self, node, high_complexity_state):
+    async def test_high_complexity_activates(self, node, high_complexity_state):
         assert await node.should_activate(high_complexity_state) is True
 
 
@@ -453,7 +445,9 @@ class TestDetectQueryType:
         assert processor.detect_query_type(query) == QueryType.MULTI_PART
 
     def test_sequential_keywords(self, processor):
-        query = "First check the order, then verify payment, after that confirm delivery"
+        query = (
+            "First check the order, then verify payment, after that confirm delivery"
+        )
         assert processor.detect_query_type(query) == QueryType.SEQUENTIAL
 
     def test_comparison_vs(self, processor):
@@ -619,12 +613,14 @@ class TestStepByStepReasoning:
 
     @pytest.mark.asyncio
     async def test_single_step_gets_reasoning(self, processor):
-        steps = [CoTStep(
-            step_number=1,
-            step_type="single",
-            description="Check billing",
-            key_terms=["billing"],
-        )]
+        steps = [
+            CoTStep(
+                step_number=1,
+                step_type="single",
+                description="Check billing",
+                key_terms=["billing"],
+            )
+        ]
         result = await processor.generate_reasoning(steps)
         assert len(result) == 1
         assert result[0].reasoning != ""
@@ -637,12 +633,14 @@ class TestStepByStepReasoning:
                 step_number=1,
                 step_type="multi_part",
                 description="Cancel subscription",
-                key_terms=["cancel"]),
+                key_terms=["cancel"],
+            ),
             CoTStep(
                 step_number=2,
                 step_type="multi_part",
                 description="Get refund",
-                key_terms=["refund"]),
+                key_terms=["refund"],
+            ),
         ]
         result = await processor.generate_reasoning(steps)
         assert len(result) == 2
@@ -651,34 +649,40 @@ class TestStepByStepReasoning:
 
     @pytest.mark.asyncio
     async def test_sequential_reasoning_includes_step_number(self, processor):
-        steps = [CoTStep(
-            step_number=3,
-            step_type="sequential",
-            description="Confirm delivery",
-            key_terms=["delivery"],
-        )]
+        steps = [
+            CoTStep(
+                step_number=3,
+                step_type="sequential",
+                description="Confirm delivery",
+                key_terms=["delivery"],
+            )
+        ]
         result = await processor.generate_reasoning(steps)
         assert "3" in result[0].reasoning
 
     @pytest.mark.asyncio
     async def test_causal_reasoning(self, processor):
-        steps = [CoTStep(
-            step_number=1,
-            step_type="causal",
-            description="Identify the effect",
-            key_terms=["effect"],
-        )]
+        steps = [
+            CoTStep(
+                step_number=1,
+                step_type="causal",
+                description="Identify the effect",
+                key_terms=["effect"],
+            )
+        ]
         result = await processor.generate_reasoning(steps)
         assert "cause" in result[0].reasoning.lower()
 
     @pytest.mark.asyncio
     async def test_comparison_reasoning(self, processor):
-        steps = [CoTStep(
-            step_number=1,
-            step_type="comparison",
-            description="Compare plans",
-            key_terms=["plan"],
-        )]
+        steps = [
+            CoTStep(
+                step_number=1,
+                step_type="comparison",
+                description="Compare plans",
+                key_terms=["plan"],
+            )
+        ]
         result = await processor.generate_reasoning(steps)
         assert "compar" in result[0].reasoning.lower()
 
@@ -686,15 +690,11 @@ class TestStepByStepReasoning:
     async def test_preserves_step_numbers(self, processor):
         steps = [
             CoTStep(
-                step_number=1,
-                step_type="single",
-                description="A",
-                key_terms=["a"]),
+                step_number=1, step_type="single", description="A", key_terms=["a"]
+            ),
             CoTStep(
-                step_number=2,
-                step_type="single",
-                description="B",
-                key_terms=["b"]),
+                step_number=2, step_type="single", description="B", key_terms=["b"]
+            ),
         ]
         result = await processor.generate_reasoning(steps)
         assert result[0].step_number == 1
@@ -715,51 +715,59 @@ class TestIntermediateValidation:
 
     @pytest.mark.asyncio
     async def test_valid_step_passes(self, processor):
-        steps = [CoTStep(
-            step_number=1,
-            step_type="single",
-            description="Valid description",
-            reasoning="Valid reasoning content",
-            key_terms=["term1", "term2"],
-        )]
+        steps = [
+            CoTStep(
+                step_number=1,
+                step_type="single",
+                description="Valid description",
+                reasoning="Valid reasoning content",
+                key_terms=["term1", "term2"],
+            )
+        ]
         result, summary = await processor.validate_steps(steps)
         assert result[0].validation_status == "passed"
         assert "1 passed" in summary
 
     @pytest.mark.asyncio
     async def test_missing_reasoning_needs_data(self, processor):
-        steps = [CoTStep(
-            step_number=1,
-            step_type="single",
-            description="Valid description",
-            reasoning="",
-            key_terms=["term1"],
-        )]
+        steps = [
+            CoTStep(
+                step_number=1,
+                step_type="single",
+                description="Valid description",
+                reasoning="",
+                key_terms=["term1"],
+            )
+        ]
         result, summary = await processor.validate_steps(steps)
         assert result[0].validation_status == "needs_data"
         assert "need more data" in summary
 
     @pytest.mark.asyncio
     async def test_missing_key_terms_needs_data(self, processor):
-        steps = [CoTStep(
-            step_number=1,
-            step_type="single",
-            description="Valid description",
-            reasoning="Valid reasoning",
-            key_terms=[],
-        )]
+        steps = [
+            CoTStep(
+                step_number=1,
+                step_type="single",
+                description="Valid description",
+                reasoning="Valid reasoning",
+                key_terms=[],
+            )
+        ]
         result, summary = await processor.validate_steps(steps)
         assert result[0].validation_status == "needs_data"
 
     @pytest.mark.asyncio
     async def test_empty_description_fails(self, processor):
-        steps = [CoTStep(
-            step_number=1,
-            step_type="single",
-            description="",
-            reasoning="Valid reasoning",
-            key_terms=["term"],
-        )]
+        steps = [
+            CoTStep(
+                step_number=1,
+                step_type="single",
+                description="",
+                reasoning="Valid reasoning",
+                key_terms=["term"],
+            )
+        ]
         result, summary = await processor.validate_steps(steps)
         assert result[0].validation_status == "failed"
         assert "failed" in summary
@@ -768,13 +776,18 @@ class TestIntermediateValidation:
     async def test_mixed_validation(self, processor):
         steps = [
             CoTStep(
-                step_number=1, step_type="single",
-                description="Good", reasoning="Good reasoning",
+                step_number=1,
+                step_type="single",
+                description="Good",
+                reasoning="Good reasoning",
                 key_terms=["t"],
             ),
             CoTStep(
-                step_number=2, step_type="single",
-                description="OK", reasoning="", key_terms=["t"],
+                step_number=2,
+                step_type="single",
+                description="OK",
+                reasoning="",
+                key_terms=["t"],
             ),
         ]
         result, summary = await processor.validate_steps(steps)
@@ -787,8 +800,10 @@ class TestIntermediateValidation:
     async def test_all_passed_summary(self, processor):
         steps = [
             CoTStep(
-                step_number=i + 1, step_type="single",
-                description=f"Step {i}", reasoning="Reasoning",
+                step_number=i + 1,
+                step_type="single",
+                description=f"Step {i}",
+                reasoning="Reasoning",
                 key_terms=["t"],
             )
             for i in range(3)
@@ -798,13 +813,15 @@ class TestIntermediateValidation:
 
     @pytest.mark.asyncio
     async def test_preserves_step_data(self, processor):
-        steps = [CoTStep(
-            step_number=5,
-            step_type="causal",
-            description="Root cause",
-            reasoning="Tracing causes",
-            key_terms=["cause"],
-        )]
+        steps = [
+            CoTStep(
+                step_number=5,
+                step_type="causal",
+                description="Root cause",
+                reasoning="Tracing causes",
+                key_terms=["cause"],
+            )
+        ]
         result, _ = await processor.validate_steps(steps)
         assert result[0].step_number == 5
         assert result[0].step_type == "causal"
@@ -825,13 +842,15 @@ class TestSynthesis:
 
     @pytest.mark.asyncio
     async def test_single_step_synthesis(self, processor):
-        steps = [CoTStep(
-            step_number=1,
-            step_type="single",
-            description="Check balance",
-            reasoning="Analyzing: Check balance. Key terms: balance.",
-            key_terms=["balance"],
-        )]
+        steps = [
+            CoTStep(
+                step_number=1,
+                step_type="single",
+                description="Check balance",
+                reasoning="Analyzing: Check balance. Key terms: balance.",
+                key_terms=["balance"],
+            )
+        ]
         result = await processor.synthesize(steps, QueryType.SINGLE)
         assert "Analysis complete" in result
 
@@ -908,13 +927,15 @@ class TestSynthesis:
 
     @pytest.mark.asyncio
     async def test_no_reasoning_fallback(self, processor):
-        steps = [CoTStep(
-            step_number=1,
-            step_type="single",
-            description="Test",
-            reasoning="",
-            key_terms=[],
-        )]
+        steps = [
+            CoTStep(
+                step_number=1,
+                step_type="single",
+                description="Test",
+                reasoning="",
+                key_terms=[],
+            )
+        ]
         result = await processor.synthesize(steps, QueryType.SINGLE)
         assert "no specific findings" in result
 
@@ -1034,7 +1055,10 @@ class TestFullPipeline:
 
     @pytest.mark.asyncio
     async def test_very_long_query(self, processor):
-        query = "What is this? And that? Also the other? Plus one more? How about another?" * 10
+        query = (
+            "What is this? And that? Also the other? Plus one more? How about another?"
+            * 10
+        )
         result = await processor.process(query)
         assert isinstance(result, CoTResult)
 
@@ -1131,11 +1155,11 @@ class TestErrorFallback:
     """BC-008: Never crash — return original state on error."""
 
     @pytest.mark.asyncio
-    async def test_execute_returns_original_on_exception(
-            self, node, complex_state):
+    async def test_execute_returns_original_on_exception(self, node, complex_state):
         """Force an exception inside execute() and verify original state returned."""
         with patch.object(
-            node._processor, 'process',
+            node._processor,
+            "process",
             side_effect=RuntimeError("boom"),
         ):
             result = await node.execute(complex_state)
@@ -1145,7 +1169,8 @@ class TestErrorFallback:
     async def test_process_returns_fallback_on_internal_error(self, processor):
         """Force an exception inside process() pipeline."""
         with patch.object(
-            processor, 'detect_query_type',
+            processor,
+            "detect_query_type",
             side_effect=RuntimeError("pipeline error"),
         ):
             result = await processor.process("billing question")
@@ -1155,7 +1180,8 @@ class TestErrorFallback:
     async def test_processor_error_logs_warning(self, processor):
         """Error should be logged as warning, not crash."""
         with patch.object(
-            processor, 'decompose_query',
+            processor,
+            "decompose_query",
             side_effect=ValueError("error"),
         ):
             result = await processor.process("test query")
@@ -1165,7 +1191,8 @@ class TestErrorFallback:
     async def test_empty_confidence_on_error(self, processor):
         """Confidence boost should be 0 on error."""
         with patch.object(
-            processor, 'generate_reasoning',
+            processor,
+            "generate_reasoning",
             side_effect=Exception("fail"),
         ):
             result = await processor.process("test query")
@@ -1234,7 +1261,8 @@ class TestEdgeCases:
     def test_key_terms_max_five(self):
         """Key terms should be limited to 5."""
         terms = ChainOfThoughtProcessor._extract_key_terms(
-            "billing invoice charge payment subscription account profile settings", )
+            "billing invoice charge payment subscription account profile settings",
+        )
         assert len(terms) <= 5
 
     def test_key_terms_deduplication(self):
@@ -1292,10 +1320,11 @@ class TestConstants:
 
     def test_synthesis_templates_are_strings(self):
         for qt, template in _SYNTHESIS_TEMPLATES.items():
-            assert isinstance(
-                template, str), f"Template for {qt} is not a string"
+            assert isinstance(template, str), f"Template for {qt} is not a string"
             assert "{step_count}" in template, f"Missing {{step_count}} for {qt}"
-            assert "{step_summaries}" in template, f"Missing {{step_summaries}} for {qt}"
+            assert (
+                "{step_summaries}" in template
+            ), f"Missing {{step_summaries}} for {qt}"
 
     def test_conjunctions_contain_and(self):
         assert any("and" in c for c in _CONJUNCTIONS)

@@ -94,7 +94,9 @@ class EmailBounce(Base):
             "whitelisted": self.whitelisted,
             "whitelist_justification": self.whitelist_justification,
             "whitelisted_by": self.whitelisted_by,
-            "whitelisted_at": self.whitelisted_at.isoformat() if self.whitelisted_at else None,
+            "whitelisted_at": (
+                self.whitelisted_at.isoformat() if self.whitelisted_at else None
+            ),
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
@@ -141,7 +143,9 @@ class CustomerEmailStatus(Base):
     whitelisted = Column(Boolean, nullable=False, default=False)
 
     # Timestamps
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())
+    updated_at = Column(
+        DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow()
+    )
 
     def to_dict(self) -> dict:
         return {
@@ -151,9 +155,15 @@ class CustomerEmailStatus(Base):
             "email_status": self.email_status,
             "bounce_count": self.bounce_count or 0,
             "complaint_count": self.complaint_count or 0,
-            "last_bounce_at": self.last_bounce_at.isoformat() if self.last_bounce_at else None,
-            "last_complaint_at": self.last_complaint_at.isoformat() if self.last_complaint_at else None,
-            "suppressed_at": self.suppressed_at.isoformat() if self.suppressed_at else None,
+            "last_bounce_at": (
+                self.last_bounce_at.isoformat() if self.last_bounce_at else None
+            ),
+            "last_complaint_at": (
+                self.last_complaint_at.isoformat() if self.last_complaint_at else None
+            ),
+            "suppressed_at": (
+                self.suppressed_at.isoformat() if self.suppressed_at else None
+            ),
             "whitelisted": self.whitelisted,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

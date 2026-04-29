@@ -49,17 +49,20 @@ def _mock_logger():
             safe_mget,
             NAMESPACE_PREFIX,
         )
-        globals().update({
-            "cache_get": cache_get,
-            "cache_set": cache_set,
-            "cache_delete": cache_delete,
-            "make_key": make_key,
-            "validate_tenant_key": validate_tenant_key,
-            "validate_tenant_keys": validate_tenant_keys,
-            "safe_get": safe_get,
-            "safe_mget": safe_mget,
-            "NAMESPACE_PREFIX": NAMESPACE_PREFIX,
-        })
+
+        globals().update(
+            {
+                "cache_get": cache_get,
+                "cache_set": cache_set,
+                "cache_delete": cache_delete,
+                "make_key": make_key,
+                "validate_tenant_key": validate_tenant_key,
+                "validate_tenant_keys": validate_tenant_keys,
+                "safe_get": safe_get,
+                "safe_mget": safe_mget,
+                "NAMESPACE_PREFIX": NAMESPACE_PREFIX,
+            }
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -82,8 +85,7 @@ class TestCacheInvalidationRaceCondition:
         """After cache_delete, subsequent cache_get must NOT return old value."""
         mock_redis = MagicMock()
         # get returns old value initially, then None after delete
-        get_values = [json.dumps(
-            {"response": "old_model_output", "model_v": 1})]
+        get_values = [json.dumps({"response": "old_model_output", "model_v": 1})]
         call_idx = [0]
 
         async def get_side_effect(key):
@@ -141,8 +143,9 @@ class TestCacheInvalidationRaceCondition:
     async def test_model_version_tagged_in_cache_prevents_serving_stale(self):
         """Cache entries with version tags must be validated before serving."""
         mock_redis = MagicMock()
-        mock_redis.get = AsyncMock(return_value=json.dumps(
-            {"response": "hello", "model_version": "2.0"}))
+        mock_redis.get = AsyncMock(
+            return_value=json.dumps({"response": "hello", "model_version": "2.0"})
+        )
         mock_redis.set = AsyncMock(return_value=True)
         mock_redis.delete = AsyncMock(return_value=True)
 
@@ -150,8 +153,7 @@ class TestCacheInvalidationRaceCondition:
             cached = await cache_get("co1", "prompt:v1")
 
             # If current model version is 3.0, cached 2.0 response is stale
-            if isinstance(cached, dict) and cached.get(
-                    "model_version") == "2.0":
+            if isinstance(cached, dict) and cached.get("model_version") == "2.0":
                 stale = True
             else:
                 stale = False
@@ -162,8 +164,7 @@ class TestCacheInvalidationRaceCondition:
     async def test_cache_invalidation_fails_gracefully_bc008(self):
         """BC-008: cache_delete failure must not raise exception."""
         mock_redis = MagicMock()
-        mock_redis.delete = AsyncMock(
-            side_effect=Exception("Redis connection lost"))
+        mock_redis.delete = AsyncMock(side_effect=Exception("Redis connection lost"))
         mock_redis.get = AsyncMock(return_value="old_value")
 
         with patch("app.core.redis.get_redis", return_value=mock_redis):
@@ -208,13 +209,18 @@ class TestCostCalculationInconsistency:
             assert result is None  # Miss → fresh generation needed
 
             # After generation, store cost
-            await cache_set("co1", "prompt:p1", {
-                "response": "generated_text",
-                "input_tokens": 100,
-                "output_tokens": 50,
-                "cost_usd": 0.003,
-                "cache_hit": False,
-            }, ttl_seconds=300)
+            await cache_set(
+                "co1",
+                "prompt:p1",
+                {
+                    "response": "generated_text",
+                    "input_tokens": 100,
+                    "output_tokens": 50,
+                    "cost_usd": 0.003,
+                    "cache_hit": False,
+                },
+                ttl_seconds=300,
+            )
 
             cached = await cache_get("co1", "prompt:p1")
             assert cached is not None
@@ -227,14 +233,16 @@ class TestCostCalculationInconsistency:
         mock_redis = MagicMock()
         # Cache always hits with the same response
         mock_redis.get = AsyncMock(
-            return_value=json.dumps({
-                "response": "cached_text",
-                "input_tokens": 100,
-                "output_tokens": 50,
-                "original_cost_usd": 0.003,
-                "cache_hit": True,
-                "serve_count": 0,
-            })
+            return_value=json.dumps(
+                {
+                    "response": "cached_text",
+                    "input_tokens": 100,
+                    "output_tokens": 50,
+                    "original_cost_usd": 0.003,
+                    "cache_hit": True,
+                    "serve_count": 0,
+                }
+            )
         )
         mock_redis.set = AsyncMock(return_value=True)
 
@@ -322,8 +330,7 @@ class TestMemoryLeakLargeResponses:
             call_args = mock_redis.set.call_args
             assert call_args is not None
             kwargs = call_args[1] if call_args else {}
-            assert kwargs.get(
-                "ex") == 300, "TTL must be set even for large values"
+            assert kwargs.get("ex") == 300, "TTL must be set even for large values"
 
     @pytest.mark.asyncio
     async def test_response_size_limit_enforced(self):
@@ -365,7 +372,8 @@ class TestMemoryLeakLargeResponses:
             # Simulate tenant flooding cache with large responses
             for i in range(50):
                 await cache_set(
-                    "co1", f"key_{i}",
+                    "co1",
+                    f"key_{i}",
                     {"response": "data" * 500_000},  # ~0.5MB each
                     ttl_seconds=60,  # Short TTL to limit accumulation
                 )
@@ -483,13 +491,17 @@ class TestTenantIsolationInCache:
         mock_redis = MagicMock()
 
         with patch("app.core.redis.get_redis", return_value=mock_redis):
-            with patch("app.core.tenant_context.get_tenant_context", return_value="co_a"):
+            with patch(
+                "app.core.tenant_context.get_tenant_context", return_value="co_a"
+            ):
                 # validate_tenant_keys filters to only current tenant's keys
-                result = validate_tenant_keys([
-                    "parwa:co_a:cache:key1",     # matches
-                    "parwa:co_b:cache:key2",     # rejected
-                    "global:shared:key3",         # rejected
-                ])
+                result = validate_tenant_keys(
+                    [
+                        "parwa:co_a:cache:key1",  # matches
+                        "parwa:co_b:cache:key2",  # rejected
+                        "global:shared:key3",  # rejected
+                    ]
+                )
                 assert result == ["parwa:co_a:cache:key1"]
                 assert len(result) == 1
 
@@ -544,8 +556,7 @@ class TestCacheStampedeEffect:
 
         with patch("app.core.redis.get_redis", return_value=mock_redis):
             # Simulate 5 concurrent requests
-            tasks = [cache_get("co1", "hot_key", default="MISS")
-                     for _ in range(5)]
+            tasks = [cache_get("co1", "hot_key", default="MISS") for _ in range(5)]
             results = await asyncio.gather(*tasks)
 
             # All results should be MISS (cache was empty)
@@ -636,9 +647,9 @@ class TestCostTrackingPrecisionLoss:
 
         # Exact accumulation
         total_exact = num_requests * cost_per_request  # = 1.1
-        assert total_exact > budget, (
-            f"Exact cost ${total_exact:.4f} must exceed budget ${budget}"
-        )
+        assert (
+            total_exact > budget
+        ), f"Exact cost ${total_exact:.4f} must exceed budget ${budget}"
 
         # Simulate per-request truncation to 3 decimal places
         truncated_per_request = int(cost_per_request * 1000) / 1000  # 0.001
@@ -648,14 +659,12 @@ class TestCostTrackingPrecisionLoss:
         # total_truncated = 1000 * 0.001 = 1.0 (at budget, not over)
         # But actual cost is 1.1 → budget overrun hidden by truncation
         overrun = total_exact - total_truncated
-        assert overrun > 0, (
-            f"Truncation hides ${overrun:.4f} overrun"
-        )
+        assert overrun > 0, f"Truncation hides ${overrun:.4f} overrun"
 
         # The budget check using truncated total would NOT block
         budget_check_truncated = total_truncated <= budget
-        assert budget_check_truncated is True, (f"Truncated total ${
-            total_truncated:.3f} appears within budget ${budget}")
+        assert budget_check_truncated is True, f"Truncated total ${
+            total_truncated:.3f} appears within budget ${budget}"
 
         # But budget check using exact total WOULD block
         budget_check_exact = total_exact > budget

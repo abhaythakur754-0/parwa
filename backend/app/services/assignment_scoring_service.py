@@ -36,27 +36,27 @@ logger = get_logger("assignment_scoring_service")
 
 # Factor weights (sum to 115 for normalization)
 FACTOR_WEIGHTS = {
-    "expertise": 40,      # Match between ticket category and agent specialty
-    "workload": 30,       # Current open ticket count (inverse)
-    "performance": 20,    # Historical resolution rate + CSAT
+    "expertise": 40,  # Match between ticket category and agent specialty
+    "workload": 30,  # Current open ticket count (inverse)
+    "performance": 20,  # Historical resolution rate + CSAT
     "response_time": 15,  # SLA compliance rate
-    "availability": 10,   # Online status bonus
+    "availability": 10,  # Online status bonus
 }
 
 MAX_SCORE = sum(FACTOR_WEIGHTS.values())  # 115
 
 # Workload thresholds
 MAX_OPEN_TICKETS = 20  # Beyond this, workload score is 0
-OPTIMAL_WORKLOAD = 5   # At or below this, full workload score
+OPTIMAL_WORKLOAD = 5  # At or below this, full workload score
 
 # Performance thresholds
-MIN_RESOLUTION_RATE = 50.0   # Below this, performance penalty
+MIN_RESOLUTION_RATE = 50.0  # Below this, performance penalty
 EXCELLENT_RESOLUTION_RATE = 90.0  # Above this, bonus
-MIN_CSAT = 3.0          # Below this, performance penalty
-EXCELLENT_CSAT = 4.5    # Above this, bonus
+MIN_CSAT = 3.0  # Below this, performance penalty
+EXCELLENT_CSAT = 4.5  # Above this, bonus
 
 # SLA compliance thresholds
-MIN_SLA_COMPLIANCE = 70.0    # Below this, SLA penalty
+MIN_SLA_COMPLIANCE = 70.0  # Below this, SLA penalty
 EXCELLENT_SLA_COMPLIANCE = 95.0  # Above this, bonus
 
 
@@ -96,10 +96,14 @@ class AssignmentScoringService:
         from database.models.core import User
 
         # Get ticket
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             return {
@@ -112,11 +116,15 @@ class AssignmentScoringService:
 
         # Get candidate agents
         if candidate_agent_ids:
-            agents = self.db.query(User).filter(
-                User.id.in_(candidate_agent_ids),
-                User.company_id == self.company_id,
-                User.is_active,
-            ).all()
+            agents = (
+                self.db.query(User)
+                .filter(
+                    User.id.in_(candidate_agent_ids),
+                    User.company_id == self.company_id,
+                    User.is_active,
+                )
+                .all()
+            )
         else:
             agents = self._get_available_agents()
 
@@ -183,15 +191,23 @@ class AssignmentScoringService:
         from database.models.tickets import Ticket
         from database.models.core import User
 
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
-        agent = self.db.query(User).filter(
-            User.id == agent_id,
-            User.company_id == self.company_id,
-        ).first()
+        agent = (
+            self.db.query(User)
+            .filter(
+                User.id == agent_id,
+                User.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket or not agent:
             return {
@@ -229,11 +245,9 @@ class AssignmentScoringService:
             agent, ticket, metrics
         )
         workload_score, workload_details = self._score_workload(workload)
-        performance_score, performance_details = self._score_performance(
-            metrics)
+        performance_score, performance_details = self._score_performance(metrics)
         response_score, response_details = self._score_response_time(metrics)
-        availability_score, availability_details = self._score_availability(
-            agent)
+        availability_score, availability_details = self._score_availability(agent)
 
         # Total raw score
         total_raw = (
@@ -249,7 +263,7 @@ class AssignmentScoringService:
 
         result = {
             "agent_id": agent.id,
-            "agent_name": getattr(agent, 'full_name', None) or agent.email,
+            "agent_name": getattr(agent, "full_name", None) or agent.email,
             "raw_score": total_raw,
             "normalized_score": normalized,
             "total_score": normalized,  # For compatibility
@@ -257,28 +271,38 @@ class AssignmentScoringService:
                 "expertise": {
                     "raw": expertise_score,
                     "max": FACTOR_WEIGHTS["expertise"],
-                    "percentage": round(expertise_score / FACTOR_WEIGHTS["expertise"] * 100, 1),
+                    "percentage": round(
+                        expertise_score / FACTOR_WEIGHTS["expertise"] * 100, 1
+                    ),
                 },
                 "workload": {
                     "raw": workload_score,
                     "max": FACTOR_WEIGHTS["workload"],
-                    "percentage": round(workload_score / FACTOR_WEIGHTS["workload"] * 100, 1),
+                    "percentage": round(
+                        workload_score / FACTOR_WEIGHTS["workload"] * 100, 1
+                    ),
                     "current_tickets": workload,
                 },
                 "performance": {
                     "raw": performance_score,
                     "max": FACTOR_WEIGHTS["performance"],
-                    "percentage": round(performance_score / FACTOR_WEIGHTS["performance"] * 100, 1),
+                    "percentage": round(
+                        performance_score / FACTOR_WEIGHTS["performance"] * 100, 1
+                    ),
                 },
                 "response_time": {
                     "raw": response_score,
                     "max": FACTOR_WEIGHTS["response_time"],
-                    "percentage": round(response_score / FACTOR_WEIGHTS["response_time"] * 100, 1),
+                    "percentage": round(
+                        response_score / FACTOR_WEIGHTS["response_time"] * 100, 1
+                    ),
                 },
                 "availability": {
                     "raw": availability_score,
                     "max": FACTOR_WEIGHTS["availability"],
-                    "percentage": round(availability_score / FACTOR_WEIGHTS["availability"] * 100, 1),
+                    "percentage": round(
+                        availability_score / FACTOR_WEIGHTS["availability"] * 100, 1
+                    ),
                 },
             },
         }
@@ -314,16 +338,18 @@ class AssignmentScoringService:
         explanations = []
 
         # Get agent specialty from metadata or profile
-        agent_specialty = getattr(agent, 'specialty', None)
+        agent_specialty = getattr(agent, "specialty", None)
         if not agent_specialty:
             # Try metadata
-            metadata = getattr(agent, 'metadata_json', None)
+            metadata = getattr(agent, "metadata_json", None)
             if metadata:
                 try:
                     import json
-                    meta = json.loads(metadata) if isinstance(
-                        metadata, str) else metadata
-                    agent_specialty = meta.get('specialty')
+
+                    meta = (
+                        json.loads(metadata) if isinstance(metadata, str) else metadata
+                    )
+                    agent_specialty = meta.get("specialty")
                 except BaseException:
                     pass
 
@@ -333,18 +359,19 @@ class AssignmentScoringService:
         if agent_specialty and ticket_category:
             if agent_specialty.lower() == ticket_category.lower():
                 score = FACTOR_WEIGHTS["expertise"]
-                explanations.append(
-                    f"Direct specialty match: {agent_specialty}")
+                explanations.append(f"Direct specialty match: {agent_specialty}")
             elif ticket_category.lower() in str(agent_specialty).lower():
                 # Partial match
                 score = FACTOR_WEIGHTS["expertise"] * 0.7
                 explanations.append(
-                    f"Partial specialty match: {agent_specialty} ~= {ticket_category}")
+                    f"Partial specialty match: {agent_specialty} ~= {ticket_category}"
+                )
             else:
                 # No match - base score only
                 score = FACTOR_WEIGHTS["expertise"] * 0.2
                 explanations.append(
-                    f"No specialty match (agent: {agent_specialty}, ticket: {ticket_category})")
+                    f"No specialty match (agent: {agent_specialty}, ticket: {ticket_category})"
+                )
         else:
             # No specialty info - give base score
             score = FACTOR_WEIGHTS["expertise"] * 0.3
@@ -353,19 +380,21 @@ class AssignmentScoringService:
         # Bonus for historical performance on this category
         category_metrics = metrics.get("category_performance", {})
         if ticket_category and ticket_category in category_metrics:
-            cat_rate = category_metrics[ticket_category].get(
-                "resolution_rate", 0)
+            cat_rate = category_metrics[ticket_category].get("resolution_rate", 0)
             if cat_rate >= EXCELLENT_RESOLUTION_RATE:
                 score = min(score + 5, FACTOR_WEIGHTS["expertise"])
                 explanations.append(
-                    f"Excellent history on {ticket_category}: {cat_rate}% resolution")
+                    f"Excellent history on {ticket_category}: {cat_rate}% resolution"
+                )
             elif cat_rate >= MIN_RESOLUTION_RATE:
                 score = min(score + 2, FACTOR_WEIGHTS["expertise"])
                 explanations.append(
-                    f"Good history on {ticket_category}: {cat_rate}% resolution")
+                    f"Good history on {ticket_category}: {cat_rate}% resolution"
+                )
 
-        return score, "; ".join(
-            explanations) if explanations else "Base expertise score"
+        return score, (
+            "; ".join(explanations) if explanations else "Base expertise score"
+        )
 
     def _score_workload(
         self,
@@ -386,11 +415,14 @@ class AssignmentScoringService:
             explanation = f"Optimal workload: {current_tickets} open tickets"
         elif current_tickets >= MAX_OPEN_TICKETS:
             score = 0.0
-            explanation = f"At capacity: {current_tickets} open tickets (max: {MAX_OPEN_TICKETS})"
+            explanation = (
+                f"At capacity: {current_tickets} open tickets (max: {MAX_OPEN_TICKETS})"
+            )
         else:
             # Linear decay
-            ratio = (MAX_OPEN_TICKETS - current_tickets) / \
-                (MAX_OPEN_TICKETS - OPTIMAL_WORKLOAD)
+            ratio = (MAX_OPEN_TICKETS - current_tickets) / (
+                MAX_OPEN_TICKETS - OPTIMAL_WORKLOAD
+            )
             score = FACTOR_WEIGHTS["workload"] * ratio
             explanation = f"Moderate workload: {current_tickets} open tickets"
 
@@ -421,20 +453,20 @@ class AssignmentScoringService:
         if resolution_rate is not None:
             if resolution_rate >= EXCELLENT_RESOLUTION_RATE:
                 score += 10
-                explanations.append(
-                    f"Excellent resolution rate: {resolution_rate}%")
+                explanations.append(f"Excellent resolution rate: {resolution_rate}%")
             elif resolution_rate >= MIN_RESOLUTION_RATE:
                 # Scale between min and excellent
-                ratio = (resolution_rate - MIN_RESOLUTION_RATE) / \
-                    (EXCELLENT_RESOLUTION_RATE - MIN_RESOLUTION_RATE)
+                ratio = (resolution_rate - MIN_RESOLUTION_RATE) / (
+                    EXCELLENT_RESOLUTION_RATE - MIN_RESOLUTION_RATE
+                )
                 score += 5 + (5 * ratio)
-                explanations.append(
-                    f"Good resolution rate: {resolution_rate}%")
+                explanations.append(f"Good resolution rate: {resolution_rate}%")
             else:
                 # Below minimum - reduced score
                 score += max(0, resolution_rate / MIN_RESOLUTION_RATE * 5)
                 explanations.append(
-                    f"Below average resolution rate: {resolution_rate}%")
+                    f"Below average resolution rate: {resolution_rate}%"
+                )
         else:
             score += 5  # Default for no data
             explanations.append("No resolution rate data")
@@ -490,17 +522,16 @@ class AssignmentScoringService:
         if sla_compliance is not None:
             if sla_compliance >= EXCELLENT_SLA_COMPLIANCE:
                 score += 10
-                explanations.append(
-                    f"Excellent SLA compliance: {sla_compliance}%")
+                explanations.append(f"Excellent SLA compliance: {sla_compliance}%")
             elif sla_compliance >= MIN_SLA_COMPLIANCE:
-                ratio = (sla_compliance - MIN_SLA_COMPLIANCE) / \
-                    (EXCELLENT_SLA_COMPLIANCE - MIN_SLA_COMPLIANCE)
+                ratio = (sla_compliance - MIN_SLA_COMPLIANCE) / (
+                    EXCELLENT_SLA_COMPLIANCE - MIN_SLA_COMPLIANCE
+                )
                 score += 5 + (5 * ratio)
                 explanations.append(f"Good SLA compliance: {sla_compliance}%")
             else:
                 score += max(0, sla_compliance / MIN_SLA_COMPLIANCE * 5)
-                explanations.append(
-                    f"Below average SLA compliance: {sla_compliance}%")
+                explanations.append(f"Below average SLA compliance: {sla_compliance}%")
         else:
             score += 5  # Default for no data
             explanations.append("No SLA compliance data")
@@ -510,25 +541,21 @@ class AssignmentScoringService:
             # Lower is better; target is under 5 minutes
             if avg_response_time <= 5:
                 score += 5
-                explanations.append(
-                    f"Excellent response time: {
+                explanations.append(f"Excellent response time: {
                         avg_response_time:.1f} min avg")
             elif avg_response_time <= 15:
                 ratio = (15 - avg_response_time) / 10
                 score += 2.5 + (2.5 * ratio)
-                explanations.append(
-                    f"Good response time: {
+                explanations.append(f"Good response time: {
                         avg_response_time:.1f} min avg")
             elif avg_response_time <= 60:
                 ratio = (60 - avg_response_time) / 45
                 score += 2.5 * ratio
-                explanations.append(
-                    f"Average response time: {
+                explanations.append(f"Average response time: {
                         avg_response_time:.1f} min avg")
             else:
                 score += 0
-                explanations.append(
-                    f"Slow response time: {
+                explanations.append(f"Slow response time: {
                         avg_response_time:.1f} min avg")
         else:
             score += 2.5  # Default for no data
@@ -550,19 +577,19 @@ class AssignmentScoringService:
             Tuple of (score, explanation)
         """
         # Check agent status
-        agent_status = getattr(agent, 'status', 'active')
+        agent_status = getattr(agent, "status", "active")
 
         # For AI agents, check if status is 'active'
         # For human agents, check is_active
-        is_active = getattr(agent, 'is_active', True)
+        is_active = getattr(agent, "is_active", True)
 
-        if agent_status == 'active' and is_active:
+        if agent_status == "active" and is_active:
             score = FACTOR_WEIGHTS["availability"]
             explanation = "Agent is active and available"
-        elif agent_status == 'paused':
+        elif agent_status == "paused":
             score = FACTOR_WEIGHTS["availability"] * 0.3
             explanation = "Agent is paused"
-        elif agent_status == 'training':
+        elif agent_status == "training":
             score = FACTOR_WEIGHTS["availability"] * 0.5
             explanation = "Agent is in training mode"
         elif not is_active:
@@ -582,15 +609,23 @@ class AssignmentScoringService:
         from database.models.agent import Agent
 
         # Get both human agents (Users) and AI agents
-        human_agents = self.db.query(User).filter(
-            User.company_id == self.company_id,
-            User.is_active,
-        ).all()
+        human_agents = (
+            self.db.query(User)
+            .filter(
+                User.company_id == self.company_id,
+                User.is_active,
+            )
+            .all()
+        )
 
-        ai_agents = self.db.query(Agent).filter(
-            Agent.company_id == self.company_id,
-            Agent.status == 'active',
-        ).all()
+        ai_agents = (
+            self.db.query(Agent)
+            .filter(
+                Agent.company_id == self.company_id,
+                Agent.status == "active",
+            )
+            .all()
+        )
 
         # Return combined list (prefer AI agents for auto-assignment)
         return ai_agents + human_agents
@@ -638,16 +673,23 @@ class AssignmentScoringService:
         from database.models.tickets import Ticket, TicketStatus
 
         try:
-            return self.db.query(func.count(Ticket.id)).filter(
-                Ticket.company_id == self.company_id,
-                Ticket.assigned_to == agent_id,
-                Ticket.status.in_([
-                    TicketStatus.open.value,
-                    TicketStatus.assigned.value,
-                    TicketStatus.in_progress.value,
-                    TicketStatus.awaiting_client.value,
-                ]),
-            ).scalar() or 0
+            return (
+                self.db.query(func.count(Ticket.id))
+                .filter(
+                    Ticket.company_id == self.company_id,
+                    Ticket.assigned_to == agent_id,
+                    Ticket.status.in_(
+                        [
+                            TicketStatus.open.value,
+                            TicketStatus.assigned.value,
+                            TicketStatus.in_progress.value,
+                            TicketStatus.awaiting_client.value,
+                        ]
+                    ),
+                )
+                .scalar()
+                or 0
+            )
 
         except Exception:
             return 0
@@ -658,25 +700,34 @@ class AssignmentScoringService:
 
         try:
             # Get resolved tickets with SLA info
-            resolved_with_sla = self.db.query(Ticket).join(
-                SLATimer, SLATimer.ticket_id == Ticket.id
-            ).filter(
-                Ticket.company_id == self.company_id,
-                Ticket.assigned_to == agent_id,
-                Ticket.status.in_([TicketStatus.resolved.value, TicketStatus.closed.value]),
-            ).count()
+            resolved_with_sla = (
+                self.db.query(Ticket)
+                .join(SLATimer, SLATimer.ticket_id == Ticket.id)
+                .filter(
+                    Ticket.company_id == self.company_id,
+                    Ticket.assigned_to == agent_id,
+                    Ticket.status.in_(
+                        [TicketStatus.resolved.value, TicketStatus.closed.value]
+                    ),
+                )
+                .count()
+            )
 
-            breached = self.db.query(Ticket).join(
-                SLATimer, SLATimer.ticket_id == Ticket.id
-            ).filter(
-                Ticket.company_id == self.company_id,
-                Ticket.assigned_to == agent_id,
-                SLATimer.is_breached,
-            ).count()
+            breached = (
+                self.db.query(Ticket)
+                .join(SLATimer, SLATimer.ticket_id == Ticket.id)
+                .filter(
+                    Ticket.company_id == self.company_id,
+                    Ticket.assigned_to == agent_id,
+                    SLATimer.is_breached,
+                )
+                .count()
+            )
 
             if resolved_with_sla > 0:
-                return round((resolved_with_sla - breached)
-                             / resolved_with_sla * 100, 1)
+                return round(
+                    (resolved_with_sla - breached) / resolved_with_sla * 100, 1
+                )
 
             return None
 
@@ -690,12 +741,16 @@ class AssignmentScoringService:
         try:
             since = datetime.now(timezone.utc) - timedelta(days=30)
 
-            tickets = self.db.query(Ticket).filter(
-                Ticket.company_id == self.company_id,
-                Ticket.assigned_to == agent_id,
-                Ticket.first_response_at.isnot(None),
-                Ticket.created_at >= since,
-            ).all()
+            tickets = (
+                self.db.query(Ticket)
+                .filter(
+                    Ticket.company_id == self.company_id,
+                    Ticket.assigned_to == agent_id,
+                    Ticket.first_response_at.isnot(None),
+                    Ticket.created_at >= since,
+                )
+                .all()
+            )
 
             if not tickets:
                 return None
@@ -703,8 +758,7 @@ class AssignmentScoringService:
             times = []
             for t in tickets:
                 if t.first_response_at and t.created_at:
-                    minutes = (
-                        t.first_response_at - t.created_at).total_seconds() / 60
+                    minutes = (t.first_response_at - t.created_at).total_seconds() / 60
                     times.append(minutes)
 
             return round(sum(times) / len(times), 1) if times else None
@@ -720,12 +774,16 @@ class AssignmentScoringService:
             since = datetime.now(timezone.utc) - timedelta(days=30)
 
             # Group by category
-            tickets = self.db.query(Ticket).filter(
-                Ticket.company_id == self.company_id,
-                Ticket.assigned_to == agent_id,
-                Ticket.created_at >= since,
-                Ticket.category.isnot(None),
-            ).all()
+            tickets = (
+                self.db.query(Ticket)
+                .filter(
+                    Ticket.company_id == self.company_id,
+                    Ticket.assigned_to == agent_id,
+                    Ticket.created_at >= since,
+                    Ticket.category.isnot(None),
+                )
+                .all()
+            )
 
             category_stats = {}
             for t in tickets:
@@ -733,9 +791,7 @@ class AssignmentScoringService:
                 if cat not in category_stats:
                     category_stats[cat] = {"total": 0, "resolved": 0}
                 category_stats[cat]["total"] += 1
-                if t.status in [
-                    TicketStatus.resolved.value,
-                        TicketStatus.closed.value]:
+                if t.status in [TicketStatus.resolved.value, TicketStatus.closed.value]:
                     category_stats[cat]["resolved"] += 1
 
             result = {}
@@ -745,10 +801,8 @@ class AssignmentScoringService:
                         "total": stats["total"],
                         "resolved": stats["resolved"],
                         "resolution_rate": round(
-                            stats["resolved"]
-                            / stats["total"]
-                            * 100,
-                            1),
+                            stats["resolved"] / stats["total"] * 100, 1
+                        ),
                     }
 
             return result
@@ -764,11 +818,15 @@ class AssignmentScoringService:
             since = datetime.now(timezone.utc) - timedelta(days=30)
 
             # Get tickets assigned to this agent
-            tickets = self.db.query(Ticket).filter(
-                Ticket.company_id == self.company_id,
-                Ticket.assigned_to == agent_id,
-                Ticket.created_at >= since,
-            ).all()
+            tickets = (
+                self.db.query(Ticket)
+                .filter(
+                    Ticket.company_id == self.company_id,
+                    Ticket.assigned_to == agent_id,
+                    Ticket.created_at >= since,
+                )
+                .all()
+            )
 
             if not tickets:
                 return {
@@ -780,31 +838,33 @@ class AssignmentScoringService:
 
             total = len(tickets)
             resolved = sum(
-                1 for t in tickets if t.status in [
-                    TicketStatus.resolved.value,
-                    TicketStatus.closed.value])
-            resolution_rate = round(
-                resolved / total * 100,
-                1) if total > 0 else None
+                1
+                for t in tickets
+                if t.status in [TicketStatus.resolved.value, TicketStatus.closed.value]
+            )
+            resolution_rate = round(resolved / total * 100, 1) if total > 0 else None
 
             # Get CSAT
             ticket_ids = [t.id for t in tickets]
-            avg_csat = self.db.query(func.avg(TicketFeedback.rating)).filter(
-                TicketFeedback.ticket_id.in_(ticket_ids),
-            ).scalar()
+            avg_csat = (
+                self.db.query(func.avg(TicketFeedback.rating))
+                .filter(
+                    TicketFeedback.ticket_id.in_(ticket_ids),
+                )
+                .scalar()
+            )
 
             # Get confidence
             confidences = [
-                t.ai_confidence for t in tickets if t.ai_confidence is not None]
-            avg_confidence = round(
-                sum(confidences) / len(confidences),
-                1) if confidences else None
+                t.ai_confidence for t in tickets if t.ai_confidence is not None
+            ]
+            avg_confidence = (
+                round(sum(confidences) / len(confidences), 1) if confidences else None
+            )
 
             return {
                 "resolution_rate": resolution_rate,
-                "avg_csat": round(
-                    float(avg_csat),
-                    2) if avg_csat else None,
+                "avg_csat": round(float(avg_csat), 2) if avg_csat else None,
                 "avg_confidence": avg_confidence,
                 "total_tickets": total,
                 "sla_compliance_rate": self._compute_sla_compliance(agent_id),

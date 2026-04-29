@@ -128,7 +128,10 @@ class FileStorageService:
 
         logger.info(
             "File uploaded: company_id=%s, path=%s, size=%d, by=%s",
-            company_id, storage_path, file_size, uploaded_by,
+            company_id,
+            storage_path,
+            file_size,
+            uploaded_by,
         )
 
         # Audit log
@@ -157,9 +160,9 @@ class FileStorageService:
             "content_type": content_type,
             "size_bytes": file_meta.size_bytes,
             "checksum_md5": file_meta.checksum_md5,
-            "uploaded_at": file_meta.uploaded_at.isoformat()
-            if file_meta.uploaded_at
-            else None,
+            "uploaded_at": (
+                file_meta.uploaded_at.isoformat() if file_meta.uploaded_at else None
+            ),
             "uploaded_by": uploaded_by,
             "metadata": upload_metadata,
         }
@@ -195,7 +198,8 @@ class FileStorageService:
 
         logger.info(
             "File downloaded: company_id=%s, file_id=%s",
-            company_id, file_id,
+            company_id,
+            file_id,
         )
 
         return {
@@ -232,7 +236,9 @@ class FileStorageService:
         if result:
             logger.info(
                 "File deleted: company_id=%s, path=%s, by=%s",
-                company_id, file_path, deleted_by,
+                company_id,
+                file_path,
+                deleted_by,
             )
 
             # Audit log
@@ -284,7 +290,7 @@ class FileStorageService:
         )
 
         total = len(files)
-        page_files = files[params.offset: params.offset + params.limit]
+        page_files = files[params.offset : params.offset + params.limit]
 
         return {
             "items": [
@@ -294,9 +300,7 @@ class FileStorageService:
                     "content_type": f.content_type,
                     "size_bytes": f.size_bytes,
                     "checksum_md5": f.checksum_md5,
-                    "uploaded_at": f.uploaded_at.isoformat()
-                    if f.uploaded_at
-                    else None,
+                    "uploaded_at": f.uploaded_at.isoformat() if f.uploaded_at else None,
                 }
                 for f in page_files
             ],
@@ -337,9 +341,7 @@ class FileStorageService:
         ext = Path(file_path).suffix.lower()
         from app.core.storage import EXTENSION_TO_CONTENT_TYPE
 
-        content_type = EXTENSION_TO_CONTENT_TYPE.get(
-            ext, "application/octet-stream"
-        )
+        content_type = EXTENSION_TO_CONTENT_TYPE.get(ext, "application/octet-stream")
 
         return {
             "company_id": company_id,

@@ -16,7 +16,6 @@ from app.exceptions import NotFoundError, ValidationError
 from app.services.custom_field_service import CustomFieldService
 from database.models.core import User
 
-
 router = APIRouter(
     prefix="/custom-fields",
     tags=["Custom Fields"],
@@ -30,8 +29,9 @@ router = APIRouter(
 class CustomFieldCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     field_key: str = Field(..., min_length=1, max_length=100)
-    field_type: str = Field(...,
-                            description="text, number, dropdown, multi_select, date, checkbox")
+    field_type: str = Field(
+        ..., description="text, number, dropdown, multi_select, date, checkbox"
+    )
     config: Optional[Dict[str, Any]] = None
     applicable_categories: Optional[List[str]] = None
     is_required: bool = False

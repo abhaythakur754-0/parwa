@@ -45,7 +45,8 @@ logger = logging.getLogger("parwa.tasks.workflow")
     time_limit=600,
 )
 def cleanup_stale_states(
-    self, max_age_hours: int = 24,
+    self,
+    max_age_hours: int = 24,
 ) -> dict:
     """Remove orphaned workflow states older than max_age_hours.
 
@@ -243,7 +244,7 @@ def export_metrics(self, window: str = "1hr") -> dict:
 
         # Collect all unique technique IDs
         technique_ids = set()
-        for (tid, _) in collector._stats.keys():
+        for tid, _ in collector._stats.keys():
             technique_ids.add(tid)
 
         for tid in technique_ids:
@@ -252,30 +253,26 @@ def export_metrics(self, window: str = "1hr") -> dict:
                 window=window,
             )
             if stats.total_executions > 0:
-                success_rate = (
-                    stats.success_count / stats.total_executions * 100
+                success_rate = stats.success_count / stats.total_executions * 100
+                avg_time = stats.total_exec_time_ms / stats.total_executions
+                all_stats.append(
+                    {
+                        "technique_id": tid,
+                        "executions": stats.total_executions,
+                        "success_rate": round(success_rate, 2),
+                        "avg_time_ms": round(avg_time, 2),
+                        "tokens": stats.total_tokens,
+                        "failures": (
+                            stats.failure_count
+                            + stats.timeout_count
+                            + stats.error_count
+                        ),
+                    }
                 )
-                avg_time = (
-                    stats.total_exec_time_ms / stats.total_executions
-                )
-                all_stats.append({
-                    "technique_id": tid,
-                    "executions": stats.total_executions,
-                    "success_rate": round(success_rate, 2),
-                    "avg_time_ms": round(avg_time, 2),
-                    "tokens": stats.total_tokens,
-                    "failures": (
-                        stats.failure_count
-                        + stats.timeout_count
-                        + stats.error_count
-                    ),
-                })
                 total_executions += stats.total_executions
                 total_tokens += stats.total_tokens
                 total_failures += (
-                    stats.failure_count
-                    + stats.timeout_count
-                    + stats.error_count
+                    stats.failure_count + stats.timeout_count + stats.error_count
                 )
 
         # Get global percentiles
@@ -491,7 +488,8 @@ def check_capacity_alerts(self) -> dict:
     time_limit=300,
 )
 def compress_stale_contexts(
-    self, health_threshold: str = "warning",
+    self,
+    health_threshold: str = "warning",
 ) -> dict:
     """Auto-compress contexts with degraded health scores.
 
@@ -549,18 +547,21 @@ def compress_stale_contexts(
                 latest = reports[-1]
                 # Check if this conversation needs compression
                 current_order = status_order.get(
-                    latest.status.value, 4,
+                    latest.status.value,
+                    4,
                 )
                 if current_order <= min_order:
                     parts = conv_key.split(":", 1)
                     if len(parts) == 2:
-                        all_conv_data.append({
-                            "company_id": parts[0],
-                            "conversation_id": parts[1],
-                            "latest_score": latest.overall_score,
-                            "latest_status": latest.status.value,
-                            "turn_count": latest.turn_number,
-                        })
+                        all_conv_data.append(
+                            {
+                                "company_id": parts[0],
+                                "conversation_id": parts[1],
+                                "latest_score": latest.overall_score,
+                                "latest_status": latest.status.value,
+                                "turn_count": latest.turn_number,
+                            }
+                        )
         except Exception as exc:
             logger.warning(
                 "enumerate_health_histories_failed",
@@ -695,9 +696,7 @@ def warm_technique_cache(
         if technique_id:
             techniques = [technique_id]
         else:
-            techniques = [
-                tid.value for tid in TECHNIQUE_REGISTRY.keys()
-            ]
+            techniques = [tid.value for tid in TECHNIQUE_REGISTRY.keys()]
 
         entries_loaded = 0
         details: Dict[str, Any] = {}
@@ -717,19 +716,21 @@ def warm_technique_cache(
                 for query in common_queries:
                     query_hash = str(hash(query))[:16]
                     signals_hash = "default_signals_hash"
-                    warm_entries.append({
-                        "query_hash": query_hash,
-                        "signals_hash": signals_hash,
-                        "result": {
-                            "technique_id": tid,
-                            "cached_response": (
-                                "[Warmed cache entry for "
-                                f"{tid}: {query[:50]}...]"
-                            ),
-                            "confidence": 0.5,
-                        },
-                        "ttl_seconds": 600,
-                    })
+                    warm_entries.append(
+                        {
+                            "query_hash": query_hash,
+                            "signals_hash": signals_hash,
+                            "result": {
+                                "technique_id": tid,
+                                "cached_response": (
+                                    "[Warmed cache entry for "
+                                    f"{tid}: {query[:50]}...]"
+                                ),
+                                "confidence": 0.5,
+                            },
+                            "ttl_seconds": 600,
+                        }
+                    )
 
                 cid = company_id or "default"
                 loaded = cache.warm(tid, cid, warm_entries)
@@ -847,7 +848,8 @@ def migrate_stale_states(self, batch_size: int = 100) -> dict:
                         )
                         if isinstance(state_data, dict):
                             current_version = state_data.get(
-                                "_version", 1,
+                                "_version",
+                                1,
                             )
                             if current_version < latest_version:
                                 states_to_migrate.append(state_data)

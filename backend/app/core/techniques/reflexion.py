@@ -826,7 +826,8 @@ class ReflexionProcessor:
     """
 
     def __init__(
-        self, config: Optional[ReflexionConfig] = None,
+        self,
+        config: Optional[ReflexionConfig] = None,
     ):
         self.config = config or ReflexionConfig()
         self._reflection_depth: int = 0
@@ -920,7 +921,9 @@ class ReflexionProcessor:
 
         # Determine what went wrong
         what_went_wrong = self._describe_failure(
-            failure_mode, query, previous_response,
+            failure_mode,
+            query,
+            previous_response,
         )
 
         # Determine strategy changes
@@ -929,13 +932,15 @@ class ReflexionProcessor:
 
         # Determine context update
         context_update = _CONTEXT_UPDATE_TEMPLATES.get(
-            failure_mode, "Unknown failure detected.",
+            failure_mode,
+            "Unknown failure detected.",
         )
 
         # Calculate confidence impact (penalty for failure,
         # partial recovery for successful reflection)
         impacts = _CONFIDENCE_IMPACTS.get(
-            failure_mode, {"penalty": -0.10, "recovery": 0.05},
+            failure_mode,
+            {"penalty": -0.10, "recovery": 0.05},
         )
         confidence_impact = impacts["penalty"] + impacts["recovery"]
 
@@ -1051,13 +1056,16 @@ class ReflexionProcessor:
             option_b=guidance_parts.get("option_b", ""),
             option_c=guidance_parts.get("option_c", ""),
             alternative_with_details=guidance_parts.get(
-                "alternative_with_details", "",
+                "alternative_with_details",
+                "",
             ),
             recommended_option=guidance_parts.get(
-                "recommended_option", "",
+                "recommended_option",
+                "",
             ),
             detailed_breakdown=guidance_parts.get(
-                "detailed_breakdown", "",
+                "detailed_breakdown",
+                "",
             ),
             extra_context=guidance_parts.get("extra_context", ""),
             specific_details=guidance_parts.get("specific_details", ""),
@@ -1104,55 +1112,77 @@ class ReflexionProcessor:
         trace: List[Dict[str, str]] = []
 
         # Entry 1: Failure detection
-        trace.append({
-            "step": "failure_detection",
-            "failure_mode": reflection.failure_mode,
-            "what_went_wrong": reflection.what_went_wrong,
-            "timestamp": _utcnow_iso(),
-        })
+        trace.append(
+            {
+                "step": "failure_detection",
+                "failure_mode": reflection.failure_mode,
+                "what_went_wrong": reflection.what_went_wrong,
+                "timestamp": _utcnow_iso(),
+            }
+        )
 
         # Entry 2: Reflection questions
         failure_mode = reflection.failure_mode
-        reflection_questions = _REFLECTION_PROMPTS.get(FailureMode(
-            failure_mode) if failure_mode else FailureMode.MISUNDERSTOOD_QUERY, [], )
-        trace.append({
-            "step": "self_reflection",
-            "reflection_questions_asked": "; ".join(reflection_questions),
-            "strategy_changes_applied": "; ".join(reflection.strategy_changes),
-            "timestamp": _utcnow_iso(),
-        })
+        reflection_questions = _REFLECTION_PROMPTS.get(
+            (
+                FailureMode(failure_mode)
+                if failure_mode
+                else FailureMode.MISUNDERSTOOD_QUERY
+            ),
+            [],
+        )
+        trace.append(
+            {
+                "step": "self_reflection",
+                "reflection_questions_asked": "; ".join(reflection_questions),
+                "strategy_changes_applied": "; ".join(reflection.strategy_changes),
+                "timestamp": _utcnow_iso(),
+            }
+        )
 
         # Entry 3: Strategy adjustment
-        trace.append({
-            "step": "strategy_adjustment",
-            "primary_strategy": reflection.strategy_changes[0]
-            if reflection.strategy_changes else "none",
-            "fallback_strategy": reflection.strategy_changes[1]
-            if len(reflection.strategy_changes) > 1 else "none",
-            "context_update": reflection.context_update,
-            "timestamp": _utcnow_iso(),
-        })
+        trace.append(
+            {
+                "step": "strategy_adjustment",
+                "primary_strategy": (
+                    reflection.strategy_changes[0]
+                    if reflection.strategy_changes
+                    else "none"
+                ),
+                "fallback_strategy": (
+                    reflection.strategy_changes[1]
+                    if len(reflection.strategy_changes) > 1
+                    else "none"
+                ),
+                "context_update": reflection.context_update,
+                "timestamp": _utcnow_iso(),
+            }
+        )
 
         # Entry 4: Response improvement
-        trace.append({
-            "step": "improved_generation",
-            "original_response_length": str(len(original_response)),
-            "improved_response_length": str(len(improved_response)),
-            "length_change": str(len(improved_response) - len(original_response)),
-            "confidence_impact": str(round(reflection.confidence_impact, 4)),
-            "timestamp": _utcnow_iso(),
-        })
+        trace.append(
+            {
+                "step": "improved_generation",
+                "original_response_length": str(len(original_response)),
+                "improved_response_length": str(len(improved_response)),
+                "length_change": str(len(improved_response) - len(original_response)),
+                "confidence_impact": str(round(reflection.confidence_impact, 4)),
+                "timestamp": _utcnow_iso(),
+            }
+        )
 
         # Entry 5: Reflection depth tracking
-        trace.append({
-            "step": "reflection_depth",
-            "current_depth": str(self._reflection_depth),
-            "max_depth": str(self.config.max_reflection_depth),
-            "depth_remaining": str(
-                self.config.max_reflection_depth - self._reflection_depth,
-            ),
-            "timestamp": _utcnow_iso(),
-        })
+        trace.append(
+            {
+                "step": "reflection_depth",
+                "current_depth": str(self._reflection_depth),
+                "max_depth": str(self.config.max_reflection_depth),
+                "depth_remaining": str(
+                    self.config.max_reflection_depth - self._reflection_depth,
+                ),
+                "timestamp": _utcnow_iso(),
+            }
+        )
 
         logger.debug(
             "reflexion_meta_trace_built",
@@ -1207,14 +1237,17 @@ class ReflexionProcessor:
         try:
             # Step 1: Failure Detection
             failure_mode = await self.detect_failure_mode(
-                query, previous_response,
+                query,
+                previous_response,
             )
             steps_applied.append("failure_detection")
             confidence_boost -= 0.02  # small cost for detection
 
             # Step 2: Self-Reflection
             reflection = await self.reflect_on_failure(
-                failure_mode, query, previous_response,
+                failure_mode,
+                query,
+                previous_response,
             )
             if reflection.failure_mode:
                 steps_applied.append("self_reflection")
@@ -1222,7 +1255,8 @@ class ReflexionProcessor:
 
             # Step 3 + 4: Strategy Adjustment + Improved Generation
             improved_response = await self.generate_improved_response(
-                reflection, query,
+                reflection,
+                query,
             )
             if improved_response:
                 steps_applied.append("strategy_adjustment")
@@ -1232,7 +1266,9 @@ class ReflexionProcessor:
             # Step 5: Meta-Reasoning Trace
             if self.config.enable_meta_trace:
                 meta_trace = await self.build_meta_trace(
-                    reflection, previous_response or "", improved_response,
+                    reflection,
+                    previous_response or "",
+                    improved_response,
                 )
                 if meta_trace:
                     steps_applied.append("meta_trace")
@@ -1278,8 +1314,11 @@ class ReflexionProcessor:
                 reflection=reflection,
                 improved_response=improved_response,
                 meta_trace=meta_trace,
-                steps_applied=steps_applied + ["error_fallback"]
-                if isinstance(steps_applied, list) else ["error_fallback"],
+                steps_applied=(
+                    steps_applied + ["error_fallback"]
+                    if isinstance(steps_applied, list)
+                    else ["error_fallback"]
+                ),
                 confidence_boost=0.0,
             )
 
@@ -1359,7 +1398,7 @@ class ReflexionProcessor:
 
         parts = [base]
         if prev_preview:
-            parts.append("Previous response preview: \"{prev_preview}\"")
+            parts.append('Previous response preview: "{prev_preview}"')
 
         return " ".join(parts)
 
@@ -1377,25 +1416,115 @@ class ReflexionProcessor:
         Returns:
             A topic string (up to 5 key words).
         """
-        _STOP_WORDS: frozenset = frozenset({
-            "i", "me", "my", "we", "you", "your", "it", "its",
-            "is", "am", "are", "was", "were", "be", "been",
-            "have", "has", "had", "do", "does", "did",
-            "will", "would", "could", "should", "may", "might",
-            "shall", "can", "to", "o", "in", "for", "on",
-            "with", "at", "by", "from", "as", "into",
-            "the", "a", "an", "and", "or", "but", "if",
-            "not", "no", "this", "that", "these", "those",
-            "what", "how", "when", "where", "why", "who",
-            "which", "about", "up", "out", "just", "so",
-            "than", "too", "very", "also", "then", "here",
-            "there", "all", "each", "every", "both", "few",
-            "more", "most", "other", "some", "such", "only",
-            "same", "don", "t", "s", "ve", "ll", "re", "d",
-            "m", "didn", "doesn", "wasn", "weren", "won",
-            "wouldn", "couldn", "shouldn", "isn", "aren",
-            "haven", "hasn", "hadn",
-        })
+        _STOP_WORDS: frozenset = frozenset(
+            {
+                "i",
+                "me",
+                "my",
+                "we",
+                "you",
+                "your",
+                "it",
+                "its",
+                "is",
+                "am",
+                "are",
+                "was",
+                "were",
+                "be",
+                "been",
+                "have",
+                "has",
+                "had",
+                "do",
+                "does",
+                "did",
+                "will",
+                "would",
+                "could",
+                "should",
+                "may",
+                "might",
+                "shall",
+                "can",
+                "to",
+                "o",
+                "in",
+                "for",
+                "on",
+                "with",
+                "at",
+                "by",
+                "from",
+                "as",
+                "into",
+                "the",
+                "a",
+                "an",
+                "and",
+                "or",
+                "but",
+                "if",
+                "not",
+                "no",
+                "this",
+                "that",
+                "these",
+                "those",
+                "what",
+                "how",
+                "when",
+                "where",
+                "why",
+                "who",
+                "which",
+                "about",
+                "up",
+                "out",
+                "just",
+                "so",
+                "than",
+                "too",
+                "very",
+                "also",
+                "then",
+                "here",
+                "there",
+                "all",
+                "each",
+                "every",
+                "both",
+                "few",
+                "more",
+                "most",
+                "other",
+                "some",
+                "such",
+                "only",
+                "same",
+                "don",
+                "t",
+                "s",
+                "ve",
+                "ll",
+                "re",
+                "d",
+                "m",
+                "didn",
+                "doesn",
+                "wasn",
+                "weren",
+                "won",
+                "wouldn",
+                "couldn",
+                "shouldn",
+                "isn",
+                "aren",
+                "haven",
+                "hasn",
+                "hadn",
+            }
+        )
 
         words = re.findall(r"\b[a-zA-Z]{3,}\b", query.lower())
         filtered = [w for w in words if w not in _STOP_WORDS]
@@ -1477,20 +1606,14 @@ class ReflexionProcessor:
 
         # Mode-specific enrichment
         if failure_mode == FailureMode.INCORRECT_INFO:
-            base["guidance"] = (
-                "the corrected information verified against your records"
-            )
+            base["guidance"] = "the corrected information verified against your records"
             base["corrected_info"] = (
                 "the accurate, verified information from our system"
             )
         elif failure_mode == FailureMode.BAD_TONE:
-            base["simple_answer"] = (
-                "here is the clear and straightforward answer"
-            )
+            base["simple_answer"] = "here is the clear and straightforward answer"
         elif failure_mode == FailureMode.WRONG_SCOPE:
-            base["focused_answer"] = (
-                f"the answer focused on {topic} specifically"
-            )
+            base["focused_answer"] = f"the answer focused on {topic} specifically"
 
         return base
 
@@ -1511,7 +1634,8 @@ class ReflexionNode(BaseTechniqueNode):
     """
 
     def __init__(
-        self, config: Optional[ReflexionConfig] = None,
+        self,
+        config: Optional[ReflexionConfig] = None,
     ):
         self._config = config or ReflexionConfig()
         self._processor = ReflexionProcessor(config=self._config)
@@ -1584,10 +1708,9 @@ class ReflexionNode(BaseTechniqueNode):
             # If we have an improved response, replace the last
             # response part or append it
             if result.improved_response:
-                if (
-                    state.response_parts
-                    and state.signals.previous_response_status
-                    in ("rejected", "corrected")
+                if state.response_parts and state.signals.previous_response_status in (
+                    "rejected",
+                    "corrected",
                 ):
                     # Replace the failed response
                     state.response_parts[-1] = result.improved_response
@@ -1643,11 +1766,31 @@ def _has_rejection_signal(query: str) -> bool:
         True if rejection signals are detected.
     """
     rejection_markers = [
-        "no", "wrong", "bad", "not", "don't", "doesn't",
-        "didn't", "isn't", "aren't", "wasn't", "weren't",
-        "shouldn't", "wouldn't", "couldn't", "won't",
-        "fail", "error", "mistake", "fix", "correct",
-        "again", "redo", "retry", "re-do", "start over",
+        "no",
+        "wrong",
+        "bad",
+        "not",
+        "don't",
+        "doesn't",
+        "didn't",
+        "isn't",
+        "aren't",
+        "wasn't",
+        "weren't",
+        "shouldn't",
+        "wouldn't",
+        "couldn't",
+        "won't",
+        "fail",
+        "error",
+        "mistake",
+        "fix",
+        "correct",
+        "again",
+        "redo",
+        "retry",
+        "re-do",
+        "start over",
     ]
     query_lower = query.lower()
     return any(marker in query_lower for marker in rejection_markers)
@@ -1678,8 +1821,14 @@ def _response_needs_further_improvement(response: str) -> bool:
 
     # Check for excessive hedge words (uncertainty indicators)
     hedge_words = [
-        "i think", "maybe", "perhaps", "possibly", "i believe",
-        "it seems", "i'm not sure", "i guess",
+        "i think",
+        "maybe",
+        "perhaps",
+        "possibly",
+        "i believe",
+        "it seems",
+        "i'm not sure",
+        "i guess",
     ]
     response_lower = response.lower()
     hedge_count = sum(1 for w in hedge_words if w in response_lower)

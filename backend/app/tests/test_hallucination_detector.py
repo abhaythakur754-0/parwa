@@ -12,7 +12,9 @@ import pytest
 @pytest.fixture
 def detector():
     from app.core.hallucination_detector import HallucinationDetector
+
     return HallucinationDetector()
+
 
 # ── HallucinationMatch Tests ───────────────────────────────────
 
@@ -20,73 +22,100 @@ def detector():
 class TestHallucinationMatch:
     def test_valid_match_creation(self):
         from app.core.hallucination_detector import HallucinationMatch
+
         m = HallucinationMatch(
-            pattern_id="P01_kb_contradiction", pattern_name="Test",
-            confidence=0.85, evidence="test", start=0, end=10, severity="high",
+            pattern_id="P01_kb_contradiction",
+            pattern_name="Test",
+            confidence=0.85,
+            evidence="test",
+            start=0,
+            end=10,
+            severity="high",
         )
         assert m.confidence == 0.85
         assert m.severity == "high"
 
     def test_confidence_clamped_high(self):
         from app.core.hallucination_detector import HallucinationMatch
+
         m = HallucinationMatch(
-            pattern_id="P01", pattern_name="T", confidence=1.5,
-            evidence="e", start=0, end=1, severity="high",
+            pattern_id="P01",
+            pattern_name="T",
+            confidence=1.5,
+            evidence="e",
+            start=0,
+            end=1,
+            severity="high",
         )
         assert m.confidence <= 1.0
 
     def test_confidence_clamped_low(self):
         from app.core.hallucination_detector import HallucinationMatch
+
         m = HallucinationMatch(
-            pattern_id="P01", pattern_name="T", confidence=-0.5,
-            evidence="e", start=0, end=1, severity="high",
+            pattern_id="P01",
+            pattern_name="T",
+            confidence=-0.5,
+            evidence="e",
+            start=0,
+            end=1,
+            severity="high",
         )
         assert m.confidence >= 0.0
 
     def test_invalid_severity_defaults_medium(self):
         from app.core.hallucination_detector import HallucinationMatch
+
         m = HallucinationMatch(
-            pattern_id="P01", pattern_name="T", confidence=0.5,
-            evidence="e", start=0, end=1, severity="invalid",
+            pattern_id="P01",
+            pattern_name="T",
+            confidence=0.5,
+            evidence="e",
+            start=0,
+            end=1,
+            severity="invalid",
         )
         assert m.severity == "medium"
 
 
 # ── HallucinationReport Tests ─────────────────────────────────
 
+
 class TestHallucinationReport:
     def test_safe_report(self):
         from app.core.hallucination_detector import HallucinationReport
+
         r = HallucinationReport(
-            is_hallucination=False,
-            overall_confidence=0.0,
-            recommendation="safe")
+            is_hallucination=False, overall_confidence=0.0, recommendation="safe"
+        )
         assert r.recommendation == "safe"
         assert r.is_hallucination is False
 
     def test_block_report(self):
         from app.core.hallucination_detector import HallucinationReport
+
         r = HallucinationReport(
-            is_hallucination=True,
-            overall_confidence=0.90,
-            recommendation="block")
+            is_hallucination=True, overall_confidence=0.90, recommendation="block"
+        )
         assert r.recommendation == "block"
 
     def test_invalid_recommendation_defaults_review(self):
         from app.core.hallucination_detector import HallucinationReport
+
         r = HallucinationReport(
-            is_hallucination=True,
-            overall_confidence=0.6,
-            recommendation="invalid")
+            is_hallucination=True, overall_confidence=0.6, recommendation="invalid"
+        )
         assert r.recommendation == "review"
 
     def test_confidence_clamped(self):
         from app.core.hallucination_detector import HallucinationReport
+
         r = HallucinationReport(is_hallucination=True, overall_confidence=1.5)
         assert r.overall_confidence <= 1.0
 
 
 # ── HallucinationDetector - Full detect() Tests ───────────────
+
 
 class TestDetectorFullDetect:
     def test_empty_response_safe(self, detector):
@@ -112,10 +141,7 @@ class TestDetectorFullDetect:
         assert report.summary["total_patterns"] == 12
 
     def test_summary_includes_patterns_run(self, detector):
-        report = detector.detect(
-            "Some response text here",
-            "query",
-            company_id="co1")
+        report = detector.detect("Some response text here", "query", company_id="co1")
         assert "patterns_run" in report.summary
 
     def test_company_id_recorded(self, detector):
@@ -125,6 +151,7 @@ class TestDetectorFullDetect:
 
 # ── Pattern 1: KB Contradiction ───────────────────────────────
 
+
 class TestPatternKBContradiction:
     def test_no_kb_context_returns_none(self, detector):
         result = detector._detect_kb_contradiction("Some response", "")
@@ -133,7 +160,8 @@ class TestPatternKBContradiction:
     def test_no_negation_returns_none(self, detector):
         kb = "PARWA supports knowledge base features and semantic search."
         result = detector._detect_kb_contradiction(
-            "PARWA has great knowledge base and semantic search features.", kb,
+            "PARWA has great knowledge base and semantic search features.",
+            kb,
         )
         assert result is None
 
@@ -154,6 +182,7 @@ class TestPatternKBContradiction:
 
 # ── Pattern 2: Fabricated URLs ────────────────────────────────
 
+
 class TestPatternFabricatedURLs:
     def test_no_urls_returns_none(self, detector):
         result = detector._detect_fabricated_urls("No URLs here")
@@ -161,19 +190,22 @@ class TestPatternFabricatedURLs:
 
     def test_legitimate_url_returns_none(self, detector):
         result = detector._detect_fabricated_urls(
-            "Visit https://www.google.com for more info")
+            "Visit https://www.google.com for more info"
+        )
         assert result is None
 
     def test_placeholder_url_detected(self, detector):
         result = detector._detect_fabricated_urls(
-            "Check https://example.com/docs for details")
+            "Check https://example.com/docs for details"
+        )
         assert result is not None
         assert result.pattern_id == "P02_fabricated_urls"
         assert result.confidence >= 0.85
 
     def test_internal_path_detected(self, detector):
         result = detector._detect_fabricated_urls(
-            "See https://parwa.ai/admin/settings for admin panel")
+            "See https://parwa.ai/admin/settings for admin panel"
+        )
         assert result is not None
         assert result.pattern_id == "P02_fabricated_urls"
 
@@ -187,20 +219,22 @@ class TestPatternFabricatedURLs:
 
 # ── Pattern 3: Overconfident Claims ──────────────────────────
 
+
 class TestPatternOverconfidentClaims:
     def test_no_overconfident_returns_none(self, detector):
-        result = detector._detect_overconfident_claims(
-            "The answer might be yes", 0.7)
+        result = detector._detect_overconfident_claims("The answer might be yes", 0.7)
         assert result is None
 
     def test_overconfident_without_speculative_returns_none(self, detector):
         result = detector._detect_overconfident_claims(
-            "This is definitely correct", 0.7)
+            "This is definitely correct", 0.7
+        )
         assert result is None
 
     def test_proximity_detected(self, detector):
         result = detector._detect_overconfident_claims(
-            "I am definitely correct, but I think this might be wrong", 0.7,
+            "I am definitely correct, but I think this might be wrong",
+            0.7,
         )
         assert result is not None
         assert result.pattern_id == "P03_overconfident_claims"
@@ -215,6 +249,7 @@ class TestPatternOverconfidentClaims:
 
 # ── Pattern 4: Plausible Nonsense ────────────────────────────
 
+
 class TestPatternPlausibleNonsense:
     def test_normal_sentence_returns_none(self, detector):
         result = detector._detect_plausible_nonsense(
@@ -227,15 +262,15 @@ class TestPatternPlausibleNonsense:
             "Our cutting-edge AI-powered platform leverages seamless machine learning "
             "to optimize scalable cloud-native predictive analytics and drive "
             "transformative data-driven innovation across the enterprise-grade "
-            "frictionless next-generation neural network ecosystem.")
+            "frictionless next-generation neural network ecosystem."
+        )
         result = detector._detect_plausible_nonsense(buzz_text)
         assert result is not None
         assert result.pattern_id == "P04_plausible_nonsense"
         assert result.severity == "low"
 
     def test_short_sentence_returns_none(self, detector):
-        result = detector._detect_plausible_nonsense(
-            "This is leverage optimize.")
+        result = detector._detect_plausible_nonsense("This is leverage optimize.")
         assert result is None
 
     def test_sentence_with_numbers_not_flagged(self, detector):
@@ -249,10 +284,12 @@ class TestPatternPlausibleNonsense:
 
 # ── Pattern 5: Date/Math Errors ───────────────────────────────
 
+
 class TestPatternDateMathErrors:
     def test_valid_dates_returns_none(self, detector):
         result = detector._detect_date_math_errors(
-            "The event was on 03/15/2024 and 01/20/2023.")
+            "The event was on 03/15/2024 and 01/20/2023."
+        )
         assert result is None
 
     def test_invalid_month(self, detector):
@@ -264,7 +301,11 @@ class TestPatternDateMathErrors:
     def test_feb_30_non_leap(self, detector):
         result = detector._detect_date_math_errors("The date was 02/30/2023.")
         assert result is not None
-        assert "Feb 30" in result.evidence or "Invalid" in result.evidence or "02/30" in result.evidence
+        assert (
+            "Feb 30" in result.evidence
+            or "Invalid" in result.evidence
+            or "02/30" in result.evidence
+        )
 
     def test_feb_29_leap_year_ok(self, detector):
         result = detector._detect_date_math_errors("Date: 02/29/2024.")
@@ -274,48 +315,52 @@ class TestPatternDateMathErrors:
     def test_feb_29_non_leap_error(self, detector):
         result = detector._detect_date_math_errors("Date: 02/29/2023.")
         assert result is not None
-        assert "Invalid" in result.evidence or "Feb 29" in result.evidence or "02/29" in result.evidence
+        assert (
+            "Invalid" in result.evidence
+            or "Feb 29" in result.evidence
+            or "02/29" in result.evidence
+        )
 
     def test_text_month_invalid_day(self, detector):
-        result = detector._detect_date_math_errors(
-            "The event was February 30, 2024.")
+        result = detector._detect_date_math_errors("The event was February 30, 2024.")
         assert result is not None
 
     def test_arithmetic_error(self, detector):
-        result = detector._detect_date_math_errors(
-            "3 years from 2020 equals 2025.")
+        result = detector._detect_date_math_errors("3 years from 2020 equals 2025.")
         assert result is not None
         assert "Arithmetic error" in result.evidence
 
     def test_arithmetic_correct_no_error(self, detector):
-        result = detector._detect_date_math_errors(
-            "3 years from 2020 equals 2023.")
+        result = detector._detect_date_math_errors("3 years from 2020 equals 2023.")
         assert result is None
 
 
 # ── Pattern 6: Entity Confusion ───────────────────────────────
 
+
 class TestPatternEntityConfusion:
     def test_correct_plan_price_returns_none(self, detector):
         result = detector._detect_entity_confusion(
-            "The PARWA plan costs $2,499 per month.")
+            "The PARWA plan costs $2,499 per month."
+        )
         assert result is None
 
     def test_wrong_plan_price_detected(self, detector):
         result = detector._detect_entity_confusion(
-            "The PARWA plan costs $999 per month.")
+            "The PARWA plan costs $999 per month."
+        )
         assert result is not None
         assert result.pattern_id == "P06_entity_confusion"
         # $999 is Mini PARWA, not PARWA
 
     def test_mini_parwa_wrong_price(self, detector):
-        result = detector._detect_entity_confusion(
-            "Mini PARWA is $3,999 per month.")
+        result = detector._detect_entity_confusion("Mini PARWA is $3,999 per month.")
         assert result is not None
 
     def test_no_plan_mentioned_returns_none(self, detector):
         result = detector._detect_entity_confusion(
-            "Our pricing starts at $50 per month.")
+            "Our pricing starts at $50 per month."
+        )
         assert result is None
 
     def test_entity_confusion_severity(self, detector):
@@ -329,10 +374,10 @@ class TestPatternEntityConfusion:
 
 # ── Pattern 7: Policy Fabrication ─────────────────────────────
 
+
 class TestPatternPolicyFabrication:
     def test_no_policy_language_returns_none(self, detector):
-        result = detector._detect_policy_fabrication(
-            "Here is your account info.")
+        result = detector._detect_policy_fabrication("Here is your account info.")
         assert result is None
 
     def test_policy_with_specific_claims(self, detector):
@@ -361,10 +406,10 @@ class TestPatternPolicyFabrication:
 
 # ── Pattern 8: False Feature Claims ──────────────────────────
 
+
 class TestPatternFalseFeatureClaims:
     def test_no_feature_claims_returns_none(self, detector):
-        result = detector._detect_false_feature_claims(
-            "This is a helpful response.")
+        result = detector._detect_false_feature_claims("This is a helpful response.")
         assert result is None
 
     def test_known_feature_claim_returns_none(self, detector):
@@ -379,11 +424,14 @@ class TestPatternFalseFeatureClaims:
         )
         assert result is not None
         assert result.pattern_id == "P08_false_feature_claims"
-        assert "quantum teleportation" in result.evidence.lower(
-        ) or "not in registry" in result.evidence.lower()
+        assert (
+            "quantum teleportation" in result.evidence.lower()
+            or "not in registry" in result.evidence.lower()
+        )
 
 
 # ── Pattern 9: Circular Reasoning ─────────────────────────────
+
 
 class TestPatternCircularReasoning:
     def test_no_circular_returns_none(self, detector):
@@ -395,13 +443,15 @@ class TestPatternCircularReasoning:
     def test_circular_detected(self, detector):
         result = detector._detect_circular_reasoning(
             "As mentioned, this system is reliable. This is because it is reliable, "
-            "as stated above. Therefore, because it is reliable, you can trust it.")
+            "as stated above. Therefore, because it is reliable, you can trust it."
+        )
         # Should detect circular reasoning patterns
         # (may or may not detect depending on overlap logic)
         # At minimum should not crash
 
 
 # ── Pattern 10: Fake Source Attribution ────────────────────────
+
 
 class TestPatternFakeSourceAttribution:
     def test_no_attribution_returns_none(self, detector):
@@ -425,6 +475,7 @@ class TestPatternFakeSourceAttribution:
 
 
 # ── Pattern 11: Numerical Precision ──────────────────────────
+
 
 class TestPatternNumericalPrecision:
     def test_no_precise_numbers_returns_none(self, detector):
@@ -455,15 +506,18 @@ class TestPatternNumericalPrecision:
 
 # ── Pattern 12: Temporal Inconsistency ───────────────────────
 
+
 class TestPatternTemporalInconsistency:
     def test_no_history_returns_none(self, detector):
-        result = detector._detect_temporal_inconsistency(
-            "The sky is blue.", [])
+        result = detector._detect_temporal_inconsistency("The sky is blue.", [])
         assert result is None
 
     def test_contradicts_previous_turn(self, detector):
         history = [
-            {"role": "assistant", "content": "Your account was created on January 15, 2024."},
+            {
+                "role": "assistant",
+                "content": "Your account was created on January 15, 2024.",
+            },
         ]
         response = "Your account was created on March 20, 2023."
         result = detector._detect_temporal_inconsistency(response, history)
@@ -472,6 +526,7 @@ class TestPatternTemporalInconsistency:
 
 
 # ── Report Building Tests ─────────────────────────────────────
+
 
 class TestReportBuilding:
     def test_no_matches_safe(self, detector):
@@ -482,9 +537,15 @@ class TestReportBuilding:
 
     def test_single_medium_match_review(self, detector):
         from app.core.hallucination_detector import HallucinationMatch
+
         match = HallucinationMatch(
-            pattern_id="P04", pattern_name="Test", confidence=0.55,
-            evidence="test", start=0, end=10, severity="low",
+            pattern_id="P04",
+            pattern_name="Test",
+            confidence=0.55,
+            evidence="test",
+            start=0,
+            end=10,
+            severity="low",
         )
         report = detector._build_report([match], "query", "response")
         assert report.is_hallucination is True
@@ -493,9 +554,15 @@ class TestReportBuilding:
 
     def test_single_high_match_block(self, detector):
         from app.core.hallucination_detector import HallucinationMatch
+
         match = HallucinationMatch(
-            pattern_id="P05", pattern_name="Test", confidence=0.90,
-            evidence="test", start=0, end=10, severity="high",
+            pattern_id="P05",
+            pattern_name="Test",
+            confidence=0.90,
+            evidence="test",
+            start=0,
+            end=10,
+            severity="high",
         )
         report = detector._build_report([match], "query", "response")
         assert report.is_hallucination is True
@@ -503,14 +570,25 @@ class TestReportBuilding:
 
     def test_multiple_matches_boosted_confidence(self, detector):
         from app.core.hallucination_detector import HallucinationMatch
+
         matches = [
             HallucinationMatch(
-                pattern_id="P04", pattern_name="Test", confidence=0.45,
-                evidence="test", start=0, end=5, severity="low",
+                pattern_id="P04",
+                pattern_name="Test",
+                confidence=0.45,
+                evidence="test",
+                start=0,
+                end=5,
+                severity="low",
             ),
             HallucinationMatch(
-                pattern_id="P07", pattern_name="Test", confidence=0.50,
-                evidence="test", start=10, end=20, severity="medium",
+                pattern_id="P07",
+                pattern_name="Test",
+                confidence=0.50,
+                evidence="test",
+                start=10,
+                end=20,
+                severity="medium",
             ),
         ]
         report = detector._build_report(matches, "query", "response")
@@ -519,23 +597,40 @@ class TestReportBuilding:
 
     def test_critical_severity_elevates_to_block(self, detector):
         from app.core.hallucination_detector import HallucinationMatch
+
         match = HallucinationMatch(
-            pattern_id="P05", pattern_name="Test", confidence=0.80,
-            evidence="test", start=0, end=10, severity="critical",
+            pattern_id="P05",
+            pattern_name="Test",
+            confidence=0.80,
+            evidence="test",
+            start=0,
+            end=10,
+            severity="critical",
         )
         report = detector._build_report([match], "query", "response")
         assert report.recommendation == "block"
 
     def test_summary_severity_breakdown(self, detector):
         from app.core.hallucination_detector import HallucinationMatch
+
         matches = [
             HallucinationMatch(
-                pattern_id="P04", pattern_name="N", confidence=0.5,
-                evidence="e", start=0, end=5, severity="low",
+                pattern_id="P04",
+                pattern_name="N",
+                confidence=0.5,
+                evidence="e",
+                start=0,
+                end=5,
+                severity="low",
             ),
             HallucinationMatch(
-                pattern_id="P05", pattern_name="D", confidence=0.8,
-                evidence="e", start=5, end=10, severity="high",
+                pattern_id="P05",
+                pattern_name="D",
+                confidence=0.8,
+                evidence="e",
+                start=5,
+                end=10,
+                severity="high",
             ),
         ]
         report = detector._build_report(matches, "query", "response")
@@ -545,6 +640,7 @@ class TestReportBuilding:
 
 
 # ── Leap Year Helper ─────────────────────────────────────────
+
 
 class TestLeapYear:
     def test_2024_is_leap(self, detector):
@@ -562,16 +658,19 @@ class TestLeapYear:
 
 # ── BC-012 Graceful Failure ───────────────────────────────────
 
+
 class TestGracefulFailure:
     def test_exception_in_pattern_does_not_crash(self, detector):
         """BC-012: If a pattern raises, detect() should still return a report."""
         # Patch one pattern method to raise
         original = detector._detect_date_math_errors
-        detector._detect_date_math_errors = lambda: (
-            _ for _ in ()).throw(Exception("test error"))
+        detector._detect_date_math_errors = lambda: (_ for _ in ()).throw(
+            Exception("test error")
+        )
         try:
             report = detector.detect(
-                "Feb 30, 2023 is a date", "query", company_id="co1")
+                "Feb 30, 2023 is a date", "query", company_id="co1"
+            )
             assert report is not None
             assert report.summary["patterns_failed"] >= 1
         finally:
@@ -587,22 +686,27 @@ class TestGracefulFailure:
 
 # ── Constants Tests ───────────────────────────────────────────
 
+
 class TestConstants:
     def test_known_plans_has_all_variants(self):
         from app.core.hallucination_detector import KNOWN_PLANS
+
         assert "mini parwa" in KNOWN_PLANS
         assert "parwa" in KNOWN_PLANS
         assert "parwa high" in KNOWN_PLANS
 
     def test_known_plans_prices_correct(self):
         from app.core.hallucination_detector import KNOWN_PLANS
+
         assert KNOWN_PLANS["mini parwa"] == 999.0
         assert KNOWN_PLANS["parwa"] == 2499.0
         assert KNOWN_PLANS["parwa high"] == 3999.0
 
     def test_all_pii_types_defined(self):
         from app.core.hallucination_detector import (
-            KNOWN_FEATURE_PHRASES, BUZZWORDS,
+            KNOWN_FEATURE_PHRASES,
+            BUZZWORDS,
         )
+
         assert len(KNOWN_FEATURE_PHRASES) > 20
         assert len(BUZZWORDS) > 20

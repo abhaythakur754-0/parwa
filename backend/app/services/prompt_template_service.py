@@ -34,8 +34,10 @@ logger = get_logger("prompt_template")
 # ENUMS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TemplateCategory(str, Enum):
     """Categories of prompt templates."""
+
     SYSTEM_PROMPT = "system_prompt"
     TECHNIQUE_PROMPT = "technique_prompt"
     GUARDRAIL_PROMPT = "guardrail_prompt"
@@ -48,6 +50,7 @@ class TemplateCategory(str, Enum):
 
 class TemplateStatus(str, Enum):
     """Lifecycle status of a template."""
+
     DRAFT = "draft"
     ACTIVE = "active"
     ARCHIVED = "archived"
@@ -56,6 +59,7 @@ class TemplateStatus(str, Enum):
 
 class ABTestStatus(str, Enum):
     """Status of an A/B test between two prompt templates."""
+
     NOT_STARTED = "not_started"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -76,9 +80,11 @@ _VARIABLE_PATTERN = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 # DATACLASSES
 # ══════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class PromptTemplate:
     """A single prompt template with version tracking."""
+
     id: str
     company_id: str
     name: str
@@ -107,6 +113,7 @@ class PromptTemplate:
 @dataclass
 class RenderedPrompt:
     """Result of rendering a template with variable substitution."""
+
     template_id: str
     template_name: str
     rendered_content: str
@@ -120,6 +127,7 @@ class RenderedPrompt:
 @dataclass
 class ABTestConfig:
     """Configuration for an A/B test between two prompt templates."""
+
     id: str
     company_id: str
     name: str
@@ -143,6 +151,7 @@ class ABTestConfig:
 @dataclass
 class TemplateVersion:
     """Historical snapshot of a template at a specific version."""
+
     template_id: str
     version: int
     content: str
@@ -156,6 +165,7 @@ class TemplateVersion:
 # ══════════════════════════════════════════════════════════════════
 # HELPER FUNCTIONS
 # ══════════════════════════════════════════════════════════════════
+
 
 def extract_variables(content: str) -> List[str]:
     """Extract all ``{{variable}}`` names from template content.
@@ -214,6 +224,7 @@ def _validate_company_id(company_id: str) -> None:
     """BC-001: company_id is required and non-empty."""
     if not company_id or not str(company_id).strip():
         from app.exceptions import ParwaBaseError
+
         raise ParwaBaseError(
             error_code="INVALID_COMPANY_ID",
             message="company_id is required and cannot be empty",
@@ -225,6 +236,7 @@ def _validate_variant_type(variant_type: Optional[str]) -> None:
     """Validate that variant_type, if provided, is known."""
     if variant_type is not None and variant_type not in VALID_VARIANT_TYPES:
         from app.exceptions import ParwaBaseError
+
         raise ParwaBaseError(
             error_code="INVALID_VARIANT_TYPE",
             message=(
@@ -237,10 +249,9 @@ def _validate_variant_type(variant_type: Optional[str]) -> None:
 
 def _validate_traffic_split(traffic_split: float) -> None:
     """Validate traffic_split is between 0.0 and 1.0."""
-    if not isinstance(
-            traffic_split, (int, float)) or not (
-            0.0 <= traffic_split <= 1.0):
+    if not isinstance(traffic_split, (int, float)) or not (0.0 <= traffic_split <= 1.0):
         from app.exceptions import ParwaBaseError
+
         raise ParwaBaseError(
             error_code="INVALID_TRAFFIC_SPLIT",
             message="traffic_split must be a float between 0.0 and 1.0",
@@ -327,7 +338,7 @@ _DEFAULT_TEMPLATE_DEFINITIONS: List[Dict[str, Any]] = [
             '{"intent": "<category>", "confidence": <0.0-1.0>, '
             '"reasoning": "<brief explanation>"}\n\n'
             "- Confidence must reflect your certainty. Below 0.6 "
-            "should default to \"general\"."
+            'should default to "general".'
         ),
         "feature_id": "F-060",
     },
@@ -345,18 +356,18 @@ _DEFAULT_TEMPLATE_DEFINITIONS: List[Dict[str, Any]] = [
             "Customer message:\n"
             "{{customer_message}}\n\n"
             "## Analysis Dimensions\n"
-            "- **sentiment**: One of \"positive\", \"neutral\", "
-            "\"negative\", \"very_negative\".\n"
-            "- **urgency_signal**: One of \"low\", \"medium\", \"high\".\n"
+            '- **sentiment**: One of "positive", "neutral", '
+            '"negative", "very_negative".\n'
+            '- **urgency_signal**: One of "low", "medium", "high".\n'
             "- **emotion_tags**: List of detected emotions from: "
             "[frustrated, angry, confused, anxious, satisfied, "
             "thankful, disappointed, urgent].\n"
             "- **confidence**: Your confidence in the sentiment "
             "classification (0.0–1.0).\n\n"
             "## Guidelines\n"
-            "- \"very_negative\" requires explicit anger, threats, "
+            '- "very_negative" requires explicit anger, threats, '
             "or mentions of legal action.\n"
-            "- \"high\" urgency means the issue is time-sensitive "
+            '- "high" urgency means the issue is time-sensitive '
             "(service down, payment failed, security concern).\n"
             "- Sarcasm and passive-aggressiveness should be detected.\n"
             "- Capitalization and punctuation are signals but not "
@@ -393,7 +404,7 @@ _DEFAULT_TEMPLATE_DEFINITIONS: List[Dict[str, Any]] = [
             "- If you need more information, ask ONE clear question.\n"
             "- Do not include disclaimers unless legally required.\n"
             "- If this needs escalation, say: "
-            "\"I'm connecting you with a specialist who can help.\""
+            '"I\'m connecting you with a specialist who can help."'
         ),
         "feature_id": "F-100",
     },
@@ -528,7 +539,7 @@ _DEFAULT_TEMPLATE_DEFINITIONS: List[Dict[str, Any]] = [
             "}\n\n"
             "## Guidelines\n"
             "- Be conservative: when in doubt, flag it.\n"
-            "- \"critical\" risk always results in blocking.\n"
+            '- "critical" risk always results in blocking.\n'
             "- PII detection is informational (redact, don't block).\n"
             "- Context from conversation history helps distinguish "
             "legitimate support queries from manipulation."
@@ -665,6 +676,7 @@ _DEFAULT_TEMPLATE_DEFINITIONS: List[Dict[str, Any]] = [
 # PROMPT TEMPLATE SERVICE
 # ══════════════════════════════════════════════════════════════════
 
+
 class PromptTemplateService:
     """Centralized prompt template management with version control,
     A/B testing, variant overrides, and fallback management.
@@ -783,34 +795,32 @@ class PromptTemplateService:
             _validate_variant_type(variant_type)
 
             company_templates = self.__class__._templates.get(
-                company_id, {},
+                company_id,
+                {},
             )
 
             # 1. Variant-specific override for the company
             if variant_type:
                 candidates = [
-                    t for t in company_templates.values()
+                    t
+                    for t in company_templates.values()
                     if t.name == name
                     and t.variant_type == variant_type
                     and t.status == TemplateStatus.ACTIVE.value
                 ]
                 if version is not None:
-                    candidates = [
-                        c for c in candidates if c.version == version
-                    ]
+                    candidates = [c for c in candidates if c.version == version]
                 if candidates:
                     return max(candidates, key=lambda t: t.version)
 
             # 2. Company-wide custom (no variant_type) or any match
             candidates = [
-                t for t in company_templates.values()
-                if t.name == name
-                and t.status == TemplateStatus.ACTIVE.value
+                t
+                for t in company_templates.values()
+                if t.name == name and t.status == TemplateStatus.ACTIVE.value
             ]
             if version is not None:
-                candidates = [
-                    c for c in candidates if c.version == version
-                ]
+                candidates = [c for c in candidates if c.version == version]
             if candidates:
                 return max(candidates, key=lambda t: t.version)
 
@@ -820,11 +830,9 @@ class PromptTemplateService:
                 return default
 
             from app.exceptions import NotFoundError
+
             raise NotFoundError(
-                message=(
-                    f"Template '{name}' not found for company "
-                    f"'{company_id}'"
-                ),
+                message=(f"Template '{name}' not found for company " f"'{company_id}'"),
             )
 
         except ParwaBaseError:
@@ -843,6 +851,7 @@ class PromptTemplateService:
             if default is not None:
                 return default
             from app.exceptions import InternalError
+
             raise InternalError(
                 message=f"Failed to retrieve template '{name}'",
                 details={"error": str(exc)},
@@ -874,13 +883,15 @@ class PromptTemplateService:
 
             chain: List[PromptTemplate] = []
             company_templates = self.__class__._templates.get(
-                company_id, {},
+                company_id,
+                {},
             )
 
             # 1. Variant-specific
             if variant_type:
                 variant_matches = [
-                    t for t in company_templates.values()
+                    t
+                    for t in company_templates.values()
                     if t.name == name
                     and t.variant_type == variant_type
                     and t.status == TemplateStatus.ACTIVE.value
@@ -891,7 +902,8 @@ class PromptTemplateService:
 
             # 2. Company custom (non-variant or any)
             custom_matches = [
-                t for t in company_templates.values()
+                t
+                for t in company_templates.values()
                 if t.name == name
                 and t.status == TemplateStatus.ACTIVE.value
                 and t not in chain
@@ -950,13 +962,15 @@ class PromptTemplateService:
             _validate_company_id(company_id)
 
             template = self.get_template(
-                company_id, name,
+                company_id,
+                name,
                 variant_type=variant_type,
                 version=version,
             )
 
             rendered_content = render_variables(
-                template.content, variables,
+                template.content,
+                variables,
             )
 
             # Update usage count (in-memory)
@@ -1001,7 +1015,8 @@ class PromptTemplateService:
                         template_id=default.id,
                         template_name=default.name,
                         rendered_content=render_variables(
-                            default.content, variables,
+                            default.content,
+                            variables,
                         ),
                         variables_used=variables,
                         version=default.version,
@@ -1147,12 +1162,14 @@ class PromptTemplateService:
             _validate_company_id(company_id)
 
             company_templates = self.__class__._templates.get(
-                company_id, {},
+                company_id,
+                {},
             )
             template = company_templates.get(template_id)
 
             if template is None or template.is_default:
                 from app.exceptions import NotFoundError
+
                 raise NotFoundError(
                     message=(
                         f"Template '{template_id}' not found or is "
@@ -1179,8 +1196,7 @@ class PromptTemplateService:
                         version=template.version,
                         content=content,
                         change_description=(
-                            "Updated from version "
-                            f"{template.version - 1}"
+                            "Updated from version " f"{template.version - 1}"
                         ),
                     ),
                 )
@@ -1245,7 +1261,8 @@ class PromptTemplateService:
             _validate_company_id(company_id)
 
             return self.update_template(
-                company_id, template_id,
+                company_id,
+                template_id,
                 status=TemplateStatus.ARCHIVED.value,
             )
         except Exception as exc:
@@ -1279,7 +1296,8 @@ class PromptTemplateService:
             _validate_company_id(company_id)
 
             company_templates = self.__class__._templates.get(
-                company_id, {},
+                company_id,
+                {},
             )
             template = company_templates.get(template_id)
 
@@ -1360,10 +1378,7 @@ class PromptTemplateService:
             parent = self.get_template(company_id, name)
 
             if description is None:
-                description = (
-                    f"Variant override for '{name}' "
-                    f"({variant_type})"
-                )
+                description = f"Variant override for '{name}' " f"({variant_type})"
 
             template = self.create_template(
                 company_id=company_id,
@@ -1441,7 +1456,8 @@ class PromptTemplateService:
 
             # Company-specific templates
             company_templates = self.__class__._templates.get(
-                company_id, {},
+                company_id,
+                {},
             )
             for tmpl in company_templates.values():
                 if category and tmpl.category != category:
@@ -1463,9 +1479,7 @@ class PromptTemplateService:
                 if variant_type is not None:
                     continue  # Defaults are not variant-specific
                 # Only include default if company has no custom version
-                company_has_name = any(
-                    t.name == tmpl.name for t in result
-                )
+                company_has_name = any(t.name == tmpl.name for t in result)
                 if not company_has_name and tmpl.id not in seen_ids:
                     result.append(tmpl)
                     seen_ids.add(tmpl.id)
@@ -1504,7 +1518,8 @@ class PromptTemplateService:
             _validate_company_id(company_id)
 
             company_templates = self.__class__._templates.get(
-                company_id, {},
+                company_id,
+                {},
             )
             template = company_templates.get(template_id)
 
@@ -1519,7 +1534,8 @@ class PromptTemplateService:
                 return []
 
             versions = self.__class__._template_versions.get(
-                template.name, [],
+                template.name,
+                [],
             )
             # Return newest first
             return sorted(versions, key=lambda v: -v.version)
@@ -1568,14 +1584,17 @@ class PromptTemplateService:
 
             # Resolve both templates
             template_a = self.get_template(
-                company_id, template_a_name,
+                company_id,
+                template_a_name,
             )
             template_b = self.get_template(
-                company_id, template_b_name,
+                company_id,
+                template_b_name,
             )
 
             if template_a.id == template_b.id:
                 from app.exceptions import ValidationError
+
                 raise ValidationError(
                     message=(
                         "Template A and B must be different. "
@@ -1640,7 +1659,8 @@ class PromptTemplateService:
             _validate_company_id(company_id)
 
             company_tests = self.__class__._ab_tests.get(
-                company_id, {},
+                company_id,
+                {},
             )
             return company_tests.get(test_id)
 
@@ -1673,7 +1693,8 @@ class PromptTemplateService:
             _validate_company_id(company_id)
 
             company_tests = self.__class__._ab_tests.get(
-                company_id, {},
+                company_id,
+                {},
             )
             tests = list(company_tests.values())
 
@@ -1721,7 +1742,8 @@ class PromptTemplateService:
 
             # Check for running A/B tests for this template name
             company_tests = self.__class__._ab_tests.get(
-                company_id, {},
+                company_id,
+                {},
             )
 
             for test in company_tests.values():
@@ -1731,7 +1753,8 @@ class PromptTemplateService:
                 # Check if this test involves our template name
                 # by looking up the template A and B names
                 company_templates = self.__class__._templates.get(
-                    company_id, {},
+                    company_id,
+                    {},
                 )
 
                 def _get_name_by_id(tid: str) -> Optional[str]:
@@ -1752,11 +1775,13 @@ class PromptTemplateService:
                 # Probabilistic split — use hash of deterministic input
                 # to ensure the same conversation consistently gets A or B
                 import hashlib
+
                 deterministic_key = f"{company_id}:{name}:{
                     variables.get(
                         'ticket_id', '')}"
                 hash_val = int(
-                    hashlib.md5(deterministic_key.encode()).hexdigest(), 16,
+                    hashlib.md5(deterministic_key.encode()).hexdigest(),
+                    16,
                 )
                 use_b = (hash_val % 1000) / 1000.0 < test.traffic_split
 
@@ -1782,7 +1807,8 @@ class PromptTemplateService:
                     break
 
                 rendered = render_variables(
-                    chosen_tmpl.content, variables,
+                    chosen_tmpl.content,
+                    variables,
                 )
 
                 chosen_tmpl.usage_count += 1
@@ -1812,7 +1838,9 @@ class PromptTemplateService:
 
             # No active A/B test — normal rendering
             return self.render_template(
-                company_id, name, variables,
+                company_id,
+                name,
+                variables,
                 variant_type=variant_type,
             )
 
@@ -1827,7 +1855,9 @@ class PromptTemplateService:
             )
             # BC-008: Fall back to normal rendering
             return self.render_template(
-                company_id, name, variables,
+                company_id,
+                name,
+                variables,
                 variant_type=variant_type,
             )
 
@@ -1872,7 +1902,8 @@ class PromptTemplateService:
 
             count = 0
             company_templates = self.__class__._templates.get(
-                company_id, {},
+                company_id,
+                {},
             )
             count = len(company_templates)
             self.__class__._templates.pop(company_id, None)
@@ -1913,7 +1944,8 @@ class PromptTemplateService:
             _validate_company_id(company_id)
 
             company_templates = self.__class__._templates.get(
-                company_id, {},
+                company_id,
+                {},
             )
             custom_count = len(company_templates)
             default_count = len(self.__class__._default_templates)
@@ -1938,10 +1970,12 @@ class PromptTemplateService:
 
             # A/B test stats
             company_tests = self.__class__._ab_tests.get(
-                company_id, {},
+                company_id,
+                {},
             )
             running_tests = sum(
-                1 for t in company_tests.values()
+                1
+                for t in company_tests.values()
                 if t.status == ABTestStatus.RUNNING.value
             )
 

@@ -29,15 +29,48 @@ logger = logging.getLogger(__name__)
 # ── Mock data factories ────────────────────────────────────────────
 
 _FIRST_NAMES = [
-    "Alice", "Bob", "Charlie", "Diana", "Ethan", "Fatima", "George",
-    "Hannah", "Ivan", "Julia", "Kevin", "Liam", "Maya", "Nathan",
-    "Olivia", "Priya", "Quinn", "Raj", "Sophie", "Tyler",
+    "Alice",
+    "Bob",
+    "Charlie",
+    "Diana",
+    "Ethan",
+    "Fatima",
+    "George",
+    "Hannah",
+    "Ivan",
+    "Julia",
+    "Kevin",
+    "Liam",
+    "Maya",
+    "Nathan",
+    "Olivia",
+    "Priya",
+    "Quinn",
+    "Raj",
+    "Sophie",
+    "Tyler",
 ]
 _LAST_NAMES = [
-    "Anderson", "Brown", "Chen", "Davis", "Eriksson", "Fernandez",
-    "Gupta", "Huang", "Ibrahim", "Johnson", "Kim", "Lopez",
-    "Martinez", "Nguyen", "Patel", "Quinn", "Robinson", "Singh",
-    "Tanaka", "Williams",
+    "Anderson",
+    "Brown",
+    "Chen",
+    "Davis",
+    "Eriksson",
+    "Fernandez",
+    "Gupta",
+    "Huang",
+    "Ibrahim",
+    "Johnson",
+    "Kim",
+    "Lopez",
+    "Martinez",
+    "Nguyen",
+    "Patel",
+    "Quinn",
+    "Robinson",
+    "Singh",
+    "Tanaka",
+    "Williams",
 ]
 _TIERS = ["free", "mini_parwa", "professional", "enterprise"]
 _CHANNELS = ["email", "chat", "phone", "in_app", "social"]
@@ -53,10 +86,8 @@ def _mock_customer(
     """Generate a realistic mock customer record."""
     cid = customer_id or f"CUST-{uuid.uuid4().hex[:8].upper()}"
     first = name.split()[0] if name else random.choice(_FIRST_NAMES)
-    last = name.split(
-    )[-1] if name and " " in name else random.choice(_LAST_NAMES)
-    domain = random.choice(
-        ["gmail.com", "outlook.com", "company.io", "example.com"])
+    last = name.split()[-1] if name and " " in name else random.choice(_LAST_NAMES)
+    domain = random.choice(["gmail.com", "outlook.com", "company.io", "example.com"])
     local = f"{first.lower()}.{last.lower()}"
 
     created = datetime.now(timezone.utc) - timedelta(
@@ -67,39 +98,34 @@ def _mock_customer(
         hours=random.randint(0, 23),
     )
 
-    return {"customer_id": cid,
-            "company_id": company_id,
-            "name": f"{first} {last}",
-            "first_name": first,
-            "last_name": last,
-            "email": email or f"{local}@{domain}",
-            "phone": f"+1-{random.randint(200,
+    return {
+        "customer_id": cid,
+        "company_id": company_id,
+        "name": f"{first} {last}",
+        "first_name": first,
+        "last_name": last,
+        "email": email or f"{local}@{domain}",
+        "phone": f"+1-{random.randint(200,
                                           999)}-{random.randint(100,
                                                                 999)}-{random.randint(1000,
                                                                                       9999)}",
-            "tier": random.choice(_TIERS),
-            "status": "active",
-            "country": random.choice(_COUNTRIES),
-            "created_at": created.isoformat(),
-            "last_active_at": last_active.isoformat(),
-            "lifetime_value": round(random.uniform(50,
-                                                   15000),
-                                    2),
-            "total_orders": random.randint(0,
-                                           50),
-            "tags": random.sample(["vip",
-                                   "churned",
-                                   "new",
-                                   "enterprise",
-                                   "high-value",
-                                   "support-frequent"],
-                                  k=random.randint(1,
-                                                   3)),
-            }
+        "tier": random.choice(_TIERS),
+        "status": "active",
+        "country": random.choice(_COUNTRIES),
+        "created_at": created.isoformat(),
+        "last_active_at": last_active.isoformat(),
+        "lifetime_value": round(random.uniform(50, 15000), 2),
+        "total_orders": random.randint(0, 50),
+        "tags": random.sample(
+            ["vip", "churned", "new", "enterprise", "high-value", "support-frequent"],
+            k=random.randint(1, 3),
+        ),
+    }
 
 
-def _mock_interactions(customer_id: str, company_id: str,
-                       limit: int = 5) -> list[dict[str, Any]]:
+def _mock_interactions(
+    customer_id: str, company_id: str, limit: int = 5
+) -> list[dict[str, Any]]:
     """Generate mock interaction history."""
     interactions: list[dict[str, Any]] = []
     subjects = [
@@ -117,18 +143,22 @@ def _mock_interactions(customer_id: str, company_id: str,
             days=random.randint(1, 90),
             hours=random.randint(0, 23),
         )
-        interactions.append({
-            "interaction_id": f"INT-{uuid.uuid4().hex[:8].upper()}",
-            "customer_id": customer_id,
-            "company_id": company_id,
-            "channel": random.choice(_CHANNELS),
-            "subject": random.choice(subjects),
-            "direction": random.choice(["inbound", "outbound"]),
-            "status": random.choice(["open", "closed", "pending"]),
-            "created_at": ts.isoformat(),
-            "agent_id": f"AGENT-{random.randint(1, 20)}" if random.random() > 0.3 else None,
-            "summary": f"Customer {random.choice(['asked about', 'reported', 'requested', 'discussed'])} {random.choice(subjects).lower()}",
-        })
+        interactions.append(
+            {
+                "interaction_id": f"INT-{uuid.uuid4().hex[:8].upper()}",
+                "customer_id": customer_id,
+                "company_id": company_id,
+                "channel": random.choice(_CHANNELS),
+                "subject": random.choice(subjects),
+                "direction": random.choice(["inbound", "outbound"]),
+                "status": random.choice(["open", "closed", "pending"]),
+                "created_at": ts.isoformat(),
+                "agent_id": (
+                    f"AGENT-{random.randint(1, 20)}" if random.random() > 0.3 else None
+                ),
+                "summary": f"Customer {random.choice(['asked about', 'reported', 'requested', 'discussed'])} {random.choice(subjects).lower()}",
+            }
+        )
     return interactions
 
 
@@ -179,7 +209,10 @@ class CRMTool(BaseReactTool):
                     parameters={
                         "type": "object",
                         "properties": {
-                            "customer_id": {"type": "string", "description": "Unique customer identifier"},
+                            "customer_id": {
+                                "type": "string",
+                                "description": "Unique customer identifier",
+                            },
                         },
                         "required": ["customer_id"],
                     },
@@ -192,10 +225,20 @@ class CRMTool(BaseReactTool):
                     parameters={
                         "type": "object",
                         "properties": {
-                            "query": {"type": "string", "description": "Search query (name, email, or phone)"},
+                            "query": {
+                                "type": "string",
+                                "description": "Search query (name, email, or phone)",
+                            },
                             "tag": {"type": "string", "description": "Filter by tag"},
-                            "tier": {"type": "string", "description": "Filter by tier: free, starter, professional, enterprise"},
-                            "limit": {"type": "integer", "description": "Max results (1-50)", "default": 10},
+                            "tier": {
+                                "type": "string",
+                                "description": "Filter by tier: free, starter, professional, enterprise",
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Max results (1-50)",
+                                "default": 10,
+                            },
                         },
                         "required": [],
                     },
@@ -208,11 +251,23 @@ class CRMTool(BaseReactTool):
                     parameters={
                         "type": "object",
                         "properties": {
-                            "customer_id": {"type": "string", "description": "Customer to update"},
+                            "customer_id": {
+                                "type": "string",
+                                "description": "Customer to update",
+                            },
                             "name": {"type": "string", "description": "New full name"},
-                            "email": {"type": "string", "description": "New email address"},
-                            "phone": {"type": "string", "description": "New phone number"},
-                            "tier": {"type": "string", "description": "New tier: free, starter, professional, enterprise"},
+                            "email": {
+                                "type": "string",
+                                "description": "New email address",
+                            },
+                            "phone": {
+                                "type": "string",
+                                "description": "New phone number",
+                            },
+                            "tier": {
+                                "type": "string",
+                                "description": "New tier: free, starter, professional, enterprise",
+                            },
                         },
                         "required": ["customer_id"],
                     },
@@ -225,9 +280,19 @@ class CRMTool(BaseReactTool):
                     parameters={
                         "type": "object",
                         "properties": {
-                            "customer_id": {"type": "string", "description": "Customer ID"},
-                            "limit": {"type": "integer", "description": "Max interactions (1-50)", "default": 10},
-                            "channel": {"type": "string", "description": "Filter by channel: email, chat, phone, in_app, social"},
+                            "customer_id": {
+                                "type": "string",
+                                "description": "Customer ID",
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Max interactions (1-50)",
+                                "default": 10,
+                            },
+                            "channel": {
+                                "type": "string",
+                                "description": "Filter by channel: email, chat, phone, in_app, social",
+                            },
                         },
                         "required": ["customer_id"],
                     },
@@ -240,10 +305,22 @@ class CRMTool(BaseReactTool):
                     parameters={
                         "type": "object",
                         "properties": {
-                            "customer_id": {"type": "string", "description": "Customer to annotate"},
-                            "content": {"type": "string", "description": "Note content"},
-                            "author": {"type": "string", "description": "Note author name or ID"},
-                            "tags": {"type": "string", "description": "Comma-separated tags for the note"},
+                            "customer_id": {
+                                "type": "string",
+                                "description": "Customer to annotate",
+                            },
+                            "content": {
+                                "type": "string",
+                                "description": "Note content",
+                            },
+                            "author": {
+                                "type": "string",
+                                "description": "Note author name or ID",
+                            },
+                            "tags": {
+                                "type": "string",
+                                "description": "Comma-separated tags for the note",
+                            },
                         },
                         "required": ["customer_id", "content"],
                     },
@@ -256,7 +333,10 @@ class CRMTool(BaseReactTool):
                     parameters={
                         "type": "object",
                         "properties": {
-                            "customer_id": {"type": "string", "description": "Customer ID"},
+                            "customer_id": {
+                                "type": "string",
+                                "description": "Customer ID",
+                            },
                         },
                         "required": ["customer_id"],
                     },
@@ -281,8 +361,8 @@ class CRMTool(BaseReactTool):
 
         if action == "__health_check__":
             return ToolResult(
-                success=True, error=None, data={
-                    "status": "ok"}, execution_time_ms=0)
+                success=True, error=None, data={"status": "ok"}, execution_time_ms=0
+            )
 
         handler = {
             "get_customer": self._get_customer,
@@ -307,10 +387,7 @@ class CRMTool(BaseReactTool):
 
     # ── Action Handlers ─────────────────────────────────────────
 
-    async def _get_customer(
-            self,
-            company_id: str,
-            **params: Any) -> ToolResult:
+    async def _get_customer(self, company_id: str, **params: Any) -> ToolResult:
         """Fetch full customer profile."""
         customer_id: str = params.get("customer_id", "")
 
@@ -323,24 +400,13 @@ class CRMTool(BaseReactTool):
                     data=None,
                     execution_time_ms=0,
                 )
-            return ToolResult(
-                success=True,
-                error=None,
-                data=cust,
-                execution_time_ms=0)
+            return ToolResult(success=True, error=None, data=cust, execution_time_ms=0)
 
         cust = _mock_customer(customer_id=customer_id, company_id=company_id)
         self._customers[customer_id] = cust
-        return ToolResult(
-            success=True,
-            error=None,
-            data=cust,
-            execution_time_ms=0)
+        return ToolResult(success=True, error=None, data=cust, execution_time_ms=0)
 
-    async def _search_customers(
-            self,
-            company_id: str,
-            **params: Any) -> ToolResult:
+    async def _search_customers(self, company_id: str, **params: Any) -> ToolResult:
         """Search customers by various criteria."""
         query: str = params.get("query", "").lower().strip()
         tag: str | None = params.get("tag")
@@ -356,7 +422,8 @@ class CRMTool(BaseReactTool):
         # Apply filters
         if query:
             results = [
-                c for c in results
+                c
+                for c in results
                 if query in c["name"].lower()
                 or query in c["email"].lower()
                 or query in c.get("phone", "")
@@ -381,18 +448,13 @@ class CRMTool(BaseReactTool):
             execution_time_ms=0,
         )
 
-    async def _update_customer(
-            self,
-            company_id: str,
-            **params: Any) -> ToolResult:
+    async def _update_customer(self, company_id: str, **params: Any) -> ToolResult:
         """Update customer fields."""
         customer_id: str = params.get("customer_id", "")
 
         cust = self._customers.get(customer_id)
         if cust is None:
-            cust = _mock_customer(
-                customer_id=customer_id,
-                company_id=company_id)
+            cust = _mock_customer(customer_id=customer_id, company_id=company_id)
             self._customers[customer_id] = cust
 
         if cust["company_id"] != company_id:
@@ -417,8 +479,7 @@ class CRMTool(BaseReactTool):
                 cust[field_name] = value
                 updated_fields.append(param_key)
                 # Also update first/last name if name changed
-                if param_key == "name" and isinstance(
-                        value, str) and " " in value:
+                if param_key == "name" and isinstance(value, str) and " " in value:
                     parts = value.split(maxsplit=1)
                     cust["first_name"] = parts[0]
                     cust["last_name"] = parts[-1]
@@ -457,9 +518,8 @@ class CRMTool(BaseReactTool):
         )
 
     async def _get_interaction_history(
-            self,
-            company_id: str,
-            **params: Any) -> ToolResult:
+        self, company_id: str, **params: Any
+    ) -> ToolResult:
         """Get interaction history for a customer."""
         customer_id: str = params.get("customer_id", "")
         limit: int = min(max(params.get("limit", 10), 1), 50)
@@ -498,8 +558,7 @@ class CRMTool(BaseReactTool):
                 execution_time_ms=0,
             )
 
-        tags = [t.strip() for t in raw_tags.split(
-            ",") if t.strip()] if raw_tags else []
+        tags = [t.strip() for t in raw_tags.split(",") if t.strip()] if raw_tags else []
 
         note: dict[str, Any] = {
             "note_id": f"NOTE-{uuid.uuid4().hex[:8].upper()}",
@@ -522,18 +581,13 @@ class CRMTool(BaseReactTool):
             execution_time_ms=0,
         )
 
-    async def _get_customer_stats(
-            self,
-            company_id: str,
-            **params: Any) -> ToolResult:
+    async def _get_customer_stats(self, company_id: str, **params: Any) -> ToolResult:
         """Get aggregate statistics for a customer."""
         customer_id: str = params.get("customer_id", "")
 
         cust = self._customers.get(customer_id)
         if cust is None:
-            cust = _mock_customer(
-                customer_id=customer_id,
-                company_id=company_id)
+            cust = _mock_customer(customer_id=customer_id, company_id=company_id)
             self._customers[customer_id] = cust
 
         if cust["company_id"] != company_id:
@@ -550,14 +604,13 @@ class CRMTool(BaseReactTool):
         # Engagement score (simple heuristic)
         interaction_count = len(interactions)
         days_since_active = max(
-            (datetime.now(
-                timezone.utc)
-                - datetime.fromisoformat(
-                cust["last_active_at"])).days,
+            (
+                datetime.now(timezone.utc)
+                - datetime.fromisoformat(cust["last_active_at"])
+            ).days,
             0,
         )
-        engagement = max(100 - days_since_active, 0) + \
-            min(interaction_count * 5, 50)
+        engagement = max(100 - days_since_active, 0) + min(interaction_count * 5, 50)
 
         return ToolResult(
             success=True,
@@ -570,18 +623,13 @@ class CRMTool(BaseReactTool):
                 "total_orders": cust["total_orders"],
                 "interaction_count": interaction_count,
                 "note_count": len(notes),
-                "engagement_score": min(
-                    engagement,
-                    100),
+                "engagement_score": min(engagement, 100),
                 "days_since_last_active": days_since_active,
-                "tags": cust.get(
-                    "tags",
-                    []),
+                "tags": cust.get("tags", []),
                 "account_age_days": (
-                    datetime.now(
-                        timezone.utc)
-                    - datetime.fromisoformat(
-                        cust["created_at"])).days,
+                    datetime.now(timezone.utc)
+                    - datetime.fromisoformat(cust["created_at"])
+                ).days,
             },
             execution_time_ms=0,
         )

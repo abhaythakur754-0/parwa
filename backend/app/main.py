@@ -28,15 +28,18 @@ if _backend_dir not in sys.path:
     sys.path.insert(0, _backend_dir)
 
 from app.api.demo import router as demo_router  # Demo: Pre-purchase variant demo
+
 # FAQ Management (Mini Parwa Feature)
 from app.api.faqs import router as faqs_router
 from app.api.escalation import router as escalation_router  # Escalation framework API
 from app.api.workflow import router as workflow_router  # Workflow management
 from app.api.triggers import router as triggers_router  # Triggers
+
 # Technique configuration
 from app.api.technique_config import router as technique_config_router
 from app.api.sla import router as sla_router  # SLA management
 from app.api.signals import router as signals_router  # Signals
+
 # Response, brand voice, assignment
 from app.api.response import response_router, brand_voice_router, assignment_router
 from app.api.custom_fields import router as custom_fields_router  # Custom fields
@@ -44,21 +47,28 @@ from app.api.collisions import router as collisions_router  # Collision detectio
 from app.api.classification import router as classification_router  # Classification
 from app.api.channels import router as channels_router  # Channel management
 from app.api.ai_signals import router as ai_signals_router  # AI signals
+
 # AI classification
 from app.api.ai_classification import router as ai_classification_router
+
 # Agent provisioning
 from app.api.agent_provisioning import router as agent_provisioning_router
 from app.api.agent_metrics import router as agent_metrics_router  # Agent metrics
 from app.api.rag import router as rag_router  # RAG retrieval
 from app.api.peer_review import router as peer_review_router  # Peer review
+
 # Advanced training
 from app.api.training_advanced import router as training_advanced_router
 from app.api.training import router as training_router  # Training pipeline
-from app.api.ticket_templates import router as ticket_templates_router  # Ticket templates
+from app.api.ticket_templates import (
+    router as ticket_templates_router,
+)  # Ticket templates
+
 # Ticket classification
 from app.api.ticket_classification import router as ticket_classification_router
 from app.api.ticket_timeline import router as ticket_timeline_router  # Ticket timeline
 from app.api.ticket_merge import router as ticket_merge_router  # Ticket merge
+
 # Ticket assignment
 from app.api.ticket_assignment import router as ticket_assignment_router
 from app.api.ticket_export import router as ticket_export_router  # Ticket export
@@ -66,61 +76,91 @@ from app.api.ticket_bulk import router as ticket_bulk_router  # Ticket bulk acti
 from app.api.ticket_search import router as ticket_search_router  # Ticket search
 from app.api.ticket_notes import router as ticket_notes_router  # Ticket notes
 from app.api.ticket_messages import router as ticket_messages_router  # Ticket messages
-from app.api.ticket_lifecycle import router as ticket_lifecycle_router  # Ticket lifecycle
+from app.api.ticket_lifecycle import (
+    router as ticket_lifecycle_router,
+)  # Ticket lifecycle
 from app.api.tickets import router as tickets_router  # Ticket CRUD
+
 # Audit log: trail, stats, export
 from app.api.audit import router as audit_router
+
 # Notifications: templates, preferences
 from app.api.notifications import router as notifications_router
-from app.api.billing_webhooks import router as billing_webhooks_router  # Billing webhooks
+from app.api.billing_webhooks import (
+    router as billing_webhooks_router,
+)  # Billing webhooks
+
 # Billing: subscription, invoices, usage
 from app.api.billing import router as billing_router
+
 # Day 7: Twilio SMS/Voice webhooks
 from app.api.twilio_channels import router as twilio_channels_router
+
 # Shadow Mode: Approvals bridge
 from app.api.approvals import router as approvals_router
+
 # Shadow Mode: Dual Control System
 from app.api.shadow import router as shadow_router
+
 # Day 5: Identity resolution endpoints
 from app.api.identity import router as identity_router
+
 # Day 5: Customer CRM endpoints (C1-C10)
 from app.api.customers import router as customers_router
+
 # Day 3: GDPR data privacy endpoints (E3)
 from app.api.gdpr import router as gdpr_router
+
 # Week 17: Custom Integration Builder (F-031)
 from app.api.custom_integrations import router as custom_integrations_router
+
 # Week 15 Day 4: Export Reports (F-045)
 from app.api.reports import router as reports_router
+
 # Week 15 Day 3: Growth Nudge (F-042), Forecast (F-043), CSAT Trends (F-044)
 from app.api.analytics_intelligence import router as analytics_intelligence_router
+
 # Week 15 Day 2: Adaptation (F-039), Savings (F-040), Workforce (F-041)
 from app.api.analytics_advanced import router as analytics_advanced_router
+
 # F-088: System status for frontend health strip
 from app.api.system_status import router as system_status_router
+
 # Week 15 Day 1: Dashboard Home (F-036), Activity Feed (F-037), KPI
 # Metrics (F-038)
 from app.api.dashboard import router as dashboard_router
+
 # Week 15 Day 5: Agent Dashboard (F-097)
 from app.api.agent_dashboard import router as agent_dashboard_router
+
 # Week 14 Day 4: Agent Provisioning (F-095), Dynamic Instructions (F-096)
 from app.api.agents import router as agents_router
+
 # Week 14 Day 2: Quick Commands (F-090), Error Panel (F-091), Train from
 # Error (F-092)
 from app.api.jarvis_ops import router as jarvis_ops_router
+
 # Week 14 Day 1: Jarvis Command Center (F-087, F-088, F-089)
 from app.api.jarvis_control import router as jarvis_control_router
+
 # Week 13 Day 5: SMS channel endpoints (F-123)
 from app.api.sms_channel import router as sms_channel_router
+
 # Week 13 Day 4: Chat widget endpoints (F-122)
 from app.api.chat_widget import router as chat_widget_router
+
 # Week 13 Day 3: Bounce/complaint endpoints (F-124)
 from app.api.bounce_complaint import router as bounce_complaint_router
+
 # Week 13 Day 3: OOO detection endpoints (F-122)
 from app.api.ooo_detection import router as ooo_detection_router
+
 # Week 13 Day 1: Email channel admin endpoints
 from app.api.email_channel import router as email_channel_router
+
 # Phase 4: Ticket analytics dashboard
 from app.api.ticket_analytics import router as analytics_router
+
 # Week 6 Day 10-11: Business Email OTP
 from app.api.verification import router as verification_router
 from app.api.knowledge_base import router as knowledge_base_router
@@ -171,10 +211,10 @@ from contextlib import asynccontextmanager
 
 # Import webhook handlers so their @register_handler decorators fire and
 # populate the registry. These modules have no other import side-effects.
-import app.webhooks.paddle_handler as _wh_paddle    # noqa: F401, E402
-import app.webhooks.brevo_handler as _wh_brevo      # noqa: F401, E402
-import app.webhooks.twilio_handler as _wh_twilio     # noqa: F401, E402
-import app.webhooks.shopify_handler as _wh_shopify   # noqa: F401, E402
+import app.webhooks.paddle_handler as _wh_paddle  # noqa: F401, E402
+import app.webhooks.brevo_handler as _wh_brevo  # noqa: F401, E402
+import app.webhooks.twilio_handler as _wh_twilio  # noqa: F401, E402
+import app.webhooks.shopify_handler as _wh_shopify  # noqa: F401, E402
 
 # Track if logging has been configured (idempotent)
 _logging_configured = False
@@ -214,6 +254,7 @@ async def lifespan(app: FastAPI):
     # Initialize Sentry for error monitoring (no-op if SENTRY_DSN not set)
     try:
         from app.core.sentry import init_sentry
+
         init_sentry()
     except Exception as exc:
         logger = get_logger("lifespan")
@@ -222,6 +263,7 @@ async def lifespan(app: FastAPI):
     # ── Run Alembic migrations on startup (Docker-safe) ──
     try:
         import subprocess
+
         result = subprocess.run(
             ["alembic", "-c", "/app/database/alembic.ini", "upgrade", "head"],
             cwd="/app/database",
@@ -256,6 +298,7 @@ async def lifespan(app: FastAPI):
     # Initialize Redis connection pool (BC-012: fail-open on error)
     try:
         from app.core.redis import get_redis
+
         redis_client = await get_redis()
         await redis_client.ping()
         logger = get_logger("lifespan")
@@ -270,6 +313,7 @@ async def lifespan(app: FastAPI):
     # Register Socket.io ASGI app on /ws path
     try:
         from app.core.socketio import create_socketio_app
+
         socketio_app = create_socketio_app()
         app.mount("/ws", socketio_app)
         logger.info("socketio_mounted", path="/ws")
@@ -283,6 +327,7 @@ async def lifespan(app: FastAPI):
     # Phase 7: Pre-load Jarvis knowledge base at startup
     try:
         from app.services.jarvis_knowledge_service import load_all_knowledge
+
         load_all_knowledge()
         logger = get_logger("lifespan")
         logger.info("jarvis_knowledge_loaded")
@@ -304,6 +349,7 @@ async def lifespan(app: FastAPI):
     # Shutdown: close Redis pool
     try:
         from app.core.redis import close_redis
+
         await close_redis()
         logger.info("redis_closed")
     except Exception as exc:
@@ -363,18 +409,20 @@ try:
     _settings = get_settings()
     if _settings.CORS_ORIGINS:
         _cors_origins = [
-            o.strip() for o in _settings.CORS_ORIGINS.split(",")
-            if o.strip()
+            o.strip() for o in _settings.CORS_ORIGINS.split(",") if o.strip()
         ]
     else:
         # No explicit origins configured — deny cross-origin in production
         import logging
+
         logging.getLogger("parwa.cors").warning(
             "CORS_ORIGINS not configured — cross-origin requests will be denied. "
-            "Set CORS_ORIGINS env var to allow specific origins.")
+            "Set CORS_ORIGINS env var to allow specific origins."
+        )
         _cors_origins = []
 except Exception:
     import logging
+
     logging.getLogger("parwa.cors").warning(
         "Failed to load CORS settings — cross-origin requests will be denied."
     )
@@ -384,18 +432,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=[
-        "GET",
-        "POST",
-        "PUT",
-        "PATCH",
-        "DELETE",
-        "OPTIONS"],
-    allow_headers=[
-        "Authorization",
-        "Content-Type",
-        "X-CSRF-Token",
-        "X-Company-ID"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "X-Company-ID"],
 )
 
 
@@ -509,7 +547,8 @@ app.include_router(demo_router)
 
 @app.exception_handler(ParwaBaseError)
 async def parwa_exception_handler(
-    request: Request, exc: ParwaBaseError,
+    request: Request,
+    exc: ParwaBaseError,
 ) -> JSONResponse:
     """Handle all PARWA custom exceptions with structured JSON."""
     data = exc.to_dict()
@@ -540,7 +579,8 @@ async def not_found_handler(request: Request, exc: Exception) -> JSONResponse:
 
 @app.exception_handler(422)
 async def validation_error_handler(
-    request: Request, exc: Exception,
+    request: Request,
+    exc: Exception,
 ) -> JSONResponse:
     """Handle 422 validation errors with structured JSON (BC-012)."""
     return JSONResponse(
@@ -557,7 +597,8 @@ async def validation_error_handler(
 
 @app.exception_handler(409)
 async def conflict_error_handler(
-    request: Request, exc: Exception,
+    request: Request,
+    exc: Exception,
 ) -> JSONResponse:
     """Handle 409 conflict errors — optimistic locking version mismatch."""
     return JSONResponse(
@@ -577,7 +618,8 @@ async def conflict_error_handler(
 
 @app.exception_handler(500)
 async def internal_error_handler(
-    request: Request, exc: Exception,
+    request: Request,
+    exc: Exception,
 ) -> JSONResponse:
     """Handle 500 errors — NO stack traces to users (BC-012)."""
     _ensure_logging()
@@ -592,10 +634,14 @@ async def internal_error_handler(
     # Capture exception to Sentry for error monitoring
     try:
         from app.core.sentry import capture_exception
-        capture_exception(exc, extra={
-            "path": request.url.path,
-            "method": request.method,
-        })
+
+        capture_exception(
+            exc,
+            extra={
+                "path": request.url.path,
+                "method": request.method,
+            },
+        )
     except Exception:
         pass
     return JSONResponse(
@@ -616,9 +662,7 @@ async def internal_error_handler(
 @app.get("/api/events/since", tags=["Events"])
 async def get_events_since_endpoint(
     request: Request,
-    last_seen: float = Query(
-        ..., description="Epoch timestamp of last received event"
-    ),
+    last_seen: float = Query(..., description="Epoch timestamp of last received event"),
 ):
     """Fetch events missed during disconnection (BC-005).
 
@@ -642,6 +686,7 @@ async def get_events_since_endpoint(
         )
 
     from app.core.event_buffer import get_events_since
+
     events = await get_events_since(
         company_id=company_id,
         last_seen=last_seen,

@@ -32,7 +32,6 @@ from app.core.technique_metrics import (
 )
 from app.core.technique_router import TechniqueID
 
-
 # ── Fixtures ──────────────────────────────────────────────────────
 
 
@@ -185,13 +184,16 @@ class TestSingleExecution:
 
     def test_record_updates_min_max_time(self, collector):
         collector.record_execution(
-            technique_id="clara", exec_time_ms=100.0,
+            technique_id="clara",
+            exec_time_ms=100.0,
         )
         collector.record_execution(
-            technique_id="clara", exec_time_ms=50.0,
+            technique_id="clara",
+            exec_time_ms=50.0,
         )
         collector.record_execution(
-            technique_id="clara", exec_time_ms=200.0,
+            technique_id="clara",
+            exec_time_ms=200.0,
         )
         stats = collector.get_technique_stats("clara")
         assert stats.min_exec_time_ms == 50.0
@@ -219,37 +221,39 @@ class TestMultipleExecutions:
 
     def test_count_aggregation(self, populated_collector):
         stats = populated_collector.get_technique_stats(
-            TechniqueID.CLARA, "company_a",
+            TechniqueID.CLARA,
+            "company_a",
         )
         assert stats.total_executions == 13  # 10 success + 3 failure  # noqa: E501
 
     def test_success_rate_calculation(self, populated_collector):
         stats = populated_collector.get_technique_stats(
-            TechniqueID.CLARA, "company_a",
+            TechniqueID.CLARA,
+            "company_a",
         )
         assert stats.success_count == 10
         assert stats.failure_count == 3
 
     def test_token_aggregation(self, populated_collector):
         stats = populated_collector.get_technique_stats(
-            TechniqueID.CLARA, "company_a",
+            TechniqueID.CLARA,
+            "company_a",
         )
         expected_tokens = sum(50 + i * 10 for i in range(10)) + 30 * 3  # noqa: E501
         assert stats.total_tokens == expected_tokens
 
     def test_exec_time_aggregation(self, populated_collector):
         stats = populated_collector.get_technique_stats(
-            TechniqueID.CLARA, "company_a",
+            TechniqueID.CLARA,
+            "company_a",
         )
-        expected_time = (
-            sum(100.0 + i * 5 for i in range(10))
-            + 200.0 * 3
-        )
+        expected_time = sum(100.0 + i * 5 for i in range(10)) + 200.0 * 3
         assert stats.total_exec_time_ms == expected_time
 
     def test_exec_times_list(self, populated_collector):
         stats = populated_collector.get_technique_stats(
-            TechniqueID.CLARA, "company_a",
+            TechniqueID.CLARA,
+            "company_a",
         )
         assert len(stats.exec_times) == 13
 
@@ -315,7 +319,8 @@ class TestVariantIsolation:
         assert "react" in summary.technique_counts
 
     def test_variant_success_failure_counts(
-        self, populated_collector,
+        self,
+        populated_collector,
     ):
         summary = populated_collector.get_variant_summary("parwa")
         assert summary.success_count > 0
@@ -330,25 +335,29 @@ class TestCompanyIsolation:
 
     def test_company_a_stats(self, populated_collector):
         stats = populated_collector.get_technique_stats(
-            TechniqueID.CLARA, "company_a",
+            TechniqueID.CLARA,
+            "company_a",
         )
         assert stats.total_executions == 13
 
     def test_company_b_stats(self, populated_collector):
         stats = populated_collector.get_technique_stats(
-            TechniqueID.CLARA, "company_b",
+            TechniqueID.CLARA,
+            "company_b",
         )
         assert stats.total_executions == 5
 
     def test_nonexistent_company(self, populated_collector):
         stats = populated_collector.get_technique_stats(
-            TechniqueID.CLARA, "nonexistent",
+            TechniqueID.CLARA,
+            "nonexistent",
         )
         assert stats is None
 
     def test_company_a_no_b_data(self, populated_collector):
         stats = populated_collector.get_technique_stats(
-            TechniqueID.CLARA, "company_a",
+            TechniqueID.CLARA,
+            "company_a",
         )
         # company_a should not include company_b records
         assert stats.total_executions == 13  # not 18
@@ -359,14 +368,17 @@ class TestCompanyIsolation:
         assert "company_b" in ids
 
     def test_cross_company_different_techniques(
-        self, populated_collector,
+        self,
+        populated_collector,
     ):
         # CLARA exists for both companies
         cot_a = populated_collector.get_technique_stats(
-            TechniqueID.CHAIN_OF_THOUGHT, "company_a",
+            TechniqueID.CHAIN_OF_THOUGHT,
+            "company_a",
         )
         cot_b = populated_collector.get_technique_stats(
-            TechniqueID.CHAIN_OF_THOUGHT, "company_b",
+            TechniqueID.CHAIN_OF_THOUGHT,
+            "company_b",
         )
         assert cot_a is not None
         assert cot_b is None  # company_b has no CoT
@@ -379,7 +391,8 @@ class TestTimeWindowedMetrics:
     """Tests for time-windowed metric queries."""
 
     def test_current_window_includes_recent(
-        self, collector,
+        self,
+        collector,
     ):
         collector.record_execution(
             technique_id="clara",
@@ -387,7 +400,9 @@ class TestTimeWindowedMetrics:
             status="success",
         )
         stats = collector.get_time_windowed_stats(
-            "clara", "1min", "co1",
+            "clara",
+            "1min",
+            "co1",
         )
         assert stats.total_executions == 1
 
@@ -406,7 +421,9 @@ class TestTimeWindowedMetrics:
         collector._update_stats(("clara", "co1"), old_record)
 
         stats = collector.get_time_windowed_stats(
-            "clara", "1min", "co1",
+            "clara",
+            "1min",
+            "co1",
         )
         assert stats.total_executions == 0
 
@@ -416,7 +433,9 @@ class TestTimeWindowedMetrics:
             company_id="co1",
         )
         stats = collector.get_time_windowed_stats(
-            "clara", "5min", "co1",
+            "clara",
+            "5min",
+            "co1",
         )
         assert stats.total_executions == 1
 
@@ -426,7 +445,9 @@ class TestTimeWindowedMetrics:
             company_id="co1",
         )
         stats = collector.get_time_windowed_stats(
-            "clara", "15min", "co1",
+            "clara",
+            "15min",
+            "co1",
         )
         assert stats.total_executions == 1
 
@@ -436,7 +457,9 @@ class TestTimeWindowedMetrics:
             company_id="co1",
         )
         stats = collector.get_time_windowed_stats(
-            "clara", "1hr", "co1",
+            "clara",
+            "1hr",
+            "co1",
         )
         assert stats.total_executions == 1
 
@@ -450,13 +473,15 @@ class TestTimeWindowedMetrics:
             company_id="co2",
         )
         stats = collector.get_time_windowed_stats(
-            "clara", "1hr",
+            "clara",
+            "1hr",
         )
         assert stats.total_executions == 2
 
     def test_time_window_empty_result(self, collector):
         stats = collector.get_time_windowed_stats(
-            "nonexistent", "5min",
+            "nonexistent",
+            "5min",
         )
         assert stats.total_executions == 0
         assert stats.min_exec_time_ms == 0.0
@@ -468,7 +493,9 @@ class TestTimeWindowedMetrics:
             company_id="co1",
         )
         stats = collector.get_time_windowed_stats(
-            TechniqueID.GST, "1hr", "co1",
+            TechniqueID.GST,
+            "1hr",
+            "co1",
         )
         assert stats.total_executions == 1
 
@@ -496,8 +523,7 @@ class TestPercentiles:
         assert p["p99"] == 100.0
 
     def test_exec_time_percentiles(self, collector):
-        times = [10.0, 20.0, 30.0, 40.0, 50.0,
-                 60.0, 70.0, 80.0, 90.0, 100.0]
+        times = [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0]
         for t in times:
             collector.record_execution(
                 technique_id="clara",
@@ -538,19 +564,23 @@ class TestPercentiles:
                 exec_time_ms=float(i + 1) * 100,
             )
         p1 = collector.get_company_percentiles(
-            "co1", "exec_time_ms",
+            "co1",
+            "exec_time_ms",
         )
         p2 = collector.get_company_percentiles(
-            "co2", "exec_time_ms",
+            "co2",
+            "exec_time_ms",
         )
         assert p1["p50"] < p2["p50"]
 
     def test_percentile_no_technique_filter(self, collector):
         collector.record_execution(
-            technique_id="clara", exec_time_ms=10.0,
+            technique_id="clara",
+            exec_time_ms=10.0,
         )
         collector.record_execution(
-            technique_id="cot", exec_time_ms=100.0,
+            technique_id="cot",
+            exec_time_ms=100.0,
         )
         p = collector.get_percentiles("exec_time_ms")
         assert p["p50"] == 10.0
@@ -614,7 +644,8 @@ class TestLeaderboard:
         assert len(board) == 1
 
     def test_leaderboard_company_filter(
-        self, populated_collector,
+        self,
+        populated_collector,
     ):
         board = populated_collector.get_leaderboard(
             company_id="company_b",
@@ -658,17 +689,20 @@ class TestReset:
 
     def test_reset_single_company(self, populated_collector):
         before_a = populated_collector.get_technique_stats(
-            TechniqueID.CLARA, "company_a",
+            TechniqueID.CLARA,
+            "company_a",
         )
         assert before_a is not None
 
         populated_collector.reset_metrics(company_id="company_a")
 
         after_a = populated_collector.get_technique_stats(
-            TechniqueID.CLARA, "company_a",
+            TechniqueID.CLARA,
+            "company_a",
         )
         after_b = populated_collector.get_technique_stats(
-            TechniqueID.CLARA, "company_b",
+            TechniqueID.CLARA,
+            "company_b",
         )
         assert after_a is None
         assert after_b is not None
@@ -789,8 +823,7 @@ class TestConcurrency:
                 )
 
         threads = [
-            threading.Thread(target=record_batch, args=(i,))
-            for i in range(num_threads)
+            threading.Thread(target=record_batch, args=(i,)) for i in range(num_threads)
         ]
         for t in threads:
             t.start()
@@ -837,7 +870,8 @@ class TestConcurrency:
         assert len(errors) == 0
 
     def test_concurrent_leaderboard_access(
-        self, populated_collector,
+        self,
+        populated_collector,
     ):
         """Concurrent leaderboard queries should not crash."""
         errors = []
@@ -852,10 +886,7 @@ class TestConcurrency:
                 errors.append(e)
 
         with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [
-                executor.submit(query_leaderboard)
-                for _ in range(5)
-            ]
+            futures = [executor.submit(query_leaderboard) for _ in range(5)]
             for f in as_completed(futures):
                 f.result()
 
@@ -928,28 +959,32 @@ class TestEdgeCases:
 
     def test_zero_exec_time(self, collector):
         collector.record_execution(
-            technique_id="clara", exec_time_ms=0.0,
+            technique_id="clara",
+            exec_time_ms=0.0,
         )
         stats = collector.get_technique_stats("clara")
         assert stats.min_exec_time_ms == 0.0
 
     def test_zero_tokens(self, collector):
         collector.record_execution(
-            technique_id="clara", tokens_used=0,
+            technique_id="clara",
+            tokens_used=0,
         )
         stats = collector.get_technique_stats("clara")
         assert stats.total_tokens == 0
 
     def test_very_large_exec_time(self, collector):
         collector.record_execution(
-            technique_id="clara", exec_time_ms=1e9,
+            technique_id="clara",
+            exec_time_ms=1e9,
         )
         stats = collector.get_technique_stats("clara")
         assert stats.max_exec_time_ms == 1e9
 
     def test_time_window_unknown_technique(self, collector):
         stats = collector.get_time_windowed_stats(
-            "nonexistent", "5min",
+            "nonexistent",
+            "5min",
         )
         assert stats.total_executions == 0
 

@@ -93,6 +93,7 @@ class GSDTerminalService:
             return self._redis
         try:
             from app.core.redis import get_redis
+
             self._redis = await get_redis()
             return self._redis
         except Exception as exc:
@@ -243,7 +244,7 @@ class GSDTerminalService:
         stuck_count = sum(1 for s in filtered if s.get("is_stuck", False))
 
         # Apply pagination
-        paginated = filtered[offset:offset + limit]
+        paginated = filtered[offset : offset + limit]
 
         return {
             "sessions": paginated,
@@ -282,8 +283,14 @@ class GSDTerminalService:
 
         # 2. Validate target state
         valid_states = {
-            "new", "greeting", "diagnosis", "resolution",
-            "follow_up", "escalate", "human_handof", "closed",
+            "new",
+            "greeting",
+            "diagnosis",
+            "resolution",
+            "follow_up",
+            "escalate",
+            "human_handof",
+            "closed",
         }
         target = target_state.lower().strip()
         if target not in valid_states:
@@ -309,7 +316,10 @@ class GSDTerminalService:
 
                 # Update current state in Redis
                 state_key = make_key(
-                    self.company_id, "gsd", "state", ticket_id,
+                    self.company_id,
+                    "gsd",
+                    "state",
+                    ticket_id,
                 )
                 new_state_data = {
                     "ticket_id": ticket_id,
@@ -330,7 +340,10 @@ class GSDTerminalService:
 
                 # Append to transition history
                 history_key = make_key(
-                    self.company_id, "gsd", "history", ticket_id,
+                    self.company_id,
+                    "gsd",
+                    "history",
+                    ticket_id,
                 )
                 transition_entry = {
                     "from_state": previous_state,
@@ -341,7 +354,8 @@ class GSDTerminalService:
                     "audit_log_id": audit_log_id,
                 }
                 await redis.lpush(
-                    history_key, json.dumps(transition_entry),
+                    history_key,
+                    json.dumps(transition_entry),
                 )
                 await redis.ltrim(history_key, 0, MAX_HISTORY_ENTRIES - 1)
                 await redis.expire(history_key, GSD_STATE_TTL_SECONDS)
@@ -442,60 +456,71 @@ class GSDTerminalService:
                 # Build suggested actions
                 suggestions = []
                 if duration > CRITICAL_STUCK_THRESHOLD_SECONDS:
-                    suggestions.append({
-                        "action": "escalate_to_human",
-                        "priority": "high",
-                        "description": (
-                            f"Session stuck for {duration / 60:.0f} "
-                            "minutes — immediate human review needed"
-                        ),
-                    })
-                    suggestions.append({
-                        "action": "force_close",
-                        "priority": "medium",
-                        "description": (
-                            "Consider force-closing if the issue "
-                            "has been resolved externally"
-                        ),
-                    })
+                    suggestions.append(
+                        {
+                            "action": "escalate_to_human",
+                            "priority": "high",
+                            "description": (
+                                f"Session stuck for {duration / 60:.0f} "
+                                "minutes — immediate human review needed"
+                            ),
+                        }
+                    )
+                    suggestions.append(
+                        {
+                            "action": "force_close",
+                            "priority": "medium",
+                            "description": (
+                                "Consider force-closing if the issue "
+                                "has been resolved externally"
+                            ),
+                        }
+                    )
                 else:
-                    suggestions.append({
-                        "action": "review",
-                        "priority": "medium",
-                        "description": (
-                            f"Session in '{current_state}' for "
-                            f"{duration / 60:.0f} minutes — review needed"
-                        ),
-                    })
+                    suggestions.append(
+                        {
+                            "action": "review",
+                            "priority": "medium",
+                            "description": (
+                                f"Session in '{current_state}' for "
+                                f"{duration / 60:.0f} minutes — review needed"
+                            ),
+                        }
+                    )
 
                 # Get valid transitions for current state
                 try:
                     from app.core.shared_gsd import SharedGSDManager
+
                     valid = SharedGSDManager.get_valid_transitions(
                         current_state,
                     )
                     if valid:
-                        suggestions.append({
-                            "action": "suggest_transition",
-                            "priority": "low",
-                            "description": (
-                                "Valid next states from "
-                                f"'{current_state}': "
-                                f"{', '.join(valid)}"
-                            ),
-                        })
+                        suggestions.append(
+                            {
+                                "action": "suggest_transition",
+                                "priority": "low",
+                                "description": (
+                                    "Valid next states from "
+                                    f"'{current_state}': "
+                                    f"{', '.join(valid)}"
+                                ),
+                            }
+                        )
                 except Exception:
                     pass
 
-                stuck.append({
-                    "ticket_id": session.get("ticket_id", ""),
-                    "company_id": self.company_id,
-                    "current_state": current_state,
-                    "stuck_duration_seconds": round(duration, 2),
-                    "stuck_threshold_seconds": threshold,
-                    "last_transition_at": session.get("last_transition_at"),
-                    "suggested_actions": suggestions,
-                })
+                stuck.append(
+                    {
+                        "ticket_id": session.get("ticket_id", ""),
+                        "company_id": self.company_id,
+                        "current_state": current_state,
+                        "stuck_duration_seconds": round(duration, 2),
+                        "stuck_threshold_seconds": threshold,
+                        "last_transition_at": session.get("last_transition_at"),
+                        "suggested_actions": suggestions,
+                    }
+                )
 
         logger.info(
             "gsd_stuck_sessions_detected",
@@ -509,7 +534,8 @@ class GSDTerminalService:
     # ── Redis State Access ───────────────────────────────────────
 
     async def _get_redis_state(
-        self, ticket_id: str,
+        self,
+        ticket_id: str,
     ) -> Optional[Dict[str, Any]]:
         """Read GSD state from Redis."""
         redis = await self._get_redis()
@@ -520,7 +546,10 @@ class GSDTerminalService:
             from app.core.redis import make_key
 
             state_key = make_key(
-                self.company_id, "gsd", "state", ticket_id,
+                self.company_id,
+                "gsd",
+                "state",
+                ticket_id,
             )
             raw = await redis.get(state_key)
             if raw:
@@ -536,7 +565,8 @@ class GSDTerminalService:
         return None
 
     async def _get_redis_history(
-        self, ticket_id: str,
+        self,
+        ticket_id: str,
     ) -> List[Dict[str, Any]]:
         """Read GSD transition history from Redis."""
         redis = await self._get_redis()
@@ -547,7 +577,10 @@ class GSDTerminalService:
             from app.core.redis import make_key
 
             history_key = make_key(
-                self.company_id, "gsd", "history", ticket_id,
+                self.company_id,
+                "gsd",
+                "history",
+                ticket_id,
             )
             raw_entries = await redis.lrange(history_key, 0, -1)
             entries = []
@@ -574,7 +607,9 @@ class GSDTerminalService:
             cursor = 0
             while True:
                 cursor, keys = await redis.scan(
-                    cursor=cursor, match=pattern, count=100,
+                    cursor=cursor,
+                    match=pattern,
+                    count=100,
                 )
                 for key in keys:
                     try:
@@ -584,10 +619,12 @@ class GSDTerminalService:
                             if data.get("company_id") == self.company_id:
                                 now = time.time()
                                 entered = data.get(
-                                    "entered_at_epoch", now,
+                                    "entered_at_epoch",
+                                    now,
                                 )
                                 data["duration_seconds"] = round(
-                                    now - entered, 2,
+                                    now - entered,
+                                    2,
                                 )
                                 sessions.append(data)
                     except (json.JSONDecodeError, TypeError):
@@ -628,12 +665,14 @@ class GSDTerminalService:
                     "duration_seconds": 0.0,
                     "transition_count": len(
                         manager.get_transition_history(
-                            "__global__", ticket_id,
+                            "__global__",
+                            ticket_id,
                         ),
                     ),
                     "signals": {},
                     "history": manager.get_transition_history(
-                        "__global__", ticket_id,
+                        "__global__",
+                        ticket_id,
                     )[-10:],
                 }
         except Exception:
@@ -655,21 +694,23 @@ class GSDTerminalService:
                     now = time.time()
                     entered = state_info.get("entered_at", now)
                     history = manager.get_transition_history(
-                        company_id, ticket_id,
+                        company_id,
+                        ticket_id,
                     )
                     last_transition = (
-                        history[-1].get("timestamp", 0)
-                        if history else None
+                        history[-1].get("timestamp", 0) if history else None
                     )
-                    sessions.append({
-                        "ticket_id": ticket_id,
-                        "company_id": company_id,
-                        "current_state": state_info.get("state", "unknown"),
-                        "agent_id": None,
-                        "duration_seconds": round(now - entered, 2),
-                        "transition_count": len(history),
-                        "last_transition_at": last_transition,
-                    })
+                    sessions.append(
+                        {
+                            "ticket_id": ticket_id,
+                            "company_id": company_id,
+                            "current_state": state_info.get("state", "unknown"),
+                            "agent_id": None,
+                            "duration_seconds": round(now - entered, 2),
+                            "transition_count": len(history),
+                            "last_transition_at": last_transition,
+                        }
+                    )
         except Exception:
             pass
 
@@ -678,7 +719,8 @@ class GSDTerminalService:
     # ── Database Fallback ────────────────────────────────────────
 
     async def _get_db_state(
-        self, ticket_id: str,
+        self,
+        ticket_id: str,
     ) -> Optional[Dict[str, Any]]:
         """Read GSD state from database (last resort)."""
         if self.db is None:
@@ -687,10 +729,14 @@ class GSDTerminalService:
         try:
             from database.models.tickets import Ticket
 
-            ticket = self.db.query(Ticket).filter(
-                Ticket.id == ticket_id,
-                Ticket.company_id == self.company_id,
-            ).first()
+            ticket = (
+                self.db.query(Ticket)
+                .filter(
+                    Ticket.id == ticket_id,
+                    Ticket.company_id == self.company_id,
+                )
+                .first()
+            )
 
             if ticket is None:
                 return None
@@ -711,8 +757,7 @@ class GSDTerminalService:
                 "current_state": gsd_state,
                 "variant": variant,
                 "entered_at": (
-                    ticket.updated_at.isoformat()
-                    if ticket.updated_at else None
+                    ticket.updated_at.isoformat() if ticket.updated_at else None
                 ),
                 "duration_seconds": 0.0,
                 "transition_count": metadata.get("gsd_transition_count", 0),
@@ -749,6 +794,7 @@ class GSDTerminalService:
             audit_svc = None
             try:
                 from app.services.jarvis_service import _get_service_module
+
                 audit_mod = _get_service_module("app.services.audit_service")
                 if audit_mod:
                     audit_svc = audit_mod
@@ -783,7 +829,9 @@ class GSDTerminalService:
                     from app.core.redis import make_key
 
                     audit_key = make_key(
-                        self.company_id, "gsd", "audit",
+                        self.company_id,
+                        "gsd",
+                        "audit",
                     )
                     entry = {
                         "audit_log_id": audit_log_id,
@@ -798,7 +846,8 @@ class GSDTerminalService:
                         ).isoformat(),
                     }
                     await redis.lpush(
-                        audit_key, json.dumps(entry),
+                        audit_key,
+                        json.dumps(entry),
                     )
                     await redis.ltrim(audit_key, 0, 999)
                 except Exception:
@@ -818,11 +867,10 @@ class GSDTerminalService:
         """Generate a human-readable stuck reason."""
         minutes = duration / 60
         if minutes > 60:
-            return (
-                f"Stuck in '{state}' for {
+            return f"Stuck in '{state}' for {
                     minutes:.0f} minutes " f"(>{
                     CRITICAL_STUCK_THRESHOLD_SECONDS
-                    / 60:.0f} min critical threshold)")
+                    / 60:.0f} min critical threshold)"
         return (
             f"In '{state}' for {minutes:.0f} minutes "
             f"(>{STUCK_THRESHOLD_SECONDS / 60:.0f} min threshold)"
@@ -837,7 +885,8 @@ _service_cache: Dict[str, GSDTerminalService] = {}
 
 
 def get_gsd_terminal_service(
-    company_id: str, db=None,
+    company_id: str,
+    db=None,
 ) -> GSDTerminalService:
     """Get or create a GSDTerminalService for a tenant.
 
@@ -852,7 +901,8 @@ def get_gsd_terminal_service(
     """
     if company_id not in _service_cache:
         _service_cache[company_id] = GSDTerminalService(
-            company_id, db=db,
+            company_id,
+            db=db,
         )
     return _service_cache[company_id]
 

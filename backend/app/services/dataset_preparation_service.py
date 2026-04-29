@@ -175,13 +175,11 @@ class DatasetPreparationService:
             if source == SOURCE_MISTAKES:
                 samples = self._collect_from_mistakes(company_id, agent_id)
             elif source == SOURCE_MANUAL:
-                samples = self._collect_from_manual_labels(
-                    company_id, agent_id)
+                samples = self._collect_from_manual_labels(company_id, agent_id)
             elif source == SOURCE_EXPORT:
                 samples = self._collect_from_exports(company_id, agent_id)
             elif source == SOURCE_KB:
-                samples = self._collect_from_knowledge_base(
-                    company_id, agent_id)
+                samples = self._collect_from_knowledge_base(company_id, agent_id)
             else:
                 raise ValueError(f"Unknown source type: {source}")
 
@@ -205,8 +203,7 @@ class DatasetPreparationService:
             quality_score = self._calculate_quality_score(training_data)
 
             # Store dataset
-            storage_path = self._store_dataset(
-                company_id, dataset_id, training_data)
+            storage_path = self._store_dataset(company_id, dataset_id, training_data)
 
             # Update dataset record
             dataset.status = DATASET_STATUS_READY
@@ -299,9 +296,8 @@ class DatasetPreparationService:
         """
         from database.models.training import TrainingDataset
 
-        query = (
-            self.db.query(TrainingDataset)
-            .filter(TrainingDataset.company_id == company_id)
+        query = self.db.query(TrainingDataset).filter(
+            TrainingDataset.company_id == company_id
         )
 
         if agent_id:
@@ -311,8 +307,7 @@ class DatasetPreparationService:
 
         total = query.count()
         datasets = (
-            query
-            .order_by(TrainingDataset.created_at.desc())
+            query.order_by(TrainingDataset.created_at.desc())
             .offset(offset)
             .limit(limit)
             .all()
@@ -350,9 +345,7 @@ class DatasetPreparationService:
             return {"status": "error", "error": "Dataset not found"}
 
         if dataset.status == DATASET_STATUS_IN_USE:
-            return {
-                "status": "error",
-                "error": "Cannot archive dataset in use"}
+            return {"status": "error", "error": "Cannot archive dataset in use"}
 
         dataset.status = DATASET_STATUS_ARCHIVED
         self.db.commit()
@@ -410,7 +403,10 @@ class DatasetPreparationService:
                     "id": sample.get("id", f"{dataset_id}_{i}"),
                     "messages": [
                         {"role": "user", "content": sample.get("input", "")},
-                        {"role": "assistant", "content": sample.get("expected_output", "")},
+                        {
+                            "role": "assistant",
+                            "content": sample.get("expected_output", ""),
+                        },
                     ],
                     "metadata": {
                         "source": source,
@@ -425,8 +421,7 @@ class DatasetPreparationService:
             quality_score = self._calculate_quality_score(training_data)
 
             # Store dataset
-            storage_path = self._store_dataset(
-                company_id, dataset_id, training_data)
+            storage_path = self._store_dataset(company_id, dataset_id, training_data)
 
             # Update dataset record
             dataset.status = DATASET_STATUS_READY
@@ -478,10 +473,7 @@ class DatasetPreparationService:
     # Data Collection Methods
     # ══════════════════════════════════════════════════════════════════════════
 
-    def _collect_from_mistakes(
-            self,
-            company_id: str,
-            agent_id: str) -> List[Dict]:
+    def _collect_from_mistakes(self, company_id: str, agent_id: str) -> List[Dict]:
         """Collect training samples from agent mistakes.
 
         Args:
@@ -507,27 +499,30 @@ class DatasetPreparationService:
 
         samples = []
         for mistake in mistakes:
-            samples.append({
-                "id": str(mistake.id),
-                "type": "mistake_correction",
-                "input": {
-                    "original_response": mistake.original_response,
-                    "ticket_context": mistake.ticket_id,
-                },
-                "expected_output": mistake.correction or mistake.expected_response,
-                "metadata": {
-                    "mistake_type": mistake.mistake_type,
-                    "severity": mistake.severity,
-                    "created_at": mistake.created_at.isoformat() if mistake.created_at else None,
-                },
-            })
+            samples.append(
+                {
+                    "id": str(mistake.id),
+                    "type": "mistake_correction",
+                    "input": {
+                        "original_response": mistake.original_response,
+                        "ticket_context": mistake.ticket_id,
+                    },
+                    "expected_output": mistake.correction or mistake.expected_response,
+                    "metadata": {
+                        "mistake_type": mistake.mistake_type,
+                        "severity": mistake.severity,
+                        "created_at": (
+                            mistake.created_at.isoformat()
+                            if mistake.created_at
+                            else None
+                        ),
+                    },
+                }
+            )
 
         return samples
 
-    def _collect_from_manual_labels(
-            self,
-            company_id: str,
-            agent_id: str) -> List[Dict]:
+    def _collect_from_manual_labels(self, company_id: str, agent_id: str) -> List[Dict]:
         """Collect training samples from manually labeled data.
 
         Args:
@@ -546,10 +541,7 @@ class DatasetPreparationService:
         )
         return []
 
-    def _collect_from_exports(
-            self,
-            company_id: str,
-            agent_id: str) -> List[Dict]:
+    def _collect_from_exports(self, company_id: str, agent_id: str) -> List[Dict]:
         """Collect training samples from ticket history exports.
 
         Args:
@@ -568,9 +560,8 @@ class DatasetPreparationService:
         return []
 
     def _collect_from_knowledge_base(
-            self,
-            company_id: str,
-            agent_id: str) -> List[Dict]:
+        self, company_id: str, agent_id: str
+    ) -> List[Dict]:
         """Collect training samples from knowledge base documents.
 
         Args:
@@ -596,20 +587,24 @@ class DatasetPreparationService:
         for doc in docs:
             # Extract Q&A pairs from knowledge documents
             if doc.content:
-                samples.append({
-                    "id": str(doc.id),
-                    "type": "knowledge_qa",
-                    "input": {
-                        "document_title": doc.title,
-                        "document_type": doc.doc_type,
-                    },
-                    # Truncate for training
-                    "expected_output": doc.content[:1000],
-                    "metadata": {
-                        "source": "knowledge_base",
-                        "created_at": doc.created_at.isoformat() if doc.created_at else None,
-                    },
-                })
+                samples.append(
+                    {
+                        "id": str(doc.id),
+                        "type": "knowledge_qa",
+                        "input": {
+                            "document_title": doc.title,
+                            "document_type": doc.doc_type,
+                        },
+                        # Truncate for training
+                        "expected_output": doc.content[:1000],
+                        "metadata": {
+                            "source": "knowledge_base",
+                            "created_at": (
+                                doc.created_at.isoformat() if doc.created_at else None
+                            ),
+                        },
+                    }
+                )
 
         return samples
 
@@ -618,9 +613,8 @@ class DatasetPreparationService:
     # ══════════════════════════════════════════════════════════════════════════
 
     def _transform_to_training_format(
-            self,
-            samples: List[Dict],
-            source: str) -> List[Dict]:
+        self, samples: List[Dict], source: str
+    ) -> List[Dict]:
         """Transform samples to standard training format.
 
         Args:
@@ -711,10 +705,8 @@ class DatasetPreparationService:
         return round(sum(scores) / len(scores), 3)
 
     def _store_dataset(
-            self,
-            company_id: str,
-            dataset_id: str,
-            training_data: List[Dict]) -> str:
+        self, company_id: str, dataset_id: str, training_data: List[Dict]
+    ) -> str:
         """Store training dataset to disk/storage.
 
         Args:
@@ -765,10 +757,16 @@ class DatasetPreparationService:
             "description": dataset.description,
             "status": dataset.status,
             "record_count": dataset.record_count or 0,
-            "quality_score": float(dataset.quality_score) if dataset.quality_score else 0.0,
+            "quality_score": (
+                float(dataset.quality_score) if dataset.quality_score else 0.0
+            ),
             "storage_path": dataset.storage_path,
             "format_version": dataset.format_version,
             "error_message": dataset.error_message,
-            "prepared_at": dataset.prepared_at.isoformat() if dataset.prepared_at else None,
-            "created_at": dataset.created_at.isoformat() if dataset.created_at else None,
+            "prepared_at": (
+                dataset.prepared_at.isoformat() if dataset.prepared_at else None
+            ),
+            "created_at": (
+                dataset.created_at.isoformat() if dataset.created_at else None
+            ),
         }

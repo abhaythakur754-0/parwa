@@ -92,9 +92,7 @@ def require_platform_admin(
     admin_emails_raw = os.environ.get("PLATFORM_ADMIN_EMAILS", "")
     if admin_emails_raw:
         admin_emails = {
-            e.strip().lower()
-            for e in admin_emails_raw.split(",")
-            if e.strip()
+            e.strip().lower() for e in admin_emails_raw.split(",") if e.strip()
         }
         if user.email and user.email.lower() in admin_emails:
             return user
@@ -122,25 +120,20 @@ def _serialize_company_with_count(company) -> dict:
         "subscription_status": company.subscription_status,
         "mode": company.mode,
         "paddle_customer_id": company.paddle_customer_id,
-        "paddle_subscription_id": (
-            company.paddle_subscription_id
-        ),
-        "created_at": (
-            company.created_at.isoformat()
-            if company.created_at else None
-        ),
-        "updated_at": (
-            company.updated_at.isoformat()
-            if company.updated_at else None
-        ),
+        "paddle_subscription_id": (company.paddle_subscription_id),
+        "created_at": (company.created_at.isoformat() if company.created_at else None),
+        "updated_at": (company.updated_at.isoformat() if company.updated_at else None),
         "user_count": getattr(
-            company, "_user_count", 0,
+            company,
+            "_user_count",
+            0,
         ),
     }
 
 
 def _serialize_provider(provider) -> dict:
     """Serialize APIProvider ORM object to response dict."""
+
     def _parse_json(val, default):
         if val is None:
             return default
@@ -155,16 +148,17 @@ def _serialize_provider(provider) -> dict:
         "provider_type": provider.provider_type,
         "description": provider.description,
         "required_fields": _parse_json(
-            provider.required_fields, [],
+            provider.required_fields,
+            [],
         ),
         "optional_fields": _parse_json(
-            provider.optional_fields, [],
+            provider.optional_fields,
+            [],
         ),
         "default_endpoint": provider.default_endpoint,
         "is_active": provider.is_active,
         "created_at": (
-            provider.created_at.isoformat()
-            if provider.created_at else None
+            provider.created_at.isoformat() if provider.created_at else None
         ),
     }
 
@@ -197,23 +191,32 @@ def list_clients(
     per_page = min(per_page, 100)
     offset = (page - 1) * per_page
 
-    companies = query.order_by(
-        Company.created_at.desc(),
-    ).offset(offset).limit(per_page).all()
+    companies = (
+        query.order_by(
+            Company.created_at.desc(),
+        )
+        .offset(offset)
+        .limit(per_page)
+        .all()
+    )
 
     # Annotate with user counts
     items = []
     for c in companies:
         from sqlalchemy import func as sa_func
-        count = db.query(sa_func.count(User.id)).filter(
-            User.company_id == c.id,
-        ).scalar() or 0
+
+        count = (
+            db.query(sa_func.count(User.id))
+            .filter(
+                User.company_id == c.id,
+            )
+            .scalar()
+            or 0
+        )
         c._user_count = count  # type: ignore[attr-defined]
         items.append(_serialize_company_with_count(c))
 
-    total_pages = (
-        math.ceil(total / per_page) if total > 0 else 0
-    )
+    total_pages = math.ceil(total / per_page) if total > 0 else 0
 
     return {
         "items": items,
@@ -232,9 +235,13 @@ def get_client_detail(
 ) -> dict:
     """Get single client detail."""
     _validate_uuid(company_id, "company_id")
-    company = db.query(Company).filter(
-        Company.id == company_id,
-    ).first()
+    company = (
+        db.query(Company)
+        .filter(
+            Company.id == company_id,
+        )
+        .first()
+    )
 
     if not company:
         raise NotFoundError(
@@ -243,9 +250,15 @@ def get_client_detail(
         )
 
     from sqlalchemy import func as sa_func
-    count = db.query(sa_func.count(User.id)).filter(
-        User.company_id == company.id,
-    ).scalar() or 0
+
+    count = (
+        db.query(sa_func.count(User.id))
+        .filter(
+            User.company_id == company.id,
+        )
+        .scalar()
+        or 0
+    )
     company._user_count = count  # type: ignore[attr-defined]
 
     return _serialize_company_with_count(company)
@@ -260,9 +273,13 @@ def update_client(
 ) -> dict:
     """Update client details."""
     _validate_uuid(company_id, "company_id")
-    company = db.query(Company).filter(
-        Company.id == company_id,
-    ).first()
+    company = (
+        db.query(Company)
+        .filter(
+            Company.id == company_id,
+        )
+        .first()
+    )
 
     if not company:
         raise NotFoundError(
@@ -276,14 +293,21 @@ def update_client(
             setattr(company, field, value)
 
     from datetime import datetime as dt
+
     company.updated_at = dt.utcnow()
     db.commit()
     db.refresh(company)
 
     from sqlalchemy import func as sa_func
-    count = db.query(sa_func.count(User.id)).filter(
-        User.company_id == company.id,
-    ).scalar() or 0
+
+    count = (
+        db.query(sa_func.count(User.id))
+        .filter(
+            User.company_id == company.id,
+        )
+        .scalar()
+        or 0
+    )
     company._user_count = count  # type: ignore[attr-defined]
 
     log_audit(
@@ -309,9 +333,13 @@ def update_subscription(
 ) -> dict:
     """Change subscription tier/status."""
     _validate_uuid(company_id, "company_id")
-    company = db.query(Company).filter(
-        Company.id == company_id,
-    ).first()
+    company = (
+        db.query(Company)
+        .filter(
+            Company.id == company_id,
+        )
+        .first()
+    )
 
     if not company:
         raise NotFoundError(
@@ -325,14 +353,21 @@ def update_subscription(
         company.subscription_status = body.status.value
 
     from datetime import datetime as dt
+
     company.updated_at = dt.utcnow()
     db.commit()
     db.refresh(company)
 
     from sqlalchemy import func as sa_func
-    count = db.query(sa_func.count(User.id)).filter(
-        User.company_id == company.id,
-    ).scalar() or 0
+
+    count = (
+        db.query(sa_func.count(User.id))
+        .filter(
+            User.company_id == company.id,
+        )
+        .scalar()
+        or 0
+    )
     company._user_count = count  # type: ignore[attr-defined]
 
     log_audit(
@@ -370,9 +405,14 @@ def list_api_providers(
     db: Session = Depends(get_db),
 ) -> dict:
     """List all API providers (global)."""
-    providers = db.query(APIProvider).filter(
-        APIProvider.is_active is True,  # noqa: E712
-    ).order_by(APIProvider.name).all()
+    providers = (
+        db.query(APIProvider)
+        .filter(
+            APIProvider.is_active is True,  # noqa: E712
+        )
+        .order_by(APIProvider.name)
+        .all()
+    )
     return {
         "items": [_serialize_provider(p) for p in providers],
     }
@@ -426,9 +466,13 @@ def update_api_provider(
     db: Session = Depends(get_db),
 ) -> dict:
     """Update an API provider."""
-    provider = db.query(APIProvider).filter(
-        APIProvider.id == provider_id,
-    ).first()
+    provider = (
+        db.query(APIProvider)
+        .filter(
+            APIProvider.id == provider_id,
+        )
+        .first()
+    )
 
     if not provider:
         raise NotFoundError(
@@ -469,9 +513,13 @@ def delete_api_provider(
     db: Session = Depends(get_db),
 ) -> MessageResponse:
     """Soft-delete an API provider (set is_active=False)."""
-    provider = db.query(APIProvider).filter(
-        APIProvider.id == provider_id,
-    ).first()
+    provider = (
+        db.query(APIProvider)
+        .filter(
+            APIProvider.id == provider_id,
+        )
+        .first()
+    )
 
     if not provider:
         raise NotFoundError(
@@ -492,9 +540,7 @@ def delete_api_provider(
         db=db,
     )
 
-    return MessageResponse(
-        message="API provider deactivated successfully"
-    )
+    return MessageResponse(message="API provider deactivated successfully")
 
 
 # ── Webhook Management ────────────────────────────────────────────

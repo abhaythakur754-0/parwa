@@ -60,12 +60,8 @@ class TestContinuityConfig(unittest.TestCase):
     def test_config_isolation(self):
         """Company A config doesn't affect B."""
         mgr = _mgr()
-        cfg_a = ContinuityConfig(
-            lock_timeout_seconds=10.0,
-            collision_strategy="reject")
-        cfg_b = ContinuityConfig(
-            lock_timeout_seconds=999.0,
-            collision_strategy="queue")
+        cfg_a = ContinuityConfig(lock_timeout_seconds=10.0, collision_strategy="reject")
+        cfg_b = ContinuityConfig(lock_timeout_seconds=999.0, collision_strategy="queue")
         mgr.configure("co-a", cfg_a)
         mgr.configure("co-b", cfg_b)
         self.assertEqual(mgr.get_config("co-a").lock_timeout_seconds, 10.0)
@@ -212,10 +208,13 @@ class TestLockExpiry(unittest.TestCase):
     def test_lock_expiry_collision_strategy(self):
         """After expiry, new agent can acquire regardless of collision strategy."""
         mgr = _mgr()
-        mgr.configure("co1", ContinuityConfig(
-            lock_timeout_seconds=0.01,
-            collision_strategy="reject",
-        ))
+        mgr.configure(
+            "co1",
+            ContinuityConfig(
+                lock_timeout_seconds=0.01,
+                collision_strategy="reject",
+            ),
+        )
         mgr.acquire_lock("co1", "tkt1", "agent-A")
         time.sleep(0.05)
         result = mgr.acquire_lock("co1", "tkt1", "agent-B")
@@ -267,12 +266,7 @@ class TestCollisionStrategies(unittest.TestCase):
         mgr = _mgr()
         mgr.configure("co1", ContinuityConfig(collision_strategy="preempt"))
         mgr.acquire_lock("co1", "tkt1", "agent-A", metadata={"priority": 1})
-        result = mgr.acquire_lock(
-            "co1",
-            "tkt1",
-            "agent-B",
-            metadata={
-                "priority": 10})
+        result = mgr.acquire_lock("co1", "tkt1", "agent-B", metadata={"priority": 10})
         self.assertTrue(result["success"])
         self.assertEqual(result["action"], "acquired")
         self.assertEqual(mgr.get_ticket_owner("co1", "tkt1"), "agent-B")
@@ -310,10 +304,14 @@ class TestSessionManagement(unittest.TestCase):
         mgr.acquire_lock("co1", "tkt1", "agent-A")
         reg = mgr.register_session("co1", "tkt1", "agent-A", "standard")
         sid = reg["session_id"]
-        result = mgr.update_session("co1", sid, {
-            "stage_reached": "classification",
-            "processing_steps": 5,
-        })
+        result = mgr.update_session(
+            "co1",
+            sid,
+            {
+                "stage_reached": "classification",
+                "processing_steps": 5,
+            },
+        )
         self.assertTrue(result["success"])
         session = mgr.get_session("co1", sid)
         self.assertEqual(session["stage_reached"], "classification")
@@ -364,7 +362,10 @@ class TestSessionManagement(unittest.TestCase):
         mgr = _mgr()
         mgr.acquire_lock("co1", "tkt1", "agent-A")
         reg = mgr.register_session(
-            "co1", "tkt1", "agent-A", "standard",
+            "co1",
+            "tkt1",
+            "agent-A",
+            "standard",
             metadata={"customer_tier": "premium", "channel": "email"},
         )
         sid = reg["session_id"]
@@ -391,10 +392,13 @@ class TestStaleDetection(unittest.TestCase):
     def test_no_stale_when_healthy(self):
         """Fresh session not stale."""
         mgr = _mgr()
-        mgr.configure("co1", ContinuityConfig(
-            heartbeat_interval_seconds=1.0,
-            max_heartbeat_misses=1,
-        ))
+        mgr.configure(
+            "co1",
+            ContinuityConfig(
+                heartbeat_interval_seconds=1.0,
+                max_heartbeat_misses=1,
+            ),
+        )
         mgr.acquire_lock("co1", "tkt1", "agent-A")
         reg = mgr.register_session("co1", "tkt1", "agent-A", "standard")
         mgr.heartbeat("co1", reg["session_id"])
@@ -405,10 +409,13 @@ class TestStaleDetection(unittest.TestCase):
     def test_detect_stale_sessions(self):
         """Configure short heartbeat, wait, detect."""
         mgr = _mgr()
-        mgr.configure("co1", ContinuityConfig(
-            heartbeat_interval_seconds=0.01,
-            max_heartbeat_misses=1,
-        ))
+        mgr.configure(
+            "co1",
+            ContinuityConfig(
+                heartbeat_interval_seconds=0.01,
+                max_heartbeat_misses=1,
+            ),
+        )
         mgr.acquire_lock("co1", "tkt1", "agent-A")
         reg = mgr.register_session("co1", "tkt1", "agent-A", "standard")
         time.sleep(0.05)
@@ -439,15 +446,17 @@ class TestStaleDetection(unittest.TestCase):
     def test_stale_after_max_misses(self):
         """Multiple missed heartbeats counted correctly."""
         mgr = _mgr()
-        mgr.configure("co1", ContinuityConfig(
-            heartbeat_interval_seconds=0.01,
-            max_heartbeat_misses=3,
-        ))
+        mgr.configure(
+            "co1",
+            ContinuityConfig(
+                heartbeat_interval_seconds=0.01,
+                max_heartbeat_misses=3,
+            ),
+        )
         mgr.acquire_lock("co1", "tkt1", "agent-A")
         reg = mgr.register_session("co1", "tkt1", "agent-A", "standard")
         time.sleep(0.02)
-        self.assertEqual(
-            len(mgr.detect_stale_sessions("co1")["stale_sessions"]), 0)
+        self.assertEqual(len(mgr.detect_stale_sessions("co1")["stale_sessions"]), 0)
         time.sleep(0.02)
         stale = mgr.detect_stale_sessions("co1")["stale_sessions"]
         self.assertTrue(len(stale) > 0)
@@ -462,8 +471,7 @@ class TestHandoff(unittest.TestCase):
         mgr = _mgr()
         mgr.acquire_lock("co1", "tkt1", "agent-A")
         mgr.register_session("co1", "tkt1", "agent-A", "standard")
-        result = mgr.initiate_handoff(
-            "co1", "tkt1", "agent-A", "agent-B", "escalation")
+        result = mgr.initiate_handoff("co1", "tkt1", "agent-A", "agent-B", "escalation")
         self.assertTrue(result["success"])
         self.assertEqual(mgr.get_ticket_owner("co1", "tkt1"), "agent-B")
 
@@ -484,8 +492,7 @@ class TestHandoff(unittest.TestCase):
         """Fails gracefully."""
         mgr = _mgr()
         mgr.acquire_lock("co1", "tkt1", "agent-A")
-        result = mgr.initiate_handoff(
-            "co1", "tkt1", "agent-C", "agent-B", "escalation")
+        result = mgr.initiate_handoff("co1", "tkt1", "agent-C", "agent-B", "escalation")
         self.assertFalse(result["success"])
         self.assertIn("error", result)
 
@@ -496,12 +503,8 @@ class TestHandoff(unittest.TestCase):
         mgr.register_session("co1", "tkt1", "agent-A", "standard")
         ctx = {"summary": "Customer upset", "notes": "Follow up required"}
         mgr.initiate_handoff(
-            "co1",
-            "tkt1",
-            "agent-A",
-            "agent-B",
-            "escalation",
-            context=ctx)
+            "co1", "tkt1", "agent-A", "agent-B", "escalation", context=ctx
+        )
         history = mgr.get_handoff_history("co1", "tkt1")
         self.assertEqual(history[0]["context_transferred"], ctx)
 
@@ -511,8 +514,7 @@ class TestHandoff(unittest.TestCase):
         mgr.acquire_lock("co1", "tkt1", "agent-A")
         mgr.register_session("co1", "tkt1", "agent-A", "standard")
         mgr.initiate_handoff("co1", "tkt1", "agent-A", "agent-B", "escalation")
-        reg = mgr.register_session(
-            "co1", "tkt1", "agent-B", "escalation-variant")
+        reg = mgr.register_session("co1", "tkt1", "agent-B", "escalation-variant")
         self.assertTrue(reg["success"])
 
     def test_handoff_history_retrieved(self):
@@ -621,6 +623,7 @@ class TestContinuityEvents(unittest.TestCase):
 
         def cb(et, pl):
             return received.append((et, pl))
+
         mgr.add_event_listener(cb)
         mgr.acquire_lock("co1", "tkt1", "agent-A")
         count_after_add = len(received)
@@ -757,13 +760,7 @@ class TestEnumValues(unittest.TestCase):
 
     def test_session_status_values(self):
         """Key SessionStatus values exist."""
-        expected = {
-            "active",
-            "completed",
-            "failed",
-            "handoff",
-            "preempted",
-            "expired"}
+        expected = {"active", "completed", "failed", "handoff", "preempted", "expired"}
         actual = {s.value for s in SessionStatus}
         self.assertEqual(actual, expected)
 
@@ -775,12 +772,7 @@ class TestEnumValues(unittest.TestCase):
 
     def test_lock_status_values(self):
         """Key LockStatus values exist."""
-        expected = {
-            "acquired",
-            "contested",
-            "released",
-            "expired",
-            "not_found"}
+        expected = {"acquired", "contested", "released", "expired", "not_found"}
         actual = {item.value for item in LockStatus}
         self.assertEqual(actual, expected)
 

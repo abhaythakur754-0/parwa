@@ -57,37 +57,57 @@ _FAQ_TABLE: Dict[str, str] = {
         "To cancel, go to Settings > Billing > Cancel Plan."
     ),
     "how do i contact support": (
-        "You can reach us via the chat widget or "
-        "email support@example.com."
+        "You can reach us via the chat widget or " "email support@example.com."
     ),
     "what are your business hours": (
-        "Our support team is available Mon–Fri, "
-        "9 AM – 6 PM (UTC)."
+        "Our support team is available Mon–Fri, " "9 AM – 6 PM (UTC)."
     ),
     "how do i upgrade my plan": (
-        "Go to Settings > Billing > Change Plan "
-        "to upgrade anytime."
+        "Go to Settings > Billing > Change Plan " "to upgrade anytime."
     ),
 }
 
 # ── Pricing keywords ────────────────────────────────────────────
 _PRICING_KEYWORDS: Set[str] = {
-    "pricing", "plan", "cost", "upgrade", "enterprise",
-    "subscription fee", "billing", "invoice", "payment",
-    "how much", "price",
+    "pricing",
+    "plan",
+    "cost",
+    "upgrade",
+    "enterprise",
+    "subscription fee",
+    "billing",
+    "invoice",
+    "payment",
+    "how much",
+    "price",
 }
 
 # ── Legal terminology keywords ──────────────────────────────────
 _LEGAL_KEYWORDS: Set[str] = {
-    "lawsuit", "attorney", "legal action", "dmca", "gdpr",
-    "litigation", "subpoena", "compliance", "regulation",
-    "liability", "indemnification", "breach of contract",
+    "lawsuit",
+    "attorney",
+    "legal action",
+    "dmca",
+    "gdpr",
+    "litigation",
+    "subpoena",
+    "compliance",
+    "regulation",
+    "liability",
+    "indemnification",
+    "breach of contract",
 }
 
 # ── Competitor list (configurable) ──────────────────────────────
 DEFAULT_COMPETITORS: Set[str] = {
-    "zendesk", "freshdesk", "intercom", "help scout",
-    "crisp", "tawk.to", "livechat", "drift",
+    "zendesk",
+    "freshdesk",
+    "intercom",
+    "help scout",
+    "crisp",
+    "tawk.to",
+    "livechat",
+    "drift",
 }
 
 # ── System command patterns ─────────────────────────────────────
@@ -119,27 +139,33 @@ _MALICIOUS_HTML_PATTERNS: List[str] = [
 
 # ── Unsupported language ranges (Unicode block starts) ──────────
 _UNSUPPORTED_RANGES: List[tuple[int, int, str]] = [
-    (0x4E00, 0x9FFF, "CJK"),          # CJK Unified Ideographs
-    (0x3040, 0x309F, "Japanese"),      # Hiragana
-    (0x30A0, 0x30FF, "Japanese"),      # Katakana
-    (0xAC00, 0xD7AF, "Korean"),        # Hangul Syllables
-    (0x0600, 0x06FF, "Arabic"),        # Arabic
-    (0x0590, 0x05FF, "Hebrew"),        # Hebrew
-    (0x0400, 0x04FF, "Cyrillic"),      # Cyrillic
-    (0x0E00, 0x0E7F, "Thai"),          # Thai
-    (0x0900, 0x097F, "Devanagari"),    # Devanagari
+    (0x4E00, 0x9FFF, "CJK"),  # CJK Unified Ideographs
+    (0x3040, 0x309F, "Japanese"),  # Hiragana
+    (0x30A0, 0x30FF, "Japanese"),  # Katakana
+    (0xAC00, 0xD7AF, "Korean"),  # Hangul Syllables
+    (0x0600, 0x06FF, "Arabic"),  # Arabic
+    (0x0590, 0x05FF, "Hebrew"),  # Hebrew
+    (0x0400, 0x04FF, "Cyrillic"),  # Cyrillic
+    (0x0E00, 0x0E7F, "Thai"),  # Thai
+    (0x0900, 0x097F, "Devanagari"),  # Devanagari
 ]
 
 # ── Variant-specific handler allowlists (GAP-023) ───────────────
 # mini_parwa runs a reduced set for faster L1 processing
 VARIANT_HANDLER_WHITELIST: Dict[str, List[str]] = {
     "mini_parwa": [
-        "empty_query", "too_long_query", "malicious_html",
-        "blocked_user", "maintenance_mode", "timeout",
-        "emojis_only", "code_blocks", "system_commands",
+        "empty_query",
+        "too_long_query",
+        "malicious_html",
+        "blocked_user",
+        "maintenance_mode",
+        "timeout",
+        "emojis_only",
+        "code_blocks",
+        "system_commands",
         "faq_match",
     ],
-    "parwa": None,      # All handlers
+    "parwa": None,  # All handlers
     "high_parwa": None,  # All handlers
 }
 
@@ -162,6 +188,7 @@ _RE_CODE_FENCE = re.compile(r"```[\s\S]*?```", re.MULTILINE)
 
 class EdgeCaseAction(str, Enum):
     """Actions an edge-case handler can request."""
+
     PROCEED = "proceed"
     REWRITE = "rewrite"
     REDIRECT = "redirect"
@@ -171,6 +198,7 @@ class EdgeCaseAction(str, Enum):
 
 class EdgeCaseSeverity(str, Enum):
     """Severity levels for edge-case findings."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -190,6 +218,7 @@ class EdgeCaseResult:
         reason: Human-readable explanation.
         metadata: Extra structured data for logging/analytics.
     """
+
     handler_type: str
     action: EdgeCaseAction
     severity: str = EdgeCaseSeverity.LOW.value
@@ -212,6 +241,7 @@ class EdgeCaseProcessingResult:
         processing_time_ms: Total chain processing time.
         results: Individual results from each triggered handler.
     """
+
     final_action: EdgeCaseAction = EdgeCaseAction.PROCEED
     final_query: str = ""
     handlers_triggered: List[str] = field(default_factory=list)
@@ -260,7 +290,9 @@ class EdgeCaseHandler(ABC):
 
     @abstractmethod
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         """Process the query and return a result.
 
@@ -291,10 +323,7 @@ def _strip_emojis(text: str) -> str:
     Returns:
         String with emojis removed.
     """
-    return "".join(
-        ch for ch in text
-        if unicodedata.category(ch) not in ("So", "Sk")
-    )
+    return "".join(ch for ch in text if unicodedata.category(ch) not in ("So", "Sk"))
 
 
 def _has_only_emojis(text: str) -> bool:
@@ -340,9 +369,22 @@ def _count_questions(query: str) -> int:
     """
     count = query.count("?")
     question_words = [
-        "how", "what", "when", "where", "why", "who",
-        "which", "can", "could", "would", "should",
-        "is", "are", "do", "does", "did",
+        "how",
+        "what",
+        "when",
+        "where",
+        "why",
+        "who",
+        "which",
+        "can",
+        "could",
+        "would",
+        "should",
+        "is",
+        "are",
+        "do",
+        "does",
+        "did",
     ]
     lower = query.lower()
     for word in question_words:
@@ -400,7 +442,9 @@ class EmptyQueryHandler(EdgeCaseHandler):
         return len(query.strip()) == 0
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         return EdgeCaseResult(
             handler_type=self.handler_type,
@@ -429,7 +473,9 @@ class TooLongQueryHandler(EdgeCaseHandler):
         return len(query) > MAX_QUERY_LENGTH
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         truncated = query[:MAX_QUERY_LENGTH]
         return EdgeCaseResult(
@@ -467,7 +513,9 @@ class UnsupportedLanguageHandler(EdgeCaseHandler):
         return script is not None
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         script = _detect_script(query.strip()) or "unknown"
         return EdgeCaseResult(
@@ -498,7 +546,9 @@ class EmojisOnlyHandler(EdgeCaseHandler):
         return _has_only_emojis(query)
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         return EdgeCaseResult(
             handler_type=self.handler_type,
@@ -527,7 +577,9 @@ class CodeBlocksHandler(EdgeCaseHandler):
         return _contains_code_blocks(query)
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         blocks = _RE_CODE_FENCE.findall(query)
         return EdgeCaseResult(
@@ -571,7 +623,9 @@ class DuplicateQueryHandler(EdgeCaseHandler):
         return False
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         recent = context.get("recent_queries", [])
         best_ratio = 0.0
@@ -586,10 +640,7 @@ class DuplicateQueryHandler(EdgeCaseHandler):
             action=EdgeCaseAction.REWRITE,
             severity=EdgeCaseSeverity.LOW.value,
             rewritten_query=query,
-            reason=(
-                "Near-duplicate query detected "
-                f"(similarity: {best_ratio:.2f})"
-            ),
+            reason=("Near-duplicate query detected " f"(similarity: {best_ratio:.2f})"),
             metadata={
                 "similarity_ratio": round(best_ratio, 4),
                 "recent_query_count": len(recent),
@@ -615,7 +666,9 @@ class EmbeddedImagesHandler(EdgeCaseHandler):
         return _has_embedded_images(query)
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         markers_found = []
         for marker in ["[image]", "[attachment]", "[file]", "[photo]"]:
@@ -625,10 +678,7 @@ class EmbeddedImagesHandler(EdgeCaseHandler):
             handler_type=self.handler_type,
             action=EdgeCaseAction.PROCEED,
             severity=EdgeCaseSeverity.LOW.value,
-            reason=(
-                "Query references attachments: "
-                f"{', '.join(markers_found)}"
-            ),
+            reason=("Query references attachments: " f"{', '.join(markers_found)}"),
             metadata={"markers_found": markers_found},
         )
 
@@ -651,7 +701,9 @@ class MultiQuestionHandler(EdgeCaseHandler):
         return _count_questions(query) > MULTI_QUESTION_THRESHOLD
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         count = _count_questions(query)
         return EdgeCaseResult(
@@ -691,7 +743,9 @@ class NonExistentTicketHandler(EdgeCaseHandler):
         return exists is False
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         ticket_id = context.get("referenced_ticket_id", "unknown")
         return EdgeCaseResult(
@@ -699,9 +753,7 @@ class NonExistentTicketHandler(EdgeCaseHandler):
             action=EdgeCaseAction.REWRITE,
             severity=EdgeCaseSeverity.MEDIUM.value,
             rewritten_query=query,
-            reason=(
-                f"Referenced ticket {ticket_id} does not exist"
-            ),
+            reason=(f"Referenced ticket {ticket_id} does not exist"),
             metadata={"referenced_ticket_id": ticket_id},
         )
 
@@ -724,7 +776,9 @@ class MaliciousHTMLHandler(EdgeCaseHandler):
         return bool(_RE_MALICIOUS_HTML.search(query))
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         match = _RE_MALICIOUS_HTML.search(query)
         matched_text = match.group(0) if match else "unknown"
@@ -732,10 +786,7 @@ class MaliciousHTMLHandler(EdgeCaseHandler):
             handler_type=self.handler_type,
             action=EdgeCaseAction.BLOCK,
             severity=EdgeCaseSeverity.CRITICAL.value,
-            reason=(
-                "Malicious HTML/script injection detected: "
-                f"{matched_text}"
-            ),
+            reason=("Malicious HTML/script injection detected: " f"{matched_text}"),
             metadata={"matched_pattern": matched_text},
         )
 
@@ -765,7 +816,9 @@ class FAQMatchHandler(EdgeCaseHandler):
         return False
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         table = context.get("faq_table", _FAQ_TABLE)
         lower = query.strip().lower()
@@ -812,7 +865,9 @@ class BelowConfidenceHandler(EdgeCaseHandler):
         return float(score) < CONFIDENCE_THRESHOLD
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         score = float(context.get("confidence_score", 0.0))
         return EdgeCaseResult(
@@ -855,13 +910,16 @@ class MaintenanceModeHandler(EdgeCaseHandler):
         return False
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         status = context.get("system_status", {})
         message = "System is currently in maintenance mode"
         if isinstance(status, dict):
             message = status.get(
-                "maintenance_message", message,
+                "maintenance_message",
+                message,
             )
         return EdgeCaseResult(
             handler_type=self.handler_type,
@@ -904,7 +962,9 @@ class ExpiredContextHandler(EdgeCaseHandler):
             return False
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         ts = context.get("context_timestamp", "")
         return EdgeCaseResult(
@@ -944,11 +1004,15 @@ class BlockedUserHandler(EdgeCaseHandler):
             return True
         status = context.get("user_status", "")
         return str(status).lower() in (
-            "blocked", "suspended", "banned",
+            "blocked",
+            "suspended",
+            "banned",
         )
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         status = context.get("user_status", "blocked")
         return EdgeCaseResult(
@@ -976,12 +1040,12 @@ class PricingRequestHandler(EdgeCaseHandler):
 
     def can_handle(self, query: str, context: Dict[str, Any]) -> bool:
         lower = query.lower()
-        return any(
-            kw in lower for kw in _PRICING_KEYWORDS
-        )
+        return any(kw in lower for kw in _PRICING_KEYWORDS)
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         matched = []
         lower = query.lower()
@@ -1014,12 +1078,12 @@ class LegalTerminologyHandler(EdgeCaseHandler):
 
     def can_handle(self, query: str, context: Dict[str, Any]) -> bool:
         lower = query.lower()
-        return any(
-            kw in lower for kw in _LEGAL_KEYWORDS
-        )
+        return any(kw in lower for kw in _LEGAL_KEYWORDS)
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         matched = []
         lower = query.lower()
@@ -1030,10 +1094,7 @@ class LegalTerminologyHandler(EdgeCaseHandler):
             handler_type=self.handler_type,
             action=EdgeCaseAction.ESCALATE,
             severity=EdgeCaseSeverity.HIGH.value,
-            reason=(
-                "Legal terminology detected: "
-                f"{', '.join(matched)}"
-            ),
+            reason=("Legal terminology detected: " f"{', '.join(matched)}"),
             metadata={"matched_keywords": matched},
         )
 
@@ -1056,7 +1117,8 @@ class CompetitorMentionHandler(EdgeCaseHandler):
 
     def can_handle(self, query: str, context: Dict[str, Any]) -> bool:
         competitors = context.get(
-            "competitors", DEFAULT_COMPETITORS,
+            "competitors",
+            DEFAULT_COMPETITORS,
         )
         if not isinstance(competitors, (list, set)):
             competitors = DEFAULT_COMPETITORS
@@ -1064,24 +1126,22 @@ class CompetitorMentionHandler(EdgeCaseHandler):
         return any(c in lower for c in competitors)
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         competitors = context.get(
-            "competitors", DEFAULT_COMPETITORS,
+            "competitors",
+            DEFAULT_COMPETITORS,
         )
         if not isinstance(competitors, (list, set)):
             competitors = DEFAULT_COMPETITORS
-        matched = [
-            c for c in competitors if c in query.lower()
-        ]
+        matched = [c for c in competitors if c in query.lower()]
         return EdgeCaseResult(
             handler_type=self.handler_type,
             action=EdgeCaseAction.PROCEED,
             severity=EdgeCaseSeverity.LOW.value,
-            reason=(
-                "Competitor mention detected: "
-                f"{', '.join(matched)}"
-            ),
+            reason=("Competitor mention detected: " f"{', '.join(matched)}"),
             metadata={
                 "competitors_mentioned": matched,
                 "competitor_list": list(DEFAULT_COMPETITORS),
@@ -1107,7 +1167,9 @@ class SystemCommandsHandler(EdgeCaseHandler):
         return bool(_RE_SYSTEM_COMMANDS.search(query))
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         match = _RE_SYSTEM_COMMANDS.search(query)
         matched_text = match.group(0) if match else "unknown"
@@ -1115,10 +1177,7 @@ class SystemCommandsHandler(EdgeCaseHandler):
             handler_type=self.handler_type,
             action=EdgeCaseAction.BLOCK,
             severity=EdgeCaseSeverity.CRITICAL.value,
-            reason=(
-                "System command attempt detected: "
-                f"{matched_text}"
-            ),
+            reason=("System command attempt detected: " f"{matched_text}"),
             metadata={"matched_pattern": matched_text},
         )
 
@@ -1144,7 +1203,9 @@ class TimeoutHandler(EdgeCaseHandler):
         return elapsed > (CHAIN_TIMEOUT_SECONDS * 1000)
 
     def handle(
-        self, query: str, context: Dict[str, Any],
+        self,
+        query: str,
+        context: Dict[str, Any],
     ) -> EdgeCaseResult:
         elapsed = context.get("_processing_elapsed_ms", 0)
         return EdgeCaseResult(
@@ -1232,10 +1293,7 @@ class EdgeCaseRegistry:
         # Apply variant whitelist (GAP-023)
         whitelist = VARIANT_HANDLER_WHITELIST.get(variant)
         if whitelist is not None:
-            self._handlers = [
-                h for h in self._handlers
-                if h.handler_type in whitelist
-            ]
+            self._handlers = [h for h in self._handlers if h.handler_type in whitelist]
 
         # Sort by priority
         self._handlers.sort(key=lambda h: h.priority)
@@ -1245,9 +1303,7 @@ class EdgeCaseRegistry:
             extra={
                 "variant": variant,
                 "handler_count": len(self._handlers),
-                "handler_types": [
-                    h.handler_type for h in self._handlers
-                ],
+                "handler_types": [h.handler_type for h in self._handlers],
             },
         )
 
@@ -1259,15 +1315,13 @@ class EdgeCaseRegistry:
         """
         if handler.handler_type in self._handler_map:
             existing = self._handler_map[handler.handler_type]
-            self._handlers = [
-                h for h in self._handlers
-                if h is not existing
-            ]
+            self._handlers = [h for h in self._handlers if h is not existing]
         self._handler_map[handler.handler_type] = handler
         self._handlers.append(handler)
 
     def get_handler(
-        self, handler_type: str,
+        self,
+        handler_type: str,
     ) -> Optional[EdgeCaseHandler]:
         """Look up a handler by type string.
 
@@ -1325,7 +1379,9 @@ class EdgeCaseRegistry:
             try:
                 # GAP-022: Per-handler timeout wrapper
                 result = self._run_with_timeout(
-                    handler, current_query, context,
+                    handler,
+                    current_query,
+                    context,
                 )
             except Exception:
                 logger.warning(

@@ -40,7 +40,11 @@ from app.clients.paddle_client import (
 )
 from database.base import SessionLocal
 from database.models.billing import Subscription, OverageCharge
-from database.models.billing_extended import UsageRecord, CompanyVariant, get_variant_limits
+from database.models.billing_extended import (
+    UsageRecord,
+    CompanyVariant,
+    get_variant_limits,
+)
 from database.models.core import Company
 
 import os
@@ -123,26 +127,24 @@ class OverageService:
             Dict with overage details and charge status
         """
         if target_date is None:
-            target_date = (
-                datetime.now(
-                    timezone.utc)
-                - timedelta(
-                    days=1)).date()
+            target_date = (datetime.now(timezone.utc) - timedelta(days=1)).date()
 
         with SessionLocal() as db:
             # Get company with subscription
-            company = db.query(Company).filter(
-                Company.id == str(company_id)
-            ).first()
+            company = db.query(Company).filter(Company.id == str(company_id)).first()
 
             if not company:
                 raise OverageError(f"Company {company_id} not found")
 
             # Get active subscription
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-                Subscription.status == "active",
-            ).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                    Subscription.status == "active",
+                )
+                .first()
+            )
 
             if not subscription:
                 logger.info(
@@ -165,18 +167,26 @@ class OverageService:
             ticket_limit = limits.get("monthly_tickets", 2000)
 
             # V6: Add variant addon tickets for effective limit
-            active_addons = db.query(CompanyVariant).filter(
-                CompanyVariant.company_id == str(company_id),
-                CompanyVariant.status.in_(["active", "inactive"]),
-            ).all()
+            active_addons = (
+                db.query(CompanyVariant)
+                .filter(
+                    CompanyVariant.company_id == str(company_id),
+                    CompanyVariant.status.in_(["active", "inactive"]),
+                )
+                .all()
+            )
             addon_tickets = sum(v.tickets_added for v in active_addons)
             ticket_limit += addon_tickets
 
             # Get or create usage record for the date
-            usage_record = db.query(UsageRecord).filter(
-                UsageRecord.company_id == str(company_id),
-                UsageRecord.record_date == target_date,
-            ).first()
+            usage_record = (
+                db.query(UsageRecord)
+                .filter(
+                    UsageRecord.company_id == str(company_id),
+                    UsageRecord.record_date == target_date,
+                )
+                .first()
+            )
 
             if not usage_record:
                 # Create usage record (ticket count would come from ticket
@@ -194,18 +204,20 @@ class OverageService:
             # Get month-to-date usage (current day's record is already included
             # because it was committed before this query and has same
             # record_month)
-            month_usage = db.query(
-                func.sum(UsageRecord.tickets_used).label("total_tickets")
-            ).filter(
-                UsageRecord.company_id == str(company_id),
-                UsageRecord.record_month == target_date.strftime("%Y-%m"),
-            ).scalar() or 0
+            month_usage = (
+                db.query(func.sum(UsageRecord.tickets_used).label("total_tickets"))
+                .filter(
+                    UsageRecord.company_id == str(company_id),
+                    UsageRecord.record_month == target_date.strftime("%Y-%m"),
+                )
+                .scalar()
+                or 0
+            )
 
             total_tickets = int(month_usage)
 
             # Calculate overage
-            overage_result = self._calculate_overage(
-                total_tickets, ticket_limit)
+            overage_result = self._calculate_overage(total_tickets, ticket_limit)
 
             # Check if there's actual overage
             if overage_result["overage_tickets"] <= 0:
@@ -272,8 +284,7 @@ class OverageService:
                 )
 
                 overage_charge.status = "charged"
-                overage_charge.paddle_charge_id = charge_result.get(
-                    "charge_id")
+                overage_charge.paddle_charge_id = charge_result.get("charge_id")
                 db.commit()
 
                 logger.info(
@@ -341,8 +352,7 @@ class OverageService:
             Dict with overage_tickets, overage_charges, overage_rate
         """
         overage_tickets = max(0, tickets_used - ticket_limit)
-        overage_charges = Decimal(
-            str(overage_tickets)) * OVERAGE_RATE_PER_TICKET
+        overage_charges = Decimal(str(overage_tickets)) * OVERAGE_RATE_PER_TICKET
 
         # Round to 2 decimal places
         overage_charges = overage_charges.quantize(
@@ -380,8 +390,7 @@ class OverageService:
         """
         try:
             # Validate overage price ID before submitting to Paddle
-            if not OVERAGE_PRICE_ID or OVERAGE_PRICE_ID.startswith(
-                    "pri_overage"):
+            if not OVERAGE_PRICE_ID or OVERAGE_PRICE_ID.startswith("pri_overage"):
                 raise OverageError(
                     f"Invalid overage price ID '{OVERAGE_PRICE_ID}'. "
                     "Set PADDLE_OVERAGE_PRICE_ID environment variable to a valid Paddle price ID."
@@ -390,10 +399,12 @@ class OverageService:
             # Create one-time charge in Paddle
             result = await paddle.create_transaction(
                 customer_id=company.paddle_customer_id,
-                items=[{
-                    "price_id": OVERAGE_PRICE_ID,
-                    "quantity": overage_charge.tickets_over_limit,
-                }],
+                items=[
+                    {
+                        "price_id": OVERAGE_PRICE_ID,
+                        "quantity": overage_charge.tickets_over_limit,
+                    }
+                ],
                 custom_data={
                     "company_id": str(company.id),
                     "charge_type": "overage",
@@ -504,9 +515,14 @@ class OverageService:
 
         with SessionLocal() as db:
             # Get subscription
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-            ).order_by(Subscription.created_at.desc()).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                )
+                .order_by(Subscription.created_at.desc())
+                .first()
+            )
 
             if not subscription:
                 return UsageInfo(
@@ -524,29 +540,35 @@ class OverageService:
             # Get plan limits (V6: include variant addon tickets)
             limits = get_variant_limits(subscription.tier)
             if not limits:
-                limits = VARIANT_LIMITS.get(
-                    VariantType(subscription.tier), {}
-                )
+                limits = VARIANT_LIMITS.get(VariantType(subscription.tier), {})
 
             ticket_limit = limits.get("monthly_tickets", 2000)
 
             # V6: Add variant addon tickets for effective limit
-            active_addons = db.query(CompanyVariant).filter(
-                CompanyVariant.company_id == str(company_id),
-                CompanyVariant.status.in_(["active", "inactive"]),
-            ).all()
+            active_addons = (
+                db.query(CompanyVariant)
+                .filter(
+                    CompanyVariant.company_id == str(company_id),
+                    CompanyVariant.status.in_(["active", "inactive"]),
+                )
+                .all()
+            )
             addon_tickets = sum(v.tickets_added for v in active_addons)
             ticket_limit += addon_tickets
 
             # Get month usage
-            month_usage = db.query(
-                func.sum(UsageRecord.tickets_used).label("total_tickets"),
-                func.sum(UsageRecord.overage_tickets).label("total_overage"),
-                func.sum(UsageRecord.overage_charges).label("total_charges"),
-            ).filter(
-                UsageRecord.company_id == str(company_id),
-                UsageRecord.record_month == record_month,
-            ).first()
+            month_usage = (
+                db.query(
+                    func.sum(UsageRecord.tickets_used).label("total_tickets"),
+                    func.sum(UsageRecord.overage_tickets).label("total_overage"),
+                    func.sum(UsageRecord.overage_charges).label("total_charges"),
+                )
+                .filter(
+                    UsageRecord.company_id == str(company_id),
+                    UsageRecord.record_month == record_month,
+                )
+                .first()
+            )
 
             tickets_used = int(month_usage.total_tickets or 0)
             overage_tickets = int(month_usage.total_overage or 0)
@@ -554,9 +576,8 @@ class OverageService:
 
             # Calculate percentage
             usage_percentage = (
-                tickets_used
-                / ticket_limit
-                * 100) if ticket_limit > 0 else 0.0
+                (tickets_used / ticket_limit * 100) if ticket_limit > 0 else 0.0
+            )
 
             return UsageInfo(
                 company_id=company_id,
@@ -586,11 +607,15 @@ class OverageService:
             List of OverageChargeInfo records
         """
         with SessionLocal() as db:
-            charges = db.query(OverageCharge).filter(
-                OverageCharge.company_id == str(company_id),
-            ).order_by(
-                OverageCharge.date.desc()
-            ).limit(limit).all()
+            charges = (
+                db.query(OverageCharge)
+                .filter(
+                    OverageCharge.company_id == str(company_id),
+                )
+                .order_by(OverageCharge.date.desc())
+                .limit(limit)
+                .all()
+            )
 
             return [
                 OverageChargeInfo(
@@ -629,15 +654,20 @@ class OverageService:
 
         with SessionLocal() as db:
             # Get or create usage record
-            usage_record = db.query(UsageRecord).filter(
-                UsageRecord.company_id == str(company_id),
-                UsageRecord.record_date == record_date,
-            ).first()
+            usage_record = (
+                db.query(UsageRecord)
+                .filter(
+                    UsageRecord.company_id == str(company_id),
+                    UsageRecord.record_date == record_date,
+                )
+                .first()
+            )
 
             if usage_record:
                 # Increment existing record (not replace)
                 usage_record.tickets_used = (
-                    usage_record.tickets_used or 0) + ticket_count
+                    usage_record.tickets_used or 0
+                ) + ticket_count
             else:
                 # Create new record
                 usage_record = UsageRecord(
@@ -676,10 +706,7 @@ class OverageService:
             "usage_percentage": usage.usage_percentage,
             "tickets_used": usage.tickets_used,
             "ticket_limit": usage.ticket_limit,
-            "tickets_remaining": max(
-                0,
-                usage.ticket_limit
-                - usage.tickets_used),
+            "tickets_remaining": max(0, usage.ticket_limit - usage.tickets_used),
             "threshold": threshold,
         }
 
@@ -700,27 +727,33 @@ class OverageService:
             Dict with 'limit' (int) and 'addon_tickets' (int).
         """
         with SessionLocal() as db:
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-                Subscription.status == "active",
-            ).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                    Subscription.status == "active",
+                )
+                .first()
+            )
 
             if not subscription:
                 return {"limit": 0, "addon_tickets": 0}
 
             limits = get_variant_limits(subscription.tier)
             if not limits:
-                limits = VARIANT_LIMITS.get(
-                    VariantType(subscription.tier), {}
-                )
+                limits = VARIANT_LIMITS.get(VariantType(subscription.tier), {})
 
             base_limit = limits.get("monthly_tickets", 2000)
 
             # V6: Add variant addon tickets
-            active_addons = db.query(CompanyVariant).filter(
-                CompanyVariant.company_id == str(company_id),
-                CompanyVariant.status.in_(["active", "inactive"]),
-            ).all()
+            active_addons = (
+                db.query(CompanyVariant)
+                .filter(
+                    CompanyVariant.company_id == str(company_id),
+                    CompanyVariant.status.in_(["active", "inactive"]),
+                )
+                .all()
+            )
             addon_tickets = sum(v.tickets_added for v in active_addons)
 
             return {
@@ -748,12 +781,17 @@ class OverageService:
             record_month = datetime.now(timezone.utc).strftime("%Y-%m")
 
         with SessionLocal() as db:
-            month_usage = db.query(
-                func.sum(UsageRecord.tickets_used).label("total_tickets"),
-            ).filter(
-                UsageRecord.company_id == str(company_id),
-                UsageRecord.record_month == record_month,
-            ).scalar() or 0
+            month_usage = (
+                db.query(
+                    func.sum(UsageRecord.tickets_used).label("total_tickets"),
+                )
+                .filter(
+                    UsageRecord.company_id == str(company_id),
+                    UsageRecord.record_month == record_month,
+                )
+                .scalar()
+                or 0
+            )
 
             return {
                 "tickets_used": int(month_usage),

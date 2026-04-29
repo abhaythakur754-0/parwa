@@ -40,7 +40,8 @@ MAX_WEBHOOK_PAYLOAD_SIZE = 1 * 1024 * 1024
 
 
 def _get_company_id_from_payload(
-    provider: str, payload: dict,
+    provider: str,
+    payload: dict,
 ) -> Optional[str]:
     """Extract company_id from provider-specific payload.
 
@@ -49,8 +50,11 @@ def _get_company_id_from_payload(
     """
     if provider == "paddle":
         return payload.get(
-            "custom_data", {},
-        ).get("company_id") or payload.get("company_id")
+            "custom_data",
+            {},
+        ).get(
+            "company_id"
+        ) or payload.get("company_id")
     if provider == "shopify":
         return payload.get(
             "x_company_id",
@@ -65,7 +69,8 @@ def _get_company_id_from_payload(
 
 
 def _get_event_id_from_payload(
-    provider: str, payload: dict,
+    provider: str,
+    payload: dict,
 ) -> Optional[str]:
     """Extract provider-specific event ID."""
     if provider == "paddle":
@@ -84,7 +89,8 @@ def _get_event_id_from_payload(
 
 
 def _get_event_type_from_payload(
-    provider: str, payload: dict,
+    provider: str,
+    payload: dict,
 ) -> Optional[str]:
     """Extract event type from provider payload."""
     if provider == "paddle":
@@ -141,12 +147,15 @@ def _verify_provider_signature(
                 verify_paddle_signature,
             )
             from app.config import get_settings
+
             settings = get_settings()
             signature = request.headers.get(
-                "paddle-signature", "",
+                "paddle-signature",
+                "",
             )
             result = verify_paddle_signature(
-                body, signature,
+                body,
+                signature,
                 settings.PADDLE_WEBHOOK_SECRET,
             )
             if not result:
@@ -160,14 +169,17 @@ def _verify_provider_signature(
                 verify_shopify_hmac,
             )
             from app.config import get_settings
+
             settings = get_settings()
             signature = request.headers.get(
-                "x-shopify-hmac-sha256", "",
+                "x-shopify-hmac-sha256",
+                "",
             )
             # FIX L27: Use config.SHOPIFY_WEBHOOK_SECRET
             # instead of raw os.environ
             result = verify_shopify_hmac(
-                body, signature,
+                body,
+                signature,
                 settings.SHOPIFY_WEBHOOK_SECRET,
             )
             if not result:
@@ -181,9 +193,11 @@ def _verify_provider_signature(
                 verify_twilio_signature,
             )
             from app.config import get_settings
+
             settings = get_settings()
             signature = request.headers.get(
-                "x-twilio-signature", "",
+                "x-twilio-signature",
+                "",
             )
             result = verify_twilio_signature(
                 str(request.url),
@@ -202,16 +216,16 @@ def _verify_provider_signature(
                 verify_brevo_ip,
             )
             from app.config import get_settings
+
             settings = get_settings()
             forwarded = request.headers.get(
-                "x-forwarded-for", "",
+                "x-forwarded-for",
+                "",
             )
             client_ip = (
                 forwarded.split(",")[0].strip()
                 if forwarded
-                else request.client.host
-                if request.client
-                else ""
+                else request.client.host if request.client else ""
             )
             # Use configured IPs if set, otherwise use defaults
             custom_ips = None
@@ -238,9 +252,9 @@ def _verify_provider_signature(
 
     except Exception as exc:
         logger.error(
-            "webhook_signature_verification_error "
-            "provider=%s error=%s",
-            provider, exc,
+            "webhook_signature_verification_error " "provider=%s error=%s",
+            provider,
+            exc,
         )
         return False
 
@@ -276,9 +290,7 @@ async def receive_webhook(
             content={
                 "error": {
                     "code": "NOT_FOUND",
-                    "message": (
-                        f"Unsupported provider: {provider}"
-                    ),
+                    "message": (f"Unsupported provider: {provider}"),
                     "details": {
                         "supported": sorted(
                             SUPPORTED_PROVIDERS,
@@ -295,7 +307,8 @@ async def receive_webhook(
     if len(body) > MAX_WEBHOOK_PAYLOAD_SIZE:
         logger.warning(
             "webhook_payload_too_large provider=%s size=%s",
-            provider, len(body),
+            provider,
+            len(body),
         )
         return JSONResponse(
             status_code=413,
@@ -332,7 +345,10 @@ async def receive_webhook(
 
     # Verify signature (BC-011, BC-003)
     if not _verify_provider_signature(
-        provider, request, payload, body,
+        provider,
+        request,
+        payload,
+        body,
     ):
         logger.warning(
             "webhook_signature_rejected provider=%s event_id=%s",
@@ -344,9 +360,7 @@ async def receive_webhook(
             content={
                 "error": {
                     "code": "AUTHENTICATION_ERROR",
-                    "message": (
-                        "Invalid webhook signature"
-                    ),
+                    "message": ("Invalid webhook signature"),
                     "details": None,
                 }
             },
@@ -354,13 +368,16 @@ async def receive_webhook(
 
     # Extract event fields from payload
     event_id = _get_event_id_from_payload(
-        provider, payload,
+        provider,
+        payload,
     )
     event_type = _get_event_type_from_payload(
-        provider, payload,
+        provider,
+        payload,
     )
     company_id = _get_company_id_from_payload(
-        provider, payload,
+        provider,
+        payload,
     )
 
     # Validate required fields
@@ -382,9 +399,7 @@ async def receive_webhook(
             content={
                 "error": {
                     "code": "VALIDATION_ERROR",
-                    "message": (
-                        "company_id is required (BC-001)"
-                    ),
+                    "message": ("company_id is required (BC-001)"),
                     "details": None,
                 }
             },
@@ -426,16 +441,15 @@ async def receive_webhook(
     except Exception as exc:
         logger.error(
             "webhook_processing_error provider=%s error=%s",
-            provider, exc,
+            provider,
+            exc,
         )
         return JSONResponse(
             status_code=500,
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": (
-                        "Webhook processing failed"
-                    ),
+                    "message": ("Webhook processing failed"),
                     "details": None,
                 }
             },
@@ -471,7 +485,9 @@ async def get_webhook_status(
             logger.warning(
                 "webhook_status_tenant_mismatch "
                 "user_company=%s event_company=%s event_id=%s",
-                user.company_id, event_company_id, event_db_id,
+                user.company_id,
+                event_company_id,
+                event_db_id,
             )
             return JSONResponse(
                 status_code=403,
@@ -529,7 +545,9 @@ async def retry_webhook(
             logger.warning(
                 "webhook_retry_tenant_mismatch "
                 "user_company=%s event_company=%s event_id=%s",
-                user.company_id, event_company_id, event_db_id,
+                user.company_id,
+                event_company_id,
+                event_db_id,
             )
             return JSONResponse(
                 status_code=403,
@@ -565,7 +583,8 @@ async def retry_webhook(
     except Exception as exc:
         logger.error(
             "webhook_retry_error event_db_id=%s error=%s",
-            event_db_id, exc,
+            event_db_id,
+            exc,
         )
         return JSONResponse(
             status_code=500,

@@ -40,7 +40,4 @@ def render_email_template(
         template = _env.get_template(template_name)
         return template.render(**context)
     except Exception as exc:
-        raise ValueError(
-            "Failed to render email template "
-            f"'{template_name}': {exc}"
-        )
+        raise ValueError("Failed to render email template " f"'{template_name}': {exc}")

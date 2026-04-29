@@ -8,19 +8,17 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ── Check Endpoint Schemas ──────────────────────────────────────
+
 
 class OOOCheckRequest(BaseModel):
     """Request body for POST /api/email/ooo/check."""
 
-    email_headers: Optional[dict] = Field(
-        None, description="Email headers as dict")
+    email_headers: Optional[dict] = Field(None, description="Email headers as dict")
     body_text: Optional[str] = Field(None, description="Email body text")
     body_html: Optional[str] = Field(None, description="Email body HTML")
     subject: Optional[str] = Field(None, description="Email subject line")
-    sender_email: Optional[str] = Field(
-        None, description="Sender email address")
+    sender_email: Optional[str] = Field(None, description="Sender email address")
 
 
 class OOOCheckResponse(BaseModel):
@@ -30,26 +28,28 @@ class OOOCheckResponse(BaseModel):
     type: Optional[str] = Field(None, description="ooo/auto_reply/cyclic/spam")
     confidence: Optional[str] = Field(None, description="high/medium/low")
     detection_source: Optional[str] = Field(
-        None, description="header/subject/body/rule")
+        None, description="header/subject/body/rule"
+    )
     detected_signals: List[str] = Field(default_factory=list)
     reason: Optional[str] = None
     ooo_until: Optional[str] = Field(
-        None, description="ISO date if return date extracted")
+        None, description="ISO date if return date extracted"
+    )
     rule_ids_matched: List[str] = Field(default_factory=list)
 
 
 # ── Rules CRUD Schemas ─────────────────────────────────────────
 
+
 class OOORuleCreate(BaseModel):
     """Request to create a custom OOO detection rule."""
 
-    pattern: str = Field(..., min_length=1, max_length=500,
-                         description="Detection pattern")
+    pattern: str = Field(
+        ..., min_length=1, max_length=500, description="Detection pattern"
+    )
     pattern_type: str = Field("regex", description="regex/substring/contains")
-    rule_type: str = Field(
-        "body", description="header/body/sender_behavior/frequency")
-    classification: str = Field(
-        "ooo", description="ooo/auto_reply/cyclic/spam")
+    rule_type: str = Field("body", description="header/body/sender_behavior/frequency")
+    classification: str = Field("ooo", description="ooo/auto_reply/cyclic/spam")
     active: bool = Field(True, description="Whether rule is active")
 
 
@@ -97,6 +97,7 @@ class OOORuleActionResponse(BaseModel):
 
 # ── Stats Schemas ───────────────────────────────────────────────
 
+
 class OOOStatsResponse(BaseModel):
     """Response for GET /api/email/ooo/stats."""
 
@@ -108,6 +109,7 @@ class OOOStatsResponse(BaseModel):
 
 
 # ── Sender Profile Schema ───────────────────────────────────────
+
 
 class OOOSenderProfileResponse(BaseModel):
     """Sender OOO profile."""

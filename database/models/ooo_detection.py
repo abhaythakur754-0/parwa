@@ -66,7 +66,9 @@ class OOODetectionRule(Base):
 
     # Timestamps
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())
+    updated_at = Column(
+        DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow()
+    )
 
     def to_dict(self) -> dict:
         return {
@@ -78,7 +80,9 @@ class OOODetectionRule(Base):
             "classification": self.classification,
             "active": self.active,
             "match_count": self.match_count or 0,
-            "last_matched_at": self.last_matched_at.isoformat() if self.last_matched_at else None,
+            "last_matched_at": (
+                self.last_matched_at.isoformat() if self.last_matched_at else None
+            ),
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -110,7 +114,9 @@ class OOODetectionLog(Base):
     classification = Column(String(50), nullable=False, default="ooo")
     # Values: ooo, auto_reply, cyclic, spam
     confidence = Column(
-        String(10), nullable=False, default="medium",
+        String(10),
+        nullable=False,
+        default="medium",
     )  # high, medium, low
     detected_signals = Column(Text, nullable=True, default="[]")
     rule_ids_matched = Column(Text, nullable=True, default="[]")
@@ -166,7 +172,9 @@ class OOOSenderProfile(Base):
 
     # Timestamps
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())
+    updated_at = Column(
+        DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow()
+    )
 
     def to_dict(self) -> dict:
         return {

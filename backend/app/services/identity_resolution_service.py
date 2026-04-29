@@ -189,10 +189,14 @@ class IdentityResolutionService:
         normalized = email.strip().lower()
 
         # Exact match
-        customer = self.db.query(Customer).filter(
-            Customer.company_id == self.company_id,
-            func.lower(Customer.email) == normalized,
-        ).first()
+        customer = (
+            self.db.query(Customer)
+            .filter(
+                Customer.company_id == self.company_id,
+                func.lower(Customer.email) == normalized,
+            )
+            .first()
+        )
 
         if customer:
             return {
@@ -202,16 +206,18 @@ class IdentityResolutionService:
             }
 
         # Fuzzy match on email
-        customers = self.db.query(Customer).filter(
-            Customer.company_id == self.company_id,
-            Customer.email.isnot(None),
-        ).all()
+        customers = (
+            self.db.query(Customer)
+            .filter(
+                Customer.company_id == self.company_id,
+                Customer.email.isnot(None),
+            )
+            .all()
+        )
 
         for c in customers:
             if c.email:
-                similarity = SequenceMatcher(
-                    None, normalized, c.email.lower()
-                ).ratio()
+                similarity = SequenceMatcher(None, normalized, c.email.lower()).ratio()
 
                 if similarity >= self.FUZZY_EMAIL_THRESHOLD:
                     return {
@@ -233,10 +239,14 @@ class IdentityResolutionService:
         """
         normalized = self._normalize_phone(phone)
 
-        customer = self.db.query(Customer).filter(
-            Customer.company_id == self.company_id,
-            Customer.phone == normalized,
-        ).first()
+        customer = (
+            self.db.query(Customer)
+            .filter(
+                Customer.company_id == self.company_id,
+                Customer.phone == normalized,
+            )
+            .first()
+        )
 
         if customer:
             return {
@@ -270,9 +280,13 @@ class IdentityResolutionService:
             Match dict or None
         """
         # Device IDs are stored in customer metadata
-        customers = self.db.query(Customer).filter(
-            Customer.company_id == self.company_id,
-        ).all()
+        customers = (
+            self.db.query(Customer)
+            .filter(
+                Customer.company_id == self.company_id,
+            )
+            .all()
+        )
 
         for customer in customers:
             metadata = json.loads(customer.metadata_json or "{}")
@@ -337,28 +351,33 @@ class IdentityResolutionService:
         if customer_id:
             customers = [self.customer_service.get_customer(customer_id)]
         else:
-            customers = self.db.query(Customer).filter(
-                Customer.company_id == self.company_id,
-            ).all()
+            customers = (
+                self.db.query(Customer)
+                .filter(
+                    Customer.company_id == self.company_id,
+                )
+                .all()
+            )
 
         for i, c1 in enumerate(customers):
-            for c2 in customers[i + 1:]:
-                confidence, method = self._calculate_duplicate_confidence(
-                    c1, c2)
+            for c2 in customers[i + 1 :]:
+                confidence, method = self._calculate_duplicate_confidence(c1, c2)
 
                 if confidence >= min_confidence:
-                    duplicates.append({
-                        "customer_1_id": c1.id,
-                        "customer_1_email": c1.email,
-                        "customer_1_phone": c1.phone,
-                        "customer_1_name": c1.name,
-                        "customer_2_id": c2.id,
-                        "customer_2_email": c2.email,
-                        "customer_2_phone": c2.phone,
-                        "customer_2_name": c2.name,
-                        "confidence": confidence,
-                        "match_method": method,
-                    })
+                    duplicates.append(
+                        {
+                            "customer_1_id": c1.id,
+                            "customer_1_email": c1.email,
+                            "customer_1_phone": c1.phone,
+                            "customer_1_name": c1.name,
+                            "customer_2_id": c2.id,
+                            "customer_2_email": c2.email,
+                            "customer_2_phone": c2.phone,
+                            "customer_2_name": c2.name,
+                            "confidence": confidence,
+                            "match_method": method,
+                        }
+                    )
 
         return sorted(duplicates, key=lambda d: d["confidence"], reverse=True)
 
@@ -390,9 +409,7 @@ class IdentityResolutionService:
 
         # Phone match
         if c1.phone and c2.phone:
-            if self._normalize_phone(
-                    c1.phone) == self._normalize_phone(
-                    c2.phone):
+            if self._normalize_phone(c1.phone) == self._normalize_phone(c2.phone):
                 return self.CONFIDENCE_PHONE, "phone"
 
         # Name similarity (lower confidence)
@@ -427,9 +444,12 @@ class IdentityResolutionService:
         )
 
         total = query.count()
-        logs = query.order_by(desc(IdentityMatchLog.created_at)).offset(
-            (page - 1) * page_size
-        ).limit(page_size).all()
+        logs = (
+            query.order_by(desc(IdentityMatchLog.created_at))
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+            .all()
+        )
 
         return logs, total
 
@@ -466,14 +486,18 @@ class IdentityResolutionService:
             plan_snapshot = json.loads(ticket.plan_snapshot or "{}")
 
             if plan_snapshot.get("grandfathered"):
-                result.append({
-                    "ticket_id": ticket.id,
-                    "customer_id": ticket.customer_id,
-                    "status": ticket.status,
-                    "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
-                    "plan_tier": plan_snapshot.get("plan_tier"),
-                    "grandfathered_since": plan_snapshot.get("grandfathered_since"),
-                })
+                result.append(
+                    {
+                        "ticket_id": ticket.id,
+                        "customer_id": ticket.customer_id,
+                        "status": ticket.status,
+                        "created_at": (
+                            ticket.created_at.isoformat() if ticket.created_at else None
+                        ),
+                        "plan_tier": plan_snapshot.get("plan_tier"),
+                        "grandfathered_since": plan_snapshot.get("grandfathered_since"),
+                    }
+                )
 
         return result
 

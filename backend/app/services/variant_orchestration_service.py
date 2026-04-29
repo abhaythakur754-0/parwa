@@ -70,6 +70,7 @@ REBALANCE_THRESHOLD_PCT = 80
 # VALIDATION HELPERS
 # ══════════════════════════════════════════════════════════════════
 
+
 def _validate_company_id(company_id: str) -> None:
     """BC-001: company_id is required."""
     if not company_id or not company_id.strip():
@@ -126,6 +127,7 @@ def _get_rr_index(company_id: str, total: int) -> int:
 # DISTRIBUTION STRATEGIES
 # ══════════════════════════════════════════════════════════════════
 
+
 class RoundRobinStrategy:
     """Round-robin: cycle through instances sequentially."""
 
@@ -162,9 +164,7 @@ class LeastLoadedStrategy:
         # Check capacity constraint
         for inst in sorted_instances:
             cap = _parse_capacity(inst.capacity_config)
-            max_conc = cap.get(
-                "max_concurrent_tickets",
-                DEFAULT_MAX_CONCURRENT)
+            max_conc = cap.get("max_concurrent_tickets", DEFAULT_MAX_CONCURRENT)
             if inst.active_tickets_count < max_conc:
                 return inst
         # All at capacity — return least loaded anyway (graceful)
@@ -219,13 +219,11 @@ class VariantPriorityStrategy:
 
         # If specific variant_type requested, filter to that
         if variant_type:
-            filtered = [
-                i for i in instances
-                if i.variant_type == variant_type
-            ]
+            filtered = [i for i in instances if i.variant_type == variant_type]
             if filtered:
                 return LeastLoadedStrategy().select(
-                    filtered, context,
+                    filtered,
+                    context,
                 )
             # Requested type not available — fall through
 
@@ -252,6 +250,7 @@ DISTRIBUTION_STRATEGIES: dict[str, Any] = {
 # MAIN SERVICE FUNCTIONS
 # ══════════════════════════════════════════════════════════════════
 
+
 def select_instance(
     db: SessionLocal,
     company_id: str,
@@ -274,10 +273,14 @@ def select_instance(
     _validate_company_id(company_id)
     _validate_strategy(strategy)
 
-    instances = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        status="active",
-    ).all()
+    instances = (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+            status="active",
+        )
+        .all()
+    )
 
     if not instances:
         return None
@@ -328,16 +331,17 @@ def route_ticket(
         )
 
     instance = select_instance(
-        db, company_id, strategy, channel, variant_type,
+        db,
+        company_id,
+        strategy,
+        channel,
+        variant_type,
     )
 
     if instance is None:
         raise ParwaBaseError(
             error_code="NO_AVAILABLE_INSTANCE",
-            message=(
-                "No active instances available for "
-                f"company '{company_id}'"
-            ),
+            message=("No active instances available for " f"company '{company_id}'"),
             status_code=503,
         )
 
@@ -402,17 +406,20 @@ def get_instance_load(
     """
     _validate_company_id(company_id)
 
-    inst = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        id=instance_id,
-    ).first()
+    inst = (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+            id=instance_id,
+        )
+        .first()
+    )
 
     if inst is None:
         raise ParwaBaseError(
             error_code="INSTANCE_NOT_FOUND",
             message=(
-                f"Instance '{instance_id}' not found for "
-                f"company '{company_id}'"
+                f"Instance '{instance_id}' not found for " f"company '{company_id}'"
             ),
             status_code=404,
         )
@@ -421,7 +428,8 @@ def get_instance_load(
     max_conc = cap.get("max_concurrent_tickets", DEFAULT_MAX_CONCURRENT)
     available = max(0, max_conc - inst.active_tickets_count)
     utilization = round(
-        (inst.active_tickets_count / max(max_conc, 1)) * 100, 2,
+        (inst.active_tickets_count / max(max_conc, 1)) * 100,
+        2,
     )
 
     return {
@@ -435,8 +443,7 @@ def get_instance_load(
         "available_capacity": available,
         "utilization_pct": utilization,
         "last_activity_at": (
-            inst.last_activity_at.isoformat()
-            if inst.last_activity_at else None
+            inst.last_activity_at.isoformat() if inst.last_activity_at else None
         ),
     }
 
@@ -448,16 +455,23 @@ def get_all_instance_loads(
     """Get current load for all instances of a company."""
     _validate_company_id(company_id)
 
-    instances = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-    ).order_by(VariantInstance.variant_type).all()
+    instances = (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+        )
+        .order_by(VariantInstance.variant_type)
+        .all()
+    )
 
     loads = []
     for inst in instances:
         try:
             loads.append(
                 get_instance_load(
-                    db, company_id, inst.id,
+                    db,
+                    company_id,
+                    inst.id,
                 ),
             )
         except ParwaBaseError:
@@ -480,10 +494,14 @@ def rebalance_workload(
     """
     _validate_company_id(company_id)
 
-    active_instances = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        status="active",
-    ).all()
+    active_instances = (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+            status="active",
+        )
+        .all()
+    )
 
     if not active_instances:
         return {
@@ -498,11 +516,10 @@ def rebalance_workload(
     for inst in active_instances:
         cap = _parse_capacity(inst.capacity_config)
         max_conc = cap.get(
-            "max_concurrent_tickets", DEFAULT_MAX_CONCURRENT,
+            "max_concurrent_tickets",
+            DEFAULT_MAX_CONCURRENT,
         )
-        util_pct = (
-            inst.active_tickets_count / max(max_conc, 1)
-        ) * 100
+        util_pct = (inst.active_tickets_count / max(max_conc, 1)) * 100
 
         if util_pct >= REBALANCE_THRESHOLD_PCT:
             overloaded.append(inst)
@@ -524,13 +541,19 @@ def rebalance_workload(
     for over_inst in overloaded:
         # Find assigned/in_progress distributions on
         # this overloaded instance
-        dists = db.query(VariantWorkloadDistribution).filter_by(
-            company_id=company_id,
-            instance_id=over_inst.id,
-            status="assigned",
-        ).order_by(
-            VariantWorkloadDistribution.assigned_at,
-        ).limit(5).all()
+        dists = (
+            db.query(VariantWorkloadDistribution)
+            .filter_by(
+                company_id=company_id,
+                instance_id=over_inst.id,
+                status="assigned",
+            )
+            .order_by(
+                VariantWorkloadDistribution.assigned_at,
+            )
+            .limit(5)
+            .all()
+        )
 
         for under_inst in underloaded:
             if not dists:
@@ -538,7 +561,8 @@ def rebalance_workload(
 
             cap = _parse_capacity(under_inst.capacity_config)
             max_conc = cap.get(
-                "max_concurrent_tickets", DEFAULT_MAX_CONCURRENT,
+                "max_concurrent_tickets",
+                DEFAULT_MAX_CONCURRENT,
             )
             available = max_conc - under_inst.active_tickets_count
 
@@ -564,9 +588,7 @@ def rebalance_workload(
 
                 # Mark original as rebalanced
                 dist.status = "rebalanced"
-                dist.escalation_target_instance_id = (
-                    under_inst.id
-                )
+                dist.escalation_target_instance_id = under_inst.id
 
                 # Atomic SQL: decrement overloaded, increment underloaded
                 # (GAP 1 fix — non-atomic counters)
@@ -580,28 +602,38 @@ def rebalance_workload(
                         "WHEN active_tickets_count > 0 "
                         "THEN active_tickets_count - 1 ELSE 0 END, "
                         "updated_at = :now_ts "
-                        "WHERE id = :inst_id AND company_id = :comp_id"), {
-                        "inst_id": over_inst.id, "comp_id": company_id, "now_ts": datetime.now(
-                            timezone.utc)}, )
+                        "WHERE id = :inst_id AND company_id = :comp_id"
+                    ),
+                    {
+                        "inst_id": over_inst.id,
+                        "comp_id": company_id,
+                        "now_ts": datetime.now(timezone.utc),
+                    },
+                )
                 db.execute(
                     sa.text(
                         "UPDATE variant_instances SET "
                         "active_tickets_count = active_tickets_count + 1, "
                         "total_tickets_handled = total_tickets_handled + 1, "
                         "updated_at = :now_ts "
-                        "WHERE id = :inst_id AND company_id = :comp_id"), {
-                        "inst_id": under_inst.id, "comp_id": company_id, "now_ts": datetime.now(
-                            timezone.utc)}, )
+                        "WHERE id = :inst_id AND company_id = :comp_id"
+                    ),
+                    {
+                        "inst_id": under_inst.id,
+                        "comp_id": company_id,
+                        "now_ts": datetime.now(timezone.utc),
+                    },
+                )
                 migrated += 1
 
         if over_inst.active_tickets_count > 0:
-            details.append({
-                "overloaded_instance_id": over_inst.id,
-                "overloaded_type": over_inst.variant_type,
-                "remaining_active": (
-                    over_inst.active_tickets_count
-                ),
-            })
+            details.append(
+                {
+                    "overloaded_instance_id": over_inst.id,
+                    "overloaded_type": over_inst.variant_type,
+                    "remaining_active": (over_inst.active_tickets_count),
+                }
+            )
 
     db.commit()
 
@@ -638,52 +670,64 @@ def escalate_ticket(
         )
 
     # Find current active distribution for this ticket
-    current = db.query(VariantWorkloadDistribution).filter_by(
-        company_id=company_id,
-        ticket_id=ticket_id.strip(),
-    ).filter(
-        VariantWorkloadDistribution.status.in_([
-            "assigned", "in_progress",
-        ]),
-    ).order_by(
-        VariantWorkloadDistribution.assigned_at.desc(),
-    ).first()
+    current = (
+        db.query(VariantWorkloadDistribution)
+        .filter_by(
+            company_id=company_id,
+            ticket_id=ticket_id.strip(),
+        )
+        .filter(
+            VariantWorkloadDistribution.status.in_(
+                [
+                    "assigned",
+                    "in_progress",
+                ]
+            ),
+        )
+        .order_by(
+            VariantWorkloadDistribution.assigned_at.desc(),
+        )
+        .first()
+    )
 
     if current is None:
         raise ParwaBaseError(
             error_code="NO_ACTIVE_DISTRIBUTION",
-            message=(
-                "No active distribution found for "
-                f"ticket '{ticket_id}'"
-            ),
+            message=("No active distribution found for " f"ticket '{ticket_id}'"),
             status_code=404,
         )
 
     # Find current instance and its variant type
-    current_inst = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        id=current.instance_id,
-    ).first()
+    current_inst = (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+            id=current.instance_id,
+        )
+        .first()
+    )
 
     if current_inst is None:
         raise ParwaBaseError(
             error_code="INSTANCE_NOT_FOUND",
-            message=(
-                f"Current instance '{current.instance_id}' "
-                "not found"
-            ),
+            message=(f"Current instance '{current.instance_id}' " "not found"),
             status_code=404,
         )
 
     current_priority = VARIANT_PRIORITY.get(
-        current_inst.variant_type, 0,
+        current_inst.variant_type,
+        0,
     )
 
     # Find least-loaded instance with higher priority
-    higher_instances = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        status="active",
-    ).all()
+    higher_instances = (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+            status="active",
+        )
+        .all()
+    )
 
     candidates = []
     for inst in higher_instances:
@@ -769,16 +813,18 @@ def complete_ticket_assignment(
     if not distribution_id or not distribution_id.strip():
         raise ParwaBaseError(
             error_code="INVALID_DISTRIBUTION_ID",
-            message=(
-                "distribution_id is required and cannot be empty"
-            ),
+            message=("distribution_id is required and cannot be empty"),
             status_code=400,
         )
 
-    dist = db.query(VariantWorkloadDistribution).filter_by(
-        company_id=company_id,
-        id=distribution_id.strip(),
-    ).first()
+    dist = (
+        db.query(VariantWorkloadDistribution)
+        .filter_by(
+            company_id=company_id,
+            id=distribution_id.strip(),
+        )
+        .first()
+    )
 
     if dist is None:
         raise ParwaBaseError(
@@ -806,9 +852,14 @@ def complete_ticket_assignment(
             "THEN active_tickets_count - 1 ELSE 0 END, "
             "last_activity_at = :now_ts, "
             "updated_at = :now_ts "
-            "WHERE id = :inst_id AND company_id = :comp_id"), {
-            "inst_id": dist.instance_id, "comp_id": company_id, "now_ts": datetime.now(
-                timezone.utc)}, )
+            "WHERE id = :inst_id AND company_id = :comp_id"
+        ),
+        {
+            "inst_id": dist.instance_id,
+            "comp_id": company_id,
+            "now_ts": datetime.now(timezone.utc),
+        },
+    )
 
     db.commit()
     db.refresh(dist)
@@ -843,9 +894,13 @@ def get_distribution_history(
     if status is not None:
         query = query.filter_by(status=status)
 
-    records = query.order_by(
-        VariantWorkloadDistribution.assigned_at.desc(),
-    ).limit(100).all()
+    records = (
+        query.order_by(
+            VariantWorkloadDistribution.assigned_at.desc(),
+        )
+        .limit(100)
+        .all()
+    )
 
     return [
         {
@@ -854,23 +909,11 @@ def get_distribution_history(
             "ticket_id": r.ticket_id,
             "strategy": r.distribution_strategy,
             "status": r.status,
-            "assigned_at": (
-                r.assigned_at.isoformat()
-                if r.assigned_at else None
-            ),
-            "completed_at": (
-                r.completed_at.isoformat()
-                if r.completed_at else None
-            ),
-            "escalation_target": (
-                r.escalation_target_instance_id
-            ),
-            "rebalance_from": (
-                r.rebalance_from_instance_id
-            ),
-            "billing_charged_to": (
-                r.billing_charged_to_instance
-            ),
+            "assigned_at": (r.assigned_at.isoformat() if r.assigned_at else None),
+            "completed_at": (r.completed_at.isoformat() if r.completed_at else None),
+            "escalation_target": (r.escalation_target_instance_id),
+            "rebalance_from": (r.rebalance_from_instance_id),
+            "billing_charged_to": (r.billing_charged_to_instance),
         }
         for r in records
     ]
@@ -891,9 +934,13 @@ def get_orchestration_summary(
     """
     _validate_company_id(company_id)
 
-    instances = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-    ).all()
+    instances = (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+        )
+        .all()
+    )
 
     by_status = {}
     by_variant = {}
@@ -901,40 +948,35 @@ def get_orchestration_summary(
     total_handled = 0
 
     for inst in instances:
-        by_status[inst.status] = (
-            by_status.get(inst.status, 0) + 1
-        )
-        by_variant[inst.variant_type] = (
-            by_variant.get(inst.variant_type, 0) + 1
-        )
+        by_status[inst.status] = by_status.get(inst.status, 0) + 1
+        by_variant[inst.variant_type] = by_variant.get(inst.variant_type, 0) + 1
         total_active_tickets += inst.active_tickets_count
         total_handled += inst.total_tickets_handled
 
     # Distribution stats
-    distributions = db.query(VariantWorkloadDistribution).filter_by(
-        company_id=company_id,
-    ).all()
+    distributions = (
+        db.query(VariantWorkloadDistribution)
+        .filter_by(
+            company_id=company_id,
+        )
+        .all()
+    )
 
     dist_by_status = {}
     dist_by_strategy = {}
     for d in distributions:
-        dist_by_status[d.status] = (
-            dist_by_status.get(d.status, 0) + 1
-        )
+        dist_by_status[d.status] = dist_by_status.get(d.status, 0) + 1
         strat = d.distribution_strategy or "unknown"
-        dist_by_strategy[strat] = (
-            dist_by_strategy.get(strat, 0) + 1
-        )
+        dist_by_strategy[strat] = dist_by_strategy.get(strat, 0) + 1
 
     # Active capacity
-    active_instances = [
-        i for i in instances if i.status == "active"
-    ]
+    active_instances = [i for i in instances if i.status == "active"]
     total_max_conc = 0
     for inst in active_instances:
         cap = _parse_capacity(inst.capacity_config)
         total_max_conc += cap.get(
-            "max_concurrent_tickets", DEFAULT_MAX_CONCURRENT,
+            "max_concurrent_tickets",
+            DEFAULT_MAX_CONCURRENT,
         )
 
     return {
@@ -947,13 +989,12 @@ def get_orchestration_summary(
             "total_max_concurrent": total_max_conc,
             "total_active_tickets": total_active_tickets,
             "available_capacity": max(
-                0, total_max_conc - total_active_tickets,
+                0,
+                total_max_conc - total_active_tickets,
             ),
             "utilization_pct": round(
-                (
-                    total_active_tickets
-                    / max(total_max_conc, 1)
-                ) * 100, 2,
+                (total_active_tickets / max(total_max_conc, 1)) * 100,
+                2,
             ),
         },
         "distributions": {

@@ -32,7 +32,6 @@ from app.core.confidence_scoring_engine import (
     _safe_divide,
 )
 
-
 # ── Fixtures ─────────────────────────────────────────────────────
 
 
@@ -55,9 +54,7 @@ GOOD_RESPONSE = (
     "and click 'Reset Password'."
 )
 
-PII_RESPONSE = (
-    "Contact us at john@example.com or call 555-123-4567. SSN: 123-45-6789."
-)
+PII_RESPONSE = "Contact us at john@example.com or call 555-123-4567. SSN: 123-45-6789."
 
 HALLUC_RESPONSE = (
     "According to our latest 2024 report, approximately 15000 customers "
@@ -102,12 +99,12 @@ class TestHelperFunctions:
         assert _jaccard_similarity(s, s) == pytest.approx(1.0)
 
     def test_jaccard_disjoint_sets(self):
-        assert _jaccard_similarity(
-            {"a", "b"}, {"c", "d"}) == pytest.approx(0.0)
+        assert _jaccard_similarity({"a", "b"}, {"c", "d"}) == pytest.approx(0.0)
 
     def test_jaccard_partial_overlap(self):
-        assert _jaccard_similarity(
-            {"a", "b", "c"}, {"b", "c", "d"}) == pytest.approx(2 / 4)
+        assert _jaccard_similarity({"a", "b", "c"}, {"b", "c", "d"}) == pytest.approx(
+            2 / 4
+        )
 
     def test_jaccard_empty_both(self):
         assert _jaccard_similarity(set(), set()) == 0.0
@@ -137,47 +134,33 @@ class TestSignalScore:
     """Tests for SignalScore dataclass."""
 
     def test_basic_creation(self):
-        ss = SignalScore(
-            signal_name="test", score=75.0, weight=0.25, contribution=0.0
-        )
+        ss = SignalScore(signal_name="test", score=75.0, weight=0.25, contribution=0.0)
         assert ss.score == 75.0
         assert ss.contribution == pytest.approx(18.75)
 
     def test_score_clamped_to_100(self):
-        ss = SignalScore(
-            signal_name="test", score=150.0, weight=0.25, contribution=0.0
-        )
+        ss = SignalScore(signal_name="test", score=150.0, weight=0.25, contribution=0.0)
         assert ss.score == 100.0
 
     def test_score_clamped_to_0(self):
-        ss = SignalScore(
-            signal_name="test", score=-50.0, weight=0.25, contribution=0.0
-        )
+        ss = SignalScore(signal_name="test", score=-50.0, weight=0.25, contribution=0.0)
         assert ss.score == 0.0
 
     def test_passed_defaults_true(self):
-        ss = SignalScore(
-            signal_name="test", score=85.0, weight=0.25, contribution=0.0
-        )
+        ss = SignalScore(signal_name="test", score=85.0, weight=0.25, contribution=0.0)
         assert ss.passed is True
 
     def test_contribution_calculation(self):
-        ss = SignalScore(
-            signal_name="test", score=80.0, weight=0.20, contribution=0.0
-        )
+        ss = SignalScore(signal_name="test", score=80.0, weight=0.20, contribution=0.0)
         assert ss.contribution == pytest.approx(16.0)
 
     def test_metadata_defaults_empty(self):
-        ss = SignalScore(
-            signal_name="test", score=50.0, weight=0.25, contribution=0.0
-        )
+        ss = SignalScore(signal_name="test", score=50.0, weight=0.25, contribution=0.0)
         assert ss.metadata == {}
 
     @pytest.mark.parametrize("score", [0.0, 50.0, 100.0])
     def test_valid_score_accepted(self, score):
-        ss = SignalScore(
-            signal_name="test", score=score, weight=0.25, contribution=0.0
-        )
+        ss = SignalScore(signal_name="test", score=score, weight=0.25, contribution=0.0)
         assert 0.0 <= ss.score <= 100.0
 
 
@@ -190,58 +173,44 @@ class TestConfidenceResult:
     """
 
     def test_passed_true_when_score_above_threshold(self):
-        cr = ConfidenceResult(
-            overall_score=90.0, passed=False, threshold=85.0
-        )
+        cr = ConfidenceResult(overall_score=90.0, passed=False, threshold=85.0)
         assert cr.passed is True
 
     def test_passed_false_when_score_below_threshold(self):
-        cr = ConfidenceResult(
-            overall_score=80.0, passed=True, threshold=85.0
-        )
+        cr = ConfidenceResult(overall_score=80.0, passed=True, threshold=85.0)
         assert cr.passed is False
 
     def test_passed_true_at_exactly_threshold(self):
-        cr = ConfidenceResult(
-            overall_score=85.0, passed=False, threshold=85.0
-        )
+        cr = ConfidenceResult(overall_score=85.0, passed=False, threshold=85.0)
         assert cr.passed is True
 
     def test_score_clamped_to_100(self):
-        cr = ConfidenceResult(
-            overall_score=200.0, passed=False, threshold=85.0
-        )
+        cr = ConfidenceResult(overall_score=200.0, passed=False, threshold=85.0)
         assert cr.overall_score == 100.0
 
     def test_score_clamped_to_0(self):
-        cr = ConfidenceResult(
-            overall_score=-50.0, passed=True, threshold=85.0
-        )
+        cr = ConfidenceResult(overall_score=-50.0, passed=True, threshold=85.0)
         assert cr.overall_score == 0.0
 
     def test_default_variant_type(self):
-        cr = ConfidenceResult(
-            overall_score=90.0, passed=True, threshold=85.0
-        )
+        cr = ConfidenceResult(overall_score=90.0, passed=True, threshold=85.0)
         assert cr.variant_type == "parwa"
 
     def test_company_id_stored(self):
         cr = ConfidenceResult(
-            overall_score=90.0, passed=True, threshold=85.0,
+            overall_score=90.0,
+            passed=True,
+            threshold=85.0,
             company_id="co-1",
         )
         assert cr.company_id == "co-1"
 
     def test_scoring_duration_default(self):
-        cr = ConfidenceResult(
-            overall_score=90.0, passed=True, threshold=85.0
-        )
+        cr = ConfidenceResult(overall_score=90.0, passed=True, threshold=85.0)
         assert cr.scoring_duration_ms == 0.0
 
     def test_signals_default_empty(self):
-        cr = ConfidenceResult(
-            overall_score=90.0, passed=True, threshold=85.0
-        )
+        cr = ConfidenceResult(overall_score=90.0, passed=True, threshold=85.0)
         assert cr.signals == []
 
 
@@ -539,9 +508,7 @@ class TestPIISafetySignal:
         assert sr.score <= 70.0  # SSN penalty is 30
 
     def test_multiple_pii_types_severe(self, engine):
-        result = engine.score_response(
-            COMPANY_ID, "info", PII_RESPONSE
-        )
+        result = engine.score_response(COMPANY_ID, "info", PII_RESPONSE)
         sr = _get_signal(result, "pii_safety")
         # email(-10) + phone(-8) + SSN(-30) = -48 → score = 52
         assert sr.score < 60.0
@@ -645,9 +612,7 @@ class TestHallucinationRiskSignal:
         assert sr.metadata.get("reason") == "empty_response"
 
     def test_multiple_markers_severe_penalty(self, engine):
-        result = engine.score_response(
-            COMPANY_ID, "data", HALLUC_RESPONSE
-        )
+        result = engine.score_response(COMPANY_ID, "data", HALLUC_RESPONSE)
         sr = _get_signal(result, "hallucination_risk")
         # Multiple hallucination markers should significantly reduce score
         assert sr.score < 85.0
@@ -783,9 +748,7 @@ class TestTokenEfficiencySignal:
 
     def test_very_long_response_lower_score(self, engine):
         long_response = "word " * 500
-        result = engine.score_response(
-            COMPANY_ID, "short question", long_response
-        )
+        result = engine.score_response(COMPANY_ID, "short question", long_response)
         sr = _get_signal(result, "token_efficiency")
         assert sr.score < 80.0
 
@@ -805,9 +768,7 @@ class TestTokenEfficiencySignal:
         assert sr.metadata.get("reason") == "empty_query_or_response"
 
     def test_metadata_has_length_info(self, engine):
-        result = engine.score_response(
-            COMPANY_ID, "query text", "response text here"
-        )
+        result = engine.score_response(COMPANY_ID, "query text", "response text here")
         sr = _get_signal(result, "token_efficiency")
         assert "query_length" in sr.metadata
         assert "response_length" in sr.metadata
@@ -863,9 +824,7 @@ class TestProviderConfidenceSignal:
         assert sr.score == 75.0
 
     def test_no_context_uses_unknown_tier(self, engine):
-        result = engine.score_response(
-            COMPANY_ID, "question", "answer"
-        )
+        result = engine.score_response(COMPANY_ID, "question", "answer")
         sr = _get_signal(result, "provider_confidence")
         assert sr.score == 75.0
 
@@ -899,9 +858,7 @@ class TestOverallScoreCalculation:
     """Tests for overall score computation."""
 
     def test_all_signals_evaluated(self, engine):
-        result = engine.score_response(
-            COMPANY_ID, "test query", "test response"
-        )
+        result = engine.score_response(COMPANY_ID, "test query", "test response")
         assert len(result.signals) == 7
 
     def test_company_id_in_result(self, engine):
@@ -953,9 +910,7 @@ class TestOverallScoreCalculation:
             company_id=COMPANY_ID,
             enabled_signals=["pii_safety"],
         )
-        result = engine.score_response(
-            COMPANY_ID, "q", "r", config=config
-        )
+        result = engine.score_response(COMPANY_ID, "q", "r", config=config)
         assert len(result.signals) == 1
         assert result.signals[0].signal_name == "pii_safety"
 
@@ -974,18 +929,12 @@ class TestVariantThresholds:
             variant_type="mini_parwa",
             threshold=95.0,
         )
-        result = engine.score_response(
-            COMPANY_ID, "q", "r", config=config
-        )
+        result = engine.score_response(COMPANY_ID, "q", "r", config=config)
         assert result.threshold == 95.0
 
     def test_parwa_85_threshold(self, engine):
-        config = ConfidenceConfig(
-            company_id=COMPANY_ID, variant_type="parwa"
-        )
-        result = engine.score_response(
-            COMPANY_ID, "q", "r", config=config
-        )
+        config = ConfidenceConfig(company_id=COMPANY_ID, variant_type="parwa")
+        result = engine.score_response(COMPANY_ID, "q", "r", config=config)
         assert result.threshold == 85.0
 
     def test_high_parwa_75_threshold(self, engine):
@@ -994,9 +943,7 @@ class TestVariantThresholds:
             variant_type="high_parwa",
             threshold=75.0,
         )
-        result = engine.score_response(
-            COMPANY_ID, "q", "r", config=config
-        )
+        result = engine.score_response(COMPANY_ID, "q", "r", config=config)
         assert result.threshold == 75.0
 
     def test_custom_threshold_override(self, engine):
@@ -1006,19 +953,13 @@ class TestVariantThresholds:
             variant_type="mini_parwa",
             threshold=50.0,
         )
-        result = engine.score_response(
-            COMPANY_ID, "q", "r", config=config
-        )
+        result = engine.score_response(COMPANY_ID, "q", "r", config=config)
         assert result.threshold == 50.0
 
     def test_high_score_passes_high_parwa(self, engine):
-        config = ConfidenceConfig(
-            company_id=COMPANY_ID, variant_type="high_parwa"
-        )
+        config = ConfidenceConfig(company_id=COMPANY_ID, variant_type="high_parwa")
         text = "refund policy return exchange"
-        result = engine.score_response(
-            COMPANY_ID, text, text, config=config
-        )
+        result = engine.score_response(COMPANY_ID, text, text, config=config)
         assert result.overall_score > 75.0
 
     def test_unknown_variant_defaults_to_parwa_85(self, engine):
@@ -1027,9 +968,7 @@ class TestVariantThresholds:
             variant_type="nonexistent_variant",
             threshold=85.0,
         )
-        result = engine.score_response(
-            COMPANY_ID, "q", "r", config=config
-        )
+        result = engine.score_response(COMPANY_ID, "q", "r", config=config)
         # Unknown variant: get_threshold returns 85.0 default
         assert result.threshold == 85.0
 
@@ -1049,32 +988,20 @@ class TestCustomConfig:
                 SignalName.SEMANTIC_RELEVANCE.value: 0.50,
             },
         )
-        result = engine.score_response(
-            COMPANY_ID, "q", "r", config=config
-        )
+        result = engine.score_response(COMPANY_ID, "q", "r", config=config)
         sr = _get_signal(result, "semantic_relevance")
         assert sr.weight == 0.50
 
     def test_empty_enabled_signals_all_enabled(self, engine):
-        config = ConfidenceConfig(
-            company_id=COMPANY_ID, enabled_signals=[]
-        )
-        result = engine.score_response(
-            COMPANY_ID, "q", "r", config=config
-        )
+        config = ConfidenceConfig(company_id=COMPANY_ID, enabled_signals=[])
+        result = engine.score_response(COMPANY_ID, "q", "r", config=config)
         assert len(result.signals) == 7
 
     def test_call_config_overrides_tenant_config(self, engine):
-        tenant_cfg = ConfidenceConfig(
-            company_id=COMPANY_ID, threshold=50.0
-        )
+        tenant_cfg = ConfidenceConfig(company_id=COMPANY_ID, threshold=50.0)
         engine.update_config(COMPANY_ID, tenant_cfg)
-        call_cfg = ConfidenceConfig(
-            company_id=COMPANY_ID, threshold=99.0
-        )
-        result = engine.score_response(
-            COMPANY_ID, "q", "r", config=call_cfg
-        )
+        call_cfg = ConfidenceConfig(company_id=COMPANY_ID, threshold=99.0)
+        result = engine.score_response(COMPANY_ID, "q", "r", config=call_cfg)
         assert result.threshold == 99.0
 
     def test_tenant_config_used_when_no_call_config(self, engine):
@@ -1111,9 +1038,7 @@ class TestBatchScoring:
         assert results == []
 
     def test_batch_all_results_valid(self, engine):
-        items = [
-            {"query": f"q{i}", "response": f"r{i}"} for i in range(10)
-        ]
+        items = [{"query": f"q{i}", "response": f"r{i}"} for i in range(10)]
         results = engine.score_batch(COMPANY_ID, items)
         for r in results:
             assert isinstance(r, ConfidenceResult)
@@ -1199,9 +1124,7 @@ class TestConfigManagement:
         eng = ConfidenceScoringEngine()
         eng.update_config(
             COMPANY_ID,
-            ConfidenceConfig(
-                company_id=COMPANY_ID, variant_type="mini_parwa"
-            ),
+            ConfidenceConfig(company_id=COMPANY_ID, variant_type="mini_parwa"),
         )
         assert eng.get_config(COMPANY_ID).variant_type == "mini_parwa"
         # Fresh engine has empty configs
@@ -1227,33 +1150,23 @@ class TestBC008NeverCrash:
     """Tests for BC-008 — never crash on any input."""
 
     def test_none_query(self, engine):
-        result = engine.score_response(
-            COMPANY_ID, None, "response"  # type: ignore
-        )
+        result = engine.score_response(COMPANY_ID, None, "response")  # type: ignore
         assert isinstance(result, ConfidenceResult)
 
     def test_none_response(self, engine):
-        result = engine.score_response(
-            COMPANY_ID, "query", None  # type: ignore
-        )
+        result = engine.score_response(COMPANY_ID, "query", None)  # type: ignore
         assert isinstance(result, ConfidenceResult)
 
     def test_none_both_query_and_response(self, engine):
-        result = engine.score_response(
-            COMPANY_ID, None, None  # type: ignore
-        )
+        result = engine.score_response(COMPANY_ID, None, None)  # type: ignore
         assert isinstance(result, ConfidenceResult)
 
     def test_none_context(self, engine):
-        result = engine.score_response(
-            COMPANY_ID, "q", "r", context=None
-        )
+        result = engine.score_response(COMPANY_ID, "q", "r", context=None)
         assert isinstance(result, ConfidenceResult)
 
     def test_none_config(self, engine):
-        result = engine.score_response(
-            COMPANY_ID, "q", "r", config=None
-        )
+        result = engine.score_response(COMPANY_ID, "q", "r", config=None)
         assert isinstance(result, ConfidenceResult)
 
     def test_empty_strings(self, engine):
@@ -1283,9 +1196,7 @@ class TestBC008NeverCrash:
             COMPANY_ID,
             "query",
             "response",
-            context={
-                "model_tier": 12345,
-                "model_health": "bad_value"},
+            context={"model_tier": 12345, "model_health": "bad_value"},
             # type: ignore
         )
         assert isinstance(result, ConfidenceResult)

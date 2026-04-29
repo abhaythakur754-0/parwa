@@ -39,8 +39,10 @@ logger = logging.getLogger("parwa.services.entitlement")
 # Resource Types Enum
 # ═════════════════════════════════════════════════════════════════════
 
+
 class ResourceType(str, Enum):
     """All resource types that can be limited."""
+
     TICKETS = "tickets"
     AGENTS = "agents"
     TEAM_MEMBERS = "team_members"
@@ -53,9 +55,11 @@ class ResourceType(str, Enum):
 # Result Data Classes
 # ═════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class EntitlementCheckResult:
     """Result of an entitlement check."""
+
     allowed: bool
     resource_type: ResourceType
     current_usage: int
@@ -70,6 +74,7 @@ class EntitlementCheckResult:
 @dataclass
 class PlanLimits:
     """Plan limits for a variant."""
+
     monthly_tickets: int
     ai_agents: int
     team_members: int
@@ -105,6 +110,7 @@ TIER_PRICING = {
 # Exception Classes
 # ═════════════════════════════════════════════════════════════════════
 
+
 class EntitlementError(Exception):
     """Base exception for entitlement errors."""
 
@@ -120,6 +126,7 @@ class ResourceLimitExceededError(EntitlementError):
 # ═════════════════════════════════════════════════════════════════════
 # Entitlement Service Implementation
 # ═════════════════════════════════════════════════════════════════════
+
 
 class EntitlementService:
     """
@@ -147,7 +154,7 @@ class EntitlementService:
         team_members=3,
         voice_slots=0,
         kb_docs=100,
-        ai_technique_tier="basic"
+        ai_technique_tier="basic",
     )
 
     def __init__(self):
@@ -163,9 +170,7 @@ class EntitlementService:
             return str(company_id)
         if isinstance(company_id, str):
             return company_id.strip()
-        raise EntitlementError(
-            f"Invalid company_id type: {type(company_id).__name__}"
-        )
+        raise EntitlementError(f"Invalid company_id type: {type(company_id).__name__}")
 
     def _get_plan_limits(self, variant_tier: str) -> PlanLimits:
         """
@@ -195,17 +200,18 @@ class EntitlementService:
 
         return PlanLimits(
             monthly_tickets=limits.get(
-                "monthly_tickets", self.DEFAULT_LIMITS.monthly_tickets), ai_agents=limits.get(
-                "ai_agents", self.DEFAULT_LIMITS.ai_agents), team_members=limits.get(
-                "team_members", self.DEFAULT_LIMITS.team_members), voice_slots=limits.get(
-                    "voice_slots", self.DEFAULT_LIMITS.voice_slots), kb_docs=limits.get(
-                        "kb_docs", self.DEFAULT_LIMITS.kb_docs), ai_technique_tier=limits.get(
-                            "ai_technique_tier", self.DEFAULT_LIMITS.ai_technique_tier), )
+                "monthly_tickets", self.DEFAULT_LIMITS.monthly_tickets
+            ),
+            ai_agents=limits.get("ai_agents", self.DEFAULT_LIMITS.ai_agents),
+            team_members=limits.get("team_members", self.DEFAULT_LIMITS.team_members),
+            voice_slots=limits.get("voice_slots", self.DEFAULT_LIMITS.voice_slots),
+            kb_docs=limits.get("kb_docs", self.DEFAULT_LIMITS.kb_docs),
+            ai_technique_tier=limits.get(
+                "ai_technique_tier", self.DEFAULT_LIMITS.ai_technique_tier
+            ),
+        )
 
-    def _get_company_variant(
-            self,
-            db: Session,
-            company_id: str) -> Optional[str]:
+    def _get_company_variant(self, db: Session, company_id: str) -> Optional[str]:
         """Get company's current variant tier."""
         subscription = (
             db.query(Subscription)
@@ -310,8 +316,7 @@ class EntitlementService:
                 )
 
             limits = self._get_plan_limits(variant_tier)
-            current_usage = self._get_current_usage(
-                db, company_id_str, resource_type)
+            current_usage = self._get_current_usage(db, company_id_str, resource_type)
 
             # Get limit based on resource type
             limit_map = {
@@ -370,6 +375,7 @@ class EntitlementService:
 
         if resource_type == ResourceType.TICKETS:
             from app.services.usage_tracking_service import get_usage_tracking_service
+
             service = get_usage_tracking_service()
             usage = service.get_current_usage(company_id)
             return usage.get("tickets_used", 0)
@@ -377,18 +383,27 @@ class EntitlementService:
         elif resource_type == ResourceType.AGENTS:
             # Count active AI agents
             from database.models.core import Agent
-            count = db.query(Agent).filter(
-                Agent.company_id == company_id,
-                Agent.status == "active",
-            ).count()
+
+            count = (
+                db.query(Agent)
+                .filter(
+                    Agent.company_id == company_id,
+                    Agent.status == "active",
+                )
+                .count()
+            )
             return count
 
         elif resource_type == ResourceType.TEAM_MEMBERS:
             # Count active team members
-            count = db.query(User).filter(
-                User.company_id == company_id,
-                User.is_active,
-            ).count()
+            count = (
+                db.query(User)
+                .filter(
+                    User.company_id == company_id,
+                    User.is_active,
+                )
+                .count()
+            )
             return count
 
         elif resource_type == ResourceType.VOICE_CHANNELS:
@@ -401,10 +416,15 @@ class EntitlementService:
             # Count knowledge base documents
             try:
                 from database.models.provisioning import KnowledgeBaseDocument
-                count = db.query(KnowledgeBaseDocument).filter(
-                    KnowledgeBaseDocument.company_id == company_id,
-                    KnowledgeBaseDocument.is_archived is False,
-                ).count()
+
+                count = (
+                    db.query(KnowledgeBaseDocument)
+                    .filter(
+                        KnowledgeBaseDocument.company_id == company_id,
+                        KnowledgeBaseDocument.is_archived is False,
+                    )
+                    .count()
+                )
                 return count
             except Exception:
                 return 0
@@ -457,92 +477,87 @@ class EntitlementService:
 
         try:
             variant_tier = self._get_company_variant(db, company_id_str)
-            limits = self._get_plan_limits(
-                variant_tier) if variant_tier else self.DEFAULT_LIMITS
+            limits = (
+                self._get_plan_limits(variant_tier)
+                if variant_tier
+                else self.DEFAULT_LIMITS
+            )
 
             return {
                 "company_id": company_id_str,
                 "variant_tier": variant_tier,
-                "variant_display": TIER_DISPLAY_NAMES.get(
-                    variant_tier,
-                    variant_tier),
+                "variant_display": TIER_DISPLAY_NAMES.get(variant_tier, variant_tier),
                 "limits": {
                     "tickets": {
                         "limit": limits.monthly_tickets,
                         "usage": self._get_current_usage(
-                            db,
-                            company_id_str,
-                            ResourceType.TICKETS),
+                            db, company_id_str, ResourceType.TICKETS
+                        ),
                         "remaining": max(
                             0,
                             limits.monthly_tickets
                             - self._get_current_usage(
-                                db,
-                                company_id_str,
-                                ResourceType.TICKETS)),
+                                db, company_id_str, ResourceType.TICKETS
+                            ),
+                        ),
                     },
                     "agents": {
                         "limit": limits.ai_agents,
                         "usage": self._get_current_usage(
-                            db,
-                            company_id_str,
-                            ResourceType.AGENTS),
+                            db, company_id_str, ResourceType.AGENTS
+                        ),
                         "remaining": max(
                             0,
                             limits.ai_agents
                             - self._get_current_usage(
-                                db,
-                                company_id_str,
-                                ResourceType.AGENTS)),
+                                db, company_id_str, ResourceType.AGENTS
+                            ),
+                        ),
                     },
                     "team_members": {
                         "limit": limits.team_members,
                         "usage": self._get_current_usage(
-                            db,
-                            company_id_str,
-                            ResourceType.TEAM_MEMBERS),
+                            db, company_id_str, ResourceType.TEAM_MEMBERS
+                        ),
                         "remaining": max(
                             0,
                             limits.team_members
                             - self._get_current_usage(
-                                db,
-                                company_id_str,
-                                ResourceType.TEAM_MEMBERS)),
+                                db, company_id_str, ResourceType.TEAM_MEMBERS
+                            ),
+                        ),
                     },
                     "voice_channels": {
                         "limit": limits.voice_slots,
                         "usage": self._get_current_usage(
-                            db,
-                            company_id_str,
-                            ResourceType.VOICE_CHANNELS),
+                            db, company_id_str, ResourceType.VOICE_CHANNELS
+                        ),
                         "remaining": max(
                             0,
                             limits.voice_slots
                             - self._get_current_usage(
-                                db,
-                                company_id_str,
-                                ResourceType.VOICE_CHANNELS)),
+                                db, company_id_str, ResourceType.VOICE_CHANNELS
+                            ),
+                        ),
                     },
                     "kb_docs": {
                         "limit": limits.kb_docs,
                         "usage": self._get_current_usage(
-                            db,
-                            company_id_str,
-                            ResourceType.KB_DOCS),
+                            db, company_id_str, ResourceType.KB_DOCS
+                        ),
                         "remaining": max(
                             0,
                             limits.kb_docs
                             - self._get_current_usage(
-                                db,
-                                company_id_str,
-                                ResourceType.KB_DOCS)),
+                                db, company_id_str, ResourceType.KB_DOCS
+                            ),
+                        ),
                     },
                     "ai_techniques": {
                         "tier": limits.ai_technique_tier,
                     },
                 },
-                "checked_at": datetime.now(
-                    timezone.utc).isoformat(),
+                "checked_at": datetime.now(timezone.utc).isoformat(),
             }
 
         finally:

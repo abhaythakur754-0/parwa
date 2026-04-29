@@ -21,8 +21,16 @@ from datetime import datetime
 import uuid
 
 from sqlalchemy import (
-    Column, String, Float, Text, DateTime, ForeignKey,
-    UniqueConstraint, Index, Boolean, Integer,
+    Column,
+    String,
+    Float,
+    Text,
+    DateTime,
+    ForeignKey,
+    UniqueConstraint,
+    Index,
+    Boolean,
+    Integer,
 )
 from sqlalchemy.sql import func
 
@@ -40,7 +48,8 @@ class ShadowLog(Base):
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     # Action type: 'refund', 'sms_reply', 'email_reply', etc.
     action_type = Column(String(50), nullable=False)
@@ -90,7 +99,8 @@ class ShadowPreference(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "company_id", "action_category",
+            "company_id",
+            "action_category",
             name="uq_shadow_prefs_company_category",
         ),
         Index("idx_shadow_prefs_company", "company_id"),
@@ -112,18 +122,21 @@ class EmailShadowQueue(Base):
 
     BC-001: Scoped to company_id.
     """
+
     __tablename__ = "email_shadow_queue"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     shadow_log_id = Column(
         String(36),
         ForeignKey("shadow_log.id", ondelete="CASCADE"),
-        nullable=True, index=True,
+        nullable=True,
+        index=True,
     )
     # Email details
     to_address = Column(String(255), nullable=False)
@@ -138,13 +151,16 @@ class EmailShadowQueue(Base):
     ticket_id = Column(
         String(36),
         ForeignKey("tickets.id", ondelete="SET NULL"),
-        nullable=True, index=True,
+        nullable=True,
+        index=True,
     )
     template_id = Column(String(36), nullable=True)
     template_data = Column(JSONType, nullable=True, default=dict)
     attachments = Column(JSONType, nullable=True, default=list)
     # Status tracking
-    status = Column(String(20), nullable=False, default="pending")  # pending/approved/rejected/sent/failed
+    status = Column(
+        String(20), nullable=False, default="pending"
+    )  # pending/approved/rejected/sent/failed
     message_id = Column(String(255), nullable=True)  # Brevo message ID
     sent_at = Column(DateTime(timezone=True), nullable=True)
     error_message = Column(Text, nullable=True)
@@ -210,18 +226,21 @@ class SmsShadowQueue(Base):
     BC-010: TCPA compliance - respects opt-out status.
     BC-006: Rate limiting - max 5 per thread per 24 hours.
     """
+
     __tablename__ = "sms_shadow_queue"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     shadow_log_id = Column(
         String(36),
         ForeignKey("shadow_log.id", ondelete="CASCADE"),
-        nullable=True, index=True,
+        nullable=True,
+        index=True,
     )
     # SMS details
     to_number = Column(String(20), nullable=False)
@@ -231,11 +250,14 @@ class SmsShadowQueue(Base):
     ticket_id = Column(
         String(36),
         ForeignKey("tickets.id", ondelete="SET NULL"),
-        nullable=True, index=True,
+        nullable=True,
+        index=True,
     )
     media_urls = Column(JSONType, nullable=True, default=list)
     # Status tracking
-    status = Column(String(20), nullable=False, default="pending")  # pending/approved/rejected/sent/failed
+    status = Column(
+        String(20), nullable=False, default="pending"
+    )  # pending/approved/rejected/sent/failed
     message_sid = Column(String(100), nullable=True)  # Twilio SID
     sent_at = Column(DateTime(timezone=True), nullable=True)
     error_code = Column(String(20), nullable=True)
@@ -295,6 +317,7 @@ class ChatShadowQueue(Base):
 
     BC-001: Scoped to company_id.
     """
+
     __tablename__ = "chat_shadow_queue"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -312,7 +335,9 @@ class ChatShadowQueue(Base):
     )
     # Chat session details
     session_id = Column(String(100), nullable=False)
-    conversation_id = Column(String(36), nullable=True)  # Reference to conversation (no FK - table may not exist)
+    conversation_id = Column(
+        String(36), nullable=True
+    )  # Reference to conversation (no FK - table may not exist)
     # Message details
     message_text = Column(Text, nullable=False)
     message_type = Column(String(20), default="text")  # text, card, carousel, etc.

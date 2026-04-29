@@ -78,10 +78,19 @@ OOO_BODY_PATTERNS = [
     re.compile(r"auto(?:-)?reply", re.IGNORECASE),
     re.compile(r"autoreply", re.IGNORECASE),
     re.compile(r"vacation\s+(?:notice|auto|response|mode)", re.IGNORECASE),
-    re.compile(r"i(?:'m| am)\s+(?:currently\s+)?(?:away|out|on vacation|on leave)", re.IGNORECASE),
+    re.compile(
+        r"i(?:'m| am)\s+(?:currently\s+)?(?:away|out|on vacation|on leave)",
+        re.IGNORECASE,
+    ),
     re.compile(r"thank\s+you\s+for\s+your\s+email", re.IGNORECASE),
-    re.compile(r"i\s+will\s+(?:be\s+)?(?:back|return|respond)\s+(?:on|from|after|by)", re.IGNORECASE),
-    re.compile(r"no\s+(?:longer\s+)?(?:monitoring|checking|reading)\s+(?:this\s+)?(?:inbox|email|account)", re.IGNORECASE),
+    re.compile(
+        r"i\s+will\s+(?:be\s+)?(?:back|return|respond)\s+(?:on|from|after|by)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"no\s+(?:longer\s+)?(?:monitoring|checking|reading)\s+(?:this\s+)?(?:inbox|email|account)",
+        re.IGNORECASE,
+    ),
     re.compile(r"please\s+contact\s+(?:someone\s+else|my\s+colleague)", re.IGNORECASE),
     re.compile(r"this\s+is\s+an\s+automated", re.IGNORECASE),
 ]
@@ -182,14 +191,19 @@ class EmailChannelService:
                 from app.services.ooo_detection_service import (
                     OOODetectionService,
                 )
+
                 ooo_svc = OOODetectionService(self.db)
                 ooo_result = ooo_svc.detect_ooo(email_data, company_id)
                 if ooo_result.get("is_ooo"):
                     ooo_svc.log_ooo_event(
-                        company_id, email_data, ooo_result,
+                        company_id,
+                        email_data,
+                        ooo_result,
                     )
                     ooo_svc.update_sender_profile(
-                        company_id, email_data, ooo_result,
+                        company_id,
+                        email_data,
+                        ooo_result,
                     )
             except Exception as ooo_exc:
                 # BC-012: OOO logging failure must never block processing
@@ -211,7 +225,9 @@ class EmailChannelService:
                     "source": auto_reply_result.detection_source,
                     "sender": email_data.get("sender_email"),
                     "ooo_detected": ooo_result.get("is_ooo") if ooo_result else False,
-                    "ooo_confidence": ooo_result.get("confidence") if ooo_result else None,
+                    "ooo_confidence": (
+                        ooo_result.get("confidence") if ooo_result else None
+                    ),
                 },
             )
             return {
@@ -251,8 +267,7 @@ class EmailChannelService:
         # Step 6: Find existing thread
         in_reply_to = email_data.get("in_reply_to")
         references = email_data.get("references", "")
-        email_thread = self.find_email_thread(
-            company_id, in_reply_to, references)
+        email_thread = self.find_email_thread(company_id, in_reply_to, references)
 
         try:
             if email_thread:
@@ -291,7 +306,11 @@ class EmailChannelService:
             inbound_email.processing_error = error_str[:1000]
             self.db.commit()
             logger.warning(
-                "email_validation_error" if not is_rate_limit else "email_bc006_blocked",
+                (
+                    "email_validation_error"
+                    if not is_rate_limit
+                    else "email_bc006_blocked"
+                ),
                 extra={
                     "company_id": company_id,
                     "message_id": message_id,
@@ -362,8 +381,7 @@ class EmailChannelService:
             headers = headers_json
 
         # Check 1: Self-sent (sender domain matches PARWA domains)
-        sender_domain = sender_email.split(
-            "@")[-1] if "@" in sender_email else ""
+        sender_domain = sender_email.split("@")[-1] if "@" in sender_email else ""
         if sender_domain in PARWA_SYSTEM_DOMAINS:
             return EmailLoopDetection(
                 is_loop=True,
@@ -609,8 +627,12 @@ class EmailChannelService:
         total_pages = max(1, (total + page_size - 1) // page_size)
         offset = (page - 1) * page_size
 
-        items = query.order_by(InboundEmail.created_at.desc()).offset(
-            offset).limit(page_size).all()
+        items = (
+            query.order_by(InboundEmail.created_at.desc())
+            .offset(offset)
+            .limit(page_size)
+            .all()
+        )
 
         return {
             "items": [item.to_dict() for item in items],
@@ -622,10 +644,7 @@ class EmailChannelService:
 
     # ── Private Methods ─────────────────────────────────────────
 
-    def _store_raw_email(
-            self,
-            company_id: str,
-            email_data: dict) -> InboundEmail:
+    def _store_raw_email(self, company_id: str, email_data: dict) -> InboundEmail:
         """Store raw inbound email in the database.
 
         Args:
@@ -647,7 +666,8 @@ class EmailChannelService:
             body_html=email_data.get("body_html", ""),
             body_text=email_data.get("body_text", ""),
             headers_json=email_data.get("headers_json", "{}"),
-            raw_size_bytes=len(email_data.get("body_html", "")) + len(email_data.get("body_text", "")),
+            raw_size_bytes=len(email_data.get("body_html", ""))
+            + len(email_data.get("body_text", "")),
         )
         self.db.add(inbound)
         self.db.commit()
@@ -735,9 +755,8 @@ class EmailChannelService:
         return [r.strip() for r in references.split() if r.strip()]
 
     def _find_or_create_customer(
-            self,
-            company_id: str,
-            email_data: dict) -> Optional[str]:
+        self, company_id: str, email_data: dict
+    ) -> Optional[str]:
         """Find or create a customer based on email address.
 
         Uses the identity resolution service if available,
@@ -806,10 +825,10 @@ class EmailChannelService:
         """
         try:
             from app.services.spam_detection_service import SpamDetectionService
+
             spam_svc = SpamDetectionService(self.db, company_id)
             subject = email_data.get("subject", "")
-            content = email_data.get(
-                "body_text") or email_data.get("body_html", "")
+            content = email_data.get("body_text") or email_data.get("body_html", "")
             return spam_svc.analyze_ticket(
                 subject=subject,
                 content=content[:2000],  # Limit for performance
@@ -825,10 +844,7 @@ class EmailChannelService:
             )
             return None
 
-    def _classify_email(
-            self,
-            company_id: str,
-            email_data: dict) -> Optional[dict]:
+    def _classify_email(self, company_id: str, email_data: dict) -> Optional[dict]:
         """Run AI intent classification on inbound email (F-062).
 
         Uses ClassificationEngine to determine the primary intent,
@@ -847,6 +863,7 @@ class EmailChannelService:
             from app.core.classification_engine import (
                 ClassificationEngine,
             )
+
             engine = ClassificationEngine()
             text = email_data.get("body_text") or ""
             if not text:
@@ -940,7 +957,8 @@ class EmailChannelService:
         """
         # BC-006: Rate limit check — 5 replies/thread/24h
         rate_limit_error = self._check_bc006_rate_limit(
-            company_id, email_thread.ticket_id,
+            company_id,
+            email_thread.ticket_id,
         )
         if rate_limit_error:
             logger.warning(
@@ -961,20 +979,26 @@ class EmailChannelService:
             role="customer",
             content=email_data.get("body_text") or email_data.get("body_html", ""),
             channel="email",
-            metadata_json=json.dumps({
-                "email_message_id": email_data.get("message_id", ""),
-                "email_in_reply_to": email_data.get("in_reply_to", ""),
-                "email_sender": email_data.get("sender_email", ""),
-                "email_sender_name": email_data.get("sender_name", ""),
-                "attachments": email_data.get("attachments", []),
-            }),
+            metadata_json=json.dumps(
+                {
+                    "email_message_id": email_data.get("message_id", ""),
+                    "email_in_reply_to": email_data.get("in_reply_to", ""),
+                    "email_sender": email_data.get("sender_email", ""),
+                    "email_sender_name": email_data.get("sender_name", ""),
+                    "attachments": email_data.get("attachments", []),
+                }
+            ),
         )
         if customer_id:
             # Update ticket customer_id if not set
-            ticket = self.db.query(Ticket).filter(
-                Ticket.id == email_thread.ticket_id,
-                Ticket.company_id == company_id,
-            ).first()
+            ticket = (
+                self.db.query(Ticket)
+                .filter(
+                    Ticket.id == email_thread.ticket_id,
+                    Ticket.company_id == company_id,
+                )
+                .first()
+            )
             if ticket and not ticket.customer_id and customer_id:
                 ticket.customer_id = customer_id
         self.db.add(message)
@@ -1048,13 +1072,15 @@ class EmailChannelService:
             status="open",
             category=category,
             priority=priority,
-            metadata_json=json.dumps({
-                "email_message_id": email_data.get("message_id", ""),
-                "email_sender": email_data.get("sender_email", ""),
-                "email_sender_name": email_data.get("sender_name", ""),
-                "source": "inbound_email",
-                "classification": classification_result,
-            }),
+            metadata_json=json.dumps(
+                {
+                    "email_message_id": email_data.get("message_id", ""),
+                    "email_sender": email_data.get("sender_email", ""),
+                    "email_sender_name": email_data.get("sender_name", ""),
+                    "source": "inbound_email",
+                    "classification": classification_result,
+                }
+            ),
         )
         self.db.add(ticket)
         self.db.flush()  # Get ticket.id
@@ -1066,13 +1092,15 @@ class EmailChannelService:
             role="customer",
             content=email_data.get("body_text") or email_data.get("body_html", ""),
             channel="email",
-            metadata_json=json.dumps({
-                "email_message_id": email_data.get("message_id", ""),
-                "email_sender": email_data.get("sender_email", ""),
-                "email_sender_name": email_data.get("sender_name", ""),
-                "attachments": email_data.get("attachments", []),
-                "is_first_message": True,
-            }),
+            metadata_json=json.dumps(
+                {
+                    "email_message_id": email_data.get("message_id", ""),
+                    "email_sender": email_data.get("sender_email", ""),
+                    "email_sender_name": email_data.get("sender_name", ""),
+                    "attachments": email_data.get("attachments", []),
+                    "is_first_message": True,
+                }
+            ),
         )
         self.db.add(message)
 
@@ -1083,7 +1111,9 @@ class EmailChannelService:
             thread_message_id=email_data.get("message_id", ""),
             latest_message_id=email_data.get("message_id", ""),
             message_count=1,
-            participants_json=json.dumps([email_data.get("sender_email", "").lower().strip()]),
+            participants_json=json.dumps(
+                [email_data.get("sender_email", "").lower().strip()]
+            ),
         )
         self.db.add(email_thread)
 

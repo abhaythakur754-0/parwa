@@ -82,11 +82,14 @@ class TestCreateTemplate:
 
     @pytest.mark.asyncio
     async def test_create_basic(self, svc):
-        t = await svc.create_template(COMPANY_A, {
-            "name": "Test Template",
-            "category": "general",
-            "body_template": "Hello {{name}}",
-        })
+        t = await svc.create_template(
+            COMPANY_A,
+            {
+                "name": "Test Template",
+                "category": "general",
+                "body_template": "Hello {{name}}",
+            },
+        )
         assert t.id is not None
         assert t.company_id == COMPANY_A
         assert t.name == "Test Template"
@@ -98,16 +101,19 @@ class TestCreateTemplate:
 
     @pytest.mark.asyncio
     async def test_create_with_all_fields(self, svc):
-        t = await svc.create_template(COMPANY_A, {
-            "name": "Full Template",
-            "category": "apology",
-            "intent_types": ["complaint", "escalation"],
-            "subject_template": "Sorry {{name}}",
-            "body_template": "We apologize, {{name}}.",
-            "language": "en",
-            "is_active": False,
-            "created_by": "owner",
-        })
+        t = await svc.create_template(
+            COMPANY_A,
+            {
+                "name": "Full Template",
+                "category": "apology",
+                "intent_types": ["complaint", "escalation"],
+                "subject_template": "Sorry {{name}}",
+                "body_template": "We apologize, {{name}}.",
+                "language": "en",
+                "is_active": False,
+                "created_by": "owner",
+            },
+        )
         assert t.intent_types == ["complaint", "escalation"]
         assert t.language == "en"
         assert t.is_active is False
@@ -116,12 +122,15 @@ class TestCreateTemplate:
 
     @pytest.mark.asyncio
     async def test_create_auto_extracts_variables(self, svc):
-        t = await svc.create_template(COMPANY_A, {
-            "name": "Var Test",
-            "category": "billing",
-            "subject_template": "Bill for {{order_id}}",
-            "body_template": "Amount: {{amount}}, Date: {{date}}",
-        })
+        t = await svc.create_template(
+            COMPANY_A,
+            {
+                "name": "Var Test",
+                "category": "billing",
+                "subject_template": "Bill for {{order_id}}",
+                "body_template": "Amount: {{amount}}, Date: {{date}}",
+            },
+        )
         assert "amount" in t.variables
         assert "date" in t.variables
         assert "order_id" in t.variables
@@ -129,85 +138,112 @@ class TestCreateTemplate:
     @pytest.mark.asyncio
     async def test_create_empty_name_raises(self, svc):
         with pytest.raises(ValidationError, match="name"):
-            await svc.create_template(COMPANY_A, {
-                "name": "",
-                "category": "general",
-                "body_template": "test",
-            })
+            await svc.create_template(
+                COMPANY_A,
+                {
+                    "name": "",
+                    "category": "general",
+                    "body_template": "test",
+                },
+            )
 
     @pytest.mark.asyncio
     async def test_create_whitespace_name_raises(self, svc):
         with pytest.raises(ValidationError, match="name"):
-            await svc.create_template(COMPANY_A, {
-                "name": "   ",
-                "category": "general",
-                "body_template": "test",
-            })
+            await svc.create_template(
+                COMPANY_A,
+                {
+                    "name": "   ",
+                    "category": "general",
+                    "body_template": "test",
+                },
+            )
 
     @pytest.mark.asyncio
     async def test_create_invalid_category_raises(self, svc):
         with pytest.raises(ValidationError, match="Invalid category"):
-            await svc.create_template(COMPANY_A, {
-                "name": "Bad Cat",
-                "category": "nonexistent_category",
-                "body_template": "test",
-            })
+            await svc.create_template(
+                COMPANY_A,
+                {
+                    "name": "Bad Cat",
+                    "category": "nonexistent_category",
+                    "body_template": "test",
+                },
+            )
 
     @pytest.mark.asyncio
     async def test_create_empty_subject_and_body_raises(self, svc):
         with pytest.raises(ValidationError, match="subject_template or body_template"):
-            await svc.create_template(COMPANY_A, {
-                "name": "Empty",
-                "category": "general",
-            })
+            await svc.create_template(
+                COMPANY_A,
+                {
+                    "name": "Empty",
+                    "category": "general",
+                },
+            )
 
     @pytest.mark.asyncio
     async def test_create_category_case_insensitive(self, svc):
-        t = await svc.create_template(COMPANY_A, {
-            "name": "Case",
-            "category": "GREETING",
-            "body_template": "Hi",
-        })
+        t = await svc.create_template(
+            COMPANY_A,
+            {
+                "name": "Case",
+                "category": "GREETING",
+                "body_template": "Hi",
+            },
+        )
         assert t.category == "greeting"
 
     @pytest.mark.asyncio
     async def test_create_subject_only_is_valid(self, svc):
-        t = await svc.create_template(COMPANY_A, {
-            "name": "Subject Only",
-            "category": "general",
-            "subject_template": "Hello {{name}}!",
-        })
+        t = await svc.create_template(
+            COMPANY_A,
+            {
+                "name": "Subject Only",
+                "category": "general",
+                "subject_template": "Hello {{name}}!",
+            },
+        )
         assert t.subject_template == "Hello {{name}}!"
         assert t.body_template == ""
 
     @pytest.mark.asyncio
     async def test_create_body_only_is_valid(self, svc):
-        t = await svc.create_template(COMPANY_A, {
-            "name": "Body Only",
-            "category": "general",
-            "body_template": "Hello {{name}}!",
-        })
+        t = await svc.create_template(
+            COMPANY_A,
+            {
+                "name": "Body Only",
+                "category": "general",
+                "body_template": "Hello {{name}}!",
+            },
+        )
         assert t.body_template == "Hello {{name}}!"
         assert t.subject_template == ""
 
     @pytest.mark.asyncio
     async def test_create_with_non_list_intent_types(self, svc):
-        t = await svc.create_template(COMPANY_A, {
-            "name": "Intent",
-            "category": "general",
-            "body_template": "Hi",
-            "intent_types": "not-a-list",
-        })
+        t = await svc.create_template(
+            COMPANY_A,
+            {
+                "name": "Intent",
+                "category": "general",
+                "body_template": "Hi",
+                "intent_types": "not-a-list",
+            },
+        )
         assert t.intent_types == []  # coerced to list
 
     @pytest.mark.asyncio
     async def test_create_unknown_language_warns_but_succeeds(self, svc):
-        t = await svc.create_template(COMPANY_A, {
-            "name": "Lang",
-            "category": "general",
-            "body_template": "Hi",
-            "language": "xx",
-        })
+        t = await svc.create_template(
+            COMPANY_A,
+            {
+                "name": "Lang",
+                "category": "general",
+                "body_template": "Hi",
+                "language": "xx",
+            },
+        )
         assert t.language == "xx"
 
 
@@ -283,23 +319,29 @@ class TestListTemplates:
 
     @pytest.mark.asyncio
     async def test_list_active_only_true_excludes_inactive(self, svc):
-        await svc.create_template(COMPANY_A, {
-            "name": "Inactive",
-            "category": "general",
-            "body_template": "Hi",
-            "is_active": False,
-        })
+        await svc.create_template(
+            COMPANY_A,
+            {
+                "name": "Inactive",
+                "category": "general",
+                "body_template": "Hi",
+                "is_active": False,
+            },
+        )
         templates = await svc.list_templates(COMPANY_A, active_only=True)
         assert not any(t.name == "Inactive" for t in templates)
 
     @pytest.mark.asyncio
     async def test_list_active_only_false_includes_inactive(self, svc):
-        await svc.create_template(COMPANY_A, {
-            "name": "Inactive2",
-            "category": "general",
-            "body_template": "Hi",
-            "is_active": False,
-        })
+        await svc.create_template(
+            COMPANY_A,
+            {
+                "name": "Inactive2",
+                "category": "general",
+                "body_template": "Hi",
+                "is_active": False,
+            },
+        )
         templates = await svc.list_templates(COMPANY_A, active_only=False)
         assert any(t.name == "Inactive2" for t in templates)
 
@@ -326,12 +368,15 @@ class TestListTemplates:
 
     @pytest.mark.asyncio
     async def test_list_multiple_filters(self, svc):
-        await svc.create_template(COMPANY_A, {
-            "name": "Fr Greeting",
-            "category": "greeting",
-            "body_template": "Bonjour",
-            "language": "fr",
-        })
+        await svc.create_template(
+            COMPANY_A,
+            {
+                "name": "Fr Greeting",
+                "category": "greeting",
+                "body_template": "Bonjour",
+                "language": "fr",
+            },
+        )
         templates = await svc.list_templates(
             COMPANY_A, category="greeting", language="fr"
         )
@@ -362,18 +407,17 @@ class TestUpdateTemplate:
         assert updated.category == "farewell"
 
     @pytest.mark.asyncio
-    async def test_update_body_reextracts_variables(
-            self, svc, greeting_template):
+    async def test_update_body_reextracts_variables(self, svc, greeting_template):
         updated = await svc.update_template(
-            greeting_template.id, COMPANY_A,
-            {"body_template": "Just {{foo}} and {{bar}}"}
+            greeting_template.id,
+            COMPANY_A,
+            {"body_template": "Just {{foo}} and {{bar}}"},
         )
         assert "foo" in updated.variables
         assert "bar" in updated.variables
 
     @pytest.mark.asyncio
-    async def test_update_invalid_category_raises(
-            self, svc, greeting_template):
+    async def test_update_invalid_category_raises(self, svc, greeting_template):
         with pytest.raises(ValidationError, match="Invalid category"):
             await svc.update_template(
                 greeting_template.id, COMPANY_A, {"category": "bad_cat"}
@@ -387,15 +431,12 @@ class TestUpdateTemplate:
     @pytest.mark.asyncio
     async def test_update_cross_tenant_not_found(self, svc, greeting_template):
         with pytest.raises(NotFoundError):
-            await svc.update_template(
-                greeting_template.id, COMPANY_B, {"name": "x"}
-            )
+            await svc.update_template(greeting_template.id, COMPANY_B, {"name": "x"})
 
     @pytest.mark.asyncio
     async def test_update_intent_types(self, svc, greeting_template):
         updated = await svc.update_template(
-            greeting_template.id, COMPANY_A,
-            {"intent_types": ["custom", "feedback"]}
+            greeting_template.id, COMPANY_A, {"intent_types": ["custom", "feedback"]}
         )
         assert updated.intent_types == ["custom", "feedback"]
 
@@ -423,20 +464,17 @@ class TestUpdateTemplate:
         assert updated.version == 1
 
     @pytest.mark.asyncio
-    async def test_update_non_list_intent_types_ignored(
-            self, svc, greeting_template):
+    async def test_update_non_list_intent_types_ignored(self, svc, greeting_template):
         original_intents = list(greeting_template.intent_types)
         updated = await svc.update_template(
-            greeting_template.id, COMPANY_A,
-            {"intent_types": "not-a-list"}
+            greeting_template.id, COMPANY_A, {"intent_types": "not-a-list"}
         )
         assert updated.intent_types == original_intents
 
     @pytest.mark.asyncio
     async def test_update_subject_template(self, svc, greeting_template):
         updated = await svc.update_template(
-            greeting_template.id, COMPANY_A,
-            {"subject_template": "New: {{topic}}"}
+            greeting_template.id, COMPANY_A, {"subject_template": "New: {{topic}}"}
         )
         assert updated.subject_template == "New: {{topic}}"
         assert updated.version == 2
@@ -523,12 +561,9 @@ class TestDuplicateTemplate:
             await svc.duplicate_template(greeting_template.id, COMPANY_B)
 
     @pytest.mark.asyncio
-    async def test_duplicate_independent_modification(
-            self, svc, greeting_template):
+    async def test_duplicate_independent_modification(self, svc, greeting_template):
         copy = await svc.duplicate_template(greeting_template.id, COMPANY_A)
-        await svc.update_template(
-            copy.id, COMPANY_A, {"name": "Modified Copy"}
-        )
+        await svc.update_template(copy.id, COMPANY_A, {"name": "Modified Copy"})
         original = await svc.get_template(greeting_template.id, COMPANY_A)
         assert original.name == greeting_template.name  # unchanged
 
@@ -543,17 +578,18 @@ class TestRenderTemplate:
     @pytest.mark.asyncio
     async def test_render_basic_substitution(self, svc, greeting_template):
         rendered = await svc.render_template(
-            greeting_template.id, COMPANY_A,
+            greeting_template.id,
+            COMPANY_A,
             {"customer_name": "Alice", "company_name": "PARWA"},
         )
         assert "Alice" in rendered
         assert "PARWA" in rendered
 
     @pytest.mark.asyncio
-    async def test_render_missing_variable_left_as_is(
-            self, svc, greeting_template):
+    async def test_render_missing_variable_left_as_is(self, svc, greeting_template):
         rendered = await svc.render_template(
-            greeting_template.id, COMPANY_A,
+            greeting_template.id,
+            COMPANY_A,
             {"customer_name": "Bob"},  # missing company_name
         )
         assert "Bob" in rendered
@@ -562,7 +598,8 @@ class TestRenderTemplate:
     @pytest.mark.asyncio
     async def test_render_text_sanitization(self, svc, greeting_template):
         rendered = await svc.render_template(
-            greeting_template.id, COMPANY_A,
+            greeting_template.id,
+            COMPANY_A,
             {"customer_name": "<script>alert('xss')</script>"},
             content_type="text",
         )
@@ -571,9 +608,11 @@ class TestRenderTemplate:
 
     @pytest.mark.asyncio
     async def test_render_html_sanitization_script_removal(
-            self, svc, greeting_template):
+        self, svc, greeting_template
+    ):
         rendered = await svc.render_template(
-            greeting_template.id, COMPANY_A,
+            greeting_template.id,
+            COMPANY_A,
             {"customer_name": '<script>alert("xss")</script>World'},
             content_type="html",
         )
@@ -582,9 +621,11 @@ class TestRenderTemplate:
 
     @pytest.mark.asyncio
     async def test_render_html_sanitization_event_handlers(
-            self, svc, greeting_template):
+        self, svc, greeting_template
+    ):
         rendered = await svc.render_template(
-            greeting_template.id, COMPANY_A,
+            greeting_template.id,
+            COMPANY_A,
             {"customer_name": '<div onclick="alert(1)">Click</div>'},
             content_type="html",
         )
@@ -594,7 +635,8 @@ class TestRenderTemplate:
     async def test_render_increments_usage(self, svc, greeting_template):
         count_before = greeting_template.usage_count
         await svc.render_template(
-            greeting_template.id, COMPANY_A,
+            greeting_template.id,
+            COMPANY_A,
             {"customer_name": "Test"},
         )
         # Re-fetch to see updated usage
@@ -603,16 +645,12 @@ class TestRenderTemplate:
 
     @pytest.mark.asyncio
     async def test_render_not_found_returns_empty(self, svc):
-        rendered = await svc.render_template(
-            "nonexistent", COMPANY_A, {}
-        )
+        rendered = await svc.render_template("nonexistent", COMPANY_A, {})
         assert rendered == ""  # BC-008: safe fallback
 
     @pytest.mark.asyncio
     async def test_render_empty_variables(self, svc, greeting_template):
-        rendered = await svc.render_template(
-            greeting_template.id, COMPANY_A, {}
-        )
+        rendered = await svc.render_template(greeting_template.id, COMPANY_A, {})
         assert isinstance(rendered, str)
         assert len(rendered) > 0
 
@@ -658,9 +696,7 @@ class TestFindBestTemplate:
 
     @pytest.mark.asyncio
     async def test_find_best_escalation_intent(self, svc):
-        best = await svc.find_best_template(
-            COMPANY_A, intent_type="escalation"
-        )
+        best = await svc.find_best_template(COMPANY_A, intent_type="escalation")
         assert best is not None
         assert best.category == "escalation"
 
@@ -674,9 +710,7 @@ class TestGetTemplateVariables:
 
     @pytest.mark.asyncio
     async def test_get_variables_known(self, svc, greeting_template):
-        variables = await svc.get_template_variables(
-            greeting_template.id, COMPANY_A
-        )
+        variables = await svc.get_template_variables(greeting_template.id, COMPANY_A)
         assert len(variables) > 0
         var_names = {v.name for v in variables}
         assert "customer_name" in var_names
@@ -684,11 +718,14 @@ class TestGetTemplateVariables:
 
     @pytest.mark.asyncio
     async def test_get_variables_custom(self, svc):
-        t = await svc.create_template(COMPANY_A, {
-            "name": "Custom Var",
-            "category": "general",
-            "body_template": "Hi {{unknown_var_xyz}}",
-        })
+        t = await svc.create_template(
+            COMPANY_A,
+            {
+                "name": "Custom Var",
+                "category": "general",
+                "body_template": "Hi {{unknown_var_xyz}}",
+            },
+        )
         variables = await svc.get_template_variables(t.id, COMPANY_A)
         var_names = {v.name for v in variables}
         assert "unknown_var_xyz" in var_names
@@ -744,9 +781,7 @@ class TestValidateTemplate:
 
     @pytest.mark.asyncio
     async def test_multiple_variables(self, svc):
-        result = await svc.validate_template(
-            "{{a}} {{b}} {{c}} {{a}}"
-        )
+        result = await svc.validate_template("{{a}} {{b}} {{c}} {{a}}")
         assert result.is_valid is True
         assert result.variables_found == ["a", "b", "c"]
 
@@ -767,7 +802,7 @@ class TestSanitizeTemplateVariable:
         assert "<b>" not in result
 
     def test_text_escapes_quotes(self):
-        result = sanitize_template_variable('"hi\' there', "text")
+        result = sanitize_template_variable("\"hi' there", "text")
         assert "&quot;" in result
         assert "&#x27;" in result
 
@@ -987,7 +1022,8 @@ class TestDefaultTemplates:
             "apology",
             "escalation",
             "refund",
-            "technical"}
+            "technical",
+        }
 
     @pytest.mark.asyncio
     async def test_defaults_have_variables(self, svc):

@@ -58,26 +58,40 @@ _MockOAuthAccount = type("OAuthAccount", (), {})
 _MockRefreshToken = type("RefreshToken", (), {})
 
 _db_core_attrs = {
-    "User": _MockUser, "Company": _MockCompany,
-    "OAuthAccount": _MockOAuthAccount, "RefreshToken": _MockRefreshToken,
+    "User": _MockUser,
+    "Company": _MockCompany,
+    "OAuthAccount": _MockOAuthAccount,
+    "RefreshToken": _MockRefreshToken,
 }
 
 _mock_modules = {
     # Database layer
     "database": (None, True),
-    "database.base": ({"get_db": lambda: None, "engine": MagicMock(), "Session": MagicMock}, False),
+    "database.base": (
+        {"get_db": lambda: None, "engine": MagicMock(), "Session": MagicMock},
+        False,
+    ),
     "database.models": (None, True),
     "database.models.core": (_db_core_attrs, False),
     # SQLAlchemy mock (needed by response.py)
     "sqlalchemy": (None, True),
     "sqlalchemy.orm": ({"Session": MagicMock}, False),
     "sqlalchemy.ext": (None, True),
-    "sqlalchemy.ext.asyncio": ({"AsyncSession": MagicMock, "create_async_engine": MagicMock}, False),
+    "sqlalchemy.ext.asyncio": (
+        {"AsyncSession": MagicMock, "create_async_engine": MagicMock},
+        False,
+    ),
     # Shared utilities (used by schemas, services)
     "shared": (None, True),
     "shared.utils": (None, True),
-    "shared.utils.security": ({"hash_password": lambda x: x, "verify_password": lambda x, y: True}, False),
-    "shared.utils.pagination": ({"PaginatedResponse": MagicMock, "paginate_query": lambda *a, **kw: None}, False),
+    "shared.utils.security": (
+        {"hash_password": lambda x: x, "verify_password": lambda x, y: True},
+        False,
+    ),
+    "shared.utils.pagination": (
+        {"PaginatedResponse": MagicMock, "paginate_query": lambda *a, **kw: None},
+        False,
+    ),
     # Auth core
     "app.core.auth": ({"verify_access_token": lambda t: {"sub": "user-1"}}, False),
     # Prevent __init__.py cascade by pre-registering sub-modules that fail
@@ -111,6 +125,7 @@ for _mod_name, (_attrs, _is_pkg) in _mock_modules.items():
 def _reset_in_memory_store():
     """Reset class-level in-memory store between tests."""
     from app.services.response_template_service import ResponseTemplateService
+
     ResponseTemplateService._store.clear()
     ResponseTemplateService._defaults_loaded.clear()
     yield
@@ -160,8 +175,9 @@ def app(mock_user, owner_user):
     application.dependency_overrides[get_current_user] = override_get_current_user
     application.dependency_overrides[get_company_id] = override_get_company_id
     # require_roles is a factory — we override the inner checker result
-    application.dependency_overrides[require_roles(
-        "owner", "admin")] = override_require_roles
+    application.dependency_overrides[require_roles("owner", "admin")] = (
+        override_require_roles
+    )
 
     return application
 
@@ -186,10 +202,13 @@ class TestGenerateResponse:
         mock_gen = mock_gen_cls.return_value
         mock_gen.generate = AsyncMock(return_value=mock_result)
 
-        resp = client.post("/api/response/generate", json={
-            "query": "How do I reset my password?",
-            "conversation_id": "conv-001",
-        })
+        resp = client.post(
+            "/api/response/generate",
+            json={
+                "query": "How do I reset my password?",
+                "conversation_id": "conv-001",
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
@@ -202,35 +221,47 @@ class TestGenerateResponse:
         mock_gen = mock_gen_cls.return_value
         mock_gen.generate = AsyncMock(return_value=mock_result)
 
-        resp = client.post("/api/response/generate", json={
-            "query": "Help!",
-            "conversation_id": "conv-002",
-            "variant_type": "parwa_high",
-            "customer_id": "cust-001",
-            "conversation_history": [{"role": "user", "content": "hi"}],
-            "customer_metadata": {"tier": "pro"},
-            "language": "es",
-            "force_template_response": True,
-        })
+        resp = client.post(
+            "/api/response/generate",
+            json={
+                "query": "Help!",
+                "conversation_id": "conv-002",
+                "variant_type": "parwa_high",
+                "customer_id": "cust-001",
+                "conversation_history": [{"role": "user", "content": "hi"}],
+                "customer_metadata": {"tier": "pro"},
+                "language": "es",
+                "force_template_response": True,
+            },
+        )
         assert resp.status_code == 200
 
     def test_generate_missing_query(self, client):
-        resp = client.post("/api/response/generate", json={
-            "conversation_id": "conv-001",
-        })
+        resp = client.post(
+            "/api/response/generate",
+            json={
+                "conversation_id": "conv-001",
+            },
+        )
         assert resp.status_code == 422
 
     def test_generate_missing_conversation_id(self, client):
-        resp = client.post("/api/response/generate", json={
-            "query": "Help!",
-        })
+        resp = client.post(
+            "/api/response/generate",
+            json={
+                "query": "Help!",
+            },
+        )
         assert resp.status_code == 422
 
     def test_generate_empty_query(self, client):
-        resp = client.post("/api/response/generate", json={
-            "query": "",
-            "conversation_id": "conv-001",
-        })
+        resp = client.post(
+            "/api/response/generate",
+            json={
+                "query": "",
+                "conversation_id": "conv-001",
+            },
+        )
         assert resp.status_code == 422
 
     def test_generate_empty_body(self, client):
@@ -238,40 +269,44 @@ class TestGenerateResponse:
         assert resp.status_code == 422
 
     @patch("app.core.response_generator.ResponseGenerator", create=True)
-    def test_generate_service_raises_validation_error(
-            self, mock_gen_cls, client):
+    def test_generate_service_raises_validation_error(self, mock_gen_cls, client):
         from app.exceptions import ValidationError
+
         mock_gen = mock_gen_cls.return_value
-        mock_gen.generate = AsyncMock(
-            side_effect=ValidationError(message="Bad input")
+        mock_gen.generate = AsyncMock(side_effect=ValidationError(message="Bad input"))
+        resp = client.post(
+            "/api/response/generate",
+            json={
+                "query": "test",
+                "conversation_id": "conv-001",
+            },
         )
-        resp = client.post("/api/response/generate", json={
-            "query": "test",
-            "conversation_id": "conv-001",
-        })
         assert resp.status_code == 422
 
     @patch("app.core.response_generator.ResponseGenerator", create=True)
-    def test_generate_service_raises_not_found_error(
-            self, mock_gen_cls, client):
+    def test_generate_service_raises_not_found_error(self, mock_gen_cls, client):
         mock_gen = mock_gen_cls.return_value
-        mock_gen.generate = AsyncMock(
-            side_effect=NotFoundError(message="Not found")
+        mock_gen.generate = AsyncMock(side_effect=NotFoundError(message="Not found"))
+        resp = client.post(
+            "/api/response/generate",
+            json={
+                "query": "test",
+                "conversation_id": "conv-001",
+            },
         )
-        resp = client.post("/api/response/generate", json={
-            "query": "test",
-            "conversation_id": "conv-001",
-        })
         assert resp.status_code == 404
 
     @patch("app.core.response_generator.ResponseGenerator", create=True)
     def test_generate_service_raises_generic_error(self, mock_gen_cls, client):
         mock_gen = mock_gen_cls.return_value
         mock_gen.generate = AsyncMock(side_effect=RuntimeError("boom"))
-        resp = client.post("/api/response/generate", json={
-            "query": "test",
-            "conversation_id": "conv-001",
-        })
+        resp = client.post(
+            "/api/response/generate",
+            json={
+                "query": "test",
+                "conversation_id": "conv-001",
+            },
+        )
         assert resp.status_code == 500
         assert "Failed to generate response" in resp.json()["detail"]
 
@@ -283,10 +318,13 @@ class TestGenerateResponse:
         mock_gen = mock_gen_cls.return_value
         mock_gen.generate = AsyncMock(return_value=mock_result)
 
-        resp = client.post("/api/response/generate", json={
-            "query": "test query",
-            "conversation_id": "conv-default",
-        })
+        resp = client.post(
+            "/api/response/generate",
+            json={
+                "query": "test query",
+                "conversation_id": "conv-default",
+            },
+        )
         assert resp.status_code == 200
         # Verify the generator was called
         assert mock_gen.generate.called
@@ -307,12 +345,15 @@ class TestBatchGeneration:
         mock_gen = mock_gen_cls.return_value
         mock_gen.generate = AsyncMock(return_value=mock_result)
 
-        resp = client.post("/api/response/generate/batch", json={
-            "items": [
-                {"query": "q1", "conversation_id": "c1"},
-                {"query": "q2", "conversation_id": "c2"},
-            ]
-        })
+        resp = client.post(
+            "/api/response/generate/batch",
+            json={
+                "items": [
+                    {"query": "q1", "conversation_id": "c1"},
+                    {"query": "q2", "conversation_id": "c2"},
+                ]
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
@@ -336,13 +377,16 @@ class TestBatchGeneration:
 
         mock_gen.generate = _gen
 
-        resp = client.post("/api/response/generate/batch", json={
-            "items": [
-                {"query": "q1", "conversation_id": "c1"},
-                {"query": "q2", "conversation_id": "c2"},
-                {"query": "q3", "conversation_id": "c3"},
-            ]
-        })
+        resp = client.post(
+            "/api/response/generate/batch",
+            json={
+                "items": [
+                    {"query": "q1", "conversation_id": "c1"},
+                    {"query": "q2", "conversation_id": "c2"},
+                    {"query": "q3", "conversation_id": "c3"},
+                ]
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "partial"
@@ -350,18 +394,17 @@ class TestBatchGeneration:
         assert data["data"]["failed"] == 1
 
     def test_batch_empty_items(self, client):
-        resp = client.post("/api/response/generate/batch", json={
-            "items": [],
-        })
-        assert resp.status_code == 422
-
-    def test_batch_too_many_items(self, client):
-        items = [{"query": f"q{i}", "conversation_id": f"c{i}"}
-                 for i in range(21)]
         resp = client.post(
             "/api/response/generate/batch",
             json={
-                "items": items})
+                "items": [],
+            },
+        )
+        assert resp.status_code == 422
+
+    def test_batch_too_many_items(self, client):
+        items = [{"query": f"q{i}", "conversation_id": f"c{i}"} for i in range(21)]
+        resp = client.post("/api/response/generate/batch", json={"items": items})
         assert resp.status_code == 422
 
     def test_batch_missing_items_key(self, client):
@@ -369,15 +412,21 @@ class TestBatchGeneration:
         assert resp.status_code == 422
 
     def test_batch_item_missing_query(self, client):
-        resp = client.post("/api/response/generate/batch", json={
-            "items": [{"conversation_id": "c1"}],
-        })
+        resp = client.post(
+            "/api/response/generate/batch",
+            json={
+                "items": [{"conversation_id": "c1"}],
+            },
+        )
         assert resp.status_code == 422
 
     def test_batch_item_missing_conversation_id(self, client):
-        resp = client.post("/api/response/generate/batch", json={
-            "items": [{"query": "q1"}],
-        })
+        resp = client.post(
+            "/api/response/generate/batch",
+            json={
+                "items": [{"query": "q1"}],
+            },
+        )
         assert resp.status_code == 422
 
     @patch("app.core.response_generator.ResponseGenerator", create=True)
@@ -386,9 +435,12 @@ class TestBatchGeneration:
         mock_result.to_dict.return_value = {"response": "ok"}
         mock_gen = mock_gen_cls.return_value
         mock_gen.generate = AsyncMock(return_value=mock_result)
-        resp = client.post("/api/response/generate/batch", json={
-            "items": [{"query": "q1", "conversation_id": "c1"}],
-        })
+        resp = client.post(
+            "/api/response/generate/batch",
+            json={
+                "items": [{"query": "q1", "conversation_id": "c1"}],
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["data"]["total"] == 1
 
@@ -410,6 +462,7 @@ class TestTokenBudget:
             max_tokens: int
             percentage: float
             warning_level: str
+
         mock_svc = mock_svc_cls.return_value
         mock_svc.get_budget_status = AsyncMock(
             return_value=Status("conv-001", 500, 4000, 12.5, "normal")
@@ -434,19 +487,24 @@ class TestTokenBudget:
             company_id: str
             max_tokens: int
             used: int
+
         mock_svc = mock_svc_cls.return_value
         mock_svc.initialize_budget = AsyncMock(
             return_value=Budget("conv-001", "company-001", 4000, 0)
         )
-        resp = client.post("/api/response/budget/conv-001/initialize", json={
-            "variant_type": "parwa",
-        })
+        resp = client.post(
+            "/api/response/budget/conv-001/initialize",
+            json={
+                "variant_type": "parwa",
+            },
+        )
         assert resp.status_code == 200
 
     @patch("app.services.token_budget_service.TokenBudgetService", create=True)
     def test_initialize_budget_default_variant(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
         from app.services.token_budget_service import TokenBudget
+
         now = datetime.now(timezone.utc)
         mock_budget = TokenBudget(
             conversation_id="conv-001",
@@ -471,13 +529,17 @@ class TestTokenBudget:
             remaining: int
             overflow: int
             needs_truncation: bool
+
         mock_svc = mock_svc_cls.return_value
         mock_svc.check_overflow = AsyncMock(
             return_value=OverflowResult(True, 3000, 0, False)
         )
-        resp = client.post("/api/response/budget/conv-001/check", json={
-            "estimated_tokens": 500,
-        })
+        resp = client.post(
+            "/api/response/budget/conv-001/check",
+            json={
+                "estimated_tokens": 500,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()["data"]
         assert data["can_fit"] is True
@@ -490,35 +552,48 @@ class TestTokenBudget:
             remaining: int
             overflow: int
             needs_truncation: bool
+
         mock_svc = mock_svc_cls.return_value
         mock_svc.check_overflow = AsyncMock(
             return_value=OverflowResult(False, 0, 500, True)
         )
-        resp = client.post("/api/response/budget/conv-001/check", json={
-            "estimated_tokens": 5000,
-        })
+        resp = client.post(
+            "/api/response/budget/conv-001/check",
+            json={
+                "estimated_tokens": 5000,
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["data"]["needs_truncation"] is True
 
     def test_check_overflow_zero_tokens(self, client):
-        resp = client.post("/api/response/budget/conv-001/check", json={
-            "estimated_tokens": 0,
-        })
+        resp = client.post(
+            "/api/response/budget/conv-001/check",
+            json={
+                "estimated_tokens": 0,
+            },
+        )
         assert resp.status_code == 422
 
     def test_check_overflow_negative_tokens(self, client):
-        resp = client.post("/api/response/budget/conv-001/check", json={
-            "estimated_tokens": -5,
-        })
+        resp = client.post(
+            "/api/response/budget/conv-001/check",
+            json={
+                "estimated_tokens": -5,
+            },
+        )
         assert resp.status_code == 422
 
     @patch("app.services.token_budget_service.TokenBudgetService", create=True)
     def test_check_overflow_service_error(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
         mock_svc.check_overflow = AsyncMock(side_effect=RuntimeError("err"))
-        resp = client.post("/api/response/budget/conv-001/check", json={
-            "estimated_tokens": 100,
-        })
+        resp = client.post(
+            "/api/response/budget/conv-001/check",
+            json={
+                "estimated_tokens": 100,
+            },
+        )
         assert resp.status_code == 500
 
     @patch("app.services.token_budget_service.TokenBudgetService", create=True)
@@ -538,12 +613,15 @@ class TestTemplatesCRUD:
     """Tests for template CRUD endpoints."""
 
     def test_create_template_success(self, client):
-        resp = client.post("/api/response/templates", json={
-            "name": "Test Greeting",
-            "category": "greeting",
-            "subject_template": "Hi {{name}}!",
-            "body_template": "Hello {{name}}, welcome!",
-        })
+        resp = client.post(
+            "/api/response/templates",
+            json={
+                "name": "Test Greeting",
+                "category": "greeting",
+                "subject_template": "Hi {{name}}!",
+                "body_template": "Hello {{name}}, welcome!",
+            },
+        )
         assert resp.status_code == 201
         data = resp.json()
         assert data["status"] == "ok"
@@ -551,33 +629,45 @@ class TestTemplatesCRUD:
         assert data["data"]["category"] == "greeting"
 
     def test_create_template_invalid_category(self, client):
-        resp = client.post("/api/response/templates", json={
-            "name": "Test",
-            "category": "nonexistent",
-            "body_template": "Hello",
-        })
+        resp = client.post(
+            "/api/response/templates",
+            json={
+                "name": "Test",
+                "category": "nonexistent",
+                "body_template": "Hello",
+            },
+        )
         assert resp.status_code == 422
 
     def test_create_template_empty_name(self, client):
-        resp = client.post("/api/response/templates", json={
-            "name": "",
-            "category": "greeting",
-            "body_template": "Hello",
-        })
+        resp = client.post(
+            "/api/response/templates",
+            json={
+                "name": "",
+                "category": "greeting",
+                "body_template": "Hello",
+            },
+        )
         assert resp.status_code == 422
 
     def test_create_template_no_body_or_subject(self, client):
-        resp = client.post("/api/response/templates", json={
-            "name": "Empty",
-            "category": "general",
-        })
+        resp = client.post(
+            "/api/response/templates",
+            json={
+                "name": "Empty",
+                "category": "general",
+            },
+        )
         assert resp.status_code == 422
 
     def test_create_template_missing_category(self, client):
-        resp = client.post("/api/response/templates", json={
-            "name": "NoCat",
-            "body_template": "Hello",
-        })
+        resp = client.post(
+            "/api/response/templates",
+            json={
+                "name": "NoCat",
+                "body_template": "Hello",
+            },
+        )
         assert resp.status_code == 422
 
     def test_list_templates_success(self, client):
@@ -612,11 +702,14 @@ class TestTemplatesCRUD:
         assert resp.json()["data"]["total"] == 0
 
     def test_get_template_success(self, client):
-        create_resp = client.post("/api/response/templates", json={
-            "name": "Get Test",
-            "category": "general",
-            "body_template": "Hello {{name}}",
-        })
+        create_resp = client.post(
+            "/api/response/templates",
+            json={
+                "name": "Get Test",
+                "category": "general",
+                "body_template": "Hello {{name}}",
+            },
+        )
         tid = create_resp.json()["data"]["id"]
         resp = client.get(f"/api/response/templates/{tid}")
         assert resp.status_code == 200
@@ -627,44 +720,62 @@ class TestTemplatesCRUD:
         assert resp.status_code == 404
 
     def test_update_template_success(self, client):
-        create_resp = client.post("/api/response/templates", json={
-            "name": "Update Me",
-            "category": "general",
-            "body_template": "Old body",
-        })
+        create_resp = client.post(
+            "/api/response/templates",
+            json={
+                "name": "Update Me",
+                "category": "general",
+                "body_template": "Old body",
+            },
+        )
         tid = create_resp.json()["data"]["id"]
-        resp = client.put(f"/api/response/templates/{tid}", json={
-            "name": "Updated Name",
-            "body_template": "New body with {{var}}",
-        })
+        resp = client.put(
+            f"/api/response/templates/{tid}",
+            json={
+                "name": "Updated Name",
+                "body_template": "New body with {{var}}",
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["data"]["name"] == "Updated Name"
         assert resp.json()["data"]["version"] == 2
 
     def test_update_template_not_found(self, client):
-        resp = client.put("/api/response/templates/nonexistent", json={
-            "name": "x",
-        })
+        resp = client.put(
+            "/api/response/templates/nonexistent",
+            json={
+                "name": "x",
+            },
+        )
         assert resp.status_code == 404
 
     def test_update_template_invalid_category(self, client):
-        create_resp = client.post("/api/response/templates", json={
-            "name": "Cat Test",
-            "category": "general",
-            "body_template": "Body",
-        })
+        create_resp = client.post(
+            "/api/response/templates",
+            json={
+                "name": "Cat Test",
+                "category": "general",
+                "body_template": "Body",
+            },
+        )
         tid = create_resp.json()["data"]["id"]
-        resp = client.put(f"/api/response/templates/{tid}", json={
-            "category": "invalid_cat",
-        })
+        resp = client.put(
+            f"/api/response/templates/{tid}",
+            json={
+                "category": "invalid_cat",
+            },
+        )
         assert resp.status_code == 422
 
     def test_delete_template_success(self, client):
-        create_resp = client.post("/api/response/templates", json={
-            "name": "Delete Me",
-            "category": "general",
-            "body_template": "Bye",
-        })
+        create_resp = client.post(
+            "/api/response/templates",
+            json={
+                "name": "Delete Me",
+                "category": "general",
+                "body_template": "Bye",
+            },
+        )
         tid = create_resp.json()["data"]["id"]
         resp = client.delete(f"/api/response/templates/{tid}")
         assert resp.status_code == 200
@@ -683,15 +794,19 @@ class TestTemplatesCRUD:
                 "category": "greeting",
                 "subject_template": "Hi {{customer_name}}!",
                 "body_template": "Hello {{customer_name}}, welcome to {{company_name}}.",
-            })
-        tid = create_resp.json()["data"]["id"]
-        resp = client.post(f"/api/response/templates/{tid}/render", json={
-            "variables": {
-                "customer_name": "Alice",
-                "company_name": "PARWA",
             },
-            "content_type": "text",
-        })
+        )
+        tid = create_resp.json()["data"]["id"]
+        resp = client.post(
+            f"/api/response/templates/{tid}/render",
+            json={
+                "variables": {
+                    "customer_name": "Alice",
+                    "company_name": "PARWA",
+                },
+                "content_type": "text",
+            },
+        )
         assert resp.status_code == 200
         rendered = resp.json()["data"]["rendered"]
         assert "Alice" in rendered
@@ -702,59 +817,81 @@ class TestTemplatesCRUD:
             "/api/response/templates/nonexistent-id/render",
             json={
                 "variables": {},
-            })
+            },
+        )
         # Template not found may return 200 with empty content or 404
         assert resp.status_code in (200, 404)
 
     def test_render_template_html_sanitization(self, client):
-        create_resp = client.post("/api/response/templates", json={
-            "name": "XSS Test",
-            "category": "general",
-            "body_template": "Message: {{msg}}",
-        })
+        create_resp = client.post(
+            "/api/response/templates",
+            json={
+                "name": "XSS Test",
+                "category": "general",
+                "body_template": "Message: {{msg}}",
+            },
+        )
         tid = create_resp.json()["data"]["id"]
-        resp = client.post(f"/api/response/templates/{tid}/render", json={
-            "variables": {"msg": '<script>alert("xss")</script>'},
-            "content_type": "html",
-        })
+        resp = client.post(
+            f"/api/response/templates/{tid}/render",
+            json={
+                "variables": {"msg": '<script>alert("xss")</script>'},
+                "content_type": "html",
+            },
+        )
         assert resp.status_code == 200
         rendered = resp.json()["data"]["rendered"]
         assert "<script>" not in rendered.lower()
 
     def test_render_template_text_escaping(self, client):
-        create_resp = client.post("/api/response/templates", json={
-            "name": "Escape Test",
-            "category": "general",
-            "body_template": "Val: {{val}}",
-        })
+        create_resp = client.post(
+            "/api/response/templates",
+            json={
+                "name": "Escape Test",
+                "category": "general",
+                "body_template": "Val: {{val}}",
+            },
+        )
         tid = create_resp.json()["data"]["id"]
-        resp = client.post(f"/api/response/templates/{tid}/render", json={
-            "variables": {"val": "<b>bold</b>"},
-            "content_type": "text",
-        })
+        resp = client.post(
+            f"/api/response/templates/{tid}/render",
+            json={
+                "variables": {"val": "<b>bold</b>"},
+                "content_type": "text",
+            },
+        )
         assert resp.status_code == 200
         rendered = resp.json()["data"]["rendered"]
         assert "&lt;b&gt;" in rendered
         assert "<b>" not in rendered
 
     def test_render_with_empty_variables(self, client):
-        create_resp = client.post("/api/response/templates", json={
-            "name": "Empty Vars",
-            "category": "general",
-            "body_template": "Static message",
-        })
+        create_resp = client.post(
+            "/api/response/templates",
+            json={
+                "name": "Empty Vars",
+                "category": "general",
+                "body_template": "Static message",
+            },
+        )
         tid = create_resp.json()["data"]["id"]
-        resp = client.post(f"/api/response/templates/{tid}/render", json={
-            "variables": {},
-        })
+        resp = client.post(
+            f"/api/response/templates/{tid}/render",
+            json={
+                "variables": {},
+            },
+        )
         assert resp.status_code == 200
 
     def test_create_then_delete_gets_404(self, client):
-        create_resp = client.post("/api/response/templates", json={
-            "name": "Temp",
-            "category": "general",
-            "body_template": "Hi",
-        })
+        create_resp = client.post(
+            "/api/response/templates",
+            json={
+                "name": "Temp",
+                "category": "general",
+                "body_template": "Hi",
+            },
+        )
         tid = create_resp.json()["data"]["id"]
         client.delete(f"/api/response/templates/{tid}")
         resp = client.get(f"/api/response/templates/{tid}")
@@ -787,6 +924,7 @@ class TestBrandVoice:
             brand_name: str
             industry: str
             custom_instructions: Optional[str]
+
         mock_svc = mock_svc_cls.return_value
         mock_svc.get_config = AsyncMock(
             return_value=Config(
@@ -804,7 +942,8 @@ class TestBrandVoice:
                 brand_name="PARWA",
                 industry="tech",
                 custom_instructions=None,
-            ))
+            )
+        )
         resp = client.get("/api/brand-voice")
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
@@ -820,40 +959,62 @@ class TestBrandVoice:
     def test_upsert_brand_voice_success(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
         from app.services.brand_voice_service import BrandVoiceConfig
+
         now = datetime.now(timezone.utc)
         mock_config = BrandVoiceConfig(
-            company_id="co-1", tone="friendly", formality_level=0.3,
-            prohibited_words=[], response_length_preference="medium",
-            max_response_sentences=10, min_response_sentences=2,
-            greeting_template="Hi!", closing_template="Thanks!",
-            emoji_usage="moderate", apology_style="sincere",
-            escalation_tone="professional", brand_name="TestCo",
-            industry="ecommerce", custom_instructions="",
-            created_at=now, updated_at=now,
+            company_id="co-1",
+            tone="friendly",
+            formality_level=0.3,
+            prohibited_words=[],
+            response_length_preference="medium",
+            max_response_sentences=10,
+            min_response_sentences=2,
+            greeting_template="Hi!",
+            closing_template="Thanks!",
+            emoji_usage="moderate",
+            apology_style="sincere",
+            escalation_tone="professional",
+            brand_name="TestCo",
+            industry="ecommerce",
+            custom_instructions="",
+            created_at=now,
+            updated_at=now,
         )
         mock_svc.update_config = AsyncMock(return_value=mock_config)
-        resp = client.post("/api/brand-voice", json={
-            "tone": "friendly",
-            "formality_level": 0.3,
-        })
+        resp = client.post(
+            "/api/brand-voice",
+            json={
+                "tone": "friendly",
+                "formality_level": 0.3,
+            },
+        )
         assert resp.status_code == 200
 
     @patch("app.services.brand_voice_service.BrandVoiceService", create=True)
     def test_upsert_brand_voice_create_fallback(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
-        mock_svc.update_config = AsyncMock(
-            side_effect=NotFoundError("not found"))
+        mock_svc.update_config = AsyncMock(side_effect=NotFoundError("not found"))
         from app.services.brand_voice_service import BrandVoiceConfig
+
         now = datetime.now(timezone.utc)
         mock_config = BrandVoiceConfig(
-            company_id="co-1", tone="casual", formality_level=0.5,
-            prohibited_words=[], response_length_preference="standard",
-            max_response_sentences=8, min_response_sentences=1,
-            greeting_template="", closing_template="",
-            emoji_usage="minimal", apology_style="sincere",
-            escalation_tone="professional", brand_name="TestCo",
-            industry="tech", custom_instructions="",
-            created_at=now, updated_at=now,
+            company_id="co-1",
+            tone="casual",
+            formality_level=0.5,
+            prohibited_words=[],
+            response_length_preference="standard",
+            max_response_sentences=8,
+            min_response_sentences=1,
+            greeting_template="",
+            closing_template="",
+            emoji_usage="minimal",
+            apology_style="sincere",
+            escalation_tone="professional",
+            brand_name="TestCo",
+            industry="tech",
+            custom_instructions="",
+            created_at=now,
+            updated_at=now,
         )
         mock_svc.create_config = AsyncMock(return_value=mock_config)
         resp = client.post("/api/brand-voice", json={"tone": "casual"})
@@ -874,20 +1035,27 @@ class TestBrandVoice:
             has_prohibited: bool
             prohibited_found: list
             normalized_text: str
+
         mock_svc = mock_svc_cls.return_value
         mock_svc.check_prohibited_words = AsyncMock(
             return_value=Result(True, ["damn"], "normalized text")
         )
-        resp = client.post("/api/brand-voice/check-prohibited", json={
-            "text": "This is damn bad",
-        })
+        resp = client.post(
+            "/api/brand-voice/check-prohibited",
+            json={
+                "text": "This is damn bad",
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["data"]["has_prohibited"] is True
 
     def test_check_prohibited_empty_text(self, client):
-        resp = client.post("/api/brand-voice/check-prohibited", json={
-            "text": "",
-        })
+        resp = client.post(
+            "/api/brand-voice/check-prohibited",
+            json={
+                "text": "",
+            },
+        )
         assert resp.status_code == 422
 
     @patch("app.services.brand_voice_service.BrandVoiceService", create=True)
@@ -898,15 +1066,19 @@ class TestBrandVoice:
             violations: list
             warnings: list
             suggested_fixes: list
+
         mock_svc = mock_svc_cls.return_value
         mock_svc.get_config = AsyncMock(return_value=MagicMock())
         mock_svc.validate_response = AsyncMock(
             return_value=ValidationResult(0.9, [], [], [])
         )
-        resp = client.post("/api/brand-voice/validate", json={
-            "response_text": "Thank you for your inquiry!",
-            "sentiment_score": 0.8,
-        })
+        resp = client.post(
+            "/api/brand-voice/validate",
+            json={
+                "response_text": "Thank you for your inquiry!",
+                "sentiment_score": 0.8,
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["data"]["score"] == 0.9
 
@@ -959,42 +1131,49 @@ class TestMigration:
     @patch("app.services.rule_migration_service.RuleMigrationService", create=True)
     def test_get_migration_status(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
-        mock_svc.get_migration_status = MagicMock(return_value=MagicMock(
-            mode="static",
-            ai_rule_percentage=0,
-            static_rule_count=100,
-            ai_rule_count=0,
-            metrics={},
-        ))
+        mock_svc.get_migration_status = MagicMock(
+            return_value=MagicMock(
+                mode="static",
+                ai_rule_percentage=0,
+                static_rule_count=100,
+                ai_rule_count=0,
+                metrics={},
+            )
+        )
         resp = client.post("/api/migration/status", json={})
         assert resp.status_code == 200
 
     @patch("app.services.rule_migration_service.RuleMigrationService", create=True)
     def test_get_migration_status_with_feature(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
-        mock_svc.get_migration_status = MagicMock(return_value=MagicMock(
-            mode="shadow",
-            ai_rule_percentage=10,
-            static_rule_count=90,
-            ai_rule_count=10,
-            metrics={},
-        ))
-        resp = client.post(
-            "/api/migration/status",
-            json={
-                "feature": "classification"})
+        mock_svc.get_migration_status = MagicMock(
+            return_value=MagicMock(
+                mode="shadow",
+                ai_rule_percentage=10,
+                static_rule_count=90,
+                ai_rule_count=10,
+                metrics={},
+            )
+        )
+        resp = client.post("/api/migration/status", json={"feature": "classification"})
         assert resp.status_code == 200
 
     def test_toggle_migration_missing_feature(self, client):
-        resp = client.post("/api/migration/toggle", json={
-            "enabled": True,
-        })
+        resp = client.post(
+            "/api/migration/toggle",
+            json={
+                "enabled": True,
+            },
+        )
         assert resp.status_code == 422
 
     def test_toggle_migration_missing_enabled(self, client):
-        resp = client.post("/api/migration/toggle", json={
-            "feature": "classification",
-        })
+        resp = client.post(
+            "/api/migration/toggle",
+            json={
+                "feature": "classification",
+            },
+        )
         assert resp.status_code == 422
 
     @patch("app.services.rule_migration_service.RuleMigrationService", create=True)
@@ -1002,32 +1181,40 @@ class TestMigration:
         mock_svc = mock_svc_cls.return_value
         mock_svc.toggle_feature = MagicMock(
             return_value=MagicMock(
-                feature="classification",
-                enabled=True,
-                mode="shadow",
-                percentage=10.0))
-        resp = client.post("/api/migration/toggle", json={
-            "feature": "classification",
-            "enabled": True,
-            "mode": "shadow",
-            "percentage": 10.0,
-        })
+                feature="classification", enabled=True, mode="shadow", percentage=10.0
+            )
+        )
+        resp = client.post(
+            "/api/migration/toggle",
+            json={
+                "feature": "classification",
+                "enabled": True,
+                "mode": "shadow",
+                "percentage": 10.0,
+            },
+        )
         assert resp.status_code == 200
 
     def test_toggle_migration_invalid_percentage(self, client):
-        resp = client.post("/api/migration/toggle", json={
-            "feature": "assignment",
-            "enabled": True,
-            "percentage": 150.0,
-        })
+        resp = client.post(
+            "/api/migration/toggle",
+            json={
+                "feature": "assignment",
+                "enabled": True,
+                "percentage": 150.0,
+            },
+        )
         assert resp.status_code == 422
 
     def test_toggle_migration_negative_percentage(self, client):
-        resp = client.post("/api/migration/toggle", json={
-            "feature": "assignment",
-            "enabled": True,
-            "percentage": -5.0,
-        })
+        resp = client.post(
+            "/api/migration/toggle",
+            json={
+                "feature": "assignment",
+                "enabled": True,
+                "percentage": -5.0,
+            },
+        )
         assert resp.status_code == 422
 
 
@@ -1048,75 +1235,87 @@ class TestValidationEdgeCases:
         assert resp.status_code == 422
 
     def test_brand_voice_max_sentences_too_high(self, client):
-        resp = client.post(
-            "/api/brand-voice",
-            json={
-                "max_response_sentences": 100})
+        resp = client.post("/api/brand-voice", json={"max_response_sentences": 100})
         assert resp.status_code == 422
 
     def test_brand_voice_min_sentences_zero(self, client):
-        resp = client.post(
-            "/api/brand-voice",
-            json={
-                "min_response_sentences": 0})
+        resp = client.post("/api/brand-voice", json={"min_response_sentences": 0})
         assert resp.status_code == 422
 
     def test_brand_voice_sentiment_out_of_range(self, client):
-        resp = client.post("/api/brand-voice/validate", json={
-            "response_text": "test",
-            "sentiment_score": 1.5,
-        })
+        resp = client.post(
+            "/api/brand-voice/validate",
+            json={
+                "response_text": "test",
+                "sentiment_score": 1.5,
+            },
+        )
         assert resp.status_code == 422
 
     def test_assignment_sentiment_out_of_range(self, client):
-        resp = client.post("/api/assignment/ai", json={
-            "ticket_id": "t1",
-            "sentiment_score": -0.1,
-        })
+        resp = client.post(
+            "/api/assignment/ai",
+            json={
+                "ticket_id": "t1",
+                "sentiment_score": -0.1,
+            },
+        )
         assert resp.status_code == 422
 
     def test_assignment_max_candidates_out_of_range(self, client):
-        resp = client.post("/api/assignment/ai", json={
-            "ticket_id": "t1",
-            "max_candidates": 50,
-        })
+        resp = client.post(
+            "/api/assignment/ai",
+            json={
+                "ticket_id": "t1",
+                "max_candidates": 50,
+            },
+        )
         assert resp.status_code == 422
 
     def test_template_name_max_length(self, client):
         long_name = "A" * 256
-        resp = client.post("/api/response/templates", json={
-            "name": long_name,
-            "category": "general",
-            "body_template": "Test",
-        })
+        resp = client.post(
+            "/api/response/templates",
+            json={
+                "name": long_name,
+                "category": "general",
+                "body_template": "Test",
+            },
+        )
         assert resp.status_code == 422
 
     def test_template_update_name_max_length(self, client):
-        create_resp = client.post("/api/response/templates", json={
-            "name": "Valid",
-            "category": "general",
-            "body_template": "Test",
-        })
+        create_resp = client.post(
+            "/api/response/templates",
+            json={
+                "name": "Valid",
+                "category": "general",
+                "body_template": "Test",
+            },
+        )
         tid = create_resp.json()["data"]["id"]
         long_name = "B" * 256
-        resp = client.put(
-            f"/api/response/templates/{tid}",
-            json={
-                "name": long_name})
+        resp = client.put(f"/api/response/templates/{tid}", json={"name": long_name})
         assert resp.status_code == 422
 
     def test_batch_item_missing_conversation_id(self, client):
-        resp = client.post("/api/response/generate/batch", json={
-            "items": [{"query": "q1"}],
-        })
+        resp = client.post(
+            "/api/response/generate/batch",
+            json={
+                "items": [{"query": "q1"}],
+            },
+        )
         assert resp.status_code == 422
 
     def test_create_template_201_status_code(self, client):
-        resp = client.post("/api/response/templates", json={
-            "name": "Status",
-            "category": "general",
-            "body_template": "Hi",
-        })
+        resp = client.post(
+            "/api/response/templates",
+            json={
+                "name": "Status",
+                "category": "general",
+                "body_template": "Hi",
+            },
+        )
         assert resp.status_code == 201
 
     def test_all_default_categories_present(self, client):

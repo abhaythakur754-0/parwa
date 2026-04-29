@@ -23,11 +23,7 @@ logger = logging.getLogger("parwa.webhooks.brevo")
 MAX_EMAIL_BODY_SIZE = 1 * 1024 * 1024
 
 # Required fields for inbound email
-REQUIRED_INBOUND_FIELDS = [
-    "sender_email",
-    "subject",
-    "body_html",
-    "recipient_email"]
+REQUIRED_INBOUND_FIELDS = ["sender_email", "subject", "body_html", "recipient_email"]
 
 
 def _sanitize_email_field(value: str, max_length: int = 500) -> str:
@@ -38,9 +34,7 @@ def _sanitize_email_field(value: str, max_length: int = 500) -> str:
     """
     if not value:
         return ""
-    cleaned = "".join(
-        c for c in str(value) if ord(c) >= 32 or c in "\n\r\t"
-    )
+    cleaned = "".join(c for c in str(value) if ord(c) >= 32 or c in "\n\r\t")
     if len(cleaned) > max_length:
         cleaned = cleaned[:max_length]
     return cleaned.strip()
@@ -74,7 +68,8 @@ def _extract_inbound_email_data(payload: dict) -> dict:
         "body_html": payload.get("body_html", ""),
         "body_text": payload.get("body_text", ""),
         "attachments": _extract_attachments(payload.get("attachments", [])),
-        "in_reply_to": payload.get("in_reply_to") or headers_block.get("In-Reply-To", ""),
+        "in_reply_to": payload.get("in_reply_to")
+        or headers_block.get("In-Reply-To", ""),
         "message_id": payload.get("message_id") or headers_block.get("Message-ID", ""),
         "references": payload.get("references") or headers_block.get("References", ""),
     }
@@ -98,30 +93,20 @@ def _extract_attachments(attachments: list) -> list:
         if not isinstance(att, dict):
             continue
         attachment_info = {
-            "filename": _sanitize_email_field(
-                att.get(
-                    "filename",
-                    ""),
-                255),
-            "content_type": _sanitize_email_field(
-                att.get(
-                    "content-type",
-                    ""),
-                100),
-            "size": att.get(
-                "size",
-                0),
+            "filename": _sanitize_email_field(att.get("filename", ""), 255),
+            "content_type": _sanitize_email_field(att.get("content-type", ""), 100),
+            "size": att.get("size", 0),
         }
         # Store actual file content if available (Brevo provides base64
         # content)
         content = att.get("content", "")
-        if content and att.get("size", 0) < 10 * 1024 * \
-                1024:  # Max 10MB per attachment
+        if content and att.get("size", 0) < 10 * 1024 * 1024:  # Max 10MB per attachment
             attachment_info["has_content"] = True
             # Store preview only
             attachment_info["content_b64"] = content[:100]
             try:
                 import base64
+
                 # Validate it's valid base64
                 base64.b64decode(content[:100])
                 attachment_info["content_valid"] = True
@@ -145,6 +130,7 @@ def _validate_inbound_email(data: dict) -> Optional[str]:
 
 
 # ── Inbound Email Handler ───────────────────────────────────────
+
 
 def handle_inbound_email(event: dict) -> dict:
     """Handle Brevo inbound_email event.
@@ -192,11 +178,18 @@ def handle_inbound_email(event: dict) -> dict:
     for key, value in payload.items():
         key_lower = key.lower()
         if key_lower in (
-            "x-auto-response-suppress", "auto-submitted",
-            "x-auto-reply", "x-noriday", "precedence",
-            "x-precedence", "x-loop", "x-ms-exchange-orginalarrivaltime",
+            "x-auto-response-suppress",
+            "auto-submitted",
+            "x-auto-reply",
+            "x-noriday",
+            "precedence",
+            "x-precedence",
+            "x-loop",
+            "x-ms-exchange-orginalarrivaltime",
             # Threading headers — needed for downstream loop/thread detection
-            "in_reply_to", "message_id", "references",
+            "in_reply_to",
+            "message_id",
+            "references",
         ):
             headers_to_store[key] = value
     # Also capture any nested headers block from Brevo
@@ -249,6 +242,7 @@ def handle_inbound_email(event: dict) -> dict:
 
 # ── Bounce Handler (Day 3 — F-124) ────────────────────────────
 
+
 def handle_bounce(event: dict) -> dict:
     """Handle Brevo bounce event (F-124).
 
@@ -300,6 +294,7 @@ def handle_bounce(event: dict) -> dict:
 
 # ── Complaint Handler (Day 3 — F-124) ──────────────────────────
 
+
 def handle_complaint(event: dict) -> dict:
     """Handle Brevo spam complaint event (F-124).
 
@@ -349,6 +344,7 @@ def handle_complaint(event: dict) -> dict:
 
 
 # ── Delivered Handler (F-124) ──────────────────────────────────
+
 
 def handle_delivered(event: dict) -> dict:
     """Handle Brevo delivered event (F-124).

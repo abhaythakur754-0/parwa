@@ -67,23 +67,29 @@ class StaleTicketService:
 
         for status in statuses:
             # Get tickets in this status
-            tickets = self.db.query(Ticket).filter(
-                Ticket.company_id == self.company_id,
-                Ticket.status == status.value,
-            ).all()
+            tickets = (
+                self.db.query(Ticket)
+                .filter(
+                    Ticket.company_id == self.company_id,
+                    Ticket.status == status.value,
+                )
+                .all()
+            )
 
             for ticket in tickets:
                 staleness = self._calculate_staleness(ticket)
                 if staleness["is_stale"]:
-                    stale_tickets.append({
-                        "ticket_id": ticket.id,
-                        "status": ticket.status,
-                        "priority": ticket.priority,
-                        "last_activity": staleness["last_activity"],
-                        "hours_inactive": staleness["hours_inactive"],
-                        "staleness_level": staleness["staleness_level"],
-                        "auto_close_at": staleness["auto_close_at"],
-                    })
+                    stale_tickets.append(
+                        {
+                            "ticket_id": ticket.id,
+                            "status": ticket.status,
+                            "priority": ticket.priority,
+                            "last_activity": staleness["last_activity"],
+                            "hours_inactive": staleness["hours_inactive"],
+                            "staleness_level": staleness["staleness_level"],
+                            "auto_close_at": staleness["auto_close_at"],
+                        }
+                    )
 
         return stale_tickets
 
@@ -104,8 +110,7 @@ class StaleTicketService:
         """
         ticket = self._get_ticket(ticket_id)
 
-        if ticket.status not in [
-                s.value for s in self.STALE_ELIGIBLE_STATUSES]:
+        if ticket.status not in [s.value for s in self.STALE_ELIGIBLE_STATUSES]:
             raise ValidationError(
                 f"Cannot mark ticket in {ticket.status} status as stale"
             )
@@ -152,17 +157,14 @@ class StaleTicketService:
         if ticket.assigned_to:
             notification_service.send_notification(
                 event_type="ticket_updated",
-                recipient_ids=[
-                    ticket.assigned_to],
+                recipient_ids=[ticket.assigned_to],
                 data={
                     "ticket_id": ticket.id,
                     "ticket_subject": ticket.subject,
                     "update_type": "stale",
                     "message": "Ticket has been marked as stale due to inactivity",
                 },
-                channels=[
-                    "in_app",
-                    "email"],
+                channels=["in_app", "email"],
                 priority="high",
                 ticket_id=ticket.id,
             )
@@ -211,10 +213,12 @@ class StaleTicketService:
         # Add auto-close metadata
         ticket.metadata_json = ticket.metadata_json or "{}"
         import json
-        metadata = json.loads(
-            ticket.metadata_json) if isinstance(
-            ticket.metadata_json,
-            str) else ticket.metadata_json
+
+        metadata = (
+            json.loads(ticket.metadata_json)
+            if isinstance(ticket.metadata_json, str)
+            else ticket.metadata_json
+        )
         metadata["auto_closed"] = True
         metadata["auto_close_reason"] = "stale_double_timeout"
         metadata["auto_closed_at"] = datetime.now(timezone.utc).isoformat()
@@ -241,18 +245,27 @@ class StaleTicketService:
         candidates = []
 
         for status in self.STALE_ELIGIBLE_STATUSES:
-            tickets = self.db.query(Ticket).filter(
-                Ticket.company_id == self.company_id,
-                Ticket.status == status.value,
-            ).all()
+            tickets = (
+                self.db.query(Ticket)
+                .filter(
+                    Ticket.company_id == self.company_id,
+                    Ticket.status == status.value,
+                )
+                .all()
+            )
 
             for ticket in tickets:
                 staleness = self._calculate_staleness(ticket)
 
                 # Check if within warning threshold
-                priority = TicketPriority(
-                    ticket.priority) if ticket.priority else TicketPriority.medium
-                warning_hours = hours_threshold or self.PRIORITY_TIMEOUTS[priority]["warning"]
+                priority = (
+                    TicketPriority(ticket.priority)
+                    if ticket.priority
+                    else TicketPriority.medium
+                )
+                warning_hours = (
+                    hours_threshold or self.PRIORITY_TIMEOUTS[priority]["warning"]
+                )
 
                 if staleness["hours_inactive"] >= warning_hours:
                     candidates.append(ticket)
@@ -265,10 +278,14 @@ class StaleTicketService:
         """Get stale tickets ready for auto-close."""
         candidates = []
 
-        stale_tickets = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.status == TicketStatus.stale.value,
-        ).all()
+        stale_tickets = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.status == TicketStatus.stale.value,
+            )
+            .all()
+        )
 
         for ticket in stale_tickets:
             staleness = self._calculate_staleness(ticket)
@@ -335,10 +352,14 @@ class StaleTicketService:
             hours_inactive = 0
 
         # Get priority-based thresholds
-        priority = TicketPriority(
-            ticket.priority) if ticket.priority else TicketPriority.medium
+        priority = (
+            TicketPriority(ticket.priority)
+            if ticket.priority
+            else TicketPriority.medium
+        )
         thresholds = self.PRIORITY_TIMEOUTS.get(
-            priority, self.PRIORITY_TIMEOUTS[TicketPriority.medium])
+            priority, self.PRIORITY_TIMEOUTS[TicketPriority.medium]
+        )
 
         warning_hours = thresholds["warning"]
         auto_close_hours = thresholds["auto_close"]
@@ -356,30 +377,30 @@ class StaleTicketService:
         if ticket.stale_at:
             auto_close_at = ticket.stale_at + timedelta(hours=auto_close_hours)
         else:
-            auto_close_at = (last_activity or now) + \
-                timedelta(hours=auto_close_hours * 2)
+            auto_close_at = (last_activity or now) + timedelta(
+                hours=auto_close_hours * 2
+            )
 
         return {
             "last_activity": last_activity,
-            "hours_inactive": round(
-                hours_inactive,
-                2),
+            "hours_inactive": round(hours_inactive, 2),
             "warning_threshold": warning_hours,
             "auto_close_threshold": auto_close_hours,
             "staleness_level": staleness_level,
-            "is_stale": staleness_level in [
-                "warning",
-                "timeout",
-                "double_timeout"],
+            "is_stale": staleness_level in ["warning", "timeout", "double_timeout"],
             "auto_close_at": auto_close_at,
         }
 
     def _get_ticket(self, ticket_id: str) -> Ticket:
         """Get ticket by ID."""
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")
@@ -390,18 +411,26 @@ class StaleTicketService:
         self,
     ) -> Dict[str, Any]:
         """Get stale ticket statistics for the company."""
-        stale_tickets = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.status == TicketStatus.stale.value,
-        ).count()
+        stale_tickets = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.status == TicketStatus.stale.value,
+            )
+            .count()
+        )
 
         # Count by staleness level
         by_level = {"warning": 0, "timeout": 0, "double_timeout": 0}
 
-        all_stale = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.status == TicketStatus.stale.value,
-        ).all()
+        all_stale = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.status == TicketStatus.stale.value,
+            )
+            .all()
+        )
 
         for ticket in all_stale:
             staleness = self._calculate_staleness(ticket)

@@ -22,8 +22,18 @@ from datetime import datetime, date
 import uuid
 
 from sqlalchemy import (
-    Boolean, Column, Date, DateTime, Float, Integer, Numeric,
-    String, Text, ForeignKey, UniqueConstraint, Index,
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    ForeignKey,
+    UniqueConstraint,
+    Index,
     CheckConstraint,
 )
 from sqlalchemy.orm import relationship
@@ -36,6 +46,7 @@ def _uuid() -> str:
 
 
 # ── Variant AI Capabilities (feature → variant mapping) ─────────────
+
 
 class VariantAICapability(Base):
     """
@@ -53,7 +64,8 @@ class VariantAICapability(Base):
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     variant_type = Column(String(50), nullable=False)
     # mini_parwa, parwa, parwa_high
@@ -82,24 +94,30 @@ class VariantAICapability(Base):
     # Per-variant feature configuration overrides
 
     created_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
     )
     updated_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
         onupdate=lambda: datetime.utcnow(),
     )
 
     __table_args__ = (
         Index(
             "ix_var_cap_comp_variant",
-            "company_id", "variant_type",
+            "company_id",
+            "variant_type",
         ),
         Index(
             "ix_var_cap_comp_feature",
-            "company_id", "feature_id",
+            "company_id",
+            "feature_id",
         ),
         UniqueConstraint(
-            "company_id", "variant_type", "instance_id",
+            "company_id",
+            "variant_type",
+            "instance_id",
             "feature_id",
             name="uq_var_cap_instance_feature",
         ),
@@ -107,6 +125,7 @@ class VariantAICapability(Base):
 
 
 # ── Variant Instances ───────────────────────────────────────────────
+
 
 class VariantInstance(Base):
     """
@@ -124,7 +143,8 @@ class VariantInstance(Base):
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     instance_name = Column(String(255), nullable=False)
     # e.g. "Mini PARWA - Chat"
@@ -153,21 +173,25 @@ class VariantInstance(Base):
     last_activity_at = Column(DateTime, nullable=True)
 
     created_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
     )
     updated_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
         onupdate=lambda: datetime.utcnow(),
     )
 
     __table_args__ = (
         Index(
             "ix_var_inst_comp_type",
-            "company_id", "variant_type",
+            "company_id",
+            "variant_type",
         ),
         Index(
             "ix_var_inst_comp_status",
-            "company_id", "status",
+            "company_id",
+            "status",
         ),
         CheckConstraint(
             "active_tickets_count >= 0",
@@ -186,6 +210,7 @@ class VariantInstance(Base):
 
 # ── Variant Workload Distribution ──────────────────────────────────
 
+
 class VariantWorkloadDistribution(Base):
     """
     Tracks which instance handled which ticket.
@@ -198,17 +223,20 @@ class VariantWorkloadDistribution(Base):
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     instance_id = Column(
         String(36),
         ForeignKey("variant_instances.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     ticket_id = Column(
         String(36),
         ForeignKey("tickets.id"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
 
     distribution_strategy = Column(String(50))
@@ -238,18 +266,22 @@ class VariantWorkloadDistribution(Base):
     )
 
     created_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
     )
 
     __table_args__ = (
         Index(
             "ix_vwd_inst_assigned",
-            "company_id", "instance_id", "assigned_at",
+            "company_id",
+            "instance_id",
+            "assigned_at",
         ),
     )
 
 
 # ── AI Agent Assignments (build process) ──────────────────────────
+
 
 class AIAgentAssignment(Base):
     """
@@ -259,7 +291,9 @@ class AIAgentAssignment(Base):
 
     __tablename__ = "ai_agent_assignments"
 
-    company_id = Column(String(36), ForeignKey("companies.id"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id"), nullable=False, index=True
+    )
 
     id = Column(String(36), primary_key=True, default=_uuid)
     agent_name = Column(String(100), nullable=False)
@@ -277,15 +311,18 @@ class AIAgentAssignment(Base):
 
     status = Column(String(50), default="active")
     created_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
     )
     updated_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
         onupdate=lambda: datetime.utcnow(),
     )
 
 
 # ── Technique Caches ───────────────────────────────────────────────
+
 
 class TechniqueCache(Base):
     """
@@ -300,15 +337,19 @@ class TechniqueCache(Base):
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     instance_id = Column(
         String(36),
         ForeignKey("variant_instances.id", ondelete="CASCADE"),
-        nullable=True, index=True,
+        nullable=True,
+        index=True,
     )
     technique_id = Column(
-        String(50), nullable=False, index=True,
+        String(50),
+        nullable=False,
+        index=True,
     )
 
     query_hash = Column(String(64), nullable=False)
@@ -326,23 +367,29 @@ class TechniqueCache(Base):
     ttl_expires_at = Column(DateTime, nullable=False)
 
     created_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
     )
 
     __table_args__ = (
         Index(
             "ix_tech_cache_comp_tech_qh",
-            "company_id", "technique_id", "query_hash",
+            "company_id",
+            "technique_id",
+            "query_hash",
         ),
         UniqueConstraint(
-            "company_id", "instance_id",
-            "technique_id", "query_hash",
+            "company_id",
+            "instance_id",
+            "technique_id",
+            "query_hash",
             name="uq_tech_cache_instance",
         ),
     )
 
 
 # ── AI Token Budgets ──────────────────────────────────────────────
+
 
 class AITokenBudget(Base):
     """
@@ -356,12 +403,14 @@ class AITokenBudget(Base):
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     instance_id = Column(
         String(36),
         ForeignKey("variant_instances.id", ondelete="CASCADE"),
-        nullable=True, index=True,
+        nullable=True,
+        index=True,
     )
 
     budget_type = Column(String(20), nullable=False)
@@ -383,27 +432,34 @@ class AITokenBudget(Base):
     # JSON: {mini_parwa: {daily: X}, parwa: {...}, ...}
 
     created_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
     )
     updated_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
         onupdate=lambda: datetime.utcnow(),
     )
 
     __table_args__ = (
         Index(
             "ix_tok_bud_comp_type_per",
-            "company_id", "budget_type", "budget_period",
+            "company_id",
+            "budget_type",
+            "budget_period",
         ),
         UniqueConstraint(
-            "company_id", "instance_id",
-            "budget_type", "budget_period",
+            "company_id",
+            "instance_id",
+            "budget_type",
+            "budget_period",
             name="uq_tok_bud_inst_period",
         ),
     )
 
 
 # ── Prompt Injection Attempts ──────────────────────────────────────
+
 
 class PromptInjectionAttempt(Base):
     """
@@ -417,12 +473,14 @@ class PromptInjectionAttempt(Base):
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     instance_id = Column(
         String(36),
         ForeignKey("variant_instances.id", ondelete="CASCADE"),
-        nullable=True, index=True,
+        nullable=True,
+        index=True,
     )
 
     pattern_type = Column(String(100), nullable=False)
@@ -451,22 +509,26 @@ class PromptInjectionAttempt(Base):
     ip_address = Column(String(45), nullable=True)
 
     created_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
     )
 
     __table_args__ = (
         Index(
             "ix_inj_comp_pattern",
-            "company_id", "pattern_type",
+            "company_id",
+            "pattern_type",
         ),
         Index(
             "ix_inj_comp_created",
-            "company_id", "created_at",
+            "company_id",
+            "created_at",
         ),
     )
 
 
 # ── AI Performance Variant Metrics ────────────────────────────────
+
 
 class AIPerformanceVariantMetric(Base):
     """
@@ -480,12 +542,14 @@ class AIPerformanceVariantMetric(Base):
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     instance_id = Column(
         String(36),
         ForeignKey("variant_instances.id", ondelete="CASCADE"),
-        nullable=True, index=True,
+        nullable=True,
+        index=True,
     )
 
     metric_date = Column(Date, nullable=False)
@@ -506,23 +570,29 @@ class AIPerformanceVariantMetric(Base):
     error_rate_pct = Column(Numeric(5, 2), default=0)
 
     created_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
     )
 
     __table_args__ = (
         Index(
             "ix_aipvm_inst_date",
-            "company_id", "instance_id", "metric_date",
+            "company_id",
+            "instance_id",
+            "metric_date",
         ),
         UniqueConstraint(
-            "company_id", "instance_id",
-            "metric_date", "metric_hour",
+            "company_id",
+            "instance_id",
+            "metric_date",
+            "metric_hour",
             name="uq_aipvm_inst_date_hour",
         ),
     )
 
 
 # ── Pipeline State Snapshots ──────────────────────────────────────
+
 
 class PipelineStateSnapshot(Base):
     """
@@ -536,17 +606,20 @@ class PipelineStateSnapshot(Base):
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     instance_id = Column(
         String(36),
         ForeignKey("variant_instances.id", ondelete="CASCADE"),
-        nullable=True, index=True,
+        nullable=True,
+        index=True,
     )
     ticket_id = Column(
         String(36),
         ForeignKey("tickets.id"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     session_id = Column(String(36), nullable=True)
 
@@ -564,12 +637,15 @@ class PipelineStateSnapshot(Base):
     # auto, manual, error, checkpoint
 
     created_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
     )
 
     __table_args__ = (
         Index(
             "ix_pss_ticket_created",
-            "company_id", "ticket_id", "created_at",
+            "company_id",
+            "ticket_id",
+            "created_at",
         ),
     )

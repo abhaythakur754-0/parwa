@@ -152,8 +152,13 @@ class SinchSMSProvider(SMSProvider):
                     },
                 )
             else:
-                data = response.json() if response.headers.get(
-                    "content-type", "").startswith("application/json") else {}
+                data = (
+                    response.json()
+                    if response.headers.get("content-type", "").startswith(
+                        "application/json"
+                    )
+                    else {}
+                )
                 return ProviderResult(
                     success=False,
                     provider_name=self.provider_name,

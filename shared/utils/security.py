@@ -16,8 +16,8 @@ import hashlib
 import os
 import secrets
 
+import bcrypt
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
 
 # BC-011: bcrypt cost factor MUST be 12 (not default 10)
 BCRYPT_COST_FACTOR = 12
@@ -31,7 +31,7 @@ def hash_password(password: str) -> str:
     """Hash a password using bcrypt with cost factor 12.
 
     BC-011: bcrypt cost factor must be >= 12.
-    Uses passlib which wraps bcrypt internally.
+    Uses bcrypt directly (not passlib) for better compatibility with bcrypt 4.x.
 
     Args:
         password: Plain-text password to hash.
@@ -39,10 +39,11 @@ def hash_password(password: str) -> str:
     Returns:
         bcrypt hash string (includes salt and cost factor).
     """
-    from passlib.hash import bcrypt  # noqa: C901 (lazy import)
-    # bcrypt hard limit is 72 bytes — truncate to avoid ValueError in bcrypt>=4.x
-    password = password[:72]
-    return bcrypt.hash(password, rounds=BCRYPT_COST_FACTOR)
+    # bcrypt hard limit is 72 bytes — truncate to avoid ValueError
+    password_bytes = password[:72].encode("utf-8")
+    salt = bcrypt.gensalt(rounds=BCRYPT_COST_FACTOR)
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode("utf-8")
 
 
 def verify_password(password: str, hashed: str) -> bool:
@@ -61,8 +62,9 @@ def verify_password(password: str, hashed: str) -> bool:
     if not password or not hashed:
         return False
     try:
-        from passlib.hash import bcrypt
-        return bcrypt.verify(password, hashed)
+        password_bytes = password[:72].encode("utf-8")
+        hashed_bytes = hashed.encode("utf-8")
+        return bcrypt.checkpw(password_bytes, hashed_bytes)
     except Exception:
         return False
 

@@ -129,8 +129,7 @@ def get_recent_errors(
         # Apply pagination
         effective_limit = min(max(limit, 1), MAX_LIMIT)
         errors = (
-            query
-            .order_by(ErrorLog.created_at.desc())
+            query.order_by(ErrorLog.created_at.desc())
             .offset(offset)
             .limit(effective_limit)
             .all()
@@ -139,19 +138,21 @@ def get_recent_errors(
         # Build error entries
         error_entries = []
         for err in errors:
-            error_entries.append({
-                "id": str(err.id),
-                "error_type": err.error_type,
-                "message": err.message[:500],  # Truncate for display
-                "severity": err.severity,
-                "subsystem": err.subsystem,
-                "affected_ticket_id": err.affected_ticket_id,
-                "affected_agent_id": err.affected_agent_id,
-                "created_at": (
-                    err.created_at.isoformat() if err.created_at else None
-                ),
-                "message_hash": _hash_message(err.message),
-            })
+            error_entries.append(
+                {
+                    "id": str(err.id),
+                    "error_type": err.error_type,
+                    "message": err.message[:500],  # Truncate for display
+                    "severity": err.severity,
+                    "subsystem": err.subsystem,
+                    "affected_ticket_id": err.affected_ticket_id,
+                    "affected_agent_id": err.affected_agent_id,
+                    "created_at": (
+                        err.created_at.isoformat() if err.created_at else None
+                    ),
+                    "message_hash": _hash_message(err.message),
+                }
+            )
 
         # Group identical errors (same error_type + message hash)
         grouped = _group_errors(error_entries)
@@ -205,10 +206,14 @@ def get_error_detail(
     try:
         from app.models.system_health import ErrorLog
 
-        error = db.query(ErrorLog).filter(
-            ErrorLog.id == error_id,
-            ErrorLog.company_id == company_id,
-        ).first()
+        error = (
+            db.query(ErrorLog)
+            .filter(
+                ErrorLog.id == error_id,
+                ErrorLog.company_id == company_id,
+            )
+            .first()
+        )
 
         if not error:
             return {
@@ -228,9 +233,7 @@ def get_error_detail(
             "affected_agent_id": error.affected_agent_id,
             "dismissed": error.dismissed,
             "dismissed_by": error.dismissed_by,
-            "created_at": (
-                error.created_at.isoformat() if error.created_at else None
-            ),
+            "created_at": (error.created_at.isoformat() if error.created_at else None),
         }
 
     except Exception as exc:
@@ -269,10 +272,14 @@ def dismiss_error(
     try:
         from app.models.system_health import ErrorLog
 
-        error = db.query(ErrorLog).filter(
-            ErrorLog.id == error_id,
-            ErrorLog.company_id == company_id,
-        ).first()
+        error = (
+            db.query(ErrorLog)
+            .filter(
+                ErrorLog.id == error_id,
+                ErrorLog.company_id == company_id,
+            )
+            .first()
+        )
 
         if not error:
             return {
@@ -344,35 +351,52 @@ def get_error_stats(
         since = datetime.now(timezone.utc) - timedelta(hours=hours)
 
         # Total errors in window (non-dismissed)
-        total_errors = db.query(func.count(ErrorLog.id)).filter(
-            ErrorLog.company_id == company_id,
-            ErrorLog.dismissed.is_(False),
-            ErrorLog.created_at >= since,
-        ).scalar() or 0
+        total_errors = (
+            db.query(func.count(ErrorLog.id))
+            .filter(
+                ErrorLog.company_id == company_id,
+                ErrorLog.dismissed.is_(False),
+                ErrorLog.created_at >= since,
+            )
+            .scalar()
+            or 0
+        )
 
         # By severity
-        severity_counts = db.query(
-            ErrorLog.severity, func.count(ErrorLog.id),
-        ).filter(
-            ErrorLog.company_id == company_id,
-            ErrorLog.dismissed.is_(False),
-            ErrorLog.created_at >= since,
-        ).group_by(ErrorLog.severity).all()
+        severity_counts = (
+            db.query(
+                ErrorLog.severity,
+                func.count(ErrorLog.id),
+            )
+            .filter(
+                ErrorLog.company_id == company_id,
+                ErrorLog.dismissed.is_(False),
+                ErrorLog.created_at >= since,
+            )
+            .group_by(ErrorLog.severity)
+            .all()
+        )
 
-        by_severity = {
-            row[0]: row[1] for row in severity_counts
-        }
+        by_severity = {row[0]: row[1] for row in severity_counts}
 
         # By subsystem (top 10)
-        subsystem_counts = db.query(
-            ErrorLog.subsystem, func.count(ErrorLog.id),
-        ).filter(
-            ErrorLog.company_id == company_id,
-            ErrorLog.dismissed.is_(False),
-            ErrorLog.created_at >= since,
-        ).group_by(ErrorLog.subsystem).order_by(
-            func.count(ErrorLog.id).desc(),
-        ).limit(10).all()
+        subsystem_counts = (
+            db.query(
+                ErrorLog.subsystem,
+                func.count(ErrorLog.id),
+            )
+            .filter(
+                ErrorLog.company_id == company_id,
+                ErrorLog.dismissed.is_(False),
+                ErrorLog.created_at >= since,
+            )
+            .group_by(ErrorLog.subsystem)
+            .order_by(
+                func.count(ErrorLog.id).desc(),
+            )
+            .limit(10)
+            .all()
+        )
 
         by_subsystem = [
             {"subsystem": row[0] or "unknown", "count": row[1]}
@@ -380,27 +404,37 @@ def get_error_stats(
         ]
 
         # Error types (top 10)
-        type_counts = db.query(
-            ErrorLog.error_type, func.count(ErrorLog.id),
-        ).filter(
-            ErrorLog.company_id == company_id,
-            ErrorLog.dismissed.is_(False),
-            ErrorLog.created_at >= since,
-        ).group_by(ErrorLog.error_type).order_by(
-            func.count(ErrorLog.id).desc(),
-        ).limit(10).all()
+        type_counts = (
+            db.query(
+                ErrorLog.error_type,
+                func.count(ErrorLog.id),
+            )
+            .filter(
+                ErrorLog.company_id == company_id,
+                ErrorLog.dismissed.is_(False),
+                ErrorLog.created_at >= since,
+            )
+            .group_by(ErrorLog.error_type)
+            .order_by(
+                func.count(ErrorLog.id).desc(),
+            )
+            .limit(10)
+            .all()
+        )
 
-        by_type = [
-            {"error_type": row[0], "count": row[1]}
-            for row in type_counts
-        ]
+        by_type = [{"error_type": row[0], "count": row[1]} for row in type_counts]
 
         # Dismissed count
-        dismissed_count = db.query(func.count(ErrorLog.id)).filter(
-            ErrorLog.company_id == company_id,
-            ErrorLog.dismissed.is_(True),
-            ErrorLog.created_at >= since,
-        ).scalar() or 0
+        dismissed_count = (
+            db.query(func.count(ErrorLog.id))
+            .filter(
+                ErrorLog.company_id == company_id,
+                ErrorLog.dismissed.is_(True),
+                ErrorLog.created_at >= since,
+            )
+            .scalar()
+            or 0
+        )
 
         # Error storm detection
         storm_alert = _check_error_storm(company_id, db)
@@ -499,10 +533,15 @@ def _check_error_storm(
         now = datetime.now(timezone.utc)
         window_start = now - timedelta(seconds=ERROR_STORM_WINDOW_SECONDS)
 
-        count = db.query(func.count(ErrorLog.id)).filter(
-            ErrorLog.company_id == company_id,
-            ErrorLog.created_at >= window_start,
-        ).scalar() or 0
+        count = (
+            db.query(func.count(ErrorLog.id))
+            .filter(
+                ErrorLog.company_id == company_id,
+                ErrorLog.created_at >= window_start,
+            )
+            .scalar()
+            or 0
+        )
 
         if count >= ERROR_STORM_THRESHOLD:
             return {
@@ -512,8 +551,7 @@ def _check_error_storm(
                 "threshold": ERROR_STORM_THRESHOLD,
                 "detected_at": now.isoformat(),
                 "severity": (
-                    "critical" if count >= ERROR_STORM_THRESHOLD * 3
-                    else "high"
+                    "critical" if count >= ERROR_STORM_THRESHOLD * 3 else "high"
                 ),
             }
 

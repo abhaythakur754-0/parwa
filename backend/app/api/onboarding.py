@@ -128,6 +128,7 @@ def api_legal_consent(
 
 class PrerequisitesResponse(BaseModel):
     """Response for prerequisite check."""
+
     can_activate: bool
     missing: List[str] = []
 
@@ -195,6 +196,7 @@ def api_activate_ai(
 
 class WarmupStatusResponse(BaseModel):
     """Response for warmup status check (P24)."""
+
     overall_status: str
     models_ready: int = 0
     models_total: int = 0
@@ -228,10 +230,14 @@ def api_get_warmup_status(
         from database.models.onboarding import OnboardingSession
         from database.models.user_details import UserDetails
 
-        session = db.query(OnboardingSession).filter(
-            OnboardingSession.user_id == user.id,
-            OnboardingSession.company_id == user.company_id,
-        ).first()
+        session = (
+            db.query(OnboardingSession)
+            .filter(
+                OnboardingSession.user_id == user.id,
+                OnboardingSession.company_id == user.company_id,
+            )
+            .first()
+        )
 
         if not session or session.status != "completed":
             return WarmupStatusResponse(
@@ -241,9 +247,13 @@ def api_get_warmup_status(
 
         # Session is completed — trigger recovery warmup on this instance.
         # recover_tenant_warmup() calls warmup_tenant() which is idempotent.
-        details = db.query(UserDetails).filter(
-            UserDetails.company_id == user.company_id,
-        ).first()
+        details = (
+            db.query(UserDetails)
+            .filter(
+                UserDetails.company_id == user.company_id,
+            )
+            .first()
+        )
         variant_type = "mini_parwa"
         if details and details.company_size:
             size_to_variant = {
@@ -254,8 +264,7 @@ def api_get_warmup_status(
                 "501_1000": "high_parwa",
                 "1000_plus": "high_parwa",
             }
-            variant_type = size_to_variant.get(
-                details.company_size, "mini_parwa")
+            variant_type = size_to_variant.get(details.company_size, "mini_parwa")
 
         # Run warmup in background thread so the poll response isn't blocked
         import threading
@@ -265,6 +274,7 @@ def api_get_warmup_status(
                 cold_start.recover_tenant_warmup(user.company_id, variant_type)
             except Exception:
                 pass  # Non-blocking — next poll will retry
+
         threading.Thread(target=_recovery_warmup, daemon=True).start()
 
         return WarmupStatusResponse(

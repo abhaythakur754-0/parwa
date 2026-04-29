@@ -150,20 +150,59 @@ _MONETARY_PATTERN = re.compile(
 
 # ── Reserved / policy-anchor words ─────────────────────────────────
 
-_RESERVED_PHRASES: FrozenSet[str] = frozenset({
-    "refund", "cancellation", "payment", "charge", "invoice",
-    "subscription", "billing", "prorated", "policy", "deadline",
-    "contract", "termination", "credit", "debit", "amount",
-    "dispute", "verification", "security", "timeline", "eligibility",
-    "proration", "fee", "penalty", "remaining", "unused",
-})
+_RESERVED_PHRASES: FrozenSet[str] = frozenset(
+    {
+        "refund",
+        "cancellation",
+        "payment",
+        "charge",
+        "invoice",
+        "subscription",
+        "billing",
+        "prorated",
+        "policy",
+        "deadline",
+        "contract",
+        "termination",
+        "credit",
+        "debit",
+        "amount",
+        "dispute",
+        "verification",
+        "security",
+        "timeline",
+        "eligibility",
+        "proration",
+        "fee",
+        "penalty",
+        "remaining",
+        "unused",
+    }
+)
 
-_VALIDATION_ANCHORS: FrozenSet[str] = frozenset({
-    "verify", "review", "check", "investigate", "confirm",
-    "available", "eligible", "within", "depending on", "based on",
-    "let me", "i can", "we can", "option", "solution",
-    "per our", "according to", "standard", "typically",
-})
+_VALIDATION_ANCHORS: FrozenSet[str] = frozenset(
+    {
+        "verify",
+        "review",
+        "check",
+        "investigate",
+        "confirm",
+        "available",
+        "eligible",
+        "within",
+        "depending on",
+        "based on",
+        "let me",
+        "i can",
+        "we can",
+        "option",
+        "solution",
+        "per our",
+        "according to",
+        "standard",
+        "typically",
+    }
+)
 
 
 # ── Answer Templates (per category × approach) ─────────────────────
@@ -185,291 +224,286 @@ _ANSWER_TEMPLATES: Dict[FinancialCategory, List[Dict[str, str]]] = {
         {
             "approach": ReasoningApproach.DIRECT,
             "answer": "Based on the information provided, your refund amount is $80.00. "
-                      "This reflects the unused portion of your service after processing "
-                      "your cancellation request through our standard refund workflow.",
+            "This reflects the unused portion of your service after processing "
+            "your cancellation request through our standard refund workflow.",
             "key_value": "$80",
             "reasoning": "Direct calculation of unused service value based on "
-                         "remaining billing period.",
+            "remaining billing period.",
         },
         {
             "approach": ReasoningApproach.FORMULA_BASED,
             "answer": "Applying the refund formula: (remaining_months / total_months) × "
-                      "annual_price = (8 / 12) × $120 = $80.00. Your refund is $80.00.",
+            "annual_price = (8 / 12) × $120 = $80.00. Your refund is $80.00.",
             "key_value": "$80",
             "reasoning": "Standard proration formula applied to derive the refund "
-                         "from the remaining service term.",
+            "from the remaining service term.",
         },
         {
             "approach": ReasoningApproach.POLICY_BASED,
             "answer": "Per our refund policy (Section 4.2), customers cancelling after the "
-                      "first 30 days receive a prorated refund. Your eligible refund is "
-                      "$80.00, reflecting 8 months of unused service.",
+            "first 30 days receive a prorated refund. Your eligible refund is "
+            "$80.00, reflecting 8 months of unused service.",
             "key_value": "$80",
             "reasoning": "Refund policy referenced to confirm eligibility and "
-                         "calculate the prorated amount.",
+            "calculate the prorated amount.",
         },
         {
             "approach": ReasoningApproach.CONSERVATIVE,
             "answer": "Accounting for the 5% early cancellation processing fee outlined "
-                      "in our terms, the adjusted refund is $76.00 ($80.00 − $4.00 fee). "
-                      "This conservative estimate accounts for administrative costs.",
+            "in our terms, the adjusted refund is $76.00 ($80.00 − $4.00 fee). "
+            "This conservative estimate accounts for administrative costs.",
             "key_value": "$76",
             "reasoning": "Applied early cancellation fee deduction per terms of service, "
-                         "resulting in a lower refund estimate.",
+            "resulting in a lower refund estimate.",
         },
         {
             "approach": ReasoningApproach.CUSTOMER_FAVORABLE,
             "answer": "Your refund is $80.00 for the unused portion of your plan. If "
-                      "your account is in good standing and this is your first "
-                      "cancellation, we may also waive the processing fee as a courtesy.",
+            "your account is in good standing and this is your first "
+            "cancellation, we may also waive the processing fee as a courtesy.",
             "key_value": "$80",
             "reasoning": "Standard refund calculated, with a note about potential "
-                         "fee waiver for first-time customers.",
+            "fee waiver for first-time customers.",
         },
     ],
-
     # ─── PRORATION ──────────────────────────────────────────────
     FinancialCategory.PRORATION: [
         {
             "approach": ReasoningApproach.DIRECT,
             "answer": "Your prorated charge for the partial month is $15.00, calculated "
-                      "from the 12 days of service used out of a 30-day billing cycle "
-                      "on your $37.50/month plan.",
+            "from the 12 days of service used out of a 30-day billing cycle "
+            "on your $37.50/month plan.",
             "key_value": "$15",
             "reasoning": "Direct day-based calculation: (12 / 30) × $37.50 = $15.00.",
         },
         {
             "approach": ReasoningApproach.FORMULA_BASED,
             "answer": "Using the daily rate formula: monthly_price / days_in_cycle × "
-                      "days_used = ($37.50 / 30) × 12 = $15.00. Your prorated "
-                      "charge is $15.00.",
+            "days_used = ($37.50 / 30) × 12 = $15.00. Your prorated "
+            "charge is $15.00.",
             "key_value": "$15",
             "reasoning": "Daily rate derived first, then multiplied by days of "
-                         "active service.",
+            "active service.",
         },
         {
             "approach": ReasoningApproach.POLICY_BASED,
             "answer": "Our proration policy applies a daily rate calculation when service "
-                      "changes mid-cycle. Based on your $37.50/month plan and 12 days "
-                      "of usage, the prorated amount is $15.00.",
+            "changes mid-cycle. Based on your $37.50/month plan and 12 days "
+            "of usage, the prorated amount is $15.00.",
             "key_value": "$15",
             "reasoning": "Policy-driven daily-rate proration applied consistently "
-                         "across mid-cycle changes.",
+            "across mid-cycle changes.",
         },
         {
             "approach": ReasoningApproach.CONSERVATIVE,
             "answer": "Accounting for potential rounding and a 2-day minimum billing "
-                      "window, the conservative prorated charge is $16.00 rather than "
-                      "the exact $15.00 to cover any partial-day discrepancies.",
+            "window, the conservative prorated charge is $16.00 rather than "
+            "the exact $15.00 to cover any partial-day discrepancies.",
             "key_value": "$16",
             "reasoning": "Added a rounding buffer of $1 for potential partial-day "
-                         "and minimum-billing adjustments.",
+            "and minimum-billing adjustments.",
         },
         {
             "approach": ReasoningApproach.CUSTOMER_FAVORABLE,
             "answer": "Your prorated charge is $15.00. Since you upgraded mid-cycle, "
-                      "we apply the lower rate for the first 12 days as a customer "
-                      "courtesy, keeping your cost minimal.",
+            "we apply the lower rate for the first 12 days as a customer "
+            "courtesy, keeping your cost minimal.",
             "key_value": "$15",
             "reasoning": "Lower-rate courtesy applied for the initial period before "
-                         "the mid-cycle plan change.",
+            "the mid-cycle plan change.",
         },
     ],
-
     # ─── CREDIT ──────────────────────────────────────────────────
     FinancialCategory.CREDIT: [
         {
             "approach": ReasoningApproach.DIRECT,
             "answer": "A store credit of $25.00 has been applied to your account. "
-                      "This credit is available immediately and can be used toward "
-                      "your next purchase or subscription renewal.",
+            "This credit is available immediately and can be used toward "
+            "your next purchase or subscription renewal.",
             "key_value": "$25",
             "reasoning": "Direct application of the determined credit amount "
-                         "to the customer's account balance.",
+            "to the customer's account balance.",
         },
         {
             "approach": ReasoningApproach.FORMULA_BASED,
             "answer": "Credit calculation: promotional_rate × affected_months = "
-                      "$5.00 × 5 = $25.00. The total credit of $25.00 reflects "
-                      "the billing error over the affected 5-month period.",
+            "$5.00 × 5 = $25.00. The total credit of $25.00 reflects "
+            "the billing error over the affected 5-month period.",
             "key_value": "$25",
             "reasoning": "Error-rate multiplied by the number of affected billing "
-                         "cycles to reach the total credit.",
+            "cycles to reach the total credit.",
         },
         {
             "approach": ReasoningApproach.POLICY_BASED,
             "answer": "Per our billing correction policy, overcharges are credited "
-                      "back in full. The $25.00 credit covers 5 months of incorrect "
-                      "billing at $5.00/month, applied per Section 6.1.",
+            "back in full. The $25.00 credit covers 5 months of incorrect "
+            "billing at $5.00/month, applied per Section 6.1.",
             "key_value": "$25",
             "reasoning": "Policy mandates full credit for confirmed overcharges "
-                         "with no deductions.",
+            "with no deductions.",
         },
         {
             "approach": ReasoningApproach.CONSERVATIVE,
             "answer": "After verifying the exact billing discrepancy and excluding "
-                      "one month with partial usage, the conservative credit estimate "
-                      "is $20.00 (4 confirmed months × $5.00).",
+            "one month with partial usage, the conservative credit estimate "
+            "is $20.00 (4 confirmed months × $5.00).",
             "key_value": "$20",
             "reasoning": "Excluded one partially-verified month, yielding a lower "
-                         "but more defensible credit amount.",
+            "but more defensible credit amount.",
         },
         {
             "approach": ReasoningApproach.CUSTOMER_FAVORABLE,
             "answer": "We've applied a $25.00 credit to your account for the billing "
-                      "error. Additionally, we've added a $5.00 goodwill credit for "
-                      "the inconvenience, bringing your total to $30.00.",
+            "error. Additionally, we've added a $5.00 goodwill credit for "
+            "the inconvenience, bringing your total to $30.00.",
             "key_value": "$30",
             "reasoning": "Base credit of $25 plus $5 goodwill adjustment for "
-                         "customer satisfaction.",
+            "customer satisfaction.",
         },
     ],
-
     # ─── CHARGE DISPUTE ──────────────────────────────────────────
     FinancialCategory.CHARGE_DISPUTE: [
         {
             "approach": ReasoningApproach.DIRECT,
             "answer": "After reviewing the disputed charge of $49.99, we confirm "
-                      "it does not match your authorized plan of $29.99/month. The "
-                      "difference of $20.00 will be refunded to your original "
-                      "payment method.",
+            "it does not match your authorized plan of $29.99/month. The "
+            "difference of $20.00 will be refunded to your original "
+            "payment method.",
             "key_value": "$20",
             "reasoning": "Direct comparison of charged amount vs. authorized plan "
-                         "price to identify the overcharge.",
+            "price to identify the overcharge.",
         },
         {
             "approach": ReasoningApproach.FORMULA_BASED,
             "answer": "Dispute resolution: charged_amount − authorized_amount = "
-                      "$49.99 − $29.99 = $20.00. The overcharge of $20.00 will be "
-                      "credited back within 5-7 business days.",
+            "$49.99 − $29.99 = $20.00. The overcharge of $20.00 will be "
+            "credited back within 5-7 business days.",
             "key_value": "$20",
             "reasoning": "Simple arithmetic difference between what was charged "
-                         "and what was authorized.",
+            "and what was authorized.",
         },
         {
             "approach": ReasoningApproach.POLICY_BASED,
             "answer": "Under our dispute resolution policy, unauthorized charge "
-                      "differences are fully refunded. The $20.00 variance between "
-                      "your $29.99 plan and the $49.99 charge will be corrected.",
+            "differences are fully refunded. The $20.00 variance between "
+            "your $29.99 plan and the $49.99 charge will be corrected.",
             "key_value": "$20",
             "reasoning": "Dispute policy guarantees full refund of the charge "
-                         "variance upon verification.",
+            "variance upon verification.",
         },
         {
             "approach": ReasoningApproach.CONSERVATIVE,
             "answer": "Pending full investigation of the $49.99 charge, we "
-                      "provisionally credit $20.00. If the investigation confirms "
-                      "a system error, the full $20.00 credit becomes permanent.",
+            "provisionally credit $20.00. If the investigation confirms "
+            "a system error, the full $20.00 credit becomes permanent.",
             "key_value": "$20",
             "reasoning": "Provisional credit issued pending investigation — "
-                         "amount matches the observed discrepancy.",
+            "amount matches the observed discrepancy.",
         },
         {
             "approach": ReasoningApproach.CUSTOMER_FAVORABLE,
             "answer": "The $20.00 overcharge has been fully refunded. We also "
-                      "applied a 10% goodwill adjustment ($2.00) for the "
-                      "inconvenience, for a total credit of $22.00.",
+            "applied a 10% goodwill adjustment ($2.00) for the "
+            "inconvenience, for a total credit of $22.00.",
             "key_value": "$22",
             "reasoning": "Full overcharge refund plus a percentage-based "
-                         "goodwill adjustment for the dispute.",
+            "goodwill adjustment for the dispute.",
         },
     ],
-
     # ─── BILLING INQUIRY ─────────────────────────────────────────
     FinancialCategory.BILLING_INQUIRY: [
         {
             "approach": ReasoningApproach.DIRECT,
             "answer": "Your current monthly bill is $39.99, which includes your base "
-                      "plan at $29.99 plus the $10.00 add-on you activated last "
-                      "billing cycle.",
+            "plan at $29.99 plus the $10.00 add-on you activated last "
+            "billing cycle.",
             "key_value": "$39.99",
             "reasoning": "Sum of base plan price and active add-on charges "
-                         "as reflected in the billing system.",
+            "as reflected in the billing system.",
         },
         {
             "approach": ReasoningApproach.FORMULA_BASED,
             "answer": "Bill calculation: base_plan + add_ons + taxes = $29.99 + "
-                      "$10.00 + $0.00 (taxes included) = $39.99. Your total "
-                      "monthly charge is $39.99.",
+            "$10.00 + $0.00 (taxes included) = $39.99. Your total "
+            "monthly charge is $39.99.",
             "key_value": "$39.99",
             "reasoning": "Itemized calculation summing each billing component "
-                         "to reach the total.",
+            "to reach the total.",
         },
         {
             "approach": ReasoningApproach.POLICY_BASED,
             "answer": "Per our billing schedule, your account is billed on the 1st "
-                      "of each month. Your current plan ($29.99) plus the active "
-                      "add-on ($10.00) totals $39.99 as shown on your latest invoice.",
+            "of each month. Your current plan ($29.99) plus the active "
+            "add-on ($10.00) totals $39.99 as shown on your latest invoice.",
             "key_value": "$39.99",
             "reasoning": "Billing policy confirms the charge composition and "
-                         "billing date alignment.",
+            "billing date alignment.",
         },
         {
             "approach": ReasoningApproach.CONSERVATIVE,
             "answer": "Your base plan is $29.99. With the $10.00 add-on, the "
-                      "subtotal is $39.99. Please note that if promotional pricing "
-                      "expires next cycle, the cost may increase by approximately $5.00.",
+            "subtotal is $39.99. Please note that if promotional pricing "
+            "expires next cycle, the cost may increase by approximately $5.00.",
             "key_value": "$39.99",
             "reasoning": "Current total confirmed, but conservative note added "
-                         "about potential future price changes.",
+            "about potential future price changes.",
         },
         {
             "approach": ReasoningApproach.CUSTOMER_FAVORABLE,
             "answer": "Your bill is $39.99 this month ($29.99 plan + $10.00 add-on). "
-                      "Good news: your loyalty discount of $5.00/month kicks in next "
-                      "cycle, reducing your bill to $34.99.",
+            "Good news: your loyalty discount of $5.00/month kicks in next "
+            "cycle, reducing your bill to $34.99.",
             "key_value": "$39.99",
             "reasoning": "Current total confirmed with a forward-looking note about "
-                         "upcoming loyalty discount.",
+            "upcoming loyalty discount.",
         },
     ],
-
     # ─── GENERAL (financial) ─────────────────────────────────────
     FinancialCategory.GENERAL: [
         {
             "approach": ReasoningApproach.DIRECT,
             "answer": "Based on the details provided, the applicable amount is $50.00. "
-                      "This is derived from the standard rate applied to your account "
-                      "configuration and current billing settings.",
+            "This is derived from the standard rate applied to your account "
+            "configuration and current billing settings.",
             "key_value": "$50",
             "reasoning": "Direct application of standard rates to the customer's "
-                         "account configuration.",
+            "account configuration.",
         },
         {
             "approach": ReasoningApproach.FORMULA_BASED,
             "answer": "Using the standard calculation: base_rate × units = $25.00 × 2 = "
-                      "$50.00. The total applicable amount is $50.00 based on your "
-                      "current usage and plan terms.",
+            "$50.00. The total applicable amount is $50.00 based on your "
+            "current usage and plan terms.",
             "key_value": "$50",
             "reasoning": "Rate × quantity formula applied to determine the "
-                         "total financial impact.",
+            "total financial impact.",
         },
         {
             "approach": ReasoningApproach.POLICY_BASED,
             "answer": "According to our general pricing policy, the amount of $50.00 "
-                      "applies to your current service tier. This is consistent with "
-                      "our published rate card for your account type.",
+            "applies to your current service tier. This is consistent with "
+            "our published rate card for your account type.",
             "key_value": "$50",
             "reasoning": "Published rate card and pricing policy cross-referenced "
-                         "to confirm the amount.",
+            "to confirm the amount.",
         },
         {
             "approach": ReasoningApproach.CONSERVATIVE,
             "answer": "The standard amount is $50.00. However, depending on your "
-                      "specific contract terms, there could be a variance of ±$5.00 "
-                      "based on regional adjustments or custom provisions.",
+            "specific contract terms, there could be a variance of ±$5.00 "
+            "based on regional adjustments or custom provisions.",
             "key_value": "$50",
             "reasoning": "Standard amount confirmed with a conservative variance "
-                         "range noted for contractual differences.",
+            "range noted for contractual differences.",
         },
         {
             "approach": ReasoningApproach.CUSTOMER_FAVORABLE,
             "answer": "Your total is $50.00 at the standard rate. If you've been "
-                      "a customer for over 12 months, you may qualify for a "
-                      "10% loyalty discount, bringing it to $45.00.",
+            "a customer for over 12 months, you may qualify for a "
+            "10% loyalty discount, bringing it to $45.00.",
             "key_value": "$50",
             "reasoning": "Standard rate confirmed with a loyalty-discount "
-                         "path highlighted for the customer.",
+            "path highlighted for the customer.",
         },
     ],
 }
@@ -603,14 +637,16 @@ class SelfConsistencyProcessor:
     """
 
     def __init__(
-        self, config: Optional[SelfConsistencyConfig] = None,
+        self,
+        config: Optional[SelfConsistencyConfig] = None,
     ):
         self.config = config or SelfConsistencyConfig()
 
     # ── Step 1: Multi-Answer Generation ──────────────────────────
 
     async def generate_independent_answers(
-        self, query: str,
+        self,
+        query: str,
     ) -> List[IndependentAnswer]:
         """
         Generate 3-5 independent answers using different reasoning
@@ -632,16 +668,19 @@ class SelfConsistencyProcessor:
 
         category = self._categorize_query(query)
         templates = _ANSWER_TEMPLATES.get(
-            category, _ANSWER_TEMPLATES[_DEFAULT_CATEGORY])
+            category, _ANSWER_TEMPLATES[_DEFAULT_CATEGORY]
+        )
         selected = templates[: self.config.num_answers]
 
         answers: List[IndependentAnswer] = []
         for template in selected:
             approach = template["approach"]
             answer = IndependentAnswer(
-                approach=approach.value if isinstance(
-                    approach,
-                    ReasoningApproach) else str(approach),
+                approach=(
+                    approach.value
+                    if isinstance(approach, ReasoningApproach)
+                    else str(approach)
+                ),
                 answer_text=template["answer"],
                 key_value=template["key_value"],
                 reasoning=template["reasoning"],
@@ -660,7 +699,8 @@ class SelfConsistencyProcessor:
     # ── Step 2: Consistency Check ────────────────────────────────
 
     async def check_consistency(
-        self, answers: List[IndependentAnswer],
+        self,
+        answers: List[IndependentAnswer],
     ) -> ConsistencyResult:
         """
         Compare all answers for agreement on the key value.
@@ -693,7 +733,9 @@ class SelfConsistencyProcessor:
 
         # Classify consensus level
         consensus_level = self._classify_consensus(
-            agreement_ratio, total, len(value_counts),
+            agreement_ratio,
+            total,
+            len(value_counts),
         )
 
         # Collect dissenting answers
@@ -766,8 +808,7 @@ class SelfConsistencyProcessor:
         # Build structured disagreement analysis
         parts: List[str] = []
         majority_approaches = [
-            a.approach for a in answers
-            if a.key_value == consistency.majority_value
+            a.approach for a in answers if a.key_value == consistency.majority_value
         ]
         dissenting = consistency.dissenting_answers
 
@@ -780,7 +821,8 @@ class SelfConsistencyProcessor:
         for dissenter in dissenting:
             # Heuristic: categorize the divergence source
             divergence_reason = self._classify_divergence(
-                dissenter, consistency.majority_value,
+                dissenter,
+                consistency.majority_value,
             )
             parts.append(
                 f"  - {dissenter.approach} approach returned "
@@ -847,9 +889,7 @@ class SelfConsistencyProcessor:
         majority_value = consistency.majority_value
 
         # Pick the best answer from the majority group
-        majority_answers = [
-            a for a in answers if a.key_value == majority_value
-        ]
+        majority_answers = [a for a in answers if a.key_value == majority_value]
 
         if not majority_answers:
             # Fallback: pick the answer with the highest confidence
@@ -886,7 +926,8 @@ class SelfConsistencyProcessor:
     # ── Full Pipeline ────────────────────────────────────────────
 
     async def process(
-        self, query: str,
+        self,
+        query: str,
     ) -> SelfConsistencyResult:
         """
         Run the full 5-step Self-Consistency pipeline.
@@ -924,28 +965,34 @@ class SelfConsistencyProcessor:
             confidence_boost += 0.05
 
             # Step 3: Disagreement Analysis (if enabled)
-            if self.config.enable_disagreement_analysis and consistency.dissenting_answers:
+            if (
+                self.config.enable_disagreement_analysis
+                and consistency.dissenting_answers
+            ):
                 disagreement_analysis = await self.analyze_disagreement(
-                    answers, consistency,
+                    answers,
+                    consistency,
                 )
                 consistency.disagreement_analysis = disagreement_analysis
                 steps_applied.append("disagreement_analysis")
             elif not consistency.dissenting_answers:
                 # Still record unanimous agreement
-                consistency.disagreement_analysis = (
-                    await self.analyze_disagreement(answers, consistency)
+                consistency.disagreement_analysis = await self.analyze_disagreement(
+                    answers, consistency
                 )
                 steps_applied.append("disagreement_analysis")
             confidence_boost += 0.03
 
             # Step 4: Determine Final Answer
             final_answer, final_confidence = await self.determine_final_answer(
-                answers, consistency,
+                answers,
+                consistency,
             )
             if final_answer:
                 steps_applied.append("final_response")
             confidence_boost += _CONSENSUS_BOOST.get(
-                ConsensusLevel(consistency.consensus_level), 0.02,
+                ConsensusLevel(consistency.consensus_level),
+                0.02,
             )
 
             logger.info(
@@ -967,9 +1014,11 @@ class SelfConsistencyProcessor:
             return SelfConsistencyResult(
                 answers=answers,
                 consistency=consistency,
-                steps_applied=steps_applied + ["error_fallback"]
-                if steps_applied
-                else ["error_fallback"],
+                steps_applied=(
+                    steps_applied + ["error_fallback"]
+                    if steps_applied
+                    else ["error_fallback"]
+                ),
                 confidence_boost=0.0,
             )
 
@@ -1056,11 +1105,7 @@ class SelfConsistencyProcessor:
         answer_lower = dissenter.answer_text.lower()
 
         # Check for fee/penalty deductions
-        if any(
-            kw in reasoning_lower for kw in (
-                "fee",
-                "penalty",
-                "deduction")):
+        if any(kw in reasoning_lower for kw in ("fee", "penalty", "deduction")):
             return (
                 "Applied an additional fee or penalty not included in the "
                 f"majority calculation, resulting in {dissenter.key_value} "
@@ -1068,11 +1113,7 @@ class SelfConsistencyProcessor:
             )
 
         # Check for rounding/buffer adjustments
-        if any(
-            kw in reasoning_lower for kw in (
-                "rounding",
-                "buffer",
-                "conservative")):
+        if any(kw in reasoning_lower for kw in ("rounding", "buffer", "conservative")):
             return (
                 "Added a conservative rounding buffer, yielding "
                 f"{dissenter.key_value} vs. majority {majority_value}"
@@ -1080,22 +1121,16 @@ class SelfConsistencyProcessor:
 
         # Check for goodwill/customer-favorable adjustments
         if any(
-            kw in reasoning_lower for kw in (
-                "goodwill",
-                "courtesy",
-                "loyalty",
-                "favorable")):
+            kw in reasoning_lower
+            for kw in ("goodwill", "courtesy", "loyalty", "favorable")
+        ):
             return (
                 "Included a customer-favorable or goodwill adjustment, "
                 f"producing {dissenter.key_value} vs. majority {majority_value}"
             )
 
         # Check for partial-period exclusions
-        if any(
-            kw in reasoning_lower for kw in (
-                "partial",
-                "exclud",
-                "pending")):
+        if any(kw in reasoning_lower for kw in ("partial", "exclud", "pending")):
             return (
                 "Excluded partial or unverified periods, resulting in "
                 f"{dissenter.key_value} instead of {majority_value}"
@@ -1103,22 +1138,15 @@ class SelfConsistencyProcessor:
 
         # Check for policy interpretation differences
         if any(
-            kw in reasoning_lower for kw in (
-                "policy",
-                "section",
-                "clause",
-                "terms")):
+            kw in reasoning_lower for kw in ("policy", "section", "clause", "terms")
+        ):
             return (
                 "Interpreted policy terms differently, arriving at "
                 f"{dissenter.key_value} vs. majority {majority_value}"
             )
 
         # Check for provisional/estimate language
-        if any(
-            kw in answer_lower for kw in (
-                "provisional",
-                "estimate",
-                "approximate")):
+        if any(kw in answer_lower for kw in ("provisional", "estimate", "approximate")):
             return (
                 f"Provided a provisional estimate of {dissenter.key_value} "
                 f"rather than the firm majority value of {majority_value}"
@@ -1199,7 +1227,8 @@ class SelfConsistencyNode(BaseTechniqueNode):
     """
 
     def __init__(
-        self, config: Optional[SelfConsistencyConfig] = None,
+        self,
+        config: Optional[SelfConsistencyConfig] = None,
     ):
         self._config = config or SelfConsistencyConfig()
         self._processor = SelfConsistencyProcessor(config=self._config)
@@ -1270,8 +1299,10 @@ class SelfConsistencyNode(BaseTechniqueNode):
 
             # Append the verified answer if consensus was achieved
             consensus = ConsensusLevel(result.consistency.consensus_level)
-            if (result.final_answer and consensus in (
-                    ConsensusLevel.UNANIMOUS, ConsensusLevel.MAJORITY)):
+            if result.final_answer and consensus in (
+                ConsensusLevel.UNANIMOUS,
+                ConsensusLevel.MAJORITY,
+            ):
                 state.response_parts.append(result.final_answer)
             elif result.final_answer and consensus == ConsensusLevel.SPLIT:
                 # For split consensus, include the answer but note the variance

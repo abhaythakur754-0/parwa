@@ -91,14 +91,16 @@ _MAX_HISTORY_LENGTH: int = 100
 
 class HealthStatus(str, Enum):
     """Overall health status based on the weighted score."""
-    HEALTHY = "healthy"      # Score >= 0.7
+
+    HEALTHY = "healthy"  # Score >= 0.7
     DEGRADING = "degrading"  # Score 0.4-0.7
-    CRITICAL = "critical"    # Score 0.2-0.4
+    CRITICAL = "critical"  # Score 0.2-0.4
     EXHAUSTED = "exhausted"  # Score < 0.2
 
 
 class HealthAlertType(str, Enum):
     """Types of health alerts that can be triggered."""
+
     TOKEN_BUDGET_LOW = "token_budget_low"
     COMPRESSION_RATIO_HIGH = "compression_ratio_high"
     SIGNAL_DEGRADATION = "signal_degradation"
@@ -114,6 +116,7 @@ class HealthAlertType(str, Enum):
 @dataclass
 class HealthMetrics:
     """Individual health metric measurements for a single turn."""
+
     token_usage_ratio: float = 0.0
     compression_ratio: float = 1.0
     relevance_score: float = 1.0
@@ -125,6 +128,7 @@ class HealthMetrics:
 @dataclass
 class HealthAlert:
     """A single alert generated when a metric crosses a threshold."""
+
     alert_type: HealthAlertType
     severity: HealthStatus
     message: str
@@ -137,6 +141,7 @@ class HealthAlert:
 @dataclass
 class HealthReport:
     """Complete health report for a conversation turn."""
+
     company_id: str = ""
     conversation_id: str = ""
     overall_score: float = 1.0
@@ -151,6 +156,7 @@ class HealthReport:
 @dataclass
 class HealthConfig:
     """Configuration for the ContextHealthMeter."""
+
     company_id: str = ""
     variant_type: str = "parwa"
     token_budget_threshold: float = 0.8
@@ -201,7 +207,8 @@ class ContextHealthMeter:
     """
 
     def __init__(
-        self, config: Optional[HealthConfig] = None,
+        self,
+        config: Optional[HealthConfig] = None,
     ) -> None:
         self._config = config or HealthConfig()
         self._turn_history: Dict[str, List[HealthReport]] = {}
@@ -244,11 +251,14 @@ class ContextHealthMeter:
             overall_score = self._calculate_overall_score(metrics)
             status = self._determine_status(overall_score)
             alerts = self._check_alerts(
-                company_id, conversation_id, metrics,
+                company_id,
+                conversation_id,
+                metrics,
                 overall_score,
             )
             recommendations = self._generate_recommendations_from_status(
-                status, alerts,
+                status,
+                alerts,
             )
 
             now = datetime.now(timezone.utc).isoformat()
@@ -266,21 +276,18 @@ class ContextHealthMeter:
 
             # Store in history
             conv_key = self._conv_key(
-                company_id, conversation_id,
+                company_id,
+                conversation_id,
             )
             if conv_key not in self._turn_history:
                 self._turn_history[conv_key] = []
             self._turn_history[conv_key].append(report)
 
             # Prune old history
-            if (
-                len(self._turn_history[conv_key])
-                > _MAX_HISTORY_LENGTH
-            ):
-                self._turn_history[conv_key] = (
-                    self._turn_history[conv_key]
-                    [-_MAX_HISTORY_LENGTH:]
-                )
+            if len(self._turn_history[conv_key]) > _MAX_HISTORY_LENGTH:
+                self._turn_history[conv_key] = self._turn_history[conv_key][
+                    -_MAX_HISTORY_LENGTH:
+                ]
 
             logger.info(
                 "health_check_completed",
@@ -320,7 +327,8 @@ class ContextHealthMeter:
     # ── Score Calculation ──────────────────────────────────────
 
     def _calculate_overall_score(
-        self, metrics: HealthMetrics,
+        self,
+        metrics: HealthMetrics,
     ) -> float:
         """Compute the weighted average of all health metrics.
 
@@ -332,12 +340,14 @@ class ContextHealthMeter:
 
         # Token usage is inversely related to health
         token_health = max(
-            0.0, 1.0 - metrics.token_usage_ratio,
+            0.0,
+            1.0 - metrics.token_usage_ratio,
         )
 
         # Compression ratio: 1.0 = healthy, lower = degraded
         compression_health = min(
-            1.0, metrics.compression_ratio,
+            1.0,
+            metrics.compression_ratio,
         )
 
         score = (
@@ -345,10 +355,8 @@ class ContextHealthMeter:
             + compression_health * weights["compression_ratio"]
             + metrics.relevance_score * weights["relevance_score"]
             + metrics.freshness_score * weights["freshness_score"]
-            + metrics.signal_preservation
-            * weights["signal_preservation"]
-            + metrics.context_coherence
-            * weights["context_coherence"]
+            + metrics.signal_preservation * weights["signal_preservation"]
+            + metrics.context_coherence * weights["context_coherence"]
         )
 
         return max(0.0, min(1.0, score))
@@ -381,7 +389,8 @@ class ContextHealthMeter:
         now = datetime.now(timezone.utc).isoformat()
         cooldown = self._config.alert_cooldown_seconds
         conv_key = self._conv_key(
-            company_id, conversation_id,
+            company_id,
+            conversation_id,
         )
 
         # Ensure last_alerts entry exists
@@ -399,17 +408,13 @@ class ContextHealthMeter:
                 last_dt = datetime.fromisoformat(
                     last_time.replace("Z", "+00:00"),
                 )
-                elapsed = (
-                    datetime.now(timezone.utc) - last_dt
-                ).total_seconds()
+                elapsed = (datetime.now(timezone.utc) - last_dt).total_seconds()
                 return elapsed >= cooldown
             except (ValueError, TypeError):
                 return True
 
         # Token budget alert
-        if metrics.token_usage_ratio >= (
-            self._config.token_budget_threshold
-        ):
+        if metrics.token_usage_ratio >= (self._config.token_budget_threshold):
             atype = HealthAlertType.TOKEN_BUDGET_LOW
             if _should_alert(atype.value):
                 alert = HealthAlert(
@@ -432,9 +437,7 @@ class ContextHealthMeter:
                 last_alert_times[atype.value] = now
 
         # Compression ratio alert
-        if metrics.compression_ratio <= (
-            self._config.compression_ratio_threshold
-        ):
+        if metrics.compression_ratio <= (self._config.compression_ratio_threshold):
             atype = HealthAlertType.COMPRESSION_RATIO_HIGH
             if _should_alert(atype.value):
                 alert = HealthAlert(
@@ -448,9 +451,7 @@ class ContextHealthMeter:
                     ),
                     metric_name="compression_ratio",
                     metric_value=metrics.compression_ratio,
-                    threshold=(
-                        self._config.compression_ratio_threshold
-                    ),
+                    threshold=(self._config.compression_ratio_threshold),
                     timestamp=now,
                 )
                 alerts.append(alert)
@@ -458,7 +459,8 @@ class ContextHealthMeter:
 
         # Signal preservation alert
         sig_threshold = _DEFAULT_HEALTH_THRESHOLDS.get(
-            "signal_preservation", 0.5,
+            "signal_preservation",
+            0.5,
         )
         if metrics.signal_preservation < sig_threshold:
             atype = HealthAlertType.SIGNAL_DEGRADATION
@@ -480,10 +482,7 @@ class ContextHealthMeter:
                 last_alert_times[atype.value] = now
 
         # Context drift (relevance + coherence both low)
-        if (
-            metrics.relevance_score < 0.5
-            and metrics.context_coherence < 0.6
-        ):
+        if metrics.relevance_score < 0.5 and metrics.context_coherence < 0.6:
             atype = HealthAlertType.CONTEXT_DRIFT
             if _should_alert(atype.value):
                 alert = HealthAlert(
@@ -494,10 +493,7 @@ class ContextHealthMeter:
                         "coherence both below acceptable levels"
                     ),
                     metric_name="context_drift",
-                    metric_value=(
-                        metrics.relevance_score
-                        * metrics.context_coherence
-                    ),
+                    metric_value=(metrics.relevance_score * metrics.context_coherence),
                     threshold=0.3,
                     timestamp=now,
                 )
@@ -506,7 +502,8 @@ class ContextHealthMeter:
 
         # Freshness expired alert
         fresh_threshold = _DEFAULT_HEALTH_THRESHOLDS.get(
-            "freshness_score", 0.4,
+            "freshness_score",
+            0.4,
         )
         if metrics.freshness_score < fresh_threshold:
             atype = HealthAlertType.FRESHNESS_EXPIRED
@@ -610,7 +607,8 @@ class ContextHealthMeter:
         """Get the full health history for a conversation."""
         try:
             conv_key = self._conv_key(
-                company_id, conversation_id,
+                company_id,
+                conversation_id,
             )
             return list(
                 self._turn_history.get(conv_key, []),
@@ -632,7 +630,8 @@ class ContextHealthMeter:
         """Get the most recent health report for a conversation."""
         try:
             conv_key = self._conv_key(
-                company_id, conversation_id,
+                company_id,
+                conversation_id,
             )
             history = self._turn_history.get(conv_key, [])
             return history[-1] if history else None
@@ -653,7 +652,8 @@ class ContextHealthMeter:
         """Clear health history and alerts for a conversation."""
         try:
             conv_key = self._conv_key(
-                company_id, conversation_id,
+                company_id,
+                conversation_id,
             )
             self._turn_history.pop(conv_key, None)
             self._last_alerts.pop(conv_key, None)

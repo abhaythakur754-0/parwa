@@ -49,7 +49,9 @@ class DiscordChatProvider(ChatProvider):
 
     provider_name = "discord"
     display_name = "Discord"
-    description = "Discord chat integration (DEPRECATED — not available in China market)"
+    description = (
+        "Discord chat integration (DEPRECATED — not available in China market)"
+    )
     website = "https://discord.com"
     deprecated = True
 

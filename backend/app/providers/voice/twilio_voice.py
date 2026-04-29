@@ -21,9 +21,8 @@ class TwilioVoiceProvider(VoiceProvider):
 
     def test_connection(self) -> ProviderResult:
         return ProviderResult(
-            success=True,
-            provider_name=self.provider_name,
-            operation="test_connection")
+            success=True, provider_name=self.provider_name, operation="test_connection"
+        )
 
     def get_rate_limits(self) -> Dict[str, Any]:
         return {}

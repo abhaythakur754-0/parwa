@@ -22,8 +22,12 @@ def upgrade() -> None:
         sa.Column("company_id", sa.String(36), nullable=True, index=True),
         sa.Column("rule_type", sa.String(50), nullable=False, server_default="body"),
         sa.Column("pattern", sa.Text(), nullable=False),
-        sa.Column("pattern_type", sa.String(50), nullable=False, server_default="regex"),
-        sa.Column("classification", sa.String(50), nullable=False, server_default="ooo"),
+        sa.Column(
+            "pattern_type", sa.String(50), nullable=False, server_default="regex"
+        ),
+        sa.Column(
+            "classification", sa.String(50), nullable=False, server_default="ooo"
+        ),
         sa.Column("active", sa.Boolean(), nullable=False, server_default="true"),
         sa.Column("match_count", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("last_matched_at", sa.DateTime(), nullable=True),
@@ -41,11 +45,15 @@ def upgrade() -> None:
         sa.Column("thread_id", sa.String(36), nullable=True),
         sa.Column("related_ticket_id", sa.String(36), nullable=True),
         sa.Column("message_id", sa.String(255), nullable=True),
-        sa.Column("classification", sa.String(50), nullable=False, server_default="ooo"),
+        sa.Column(
+            "classification", sa.String(50), nullable=False, server_default="ooo"
+        ),
         sa.Column("confidence", sa.String(10), nullable=False, server_default="medium"),
         sa.Column("detected_signals", sa.Text(), nullable=True, server_default="[]"),
         sa.Column("rule_ids_matched", sa.Text(), nullable=True, server_default="[]"),
-        sa.Column("action_taken", sa.String(50), nullable=False, server_default="tagged"),
+        sa.Column(
+            "action_taken", sa.String(50), nullable=False, server_default="tagged"
+        ),
         sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),
     )
     op.create_index("ix_ooo_log_company_id", "ooo_detection_log", ["company_id"])
@@ -57,7 +65,9 @@ def upgrade() -> None:
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("company_id", sa.String(36), nullable=False, index=True),
         sa.Column("sender_email", sa.String(254), nullable=False, index=True),
-        sa.Column("ooo_detected_count", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column(
+            "ooo_detected_count", sa.Integer(), nullable=False, server_default="0"
+        ),
         sa.Column("last_ooo_at", sa.DateTime(), nullable=True),
         sa.Column("ooo_until", sa.DateTime(), nullable=True),
         sa.Column("active_ooo", sa.Boolean(), nullable=False, server_default="false"),
@@ -83,15 +93,24 @@ def upgrade() -> None:
         sa.Column("provider_code", sa.String(50), nullable=True),
         sa.Column("event_id", sa.String(255), nullable=True, unique=True),
         sa.Column("related_ticket_id", sa.String(36), nullable=True),
-        sa.Column("email_status_before", sa.String(50), nullable=False, server_default="active"),
-        sa.Column("email_status_after", sa.String(50), nullable=False, server_default="active"),
+        sa.Column(
+            "email_status_before",
+            sa.String(50),
+            nullable=False,
+            server_default="active",
+        ),
+        sa.Column(
+            "email_status_after", sa.String(50), nullable=False, server_default="active"
+        ),
         sa.Column("whitelisted", sa.Boolean(), nullable=False, server_default="false"),
         sa.Column("whitelist_justification", sa.Text(), nullable=True),
         sa.Column("whitelisted_by", sa.String(36), nullable=True),
         sa.Column("whitelisted_at", sa.DateTime(), nullable=True),
         sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),
     )
-    op.create_index("ix_bounces_company_email", "email_bounces", ["company_id", "customer_email"])
+    op.create_index(
+        "ix_bounces_company_email", "email_bounces", ["company_id", "customer_email"]
+    )
     op.create_index("ix_bounces_type", "email_bounces", ["bounce_type"])
 
     # ── Customer Email Status ───────────────────────────────────────
@@ -100,7 +119,13 @@ def upgrade() -> None:
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("company_id", sa.String(36), nullable=False, index=True),
         sa.Column("customer_email", sa.String(254), nullable=False, index=True),
-        sa.Column("email_status", sa.String(50), nullable=False, server_default="active", index=True),
+        sa.Column(
+            "email_status",
+            sa.String(50),
+            nullable=False,
+            server_default="active",
+            index=True,
+        ),
         sa.Column("bounce_count", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("complaint_count", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("last_bounce_at", sa.DateTime(), nullable=True),

@@ -31,6 +31,7 @@ router = APIRouter(prefix="/demo", tags=["demo"])
 
 # ── Schemas ────────────────────────────────────────────────────────────────
 
+
 class DemoVariantEnum(str, Enum):
     mini_parwa = "mini_parwa"
     parwa = "parwa"
@@ -39,9 +40,7 @@ class DemoVariantEnum(str, Enum):
 
 class CreateDemoSessionRequest(BaseModel):
     variant: DemoVariantEnum = DemoVariantEnum.parwa
-    industry: str = Field(
-        default="ecommerce",
-        description="Industry for demo context")
+    industry: str = Field(default="ecommerce", description="Industry for demo context")
     visitor_email: Optional[EmailStr] = None
     visitor_phone: Optional[str] = None
 
@@ -100,6 +99,7 @@ class CompleteDemoResponse(BaseModel):
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
 
+
 @router.post("/session", response_model=DemoSessionResponse)
 async def create_demo_session(request: CreateDemoSessionRequest):
     """
@@ -129,6 +129,7 @@ async def create_demo_session(request: CreateDemoSessionRequest):
 
         # Get capabilities
         from app.services.demo_service import VARIANT_DEMO_CAPABILITIES
+
         capabilities = VARIANT_DEMO_CAPABILITIES.get(variant, {})
 
         return DemoSessionResponse(
@@ -144,8 +145,7 @@ async def create_demo_session(request: CreateDemoSessionRequest):
 
     except Exception as e:
         logger.error("create_demo_session_failed", error=str(e))
-        raise HTTPException(status_code=500,
-                            detail="Failed to create demo session")
+        raise HTTPException(status_code=500, detail="Failed to create demo session")
 
 
 @router.get("/session/{session_id}")
@@ -160,6 +160,7 @@ async def get_demo_session(session_id: str):
         raise HTTPException(status_code=404, detail="Demo session not found")
 
     from app.services.demo_service import VARIANT_DEMO_CAPABILITIES
+
     capabilities = VARIANT_DEMO_CAPABILITIES.get(session.variant, {})
 
     return {
@@ -170,7 +171,8 @@ async def get_demo_session(session_id: str):
         "status": session.status.value,
         "message_count": session.message_count,
         "max_messages": capabilities.get("max_demo_messages", 20),
-        "remaining_messages": capabilities.get("max_demo_messages", 20) - session.message_count,
+        "remaining_messages": capabilities.get("max_demo_messages", 20)
+        - session.message_count,
         "messages": session.messages[-20:],  # Last 20 messages
         "created_at": session.created_at.isoformat(),
         "visitor_email": session.visitor_email,
@@ -218,8 +220,7 @@ async def send_demo_message(request: SendMessageRequest):
     )
 
 
-@router.get("/scenarios/{variant}/{industry}",
-            response_model=List[DemoScenario])
+@router.get("/scenarios/{variant}/{industry}", response_model=List[DemoScenario])
 async def get_demo_scenarios(variant: DemoVariantEnum, industry: str):
     """
     Get demo scenarios available for a variant and industry.
@@ -307,13 +308,17 @@ async def quick_demo(request: Request):
             message=message,
         )
 
-        return JSONResponse({
-            "success": result.success,
-            "session_id": session.session_id,
-            "reply": result.ai_response,
-            "variant": session.variant.value,
-            "remaining_messages": result.variant_capabilities.get("remaining_messages", 0),
-        })
+        return JSONResponse(
+            {
+                "success": result.success,
+                "session_id": session.session_id,
+                "reply": result.ai_response,
+                "variant": session.variant.value,
+                "remaining_messages": result.variant_capabilities.get(
+                    "remaining_messages", 0
+                ),
+            }
+        )
 
     except Exception as e:
         logger.error("quick_demo_failed", error=str(e))

@@ -21,7 +21,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
 
@@ -36,16 +35,19 @@ class TestTrialModels:
     def test_subscription_has_trial_days(self):
         """MF1: Subscription model should have trial_days column."""
         from database.models.billing import Subscription
+
         assert hasattr(Subscription, "trial_days")
 
     def test_subscription_has_trial_started_at(self):
         """MF1: Subscription model should have trial_started_at column."""
         from database.models.billing import Subscription
+
         assert hasattr(Subscription, "trial_started_at")
 
     def test_subscription_has_trial_ends_at(self):
         """MF1: Subscription model should have trial_ends_at column."""
         from database.models.billing import Subscription
+
         assert hasattr(Subscription, "trial_ends_at")
 
 
@@ -58,14 +60,15 @@ class TestTrialService:
         from app.services.trial_service import get_trial_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_sub = MagicMock()
         mock_sub.trial_ends_at = None
         mock_sub.trial_days = 0
-        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
 
         svc = get_trial_service()
         result = svc.start_trial(str(uuid.uuid4()), trial_days=14)
@@ -80,10 +83,11 @@ class TestTrialService:
         from app.services.trial_service import get_trial_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
-        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            None
+        )
 
         svc = get_trial_service()
         result = svc.check_trial_status(str(uuid.uuid4()))
@@ -96,14 +100,15 @@ class TestTrialService:
         from app.services.trial_service import get_trial_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_sub = MagicMock()
         mock_sub.trial_started_at = datetime.now(timezone.utc)
         mock_sub.trial_ends_at = datetime.now(timezone.utc) + timedelta(days=7)
-        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
 
         svc = get_trial_service()
         result = svc.check_trial_status(str(uuid.uuid4()))
@@ -117,15 +122,15 @@ class TestTrialService:
         from app.services.trial_service import get_trial_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_sub = MagicMock()
-        mock_sub.trial_started_at = datetime.now(
-            timezone.utc) - timedelta(days=20)
+        mock_sub.trial_started_at = datetime.now(timezone.utc) - timedelta(days=20)
         mock_sub.trial_ends_at = datetime.now(timezone.utc) - timedelta(days=6)
-        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
 
         svc = get_trial_service()
         result = svc.check_trial_status(str(uuid.uuid4()))
@@ -138,8 +143,7 @@ class TestTrialService:
         from app.services.trial_service import get_trial_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         # Service loops over REMINDER_DAYS, calling query each time
@@ -157,12 +161,13 @@ class TestTrialService:
         from app.services.trial_service import get_trial_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         # Single query: db.query().filter().filter().all() → []
-        mock_db.query.return_value.filter.return_value.filter.return_value.all.return_value = []
+        mock_db.query.return_value.filter.return_value.filter.return_value.all.return_value = (
+            []
+        )
 
         svc = get_trial_service()
         result = svc.process_expired_trials()
@@ -181,19 +186,27 @@ class TestPauseModels:
     def test_pause_record_model_exists(self):
         """MF2: PauseRecord model should exist in billing_extended."""
         from database.models.billing_extended import PauseRecord
+
         assert PauseRecord is not None
 
     def test_pause_record_tablename(self):
         """MF2: PauseRecord table name should be pause_records."""
         from database.models.billing_extended import PauseRecord
+
         assert PauseRecord.__tablename__ == "pause_records"
 
     def test_pause_record_has_required_columns(self):
         """MF2: PauseRecord should have all required columns."""
         from database.models.billing_extended import PauseRecord
+
         required = [
-            "id", "company_id", "subscription_id", "paused_at",
-            "resumed_at", "pause_duration_days", "max_pause_days",
+            "id",
+            "company_id",
+            "subscription_id",
+            "paused_at",
+            "resumed_at",
+            "pause_duration_days",
+            "max_pause_days",
             "period_end_extension_days",
         ]
         for col in required:
@@ -209,8 +222,7 @@ class TestPauseService:
         from app.services.pause_service import get_pause_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_sub = MagicMock()
@@ -225,7 +237,9 @@ class TestPauseService:
         mock_db.query.side_effect = queries
 
         # q[0]: query(Subscription).filter().order_by().first() → sub
-        queries[0].filter.return_value.order_by.return_value.first.return_value = mock_sub
+        queries[0].filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         # q[1]: query(PauseRecord).filter().first() → None (no existing pause)
         queries[1].filter.return_value.first.return_value = None
         # q[2]: query(PauseRecord).filter().first() → None (no cooldown)
@@ -244,8 +258,7 @@ class TestPauseService:
         from app.services.pause_service import get_pause_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_pause = MagicMock()
@@ -253,8 +266,7 @@ class TestPauseService:
         mock_pause.subscription_id = str(uuid.uuid4())
 
         mock_sub = MagicMock()
-        mock_sub.current_period_end = datetime.now(
-            timezone.utc) + timedelta(days=25)
+        mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=25)
 
         # 2 queries: PauseRecord then Subscription
         queries = [MagicMock(), MagicMock()]
@@ -276,8 +288,7 @@ class TestPauseService:
         from app.services.pause_service import get_pause_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_db.query.return_value.filter.return_value.first.return_value = None
@@ -293,8 +304,7 @@ class TestPauseService:
         from app.services.pause_service import get_pause_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         q1 = MagicMock()
@@ -318,20 +328,30 @@ class TestPromoModels:
     def test_promo_code_model_exists(self):
         """MF3: PromoCode model should exist."""
         from database.models.billing_extended import PromoCode
+
         assert PromoCode is not None
 
     def test_promo_code_tablename(self):
         """MF3: PromoCode table name should be promo_codes."""
         from database.models.billing_extended import PromoCode
+
         assert PromoCode.__tablename__ == "promo_codes"
 
     def test_promo_code_has_required_columns(self):
         """MF3: PromoCode should have required columns."""
         from database.models.billing_extended import PromoCode
+
         required = [
-            "id", "code", "discount_type", "discount_value",
-            "max_uses", "used_count", "valid_from", "valid_until",
-            "applies_to_tiers", "is_active",
+            "id",
+            "code",
+            "discount_type",
+            "discount_value",
+            "max_uses",
+            "used_count",
+            "valid_from",
+            "valid_until",
+            "applies_to_tiers",
+            "is_active",
         ]
         for col in required:
             assert hasattr(PromoCode, col), f"Missing column: {col}"
@@ -339,11 +359,13 @@ class TestPromoModels:
     def test_company_promo_use_model_exists(self):
         """MF3: CompanyPromoUse model should exist."""
         from database.models.billing_extended import CompanyPromoUse
+
         assert CompanyPromoUse is not None
 
     def test_company_promo_use_tablename(self):
         """MF3: CompanyPromoUse table name should be company_promo_uses."""
         from database.models.billing_extended import CompanyPromoUse
+
         assert CompanyPromoUse.__tablename__ == "company_promo_uses"
 
 
@@ -356,8 +378,7 @@ class TestPromoService:
         from app.services.promo_service import get_promo_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
         mock_db.query.return_value.filter.return_value.first.return_value = None
 
@@ -377,11 +398,11 @@ class TestPromoService:
         from app.services.promo_service import get_promo_service, PromoError
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
         mock_db.query.return_value.filter.return_value.first.return_value = MagicMock(
-            code="SAVE20")
+            code="SAVE20"
+        )
 
         svc = get_promo_service()
         with pytest.raises(PromoError):
@@ -397,8 +418,7 @@ class TestPromoService:
         from app.services.promo_service import get_promo_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_promo = MagicMock()
@@ -412,7 +432,9 @@ class TestPromoService:
         mock_promo.valid_until = None
         mock_promo.applies_to_tiers = None
         mock_db.query.return_value.filter.return_value.first.side_effect = [
-            mock_promo, None]
+            mock_promo,
+            None,
+        ]
 
         svc = get_promo_service()
         result = svc.validate_promo_code("SAVE20", str(uuid.uuid4()))
@@ -426,8 +448,7 @@ class TestPromoService:
         from app.services.promo_service import get_promo_service, PromoNotFoundError
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
         mock_db.query.return_value.filter.return_value.first.return_value = None
 
@@ -441,8 +462,7 @@ class TestPromoService:
         from app.services.promo_service import get_promo_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
         mock_db.query.return_value.order_by.return_value.all.return_value = []
 
@@ -457,8 +477,7 @@ class TestPromoService:
         from app.services.promo_service import get_promo_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_promo = MagicMock()
@@ -483,19 +502,28 @@ class TestInvoiceAmendmentModels:
     def test_invoice_amendment_model_exists(self):
         """MF7: InvoiceAmendment model should exist."""
         from database.models.billing_extended import InvoiceAmendment
+
         assert InvoiceAmendment is not None
 
     def test_invoice_amendment_tablename(self):
         """MF7: InvoiceAmendment table name should be invoice_amendments."""
         from database.models.billing_extended import InvoiceAmendment
+
         assert InvoiceAmendment.__tablename__ == "invoice_amendments"
 
     def test_invoice_amendment_has_required_columns(self):
         """MF7: InvoiceAmendment should have required columns."""
         from database.models.billing_extended import InvoiceAmendment
+
         required = [
-            "id", "invoice_id", "company_id", "original_amount",
-            "new_amount", "amendment_type", "reason", "approved_by",
+            "id",
+            "invoice_id",
+            "company_id",
+            "original_amount",
+            "new_amount",
+            "amendment_type",
+            "reason",
+            "approved_by",
         ]
         for col in required:
             assert hasattr(InvoiceAmendment, col), f"Missing column: {col}"
@@ -510,10 +538,11 @@ class TestInvoiceAmendmentService:
         from app.services.invoice_amendment_service import get_invoice_amendment_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = (
+            []
+        )
 
         svc = get_invoice_amendment_service()
         result = svc.list_amendments("inv_123")
@@ -535,8 +564,7 @@ class TestAnalyticsService:
         from app.services.analytics_service import get_billing_analytics_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
         mock_db.query.return_value.filter.return_value.first.return_value = None
 
@@ -551,8 +579,7 @@ class TestAnalyticsService:
         from app.services.analytics_service import get_billing_analytics_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
         mock_db.query.return_value.filter.return_value.first.return_value = None
 
@@ -567,8 +594,7 @@ class TestAnalyticsService:
         from app.services.analytics_service import get_billing_analytics_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
         mock_db.query.return_value.filter.return_value.first.return_value = None
 
@@ -584,8 +610,7 @@ class TestAnalyticsService:
         from app.services.analytics_service import get_billing_analytics_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
         mock_db.query.return_value.filter.return_value.first.return_value = None
 
@@ -600,8 +625,7 @@ class TestAnalyticsService:
         from app.services.analytics_service import get_billing_analytics_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
         mock_db.query.return_value.filter.return_value.first.return_value = None
 
@@ -622,11 +646,12 @@ class TestEnterpriseBillingService:
     @patch("app.services.enterprise_billing_service.SessionLocal")
     def test_enable_manual_billing(self, mock_session_cls):
         """MF6: enable_manual_billing should set billing_method."""
-        from app.services.enterprise_billing_service import get_enterprise_billing_service
+        from app.services.enterprise_billing_service import (
+            get_enterprise_billing_service,
+        )
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_company = MagicMock()
@@ -641,11 +666,12 @@ class TestEnterpriseBillingService:
     @patch("app.services.enterprise_billing_service.SessionLocal")
     def test_get_enterprise_status(self, mock_session_cls):
         """MF6: get_enterprise_billing_status should return dict."""
-        from app.services.enterprise_billing_service import get_enterprise_billing_service
+        from app.services.enterprise_billing_service import (
+            get_enterprise_billing_service,
+        )
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_company = MagicMock()
@@ -669,26 +695,31 @@ class TestDashboardSchemas:
     def test_dashboard_summary_schema_exists(self):
         """DI1: DashboardSummary schema should exist."""
         from app.schemas.billing import DashboardSummary
+
         assert DashboardSummary is not None
 
     def test_plan_comparison_schema_exists(self):
         """DI2: PlanComparison schema should exist."""
         from app.schemas.billing import PlanComparison
+
         assert PlanComparison is not None
 
     def test_variant_catalog_schema_exists(self):
         """DI3: VariantCatalog schema should exist."""
         from app.schemas.billing import VariantCatalog
+
         assert VariantCatalog is not None
 
     def test_enhanced_invoice_history_schema_exists(self):
         """DI4: EnhancedInvoiceHistory schema should exist."""
         from app.schemas.billing import EnhancedInvoiceHistory
+
         assert EnhancedInvoiceHistory is not None
 
     def test_payment_schedule_schema_exists(self):
         """DI5: PaymentSchedule schema should exist."""
         from app.schemas.billing import PaymentSchedule
+
         assert PaymentSchedule is not None
 
 
@@ -724,33 +755,54 @@ class TestDay6Migration:
 
     def test_migration_file_exists(self):
         """Migration 025 should exist."""
-        path = _PROJECT_ROOT / "database" / "alembic" / \
-            "versions" / "025_day6_missing_features.py"
+        path = (
+            _PROJECT_ROOT
+            / "database"
+            / "alembic"
+            / "versions"
+            / "025_day6_missing_features.py"
+        )
         assert path.exists(), f"Migration file not found: {path}"
 
     def test_migration_creates_all_tables(self):
         """Migration should create all Day 6 tables."""
-        path = _PROJECT_ROOT / "database" / "alembic" / \
-            "versions" / "025_day6_missing_features.py"
+        path = (
+            _PROJECT_ROOT
+            / "database"
+            / "alembic"
+            / "versions"
+            / "025_day6_missing_features.py"
+        )
         content = path.read_text()
         for table in [
             "promo_codes",
             "company_promo_uses",
             "invoice_amendments",
-                "pause_records"]:
+            "pause_records",
+        ]:
             assert table in content, f"Missing table {table} in migration"
 
     def test_migration_adds_trial_columns(self):
         """Migration should add trial columns to subscriptions."""
-        path = _PROJECT_ROOT / "database" / "alembic" / \
-            "versions" / "025_day6_missing_features.py"
+        path = (
+            _PROJECT_ROOT
+            / "database"
+            / "alembic"
+            / "versions"
+            / "025_day6_missing_features.py"
+        )
         content = path.read_text()
         for col in ["trial_days", "trial_started_at", "trial_ends_at"]:
             assert col in content, f"Missing column {col} in migration"
 
     def test_migration_revision_chain(self):
         """Migration should reference correct down_revision."""
-        path = _PROJECT_ROOT / "database" / "alembic" / \
-            "versions" / "025_day6_missing_features.py"
+        path = (
+            _PROJECT_ROOT
+            / "database"
+            / "alembic"
+            / "versions"
+            / "025_day6_missing_features.py"
+        )
         content = path.read_text()
         assert 'down_revision = "024_day5_billing_protection"' in content

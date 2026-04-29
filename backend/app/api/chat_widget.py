@@ -41,9 +41,11 @@ def _get_db(request: Request):
     """Get DB session from request state (injected by middleware)."""
     try:
         from database.base import get_db
+
         return next(get_db())
     except Exception:
         from database.base import SessionLocal
+
         return SessionLocal()
 
 
@@ -74,8 +76,7 @@ async def create_chat_session(request: Request):
             },
         )
 
-    company_id = body.get(
-        "company_id") or request.query_params.get("company_id")
+    company_id = body.get("company_id") or request.query_params.get("company_id")
     if not company_id:
         return JSONResponse(
             status_code=422,
@@ -91,6 +92,7 @@ async def create_chat_session(request: Request):
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
+
         service = ChatWidgetService(db, company_id)
         result = service.create_session(company_id, body)
 
@@ -152,6 +154,7 @@ async def list_chat_sessions(
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
+
         service = ChatWidgetService(db, company_id)
         return service.list_sessions(
             company_id=company_id,
@@ -196,6 +199,7 @@ async def get_chat_session(request: Request, session_id: str):
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
+
         service = ChatWidgetService(db, company_id)
         session = service.get_session(session_id, company_id)
         if not session:
@@ -268,6 +272,7 @@ async def assign_session(request: Request, session_id: str):
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
+
         service = ChatWidgetService(db, company_id)
         result = service.assign_session(session_id, company_id, agent_id)
         if result.get("status") == "error":
@@ -320,16 +325,20 @@ async def close_session(request: Request, session_id: str):
         )
 
     try:
-        body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+        body = (
+            await request.json()
+            if request.headers.get("content-type", "").startswith("application/json")
+            else {}
+        )
     except Exception:
         body = {}
 
-    closer_id = body.get("closer_id") or getattr(
-        request.state, "user_id", None)
+    closer_id = body.get("closer_id") or getattr(request.state, "user_id", None)
 
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
+
         service = ChatWidgetService(db, company_id)
         result = service.close_session(session_id, company_id, closer_id)
         if result.get("status") == "error":
@@ -400,13 +409,11 @@ async def send_chat_message(request: Request, session_id: str):
         try:
             db_tmp = _get_db(request)
             from app.services.chat_widget_service import ChatWidgetService
+
             tmp_svc = ChatWidgetService(db_tmp)
             if not tmp_svc.verify_visitor_token(
-                    session_id,
-                    body.get(
-                        "company_id",
-                        ""),
-                    visitor_token):
+                session_id, body.get("company_id", ""), visitor_token
+            ):
                 return JSONResponse(
                     status_code=401,
                     content={
@@ -429,19 +436,20 @@ async def send_chat_message(request: Request, session_id: str):
                     "code": "AUTHORIZATION_ERROR",
                     "message": "Authentication required (JWT or visitor token)",
                     "details": None,
-                }},
+                }
+            },
         )
 
     content = body.get("content", "")
     role = body.get("role", "visitor")
-    sender_id = body.get("sender_id") or getattr(
-        request.state, "user_id", None)
+    sender_id = body.get("sender_id") or getattr(request.state, "user_id", None)
     sender_name = body.get("sender_name")
     message_type = body.get("message_type", "text")
 
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
+
         service = ChatWidgetService(db, company_id)
         result = service.send_message(
             session_id=session_id,
@@ -461,10 +469,13 @@ async def send_chat_message(request: Request, session_id: str):
                 status_code=status_code,
                 content={
                     "error": {
-                        "code": "VALIDATION_ERROR" if status_code == 422 else "NOT_FOUND",
+                        "code": (
+                            "VALIDATION_ERROR" if status_code == 422 else "NOT_FOUND"
+                        ),
                         "message": result["error"],
                         "details": None,
-                    }},
+                    }
+                },
             )
 
         return result
@@ -513,6 +524,7 @@ async def get_chat_messages(
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
+
         service = ChatWidgetService(db, company_id)
         return service.get_messages(
             session_id=session_id,
@@ -555,20 +567,21 @@ async def send_typing_indicator(request: Request, session_id: str):
     if not company_id and visitor_token:
         try:
             from app.services.chat_widget_service import ChatWidgetService
+
             tmp_svc = ChatWidgetService(_get_db(request))
             if not tmp_svc.verify_visitor_token(
-                    session_id,
-                    body.get(
-                        "company_id",
-                        ""),
-                    visitor_token):
+                session_id, body.get("company_id", ""), visitor_token
+            ):
                 return JSONResponse(
                     status_code=401,
                     content={
                         "error": {
                             "code": "AUTHENTICATION_ERROR",
                             "message": "Invalid visitor token",
-                            "details": None}})
+                            "details": None,
+                        }
+                    },
+                )
             company_id = body.get("company_id")
         except Exception:
             pass
@@ -581,12 +594,14 @@ async def send_typing_indicator(request: Request, session_id: str):
                     "code": "AUTHORIZATION_ERROR",
                     "message": "Authentication required (JWT or visitor token)",
                     "details": None,
-                }},
+                }
+            },
         )
 
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
+
         service = ChatWidgetService(db, company_id)
         return service.send_typing_indicator(
             session_id=session_id,
@@ -637,6 +652,7 @@ async def mark_messages_read(request: Request, session_id: str):
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
+
         service = ChatWidgetService(db, company_id)
         count = service.mark_messages_read(
             session_id=session_id,
@@ -688,20 +704,21 @@ async def submit_csat_rating(request: Request, session_id: str):
     if not company_id and visitor_token:
         try:
             from app.services.chat_widget_service import ChatWidgetService
+
             tmp_svc = ChatWidgetService(_get_db(request))
             if not tmp_svc.verify_visitor_token(
-                    session_id,
-                    body.get(
-                        "company_id",
-                        ""),
-                    visitor_token):
+                session_id, body.get("company_id", ""), visitor_token
+            ):
                 return JSONResponse(
                     status_code=401,
                     content={
                         "error": {
                             "code": "AUTHENTICATION_ERROR",
                             "message": "Invalid visitor token",
-                            "details": None}})
+                            "details": None,
+                        }
+                    },
+                )
             company_id = body.get("company_id")
         except Exception:
             pass
@@ -714,7 +731,8 @@ async def submit_csat_rating(request: Request, session_id: str):
                     "code": "AUTHORIZATION_ERROR",
                     "message": "Authentication required (JWT or visitor token)",
                     "details": None,
-                }},
+                }
+            },
         )
 
     rating = body.get("rating")
@@ -733,6 +751,7 @@ async def submit_csat_rating(request: Request, session_id: str):
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
+
         service = ChatWidgetService(db, company_id)
         result = service.submit_csat_rating(
             session_id=session_id,
@@ -785,9 +804,8 @@ async def get_widget_config(request: Request):
     Used by the chat widget JavaScript to load config.
     No JWT auth required — only company_id needed.
     """
-    company_id = (
-        getattr(request.state, "company_id", None)
-        or request.query_params.get("company_id")
+    company_id = getattr(request.state, "company_id", None) or request.query_params.get(
+        "company_id"
     )
     if not company_id:
         return JSONResponse(
@@ -804,6 +822,7 @@ async def get_widget_config(request: Request):
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
+
         service = ChatWidgetService(db, company_id)
         config = service.get_or_create_widget_config(company_id)
         return config.to_dict()
@@ -857,6 +876,7 @@ async def update_widget_config(request: Request):
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
+
         service = ChatWidgetService(db, company_id)
         result = service.update_widget_config(company_id, body)
         return result
@@ -896,6 +916,7 @@ async def get_widget_embed(request: Request):
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
+
         service = ChatWidgetService(db, company_id)
         return service.get_widget_embed_info(company_id)
     except Exception as exc:
@@ -942,6 +963,7 @@ async def list_canned_responses(
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
+
         service = ChatWidgetService(db, company_id)
         items = service.list_canned_responses(
             company_id=company_id,
@@ -1010,6 +1032,7 @@ async def create_canned_response(request: Request):
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
+
         service = ChatWidgetService(db, company_id)
         created_by = getattr(request.state, "user_id", None)
         result = service.create_canned_response(company_id, body, created_by)
@@ -1055,10 +1078,14 @@ async def update_canned_response(request: Request, response_id: str):
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
+
         service = ChatWidgetService(db, company_id)
         updated_by = getattr(request.state, "user_id", None)
         result = service.update_canned_response(
-            response_id, company_id, body, updated_by,
+            response_id,
+            company_id,
+            body,
+            updated_by,
         )
         if result.get("status") == "error":
             return JSONResponse(
@@ -1112,6 +1139,7 @@ async def delete_canned_response(request: Request, response_id: str):
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
+
         service = ChatWidgetService(db, company_id)
         result = service.delete_canned_response(response_id, company_id)
         if result.get("status") == "error":

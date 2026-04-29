@@ -49,7 +49,6 @@ from app.schemas.ticket import (
     TicketShadowDetailsResponse,
 )
 
-
 router = APIRouter(
     prefix="/tickets",
     tags=["tickets"],
@@ -58,6 +57,7 @@ router = APIRouter(
 
 
 # ── TICKET CRUD ─────────────────────────────────────────────────────────────
+
 
 @router.post(
     "",
@@ -169,10 +169,8 @@ async def list_tickets(
     # Filter by shadow_status in Python since it's not in the service method
     if shadow_status:
         tickets = [
-            t for t in tickets if getattr(
-                t,
-                'shadow_status',
-                'none') == shadow_status]
+            t for t in tickets if getattr(t, "shadow_status", "none") == shadow_status
+        ]
         total = len(tickets)
 
     return TicketListResponse(
@@ -184,6 +182,7 @@ async def list_tickets(
 
 
 # ── BULK OPERATIONS (must come BEFORE /{ticket_id} routes) ──────────────
+
 
 @router.post(
     "/bulk/status",
@@ -255,6 +254,7 @@ async def bulk_assign(
 
 
 # ── DETECTION ENDPOINTS (must come BEFORE /{ticket_id} routes) ───────────────
+
 
 @router.post(
     "/detect-priority",
@@ -348,6 +348,7 @@ async def scan_pii(
 
 
 # ── TICKET DETAIL ROUTES (parameterized) ─────────────────────────────────────
+
 
 @router.get(
     "/{ticket_id}",
@@ -461,6 +462,7 @@ async def delete_ticket(
 
 # ── STATUS MANAGEMENT ───────────────────────────────────────────────────────
 
+
 @router.patch(
     "/{ticket_id}/status",
     response_model=TicketStatusUpdateResponse,
@@ -515,6 +517,7 @@ async def update_ticket_status(
 
 # ── ASSIGNMENT ──────────────────────────────────────────────────────────────
 
+
 @router.post(
     "/{ticket_id}/assign",
     response_model=TicketAssignResponse,
@@ -565,6 +568,7 @@ async def assign_ticket(
 
 
 # ── TAGS ────────────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/{ticket_id}/tags",
@@ -627,6 +631,7 @@ async def remove_tag(
 
 
 # ── ATTACHMENTS ─────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/{ticket_id}/attachments",
@@ -721,6 +726,7 @@ async def list_attachments(
 
 
 # ── SHADOW MODE ENDPOINTS (Day 3) ───────────────────────────────────────
+
 
 @router.post(
     "/{ticket_id}/resolve-with-shadow",
@@ -849,6 +855,7 @@ async def get_ticket_shadow_details(
 
 # ── HELPER FUNCTIONS ────────────────────────────────────────────────────────
 
+
 def _ticket_to_response(ticket: Any) -> TicketResponse:
     """Convert Ticket model to TicketResponse schema."""
     tags = []
@@ -866,7 +873,7 @@ def _ticket_to_response(ticket: Any) -> TicketResponse:
             metadata_json = {}
 
     plan_snapshot = {}
-    if hasattr(ticket, 'plan_snapshot') and ticket.plan_snapshot:
+    if hasattr(ticket, "plan_snapshot") and ticket.plan_snapshot:
         try:
             plan_snapshot = json.loads(ticket.plan_snapshot)
         except (json.JSONDecodeError, TypeError):

@@ -37,6 +37,7 @@ router = APIRouter(
 def _get_db(request: Request):
     """Get DB session from request state."""
     from database.session import get_db_session
+
     return get_db_session()
 
 
@@ -49,43 +50,43 @@ def _get_company_id(request: Request) -> Optional[str]:
 # Request/Response Models
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class EscalationRequest(BaseModel):
     """Request to create an escalation."""
-    junior_agent_id: str = Field(...,
-                                 description="Junior agent requesting review")
+
+    junior_agent_id: str = Field(..., description="Junior agent requesting review")
     ticket_id: str = Field(..., description="Related ticket ID")
     reason: str = Field(
         ...,
-        description="Reason: low_confidence, complex_query, policy_violation_risk, customer_escalation, uncertainty, knowledge_gap"
+        description="Reason: low_confidence, complex_query, policy_violation_risk, customer_escalation, uncertainty, knowledge_gap",
     )
     original_response: Optional[str] = Field(
-        None, description="Draft response for review")
+        None, description="Draft response for review"
+    )
     confidence_score: Optional[float] = Field(
-        None, ge=0, le=1, description="Junior's confidence score")
+        None, ge=0, le=1, description="Junior's confidence score"
+    )
     context: Optional[dict] = Field(None, description="Additional context")
-    priority: str = Field(
-        "normal",
-        description="Priority: low, normal, high, urgent")
+    priority: str = Field("normal", description="Priority: low, normal, high, urgent")
 
 
 class AutoEscalateRequest(BaseModel):
     """Request for auto-escalation check."""
+
     agent_id: str = Field(..., description="Agent ID")
     ticket_id: str = Field(..., description="Ticket ID")
-    confidence_score: float = Field(..., ge=0,
-                                    le=1, description="Confidence score")
+    confidence_score: float = Field(..., ge=0, le=1, description="Confidence score")
     response_draft: str = Field(..., description="Draft response")
     context: Optional[dict] = Field(None, description="Additional context")
 
 
 class ReviewSubmitRequest(BaseModel):
     """Request to submit a senior review."""
+
     senior_agent_id: str = Field(..., description="Senior agent ID")
-    reviewed_response: str = Field(...,
-                                   description="Reviewed/corrected response")
+    reviewed_response: str = Field(..., description="Reviewed/corrected response")
     feedback: Optional[str] = Field(None, description="Feedback for junior")
-    corrections: Optional[list] = Field(
-        None, description="List of corrections")
+    corrections: Optional[list] = Field(None, description="List of corrections")
     approved: bool = Field(True, description="Whether original was approved")
     use_for_training: bool = Field(True, description="Use for training data")
 
@@ -93,6 +94,7 @@ class ReviewSubmitRequest(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 # Escalation Endpoints
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/peer-review/escalate",
@@ -110,7 +112,9 @@ async def create_escalation(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -135,7 +139,9 @@ async def create_escalation(
                 content={
                     "error": {
                         "code": "ESCALATION_ERROR",
-                        "message": result.get("error")}},
+                        "message": result.get("error"),
+                    }
+                },
             )
 
         return result
@@ -150,7 +156,9 @@ async def create_escalation(
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to create escalation"}},
+                    "message": "Failed to create escalation",
+                }
+            },
         )
 
 
@@ -170,7 +178,9 @@ async def auto_escalate(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -199,7 +209,9 @@ async def auto_escalate(
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to auto-escalate"}},
+                    "message": "Failed to auto-escalate",
+                }
+            },
         )
 
 
@@ -223,7 +235,9 @@ async def get_review_queue(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -250,7 +264,9 @@ async def get_review_queue(
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get review queue"}},
+                    "message": "Failed to get review queue",
+                }
+            },
         )
 
 
@@ -270,7 +286,9 @@ async def get_escalation_details(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -286,7 +304,9 @@ async def get_escalation_details(
                 content={
                     "error": {
                         "code": "NOT_FOUND",
-                        "message": f"Escalation {escalation_id} not found"}},
+                        "message": f"Escalation {escalation_id} not found",
+                    }
+                },
             )
 
         return result
@@ -297,15 +317,17 @@ async def get_escalation_details(
             extra={
                 "company_id": company_id,
                 "escalation_id": escalation_id,
-                "error": str(exc)[
-                    :200]},
+                "error": str(exc)[:200],
+            },
         )
         return JSONResponse(
             status_code=500,
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get escalation details"}},
+                    "message": "Failed to get escalation details",
+                }
+            },
         )
 
 
@@ -326,7 +348,9 @@ async def submit_review(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -349,9 +373,8 @@ async def submit_review(
             return JSONResponse(
                 status_code=400,
                 content={
-                    "error": {
-                        "code": "REVIEW_ERROR",
-                        "message": result.get("error")}},
+                    "error": {"code": "REVIEW_ERROR", "message": result.get("error")}
+                },
             )
 
         return result
@@ -362,21 +385,24 @@ async def submit_review(
             extra={
                 "company_id": company_id,
                 "escalation_id": escalation_id,
-                "error": str(exc)[
-                    :200]},
+                "error": str(exc)[:200],
+            },
         )
         return JSONResponse(
             status_code=500,
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to submit review"}},
+                    "message": "Failed to submit review",
+                }
+            },
         )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Analytics Endpoints
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @router.get(
     "/peer-review/analytics",
@@ -394,7 +420,9 @@ async def get_escalation_analytics(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -414,7 +442,9 @@ async def get_escalation_analytics(
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get analytics"}},
+                    "message": "Failed to get analytics",
+                }
+            },
         )
 
 
@@ -431,7 +461,9 @@ async def get_senior_workload(request: Request):
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -455,9 +487,8 @@ async def get_senior_workload(request: Request):
         return JSONResponse(
             status_code=500,
             content={
-                "error": {
-                    "code": "INTERNAL_ERROR",
-                    "message": "Failed to get workload"}},
+                "error": {"code": "INTERNAL_ERROR", "message": "Failed to get workload"}
+            },
         )
 
 
@@ -478,7 +509,9 @@ async def get_learning_progress(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -494,21 +527,24 @@ async def get_learning_progress(
             extra={
                 "company_id": company_id,
                 "agent_id": agent_id,
-                "error": str(exc)[
-                    :200]},
+                "error": str(exc)[:200],
+            },
         )
         return JSONResponse(
             status_code=500,
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get learning progress"}},
+                    "message": "Failed to get learning progress",
+                }
+            },
         )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Training Pipeline Test Endpoint
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/training/pipeline-test",
@@ -523,7 +559,9 @@ async def run_pipeline_test(request: Request):
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -541,7 +579,9 @@ async def run_pipeline_test(request: Request):
                     "error": {
                         "code": "TEST_FAILED",
                         "message": "Pipeline test failed",
-                        "details": result}},
+                        "details": result,
+                    }
+                },
             )
 
     except Exception as exc:
@@ -554,5 +594,7 @@ async def run_pipeline_test(request: Request):
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to run pipeline test"}},
+                    "message": "Failed to run pipeline test",
+                }
+            },
         )

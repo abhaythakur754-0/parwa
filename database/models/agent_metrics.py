@@ -17,8 +17,17 @@ from datetime import datetime
 import uuid
 
 from sqlalchemy import (
-    Boolean, CheckConstraint, Column, Date, DateTime, Integer,
-    Numeric, String, ForeignKey, UniqueConstraint, Index,
+    Boolean,
+    CheckConstraint,
+    Column,
+    Date,
+    DateTime,
+    Integer,
+    Numeric,
+    String,
+    ForeignKey,
+    UniqueConstraint,
+    Index,
 )
 from sqlalchemy.orm import relationship
 
@@ -36,6 +45,7 @@ _ALERT_STATUSES = "'active','acknowledged','resolved'"
 
 # ── Agent Metrics Daily ────────────────────────────────────────
 
+
 class AgentMetricsDaily(Base):
     """Daily aggregated performance metrics for an agent.
 
@@ -45,18 +55,21 @@ class AgentMetricsDaily(Base):
 
     BC-001: Scoped by company_id.
     """
+
     __tablename__ = "agent_metrics_daily"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     agent_id = Column(
         String(36),
         ForeignKey("agents.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     date = Column(Date, nullable=False)
     tickets_handled = Column(Integer, nullable=False, default=0)
@@ -74,18 +87,21 @@ class AgentMetricsDaily(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "agent_id", "date",
+            "agent_id",
+            "date",
             name="uq_agent_metrics_daily_agent_date",
         ),
         Index(
             "ix_agent_metrics_daily_company_date",
-            "company_id", "date",
+            "company_id",
+            "date",
         ),
         {"schema": None},
     )
 
 
 # ── Agent Performance Alert ────────────────────────────────────
+
 
 class AgentPerformanceAlert(Base):
     """Alert raised when an agent metric falls below its threshold
@@ -97,18 +113,21 @@ class AgentPerformanceAlert(Base):
 
     BC-001: Scoped by company_id.
     """
+
     __tablename__ = "agent_performance_alerts"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     agent_id = Column(
         String(36),
         ForeignKey("agents.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     # resolution_rate, avg_confidence, avg_csat, escalation_rate
     metric_name = Column(String(50), nullable=False)
@@ -132,13 +151,15 @@ class AgentPerformanceAlert(Base):
         ),
         Index(
             "ix_agent_performance_alerts_company_status",
-            "company_id", "status",
+            "company_id",
+            "status",
         ),
         {"schema": None},
     )
 
 
 # ── Agent Metric Threshold ─────────────────────────────────────
+
 
 class AgentMetricThreshold(Base):
     """Per-agent metric threshold configuration.
@@ -149,30 +170,41 @@ class AgentMetricThreshold(Base):
 
     BC-001: Scoped by company_id.
     """
+
     __tablename__ = "agent_metric_thresholds"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     agent_id = Column(
         String(36),
         ForeignKey("agents.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     resolution_rate_min = Column(
-        Numeric(5, 2), nullable=False, default=70.00,
+        Numeric(5, 2),
+        nullable=False,
+        default=70.00,
     )
     confidence_min = Column(
-        Numeric(5, 2), nullable=False, default=65.00,
+        Numeric(5, 2),
+        nullable=False,
+        default=65.00,
     )
     csat_min = Column(
-        Numeric(3, 1), nullable=False, default=3.5,
+        Numeric(3, 1),
+        nullable=False,
+        default=3.5,
     )
     escalation_max_pct = Column(
-        Numeric(5, 2), nullable=False, default=15.00,
+        Numeric(5, 2),
+        nullable=False,
+        default=15.00,
     )
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(DateTime, default=lambda: datetime.utcnow())
@@ -182,7 +214,8 @@ class AgentMetricThreshold(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "company_id", "agent_id",
+            "company_id",
+            "agent_id",
             name="uq_agent_metric_thresholds_company_agent",
         ),
         {"schema": None},

@@ -62,36 +62,36 @@ class StepStatus(str, Enum):
 
 # Unicode ranges for CJK, Arabic, etc.
 _CJK_RANGES = [
-    (0x4E00, 0x9FFF),   # CJK Unified Ideographs
-    (0x3400, 0x4DBF),   # CJK Extension A
-    (0xF900, 0xFAFF),   # CJK Compatibility Ideographs
+    (0x4E00, 0x9FFF),  # CJK Unified Ideographs
+    (0x3400, 0x4DBF),  # CJK Extension A
+    (0xF900, 0xFAFF),  # CJK Compatibility Ideographs
 ]
 
 _HIRAGANA_KATAKANA_RANGES = [
-    (0x3040, 0x309F),   # Hiragana
-    (0x30A0, 0x30FF),   # Katakana
+    (0x3040, 0x309F),  # Hiragana
+    (0x30A0, 0x30FF),  # Katakana
 ]
 
 _HANGUL_RANGES = [
-    (0xAC00, 0xD7AF),   # Hangul Syllables
-    (0x1100, 0x11FF),   # Hangul Jamo
+    (0xAC00, 0xD7AF),  # Hangul Syllables
+    (0x1100, 0x11FF),  # Hangul Jamo
 ]
 
 _ARABIC_RANGES = [
-    (0x0600, 0x06FF),   # Arabic
-    (0x0750, 0x077F),   # Arabic Supplement
-    (0xFB50, 0xFDFF),   # Arabic Presentation Forms-A
-    (0xFE70, 0xFEFF),   # Arabic Presentation Forms-B
+    (0x0600, 0x06FF),  # Arabic
+    (0x0750, 0x077F),  # Arabic Supplement
+    (0xFB50, 0xFDFF),  # Arabic Presentation Forms-A
+    (0xFE70, 0xFEFF),  # Arabic Presentation Forms-B
 ]
 
 _DEVANAGARI_RANGES = [
-    (0x0900, 0x097F),   # Devanagari
+    (0x0900, 0x097F),  # Devanagari
 ]
 
 _LATIN_EXTENDED = [
-    (0x00C0, 0x00FF),   # Latin-1 Supplement (accents)
-    (0x0100, 0x017F),   # Latin Extended-A
-    (0x0180, 0x024F),   # Latin Extended-B
+    (0x00C0, 0x00FF),  # Latin-1 Supplement (accents)
+    (0x0100, 0x017F),  # Latin Extended-A
+    (0x0180, 0x024F),  # Latin Extended-B
 ]
 
 
@@ -105,48 +105,250 @@ def _char_in_ranges(char: str, ranges: List[Tuple[int, int]]) -> bool:
 
 _LANGUAGE_LEXICONS: Dict[str, List[str]] = {
     Language.SPANISH: [
-        "el", "la", "los", "las", "de", "del", "en", "que", "por", "para",
-        "con", "una", "uno", "es", "fue", "pero", "como", "más", "este",
-        "esta", "hola", "gracias", "por favor", "también", "puedo", "por qué",
-        "cuando", "donde", "bien", "muy", "todo", "tiene", "hay", "ser",
+        "el",
+        "la",
+        "los",
+        "las",
+        "de",
+        "del",
+        "en",
+        "que",
+        "por",
+        "para",
+        "con",
+        "una",
+        "uno",
+        "es",
+        "fue",
+        "pero",
+        "como",
+        "más",
+        "este",
+        "esta",
+        "hola",
+        "gracias",
+        "por favor",
+        "también",
+        "puedo",
+        "por qué",
+        "cuando",
+        "donde",
+        "bien",
+        "muy",
+        "todo",
+        "tiene",
+        "hay",
+        "ser",
     ],
     Language.FRENCH: [
-        "le", "la", "les", "de", "des", "du", "en", "que", "est", "pour",
-        "avec", "une", "un", "il", "elle", "nous", "vous", "mais", "comme",
-        "bonjour", "merci", "s'il vous plaît", "aussi", "je peux", "pourquoi",
-        "quand", "où", "bien", "très", "tout", "a", "est", "sont",
+        "le",
+        "la",
+        "les",
+        "de",
+        "des",
+        "du",
+        "en",
+        "que",
+        "est",
+        "pour",
+        "avec",
+        "une",
+        "un",
+        "il",
+        "elle",
+        "nous",
+        "vous",
+        "mais",
+        "comme",
+        "bonjour",
+        "merci",
+        "s'il vous plaît",
+        "aussi",
+        "je peux",
+        "pourquoi",
+        "quand",
+        "où",
+        "bien",
+        "très",
+        "tout",
+        "a",
+        "est",
+        "sont",
     ],
     Language.GERMAN: [
-        "der", "die", "das", "den", "dem", "des", "ein", "eine", "und",
-        "ist", "nicht", "mit", "von", "au", "für", "an", "aber", "auch",
-        "hallo", "danke", "bitte", "kann", "ich", "wie", "was", "wann",
-        "wo", "gut", "sehr", "alle", "hat", "haben", "werden",
+        "der",
+        "die",
+        "das",
+        "den",
+        "dem",
+        "des",
+        "ein",
+        "eine",
+        "und",
+        "ist",
+        "nicht",
+        "mit",
+        "von",
+        "au",
+        "für",
+        "an",
+        "aber",
+        "auch",
+        "hallo",
+        "danke",
+        "bitte",
+        "kann",
+        "ich",
+        "wie",
+        "was",
+        "wann",
+        "wo",
+        "gut",
+        "sehr",
+        "alle",
+        "hat",
+        "haben",
+        "werden",
     ],
     Language.PORTUGUESE: [
-        "o", "a", "os", "as", "de", "do", "da", "dos", "das", "em", "que",
-        "para", "com", "uma", "um", "não", "sim", "olá", "obrigado", "por favor",
-        "também", "posso", "por que", "quando", "onde", "bem", "muito", "todo",
-        "tem", "há", "ser", "foi", "mas", "como",
+        "o",
+        "a",
+        "os",
+        "as",
+        "de",
+        "do",
+        "da",
+        "dos",
+        "das",
+        "em",
+        "que",
+        "para",
+        "com",
+        "uma",
+        "um",
+        "não",
+        "sim",
+        "olá",
+        "obrigado",
+        "por favor",
+        "também",
+        "posso",
+        "por que",
+        "quando",
+        "onde",
+        "bem",
+        "muito",
+        "todo",
+        "tem",
+        "há",
+        "ser",
+        "foi",
+        "mas",
+        "como",
     ],
     Language.HINDI: [
-        "है", "हैं", "को", "का", "की", "में", "से", "ने", "पर", "के", "लिए",
-        "यह", "वह", "और", "नहीं", "हाँ", "नमस्ते", "धन्यवाद", "कृपया",
-        "कैसे", "क्या", "कब", "कहाँ", "बहुत", "सब", "अच्छा", "हो",
+        "है",
+        "हैं",
+        "को",
+        "का",
+        "की",
+        "में",
+        "से",
+        "ने",
+        "पर",
+        "के",
+        "लिए",
+        "यह",
+        "वह",
+        "और",
+        "नहीं",
+        "हाँ",
+        "नमस्ते",
+        "धन्यवाद",
+        "कृपया",
+        "कैसे",
+        "क्या",
+        "कब",
+        "कहाँ",
+        "बहुत",
+        "सब",
+        "अच्छा",
+        "हो",
     ],
     Language.JAPANESE: [
-        "です", "ます", "は", "が", "の", "に", "を", "で", "と", "も",
-        "こんにちは", "ありがとうございます", "お願いします", "できます",
-        "なぜ", "いつ", "どこ", "とても", "いい", "ですか", "してください",
+        "です",
+        "ます",
+        "は",
+        "が",
+        "の",
+        "に",
+        "を",
+        "で",
+        "と",
+        "も",
+        "こんにちは",
+        "ありがとうございます",
+        "お願いします",
+        "できます",
+        "なぜ",
+        "いつ",
+        "どこ",
+        "とても",
+        "いい",
+        "ですか",
+        "してください",
     ],
     Language.KOREAN: [
-        "은", "는", "이", "가", "을", "를", "에", "에서", "으로", "와",
-        "과", "안녕하세요", "감사합니다", "제발", "할", "수", "있습니다",
-        "왜", "언제", "어디", "매우", "잘", "좋은", "하지만",
+        "은",
+        "는",
+        "이",
+        "가",
+        "을",
+        "를",
+        "에",
+        "에서",
+        "으로",
+        "와",
+        "과",
+        "안녕하세요",
+        "감사합니다",
+        "제발",
+        "할",
+        "수",
+        "있습니다",
+        "왜",
+        "언제",
+        "어디",
+        "매우",
+        "잘",
+        "좋은",
+        "하지만",
     ],
     Language.ARABIC: [
-        "في", "من", "على", "إلى", "عن", "مع", "هذا", "هذه", "التي", "الذي",
-        "مرحبا", "شكرا", "من فضلك", "يمكن", "كيف", "متى", "أين", "لماذا",
-        "جدا", "كل", "ليس", "ولكن", "أو", "أن",
+        "في",
+        "من",
+        "على",
+        "إلى",
+        "عن",
+        "مع",
+        "هذا",
+        "هذه",
+        "التي",
+        "الذي",
+        "مرحبا",
+        "شكرا",
+        "من فضلك",
+        "يمكن",
+        "كيف",
+        "متى",
+        "أين",
+        "لماذا",
+        "جدا",
+        "كل",
+        "ليس",
+        "ولكن",
+        "أو",
+        "أن",
     ],
 }
 
@@ -312,8 +514,11 @@ class LanguageDetector:
 
             for lang_code, lexicon in _LANGUAGE_LEXICONS.items():
                 if lang_code in (
-                    Language.HINDI, Language.JAPANESE,
-                    Language.KOREAN, Language.ARABIC, Language.CHINESE,
+                    Language.HINDI,
+                    Language.JAPANESE,
+                    Language.KOREAN,
+                    Language.ARABIC,
+                    Language.CHINESE,
                 ):
                     continue  # Skip non-Latin-script lexicons here
                 matches = sum(1 for word in words if word in lexicon)
@@ -399,8 +604,9 @@ class TranslationSimulator:
         Language.KOREAN: "[Translated from Korean] ",
     }
 
-    def translate(self, text: str, source_lang: str,
-                  target_lang: str = "en") -> Tuple[str, bool]:
+    def translate(
+        self, text: str, source_lang: str, target_lang: str = "en"
+    ) -> Tuple[str, bool]:
         """Translate text from source_lang to target_lang (simulated).
 
         Args:
@@ -589,13 +795,10 @@ class TranslationQualityChecker:
         """Detect if the text contains characters from unexpected scripts."""
         has_latin = any(c.isascii() and c.isalpha() for c in text)
         has_cjk = any(_char_in_ranges(c, _CJK_RANGES) for c in text)
-        has_hk = any(_char_in_ranges(c, _HIRAGANA_KATAKANA_RANGES)
-                     for c in text)
+        has_hk = any(_char_in_ranges(c, _HIRAGANA_KATAKANA_RANGES) for c in text)
         has_hangul = any(_char_in_ranges(c, _HANGUL_RANGES) for c in text)
         has_arabic = any(_char_in_ranges(c, _ARABIC_RANGES) for c in text)
-        has_devanagari = any(
-            _char_in_ranges(
-                c, _DEVANAGARI_RANGES) for c in text)
+        has_devanagari = any(_char_in_ranges(c, _DEVANAGARI_RANGES) for c in text)
 
         scripts_present = []
         if has_cjk:
@@ -727,9 +930,7 @@ class LanguagePipeline:
                 translation_performed=False,
                 quality_score=0.0,
                 quality_issues=["empty_input"],
-                processing_time_ms=round(
-                    (time.monotonic() - start_time) * 1000,
-                    2),
+                processing_time_ms=round((time.monotonic() - start_time) * 1000, 2),
                 pipeline_steps=steps,
                 fallback_used=True,
                 fallback_warning="Empty query — no processing performed",
@@ -748,27 +949,25 @@ class LanguagePipeline:
         # ── Step 1: Detection ───────────────────────────────────────
         step_start = time.monotonic()
         try:
-            detected_language, confidence = self._detector.detect(
-                original_text)
+            detected_language, confidence = self._detector.detect(original_text)
             steps.append(
                 PipelineStepResult(
                     step_name="detection",
                     status=StepStatus.SUCCESS,
-                    duration_ms=round(
-                        (time.monotonic() - step_start) * 1000,
-                        2),
-                    metadata={
-                        "language": detected_language,
-                        "confidence": confidence},
-                ))
+                    duration_ms=round((time.monotonic() - step_start) * 1000, 2),
+                    metadata={"language": detected_language, "confidence": confidence},
+                )
+            )
         except Exception as exc:
             logger.warning("pipeline_detection_failed", error=str(exc))
-            steps.append(PipelineStepResult(
-                step_name="detection",
-                status=StepStatus.FAILED,
-                duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                metadata={"error": str(exc)},
-            ))
+            steps.append(
+                PipelineStepResult(
+                    step_name="detection",
+                    status=StepStatus.FAILED,
+                    duration_ms=round((time.monotonic() - step_start) * 1000, 2),
+                    metadata={"error": str(exc)},
+                )
+            )
             detected_language = Language.UNKNOWN
             confidence = 0.0
 
@@ -777,24 +976,28 @@ class LanguagePipeline:
         try:
             is_confident = confidence >= 0.5
             status = StepStatus.SUCCESS if is_confident else StepStatus.SKIPPED
-            steps.append(PipelineStepResult(
-                step_name="confidence",
-                status=status,
-                duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                metadata={
-                    "confidence": confidence,
-                    "threshold": 0.5,
-                    "is_confident": is_confident,
-                },
-            ))
+            steps.append(
+                PipelineStepResult(
+                    step_name="confidence",
+                    status=status,
+                    duration_ms=round((time.monotonic() - step_start) * 1000, 2),
+                    metadata={
+                        "confidence": confidence,
+                        "threshold": 0.5,
+                        "is_confident": is_confident,
+                    },
+                )
+            )
         except Exception as exc:
             logger.warning("pipeline_confidence_failed", error=str(exc))
-            steps.append(PipelineStepResult(
-                step_name="confidence",
-                status=StepStatus.FAILED,
-                duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                metadata={"error": str(exc)},
-            ))
+            steps.append(
+                PipelineStepResult(
+                    step_name="confidence",
+                    status=StepStatus.FAILED,
+                    duration_ms=round((time.monotonic() - step_start) * 1000, 2),
+                    metadata={"error": str(exc)},
+                )
+            )
 
         # ── Step 3: Tenant Language ─────────────────────────────────
         step_start = time.monotonic()
@@ -804,26 +1007,30 @@ class LanguagePipeline:
                 detected_language != Language.ENGLISH
                 and effective_lang == Language.ENGLISH
             )
-            steps.append(PipelineStepResult(
-                step_name="tenant_language",
-                status=StepStatus.SUCCESS,
-                duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                metadata={
-                    "tenant_language": tenant_language,
-                    "detected_language": detected_language,
-                    "effective_language": effective_lang,
-                    "needs_translation": needs_translation,
-                },
-            ))
+            steps.append(
+                PipelineStepResult(
+                    step_name="tenant_language",
+                    status=StepStatus.SUCCESS,
+                    duration_ms=round((time.monotonic() - step_start) * 1000, 2),
+                    metadata={
+                        "tenant_language": tenant_language,
+                        "detected_language": detected_language,
+                        "effective_language": effective_lang,
+                        "needs_translation": needs_translation,
+                    },
+                )
+            )
         except Exception as exc:
             logger.warning("pipeline_tenant_language_failed", error=str(exc))
             needs_translation = detected_language != Language.ENGLISH
-            steps.append(PipelineStepResult(
-                step_name="tenant_language",
-                status=StepStatus.FAILED,
-                duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                metadata={"error": str(exc)},
-            ))
+            steps.append(
+                PipelineStepResult(
+                    step_name="tenant_language",
+                    status=StepStatus.FAILED,
+                    duration_ms=round((time.monotonic() - step_start) * 1000, 2),
+                    metadata={"error": str(exc)},
+                )
+            )
 
         # ── Step 4: Translate to English ────────────────────────────
         step_start = time.monotonic()
@@ -839,27 +1046,30 @@ class LanguagePipeline:
                             step_name="translate",
                             status=StepStatus.SUCCESS,
                             duration_ms=round(
-                                (time.monotonic() - step_start) * 1000,
-                                2),
+                                (time.monotonic() - step_start) * 1000, 2
+                            ),
                             metadata={
                                 "source": detected_language,
                                 "target": Language.ENGLISH,
                                 "success": True,
                             },
-                        ))
+                        )
+                    )
                 else:
                     steps.append(
                         PipelineStepResult(
                             step_name="translate",
                             status=StepStatus.FAILED,
                             duration_ms=round(
-                                (time.monotonic() - step_start) * 1000,
-                                2),
+                                (time.monotonic() - step_start) * 1000, 2
+                            ),
                             metadata={
                                 "source": detected_language,
                                 "target": Language.ENGLISH,
-                                "success": False},
-                        ))
+                                "success": False,
+                            },
+                        )
+                    )
                     translated_text = original_text
             except Exception as exc:
                 logger.warning("pipeline_translate_failed", error=str(exc))
@@ -867,42 +1077,46 @@ class LanguagePipeline:
                     PipelineStepResult(
                         step_name="translate",
                         status=StepStatus.FAILED,
-                        duration_ms=round(
-                            (time.monotonic() - step_start) * 1000,
-                            2),
-                        metadata={
-                            "error": str(exc)},
-                    ))
+                        duration_ms=round((time.monotonic() - step_start) * 1000, 2),
+                        metadata={"error": str(exc)},
+                    )
+                )
                 translated_text = original_text
         else:
             # Already English — skip
-            steps.append(PipelineStepResult(
-                step_name="translate",
-                status=StepStatus.SKIPPED,
-                duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                metadata={"reason": "source_is_english"},
-            ))
+            steps.append(
+                PipelineStepResult(
+                    step_name="translate",
+                    status=StepStatus.SKIPPED,
+                    duration_ms=round((time.monotonic() - step_start) * 1000, 2),
+                    metadata={"reason": "source_is_english"},
+                )
+            )
 
         # ── Step 5: AI Process (pass-through marker) ────────────────
         step_start = time.monotonic()
         try:
-            steps.append(PipelineStepResult(
-                step_name="ai_process",
-                status=StepStatus.SUCCESS,
-                duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                metadata={
-                    "text_length": len(translated_text),
-                    "note": "AI processing would happen here in production",
-                },
-            ))
+            steps.append(
+                PipelineStepResult(
+                    step_name="ai_process",
+                    status=StepStatus.SUCCESS,
+                    duration_ms=round((time.monotonic() - step_start) * 1000, 2),
+                    metadata={
+                        "text_length": len(translated_text),
+                        "note": "AI processing would happen here in production",
+                    },
+                )
+            )
         except Exception as exc:
             logger.warning("pipeline_ai_process_failed", error=str(exc))
-            steps.append(PipelineStepResult(
-                step_name="ai_process",
-                status=StepStatus.FAILED,
-                duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                metadata={"error": str(exc)},
-            ))
+            steps.append(
+                PipelineStepResult(
+                    step_name="ai_process",
+                    status=StepStatus.FAILED,
+                    duration_ms=round((time.monotonic() - step_start) * 1000, 2),
+                    metadata={"error": str(exc)},
+                )
+            )
 
         # ── Step 6: Translate Back (simulated) ──────────────────────
         step_start = time.monotonic()
@@ -917,13 +1131,14 @@ class LanguagePipeline:
                             step_name="translate_back",
                             status=StepStatus.SUCCESS,
                             duration_ms=round(
-                                (time.monotonic() - step_start) * 1000,
-                                2),
+                                (time.monotonic() - step_start) * 1000, 2
+                            ),
                             metadata={
                                 "target": detected_language,
                                 "success": True,
                             },
-                        ))
+                        )
+                    )
                     # For pipeline result, keep the English translation
                     # back_text is what would be shown to user
                 else:
@@ -932,33 +1147,30 @@ class LanguagePipeline:
                             step_name="translate_back",
                             status=StepStatus.FAILED,
                             duration_ms=round(
-                                (time.monotonic() - step_start) * 1000,
-                                2),
-                            metadata={
-                                "target": detected_language,
-                                "success": False},
-                        ))
+                                (time.monotonic() - step_start) * 1000, 2
+                            ),
+                            metadata={"target": detected_language, "success": False},
+                        )
+                    )
             except Exception as exc:
-                logger.warning(
-                    "pipeline_translate_back_failed",
-                    error=str(exc))
+                logger.warning("pipeline_translate_back_failed", error=str(exc))
                 steps.append(
                     PipelineStepResult(
                         step_name="translate_back",
                         status=StepStatus.FAILED,
-                        duration_ms=round(
-                            (time.monotonic() - step_start) * 1000,
-                            2),
-                        metadata={
-                            "error": str(exc)},
-                    ))
+                        duration_ms=round((time.monotonic() - step_start) * 1000, 2),
+                        metadata={"error": str(exc)},
+                    )
+                )
         else:
-            steps.append(PipelineStepResult(
-                step_name="translate_back",
-                status=StepStatus.SKIPPED,
-                duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                metadata={"reason": "no_translation_performed"},
-            ))
+            steps.append(
+                PipelineStepResult(
+                    step_name="translate_back",
+                    status=StepStatus.SKIPPED,
+                    duration_ms=round((time.monotonic() - step_start) * 1000, 2),
+                    metadata={"reason": "no_translation_performed"},
+                )
+            )
 
         # ── Step 7: Quality Check ───────────────────────────────────
         step_start = time.monotonic()
@@ -971,15 +1183,14 @@ class LanguagePipeline:
                     PipelineStepResult(
                         step_name="quality_check",
                         status=StepStatus.SUCCESS,
-                        duration_ms=round(
-                            (time.monotonic() - step_start) * 1000,
-                            2),
+                        duration_ms=round((time.monotonic() - step_start) * 1000, 2),
                         metadata={
                             "quality_score": quality_score,
                             "issues_count": len(quality_issues),
                             "issues": quality_issues,
                         },
-                    ))
+                    )
+                )
             except Exception as exc:
                 logger.warning("pipeline_quality_check_failed", error=str(exc))
                 quality_score = 0.5
@@ -988,19 +1199,19 @@ class LanguagePipeline:
                     PipelineStepResult(
                         step_name="quality_check",
                         status=StepStatus.FAILED,
-                        duration_ms=round(
-                            (time.monotonic() - step_start) * 1000,
-                            2),
-                        metadata={
-                            "error": str(exc)},
-                    ))
+                        duration_ms=round((time.monotonic() - step_start) * 1000, 2),
+                        metadata={"error": str(exc)},
+                    )
+                )
         else:
-            steps.append(PipelineStepResult(
-                step_name="quality_check",
-                status=StepStatus.SKIPPED,
-                duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                metadata={"reason": "no_translation_performed"},
-            ))
+            steps.append(
+                PipelineStepResult(
+                    step_name="quality_check",
+                    status=StepStatus.SKIPPED,
+                    duration_ms=round((time.monotonic() - step_start) * 1000, 2),
+                    metadata={"reason": "no_translation_performed"},
+                )
+            )
 
         # ── Step 8: Fallback ────────────────────────────────────────
         step_start = time.monotonic()
@@ -1008,30 +1219,28 @@ class LanguagePipeline:
         if failed_steps:
             fallback_used = True
             failed_names = [s.step_name for s in failed_steps]
-            fallback_warning = (
-                f"Pipeline completed with {
+            fallback_warning = f"Pipeline completed with {
                     len(failed_steps)} failed step(s): " f"{
-                    ', '.join(failed_names)}. Original text returned as fallback.")
+                    ', '.join(failed_names)}. Original text returned as fallback."
             translated_text = original_text
             translation_performed = False
         steps.append(
             PipelineStepResult(
                 step_name="fallback",
                 status=StepStatus.SUCCESS if not failed_steps else StepStatus.FAILED,
-                duration_ms=round(
-                    (time.monotonic() - step_start) * 1000,
-                    2),
+                duration_ms=round((time.monotonic() - step_start) * 1000, 2),
                 metadata={
                     "fallback_used": fallback_used,
-                    "failed_steps": [
-                        s.step_name for s in failed_steps],
+                    "failed_steps": [s.step_name for s in failed_steps],
                 },
-            ))
+            )
+        )
 
         # ── Cache result (BC-001: scoped to company_id) ─────────────
         total_ms = round((time.monotonic() - start_time) * 1000, 2)
         try:
             from app.core.redis import cache_get, cache_set
+
             query_hash = hashlib.sha256(
                 original_text.lower().strip().encode("utf-8")
             ).hexdigest()[:16]
@@ -1051,8 +1260,10 @@ class LanguagePipeline:
                     "quality_score": quality_score,
                 }
                 await cache_set(
-                    company_id, cache_key,
-                    result_dict, ttl_seconds=self.CACHE_TTL_SECONDS,
+                    company_id,
+                    cache_key,
+                    result_dict,
+                    ttl_seconds=self.CACHE_TTL_SECONDS,
                 )
         except Exception as exc:
             # BC-008: Cache failure must not affect pipeline

@@ -19,9 +19,7 @@ from typing import Optional
 
 import uuid
 
-from sqlalchemy import (
-    Boolean, Column, DateTime, Integer, String, Text, ForeignKey
-)
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, ForeignKey
 
 from database.base import Base
 
@@ -36,16 +34,22 @@ class UserDetails(Base):
     Created after successful Paddle payment.
     Required before user can proceed to onboarding wizard.
     """
+
     __tablename__ = "user_details"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     user_id = Column(
-        String(36), ForeignKey("users.id"),
-        unique=True, nullable=False, index=True,
+        String(36),
+        ForeignKey("users.id"),
+        unique=True,
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     full_name = Column(String(100), nullable=False)
     company_name = Column(String(100), nullable=False)

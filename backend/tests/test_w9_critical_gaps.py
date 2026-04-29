@@ -16,7 +16,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ── Module-level stubs (populated by fixtures) ───────────────────────
 SignalExtractionRequest = None  # type: ignore[assignment,misc]
 SignalExtractor = None  # type: ignore[assignment,misc]
@@ -71,27 +70,32 @@ def _mock_logger():
             TrainingDataset,
             VALID_VARIANT_TYPES,
         )
-        from shared.knowledge_base.vector_search import MockVectorStore as _MVS  # noqa: F811,F401
-        globals().update({
-            "SignalExtractionRequest": SignalExtractionRequest,
-            "SignalExtractor": SignalExtractor,
-            "ExtractedSignals": ExtractedSignals,
-            "SentimentAnalyzer": SentimentAnalyzer,
-            "SentimentResult": SentimentResult,
-            "FrustrationDetector": FrustrationDetector,
-            "UrgencyScorer": UrgencyScorer,
-            "ToneAdvisor": ToneAdvisor,
-            "EmotionClassifier": EmotionClassifier,
-            "RAGRetriever": RAGRetriever,
-            "RAGResult": RAGResult,
-            "RAGChunk": RAGChunk,
-            "MockVectorStore": _MVS,
-            "TrainingDataIsolationService": TrainingDataIsolationService,
-            "TrainingDataset": TrainingDataset,
-            "DatasetIsolationResult": DatasetIsolationResult,
-            "VALID_VARIANT_TYPES": VALID_VARIANT_TYPES,
-            "ParwaBaseError": _PBE,
-        })
+        from shared.knowledge_base.vector_search import (
+            MockVectorStore as _MVS,
+        )  # noqa: F811,F401
+
+        globals().update(
+            {
+                "SignalExtractionRequest": SignalExtractionRequest,
+                "SignalExtractor": SignalExtractor,
+                "ExtractedSignals": ExtractedSignals,
+                "SentimentAnalyzer": SentimentAnalyzer,
+                "SentimentResult": SentimentResult,
+                "FrustrationDetector": FrustrationDetector,
+                "UrgencyScorer": UrgencyScorer,
+                "ToneAdvisor": ToneAdvisor,
+                "EmotionClassifier": EmotionClassifier,
+                "RAGRetriever": RAGRetriever,
+                "RAGResult": RAGResult,
+                "RAGChunk": RAGChunk,
+                "MockVectorStore": _MVS,
+                "TrainingDataIsolationService": TrainingDataIsolationService,
+                "TrainingDataset": TrainingDataset,
+                "DatasetIsolationResult": DatasetIsolationResult,
+                "VALID_VARIANT_TYPES": VALID_VARIANT_TYPES,
+                "ParwaBaseError": _PBE,
+            }
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -119,8 +123,9 @@ class TestSignalExtractionRaceCondition:
         cache_miss = AsyncMock(return_value=None)
         cache_set_mock = AsyncMock()
 
-        with patch("app.core.redis.cache_get", cache_miss), \
-                patch("app.core.redis.cache_set", cache_set_mock):
+        with patch("app.core.redis.cache_get", cache_miss), patch(
+            "app.core.redis.cache_set", cache_set_mock
+        ):
             results = await asyncio.gather(
                 self.extractor.extract(req),
                 self.extractor.extract(req),
@@ -149,8 +154,9 @@ class TestSignalExtractionRaceCondition:
         cache_miss = AsyncMock(return_value=None)
         cache_set_mock = AsyncMock()
 
-        with patch("app.core.redis.cache_get", cache_miss), \
-                patch("app.core.redis.cache_set", cache_set_mock):
+        with patch("app.core.redis.cache_get", cache_miss), patch(
+            "app.core.redis.cache_set", cache_set_mock
+        ):
             result_parwa, result_mini = await asyncio.gather(
                 self.extractor.extract(req_parwa),
                 self.extractor.extract(req_mini),
@@ -184,8 +190,9 @@ class TestSignalExtractionRaceCondition:
         cache_miss = AsyncMock(return_value=None)
         cache_set_mock = AsyncMock()
 
-        with patch("app.core.redis.cache_get", cache_miss), \
-                patch("app.core.redis.cache_set", cache_set_mock):
+        with patch("app.core.redis.cache_get", cache_miss), patch(
+            "app.core.redis.cache_set", cache_set_mock
+        ):
             result_refund, result_shipping = await asyncio.gather(
                 self.extractor.extract(req_refund),
                 self.extractor.extract(req_shipping),
@@ -206,11 +213,16 @@ class TestSignalExtractionRaceCondition:
         # First call misses, subsequent calls may hit or miss
         call_count = {"n": 0}
         cached_data = {
-            "intent": "complaint", "sentiment": 0.1, "complexity": 0.4,
-            "monetary_value": 0.0, "monetary_currency": None,
-            "customer_tier": "free", "turn_count": 0,
+            "intent": "complaint",
+            "sentiment": 0.1,
+            "complexity": 0.4,
+            "monetary_value": 0.0,
+            "monetary_currency": None,
+            "customer_tier": "free",
+            "turn_count": 0,
             "previous_response_status": "none",
-            "reasoning_loop_detected": False, "resolution_path_count": 3,
+            "reasoning_loop_detected": False,
+            "resolution_path_count": 3,
             "query_breadth": 0.5,
         }
 
@@ -223,8 +235,9 @@ class TestSignalExtractionRaceCondition:
         cache_get_mock = AsyncMock(side_effect=_cache_get)
         cache_set_mock = AsyncMock()
 
-        with patch("app.core.redis.cache_get", cache_get_mock), \
-                patch("app.core.redis.cache_set", cache_set_mock):
+        with patch("app.core.redis.cache_get", cache_get_mock), patch(
+            "app.core.redis.cache_set", cache_set_mock
+        ):
             results = await asyncio.gather(
                 self.extractor.extract(req),
                 self.extractor.extract(req),
@@ -262,11 +275,11 @@ class TestSignalExtractionRaceCondition:
             variant_type="parwa",
         )
         cache_miss = AsyncMock(return_value=None)
-        cache_set_err = AsyncMock(
-            side_effect=Exception("Redis connection lost"))
+        cache_set_err = AsyncMock(side_effect=Exception("Redis connection lost"))
 
-        with patch("app.core.redis.cache_get", cache_miss), \
-                patch("app.core.redis.cache_set", cache_set_err):
+        with patch("app.core.redis.cache_get", cache_miss), patch(
+            "app.core.redis.cache_set", cache_set_err
+        ):
             result = await self.extractor.extract(req)
 
         assert isinstance(result, ExtractedSignals)
@@ -327,7 +340,10 @@ class TestSentimentScoreBoundaries:
         """A text producing score above 80 (VIP routing threshold)."""
         # Strong words (12pts each) + moderate (5pts each) + CAPS + exclamation
         # Must produce > 80
-        text = "UNACCEPTABLE ATROCIOUS ABYSMAL APPALLING CATASTROPHIC DEVASTATING " * 3 + "!!!"
+        text = (
+            "UNACCEPTABLE ATROCIOUS ABYSMAL APPALLING CATASTROPHIC DEVASTATING " * 3
+            + "!!!"
+        )
         score = self.detector.detect(text)
         # With 18 strong-word hits: min(50, 18*12=216) → capped at 50
         # + CAPS ratio > 0.5 → +10
@@ -339,10 +355,7 @@ class TestSentimentScoreBoundaries:
 
     def test_max_frustration_capped_at_100(self):
         """Even extreme input must not exceed 100."""
-        text = (
-            " ".join(["FURIOUS"] * 20 + ["UNACCEPTABLE"] * 20)
-            + "!" * 50 + "?" * 30
-        )
+        text = " ".join(["FURIOUS"] * 20 + ["UNACCEPTABLE"] * 20) + "!" * 50 + "?" * 30
         score = self.detector.detect(text)
         assert score <= 100.0
         assert score >= 0.0
@@ -351,8 +364,7 @@ class TestSentimentScoreBoundaries:
 
     def test_urgency_low_at_zero_frustration(self):
         """Zero frustration should yield 'low' urgency."""
-        level = self.urgency_scorer.score(
-            "Hello, how are you?", frustration_score=0.0)
+        level = self.urgency_scorer.score("Hello, how are you?", frustration_score=0.0)
         assert level == "low"
 
     def test_urgency_at_escalation_boundary_frustration_60(self):
@@ -406,9 +418,12 @@ class TestSentimentScoreBoundaries:
         """Sentiment score (0.0-1.0) = 1.0 - (frustration_score/100)."""
         cache_miss = AsyncMock(return_value=None)
         cache_set = AsyncMock()
-        with patch("app.core.redis.cache_get", cache_miss), \
-                patch("app.core.redis.cache_set", cache_set):
-            result = await self.analyzer.analyze("This is OUTRAGEOUS and UNACCEPTABLE!!!", company_id="c1")
+        with patch("app.core.redis.cache_get", cache_miss), patch(
+            "app.core.redis.cache_set", cache_set
+        ):
+            result = await self.analyzer.analyze(
+                "This is OUTRAGEOUS and UNACCEPTABLE!!!", company_id="c1"
+            )
         # High frustration → sentiment_score should be < 1.0
         # sentiment_score = max(0, min(1, 1.0 - frustration/100))
         assert result.sentiment_score < 1.0
@@ -420,8 +435,9 @@ class TestSentimentScoreBoundaries:
         """Empty/null input returns safe defaults without crashing."""
         cache_miss = AsyncMock(return_value=None)
         cache_set = AsyncMock()
-        with patch("app.core.redis.cache_get", cache_miss), \
-                patch("app.core.redis.cache_set", cache_set):
+        with patch("app.core.redis.cache_get", cache_miss), patch(
+            "app.core.redis.cache_set", cache_set
+        ):
             result = await self.analyzer.analyze("", company_id="c1")
         assert result.frustration_score == 0.0
         assert result.sentiment_score == 0.5
@@ -448,18 +464,24 @@ class TestRAGTenantIsolation:
         store.add_document(
             document_id="doc_a_1",
             chunks=[
-                {"content": "Company A refund policy: full refund within 30 days",
-                 "metadata": {"source": "Company A KB"}},
-                {"content": "Company A billing FAQ: invoices sent monthly",
-                 "metadata": {"source": "Company A KB"}},
+                {
+                    "content": "Company A refund policy: full refund within 30 days",
+                    "metadata": {"source": "Company A KB"},
+                },
+                {
+                    "content": "Company A billing FAQ: invoices sent monthly",
+                    "metadata": {"source": "Company A KB"},
+                },
             ],
             company_id="company_a",
         )
         store.add_document(
             document_id="doc_a_2",
             chunks=[
-                {"content": "Company A shipping: free shipping on orders over $50",
-                 "metadata": {"source": "Company A KB"}},
+                {
+                    "content": "Company A shipping: free shipping on orders over $50",
+                    "metadata": {"source": "Company A KB"},
+                },
             ],
             company_id="company_a",
         )
@@ -468,18 +490,24 @@ class TestRAGTenantIsolation:
         store.add_document(
             document_id="doc_b_1",
             chunks=[
-                {"content": "Company B confidential pricing: enterprise plan $999/mo",
-                 "metadata": {"source": "Company B KB", "confidential": True}},
-                {"content": "Company B internal SLA: 99.99% uptime guarantee",
-                 "metadata": {"source": "Company B KB", "confidential": True}},
+                {
+                    "content": "Company B confidential pricing: enterprise plan $999/mo",
+                    "metadata": {"source": "Company B KB", "confidential": True},
+                },
+                {
+                    "content": "Company B internal SLA: 99.99% uptime guarantee",
+                    "metadata": {"source": "Company B KB", "confidential": True},
+                },
             ],
             company_id="company_b",
         )
         store.add_document(
             document_id="doc_b_2",
             chunks=[
-                {"content": "Company B secret feature roadmap: AI auto-response in Q3",
-                 "metadata": {"source": "Company B KB", "confidential": True}},
+                {
+                    "content": "Company B secret feature roadmap: AI auto-response in Q3",
+                    "metadata": {"source": "Company B KB", "confidential": True},
+                },
             ],
             company_id="company_b",
         )
@@ -499,8 +527,9 @@ class TestRAGTenantIsolation:
             variant_type="mini_parwa",
         )
         for chunk in result.chunks:
-            assert chunk.metadata.get("source") != "Company B KB", \
-                f"Leak! Company A got Company B content: {chunk.content}"
+            assert (
+                chunk.metadata.get("source") != "Company B KB"
+            ), f"Leak! Company A got Company B content: {chunk.content}"
 
     @pytest.mark.asyncio
     async def test_company_b_never_sees_company_a_chunks(self):
@@ -514,8 +543,9 @@ class TestRAGTenantIsolation:
             variant_type="parwa",
         )
         for chunk in result.chunks:
-            assert chunk.metadata.get("source") != "Company A KB", \
-                f"Leak! Company B got Company A content: {chunk.content}"
+            assert (
+                chunk.metadata.get("source") != "Company A KB"
+            ), f"Leak! Company B got Company A content: {chunk.content}"
 
     @pytest.mark.asyncio
     async def test_tenant_isolation_with_identical_content(self):
@@ -525,24 +555,35 @@ class TestRAGTenantIsolation:
         # Both companies have the same text
         store.add_document(
             document_id="doc_shared_text_a",
-            chunks=[{"content": "refund policy allows 30 day returns",
-                     "metadata": {"source": "Company A"}}],
+            chunks=[
+                {
+                    "content": "refund policy allows 30 day returns",
+                    "metadata": {"source": "Company A"},
+                }
+            ],
             company_id="company_a",
         )
         store.add_document(
             document_id="doc_shared_text_b",
-            chunks=[{"content": "refund policy allows 30 day returns",
-                     "metadata": {"source": "Company B"}}],
+            chunks=[
+                {
+                    "content": "refund policy allows 30 day returns",
+                    "metadata": {"source": "Company B"},
+                }
+            ],
             company_id="company_b",
         )
         retriever = RAGRetriever(vector_store=store)
 
         result_a = await retriever.retrieve(
-            query="refund policy", company_id="company_a", variant_type="parwa",
+            query="refund policy",
+            company_id="company_a",
+            variant_type="parwa",
         )
         for chunk in result_a.chunks:
-            assert chunk.document_id.startswith("doc_shared_text_a"), \
-                f"Wrong tenant document: {chunk.document_id}"
+            assert chunk.document_id.startswith(
+                "doc_shared_text_a"
+            ), f"Wrong tenant document: {chunk.document_id}"
             assert chunk.metadata["source"] == "Company A"
 
     @pytest.mark.asyncio
@@ -557,8 +598,9 @@ class TestRAGTenantIsolation:
             variant_type="parwa_high",
         )
         for chunk in result.chunks:
-            assert chunk.metadata.get("source") != "Company B KB", \
-                f"parwa_high leak! Got Company B data: {chunk.content}"
+            assert (
+                chunk.metadata.get("source") != "Company B KB"
+            ), f"parwa_high leak! Got Company B data: {chunk.content}"
 
     @pytest.mark.asyncio
     async def test_isolation_with_metadata_filters(self):
@@ -726,7 +768,7 @@ def mock_redis():
             return []
         if stop == -1:
             return list(lst[start:])
-        return list(lst[start: stop + 1])
+        return list(lst[start : stop + 1])
 
     async def _delete(*names):
         count = 0
@@ -786,9 +828,14 @@ def _seed_dataset(
 ) -> str:
     """Insert a dataset directly into the mock Redis store."""
     store = mock_redis_obj._store
-    storage_path = ":".join([
-        "training_data", company_id, variant_type, dataset_id,
-    ])
+    storage_path = ":".join(
+        [
+            "training_data",
+            company_id,
+            variant_type,
+            dataset_id,
+        ]
+    )
     meta_key = storage_path + ":meta"
     store[meta_key] = {
         "dataset_id": dataset_id,
@@ -803,9 +850,13 @@ def _seed_dataset(
         "storage_path": storage_path,
         "is_active": "1" if is_active else "0",
     }
-    idx_key = ":".join([
-        "training_data", company_id, "datasets",
-    ])
+    idx_key = ":".join(
+        [
+            "training_data",
+            company_id,
+            "datasets",
+        ]
+    )
     s = store.get(idx_key)
     if not isinstance(s, set):
         s = set()
@@ -826,18 +877,8 @@ class TestTrainingDataCrossContamination:
     @pytest.mark.asyncio
     async def test_list_mini_parwa_excludes_parwa_high(self, mock_redis):
         """Listing mini_parwa datasets must not return parwa_high ones."""
-        _seed_dataset(
-            mock_redis,
-            "ds_mini_1",
-            "c1",
-            "mini_parwa",
-            "Mini Dataset")
-        _seed_dataset(
-            mock_redis,
-            "ds_high_1",
-            "c1",
-            "parwa_high",
-            "High Dataset")
+        _seed_dataset(mock_redis, "ds_mini_1", "c1", "mini_parwa", "Mini Dataset")
+        _seed_dataset(mock_redis, "ds_high_1", "c1", "parwa_high", "High Dataset")
         _seed_dataset(mock_redis, "ds_parwa_1", "c1", "parwa", "Parwa Dataset")
         with _patch_get_redis(mock_redis):
             result = await self.service.list_datasets("c1", variant_type="mini_parwa")
@@ -906,24 +947,24 @@ class TestTrainingDataCrossContamination:
                     requesting_variant=variant,
                     company_id="c1",
                 )
-                assert is_cross is False, \
-                    f"Shared dataset should be accessible by {variant}"
+                assert (
+                    is_cross is False
+                ), f"Shared dataset should be accessible by {variant}"
 
     @pytest.mark.asyncio
     async def test_storage_paths_variant_isolated(self, mock_redis):
         """Storage paths for same dataset_id under different variants
         must be completely different (no Redis key overlap)."""
         ds_id = "ds_path_iso"
-        path_mini = _seed_dataset(
-            mock_redis, ds_id, "c1", "mini_parwa", "Mini")
-        path_high = _seed_dataset(
-            mock_redis, ds_id, "c1", "parwa_high", "High")
+        path_mini = _seed_dataset(mock_redis, ds_id, "c1", "mini_parwa", "Mini")
+        path_high = _seed_dataset(mock_redis, ds_id, "c1", "parwa_high", "High")
         assert path_mini != path_high
         assert "mini_parwa" in path_mini
         assert "parwa_high" in path_high
         # Ensure no Redis key overlap
-        assert path_mini not in mock_redis._store or \
-            path_mini + ":meta" not in mock_redis._store or \
-            mock_redis._store[path_mini + ":meta"]["variant_type"] == "mini_parwa"
-        assert mock_redis._store[path_high
-                                 + ":meta"]["variant_type"] == "parwa_high"
+        assert (
+            path_mini not in mock_redis._store
+            or path_mini + ":meta" not in mock_redis._store
+            or mock_redis._store[path_mini + ":meta"]["variant_type"] == "mini_parwa"
+        )
+        assert mock_redis._store[path_high + ":meta"]["variant_type"] == "parwa_high"

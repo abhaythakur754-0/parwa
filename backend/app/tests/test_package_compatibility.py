@@ -12,6 +12,7 @@ import pytest
 def test_langgraph_import():
     """Verify langgraph can be imported."""
     from langgraph.graph import StateGraph
+
     assert StateGraph is not None
 
 
@@ -19,14 +20,16 @@ def test_langgraph_import():
 def test_dspy_ai_import():
     """Verify dspy-ai can be imported."""
     import dspy
-    assert hasattr(dspy, 'configure')
+
+    assert hasattr(dspy, "configure")
 
 
 @pytest.mark.skip(reason="Packages not installed in test environment")
 def test_litellm_import():
     """Verify litellm can be imported."""
     import litellm
-    assert hasattr(litellm, 'completion')
+
+    assert hasattr(litellm, "completion")
 
 
 @pytest.mark.skip(reason="Packages not installed in test environment")
@@ -35,6 +38,7 @@ def test_all_three_import_together():
     from langgraph.graph import StateGraph
     import dspy
     import litellm
+
     # If we get here without errors, compatibility is verified
     assert StateGraph is not None and dspy is not None and litellm is not None
 
@@ -43,6 +47,7 @@ def test_all_three_import_together():
 def test_no_version_conflicts():
     """Log version information for debugging."""
     from importlib.metadata import version as pkg_version
+
     versions = {
         "langgraph": pkg_version("langgraph"),
         "dspy-ai": pkg_version("dspy-ai"),
@@ -50,5 +55,4 @@ def test_no_version_conflicts():
     }
     for name, ver in versions.items():
         print(f"  {name}: {ver}")
-    assert all(v for v in versions.values()
-               ), "All packages should have version info"
+    assert all(v for v in versions.values()), "All packages should have version info"

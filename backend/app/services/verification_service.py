@@ -32,9 +32,7 @@ TOKEN_EXPIRE_HOURS = 24
 
 def _hash_token(token: str) -> str:
     """Hash a verification token for DB storage (SHA-256)."""
-    return hashlib.sha256(
-        token.encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 # Rate limit: 3 resends per email per hour (F-012 spec)
@@ -47,9 +45,7 @@ def _generate_token() -> str:
     return secrets.token_urlsafe(32)
 
 
-def create_verification_token(
-    db: Session, user: User
-) -> str:
+def create_verification_token(db: Session, user: User) -> str:
     """Create a new verification token for a user.
 
     Invalidates any previous unused tokens for this user.
@@ -77,19 +73,14 @@ def create_verification_token(
         token_hash=token_hash,
         purpose="email_verification",
         is_used=False,
-        expires_at=(
-            datetime.now(timezone.utc)
-            + timedelta(hours=TOKEN_EXPIRE_HOURS)
-        ),
+        expires_at=(datetime.now(timezone.utc) + timedelta(hours=TOKEN_EXPIRE_HOURS)),
     )
     db.add(token)
     db.flush()
     return raw_token
 
 
-def verify_email(
-    db: Session, token: str
-) -> dict:
+def verify_email(db: Session, token: str) -> dict:
     """Verify an email using a token.
 
     F-012: Validates token exists, not expired, not used.
@@ -106,9 +97,11 @@ def verify_email(
         ValidationError: If token is invalid/expired.
     """
     token_hash = _hash_token(token)
-    stored = db.query(VerificationToken).filter(
-        VerificationToken.token_hash == token_hash
-    ).first()
+    stored = (
+        db.query(VerificationToken)
+        .filter(VerificationToken.token_hash == token_hash)
+        .first()
+    )
 
     if not stored:
         return {
@@ -130,13 +123,12 @@ def verify_email(
     expires_at = stored.expires_at
     if expires_at.tzinfo is None:
         from datetime import timezone as tz
+
         expires_at = expires_at.replace(tzinfo=tz.utc)
     if expires_at < now:
         return {
             "status": "error",
-            "message": (
-                "This verification link has expired."
-            ),
+            "message": ("This verification link has expired."),
             "error_code": "TOKEN_EXPIRED",
             "can_resend": True,
         }
@@ -145,9 +137,7 @@ def verify_email(
     stored.is_used = True
 
     # Mark user email as verified
-    user = db.query(User).filter(
-        User.id == stored.user_id
-    ).first()
+    user = db.query(User).filter(User.id == stored.user_id).first()
     if user:
         user.is_verified = True
 
@@ -167,17 +157,12 @@ def verify_email(
 
     return {
         "status": "success",
-        "message": (
-            "Email verified successfully. "
-            "You can now log in."
-        ),
+        "message": ("Email verified successfully. " "You can now log in."),
         "redirect_to": "/login",
     }
 
 
-def resend_verification_email(
-    db: Session, email: str
-) -> dict:
+def resend_verification_email(db: Session, email: str) -> dict:
     """Resend a verification email.
 
     F-012: Rate limited to 3 per email per hour.
@@ -194,9 +179,7 @@ def resend_verification_email(
         ValidationError: If rate limited or email not found.
     """
     # Find user
-    user = db.query(User).filter(
-        User.email == email.lower().strip()
-    ).first()
+    user = db.query(User).filter(User.email == email.lower().strip()).first()
 
     if not user:
         # L18: Generic response — don't reveal account existence
@@ -220,31 +203,29 @@ def resend_verification_email(
         }
 
     # Rate limit check: count tokens created in last hour
-    since_utc = datetime.now(timezone.utc) - timedelta(
-        seconds=RESEND_WINDOW_SECONDS
-    )
+    since_utc = datetime.now(timezone.utc) - timedelta(seconds=RESEND_WINDOW_SECONDS)
     # Handle naive datetimes from SQLite (created_at uses utcnow)
     recent_count = 0
-    recent_tokens = db.query(VerificationToken).filter(
-        VerificationToken.user_id == user.id,
-    ).all()
+    recent_tokens = (
+        db.query(VerificationToken)
+        .filter(
+            VerificationToken.user_id == user.id,
+        )
+        .all()
+    )
     for t in recent_tokens:
         t_created = t.created_at
         if t_created.tzinfo is None:
             from datetime import timezone as tz
+
             t_created = t_created.replace(tzinfo=tz.utc)
         if t_created >= since_utc:
             recent_count += 1
 
     if recent_count >= MAX_RESENDS_PER_HOUR:
         raise RateLimitError(
-            message=(
-                "Too many resend requests. "
-                "Please wait before trying again."
-            ),
-            details={
-                "retry_after_seconds": RESEND_WINDOW_SECONDS
-            },
+            message=("Too many resend requests. " "Please wait before trying again."),
+            details={"retry_after_seconds": RESEND_WINDOW_SECONDS},
         )
 
     # Create new token (invalidates old ones)
@@ -252,9 +233,7 @@ def resend_verification_email(
     db.commit()
 
     # Send verification email
-    verification_url = (
-        f"https://parwa.ai/verify?token={raw_token}"
-    )
+    verification_url = f"https://parwa.ai/verify?token={raw_token}"
     sent = send_verification_email(
         user_email=user.email,
         user_name=user.full_name or "User",
@@ -270,16 +249,12 @@ def resend_verification_email(
 
     return {
         "status": "success",
-        "message": (
-            "Verification email sent. Check your inbox."
-        ),
+        "message": ("Verification email sent. Check your inbox."),
         "retry_after": 60,
     }
 
 
-def send_verification_on_register(
-    db: Session, user: User
-) -> None:
+def send_verification_on_register(db: Session, user: User) -> None:
     """Send verification email after registration.
 
     Called by register_user in auth_service.
@@ -292,9 +267,7 @@ def send_verification_on_register(
     raw_token = create_verification_token(db, user)
     db.flush()  # ensure token is saved
 
-    verification_url = (
-        f"https://parwa.ai/verify?token={raw_token}"
-    )
+    verification_url = f"https://parwa.ai/verify?token={raw_token}"
     sent = send_verification_email(
         user_email=user.email,
         user_name=user.full_name or "User",

@@ -33,7 +33,6 @@ from app.services.bulk_action_service import (
     BulkActionUndoExpiredError,
 )
 
-
 router = APIRouter(
     prefix="/tickets/bulk",
     tags=["bulk-actions"],
@@ -417,15 +416,17 @@ async def list_bulk_actions(
             {
                 "id": ba.id,
                 "action_type": ba.action_type,
-                "ticket_count": len(
-                    ba.ticket_ids.split(",")) if isinstance(
-                    ba.ticket_ids,
-                    str) else len(
-                        ba.ticket_ids),
+                "ticket_count": (
+                    len(ba.ticket_ids.split(","))
+                    if isinstance(ba.ticket_ids, str)
+                    else len(ba.ticket_ids)
+                ),
                 "performed_by": ba.performed_by,
                 "undone": ba.undone,
                 "created_at": ba.created_at,
-            } for ba in bulk_actions],
+            }
+            for ba in bulk_actions
+        ],
         "total": total,
         "limit": limit,
         "offset": offset,
@@ -459,8 +460,8 @@ async def get_bulk_action(
     failures = service.get_bulk_action_failures(company_id, bulk_action_id)
 
     import json
-    ticket_ids = json.loads(
-        bulk_action.ticket_ids) if bulk_action.ticket_ids else []
+
+    ticket_ids = json.loads(bulk_action.ticket_ids) if bulk_action.ticket_ids else []
 
     return {
         "id": bulk_action.id,

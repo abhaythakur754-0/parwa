@@ -19,7 +19,13 @@ from datetime import datetime
 import uuid
 
 from sqlalchemy import (
-    Boolean, CheckConstraint, Column, DateTime, Integer, String, Text,
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    Integer,
+    String,
+    Text,
 )
 
 from database.base import Base
@@ -44,6 +50,7 @@ _QUICK_COMMAND_RISK_LEVELS = "'low','medium','high','critical'"
 
 
 # ── System Health Snapshot ────────────────────────────────────────
+
 
 class SystemHealthSnapshot(Base):
     __tablename__ = "system_health_snapshots"
@@ -73,6 +80,7 @@ class SystemHealthSnapshot(Base):
 
 
 # ── System Incident ──────────────────────────────────────────────
+
 
 class SystemIncident(Base):
     __tablename__ = "system_incidents"
@@ -108,6 +116,7 @@ class SystemIncident(Base):
 
 # ── Error Log ────────────────────────────────────────────────────
 
+
 class ErrorLog(Base):
     __tablename__ = "error_logs"
 
@@ -141,6 +150,7 @@ class ErrorLog(Base):
 
 
 # ── Training Data Point ──────────────────────────────────────────
+
 
 class TrainingDataPoint(Base):
     __tablename__ = "training_data_points"
@@ -183,6 +193,7 @@ class TrainingDataPoint(Base):
 
 # ── Quick Command Config ─────────────────────────────────────────
 
+
 class QuickCommandConfig(Base):
     __tablename__ = "quick_command_configs"
 
@@ -193,9 +204,9 @@ class QuickCommandConfig(Base):
     custom_label = Column(String(200), nullable=True)
     custom_params_json = Column(Text, nullable=True)
     created_at = Column(
-        DateTime, default=lambda: datetime.utcnow(), nullable=False,
+        DateTime,
+        default=lambda: datetime.utcnow(),
+        nullable=False,
     )
 
-    __table_args__ = (
-        {"schema": None},
-    )
+    __table_args__ = ({"schema": None},)

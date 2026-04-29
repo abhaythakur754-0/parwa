@@ -464,8 +464,7 @@ class VariantTransitionHandler:
 
             # Resolve effective variant: if a transition has set a new
             # effective variant for the company, use that for new tickets
-            effective = self._resolve_effective_variant(
-                company_id, variant_type)
+            effective = self._resolve_effective_variant(company_id, variant_type)
 
             ticket = InFlightTicket(
                 ticket_id=ticket_id,
@@ -494,7 +493,10 @@ class VariantTransitionHandler:
             logger.info(
                 "Ticket registered: ticket_id=%s, company_id=%s, "
                 "variant=%s, effective=%s",
-                ticket_id, company_id, variant_type, effective,
+                ticket_id,
+                company_id,
+                variant_type,
+                effective,
             )
             return ticket
 
@@ -502,7 +504,8 @@ class VariantTransitionHandler:
             logger.exception(
                 "register_ticket failed for company_id=%s, ticket_id=%s — "
                 "returning safe fallback ticket",
-                company_id, ticket_id,
+                company_id,
+                ticket_id,
             )
             # BC-008: Return a safe fallback ticket
             now = self._utc_now_timestamp()
@@ -550,15 +553,18 @@ class VariantTransitionHandler:
             logger.info(
                 "Ticket unregistered: ticket_id=%s, company_id=%s, "
                 "variant=%s, turns=%d",
-                ticket_id, company_id,
-                removed.effective_variant, removed.turn_count,
+                ticket_id,
+                company_id,
+                removed.effective_variant,
+                removed.turn_count,
             )
             return True
 
         except Exception:
             logger.exception(
                 "unregister_ticket failed for company_id=%s, ticket_id=%s",
-                company_id, ticket_id,
+                company_id,
+                ticket_id,
             )
             return False
 
@@ -579,7 +585,9 @@ class VariantTransitionHandler:
                     logger.warning(
                         "get_ticket: ticket_id=%s belongs to company_id=%s, "
                         "not requested company_id=%s",
-                        ticket_id, ticket.company_id, company_id,
+                        ticket_id,
+                        ticket.company_id,
+                        company_id,
                     )
                     return None
                 return ticket
@@ -587,7 +595,8 @@ class VariantTransitionHandler:
         except Exception:
             logger.exception(
                 "get_ticket failed for company_id=%s, ticket_id=%s",
-                company_id, ticket_id,
+                company_id,
+                ticket_id,
             )
             return None
 
@@ -665,13 +674,17 @@ class VariantTransitionHandler:
         try:
             # Validate transition direction
             is_valid, validation_msg = self.validate_transition(
-                from_variant, to_variant,
+                from_variant,
+                to_variant,
             )
             if not is_valid:
                 logger.warning(
                     "initiate_upgrade: invalid transition for company_id=%s: "
                     "%s → %s (%s)",
-                    company_id, from_variant, to_variant, validation_msg,
+                    company_id,
+                    from_variant,
+                    to_variant,
+                    validation_msg,
                 )
                 return self._create_error_transition_record(
                     company_id=company_id,
@@ -687,7 +700,9 @@ class VariantTransitionHandler:
                 logger.warning(
                     "initiate_upgrade: not an upgrade (rank %d → %d) "
                     "for company_id=%s",
-                    from_rank, to_rank, company_id,
+                    from_rank,
+                    to_rank,
+                    company_id,
                 )
                 return self._create_error_transition_record(
                     company_id=company_id,
@@ -748,8 +763,12 @@ class VariantTransitionHandler:
             logger.info(
                 "Upgrade initiated: company_id=%s, %s → %s, "
                 "transition_id=%s, tickets_affected=%d, reason='%s'",
-                company_id, from_variant, to_variant,
-                transition_id, affected_count, reason,
+                company_id,
+                from_variant,
+                to_variant,
+                transition_id,
+                affected_count,
+                reason,
             )
             return record
 
@@ -757,7 +776,9 @@ class VariantTransitionHandler:
             logger.exception(
                 "initiate_upgrade failed for company_id=%s, "
                 "%s → %s — returning error record",
-                company_id, from_variant, to_variant,
+                company_id,
+                from_variant,
+                to_variant,
             )
             return self._create_error_transition_record(
                 company_id=company_id,
@@ -800,7 +821,8 @@ class VariantTransitionHandler:
                     logger.warning(
                         "on_turn_start: ticket_id=%s not found "
                         "for company_id=%s — returning mini_parwa fallback",
-                        ticket_id, company_id,
+                        ticket_id,
+                        company_id,
                     )
                     return "mini_parwa"
 
@@ -808,7 +830,9 @@ class VariantTransitionHandler:
                     logger.warning(
                         "on_turn_start: ticket_id=%s belongs to %s, "
                         "not %s — returning mini_parwa fallback",
-                        ticket_id, ticket.company_id, company_id,
+                        ticket_id,
+                        ticket.company_id,
+                        company_id,
                     )
                     return "mini_parwa"
 
@@ -830,8 +854,11 @@ class VariantTransitionHandler:
                         logger.info(
                             "Turn %d: Transition applied for ticket %s — "
                             "%s → %s (company_id=%s)",
-                            ticket.turn_count, ticket_id,
-                            old_variant, new_variant, company_id,
+                            ticket.turn_count,
+                            ticket_id,
+                            old_variant,
+                            new_variant,
+                            company_id,
                         )
                     else:
                         # uses_old_capabilities is False but still pending.
@@ -841,7 +868,8 @@ class VariantTransitionHandler:
                             "on_turn_start: ticket %s has transition_pending "
                             "but uses_old_capabilities=False — applying "
                             "immediately (company_id=%s)",
-                            ticket_id, company_id,
+                            ticket_id,
+                            company_id,
                         )
                         ticket.effective_variant = ticket.pending_variant
                         ticket.transition_pending = False
@@ -853,7 +881,8 @@ class VariantTransitionHandler:
             logger.exception(
                 "on_turn_start failed for company_id=%s, ticket_id=%s — "
                 "returning mini_parwa fallback",
-                company_id, ticket_id,
+                company_id,
+                ticket_id,
             )
             return "mini_parwa"
 
@@ -896,14 +925,17 @@ class VariantTransitionHandler:
                         "Turn %d completed with old capabilities for "
                         "ticket %s — transition will apply on next turn "
                         "(company_id=%s, pending=%s)",
-                        ticket.turn_count, ticket_id, company_id,
+                        ticket.turn_count,
+                        ticket_id,
+                        company_id,
                         ticket.pending_variant,
                     )
 
         except Exception:
             logger.exception(
                 "on_turn_complete failed for company_id=%s, ticket_id=%s",
-                company_id, ticket_id,
+                company_id,
+                ticket_id,
             )
 
     def complete_transition(
@@ -926,7 +958,8 @@ class VariantTransitionHandler:
                     logger.warning(
                         "complete_transition: transition_id=%s not found "
                         "for company_id=%s",
-                        transition_id, company_id,
+                        transition_id,
+                        company_id,
                     )
                     return None
 
@@ -934,7 +967,9 @@ class VariantTransitionHandler:
                     logger.warning(
                         "complete_transition: transition_id=%s belongs to "
                         "company_id=%s, not %s",
-                        transition_id, record.company_id, company_id,
+                        transition_id,
+                        record.company_id,
+                        company_id,
                     )
                     return None
 
@@ -944,18 +979,19 @@ class VariantTransitionHandler:
                 self._company_effective_variant[company_id] = record.to_variant
 
                 logger.info(
-                    "Transition completed: transition_id=%s, company_id=%s, "
-                    "%s → %s",
-                    transition_id, company_id,
-                    record.from_variant, record.to_variant,
+                    "Transition completed: transition_id=%s, company_id=%s, " "%s → %s",
+                    transition_id,
+                    company_id,
+                    record.from_variant,
+                    record.to_variant,
                 )
                 return record
 
         except Exception:
             logger.exception(
-                "complete_transition failed for company_id=%s, "
-                "transition_id=%s",
-                company_id, transition_id,
+                "complete_transition failed for company_id=%s, " "transition_id=%s",
+                company_id,
+                transition_id,
             )
             return None
 
@@ -987,13 +1023,17 @@ class VariantTransitionHandler:
         try:
             # Validate transition direction
             is_valid, validation_msg = self.validate_transition(
-                from_variant, to_variant,
+                from_variant,
+                to_variant,
             )
             if not is_valid:
                 logger.warning(
                     "initiate_downgrade: invalid transition for "
                     "company_id=%s: %s → %s (%s)",
-                    company_id, from_variant, to_variant, validation_msg,
+                    company_id,
+                    from_variant,
+                    to_variant,
+                    validation_msg,
                 )
                 return self._create_error_transition_record(
                     company_id=company_id,
@@ -1009,7 +1049,9 @@ class VariantTransitionHandler:
                 logger.warning(
                     "initiate_downgrade: not a downgrade (rank %d → %d) "
                     "for company_id=%s",
-                    from_rank, to_rank, company_id,
+                    from_rank,
+                    to_rank,
+                    company_id,
                 )
                 return self._create_error_transition_record(
                     company_id=company_id,
@@ -1043,12 +1085,16 @@ class VariantTransitionHandler:
 
             # 2. Get restricted features
             restricted = self.get_restricted_features(
-                company_id, from_variant, to_variant,
+                company_id,
+                from_variant,
+                to_variant,
             )
 
             # 3. Clear cache for restricted features
             cleared_keys = self.clear_restricted_cache(
-                company_id, from_variant, to_variant,
+                company_id,
+                from_variant,
+                to_variant,
             )
 
             # 4. Generate deactivation notice
@@ -1097,10 +1143,15 @@ class VariantTransitionHandler:
                 "transition_id=%s, tickets_affected=%d, "
                 "restricted_features=%d, cache_cleared=%d, "
                 "notice_sent=%s, reason='%s'",
-                company_id, from_variant, to_variant,
-                transition_id, affected_count,
-                len(restricted), len(cleared_keys),
-                notice_sent, reason,
+                company_id,
+                from_variant,
+                to_variant,
+                transition_id,
+                affected_count,
+                len(restricted),
+                len(cleared_keys),
+                notice_sent,
+                reason,
             )
             return record
 
@@ -1108,7 +1159,9 @@ class VariantTransitionHandler:
             logger.exception(
                 "initiate_downgrade failed for company_id=%s, "
                 "%s → %s — returning error record",
-                company_id, from_variant, to_variant,
+                company_id,
+                from_variant,
+                to_variant,
             )
             return self._create_error_transition_record(
                 company_id=company_id,
@@ -1139,7 +1192,9 @@ class VariantTransitionHandler:
                 logger.warning(
                     "get_restricted_features: unknown variant for "
                     "company_id=%s (from=%s, to=%s)",
-                    company_id, from_variant, to_variant,
+                    company_id,
+                    from_variant,
+                    to_variant,
                 )
                 return []
 
@@ -1149,7 +1204,10 @@ class VariantTransitionHandler:
 
             logger.info(
                 "Restricted features for company_id=%s (%s → %s): %s",
-                company_id, from_variant, to_variant, restricted,
+                company_id,
+                from_variant,
+                to_variant,
+                restricted,
             )
             return restricted
 
@@ -1205,7 +1263,8 @@ class VariantTransitionHandler:
                     logger.warning(
                         "acknowledge_deactivation: notice_id=%s not found "
                         "for company_id=%s",
-                        notice_id, company_id,
+                        notice_id,
+                        company_id,
                     )
                     return False
 
@@ -1213,7 +1272,9 @@ class VariantTransitionHandler:
                     logger.warning(
                         "acknowledge_deactivation: notice_id=%s belongs to "
                         "company_id=%s, not %s",
-                        notice_id, notice.company_id, company_id,
+                        notice_id,
+                        notice.company_id,
+                        company_id,
                     )
                     return False
 
@@ -1222,16 +1283,18 @@ class VariantTransitionHandler:
             logger.info(
                 "Deactivation notice acknowledged: notice_id=%s, "
                 "company_id=%s, %s → %s",
-                notice_id, company_id,
-                notice.variant_from, notice.variant_to,
+                notice_id,
+                company_id,
+                notice.variant_from,
+                notice.variant_to,
             )
             return True
 
         except Exception:
             logger.exception(
-                "acknowledge_deactivation failed for company_id=%s, "
-                "notice_id=%s",
-                company_id, notice_id,
+                "acknowledge_deactivation failed for company_id=%s, " "notice_id=%s",
+                company_id,
+                notice_id,
             )
             return False
 
@@ -1255,7 +1318,9 @@ class VariantTransitionHandler:
         """
         try:
             restricted = self.get_restricted_features(
-                company_id, variant_from, variant_to,
+                company_id,
+                variant_from,
+                variant_to,
             )
 
             cleared_keys: List[str] = []
@@ -1270,7 +1335,9 @@ class VariantTransitionHandler:
                 logger.info(
                     "Cache cleared for company_id=%s downgrade (%s → %s): "
                     "%d entries removed: %s",
-                    company_id, variant_from, variant_to,
+                    company_id,
+                    variant_from,
+                    variant_to,
                     len(cleared_keys),
                     cleared_keys[:5],  # log first 5 for brevity
                 )
@@ -1278,7 +1345,9 @@ class VariantTransitionHandler:
                 logger.debug(
                     "No cache entries to clear for company_id=%s "
                     "downgrade (%s → %s)",
-                    company_id, variant_from, variant_to,
+                    company_id,
+                    variant_from,
+                    variant_to,
                 )
 
             return cleared_keys
@@ -1324,7 +1393,8 @@ class VariantTransitionHandler:
                 logger.warning(
                     "get_effective_capabilities: unknown variant '%s' "
                     "for ticket %s — returning mini_parwa caps",
-                    ticket.effective_variant, ticket_id,
+                    ticket.effective_variant,
+                    ticket_id,
                 )
                 return self._capabilities["mini_parwa"]
 
@@ -1334,7 +1404,8 @@ class VariantTransitionHandler:
             logger.exception(
                 "get_effective_capabilities failed for company_id=%s, "
                 "ticket_id=%s — returning mini_parwa caps",
-                company_id, ticket_id,
+                company_id,
+                ticket_id,
             )
             return self._capabilities["mini_parwa"]
 
@@ -1378,9 +1449,10 @@ class VariantTransitionHandler:
         try:
             all_transitions = self.get_transition_history(company_id)
             active = [
-                t for t in all_transitions if t.status in (
-                    TransitionStatus.ACTIVE,
-                    TransitionStatus.PENDING)]
+                t
+                for t in all_transitions
+                if t.status in (TransitionStatus.ACTIVE, TransitionStatus.PENDING)
+            ]
             return active
 
         except Exception:
@@ -1438,7 +1510,8 @@ class VariantTransitionHandler:
             logger.exception(
                 "get_technique_access_for_ticket failed for company_id=%s, "
                 "ticket_id=%s",
-                company_id, ticket_id,
+                company_id,
+                ticket_id,
             )
             return []
 
@@ -1465,7 +1538,9 @@ class VariantTransitionHandler:
             logger.exception(
                 "is_technique_available failed for company_id=%s, "
                 "ticket_id=%s, technique=%s",
-                company_id, ticket_id, technique_id,
+                company_id,
+                ticket_id,
+                technique_id,
             )
             return False
 
@@ -1512,12 +1587,16 @@ class VariantTransitionHandler:
             else:
                 return False, "variants have the same rank — no transition needed"
 
-            return True, f"valid {direction} ({from_clean} rank {from_rank} → {to_clean} rank {to_rank})"
+            return (
+                True,
+                f"valid {direction} ({from_clean} rank {from_rank} → {to_clean} rank {to_rank})",
+            )
 
         except Exception:
             logger.exception(
                 "validate_transition failed for %s → %s",
-                from_variant, to_variant,
+                from_variant,
+                to_variant,
             )
             return False, "internal error during transition validation"
 
@@ -1542,7 +1621,8 @@ class VariantTransitionHandler:
                     logger.warning(
                         "rollback_transition: transition_id=%s not found "
                         "for company_id=%s",
-                        transition_id, company_id,
+                        transition_id,
+                        company_id,
                     )
                     return None
 
@@ -1550,7 +1630,9 @@ class VariantTransitionHandler:
                     logger.warning(
                         "rollback_transition: transition_id=%s belongs to "
                         "company_id=%s, not %s",
-                        transition_id, record.company_id, company_id,
+                        transition_id,
+                        record.company_id,
+                        company_id,
                     )
                     return None
 
@@ -1562,7 +1644,8 @@ class VariantTransitionHandler:
                         "rollback_transition: transition_id=%s has status "
                         "'%s' — cannot roll back completed/rolled-back "
                         "transitions",
-                        transition_id, record.status.value,
+                        transition_id,
+                        record.status.value,
                     )
                     return None
 
@@ -1590,17 +1673,20 @@ class VariantTransitionHandler:
             logger.info(
                 "Transition rolled back: transition_id=%s, company_id=%s, "
                 "%s → %s (was %s), tickets_reverted=%d",
-                transition_id, company_id,
-                record.to_variant, record.from_variant,
-                record.transition_type.value, reverted_count,
+                transition_id,
+                company_id,
+                record.to_variant,
+                record.from_variant,
+                record.transition_type.value,
+                reverted_count,
             )
             return record
 
         except Exception:
             logger.exception(
-                "rollback_transition failed for company_id=%s, "
-                "transition_id=%s",
-                company_id, transition_id,
+                "rollback_transition failed for company_id=%s, " "transition_id=%s",
+                company_id,
+                transition_id,
             )
             return None
 
@@ -1651,7 +1737,8 @@ class VariantTransitionHandler:
         now_iso = self._utc_now_iso()
 
         feature_list = (
-            ", ".join(restricted_features) if restricted_features
+            ", ".join(restricted_features)
+            if restricted_features
             else "No additional features were restricted."
         )
 
@@ -1684,8 +1771,10 @@ class VariantTransitionHandler:
         logger.info(
             "Deactivation notice created: notice_id=%s, company_id=%s, "
             "%s → %s, restricted_count=%d",
-            notice_id, company_id,
-            from_variant, to_variant,
+            notice_id,
+            company_id,
+            from_variant,
+            to_variant,
             len(restricted_features),
         )
         return notice
@@ -1791,9 +1880,9 @@ class VariantTransitionHandler:
         try:
             if default_variant not in VARIANT_RANKING:
                 logger.warning(
-                    "reset_company_variant: invalid variant '%s' "
-                    "for company_id=%s",
-                    default_variant, company_id,
+                    "reset_company_variant: invalid variant '%s' " "for company_id=%s",
+                    default_variant,
+                    company_id,
                 )
                 return False
 
@@ -1802,7 +1891,8 @@ class VariantTransitionHandler:
 
             logger.info(
                 "Company variant reset: company_id=%s → %s",
-                company_id, default_variant,
+                company_id,
+                default_variant,
             )
             return True
 
@@ -1872,7 +1962,8 @@ class VariantTransitionHandler:
         except Exception:
             logger.exception(
                 "compare_variant_capabilities failed for %s vs %s",
-                variant_a, variant_b,
+                variant_a,
+                variant_b,
             )
             return {"error": "comparison_failed"}
 
@@ -1896,13 +1987,15 @@ class VariantTransitionHandler:
             unacknowledged = [n for n in notices if not n.acknowledged]
 
             upgrades = [
-                t for t in history if t.transition_type == TransitionType.UPGRADE]
+                t for t in history if t.transition_type == TransitionType.UPGRADE
+            ]
             downgrades = [
-                t for t in history if t.transition_type == TransitionType.DOWNGRADE]
-            completed = [t for t in history if t.status
-                         == TransitionStatus.COMPLETED]
-            rolled_back = [t for t in history if t.status
-                           == TransitionStatus.ROLLED_BACK]
+                t for t in history if t.transition_type == TransitionType.DOWNGRADE
+            ]
+            completed = [t for t in history if t.status == TransitionStatus.COMPLETED]
+            rolled_back = [
+                t for t in history if t.status == TransitionStatus.ROLLED_BACK
+            ]
 
             effective_variant = self.get_company_effective_variant(company_id)
 
@@ -1919,9 +2012,7 @@ class VariantTransitionHandler:
                 "tickets_with_pending_transition": len(pending_tickets),
                 "deactivation_notices": len(notices),
                 "unacknowledged_notices": len(unacknowledged),
-                "latest_transition": (
-                    history[-1].to_dict() if history else None
-                ),
+                "latest_transition": (history[-1].to_dict() if history else None),
             }
 
         except Exception:

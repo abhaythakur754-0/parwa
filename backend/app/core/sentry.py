@@ -4,6 +4,7 @@ PARWA Sentry Integration
 Initializes Sentry for error monitoring and performance tracing.
 Only active when SENTRY_DSN is configured (no-op otherwise).
 """
+
 import logging
 import os
 
@@ -121,6 +122,7 @@ def capture_exception(exc: Exception, extra: dict = None):
 
     try:
         import sentry_sdk
+
         sentry_sdk.capture_exception(exc)
         if extra:
             sentry_sdk.set_context("extra", extra)
@@ -135,6 +137,7 @@ def capture_message(message: str, level: str = "info"):
 
     try:
         import sentry_sdk
+
         sentry_sdk.capture_message(message, level=level)
     except Exception:
         pass

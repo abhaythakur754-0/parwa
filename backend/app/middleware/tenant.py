@@ -75,7 +75,9 @@ class TenantMiddleware(BaseHTTPMiddleware):
         # JWT verification happens in get_current_user dependency.
         # Do NOT accept client-controlled headers (L06).
         company_id = getattr(
-            request.state, "company_id", None,
+            request.state,
+            "company_id",
+            None,
         )
 
         # Reject empty or whitespace-only company_id (BC-001)
@@ -99,7 +101,8 @@ class TenantMiddleware(BaseHTTPMiddleware):
             logger.warning(
                 "tenant_blocked_id_too_long path=%s company_id_len=%d",
                 path,
-                len(company_id))
+                len(company_id),
+            )
             return Response(
                 content=(
                     '{"error":{"code":"BAD_REQUEST",'

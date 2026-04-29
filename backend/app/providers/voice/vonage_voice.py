@@ -145,8 +145,13 @@ class VonageVoiceProvider(VoiceProvider):
                     },
                 )
             else:
-                data = response.json() if response.headers.get(
-                    "content-type", "").startswith("application/json") else {}
+                data = (
+                    response.json()
+                    if response.headers.get("content-type", "").startswith(
+                        "application/json"
+                    )
+                    else {}
+                )
                 return ProviderResult(
                     success=False,
                     provider_name=self.provider_name,
@@ -207,8 +212,13 @@ class VonageVoiceProvider(VoiceProvider):
                     message_id=call_id,
                 )
             else:
-                data = response.json() if response.headers.get(
-                    "content-type", "").startswith("application/json") else {}
+                data = (
+                    response.json()
+                    if response.headers.get("content-type", "").startswith(
+                        "application/json"
+                    )
+                    else {}
+                )
                 return ProviderResult(
                     success=False,
                     provider_name=self.provider_name,

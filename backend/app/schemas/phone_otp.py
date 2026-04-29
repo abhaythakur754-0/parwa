@@ -13,11 +13,13 @@ class SendOTPRequest(BaseModel):
     """Request to send an OTP to a phone number."""
 
     phone: str = Field(
-        min_length=8, max_length=20,
-        pattern=r'^\+\d{8,15}$',
+        min_length=8,
+        max_length=20,
+        pattern=r"^\+\d{8,15}$",
     )
     company_id: str = Field(
-        min_length=1, max_length=36,
+        min_length=1,
+        max_length=36,
     )
 
 
@@ -25,12 +27,14 @@ class VerifyOTPRequest(BaseModel):
     """Request to verify a phone OTP code."""
 
     phone: str = Field(
-        min_length=8, max_length=20,
-        pattern=r'^\+\d{8,15}$',
+        min_length=8,
+        max_length=20,
+        pattern=r"^\+\d{8,15}$",
     )
     code: str = Field(min_length=6, max_length=6)
     company_id: str = Field(
-        min_length=1, max_length=36,
+        min_length=1,
+        max_length=36,
     )
 
 

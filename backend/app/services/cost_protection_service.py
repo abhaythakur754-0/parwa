@@ -24,13 +24,13 @@ from typing import Optional
 from app.exceptions import ParwaBaseError
 from database.models.variant_engine import AITokenBudget
 
-
 logger = logging.getLogger("parwa.cost_protection")
 
 
 # ══════════════════════════════════════════════════════════════════
 # ENUMS
 # ══════════════════════════════════════════════════════════════════
+
 
 class BudgetPeriodType(str, Enum):
     DAILY = "daily"
@@ -46,8 +46,8 @@ class BudgetStatus(str, Enum):
 
 class AlertLevel(str, Enum):
     NONE = "none"
-    WARNING = "warning"      # >= 80%
-    CRITICAL = "critical"    # >= 95%
+    WARNING = "warning"  # >= 80%
+    CRITICAL = "critical"  # >= 95%
     EXHAUSTED = "exhausted"  # >= 100%
 
 
@@ -64,21 +64,20 @@ DEFAULT_VARIANT_LIMITS = {
 # Per-tier daily request limits to protect MEDIUM bottleneck
 # MEDIUM bottleneck: 2,500 req/day across all providers
 TIER_DAILY_REQUEST_LIMITS = {
-    "light": 100_000,     # Light has plenty of headroom
-    "medium": 2_500,      # MEDIUM bottleneck — strict limit
-    "heavy": 500,         # HEAVY is expensive — conservative
+    "light": 100_000,  # Light has plenty of headroom
+    "medium": 2_500,  # MEDIUM bottleneck — strict limit
+    "heavy": 500,  # HEAVY is expensive — conservative
     "guardrail": 50_000,  # Guardrail checks are cheap
 }
 
 VALID_VARIANT_TYPES = set(DEFAULT_VARIANT_LIMITS.keys())
-VALID_BUDGET_TYPES = {
-    BudgetPeriodType.DAILY.value,
-    BudgetPeriodType.MONTHLY.value}
+VALID_BUDGET_TYPES = {BudgetPeriodType.DAILY.value, BudgetPeriodType.MONTHLY.value}
 
 
 # ══════════════════════════════════════════════════════════════════
 # DATACLASSES
 # ══════════════════════════════════════════════════════════════════
+
 
 @dataclass
 class TokenUsageRecord:
@@ -90,8 +89,8 @@ class TokenUsageRecord:
     tokens_used: int = 0
     atomic_step_type: str = ""
     timestamp: str = field(
-        default_factory=lambda: datetime.now(
-            timezone.utc).isoformat())
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
     budget_period: str = ""
     budget_type: str = ""
 
@@ -109,6 +108,7 @@ class BudgetCheckResult:
 # ══════════════════════════════════════════════════════════════════
 # VALIDATION HELPERS
 # ══════════════════════════════════════════════════════════════════
+
 
 def _validate_company_id(company_id: str) -> None:
     """BC-001: company_id is required."""
@@ -157,6 +157,7 @@ def _validate_variant_type(variant_type: str) -> None:
 # COST PROTECTION SERVICE
 # ══════════════════════════════════════════════════════════════════
 
+
 class CostProtectionService:
     """
     AI Engine Cost Overrun Protection Service.
@@ -202,13 +203,15 @@ class CostProtectionService:
                     max_tokens=max_tokens,
                 )
 
-                created.append({
-                    "budget_type": budget_type,
-                    "budget_period": period,
-                    "max_tokens": budget.max_tokens,
-                    "status": budget.status,
-                    "id": budget.id,
-                })
+                created.append(
+                    {
+                        "budget_type": budget_type,
+                        "budget_period": period,
+                        "max_tokens": budget.max_tokens,
+                        "status": budget.status,
+                        "id": budget.id,
+                    }
+                )
 
             logger.info(
                 "budgets_initialized",
@@ -273,12 +276,16 @@ class CostProtectionService:
             _validate_tokens_non_negative(requested_tokens)
 
             period = self._get_current_period(budget_type)
-            budget = self.db.query(AITokenBudget).filter_by(
-                company_id=company_id,
-                budget_type=budget_type,
-                budget_period=period,
-                instance_id=instance_id,
-            ).first()
+            budget = (
+                self.db.query(AITokenBudget)
+                .filter_by(
+                    company_id=company_id,
+                    budget_type=budget_type,
+                    budget_period=period,
+                    instance_id=instance_id,
+                )
+                .first()
+            )
 
             # No budget record found — allow but warn (BC-008)
             if budget is None:
@@ -303,19 +310,17 @@ class CostProtectionService:
             if budget.status == "disabled":
                 return BudgetCheckResult(
                     allowed=True,
-                    remaining_tokens=budget.max_tokens
-                    - budget.used_tokens,
+                    remaining_tokens=budget.max_tokens - budget.used_tokens,
                     usage_pct=self._calc_usage_pct(
-                        budget.used_tokens,
-                        budget.max_tokens),
+                        budget.used_tokens, budget.max_tokens
+                    ),
                     alert_level=AlertLevel.NONE,
                     budget_status=BudgetStatus.DISABLED,
                     reason="Budget disabled — request allowed",
                 )
 
             remaining = budget.max_tokens - budget.used_tokens
-            usage_pct = self._calc_usage_pct(
-                budget.used_tokens, budget.max_tokens)
+            usage_pct = self._calc_usage_pct(budget.used_tokens, budget.max_tokens)
             alert_level = self._check_alert(budget)
 
             # Request exceeds remaining tokens
@@ -337,8 +342,7 @@ class CostProtectionService:
                 if new_used > budget.max_tokens:
                     return BudgetCheckResult(
                         allowed=False,
-                        remaining_tokens=budget.max_tokens
-                        - budget.used_tokens,
+                        remaining_tokens=budget.max_tokens - budget.used_tokens,
                         usage_pct=usage_pct,
                         alert_level=alert_level,
                         budget_status=BudgetStatus.EXHAUSTED,
@@ -406,12 +410,16 @@ class CostProtectionService:
             for budget_type in ("daily", "monthly"):
                 period = self._get_current_period(budget_type)
 
-                budget = self.db.query(AITokenBudget).filter_by(
-                    company_id=company_id,
-                    budget_type=budget_type,
-                    budget_period=period,
-                    instance_id=instance_id,
-                ).first()
+                budget = (
+                    self.db.query(AITokenBudget)
+                    .filter_by(
+                        company_id=company_id,
+                        budget_type=budget_type,
+                        budget_period=period,
+                        instance_id=instance_id,
+                    )
+                    .first()
+                )
 
                 if budget is None:
                     logger.warning(
@@ -456,7 +464,8 @@ class CostProtectionService:
                             "period": period,
                             "alert_level": alert.value,
                             "usage_pct": self._calc_usage_pct(
-                                budget.used_tokens, budget.max_tokens,
+                                budget.used_tokens,
+                                budget.max_tokens,
                             ),
                         },
                     )
@@ -516,12 +525,16 @@ class CostProtectionService:
             _validate_budget_type(budget_type)
 
             period = self._get_current_period(budget_type)
-            budget = self.db.query(AITokenBudget).filter_by(
-                company_id=company_id,
-                budget_type=budget_type,
-                budget_period=period,
-                instance_id=instance_id,
-            ).first()
+            budget = (
+                self.db.query(AITokenBudget)
+                .filter_by(
+                    company_id=company_id,
+                    budget_type=budget_type,
+                    budget_period=period,
+                    instance_id=instance_id,
+                )
+                .first()
+            )
 
             if budget is None:
                 return {
@@ -531,8 +544,7 @@ class CostProtectionService:
                     "found": False,
                 }
 
-            usage_pct = self._calc_usage_pct(
-                budget.used_tokens, budget.max_tokens)
+            usage_pct = self._calc_usage_pct(budget.used_tokens, budget.max_tokens)
             alert_level = self._check_alert(budget)
 
             return {
@@ -542,7 +554,9 @@ class CostProtectionService:
                 "found": True,
                 "used_tokens": budget.used_tokens or 0,
                 "max_tokens": budget.max_tokens,
-                "remaining_tokens": max(0, budget.max_tokens - (budget.used_tokens or 0)),
+                "remaining_tokens": max(
+                    0, budget.max_tokens - (budget.used_tokens or 0)
+                ),
                 "usage_pct": usage_pct,
                 "alert_level": alert_level.value,
                 "status": budget.status,
@@ -565,39 +579,58 @@ class CostProtectionService:
             _validate_company_id(company_id)
 
             period = self._get_current_period("monthly")
-            budgets = self.db.query(AITokenBudget).filter_by(
-                company_id=company_id,
-                budget_type="daily",
-            ).all()
+            budgets = (
+                self.db.query(AITokenBudget)
+                .filter_by(
+                    company_id=company_id,
+                    budget_type="daily",
+                )
+                .all()
+            )
 
             daily_breakdown = []
             total_used = 0
 
             for b in budgets:
-                daily_breakdown.append({
-                    "period": b.budget_period,
-                    "used_tokens": b.used_tokens or 0,
-                    "max_tokens": b.max_tokens,
-                    "status": b.status,
-                    "instance_id": b.instance_id,
-                })
+                daily_breakdown.append(
+                    {
+                        "period": b.budget_period,
+                        "used_tokens": b.used_tokens or 0,
+                        "max_tokens": b.max_tokens,
+                        "status": b.status,
+                        "instance_id": b.instance_id,
+                    }
+                )
                 total_used += b.used_tokens or 0
 
-            monthly_budget = self.db.query(AITokenBudget).filter_by(
-                company_id=company_id,
-                budget_type="monthly",
-                budget_period=period,
-            ).first()
+            monthly_budget = (
+                self.db.query(AITokenBudget)
+                .filter_by(
+                    company_id=company_id,
+                    budget_type="monthly",
+                    budget_period=period,
+                )
+                .first()
+            )
 
             return {
                 "company_id": company_id,
                 "month": period,
-                "monthly_budget": {
-                    "used_tokens": monthly_budget.used_tokens if monthly_budget else 0,
-                    "max_tokens": monthly_budget.max_tokens if monthly_budget else 0,
-                    "status": monthly_budget.status if monthly_budget else "no_budget",
-                } if monthly_budget else {
-                    "status": "no_budget"},
+                "monthly_budget": (
+                    {
+                        "used_tokens": (
+                            monthly_budget.used_tokens if monthly_budget else 0
+                        ),
+                        "max_tokens": (
+                            monthly_budget.max_tokens if monthly_budget else 0
+                        ),
+                        "status": (
+                            monthly_budget.status if monthly_budget else "no_budget"
+                        ),
+                    }
+                    if monthly_budget
+                    else {"status": "no_budget"}
+                ),
                 "daily_breakdown": daily_breakdown,
                 "total_daily_tokens": total_used,
             }
@@ -615,10 +648,14 @@ class CostProtectionService:
         try:
             _validate_company_id(company_id)
 
-            budgets = self.db.query(AITokenBudget).filter_by(
-                company_id=company_id,
-                budget_type="daily",
-            ).all()
+            budgets = (
+                self.db.query(AITokenBudget)
+                .filter_by(
+                    company_id=company_id,
+                    budget_type="daily",
+                )
+                .all()
+            )
 
             reset_count = 0
             for budget in budgets:
@@ -670,12 +707,16 @@ class CostProtectionService:
                 )
 
             period = self._get_current_period(budget_type)
-            budget = self.db.query(AITokenBudget).filter_by(
-                company_id=company_id,
-                budget_type=budget_type,
-                budget_period=period,
-                instance_id=instance_id,
-            ).first()
+            budget = (
+                self.db.query(AITokenBudget)
+                .filter_by(
+                    company_id=company_id,
+                    budget_type=budget_type,
+                    budget_period=period,
+                    instance_id=instance_id,
+                )
+                .first()
+            )
 
             if budget is None:
                 raise ParwaBaseError(
@@ -732,12 +773,16 @@ class CostProtectionService:
             _validate_budget_type(budget_type)
 
             period = self._get_current_period(budget_type)
-            budget = self.db.query(AITokenBudget).filter_by(
-                company_id=company_id,
-                budget_type=budget_type,
-                budget_period=period,
-                instance_id=instance_id,
-            ).first()
+            budget = (
+                self.db.query(AITokenBudget)
+                .filter_by(
+                    company_id=company_id,
+                    budget_type=budget_type,
+                    budget_period=period,
+                    instance_id=instance_id,
+                )
+                .first()
+            )
 
             if budget is None:
                 raise ParwaBaseError(
@@ -784,12 +829,16 @@ class CostProtectionService:
             _validate_budget_type(budget_type)
 
             period = self._get_current_period(budget_type)
-            budget = self.db.query(AITokenBudget).filter_by(
-                company_id=company_id,
-                budget_type=budget_type,
-                budget_period=period,
-                instance_id=instance_id,
-            ).first()
+            budget = (
+                self.db.query(AITokenBudget)
+                .filter_by(
+                    company_id=company_id,
+                    budget_type=budget_type,
+                    budget_period=period,
+                    instance_id=instance_id,
+                )
+                .first()
+            )
 
             if budget is None:
                 raise ParwaBaseError(
@@ -834,22 +883,30 @@ class CostProtectionService:
         try:
             _validate_company_id(company_id)
 
-            budgets = self.db.query(AITokenBudget).filter_by(
-                company_id=company_id,
-            ).all()
+            budgets = (
+                self.db.query(AITokenBudget)
+                .filter_by(
+                    company_id=company_id,
+                )
+                .all()
+            )
 
             alerts = []
             for b in budgets:
                 alert_level = self._check_alert(b)
                 if alert_level != AlertLevel.NONE:
-                    alerts.append({
-                        "budget_type": b.budget_type,
-                        "budget_period": b.budget_period,
-                        "alert_level": alert_level.value,
-                        "alert_sent": b.alert_sent,
-                        "usage_pct": self._calc_usage_pct(b.used_tokens, b.max_tokens),
-                        "instance_id": b.instance_id,
-                    })
+                    alerts.append(
+                        {
+                            "budget_type": b.budget_type,
+                            "budget_period": b.budget_period,
+                            "alert_level": alert_level.value,
+                            "alert_sent": b.alert_sent,
+                            "usage_pct": self._calc_usage_pct(
+                                b.used_tokens, b.max_tokens
+                            ),
+                            "instance_id": b.instance_id,
+                        }
+                    )
 
             has_unsent = any(
                 a["alert_level"] != AlertLevel.NONE and not a["alert_sent"]
@@ -883,12 +940,16 @@ class CostProtectionService:
             _validate_budget_type(budget_type)
 
             period = self._get_current_period(budget_type)
-            budget = self.db.query(AITokenBudget).filter_by(
-                company_id=company_id,
-                budget_type=budget_type,
-                budget_period=period,
-                instance_id=instance_id,
-            ).first()
+            budget = (
+                self.db.query(AITokenBudget)
+                .filter_by(
+                    company_id=company_id,
+                    budget_type=budget_type,
+                    budget_period=period,
+                    instance_id=instance_id,
+                )
+                .first()
+            )
 
             if budget is not None:
                 budget.alert_sent = True
@@ -909,19 +970,21 @@ class CostProtectionService:
             result = []
             for b in budgets:
                 usage_pct = self._calc_usage_pct(b.used_tokens, b.max_tokens)
-                result.append({
-                    "id": b.id,
-                    "company_id": b.company_id,
-                    "instance_id": b.instance_id,
-                    "budget_type": b.budget_type,
-                    "budget_period": b.budget_period,
-                    "max_tokens": b.max_tokens,
-                    "used_tokens": b.used_tokens or 0,
-                    "remaining_tokens": max(0, b.max_tokens - (b.used_tokens or 0)),
-                    "usage_pct": usage_pct,
-                    "status": b.status,
-                    "alert_sent": b.alert_sent,
-                })
+                result.append(
+                    {
+                        "id": b.id,
+                        "company_id": b.company_id,
+                        "instance_id": b.instance_id,
+                        "budget_type": b.budget_type,
+                        "budget_period": b.budget_period,
+                        "max_tokens": b.max_tokens,
+                        "used_tokens": b.used_tokens or 0,
+                        "remaining_tokens": max(0, b.max_tokens - (b.used_tokens or 0)),
+                        "usage_pct": usage_pct,
+                        "status": b.status,
+                        "alert_sent": b.alert_sent,
+                    }
+                )
 
             return result
 
@@ -969,12 +1032,16 @@ class CostProtectionService:
             period = self._get_current_period("daily")
             budget_key = f"tier_{tier_lower}"
 
-            budget = self.db.query(AITokenBudget).filter_by(
-                company_id=company_id,
-                budget_type="daily",
-                budget_period=period,
-                instance_id=budget_key,
-            ).first()
+            budget = (
+                self.db.query(AITokenBudget)
+                .filter_by(
+                    company_id=company_id,
+                    budget_type="daily",
+                    budget_period=period,
+                    instance_id=budget_key,
+                )
+                .first()
+            )
 
             # No budget record — create one with tier limits
             if budget is None:
@@ -988,8 +1055,7 @@ class CostProtectionService:
 
             tier_limit = TIER_DAILY_REQUEST_LIMITS[tier_lower]
             remaining = max(0, tier_limit - (budget.used_tokens or 0))
-            usage_pct = self._calc_usage_pct(
-                budget.used_tokens or 0, tier_limit)
+            usage_pct = self._calc_usage_pct(budget.used_tokens or 0, tier_limit)
 
             if remaining <= 0:
                 return BudgetCheckResult(
@@ -1015,10 +1081,7 @@ class CostProtectionService:
         except Exception as exc:
             logger.error(
                 "tier_budget_check_failed",
-                extra={
-                    "company_id": company_id,
-                    "tier": tier,
-                    "error": str(exc)},
+                extra={"company_id": company_id, "tier": tier, "error": str(exc)},
             )
             # BC-008: Allow on error
             return BudgetCheckResult(
@@ -1054,12 +1117,16 @@ class CostProtectionService:
             period = self._get_current_period("daily")
             budget_key = f"tier_{tier_lower}"
 
-            budget = self.db.query(AITokenBudget).filter_by(
-                company_id=company_id,
-                budget_type="daily",
-                budget_period=period,
-                instance_id=budget_key,
-            ).first()
+            budget = (
+                self.db.query(AITokenBudget)
+                .filter_by(
+                    company_id=company_id,
+                    budget_type="daily",
+                    budget_period=period,
+                    instance_id=budget_key,
+                )
+                .first()
+            )
 
             if budget is None:
                 budget = self._get_or_create_budget(
@@ -1091,10 +1158,7 @@ class CostProtectionService:
         except Exception as exc:
             logger.error(
                 "tier_usage_record_failed",
-                extra={
-                    "company_id": company_id,
-                    "tier": tier,
-                    "error": str(exc)},
+                extra={"company_id": company_id, "tier": tier, "error": str(exc)},
             )
             # BC-008: Don't crash
 
@@ -1125,12 +1189,16 @@ class CostProtectionService:
         max_tokens: int,
     ) -> AITokenBudget:
         """Get existing budget or create a new one. Idempotent."""
-        existing = self.db.query(AITokenBudget).filter_by(
-            company_id=company_id,
-            budget_type=budget_type,
-            budget_period=budget_period,
-            instance_id=instance_id,
-        ).first()
+        existing = (
+            self.db.query(AITokenBudget)
+            .filter_by(
+                company_id=company_id,
+                budget_type=budget_type,
+                budget_period=budget_period,
+                instance_id=instance_id,
+            )
+            .first()
+        )
 
         if existing is not None:
             return existing

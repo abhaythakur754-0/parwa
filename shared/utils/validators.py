@@ -8,11 +8,8 @@ Used throughout the API for input sanitization.
 
 import re
 
-
 # Precompiled regex patterns for performance
-_EMAIL_PATTERN = re.compile(
-    r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
-)
+_EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
 
 # E.164 format: + followed by 7-15 digits
 _PHONE_PATTERN = re.compile(r"^\+[1-9]\d{6,14}$")
@@ -129,7 +126,7 @@ def sanitize_string(value: str, max_length: int = 500) -> str:
     if not isinstance(value, str):
         return ""
     # Strip null bytes first (prevent log injection / data corruption)
-    value = value.replace('\x00', '')
+    value = value.replace("\x00", "")
     value = value.strip()
     # Collapse multiple whitespace into single space
     value = " ".join(value.split())

@@ -10,13 +10,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # Fixtures — import source modules with mocked logger
 # ═══════════════════════════════════════════════════════════════════════
 
 # Runtime-injected by _mock_logger fixture — satisfies flake8 F821
-ClassificationEngine = IntentType = IntentResult = KeywordClassifier = INTENT_PATTERNS = INTENT_TO_CATEGORY_MAP = None
+ClassificationEngine = IntentType = IntentResult = KeywordClassifier = (
+    INTENT_PATTERNS
+) = INTENT_TO_CATEGORY_MAP = None
 
 
 @pytest.fixture(autouse=True)
@@ -30,19 +31,23 @@ def _mock_logger():
             INTENT_PATTERNS,
             INTENT_TO_CATEGORY_MAP,
         )
-        globals().update({
-            "ClassificationEngine": ClassificationEngine,
-            "IntentType": IntentType,
-            "IntentResult": IntentResult,
-            "KeywordClassifier": KeywordClassifier,
-            "INTENT_PATTERNS": INTENT_PATTERNS,
-            "INTENT_TO_CATEGORY_MAP": INTENT_TO_CATEGORY_MAP,
-        })
+
+        globals().update(
+            {
+                "ClassificationEngine": ClassificationEngine,
+                "IntentType": IntentType,
+                "IntentResult": IntentResult,
+                "KeywordClassifier": KeywordClassifier,
+                "INTENT_PATTERNS": INTENT_PATTERNS,
+                "INTENT_TO_CATEGORY_MAP": INTENT_TO_CATEGORY_MAP,
+            }
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # 1. KeywordClassifier.classify() — 12 intents + edge (20 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestKeywordClassifierClassify:
     def setup_method(self):
@@ -53,23 +58,19 @@ class TestKeywordClassifierClassify:
         assert result.primary_intent == "refund"
 
     def test_technical_intent(self):
-        result = self.classifier.classify(
-            "The app keeps crashing with error 500")
+        result = self.classifier.classify("The app keeps crashing with error 500")
         assert result.primary_intent == "technical"
 
     def test_billing_intent(self):
-        result = self.classifier.classify(
-            "I have a question about my bill and invoice")
+        result = self.classifier.classify("I have a question about my bill and invoice")
         assert result.primary_intent == "billing"
 
     def test_complaint_intent(self):
-        result = self.classifier.classify(
-            "This is the worst service ever, I'm angry")
+        result = self.classifier.classify("This is the worst service ever, I'm angry")
         assert result.primary_intent == "complaint"
 
     def test_feature_request_intent(self):
-        result = self.classifier.classify(
-            "Please add a dark mode feature to your app")
+        result = self.classifier.classify("Please add a dark mode feature to your app")
         assert result.primary_intent == "feature_request"
 
     def test_general_intent(self):
@@ -81,8 +82,7 @@ class TestKeywordClassifierClassify:
         assert result.primary_intent == "cancellation"
 
     def test_shipping_intent(self):
-        result = self.classifier.classify(
-            "Where is my package tracking number?")
+        result = self.classifier.classify("Where is my package tracking number?")
         assert result.primary_intent == "shipping"
 
     def test_inquiry_intent(self):
@@ -126,19 +126,20 @@ class TestKeywordClassifierClassify:
         assert result.primary_intent == "complaint"
 
     def test_escalation_speak_to_someone(self):
-        result = self.classifier.classify(
-            "I need to speak to someone about this")
+        result = self.classifier.classify("I need to speak to someone about this")
         assert result.primary_intent == "escalation"
 
     def test_ship_tracking(self):
         result = self.classifier.classify(
-            "What is my order status and tracking number?")
+            "What is my order status and tracking number?"
+        )
         assert result.primary_intent == "shipping"
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # 2. Secondary Intents (10 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestSecondaryIntents:
     def setup_method(self):
@@ -172,8 +173,7 @@ class TestSecondaryIntents:
         assert isinstance(result.secondary_intents, list)
 
     def test_refund_billing_secondary(self):
-        result = self.classifier.classify(
-            "I want a refund for the charge on my bill")
+        result = self.classifier.classify("I want a refund for the charge on my bill")
         secondary_intents = [i for i, c in result.secondary_intents]
         # One should be billing or refund
         assert "refund" in secondary_intents or "billing" in secondary_intents
@@ -207,6 +207,7 @@ class TestSecondaryIntents:
 # ═══════════════════════════════════════════════════════════════════════
 # 3. Confidence Capping (8 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestConfidenceCapping:
     def setup_method(self):
@@ -251,8 +252,7 @@ class TestConfidenceCapping:
 
     def test_complaint_weighted_higher(self):
         """Complaint has weight 1.2."""
-        result = self.classifier.classify(
-            "I have a formal complaint about this")
+        result = self.classifier.classify("I have a formal complaint about this")
         assert result.primary_intent == "complaint"
         assert result.primary_confidence > 0.3
 
@@ -260,6 +260,7 @@ class TestConfidenceCapping:
 # ═══════════════════════════════════════════════════════════════════════
 # 4. Score Normalization (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestScoreNormalization:
     def setup_method(self):
@@ -294,6 +295,7 @@ class TestScoreNormalization:
 # ═══════════════════════════════════════════════════════════════════════
 # 5. ClassificationEngine.classify() (15 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestClassificationEngineClassify:
     def setup_method(self):
@@ -359,7 +361,9 @@ class TestClassificationEngineClassify:
         mock_router.async_execute_llm_call = AsyncMock()
         engine = ClassificationEngine(smart_router=mock_router)
         result = await engine.classify(
-            "refund my order", variant_type="mini_parwa", use_ai=True,
+            "refund my order",
+            variant_type="mini_parwa",
+            use_ai=True,
         )
         assert result.classification_method == "keyword"
         mock_router.async_execute_llm_call.assert_not_called()
@@ -371,10 +375,13 @@ class TestClassificationEngineClassify:
             return_value={
                 "content": '{"primary": "refund", "secondary": [], "confidences": {"refund": 0.9}}',
                 "model_used": "test-model",
-            })
+            }
+        )
         engine = ClassificationEngine(smart_router=mock_router)
         result = await engine.classify(
-            "refund my order", variant_type="parwa", use_ai=True,
+            "refund my order",
+            variant_type="parwa",
+            use_ai=True,
         )
         mock_router.async_execute_llm_call.assert_called_once()
 
@@ -385,10 +392,13 @@ class TestClassificationEngineClassify:
             return_value={
                 "content": '{"primary": "billing", "secondary": [], "confidences": {"billing": 0.8}}',
                 "model_used": "test-model",
-            })
+            }
+        )
         engine = ClassificationEngine(smart_router=mock_router)
         result = await engine.classify(
-            "bill issue", variant_type="parwa_high", use_ai=True,
+            "bill issue",
+            variant_type="parwa_high",
+            use_ai=True,
         )
         mock_router.async_execute_llm_call.assert_called_once()
 
@@ -396,10 +406,13 @@ class TestClassificationEngineClassify:
     async def test_ai_exception_fallback(self):
         mock_router = MagicMock()
         mock_router.async_execute_llm_call = AsyncMock(
-            side_effect=Exception("API down"))
+            side_effect=Exception("API down")
+        )
         engine = ClassificationEngine(smart_router=mock_router)
         result = await engine.classify(
-            "refund my order", variant_type="parwa", use_ai=True,
+            "refund my order",
+            variant_type="parwa",
+            use_ai=True,
         )
         assert result.classification_method == "keyword"
 
@@ -418,6 +431,7 @@ class TestClassificationEngineClassify:
 # 6. AI Classification (10 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestAIClassification:
     @pytest.mark.asyncio
     async def test_valid_json_response(self):
@@ -426,9 +440,12 @@ class TestAIClassification:
             return_value={
                 "content": '{"primary": "refund", "secondary": [{"intent": "billing", "confidence": 0.3}], "confidences": {"refund": 0.85, "billing": 0.3}}',
                 "model_used": "gemma-3-27b-it",
-            })
+            }
+        )
         engine = ClassificationEngine(smart_router=mock_router)
-        result = await engine.classify("I want a refund", variant_type="parwa", use_ai=True)
+        result = await engine.classify(
+            "I want a refund", variant_type="parwa", use_ai=True
+        )
         assert result.primary_intent == "refund"
         assert result.model_used == "gemma-3-27b-it"
         assert result.classification_method == "ai"
@@ -440,7 +457,8 @@ class TestAIClassification:
             return_value={
                 "content": '```json\n{"primary": "billing", "secondary": [], "confidences": {"billing": 0.8}}\n```',
                 "model_used": "test",
-            })
+            }
+        )
         engine = ClassificationEngine(smart_router=mock_router)
         result = await engine.classify("bill issue", variant_type="parwa", use_ai=True)
         assert result.primary_intent == "billing"
@@ -470,7 +488,8 @@ class TestAIClassification:
             return_value={
                 "content": '{"primary": "refund", "secondary": [], "confidences": {"refund": 1.5}}',
                 "model_used": "test",
-            })
+            }
+        )
         engine = ClassificationEngine(smart_router=mock_router)
         result = await engine.classify("test", variant_type="parwa", use_ai=True)
         assert result.primary_confidence <= 0.95
@@ -482,7 +501,8 @@ class TestAIClassification:
             return_value={
                 "content": '{"primary": "refund", "secondary": [], "confidences": {"refund": -0.5}}',
                 "model_used": "test",
-            })
+            }
+        )
         engine = ClassificationEngine(smart_router=mock_router)
         result = await engine.classify("test", variant_type="parwa", use_ai=True)
         assert result.primary_confidence >= 0.0
@@ -494,7 +514,8 @@ class TestAIClassification:
             return_value={
                 "content": '{"primary": "nonexistent_intent", "secondary": [], "confidences": {}}',
                 "model_used": "test",
-            })
+            }
+        )
         engine = ClassificationEngine(smart_router=mock_router)
         result = await engine.classify("test", variant_type="parwa", use_ai=True)
         assert result.primary_intent == "general"
@@ -506,7 +527,8 @@ class TestAIClassification:
             return_value={
                 "content": '{"primary": "refund", "secondary": [{"intent": "billing", "confidence": 0.3}], "confidences": {"refund": 0.85, "billing": 0.3}}',
                 "model_used": "test",
-            })
+            }
+        )
         engine = ClassificationEngine(smart_router=mock_router)
         result = await engine.classify("test", variant_type="parwa", use_ai=True)
         assert len(result.secondary_intents) >= 1
@@ -519,7 +541,8 @@ class TestAIClassification:
             return_value={
                 "content": '{"primary": "refund", "secondary": [], "confidences": {"refund": 0.8}}',
                 "model_used": "test",
-            })
+            }
+        )
         engine = ClassificationEngine(smart_router=mock_router)
         result = await engine.classify("test", variant_type="parwa", use_ai=True)
         assert len(result.all_scores) == 12
@@ -528,7 +551,8 @@ class TestAIClassification:
     async def test_ai_fallback_on_exception(self):
         mock_router = MagicMock()
         mock_router.async_execute_llm_call = AsyncMock(
-            side_effect=Exception("API down"))
+            side_effect=Exception("API down")
+        )
         engine = ClassificationEngine(smart_router=mock_router)
         result = await engine.classify("test", variant_type="parwa", use_ai=True)
         assert result.classification_method == "keyword"
@@ -537,6 +561,7 @@ class TestAIClassification:
 # ═══════════════════════════════════════════════════════════════════════
 # 7. IntentType Enum (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestIntentTypeEnum:
     def test_count_12(self):
@@ -549,7 +574,8 @@ class TestIntentTypeEnum:
             "billing",
             "complaint",
             "feature_request",
-            "general"}
+            "general",
+        }
         assert core.issubset({t.value for t in IntentType})
 
     def test_extended_intents_present(self):
@@ -559,7 +585,8 @@ class TestIntentTypeEnum:
             "inquiry",
             "escalation",
             "account",
-            "feedback"}
+            "feedback",
+        }
         assert extended.issubset({t.value for t in IntentType})
 
     def test_string_values(self):
@@ -575,6 +602,7 @@ class TestIntentTypeEnum:
 # ═══════════════════════════════════════════════════════════════════════
 # 8. Intent-to-Category Mapping (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestIntentToCategoryMapping:
     def test_all_12_intents_mapped(self):
@@ -600,24 +628,23 @@ class TestIntentToCategoryMapping:
 # 9. _safe_intent_from_string (8 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestSafeIntentFromString:
     def test_valid_refund(self):
-        assert ClassificationEngine._safe_intent_from_string(
-            "refund") == "refund"
+        assert ClassificationEngine._safe_intent_from_string("refund") == "refund"
 
     def test_valid_technical(self):
-        assert ClassificationEngine._safe_intent_from_string(
-            "technical") == "technical"
+        assert ClassificationEngine._safe_intent_from_string("technical") == "technical"
 
     def test_case_insensitive(self):
-        assert ClassificationEngine._safe_intent_from_string(
-            "REFUND") == "refund"
-        assert ClassificationEngine._safe_intent_from_string(
-            "Billing") == "billing"
+        assert ClassificationEngine._safe_intent_from_string("REFUND") == "refund"
+        assert ClassificationEngine._safe_intent_from_string("Billing") == "billing"
 
     def test_invalid_returns_general(self):
-        assert ClassificationEngine._safe_intent_from_string(
-            "xyz_nonexistent") == "general"
+        assert (
+            ClassificationEngine._safe_intent_from_string("xyz_nonexistent")
+            == "general"
+        )
 
     def test_none_returns_general(self):
         assert ClassificationEngine._safe_intent_from_string(None) == "general"
@@ -626,8 +653,7 @@ class TestSafeIntentFromString:
         assert ClassificationEngine._safe_intent_from_string("") == "general"
 
     def test_whitespace_returns_general(self):
-        assert ClassificationEngine._safe_intent_from_string(
-            "   ") == "general"
+        assert ClassificationEngine._safe_intent_from_string("   ") == "general"
 
     def test_non_string_returns_general(self):
         assert ClassificationEngine._safe_intent_from_string(123) == "general"
@@ -636,6 +662,7 @@ class TestSafeIntentFromString:
 # ═══════════════════════════════════════════════════════════════════════
 # 10. _default_result (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestDefaultResult:
     def setup_method(self):
@@ -670,6 +697,7 @@ class TestDefaultResult:
 # 11. Processing Time (3 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestProcessingTime:
     @pytest.mark.asyncio
     async def test_keyword_classification_has_time(self):
@@ -685,7 +713,8 @@ class TestProcessingTime:
             return_value={
                 "content": '{"primary": "refund", "secondary": [], "confidences": {"refund": 0.9}}',
                 "model_used": "test",
-            })
+            }
+        )
         engine = ClassificationEngine(smart_router=mock_router)
         result = await engine.classify("refund", variant_type="parwa", use_ai=True)
         assert result.processing_time_ms >= 0
@@ -701,6 +730,7 @@ class TestProcessingTime:
 # 12. Edge Cases (8 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_very_long_text(self):
@@ -712,7 +742,9 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_unicode_text(self):
         engine = ClassificationEngine()
-        result = await engine.classify("I want a refund — Großartiger Service! こんにちは", use_ai=False)
+        result = await engine.classify(
+            "I want a refund — Großartiger Service! こんにちは", use_ai=False
+        )
         assert result.primary_intent == "refund"
 
     @pytest.mark.asyncio
@@ -755,6 +787,7 @@ class TestEdgeCases:
 # ═══════════════════════════════════════════════════════════════════════
 # Additional tests for coverage
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestIntentPatterns:
     def test_all_intents_in_patterns(self):

@@ -38,6 +38,7 @@ logger = get_logger("gst")
 
 class DecisionScope(str, Enum):
     """Categories of strategic decisions."""
+
     CONTRACT_MODIFICATION = "contract_modification"
     FEATURE_REQUEST = "feature_request"
     POLICY_CHANGE = "policy_change"
@@ -48,6 +49,7 @@ class DecisionScope(str, Enum):
 
 class RiskCategory(str, Enum):
     """Risk categories for option evaluation."""
+
     COMPLIANCE = "compliance"
     CUSTOMER_CHURN = "customer_churn"
     FINANCIAL = "financial"
@@ -56,6 +58,7 @@ class RiskCategory(str, Enum):
 
 class RiskSeverity(str, Enum):
     """Risk severity levels."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -66,16 +69,40 @@ class RiskSeverity(str, Enum):
 
 
 _SCOPE_PATTERNS: List[Tuple[re.Pattern, DecisionScope]] = [
-    (re.compile(r"\b(contract|amendment|modify|renew|terminate|sla|agreement|terms)\b", re.I),
-     DecisionScope.CONTRACT_MODIFICATION),
-    (re.compile(r"\b(feature|request|enhancement|addition|capability|functionality|roadmap)\b", re.I),
-     DecisionScope.FEATURE_REQUEST),
-    (re.compile(r"\b(policy|compliance|regulation|standard|guideline|procedure|rule)\b", re.I),
-     DecisionScope.POLICY_CHANGE),
-    (re.compile(r"\b(escalat|urgent|priority|management|supervisor|senior|executive)\b", re.I),
-     DecisionScope.ESCALATION),
-    (re.compile(r"\b(pric(e|ing|e\s*change)|discount|surcharge|tier|plan\s*cost|rate|fee)\b", re.I),
-     DecisionScope.PRICING),
+    (
+        re.compile(
+            r"\b(contract|amendment|modify|renew|terminate|sla|agreement|terms)\b", re.I
+        ),
+        DecisionScope.CONTRACT_MODIFICATION,
+    ),
+    (
+        re.compile(
+            r"\b(feature|request|enhancement|addition|capability|functionality|roadmap)\b",
+            re.I,
+        ),
+        DecisionScope.FEATURE_REQUEST,
+    ),
+    (
+        re.compile(
+            r"\b(policy|compliance|regulation|standard|guideline|procedure|rule)\b",
+            re.I,
+        ),
+        DecisionScope.POLICY_CHANGE,
+    ),
+    (
+        re.compile(
+            r"\b(escalat|urgent|priority|management|supervisor|senior|executive)\b",
+            re.I,
+        ),
+        DecisionScope.ESCALATION,
+    ),
+    (
+        re.compile(
+            r"\b(pric(e|ing|e\s*change)|discount|surcharge|tier|plan\s*cost|rate|fee)\b",
+            re.I,
+        ),
+        DecisionScope.PRICING,
+    ),
 ]
 
 _DEFAULT_SCOPE = DecisionScope.GENERAL
@@ -85,22 +112,38 @@ _DEFAULT_SCOPE = DecisionScope.GENERAL
 
 _SCOPE_STAKEHOLDERS: Dict[DecisionScope, List[str]] = {
     DecisionScope.CONTRACT_MODIFICATION: [
-        "customer", "company", "legal", "finance",
+        "customer",
+        "company",
+        "legal",
+        "finance",
     ],
     DecisionScope.FEATURE_REQUEST: [
-        "customer", "product", "engineering", "support",
+        "customer",
+        "product",
+        "engineering",
+        "support",
     ],
     DecisionScope.POLICY_CHANGE: [
-        "customer", "company", "legal", "compliance",
+        "customer",
+        "company",
+        "legal",
+        "compliance",
     ],
     DecisionScope.ESCALATION: [
-        "customer", "support", "management", "engineering",
+        "customer",
+        "support",
+        "management",
+        "engineering",
     ],
     DecisionScope.PRICING: [
-        "customer", "finance", "sales", "product",
+        "customer",
+        "finance",
+        "sales",
+        "product",
     ],
     DecisionScope.GENERAL: [
-        "customer", "company",
+        "customer",
+        "company",
     ],
 }
 
@@ -109,22 +152,37 @@ _SCOPE_STAKEHOLDERS: Dict[DecisionScope, List[str]] = {
 
 _SCOPE_CONSTRAINTS: Dict[DecisionScope, List[str]] = {
     DecisionScope.CONTRACT_MODIFICATION: [
-        "timeline", "budget", "existing terms", "legal requirements",
+        "timeline",
+        "budget",
+        "existing terms",
+        "legal requirements",
     ],
     DecisionScope.FEATURE_REQUEST: [
-        "development capacity", "timeline", "technical feasibility", "budget",
+        "development capacity",
+        "timeline",
+        "technical feasibility",
+        "budget",
     ],
     DecisionScope.POLICY_CHANGE: [
-        "regulatory requirements", "communication timeline", "customer impact",
+        "regulatory requirements",
+        "communication timeline",
+        "customer impact",
     ],
     DecisionScope.ESCALATION: [
-        "response timeline", "resolution SLA", "available resources",
+        "response timeline",
+        "resolution SLA",
+        "available resources",
     ],
     DecisionScope.PRICING: [
-        "market conditions", "contract lock-in", "competitive landscape", "budget",
+        "market conditions",
+        "contract lock-in",
+        "competitive landscape",
+        "budget",
     ],
     DecisionScope.GENERAL: [
-        "timeline", "budget", "resources",
+        "timeline",
+        "budget",
+        "resources",
     ],
 }
 
@@ -143,10 +201,16 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 0.7,
             },
             "risks": [
-                {"category": RiskCategory.FINANCIAL, "severity": RiskSeverity.MEDIUM,
-                 "description": "Potential revenue loss from modified terms."},
-                {"category": RiskCategory.COMPLIANCE, "severity": RiskSeverity.LOW,
-                 "description": "Modification must be documented per policy."},
+                {
+                    "category": RiskCategory.FINANCIAL,
+                    "severity": RiskSeverity.MEDIUM,
+                    "description": "Potential revenue loss from modified terms.",
+                },
+                {
+                    "category": RiskCategory.COMPLIANCE,
+                    "severity": RiskSeverity.LOW,
+                    "description": "Modification must be documented per policy.",
+                },
             ],
         },
         {
@@ -158,8 +222,11 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 0.6,
             },
             "risks": [
-                {"category": RiskCategory.CUSTOMER_CHURN, "severity": RiskSeverity.MEDIUM,
-                 "description": "Customer may reject counter-offer."},
+                {
+                    "category": RiskCategory.CUSTOMER_CHURN,
+                    "severity": RiskSeverity.MEDIUM,
+                    "description": "Customer may reject counter-offer.",
+                },
             ],
         },
         {
@@ -171,8 +238,11 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 1.0,
             },
             "risks": [
-                {"category": RiskCategory.CUSTOMER_CHURN, "severity": RiskSeverity.HIGH,
-                 "description": "Customer may churn if modification is important to them."},
+                {
+                    "category": RiskCategory.CUSTOMER_CHURN,
+                    "severity": RiskSeverity.HIGH,
+                    "description": "Customer may churn if modification is important to them.",
+                },
             ],
         },
     ],
@@ -186,10 +256,16 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 0.5,
             },
             "risks": [
-                {"category": RiskCategory.OPERATIONAL, "severity": RiskSeverity.MEDIUM,
-                 "description": "Development resource allocation may impact other features."},
-                {"category": RiskCategory.FINANCIAL, "severity": RiskSeverity.LOW,
-                 "description": "Development cost for the new feature."},
+                {
+                    "category": RiskCategory.OPERATIONAL,
+                    "severity": RiskSeverity.MEDIUM,
+                    "description": "Development resource allocation may impact other features.",
+                },
+                {
+                    "category": RiskCategory.FINANCIAL,
+                    "severity": RiskSeverity.LOW,
+                    "description": "Development cost for the new feature.",
+                },
             ],
         },
         {
@@ -201,8 +277,11 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 0.8,
             },
             "risks": [
-                {"category": RiskCategory.CUSTOMER_CHURN, "severity": RiskSeverity.LOW,
-                 "description": "Customer may be dissatisfied with the wait."},
+                {
+                    "category": RiskCategory.CUSTOMER_CHURN,
+                    "severity": RiskSeverity.LOW,
+                    "description": "Customer may be dissatisfied with the wait.",
+                },
             ],
         },
         {
@@ -214,8 +293,11 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 0.9,
             },
             "risks": [
-                {"category": RiskCategory.CUSTOMER_CHURN, "severity": RiskSeverity.MEDIUM,
-                 "description": "Workaround may not fully meet customer expectations."},
+                {
+                    "category": RiskCategory.CUSTOMER_CHURN,
+                    "severity": RiskSeverity.MEDIUM,
+                    "description": "Workaround may not fully meet customer expectations.",
+                },
             ],
         },
     ],
@@ -229,10 +311,16 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 0.6,
             },
             "risks": [
-                {"category": RiskCategory.COMPLIANCE, "severity": RiskSeverity.MEDIUM,
-                 "description": "Must verify regulatory alignment of new policy."},
-                {"category": RiskCategory.OPERATIONAL, "severity": RiskSeverity.LOW,
-                 "description": "Staff training required for new policy."},
+                {
+                    "category": RiskCategory.COMPLIANCE,
+                    "severity": RiskSeverity.MEDIUM,
+                    "description": "Must verify regulatory alignment of new policy.",
+                },
+                {
+                    "category": RiskCategory.OPERATIONAL,
+                    "severity": RiskSeverity.LOW,
+                    "description": "Staff training required for new policy.",
+                },
             ],
         },
         {
@@ -244,8 +332,11 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 0.7,
             },
             "risks": [
-                {"category": RiskCategory.OPERATIONAL, "severity": RiskSeverity.LOW,
-                 "description": "Phased approach requires extended coordination."},
+                {
+                    "category": RiskCategory.OPERATIONAL,
+                    "severity": RiskSeverity.LOW,
+                    "description": "Phased approach requires extended coordination.",
+                },
             ],
         },
         {
@@ -257,8 +348,11 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 0.9,
             },
             "risks": [
-                {"category": RiskCategory.CUSTOMER_CHURN, "severity": RiskSeverity.MEDIUM,
-                 "description": "Customers expecting change may be dissatisfied."},
+                {
+                    "category": RiskCategory.CUSTOMER_CHURN,
+                    "severity": RiskSeverity.MEDIUM,
+                    "description": "Customers expecting change may be dissatisfied.",
+                },
             ],
         },
     ],
@@ -272,8 +366,11 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 0.9,
             },
             "risks": [
-                {"category": RiskCategory.OPERATIONAL, "severity": RiskSeverity.LOW,
-                 "description": "Senior management availability may affect response time."},
+                {
+                    "category": RiskCategory.OPERATIONAL,
+                    "severity": RiskSeverity.LOW,
+                    "description": "Senior management availability may affect response time.",
+                },
             ],
         },
         {
@@ -285,10 +382,16 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 0.7,
             },
             "risks": [
-                {"category": RiskCategory.CUSTOMER_CHURN, "severity": RiskSeverity.MEDIUM,
-                 "description": "Delayed escalation may increase customer frustration."},
-                {"category": RiskCategory.COMPLIANCE, "severity": RiskSeverity.LOW,
-                 "description": "Must still escalate if SLA-breach risk exists."},
+                {
+                    "category": RiskCategory.CUSTOMER_CHURN,
+                    "severity": RiskSeverity.MEDIUM,
+                    "description": "Delayed escalation may increase customer frustration.",
+                },
+                {
+                    "category": RiskCategory.COMPLIANCE,
+                    "severity": RiskSeverity.LOW,
+                    "description": "Must still escalate if SLA-breach risk exists.",
+                },
             ],
         },
         {
@@ -300,10 +403,16 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 0.5,
             },
             "risks": [
-                {"category": RiskCategory.OPERATIONAL, "severity": RiskSeverity.MEDIUM,
-                 "description": "Cross-functional coordination may slow initial response."},
-                {"category": RiskCategory.FINANCIAL, "severity": RiskSeverity.LOW,
-                 "description": "Additional resource allocation required."},
+                {
+                    "category": RiskCategory.OPERATIONAL,
+                    "severity": RiskSeverity.MEDIUM,
+                    "description": "Cross-functional coordination may slow initial response.",
+                },
+                {
+                    "category": RiskCategory.FINANCIAL,
+                    "severity": RiskSeverity.LOW,
+                    "description": "Additional resource allocation required.",
+                },
             ],
         },
     ],
@@ -317,10 +426,16 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 0.8,
             },
             "risks": [
-                {"category": RiskCategory.FINANCIAL, "severity": RiskSeverity.HIGH,
-                 "description": "Revenue impact from pricing adjustment."},
-                {"category": RiskCategory.COMPLIANCE, "severity": RiskSeverity.MEDIUM,
-                 "description": "Must verify pricing change aligns with policy limits."},
+                {
+                    "category": RiskCategory.FINANCIAL,
+                    "severity": RiskSeverity.HIGH,
+                    "description": "Revenue impact from pricing adjustment.",
+                },
+                {
+                    "category": RiskCategory.COMPLIANCE,
+                    "severity": RiskSeverity.MEDIUM,
+                    "description": "Must verify pricing change aligns with policy limits.",
+                },
             ],
         },
         {
@@ -332,8 +447,11 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 0.7,
             },
             "risks": [
-                {"category": RiskCategory.FINANCIAL, "severity": RiskSeverity.MEDIUM,
-                 "description": "Temporary discount may set pricing expectations."},
+                {
+                    "category": RiskCategory.FINANCIAL,
+                    "severity": RiskSeverity.MEDIUM,
+                    "description": "Temporary discount may set pricing expectations.",
+                },
             ],
         },
         {
@@ -345,8 +463,11 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 0.9,
             },
             "risks": [
-                {"category": RiskCategory.CUSTOMER_CHURN, "severity": RiskSeverity.HIGH,
-                 "description": "Customer may churn due to pricing concerns."},
+                {
+                    "category": RiskCategory.CUSTOMER_CHURN,
+                    "severity": RiskSeverity.HIGH,
+                    "description": "Customer may churn due to pricing concerns.",
+                },
             ],
         },
     ],
@@ -360,8 +481,11 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 0.7,
             },
             "risks": [
-                {"category": RiskCategory.OPERATIONAL, "severity": RiskSeverity.LOW,
-                 "description": "Standard implementation may require additional resources."},
+                {
+                    "category": RiskCategory.OPERATIONAL,
+                    "severity": RiskSeverity.LOW,
+                    "description": "Standard implementation may require additional resources.",
+                },
             ],
         },
         {
@@ -373,8 +497,11 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 0.8,
             },
             "risks": [
-                {"category": RiskCategory.CUSTOMER_CHURN, "severity": RiskSeverity.LOW,
-                 "description": "Delay in response may affect customer satisfaction."},
+                {
+                    "category": RiskCategory.CUSTOMER_CHURN,
+                    "severity": RiskSeverity.LOW,
+                    "description": "Delay in response may affect customer satisfaction.",
+                },
             ],
         },
         {
@@ -386,8 +513,11 @@ _SCOPE_OPTIONS: Dict[DecisionScope, List[Dict[str, Any]]] = {
                 "implementation_feasibility": 1.0,
             },
             "risks": [
-                {"category": RiskCategory.CUSTOMER_CHURN, "severity": RiskSeverity.HIGH,
-                 "description": "Denial may lead to customer churn."},
+                {
+                    "category": RiskCategory.CUSTOMER_CHURN,
+                    "severity": RiskSeverity.HIGH,
+                    "description": "Denial may lead to customer churn.",
+                },
             ],
         },
     ],
@@ -529,7 +659,8 @@ class GSTProcessor:
     """
 
     def __init__(
-        self, config: Optional[GSTConfig] = None,
+        self,
+        config: Optional[GSTConfig] = None,
     ):
         self.config = config or GSTConfig()
 
@@ -553,9 +684,11 @@ class GSTProcessor:
 
         scope = self._classify_scope(query)
         stakeholders = _SCOPE_STAKEHOLDERS.get(
-            scope, _SCOPE_STAKEHOLDERS[DecisionScope.GENERAL])
+            scope, _SCOPE_STAKEHOLDERS[DecisionScope.GENERAL]
+        )
         constraints = _SCOPE_CONSTRAINTS.get(
-            scope, _SCOPE_CONSTRAINTS[DecisionScope.GENERAL])
+            scope, _SCOPE_CONSTRAINTS[DecisionScope.GENERAL]
+        )
 
         return {
             "scope": scope.value,
@@ -582,8 +715,7 @@ class GSTProcessor:
         Returns:
             List of GSTOption objects with base scores and risks.
         """
-        templates = _SCOPE_OPTIONS.get(
-            scope, _SCOPE_OPTIONS[DecisionScope.GENERAL])
+        templates = _SCOPE_OPTIONS.get(scope, _SCOPE_OPTIONS[DecisionScope.GENERAL])
 
         # Limit by max_options config
         selected = templates[: self.config.max_options]
@@ -664,12 +796,14 @@ class GSTProcessor:
 
         for option in options:
             if not option.risks:
-                option_risks.append({
-                    "option_id": option.option_id,
-                    "risk_count": 0,
-                    "max_severity": "none",
-                    "risk_score": 0.0,
-                })
+                option_risks.append(
+                    {
+                        "option_id": option.option_id,
+                        "risk_count": 0,
+                        "max_severity": "none",
+                        "risk_score": 0.0,
+                    }
+                )
                 continue
 
             max_sev = RiskSeverity.LOW
@@ -687,11 +821,7 @@ class GSTProcessor:
                 else:
                     sev_enum = RiskSeverity(sev)
 
-                if severity_order.get(
-                        sev_enum,
-                        0) > severity_order.get(
-                        max_sev,
-                        0):
+                if severity_order.get(sev_enum, 0) > severity_order.get(max_sev, 0):
                     max_sev = sev_enum
 
                 risk_score += severity_order.get(sev_enum, 0) * 0.25
@@ -699,28 +829,34 @@ class GSTProcessor:
 
             risk_score = min(risk_score, 1.0)
 
-            if severity_order.get(
-                    max_sev, 0) > severity_order.get(
-                    overall_max_severity, 0):
+            if severity_order.get(max_sev, 0) > severity_order.get(
+                overall_max_severity, 0
+            ):
                 overall_max_severity = max_sev
 
-            option_risks.append({
-                "option_id": option.option_id,
-                "risk_count": len(option.risks),
-                "max_severity": max_sev.value if isinstance(max_sev, RiskSeverity) else str(max_sev),
-                "risk_score": round(risk_score, 4),
-            })
+            option_risks.append(
+                {
+                    "option_id": option.option_id,
+                    "risk_count": len(option.risks),
+                    "max_severity": (
+                        max_sev.value
+                        if isinstance(max_sev, RiskSeverity)
+                        else str(max_sev)
+                    ),
+                    "risk_score": round(risk_score, 4),
+                }
+            )
 
         return {
             "per_option": option_risks,
-            "overall_max_severity": overall_max_severity.value if isinstance(
-                overall_max_severity,
-                RiskSeverity) else str(overall_max_severity),
+            "overall_max_severity": (
+                overall_max_severity.value
+                if isinstance(overall_max_severity, RiskSeverity)
+                else str(overall_max_severity)
+            ),
             "risk_categories": sorted(overall_risk_categories),
             "overall_risk_score": round(
-                max(
-                    (r["risk_score"] for r in option_risks),
-                    default=0.0),
+                max((r["risk_score"] for r in option_risks), default=0.0),
                 4,
             ),
         }
@@ -758,11 +894,10 @@ class GSTProcessor:
 
         # Filter options that pass risk threshold
         safe_options = [
-            o for o in options if (
-                1.0
-                - risk_lookup.get(
-                    o.option_id,
-                    0.0)) >= self.config.risk_threshold]
+            o
+            for o in options
+            if (1.0 - risk_lookup.get(o.option_id, 0.0)) >= self.config.risk_threshold
+        ]
 
         # If no safe options, pick the one with lowest risk
         if not safe_options:
@@ -795,9 +930,7 @@ class GSTProcessor:
         )
         if sorted_dims:
             top_dim, top_val = sorted_dims[0]
-            rationale_parts.append(
-                f"Strongest dimension: {top_dim} ({top_val:.2f})."
-            )
+            rationale_parts.append(f"Strongest dimension: {top_dim} ({top_val:.2f}).")
 
         # Add risk info
         risk_info = risk_lookup.get(best.option_id, 0.0)
@@ -811,7 +944,8 @@ class GSTProcessor:
     # ── Full Pipeline ──────────────────────────────────────────────
 
     async def process(
-        self, query: str,
+        self,
+        query: str,
     ) -> GSTResult:
         """
         Run the full 5-checkpoint GST pipeline.
@@ -901,12 +1035,17 @@ class GSTProcessor:
                 company_id=self.config.company_id,
             )
             return GSTResult(
-                problem_definition=problem_definition if 'problem_definition' in dir() else {},
-                options=options if 'options' in dir() else [],
-                checkpoints=checkpoints if 'checkpoints' in dir() else [],
-                steps_applied=steps_applied
-                + ["error_fallback"] if 'steps_applied' in dir() else ["error_fallback"],
-                risk_summary=risk_summary if 'risk_summary' in dir() else {},
+                problem_definition=(
+                    problem_definition if "problem_definition" in dir() else {}
+                ),
+                options=options if "options" in dir() else [],
+                checkpoints=checkpoints if "checkpoints" in dir() else [],
+                steps_applied=(
+                    steps_applied + ["error_fallback"]
+                    if "steps_applied" in dir()
+                    else ["error_fallback"]
+                ),
+                risk_summary=risk_summary if "risk_summary" in dir() else {},
             )
 
         return GSTResult(
@@ -952,7 +1091,8 @@ class GSTNode(BaseTechniqueNode):
     """
 
     def __init__(
-        self, config: Optional[GSTConfig] = None,
+        self,
+        config: Optional[GSTConfig] = None,
     ):
         self._config = config or GSTConfig()
         self._processor = GSTProcessor(config=self._config)
@@ -994,8 +1134,7 @@ class GSTNode(BaseTechniqueNode):
             self.record_result(state, result.to_dict())
 
             # If we have a recommendation, append to response parts
-            if result.recommendation and result.recommendation.get(
-                    "selected_option"):
+            if result.recommendation and result.recommendation.get("selected_option"):
                 rec_text = result.recommendation.get("rationale", "")
                 if rec_text:
                     state.response_parts.append(rec_text)

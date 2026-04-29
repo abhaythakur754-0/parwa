@@ -40,6 +40,7 @@ logger = get_logger("self_healing")
 
 class ConditionType(str, Enum):
     """Types of conditions the healing engine can detect."""
+
     CONSECUTIVE_FAILURES = "consecutive_failures"
     ERROR_SPIKE = "error_spike"
     LATENCY_SPIKE = "latency_spike"
@@ -50,6 +51,7 @@ class ConditionType(str, Enum):
 
 class ActionType(str, Enum):
     """Types of healing actions the engine can take."""
+
     PROVIDER_DISABLE = "provider_disable"
     PROVIDER_ENABLE = "provider_enable"
     PROVIDER_SWITCH = "provider_switch"
@@ -62,6 +64,7 @@ class ActionType(str, Enum):
 
 class HealingStatus(str, Enum):
     """Status of a healing action."""
+
     TRIGGERED = "triggered"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -77,6 +80,7 @@ class HealingStatus(str, Enum):
 @dataclass
 class HealingRule:
     """A rule that maps a condition to a healing action."""
+
     rule_id: str
     condition_type: str
     action_type: str
@@ -89,6 +93,7 @@ class HealingRule:
 @dataclass
 class HealingAction:
     """Record of a healing action taken by the engine."""
+
     timestamp: str
     company_id: str
     variant: str
@@ -102,6 +107,7 @@ class HealingAction:
 @dataclass
 class ProviderState:
     """Per-provider healing state within a variant."""
+
     provider: str
     model_id: str
     tier: str
@@ -119,6 +125,7 @@ class ProviderState:
 @dataclass
 class ThresholdAdjustment:
     """Record of a confidence threshold adjustment."""
+
     original_threshold: float
     current_threshold: float
     adjusted_at: str
@@ -129,6 +136,7 @@ class ThresholdAdjustment:
 @dataclass
 class VariantHealingState:
     """Complete healing state for one variant within a company."""
+
     variant: str
     provider_states: Dict[str, ProviderState] = field(default_factory=dict)
     threshold_adjustments: Dict[str, ThresholdAdjustment] = field(
@@ -147,6 +155,7 @@ class VariantHealingState:
 @dataclass
 class VariantHealthSummary:
     """Health summary for one variant."""
+
     variant: str
     healthy: bool = True
     issues: List[str] = field(default_factory=list)
@@ -266,9 +275,7 @@ class SelfHealingEngine:
         self._lock = threading.RLock()
 
         # company_id -> variant -> VariantHealingState
-        self._state: Dict[str, Dict[str, VariantHealingState]] = (
-            defaultdict(dict)
-        )
+        self._state: Dict[str, Dict[str, VariantHealingState]] = defaultdict(dict)
 
         # company_id -> list of HealingAction (audit trail)
         self._history: Dict[str, List[HealingAction]] = defaultdict(list)
@@ -348,7 +355,8 @@ class SelfHealingEngine:
     # ── Or Get / Manage Rules ──────────────────────────────────
 
     def get_rules(
-        self, company_id: str,
+        self,
+        company_id: str,
     ) -> List[HealingRule]:
         """Get healing rules for a company. Returns defaults if none set."""
         try:
@@ -365,7 +373,9 @@ class SelfHealingEngine:
             return list(self._default_rules)
 
     def set_rules(
-        self, company_id: str, rules: List[HealingRule],
+        self,
+        company_id: str,
+        rules: List[HealingRule],
     ) -> None:
         """Set custom healing rules for a company."""
         try:
@@ -378,7 +388,10 @@ class SelfHealingEngine:
             )
 
     def enable_rule(
-        self, company_id: str, rule_id: str, enabled: bool = True,
+        self,
+        company_id: str,
+        rule_id: str,
+        enabled: bool = True,
     ) -> bool:
         """Enable or disable a specific healing rule."""
         try:
@@ -386,6 +399,7 @@ class SelfHealingEngine:
                 rules = self._rules.get(company_id)
                 if rules is None:
                     import copy as _copy
+
                     rules = _copy.deepcopy(self._default_rules)
                     self._rules[company_id] = rules
                 for rule in rules:
@@ -424,7 +438,8 @@ class SelfHealingEngine:
         try:
             with self._lock:
                 state = self._get_or_create_variant_state(
-                    company_id, variant_type,
+                    company_id,
+                    variant_type,
                 )
                 pkey = _provider_key(provider, model_id)
                 now = _now_utc()
@@ -451,7 +466,9 @@ class SelfHealingEngine:
                     # Check for recovery (disabled or recovering)
                     if ps.status in ("disabled", "recovering"):
                         self._attempt_recovery(
-                            company_id, variant_type, pkey,
+                            company_id,
+                            variant_type,
+                            pkey,
                         )
                 else:
                     # Failure
@@ -472,18 +489,19 @@ class SelfHealingEngine:
 
                 # Prune windows
                 if len(state.error_window) > _ERROR_WINDOW_SIZE:
-                    state.error_window = state.error_window[
-                        -_ERROR_WINDOW_SIZE:
-                    ]
+                    state.error_window = state.error_window[-_ERROR_WINDOW_SIZE:]
                 if len(state.latency_window) > _LATENCY_WINDOW_SIZE:
-                    state.latency_window = state.latency_window[
-                        -_LATENCY_WINDOW_SIZE:
-                    ]
+                    state.latency_window = state.latency_window[-_LATENCY_WINDOW_SIZE:]
 
             # Run healing checks (outside lock for safety)
             return self._run_healing_checks(
-                company_id, variant_type, provider, model_id, tier,
-                confidence_score, error,
+                company_id,
+                variant_type,
+                provider,
+                model_id,
+                tier,
+                confidence_score,
+                error,
             )
 
         except Exception:
@@ -512,22 +530,30 @@ class SelfHealingEngine:
 
         with self._lock:
             state = self._get_or_create_variant_state(
-                company_id, variant_type,
+                company_id,
+                variant_type,
             )
 
         for rule in enabled_rules:
             try:
                 action = self._check_rule(
-                    company_id, variant_type, rule,
-                    provider, model_id, tier, confidence_score, error,
+                    company_id,
+                    variant_type,
+                    rule,
+                    provider,
+                    model_id,
+                    tier,
+                    confidence_score,
+                    error,
                 )
                 if action is not None:
                     actions.append(action)
                     self._record_action(company_id, action)
             except Exception:
                 logger.exception(
-                    "self_healing_rule_check_failed rule_id=%s "
-                    "company_id=%s", rule.rule_id, company_id,
+                    "self_healing_rule_check_failed rule_id=%s " "company_id=%s",
+                    rule.rule_id,
+                    company_id,
                 )
 
         return actions
@@ -549,24 +575,21 @@ class SelfHealingEngine:
         if rule.condition_type == ConditionType.CONFIDENCE_DROP.value:
             with self._lock:
                 state = self._get_or_create_variant_state(
-                    company_id, variant_type,
+                    company_id,
+                    variant_type,
                 )
-                if (state.consecutive_high_scores
-                        >= _RECOVERY_HIGH_SCORE_CONSECUTIVE
-                        and variant_type
-                        in state.threshold_adjustments):
+                if (
+                    state.consecutive_high_scores >= _RECOVERY_HIGH_SCORE_CONSECUTIVE
+                    and variant_type in state.threshold_adjustments
+                ):
                     default_thresh = _default_threshold(variant_type)
                     state.threshold_adjustments.pop(variant_type)
                     return HealingAction(
                         timestamp=_now_utc(),
                         company_id=company_id,
                         variant=variant_type,
-                        condition_type=(
-                            ConditionType.CONFIDENCE_DROP.value
-                        ),
-                        action_type=(
-                            ActionType.THRESHOLD_RESTORE.value
-                        ),
+                        condition_type=(ConditionType.CONFIDENCE_DROP.value),
+                        action_type=(ActionType.THRESHOLD_RESTORE.value),
                         details={
                             "variant": variant_type,
                             "new_threshold": default_thresh,
@@ -575,9 +598,7 @@ class SelfHealingEngine:
                                 f"{state.consecutive_high_scores} "
                                 "consecutive high scores"
                             ),
-                            "consecutive_high_scores": (
-                                state.consecutive_high_scores
-                            ),
+                            "consecutive_high_scores": (state.consecutive_high_scores),
                         },
                         status=HealingStatus.COMPLETED.value,
                         rule_id=rule.rule_id,
@@ -585,7 +606,8 @@ class SelfHealingEngine:
 
         # Cooldown check
         last_action = self._get_last_action_for_rule(
-            company_id, rule.rule_id,
+            company_id,
+            rule.rule_id,
         )
         if last_action is not None:
             if _seconds_since(last_action.timestamp) < rule.cooldown_seconds:
@@ -593,7 +615,8 @@ class SelfHealingEngine:
 
         with self._lock:
             state = self._get_or_create_variant_state(
-                company_id, variant_type,
+                company_id,
+                variant_type,
             )
             pkey = _provider_key(provider, model_id)
             ps = state.provider_states.get(pkey)
@@ -601,11 +624,15 @@ class SelfHealingEngine:
         # ── Consecutive Failures ───────────────────────────
         if rule.condition_type == ConditionType.CONSECUTIVE_FAILURES.value:
             if ps and ps.consecutive_failures >= rule.params.get(
-                "failure_limit", _CONSECUTIVE_FAILURE_LIMIT,
+                "failure_limit",
+                _CONSECUTIVE_FAILURE_LIMIT,
             ):
                 return self._action_disable_provider(
-                    company_id, variant_type, pkey,
-                    ps, f"Consecutive failures: {ps.consecutive_failures}",
+                    company_id,
+                    variant_type,
+                    pkey,
+                    ps,
+                    f"Consecutive failures: {ps.consecutive_failures}",
                     rule.rule_id,
                 )
 
@@ -615,7 +642,9 @@ class SelfHealingEngine:
             if spike:
                 if ps:
                     return self._action_disable_provider(
-                        company_id, variant_type, pkey,
+                        company_id,
+                        variant_type,
+                        pkey,
                         ps,
                         f"Error spike detected: {spike:.1%}",
                         rule.rule_id,
@@ -627,7 +656,8 @@ class SelfHealingEngine:
             if latency_info is not None:
                 baseline_avg, current_p90 = latency_info
                 multiplier = rule.params.get(
-                    "multiplier", _LATENCY_SPIKE_MULTIPLIER,
+                    "multiplier",
+                    _LATENCY_SPIKE_MULTIPLIER,
                 )
                 if ps and ps.status not in ("disabled",):
                     return HealingAction(
@@ -655,7 +685,9 @@ class SelfHealingEngine:
         # ── Confidence Drop ───────────────────────────────
         elif rule.condition_type == ConditionType.CONFIDENCE_DROP.value:
             threshold_info = self._check_confidence_drop(
-                variant_type, state, rule,
+                variant_type,
+                state,
+                rule,
             )
             if threshold_info is not None:
                 new_thresh, reason = threshold_info
@@ -669,9 +701,7 @@ class SelfHealingEngine:
                         "variant": variant_type,
                         "new_threshold": new_thresh,
                         "reason": reason,
-                        "consecutive_low_scores": (
-                            state.consecutive_low_scores
-                        ),
+                        "consecutive_low_scores": (state.consecutive_low_scores),
                     },
                     status=HealingStatus.TRIGGERED.value,
                     rule_id=rule.rule_id,
@@ -697,12 +727,14 @@ class SelfHealingEngine:
                     )
 
         # ── Provider Unhealthy ────────────────────────────
-        elif (rule.condition_type
-              == ConditionType.PROVIDER_UNHEALTHY.value):
+        elif rule.condition_type == ConditionType.PROVIDER_UNHEALTHY.value:
             if ps and ps.status == "unhealthy":
                 return self._action_disable_provider(
-                    company_id, variant_type, pkey,
-                    ps, "Provider reported unhealthy",
+                    company_id,
+                    variant_type,
+                    pkey,
+                    ps,
+                    "Provider reported unhealthy",
                     rule.rule_id,
                 )
 
@@ -734,7 +766,8 @@ class SelfHealingEngine:
         curr_rate = curr_errors / len(curr_window) if curr_window else 0
 
         spike_threshold = rule.params.get(
-            "spike_threshold", _ERROR_SPIKE_THRESHOLD,
+            "spike_threshold",
+            _ERROR_SPIKE_THRESHOLD,
         )
 
         if prev_rate > 0 and curr_rate > 0:
@@ -767,6 +800,7 @@ class SelfHealingEngine:
             return None
 
         import math
+
         baseline_avg = sum(baseline) / len(baseline)
         sorted_curr = sorted(current)
         p90_idx = int(math.ceil(0.9 * len(sorted_curr))) - 1
@@ -774,7 +808,8 @@ class SelfHealingEngine:
         current_p90 = sorted_curr[p90_idx]
 
         multiplier = rule.params.get(
-            "multiplier", _LATENCY_SPIKE_MULTIPLIER,
+            "multiplier",
+            _LATENCY_SPIKE_MULTIPLIER,
         )
         threshold = baseline_avg * multiplier
 
@@ -799,9 +834,7 @@ class SelfHealingEngine:
         # Get current adjusted threshold
         adj_key = variant_type
         if adj_key in state.threshold_adjustments:
-            current_thresh = (
-                state.threshold_adjustments[adj_key].current_threshold
-            )
+            current_thresh = state.threshold_adjustments[adj_key].current_threshold
         else:
             current_thresh = default_thresh
 
@@ -820,8 +853,7 @@ class SelfHealingEngine:
                     current_threshold=new_thresh,
                     adjusted_at=_now_utc(),
                     reason=(
-                        "Consecutive low scores: "
-                        f"{state.consecutive_low_scores}"
+                        "Consecutive low scores: " f"{state.consecutive_low_scores}"
                     ),
                     low_score_count=state.consecutive_low_scores,
                 )
@@ -888,7 +920,8 @@ class SelfHealingEngine:
     ) -> Optional[HealingAction]:
         """Attempt to recover a disabled/failing provider."""
         state = self._get_or_create_variant_state(
-            company_id, variant_type,
+            company_id,
+            variant_type,
         )
         ps = state.provider_states.get(pkey)
         if ps is None:
@@ -898,9 +931,10 @@ class SelfHealingEngine:
             return None
 
         # Check cooldown between recovery attempts
-        if (ps.last_recovery_attempt is not None
-                and _seconds_since(ps.last_recovery_attempt)
-                < _RECOVERY_COOLDOWN_SECONDS):
+        if (
+            ps.last_recovery_attempt is not None
+            and _seconds_since(ps.last_recovery_attempt) < _RECOVERY_COOLDOWN_SECONDS
+        ):
             return None
 
         with self._lock:
@@ -962,7 +996,9 @@ class SelfHealingEngine:
     # ── Internal State Management ──────────────────────────────
 
     def _get_or_create_variant_state(
-        self, company_id: str, variant_type: str,
+        self,
+        company_id: str,
+        variant_type: str,
     ) -> VariantHealingState:
         """Get or create healing state for a variant."""
         if variant_type not in self._state[company_id]:
@@ -972,7 +1008,9 @@ class SelfHealingEngine:
         return self._state[company_id][variant_type]
 
     def _record_action(
-        self, company_id: str, action: HealingAction,
+        self,
+        company_id: str,
+        action: HealingAction,
     ) -> None:
         """Record a healing action in the audit trail."""
         with self._lock:
@@ -982,7 +1020,9 @@ class SelfHealingEngine:
                 self._history[company_id] = history[-_MAX_HEALING_HISTORY:]
 
     def _get_last_action_for_rule(
-        self, company_id: str, rule_id: str,
+        self,
+        company_id: str,
+        rule_id: str,
     ) -> Optional[HealingAction]:
         """Get the most recent action for a specific rule."""
         history = self._history.get(company_id, [])
@@ -994,7 +1034,8 @@ class SelfHealingEngine:
     # ── Public Query Methods ───────────────────────────────────
 
     def get_healing_history(
-        self, company_id: str,
+        self,
+        company_id: str,
     ) -> List[HealingAction]:
         """Get the healing action audit trail for a company."""
         try:
@@ -1008,15 +1049,18 @@ class SelfHealingEngine:
             return []
 
     def get_active_healings(
-        self, company_id: str,
+        self,
+        company_id: str,
     ) -> List[HealingAction]:
         """Get currently active healing processes."""
         try:
             with self._lock:
                 all_actions = self._history.get(company_id, [])
                 active = [
-                    a for a in all_actions
-                    if a.status in (
+                    a
+                    for a in all_actions
+                    if a.status
+                    in (
                         HealingStatus.TRIGGERED.value,
                         HealingStatus.IN_PROGRESS.value,
                     )
@@ -1030,7 +1074,8 @@ class SelfHealingEngine:
             return []
 
     def get_variant_health(
-        self, company_id: str,
+        self,
+        company_id: str,
     ) -> List[VariantHealthSummary]:
         """Get per-variant health summary."""
         try:
@@ -1044,11 +1089,9 @@ class SelfHealingEngine:
 
                     # Check for threshold adjustment
                     if variant in vstate.threshold_adjustments:
-                        current_thresh = (
-                            vstate.threshold_adjustments[
-                                variant
-                            ].current_threshold
-                        )
+                        current_thresh = vstate.threshold_adjustments[
+                            variant
+                        ].current_threshold
 
                     issues: List[str] = []
                     provider_status: Dict[str, str] = {}
@@ -1075,23 +1118,29 @@ class SelfHealingEngine:
                         )
 
                     active = [
-                        a for a in self._history.get(company_id, [])
-                        if (a.variant == variant
-                            and a.status in (
+                        a
+                        for a in self._history.get(company_id, [])
+                        if (
+                            a.variant == variant
+                            and a.status
+                            in (
                                 HealingStatus.TRIGGERED.value,
                                 HealingStatus.IN_PROGRESS.value,
-                            ))
+                            )
+                        )
                     ]
 
-                    summaries.append(VariantHealthSummary(
-                        variant=variant,
-                        healthy=len(issues) == 0,
-                        issues=issues,
-                        active_healings=len(active),
-                        provider_status=provider_status,
-                        threshold_current=current_thresh,
-                        threshold_original=default_thresh,
-                    ))
+                    summaries.append(
+                        VariantHealthSummary(
+                            variant=variant,
+                            healthy=len(issues) == 0,
+                            issues=issues,
+                            active_healings=len(active),
+                            provider_status=provider_status,
+                            threshold_current=current_thresh,
+                            threshold_original=default_thresh,
+                        )
+                    )
 
             return summaries
         except Exception:
@@ -1117,19 +1166,20 @@ class SelfHealingEngine:
                     variant_health = []
                     for variant, vstate in company_state.items():
                         disabled_count = sum(
-                            1 for ps in vstate.provider_states.values()
+                            1
+                            for ps in vstate.provider_states.values()
                             if ps.status in ("disabled", "unhealthy")
                         )
-                        variant_health.append({
-                            "variant": variant,
-                            "disabled_providers": disabled_count,
-                            "total_providers": len(
-                                vstate.provider_states,
-                            ),
-                            "low_score_streak": (
-                                vstate.consecutive_low_scores
-                            ),
-                        })
+                        variant_health.append(
+                            {
+                                "variant": variant,
+                                "disabled_providers": disabled_count,
+                                "total_providers": len(
+                                    vstate.provider_states,
+                                ),
+                                "low_score_streak": (vstate.consecutive_low_scores),
+                            }
+                        )
 
                     company_summaries[company_id] = {
                         "variants": variant_health,
@@ -1152,20 +1202,19 @@ class SelfHealingEngine:
             }
 
     def get_current_threshold(
-        self, company_id: str, variant_type: str,
+        self,
+        company_id: str,
+        variant_type: str,
     ) -> float:
         """Get the current (possibly adjusted) threshold for a variant."""
         try:
             with self._lock:
                 state = self._get_or_create_variant_state(
-                    company_id, variant_type,
+                    company_id,
+                    variant_type,
                 )
                 if variant_type in state.threshold_adjustments:
-                    return (
-                        state.threshold_adjustments[
-                            variant_type
-                        ].current_threshold
-                    )
+                    return state.threshold_adjustments[variant_type].current_threshold
                 return _default_threshold(variant_type)
         except Exception:
             logger.exception(
@@ -1185,7 +1234,8 @@ class SelfHealingEngine:
         try:
             with self._lock:
                 state = self._get_or_create_variant_state(
-                    company_id, variant_type,
+                    company_id,
+                    variant_type,
                 )
                 pkey = _provider_key(provider, model_id)
                 return state.provider_states.get(pkey)
@@ -1207,7 +1257,8 @@ class SelfHealingEngine:
         try:
             with self._lock:
                 state = self._get_or_create_variant_state(
-                    company_id, variant_type,
+                    company_id,
+                    variant_type,
                 )
                 pkey = _provider_key(provider, model_id)
                 ps = state.provider_states.get(pkey)
@@ -1255,7 +1306,8 @@ class SelfHealingEngine:
         try:
             with self._lock:
                 state = self._get_or_create_variant_state(
-                    company_id, variant_type,
+                    company_id,
+                    variant_type,
                 )
                 pkey = _provider_key(provider, model_id)
                 if pkey not in state.provider_states:
@@ -1306,7 +1358,8 @@ class SelfHealingEngine:
         try:
             with self._lock:
                 state = self._get_or_create_variant_state(
-                    company_id, variant_type,
+                    company_id,
+                    variant_type,
                 )
                 pkey = _provider_key(provider, model_id)
                 if pkey not in state.provider_states:

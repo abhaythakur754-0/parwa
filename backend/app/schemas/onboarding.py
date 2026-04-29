@@ -17,12 +17,9 @@ from typing import Optional, List
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ── Shared Validators ──────────────────────────────────────────────
 
-_EMAIL_REGEX = re.compile(
-    r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
-)
+_EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
 
 
 def _validate_email(email: str) -> str:
@@ -88,8 +85,7 @@ class UserDetailsRequest(BaseModel):
     @classmethod
     def industry_must_be_valid(cls, v: str) -> str:
         if v not in INDUSTRY_OPTIONS:
-            raise ValueError(
-                f"Invalid industry. Must be one of: {
+            raise ValueError(f"Invalid industry. Must be one of: {
                     ', '.join(INDUSTRY_OPTIONS)}")
         return v
 
@@ -99,8 +95,7 @@ class UserDetailsRequest(BaseModel):
         if v is None or v == "":
             return None
         if v not in COMPANY_SIZE_OPTIONS:
-            raise ValueError(
-                f"Invalid company_size. Must be one of: {
+            raise ValueError(f"Invalid company_size. Must be one of: {
                     ', '.join(COMPANY_SIZE_OPTIONS)}")
         return v
 
@@ -269,8 +264,7 @@ class AIConfigRequest(BaseModel):
     def style_must_be_valid(cls, v: str) -> str:
         valid_styles = ["concise", "detailed"]
         if v not in valid_styles:
-            raise ValueError(
-                f"Invalid ai_response_style. Must be one of: {
+            raise ValueError(f"Invalid ai_response_style. Must be one of: {
                     ', '.join(valid_styles)}")
         return v
 

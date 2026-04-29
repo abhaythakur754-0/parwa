@@ -11,17 +11,12 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-
 # ── Validators ───────────────────────────────────────────────────────────────
 
-_EMAIL_REGEX = re.compile(
-    r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
-)
+_EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
 
 # Simple phone regex - allows various international formats
-_PHONE_REGEX = re.compile(
-    r"^\+?[1-9]\d{6,14}$"
-)
+_PHONE_REGEX = re.compile(r"^\+?[1-9]\d{6,14}$")
 
 
 def _validate_email(email: str) -> str:
@@ -236,9 +231,7 @@ class IdentityMatchRequest(BaseModel):
     def require_at_least_one_identifier(self) -> "IdentityMatchRequest":
         """Require at least one identifier to match."""
         if not self.email and not self.phone and not self.social_id:
-            raise ValueError(
-                "At least one of email, phone, or social_id is required"
-            )
+            raise ValueError("At least one of email, phone, or social_id is required")
         return self
 
 

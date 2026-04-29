@@ -11,10 +11,10 @@ import pytest
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
-
 # ══════════════════════════════════════════════════════════════════════════
 # F-104: Model Validation Service Tests
 # ══════════════════════════════════════════════════════════════════════════
+
 
 class TestModelValidationService:
     """Tests for ModelValidationService (F-104)."""
@@ -26,6 +26,7 @@ class TestModelValidationService:
     @pytest.fixture
     def service(self, mock_db):
         from app.services.model_validation_service import ModelValidationService
+
         return ModelValidationService(mock_db)
 
     def test_create_validation_run(self, service):
@@ -107,6 +108,7 @@ class TestModelValidationService:
 # F-105: Model Deployment Service Tests
 # ══════════════════════════════════════════════════════════════════════════
 
+
 class TestModelDeploymentService:
     """Tests for ModelDeploymentService (F-105)."""
 
@@ -117,6 +119,7 @@ class TestModelDeploymentService:
     @pytest.fixture
     def service(self, mock_db):
         from app.services.model_deployment_service import ModelDeploymentService
+
         return ModelDeploymentService(mock_db)
 
     @pytest.fixture
@@ -180,7 +183,7 @@ class TestModelDeploymentService:
         """Test auto-rollback on high error rate."""
         deployment = service.start_deployment(deployment, canary_percentage=5)
 
-        with patch.object(service, '_collect_deployment_metrics') as mock_metrics:
+        with patch.object(service, "_collect_deployment_metrics") as mock_metrics:
             mock_metrics.return_value = {
                 "error_rate": 0.10,
                 "latency_p95_ms": 500,
@@ -193,7 +196,7 @@ class TestModelDeploymentService:
         """Test no rollback when deployment is healthy."""
         deployment = service.start_deployment(deployment, canary_percentage=5)
 
-        with patch.object(service, '_collect_deployment_metrics') as mock_metrics:
+        with patch.object(service, "_collect_deployment_metrics") as mock_metrics:
             mock_metrics.return_value = {
                 "error_rate": 0.01,
                 "latency_p95_ms": 500,
@@ -216,6 +219,7 @@ class TestModelDeploymentService:
 # ══════════════════════════════════════════════════════════════════════════
 # Integration Tests
 # ══════════════════════════════════════════════════════════════════════════
+
 
 class TestValidationDeploymentIntegration:
     """Integration tests for validation and deployment pipeline."""

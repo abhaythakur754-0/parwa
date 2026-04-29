@@ -75,12 +75,10 @@ class ClusterConfig:
     def __post_init__(self) -> None:
         """Validate config values (BC-008: never crash)."""
         try:
-            self.min_similarity = float(
-                max(0.0, min(1.0, self.min_similarity)))
+            self.min_similarity = float(max(0.0, min(1.0, self.min_similarity)))
             self.max_cluster_size = int(max(1, self.max_cluster_size))
             self.cluster_ttl_hours = int(max(1, self.cluster_ttl_hours))
-            self.max_clusters_per_company = int(
-                max(1, self.max_clusters_per_company))
+            self.max_clusters_per_company = int(max(1, self.max_clusters_per_company))
             self.embedding_dimension = int(max(1, self.embedding_dimension))
         except (TypeError, ValueError):
             # BC-008: fall back to safe defaults on garbage input
@@ -229,7 +227,7 @@ def generate_embedding(
         seen_hashes: Dict[int, int] = {}
 
         for i in range(len(text) - window_size + 1):
-            ngram = text[i:i + window_size]
+            ngram = text[i : i + window_size]
             h = hashlib.md5(ngram.encode("utf-8", errors="replace")).digest()
             # Use first 4 bytes of hash as a dimension index
             idx = struct.unpack("<I", h[:4])[0] % dimension
@@ -247,7 +245,7 @@ def generate_embedding(
 
         # Add character-level bigram features for finer granularity
         for i in range(len(text) - 1):
-            bigram = text[i:i + 2]
+            bigram = text[i : i + 2]
             h = hashlib.sha1(bigram.encode("utf-8", errors="replace")).digest()
             idx = struct.unpack("<I", h[:4])[0] % dimension
             val = struct.unpack("<i", h[4:8])[0]
@@ -299,6 +297,7 @@ def cosine_similarity(vec_a: List[float], vec_b: List[float]) -> float:
 
         # BC-008: reject vectors containing NaN or Inf
         import math as _math
+
         for val in vec_a:
             if _math.isnan(val) or _math.isinf(val):
                 return 0.0
@@ -435,9 +434,7 @@ class SemanticClusteringEngine:
         clusters: Dict[str, List[str]] = {
             t.ticket_id: [t.ticket_id] for t in normalized
         }
-        ticket_map: Dict[str, TicketInput] = {
-            t.ticket_id: t for t in normalized
-        }
+        ticket_map: Dict[str, TicketInput] = {t.ticket_id: t for t in normalized}
 
         # Greedy agglomerative merging
         changed = True
@@ -461,12 +458,8 @@ class SemanticClusteringEngine:
                         continue
 
                     # Compare cluster centers
-                    center1 = self._compute_cluster_center(
-                        c1_tickets, embeddings
-                    )
-                    center2 = self._compute_cluster_center(
-                        c2_tickets, embeddings
-                    )
+                    center1 = self._compute_cluster_center(c1_tickets, embeddings)
+                    center2 = self._compute_cluster_center(c2_tickets, embeddings)
                     sim = cosine_similarity(center1, center2)
 
                     if sim > best_sim and sim >= threshold:
@@ -515,9 +508,7 @@ class SemanticClusteringEngine:
             # Determine dominant intent
             dominant_intent = ""
             if intent_counts:
-                dominant_intent = max(
-                    intent_counts, key=intent_counts.get
-                )
+                dominant_intent = max(intent_counts, key=intent_counts.get)
 
             avg_conf = (
                 round(total_confidence / len(cluster_tickets), 4)
@@ -624,9 +615,7 @@ class SemanticClusteringEngine:
         except Exception:
             return []
 
-        query_emb = generate_embedding(
-            query_text, self._config.embedding_dimension
-        )
+        query_emb = generate_embedding(query_text, self._config.embedding_dimension)
 
         results: List[TicketSimilarity] = []
         for ticket in tickets:
@@ -650,7 +639,8 @@ class SemanticClusteringEngine:
         return results
 
     def calculate_cluster_center(
-        self, embeddings: List[List[float]],
+        self,
+        embeddings: List[List[float]],
     ) -> List[float]:
         """Calculate the centroid (mean) of a list of embeddings.
 
@@ -690,7 +680,8 @@ class SemanticClusteringEngine:
             return []
 
     def get_cluster_summary(
-        self, cluster: SemanticCluster,
+        self,
+        cluster: SemanticCluster,
     ) -> Dict[str, Any]:
         """Get a summary dictionary for a cluster.
 
@@ -711,14 +702,10 @@ class SemanticClusteringEngine:
             "status": cluster.status,
             "ticket_ids": [t.ticket_id for t in cluster.tickets],
             "created_at": (
-                cluster.created_at.isoformat()
-                if cluster.created_at
-                else None
+                cluster.created_at.isoformat() if cluster.created_at else None
             ),
             "expires_at": (
-                cluster.expires_at.isoformat()
-                if cluster.expires_at
-                else None
+                cluster.expires_at.isoformat() if cluster.expires_at else None
             ),
         }
 
@@ -770,12 +757,8 @@ class SemanticClusteringEngine:
                         TicketInput(
                             ticket_id=str(ticket.ticket_id),
                             text=str(getattr(ticket, "text", "")),
-                            confidence=float(
-                                getattr(ticket, "confidence", 0.0)
-                            ),
-                            intent_label=str(
-                                getattr(ticket, "intent_label", "")
-                            ),
+                            confidence=float(getattr(ticket, "confidence", 0.0)),
+                            intent_label=str(getattr(ticket, "intent_label", "")),
                         )
                     )
             except Exception:

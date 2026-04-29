@@ -32,7 +32,6 @@ from app.services.sla_service import (
     DuplicateSLAPolicyError,
 )
 
-
 router = APIRouter(
     prefix="/sla",
     tags=["sla"],
@@ -41,6 +40,7 @@ router = APIRouter(
 
 
 # ── SLA POLICY ENDPOINTS ─────────────────────────────────────────────────────
+
 
 @router.post(
     "/policies",
@@ -294,6 +294,7 @@ async def seed_default_policies(
 
 # ── SLA TIMER ENDPOINTS ──────────────────────────────────────────────────────
 
+
 @router.get(
     "/tickets/{ticket_id}",
     response_model=SLATimerResponse,
@@ -323,6 +324,7 @@ async def get_ticket_sla(
 
     # Get ticket for resolution target
     from database.models.tickets import Ticket
+
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
 
     return SLATimerResponse(
@@ -340,6 +342,7 @@ async def get_ticket_sla(
 
 
 # ── SLA BREACH ENDPOINTS ─────────────────────────────────────────────────────
+
 
 @router.get(
     "/breached",
@@ -416,6 +419,7 @@ async def list_approaching_tickets(
 
 
 # ── SLA STATISTICS ENDPOINTS ─────────────────────────────────────────────────
+
 
 @router.get(
     "/stats",

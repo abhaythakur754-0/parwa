@@ -27,12 +27,11 @@ from app.core.technique_router import (
     TECHNIQUE_REGISTRY,
 )
 
-
 # ── Default TTLs per technique tier (seconds) ────────────────────
 
 DEFAULT_TTL_BY_TIER: Dict[str, int] = {
-    "tier_1": 300,   # 5 minutes
-    "tier_2": 600,   # 10 minutes
+    "tier_1": 300,  # 5 minutes
+    "tier_2": 600,  # 10 minutes
     "tier_3": 1200,  # 20 minutes
 }
 
@@ -59,9 +58,7 @@ class CacheEntry:
     @property
     def is_expired(self) -> bool:
         """Check if this entry has exceeded its TTL."""
-        return (
-            time.time() - self.created_at > self.ttl_seconds
-        )
+        return time.time() - self.created_at > self.ttl_seconds
 
     @property
     def age_seconds(self) -> float:
@@ -137,9 +134,7 @@ class TechniqueCache:
 
         # OrderedDict for LRU ordering
         # Key: cache_key -> CacheEntry
-        self._cache: OrderedDict[str, CacheEntry] = (
-            OrderedDict()
-        )
+        self._cache: OrderedDict[str, CacheEntry] = OrderedDict()
 
         # Stats
         self._hits: int = 0
@@ -171,10 +166,7 @@ class TechniqueCache:
         Returns:
             SHA-256 hex digest cache key
         """
-        raw = (
-            f"{technique_id}:{query_hash}:"
-            f"{signals_hash}:{company_id}"
-        )
+        raw = f"{technique_id}:{query_hash}:" f"{signals_hash}:{company_id}"
         return hashlib.sha256(raw.encode()).hexdigest()
 
     # ── Get / Set ─────────────────────────────────────────────────
@@ -195,7 +187,10 @@ class TechniqueCache:
             technique_id = technique_id.value
 
         cache_key = self.make_cache_key(
-            technique_id, query_hash, signals_hash, company_id,
+            technique_id,
+            query_hash,
+            signals_hash,
+            company_id,
         )
 
         with self._lock:
@@ -245,7 +240,10 @@ class TechniqueCache:
             technique_id = technique_id.value
 
         cache_key = self.make_cache_key(
-            technique_id, query_hash, signals_hash, company_id,
+            technique_id,
+            query_hash,
+            signals_hash,
+            company_id,
         )
 
         ttl = self._resolve_ttl(technique_id, ttl_seconds)
@@ -336,11 +334,8 @@ class TechniqueCache:
             for key, entry in self._cache.items():
                 if entry.company_id != company_id:
                     continue
-                if (
-                    technique_prefix is not None
-                    and not entry.technique_id.startswith(
-                        technique_prefix,
-                    )
+                if technique_prefix is not None and not entry.technique_id.startswith(
+                    technique_prefix,
                 ):
                     continue
                 keys_to_remove.append(key)
@@ -411,8 +406,10 @@ class TechniqueCache:
                 )
                 technique_counts[entry.technique_id] = (
                     technique_counts.get(
-                        entry.technique_id, 0,
-                    ) + 1
+                        entry.technique_id,
+                        0,
+                    )
+                    + 1
                 )
 
             return CacheStats(
@@ -490,7 +487,9 @@ class TechniqueCache:
     # ── TTL Configuration ─────────────────────────────────────────
 
     def set_technique_ttl(
-        self, technique_id: str, ttl_seconds: int,
+        self,
+        technique_id: str,
+        ttl_seconds: int,
     ) -> None:
         """Set a custom TTL for a specific technique."""
         if isinstance(technique_id, TechniqueID):
@@ -499,7 +498,8 @@ class TechniqueCache:
             self._technique_ttls[technique_id] = ttl_seconds
 
     def get_technique_ttl(
-        self, technique_id: str,
+        self,
+        technique_id: str,
     ) -> Optional[int]:
         """Get custom TTL for a technique, if set."""
         if isinstance(technique_id, TechniqueID):
@@ -525,7 +525,8 @@ class TechniqueCache:
         if info is not None:
             tier_key = info.tier.value
             return DEFAULT_TTL_BY_TIER.get(
-                tier_key, self._default_ttl,
+                tier_key,
+                self._default_ttl,
             )
 
         return self._default_ttl
@@ -554,15 +555,12 @@ class TechniqueCache:
         return self._max_size
 
     def get_entry_count_by_company(
-        self, company_id: str,
+        self,
+        company_id: str,
     ) -> int:
         """Count cache entries for a company."""
         with self._lock:
-            return sum(
-                1
-                for e in self._cache.values()
-                if e.company_id == company_id
-            )
+            return sum(1 for e in self._cache.values() if e.company_id == company_id)
 
     def get_oldest_entry_age(self) -> Optional[float]:
         """Get age of the oldest cache entry."""

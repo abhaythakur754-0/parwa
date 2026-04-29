@@ -93,33 +93,38 @@ class SendGridEmailProvider(EmailProvider):
     def send_email(self, message: EmailMessage) -> ProviderResult:
         """Send an email via SendGrid API."""
         payload = {
-            "personalizations": [{
-                "to": [{"email": message.to}],
-                "subject": message.subject,
-            }],
+            "personalizations": [
+                {
+                    "to": [{"email": message.to}],
+                    "subject": message.subject,
+                }
+            ],
             "from": {
                 "email": message.from_email or self.from_email,
                 "name": message.from_name or "PARWA",
             },
-            "content": [{
-                "type": "text/html",
-                "value": message.html_content,
-            }],
+            "content": [
+                {
+                    "type": "text/html",
+                    "value": message.html_content,
+                }
+            ],
         }
 
         if message.text_content:
-            payload["content"].insert(0, {
-                "type": "text/plain",
-                "value": message.text_content,
-            })
+            payload["content"].insert(
+                0,
+                {
+                    "type": "text/plain",
+                    "value": message.text_content,
+                },
+            )
 
         if message.cc:
-            payload["personalizations"][0]["cc"] = [
-                {"email": e} for e in message.cc]
+            payload["personalizations"][0]["cc"] = [{"email": e} for e in message.cc]
 
         if message.bcc:
-            payload["personalizations"][0]["bcc"] = [
-                {"email": e} for e in message.bcc]
+            payload["personalizations"][0]["bcc"] = [{"email": e} for e in message.bcc]
 
         try:
             response = httpx.post(
@@ -164,10 +169,12 @@ class SendGridEmailProvider(EmailProvider):
     ) -> ProviderResult:
         """Send an email using a SendGrid template."""
         payload = {
-            "personalizations": [{
-                "to": [{"email": to}],
-                "dynamic_template_data": variables,
-            }],
+            "personalizations": [
+                {
+                    "to": [{"email": to}],
+                    "dynamic_template_data": variables,
+                }
+            ],
             "from": {"email": self.from_email},
             "template_id": template_id,
         }

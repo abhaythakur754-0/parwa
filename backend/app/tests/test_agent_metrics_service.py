@@ -28,7 +28,13 @@ import pytest
 # Mock structlog and app.logger before importing service modules
 # (same pattern as test_cost_protection_service.py)
 _mock_logger = MagicMock()
-with patch.dict("sys.modules", {"structlog": MagicMock(), "app.logger": MagicMock(get_logger=lambda name: _mock_logger)}):
+with patch.dict(
+    "sys.modules",
+    {
+        "structlog": MagicMock(),
+        "app.logger": MagicMock(get_logger=lambda name: _mock_logger),
+    },
+):
     from app.services.agent_metrics_service import (
         AgentMetricsService,
         DEFAULT_THRESHOLDS,
@@ -216,9 +222,7 @@ class TestGetMetrics:
 
     def test_insufficient_data(self, service, mock_db, company_id):
         """Should flag insufficient_data when tickets < 5."""
-        metrics_rows = [
-            _make_daily_metric(tickets_handled=2, resolved_count=1)
-        ]
+        metrics_rows = [_make_daily_metric(tickets_handled=2, resolved_count=1)]
 
         mock_query = MagicMock()
         mock_db.query.return_value = mock_query
@@ -289,8 +293,7 @@ class TestGetMetrics:
         for dp in result["data_points"]:
             assert "W" in dp["date"]
 
-    def test_empty_data_returns_safe_default(
-            self, service, mock_db, company_id):
+    def test_empty_data_returns_safe_default(self, service, mock_db, company_id):
         """Should return safe defaults when no data."""
         mock_query = MagicMock()
         mock_db.query.return_value = mock_query
@@ -445,7 +448,11 @@ class TestCompareAgents:
         for r in result:
             assert "agent_id" in r
             assert "trend" in r
-            assert r["total_tickets"] >= MIN_TICKETS_FOR_ALERTS if "total_tickets" in r else True
+            assert (
+                r["total_tickets"] >= MIN_TICKETS_FOR_ALERTS
+                if "total_tickets" in r
+                else True
+            )
 
     def test_exclude_low_ticket_agents(self, service, mock_db, company_id):
         """Should exclude agents with fewer than 5 tickets."""
@@ -481,9 +488,15 @@ class TestCompareAgents:
 
 
 class TestComputeDailyMetrics:
-    @patch("app.services.agent_metrics_service.AgentMetricsService._compute_agent_daily_metrics")
+    @patch(
+        "app.services.agent_metrics_service.AgentMetricsService._compute_agent_daily_metrics"
+    )
     def test_compute_for_active_agent(
-        self, mock_compute, service, mock_db, company_id,
+        self,
+        mock_compute,
+        service,
+        mock_db,
+        company_id,
     ):
         """Should compute metrics for all active agents."""
         agent = _make_agent(agent_id="agent-001", status="active")
@@ -519,9 +532,15 @@ class TestComputeDailyMetrics:
         assert result["agents_processed"] == 1
         assert result["errors"] == 0
 
-    @patch("app.services.agent_metrics_service.AgentMetricsService._compute_agent_daily_metrics")
+    @patch(
+        "app.services.agent_metrics_service.AgentMetricsService._compute_agent_daily_metrics"
+    )
     def test_handle_paused_agent(
-        self, mock_compute, service, mock_db, company_id,
+        self,
+        mock_compute,
+        service,
+        mock_db,
+        company_id,
     ):
         """Should skip paused agents (only active are queried)."""
         agent = _make_agent(agent_id="agent-001", status="paused")
@@ -672,8 +691,7 @@ class TestEvaluateAlerts:
         assert len(updated) >= 1
         assert existing_alert.consecutive_days_below == 2
 
-    def test_alert_resolved_when_metric_recovers(
-            self, service, mock_db, company_id):
+    def test_alert_resolved_when_metric_recovers(self, service, mock_db, company_id):
         """Should resolve active alert when metric recovers."""
         agent = _make_agent(agent_id="agent-001", status="active")
         threshold = _make_threshold(agent_id="agent-001")
@@ -832,19 +850,47 @@ class TestHelpers:
     def test_check_threshold_breach_below(self, service):
         """Should detect breach when value is below threshold."""
         threshold = _make_threshold(resolution_rate_min=70.0)
-        assert service._check_threshold_breach(
-            "agent-001", "co-1", "resolution_rate", 55.0, threshold,
-        ) is True
-        assert service._check_threshold_breach(
-            "agent-001", "co-1", "resolution_rate", 80.0, threshold,
-        ) is False
+        assert (
+            service._check_threshold_breach(
+                "agent-001",
+                "co-1",
+                "resolution_rate",
+                55.0,
+                threshold,
+            )
+            is True
+        )
+        assert (
+            service._check_threshold_breach(
+                "agent-001",
+                "co-1",
+                "resolution_rate",
+                80.0,
+                threshold,
+            )
+            is False
+        )
 
     def test_check_threshold_breach_above(self, service):
         """Should detect breach when escalation_rate is above threshold."""
         threshold = _make_threshold(escalation_max_pct=15.0)
-        assert service._check_threshold_breach(
-            "agent-001", "co-1", "escalation_rate", 25.0, threshold,
-        ) is True
-        assert service._check_threshold_breach(
-            "agent-001", "co-1", "escalation_rate", 10.0, threshold,
-        ) is False
+        assert (
+            service._check_threshold_breach(
+                "agent-001",
+                "co-1",
+                "escalation_rate",
+                25.0,
+                threshold,
+            )
+            is True
+        )
+        assert (
+            service._check_threshold_breach(
+                "agent-001",
+                "co-1",
+                "escalation_rate",
+                10.0,
+                threshold,
+            )
+            is False
+        )

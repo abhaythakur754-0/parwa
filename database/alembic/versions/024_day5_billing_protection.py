@@ -38,13 +38,20 @@ def upgrade() -> None:
         sa.Column("amount", sa.Numeric(10, 2), nullable=False),  # BC-002
         sa.Column("currency", sa.String(3), default="USD"),
         sa.Column("reason", sa.String(100), nullable=True),
-        sa.Column("status", sa.String(20), default="received"),  # received/under_review/won/lost
+        sa.Column(
+            "status", sa.String(20), default="received"
+        ),  # received/under_review/won/lost
         sa.Column("service_stopped_at", sa.DateTime, nullable=True),
         sa.Column("notification_sent_at", sa.DateTime, nullable=True),
         sa.Column("resolved_at", sa.DateTime, nullable=True),
         sa.Column("resolution_notes", sa.Text, nullable=True),
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime,
+            server_default=sa.func.now(),
+            onupdate=sa.func.now(),
+        ),
     )
     op.create_index("idx_chargebacks_company", "chargebacks", ["company_id"])
     op.create_index("idx_chargebacks_status", "chargebacks", ["status"])
@@ -62,14 +69,23 @@ def upgrade() -> None:
         ),
         sa.Column("amount", sa.Numeric(10, 2), default=0),  # BC-002
         sa.Column("currency", sa.String(3), default="USD"),
-        sa.Column("source", sa.String(30), nullable=False),  # refund/promo/goodwill/cooling_off
+        sa.Column(
+            "source", sa.String(30), nullable=False
+        ),  # refund/promo/goodwill/cooling_off
         sa.Column("description", sa.Text, nullable=True),
         sa.Column("expires_at", sa.DateTime, nullable=True),
         sa.Column("applied_to_invoice_id", sa.String(36), nullable=True),
         sa.Column("applied_at", sa.DateTime, nullable=True),
-        sa.Column("status", sa.String(20), default="available"),  # available/partially_used/fully_used/expired
+        sa.Column(
+            "status", sa.String(20), default="available"
+        ),  # available/partially_used/fully_used/expired
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime,
+            server_default=sa.func.now(),
+            onupdate=sa.func.now(),
+        ),
     )
     op.create_index("idx_credit_balances_company", "credit_balances", ["company_id"])
     op.create_index("idx_credit_balances_status", "credit_balances", ["status"])
@@ -85,13 +101,22 @@ def upgrade() -> None:
             nullable=False,
             unique=True,
         ),
-        sa.Column("max_overage_amount", sa.Numeric(10, 2), nullable=True),  # NULL=no cap (BC-002)
+        sa.Column(
+            "max_overage_amount", sa.Numeric(10, 2), nullable=True
+        ),  # NULL=no cap (BC-002)
         sa.Column("alert_thresholds", sa.Text, nullable=True),  # JSON: '[50,75,90]'
-        sa.Column("soft_cap_alerts_sent", sa.Text, nullable=True),  # JSON: tracking sent alerts
+        sa.Column(
+            "soft_cap_alerts_sent", sa.Text, nullable=True
+        ),  # JSON: tracking sent alerts
         sa.Column("is_active", sa.Boolean, default=False),
         sa.Column("acknowledged_warning", sa.Boolean, default=False),
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime,
+            server_default=sa.func.now(),
+            onupdate=sa.func.now(),
+        ),
     )
 
     # 4. dead_letter_webhooks — Failed webhook processing queue (WH3)
@@ -104,7 +129,9 @@ def upgrade() -> None:
         sa.Column("event_type", sa.String(100), nullable=True),
         sa.Column("payload", sa.JSON, nullable=True),
         sa.Column("error_message", sa.Text, nullable=True),
-        sa.Column("status", sa.String(20), default="pending"),  # pending/retrying/processed/discarded
+        sa.Column(
+            "status", sa.String(20), default="pending"
+        ),  # pending/retrying/processed/discarded
         sa.Column("retry_count", sa.Integer, default=0),
         sa.Column("max_retries", sa.Integer, default=3),
         sa.Column("next_retry_at", sa.DateTime, nullable=True),
@@ -112,8 +139,12 @@ def upgrade() -> None:
         sa.Column("processed_at", sa.DateTime, nullable=True),
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
     )
-    op.create_index("idx_dead_letter_webhooks_company", "dead_letter_webhooks", ["company_id"])
-    op.create_index("idx_dead_letter_webhooks_status", "dead_letter_webhooks", ["status"])
+    op.create_index(
+        "idx_dead_letter_webhooks_company", "dead_letter_webhooks", ["company_id"]
+    )
+    op.create_index(
+        "idx_dead_letter_webhooks_status", "dead_letter_webhooks", ["status"]
+    )
 
     # 5. webhook_health_stats — Webhook health monitoring (WH2)
     op.create_table(
@@ -141,17 +172,23 @@ def upgrade() -> None:
             nullable=False,
             index=True,
         ),
-        sa.Column("refund_type", sa.String(20), nullable=False),  # full/partial/credit/cooling_off
+        sa.Column(
+            "refund_type", sa.String(20), nullable=False
+        ),  # full/partial/credit/cooling_off
         sa.Column("original_amount", sa.Numeric(10, 2), nullable=False),  # BC-002
         sa.Column("refund_amount", sa.Numeric(10, 2), nullable=False),  # BC-002
         sa.Column("reason", sa.Text, nullable=False),
         sa.Column("approver_id", sa.String(36), nullable=True),
         sa.Column("approver_name", sa.String(255), nullable=True),
-        sa.Column("second_approver_id", sa.String(36), nullable=True),  # for amounts > $500
+        sa.Column(
+            "second_approver_id", sa.String(36), nullable=True
+        ),  # for amounts > $500
         sa.Column("second_approver_name", sa.String(255), nullable=True),
         sa.Column("paddle_refund_id", sa.String(255), nullable=True),
         sa.Column("credit_balance_id", sa.String(36), nullable=True),
-        sa.Column("status", sa.String(20), default="pending"),  # pending/approved/rejected/processed/failed
+        sa.Column(
+            "status", sa.String(20), default="pending"
+        ),  # pending/approved/rejected/processed/failed
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
     )
     op.create_index("idx_refund_audits_company", "refund_audits", ["company_id"])

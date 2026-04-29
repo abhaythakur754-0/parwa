@@ -28,7 +28,6 @@ from app.core.dspy_integration import (
     _DSPY_AVAILABLE,
 )
 
-
 # ── Fixtures ──────────────────────────────────────────────────────
 
 
@@ -56,7 +55,9 @@ def mock_conversation_state():
         company_id="co_test",
     )
     state.gsd_history = [
-        GSDState.NEW, GSDState.GREETING, GSDState.DIAGNOSIS,
+        GSDState.NEW,
+        GSDState.GREETING,
+        GSDState.DIAGNOSIS,
     ]
     state.technique_results = {"clara": {"status": "success"}}
     return state
@@ -197,9 +198,7 @@ class TestExecution:
 
     def test_execute_has_fallback_response(self, dspy):
         stub = StubModule()
-        result = dspy.execute(
-            stub, {"customer_query": "refund please"}
-        )
+        result = dspy.execute(stub, {"customer_query": "refund please"})
         assert "Fallback" in result.get("response", "")
         assert result.get("confidence") == 0.5
 
@@ -239,58 +238,41 @@ class TestBridgeToParwa:
 
     def test_bridge_maps_response(self, dspy, mock_conversation_state):
         dspy_output = {"response": "Here is your refund info."}
-        updates = dspy.bridge_to_parwa(
-            dspy_output, mock_conversation_state
-        )
+        updates = dspy.bridge_to_parwa(dspy_output, mock_conversation_state)
         assert updates["final_response"] == "Here is your refund info."
 
     def test_bridge_maps_confidence(self, dspy, mock_conversation_state):
         dspy_output = {"confidence": 0.95}
-        updates = dspy.bridge_to_parwa(
-            dspy_output, mock_conversation_state
-        )
+        updates = dspy.bridge_to_parwa(dspy_output, mock_conversation_state)
         assert updates["signals_confidence"] == 0.95
 
     def test_bridge_maps_intent(self, dspy, mock_conversation_state):
         dspy_output = {"intent": "refund"}
-        updates = dspy.bridge_to_parwa(
-            dspy_output, mock_conversation_state
-        )
+        updates = dspy.bridge_to_parwa(dspy_output, mock_conversation_state)
         assert updates["signals_intent"] == "refund"
 
     def test_bridge_maps_follow_up(self, dspy, mock_conversation_state):
         dspy_output = {"follow_up_needed": True}
-        updates = dspy.bridge_to_parwa(
-            dspy_output, mock_conversation_state
-        )
+        updates = dspy.bridge_to_parwa(dspy_output, mock_conversation_state)
         assert updates["follow_up_needed"] is True
 
     def test_bridge_maps_escalation(self, dspy, mock_conversation_state):
         dspy_output = {"should_escalate": True}
-        updates = dspy.bridge_to_parwa(
-            dspy_output, mock_conversation_state
-        )
+        updates = dspy.bridge_to_parwa(dspy_output, mock_conversation_state)
         assert updates["should_escalate"] is True
 
     def test_bridge_maps_summary(self, dspy, mock_conversation_state):
         dspy_output = {"summary": "Customer wants refund."}
-        updates = dspy.bridge_to_parwa(
-            dspy_output, mock_conversation_state
-        )
+        updates = dspy.bridge_to_parwa(dspy_output, mock_conversation_state)
         assert updates["summary"] == "Customer wants refund."
 
     def test_bridge_empty_output(self, dspy, mock_conversation_state):
-        updates = dspy.bridge_to_parwa(
-            {}, mock_conversation_state
-        )
+        updates = dspy.bridge_to_parwa({}, mock_conversation_state)
         assert updates == {}
 
-    def test_bridge_invalid_confidence_ignored(
-            self, dspy, mock_conversation_state):
+    def test_bridge_invalid_confidence_ignored(self, dspy, mock_conversation_state):
         dspy_output = {"confidence": "not_a_number"}
-        updates = dspy.bridge_to_parwa(
-            dspy_output, mock_conversation_state
-        )
+        updates = dspy.bridge_to_parwa(dspy_output, mock_conversation_state)
         assert "signals_confidence" not in updates
 
 
@@ -309,8 +291,7 @@ class TestBridgeFromParwa:
         inputs = dspy.bridge_from_parwa(mock_conversation_state)
         assert inputs["gsd_state"] == "diagnosis"
 
-    def test_bridge_extracts_conversation_history(
-            self, dspy, mock_conversation_state):
+    def test_bridge_extracts_conversation_history(self, dspy, mock_conversation_state):
         inputs = dspy.bridge_from_parwa(mock_conversation_state)
         assert "conversation_history" in inputs
         assert len(inputs["conversation_history"]) == 3
@@ -360,23 +341,17 @@ class TestConfiguration:
         assert config.temperature == 0.5
 
     def test_get_config_returns_configured(self, dspy):
-        dspy.configure(
-            COMPANY_ID, {"model_name": "claude-3"}
-        )
+        dspy.configure(COMPANY_ID, {"model_name": "claude-3"})
         config = dspy.get_config(COMPANY_ID)
         assert config.model_name == "claude-3"
 
     def test_configure_isolated(self, dspy):
-        dspy.configure(
-            COMPANY_ID, {"model_name": "model_a"}
-        )
+        dspy.configure(COMPANY_ID, {"model_name": "model_a"})
         config_other = dspy.get_config("other_company")
         assert config_other.model_name == "gpt-4o-mini"
 
     def test_configure_disabled(self, dspy):
-        config = dspy.configure(
-            COMPANY_ID, {"enabled": False}
-        )
+        config = dspy.configure(COMPANY_ID, {"enabled": False})
         assert config.enabled is False
 
     def test_configure_optimizer(self, dspy):
@@ -463,9 +438,7 @@ class TestOptimization:
 
     def test_optimize_miprov2(self, dspy):
         module = dspy.create_module("classify")
-        optimized = dspy.optimize(
-            module, optimizer_name="MIPROv2"
-        )
+        optimized = dspy.optimize(module, optimizer_name="MIPROv2")
         assert optimized is not None
 
 

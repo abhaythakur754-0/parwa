@@ -350,16 +350,14 @@ _TREE_TEMPLATES: Dict[
                 {
                     "label": "Infrastructure Layer",
                     "content": (
-                        "Check compute, storage, and network "
-                        "infrastructure health."
+                        "Check compute, storage, and network " "infrastructure health."
                     ),
                     "score": 0.80,
                     "steps": [
                         {
                             "label": "Check Status Page",
                             "content": (
-                                "Review the system status page for "
-                                "known incidents."
+                                "Review the system status page for " "known incidents."
                             ),
                             "score": 0.88,
                             "steps": [
@@ -386,8 +384,7 @@ _TREE_TEMPLATES: Dict[
                 {
                     "label": "Application Layer",
                     "content": (
-                        "Check application code, configurations, "
-                        "and feature flags."
+                        "Check application code, configurations, " "and feature flags."
                     ),
                     "score": 0.70,
                     "steps": [
@@ -438,8 +435,7 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Check Dependency Status",
                             "content": (
-                                "Review external service health "
-                                "dashboards."
+                                "Review external service health " "dashboards."
                             ),
                             "score": 0.85,
                             "steps": [
@@ -474,16 +470,14 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Check DB Connections",
                             "content": (
-                                "Verify database connection pool "
-                                "is not exhausted."
+                                "Verify database connection pool " "is not exhausted."
                             ),
                             "score": 0.80,
                             "steps": [
                                 {
                                     "label": "Increase Pool Size",
                                     "content": (
-                                        "Scale up the database "
-                                        "connection pool."
+                                        "Scale up the database " "connection pool."
                                     ),
                                     "score": 0.78,
                                 },
@@ -492,8 +486,7 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Check Query Performance",
                             "content": (
-                                "Identify slow queries that may be "
-                                "causing timeouts."
+                                "Identify slow queries that may be " "causing timeouts."
                             ),
                             "score": 0.75,
                             "action": "prune",
@@ -571,8 +564,7 @@ _TREE_TEMPLATES: Dict[
                                 {
                                     "label": "Issue Refund",
                                     "content": (
-                                        "Process a refund for the "
-                                        "duplicate charge."
+                                        "Process a refund for the " "duplicate charge."
                                     ),
                                     "score": 0.92,
                                 },
@@ -640,8 +632,7 @@ _TREE_TEMPLATES: Dict[
                 {
                     "label": "Upgrade Request",
                     "content": (
-                        "Process a plan upgrade with prorated "
-                        "billing adjustment."
+                        "Process a plan upgrade with prorated " "billing adjustment."
                     ),
                     "score": 0.85,
                     "steps": [
@@ -676,8 +667,7 @@ _TREE_TEMPLATES: Dict[
                 {
                     "label": "Downgrade Request",
                     "content": (
-                        "Process a plan downgrade with feature "
-                        "limitation warnings."
+                        "Process a plan downgrade with feature " "limitation warnings."
                     ),
                     "score": 0.75,
                     "steps": [
@@ -712,16 +702,14 @@ _TREE_TEMPLATES: Dict[
                 {
                     "label": "Cancellation Flow",
                     "content": (
-                        "Handle subscription cancellation with "
-                        "retention offers."
+                        "Handle subscription cancellation with " "retention offers."
                     ),
                     "score": 0.60,
                     "steps": [
                         {
                             "label": "Identify Reason",
                             "content": (
-                                "Understand why the customer wants "
-                                "to cancel."
+                                "Understand why the customer wants " "to cancel."
                             ),
                             "score": 0.72,
                             "steps": [
@@ -759,9 +747,7 @@ _TREE_TEMPLATES: Dict[
             "branches": [
                 {
                     "label": "Card-Related Issue",
-                    "content": (
-                        "The payment card was declined or expired."
-                    ),
+                    "content": ("The payment card was declined or expired."),
                     "score": 0.80,
                     "steps": [
                         {
@@ -796,16 +782,13 @@ _TREE_TEMPLATES: Dict[
                 {
                     "label": "Bank / Processor Issue",
                     "content": (
-                        "The bank or payment processor rejected "
-                        "the transaction."
+                        "The bank or payment processor rejected " "the transaction."
                     ),
                     "score": 0.65,
                     "steps": [
                         {
                             "label": "Retry Transaction",
-                            "content": (
-                                "Attempt to reprocess the payment."
-                            ),
+                            "content": ("Attempt to reprocess the payment."),
                             "score": 0.78,
                             "steps": [
                                 {
@@ -847,8 +830,7 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Adjust Invoice",
                             "content": (
-                                "Correct the invoice and reissue "
-                                "for payment."
+                                "Correct the invoice and reissue " "for payment."
                             ),
                             "score": 0.76,
                             "steps": [
@@ -909,8 +891,7 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Check Event Subscriptions",
                             "content": (
-                                "Verify the correct event types are "
-                                "subscribed to."
+                                "Verify the correct event types are " "subscribed to."
                             ),
                             "score": 0.75,
                             "action": "prune",
@@ -964,16 +945,14 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Check Delivery Logs",
                             "content": (
-                                "Review webhook delivery logs for "
-                                "failed attempts."
+                                "Review webhook delivery logs for " "failed attempts."
                             ),
                             "score": 0.80,
                             "steps": [
                                 {
                                     "label": "Retry Failed",
                                     "content": (
-                                        "Manually retry failed webhook "
-                                        "deliveries."
+                                        "Manually retry failed webhook " "deliveries."
                                     ),
                                     "score": 0.84,
                                 },
@@ -1030,8 +1009,7 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Verify Client ID / Secret",
                             "content": (
-                                "Ensure client ID and secret are "
-                                "correctly entered."
+                                "Ensure client ID and secret are " "correctly entered."
                             ),
                             "score": 0.78,
                         },
@@ -1048,8 +1026,7 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Re-authenticate",
                             "content": (
-                                "Guide the user through a fresh "
-                                "authentication flow."
+                                "Guide the user through a fresh " "authentication flow."
                             ),
                             "score": 0.80,
                         },
@@ -1164,8 +1141,7 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Gather Diagnostic Data",
                             "content": (
-                                "Collect logs, traces, and "
-                                "reproduction steps."
+                                "Collect logs, traces, and " "reproduction steps."
                             ),
                             "score": 0.82,
                             "steps": [
@@ -1182,8 +1158,7 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Engage On-Call",
                             "content": (
-                                "Page the on-call engineer "
-                                "for immediate attention."
+                                "Page the on-call engineer " "for immediate attention."
                             ),
                             "score": 0.70,
                             "action": "prune",
@@ -1219,8 +1194,7 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Define SLA Response",
                             "content": (
-                                "Document SLA implications and "
-                                "remediation timeline."
+                                "Document SLA implications and " "remediation timeline."
                             ),
                             "score": 0.65,
                         },
@@ -1266,8 +1240,7 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Isolate Systems",
                             "content": (
-                                "Isolate affected systems from "
-                                "the network."
+                                "Isolate affected systems from " "the network."
                             ),
                             "score": 0.85,
                         },
@@ -1284,16 +1257,14 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Audit Access Logs",
                             "content": (
-                                "Review access logs for "
-                                "unauthorised activity."
+                                "Review access logs for " "unauthorised activity."
                             ),
                             "score": 0.85,
                             "steps": [
                                 {
                                     "label": "Identify Attack Vector",
                                     "content": (
-                                        "Determine how the breach "
-                                        "occurred."
+                                        "Determine how the breach " "occurred."
                                     ),
                                     "score": 0.88,
                                 },
@@ -1302,8 +1273,7 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Assess Data Exposure",
                             "content": (
-                                "Determine what data was accessed "
-                                "or exfiltrated."
+                                "Determine what data was accessed " "or exfiltrated."
                             ),
                             "score": 0.82,
                         },
@@ -1320,16 +1290,14 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Notify Stakeholders",
                             "content": (
-                                "Inform affected parties as "
-                                "required by regulation."
+                                "Inform affected parties as " "required by regulation."
                             ),
                             "score": 0.78,
                             "steps": [
                                 {
                                     "label": "Draft Notification",
                                     "content": (
-                                        "Prepare regulatory "
-                                        "compliance notification."
+                                        "Prepare regulatory " "compliance notification."
                                     ),
                                     "score": 0.75,
                                 },
@@ -1338,8 +1306,7 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Engage Legal Counsel",
                             "content": (
-                                "Involve legal team for "
-                                "guidance on disclosure."
+                                "Involve legal team for " "guidance on disclosure."
                             ),
                             "score": 0.65,
                             "action": "prune",
@@ -1381,8 +1348,7 @@ _TREE_TEMPLATES: Dict[
                                 {
                                     "label": "Apply Solution",
                                     "content": (
-                                        "Implement the identified "
-                                        "solution directly."
+                                        "Implement the identified " "solution directly."
                                     ),
                                     "score": 0.88,
                                 },
@@ -1391,8 +1357,7 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Verify Resolution",
                             "content": (
-                                "Confirm the issue is fully "
-                                "resolved before closing."
+                                "Confirm the issue is fully " "resolved before closing."
                             ),
                             "score": 0.80,
                         },
@@ -1409,16 +1374,14 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Locate Documentation",
                             "content": (
-                                "Find the most relevant help "
-                                "article or guide."
+                                "Find the most relevant help " "article or guide."
                             ),
                             "score": 0.75,
                             "steps": [
                                 {
                                     "label": "Share Steps",
                                     "content": (
-                                        "Provide clear step-by-step "
-                                        "instructions."
+                                        "Provide clear step-by-step " "instructions."
                                     ),
                                     "score": 0.80,
                                 },
@@ -1447,8 +1410,7 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Identify Stakeholders",
                             "content": (
-                                "Determine which teams need to "
-                                "be involved."
+                                "Determine which teams need to " "be involved."
                             ),
                             "score": 0.68,
                             "steps": [
@@ -1465,8 +1427,7 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Coordinate Response",
                             "content": (
-                                "Synchronise response across "
-                                "teams for the customer."
+                                "Synchronise response across " "teams for the customer."
                             ),
                             "score": 0.62,
                             "action": "prune",
@@ -1513,8 +1474,7 @@ _TREE_TEMPLATES: Dict[
                         {
                             "label": "Check Roadmap",
                             "content": (
-                                "Verify if the feature is on the "
-                                "product roadmap."
+                                "Verify if the feature is on the " "product roadmap."
                             ),
                             "score": 0.72,
                         },
@@ -1539,8 +1499,7 @@ _TREE_TEMPLATES: Dict[
                                 {
                                     "label": "Document Workaround",
                                     "content": (
-                                        "Provide detailed "
-                                        "workaround instructions."
+                                        "Provide detailed " "workaround instructions."
                                     ),
                                     "score": 0.82,
                                 },
@@ -1701,7 +1660,8 @@ class ToTProcessor:
     """
 
     def __init__(
-        self, config: Optional[ToTConfig] = None,
+        self,
+        config: Optional[ToTConfig] = None,
     ):
         self.config = config or ToTConfig()
         self._nodes: Dict[str, TreeNode] = {}
@@ -1855,15 +1815,8 @@ class ToTProcessor:
         best_score = 0
 
         for tmpl in templates:
-            tmpl_text = (
-                tmpl.get("root_label", "")
-                + " "
-                + tmpl.get("root_content", "")
-            )
-            tmpl_words = set(
-                re.findall(
-                    r"\b[a-zA-Z]{3,}\b",
-                    tmpl_text.lower()))
+            tmpl_text = tmpl.get("root_label", "") + " " + tmpl.get("root_content", "")
+            tmpl_words = set(re.findall(r"\b[a-zA-Z]{3,}\b", tmpl_text.lower()))
 
             # Score based on keyword overlap
             overlap = len(query_words & tmpl_words)
@@ -1952,10 +1905,7 @@ class ToTProcessor:
         resolve = TreeNode(
             id=self._gen_id(),
             label="Provide Resolution",
-            content=(
-                "Provide a clear resolution based on "
-                "investigation findings."
-            ),
+            content=("Provide a clear resolution based on " "investigation findings."),
             status=BranchStatus.ACTIVE,
             score=0.85,
             depth=2,
@@ -1988,7 +1938,9 @@ class ToTProcessor:
 
         # Iterate in reverse depth order (leaves first)
         sorted_nodes = sorted(
-            self._nodes.values(), key=lambda n: n.depth, reverse=True,
+            self._nodes.values(),
+            key=lambda n: n.depth,
+            reverse=True,
         )
 
         for node in sorted_nodes:
@@ -2005,7 +1957,8 @@ class ToTProcessor:
                 if child_scores:
                     best_child = max(child_scores)
                     node.score = round(
-                        best_child * 0.7 + node.score * 0.3, 4,
+                        best_child * 0.7 + node.score * 0.3,
+                        4,
                     )
             evaluated += 1
 
@@ -2068,8 +2021,7 @@ class ToTProcessor:
             pruned_count=pruned,
             threshold=threshold,
             remaining_active=sum(
-                1 for n in self._nodes.values()
-                if n.status == BranchStatus.ACTIVE
+                1 for n in self._nodes.values() if n.status == BranchStatus.ACTIVE
             ),
             company_id=self.config.company_id,
         )
@@ -2089,9 +2041,7 @@ class ToTProcessor:
             Ordered list of explored node IDs.
         """
         strategy = self.config.search_strategy
-        root_candidates = [
-            nid for nid, n in self._nodes.items() if n.depth == 0
-        ]
+        root_candidates = [nid for nid, n in self._nodes.items() if n.depth == 0]
         if not root_candidates:
             return []
 
@@ -2138,7 +2088,8 @@ class ToTProcessor:
 
             # Enqueue active children (limit branches per level)
             children = [
-                cid for cid in node.children
+                cid
+                for cid in node.children
                 if self._nodes.get(cid)
                 and self._nodes[cid].status != BranchStatus.PRUNED
             ]
@@ -2191,7 +2142,8 @@ class ToTProcessor:
 
             # Add children to the priority queue
             children = [
-                cid for cid in node.children
+                cid
+                for cid in node.children
                 if self._nodes.get(cid)
                 and self._nodes[cid].status != BranchStatus.PRUNED
             ]
@@ -2205,7 +2157,8 @@ class ToTProcessor:
     # ── Step 5: Path Selection ─────────────────────────────────────
 
     async def select_best_path(
-        self, explored: List[str],
+        self,
+        explored: List[str],
     ) -> List[TreeNode]:
         """
         Select the best path from explored nodes.
@@ -2232,16 +2185,15 @@ class ToTProcessor:
             node = self._nodes.get(nid)
             if not node or node.depth == 0:
                 continue
-            child_explored = [
-                cid for cid in node.children if cid in explored_set
-            ]
+            child_explored = [cid for cid in node.children if cid in explored_set]
             if not child_explored:
                 leaf_candidates.append(node)
 
         # If no leaves found, fall back to deepest explored node
         if not leaf_candidates:
             leaf_candidates = [
-                self._nodes[nid] for nid in explored
+                self._nodes[nid]
+                for nid in explored
                 if nid in self._nodes and self._nodes[nid].depth > 0
             ]
 
@@ -2251,10 +2203,7 @@ class ToTProcessor:
             if (
                 best_leaf is None
                 or node.score > best_leaf.score
-                or (
-                    node.score == best_leaf.score
-                    and node.depth > best_leaf.depth
-                )
+                or (node.score == best_leaf.score and node.depth > best_leaf.depth)
             ):
                 best_leaf = node
 
@@ -2309,59 +2258,66 @@ class ToTProcessor:
         trace: List[Dict[str, str]] = []
 
         # Entry 1: Domain classification
-        trace.append({
-            "step": "domain_classification",
-            "domain": domain.value,
-            "template": template_name,
-            "timestamp": _utcnow_iso(),
-        })
+        trace.append(
+            {
+                "step": "domain_classification",
+                "domain": domain.value,
+                "template": template_name,
+                "timestamp": _utcnow_iso(),
+            }
+        )
 
         # Entry 2: Tree overview
         total = len(self._nodes)
-        pruned = sum(
-            1 for n in self._nodes.values()
-            if n.status == BranchStatus.PRUNED
-        )
+        pruned = sum(1 for n in self._nodes.values() if n.status == BranchStatus.PRUNED)
         active = sum(
-            1 for n in self._nodes.values()
+            1
+            for n in self._nodes.values()
             if n.status in (BranchStatus.ACTIVE, BranchStatus.EXPLORED)
         )
-        trace.append({
-            "step": "tree_overview",
-            "total_nodes": str(total),
-            "pruned_nodes": str(pruned),
-            "active_nodes": str(active),
-            "search_strategy": self.config.search_strategy.value,
-            "timestamp": _utcnow_iso(),
-        })
+        trace.append(
+            {
+                "step": "tree_overview",
+                "total_nodes": str(total),
+                "pruned_nodes": str(pruned),
+                "active_nodes": str(active),
+                "search_strategy": self.config.search_strategy.value,
+                "timestamp": _utcnow_iso(),
+            }
+        )
 
         # Entry 3: Path steps
         for idx, node in enumerate(path):
-            role = "root" if idx == 0 else (
-                "decision" if node.children else "resolution"
+            role = (
+                "root" if idx == 0 else ("decision" if node.children else "resolution")
             )
-            trace.append({
-                "step": f"path_step_{idx + 1}",
-                "role": role,
-                "label": node.label,
-                "content": node.content,
-                "score": str(round(node.score, 4)),
-                "depth": str(node.depth),
-                "timestamp": _utcnow_iso(),
-            })
+            trace.append(
+                {
+                    "step": f"path_step_{idx + 1}",
+                    "role": role,
+                    "label": node.label,
+                    "content": node.content,
+                    "score": str(round(node.score, 4)),
+                    "depth": str(node.depth),
+                    "timestamp": _utcnow_iso(),
+                }
+            )
 
         # Entry 4: Pruned alternatives summary
         pruned_branches = [
-            n.label for n in self._nodes.values()
+            n.label
+            for n in self._nodes.values()
             if n.status == BranchStatus.PRUNED and n.depth == 1
         ]
         if pruned_branches:
-            trace.append({
-                "step": "pruned_alternatives",
-                "pruned_branches": "; ".join(pruned_branches),
-                "prune_threshold": str(self.config.prune_threshold),
-                "timestamp": _utcnow_iso(),
-            })
+            trace.append(
+                {
+                    "step": "pruned_alternatives",
+                    "pruned_branches": "; ".join(pruned_branches),
+                    "prune_threshold": str(self.config.prune_threshold),
+                    "timestamp": _utcnow_iso(),
+                }
+            )
 
         logger.debug(
             "tot_reasoning_trace_built",
@@ -2443,7 +2399,9 @@ class ToTProcessor:
             # Step 6: Reasoning trace
             if self.config.enable_reasoning_trace and selected_path:
                 reasoning_trace = await self.build_reasoning_trace(
-                    selected_path, domain, template_name,
+                    selected_path,
+                    domain,
+                    template_name,
                 )
                 if reasoning_trace:
                     steps_applied.append("reasoning_trace")
@@ -2490,7 +2448,7 @@ class ToTProcessor:
             domain=domain.value,
             template_name=template_name,
             total_nodes=len(self._nodes),
-            pruned_count=pruned_count if 'pruned_count' in dir() else 0,
+            pruned_count=pruned_count if "pruned_count" in dir() else 0,
             selected_path=[n.to_dict() for n in selected_path],
             reasoning_trace=reasoning_trace,
             search_strategy=self.config.search_strategy.value,
@@ -2515,7 +2473,8 @@ class TreeOfThoughtsNode(BaseTechniqueNode):
     """
 
     def __init__(
-        self, config: Optional[ToTConfig] = None,
+        self,
+        config: Optional[ToTConfig] = None,
     ):
         self._config = config or ToTConfig()
         self._processor = ToTProcessor(config=self._config)
@@ -2576,7 +2535,8 @@ class TreeOfThoughtsNode(BaseTechniqueNode):
             # Build response from selected path
             if result.selected_path:
                 response_text = self._format_path_response(
-                    result.selected_path, result.domain,
+                    result.selected_path,
+                    result.domain,
                 )
                 state.response_parts.append(response_text)
 

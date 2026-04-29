@@ -40,7 +40,9 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 @router.get("/home")
 async def dashboard_home(
     period_days: int = Query(
-        30, ge=1, le=365,
+        30,
+        ge=1,
+        le=365,
         description="Number of days for dashboard data",
     ),
     company_id: str = Depends(get_company_id),
@@ -122,7 +124,9 @@ async def dashboard_layout(
 async def activity_feed(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(
-        25, ge=1, le=100,
+        25,
+        ge=1,
+        le=100,
         description="Events per page",
     ),
     event_type: Optional[str] = Query(
@@ -154,11 +158,11 @@ async def activity_feed(
         # Parse event type filter
         event_types = None
         if event_type:
-            event_types = [t.strip()
-                           for t in event_type.split(",") if t.strip()]
+            event_types = [t.strip() for t in event_type.split(",") if t.strip()]
 
         result = get_activity_feed(
-            company_id, db,
+            company_id,
+            db,
             page=page,
             page_size=page_size,
             event_types=event_types,
@@ -215,8 +219,9 @@ async def key_metrics(
         raise ValidationError(
             message=f"Invalid period '{period}'. Must be one of: {
                 ', '.join(
-                    sorted(valid_periods))}", details={
-                "field": "period", "allowed": sorted(valid_periods)}, )
+                    sorted(valid_periods))}",
+            details={"field": "period", "allowed": sorted(valid_periods)},
+        )
 
     try:
         from app.services.dashboard_service import get_key_metrics

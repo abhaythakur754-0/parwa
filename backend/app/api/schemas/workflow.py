@@ -30,7 +30,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-
 # ══════════════════════════════════════════════════════════════════
 # ENUMS
 # ══════════════════════════════════════════════════════════════════
@@ -38,6 +37,7 @@ from pydantic import BaseModel, Field
 
 class GSDStateValue(str, Enum):
     """Valid GSD state values for transitions."""
+
     NEW = "new"
     GREETING = "greeting"
     DIAGNOSIS = "diagnosis"
@@ -50,6 +50,7 @@ class GSDStateValue(str, Enum):
 
 class CompressionStrategy(str, Enum):
     """Compression strategy options."""
+
     EXTRACTIVE = "extractive"
     ABSTRACTIVE = "abstractive"
     HYBRID = "hybrid"
@@ -59,6 +60,7 @@ class CompressionStrategy(str, Enum):
 
 class HealthStatus(str, Enum):
     """Context health status levels."""
+
     HEALTHY = "healthy"
     DEGRADING = "degrading"
     CRITICAL = "critical"
@@ -115,9 +117,7 @@ class WorkflowExecuteResponse(BaseModel):
     technique_used: Optional[str] = Field(
         None, description="Technique that was executed"
     )
-    response: Optional[str] = Field(
-        None, description="Generated response text"
-    )
+    response: Optional[str] = Field(None, description="Generated response text")
     token_usage: int = Field(default=0, description="Tokens consumed")
     execution_time_ms: float = Field(
         default=0.0, description="Total execution time in milliseconds"
@@ -138,12 +138,8 @@ class WorkflowStateResponse(BaseModel):
 
     status: str = Field(description="Response status")
     conversation_id: str = Field(description="Conversation ID")
-    ticket_id: Optional[str] = Field(
-        None, description="Associated ticket ID"
-    )
-    company_id: Optional[str] = Field(
-        None, description="Tenant company ID"
-    )
+    ticket_id: Optional[str] = Field(None, description="Associated ticket ID")
+    company_id: Optional[str] = Field(None, description="Tenant company ID")
     gsd_state: str = Field(description="Current GSD state")
     gsd_history: List[Dict[str, Any]] = Field(
         default_factory=list,
@@ -212,18 +208,12 @@ class HealthMetricsSchema(BaseModel):
     compression_ratio: float = Field(
         default=1.0, description="Context compression ratio"
     )
-    relevance_score: float = Field(
-        default=1.0, description="Context relevance score"
-    )
-    freshness_score: float = Field(
-        default=1.0, description="Context freshness score"
-    )
+    relevance_score: float = Field(default=1.0, description="Context relevance score")
+    freshness_score: float = Field(default=1.0, description="Context freshness score")
     signal_preservation: float = Field(
         default=1.0, description="Signal preservation score"
     )
-    context_coherence: float = Field(
-        default=1.0, description="Context coherence score"
-    )
+    context_coherence: float = Field(default=1.0, description="Context coherence score")
 
 
 class HealthAlertSchema(BaseModel):
@@ -246,9 +236,7 @@ class ContextHealthResponse(BaseModel):
     company_id: str = Field(description="Tenant company ID")
     overall_score: float = Field(description="Weighted health score")
     health_status: HealthStatus = Field(description="Overall health status")
-    metrics: HealthMetricsSchema = Field(
-        description="Individual metric measurements"
-    )
+    metrics: HealthMetricsSchema = Field(description="Individual metric measurements")
     alerts: List[HealthAlertSchema] = Field(
         default_factory=list, description="Active alerts"
     )
@@ -314,12 +302,8 @@ class ContextCompressResponse(BaseModel):
         default=1.0, description="Compressed/original ratio"
     )
     strategy_used: str = Field(description="Strategy that was applied")
-    chunks_removed: int = Field(
-        default=0, description="Number of chunks removed"
-    )
-    chunks_retained: int = Field(
-        default=0, description="Number of chunks retained"
-    )
+    chunks_removed: int = Field(default=0, description="Number of chunks removed")
+    chunks_retained: int = Field(default=0, description="Number of chunks retained")
     processing_time_ms: float = Field(
         default=0.0, description="Processing time in milliseconds"
     )
@@ -343,9 +327,7 @@ class TechniqueStatsSchema(BaseModel):
     avg_exec_time_ms: float = Field(default=0.0)
     min_exec_time_ms: float = Field(default=0.0)
     max_exec_time_ms: float = Field(default=0.0)
-    success_rate: float = Field(
-        default=0.0, description="Success rate percentage"
-    )
+    success_rate: float = Field(default=0.0, description="Success rate percentage")
 
 
 class MetricsResponse(BaseModel):
@@ -363,7 +345,9 @@ class MetricsResponse(BaseModel):
     )
     percentiles: Dict[str, float] = Field(
         default_factory=lambda: {
-            "p50": 0.0, "p95": 0.0, "p99": 0.0,
+            "p50": 0.0,
+            "p95": 0.0,
+            "p99": 0.0,
         },
         description="Execution time percentiles",
     )
@@ -427,9 +411,7 @@ class CapacityVariantStatus(BaseModel):
     total: int = Field(description="Maximum concurrent slots")
     available: int = Field(description="Available slots")
     percentage: float = Field(description="Utilization percentage")
-    queue_size: int = Field(
-        default=0, description="Items waiting in queue"
-    )
+    queue_size: int = Field(default=0, description="Items waiting in queue")
 
 
 class CapacityStatusResponse(BaseModel):
@@ -497,9 +479,7 @@ class TenantConfigResponse(BaseModel):
         description="Full merged configuration by category",
     )
     version: int = Field(default=0, description="Config version number")
-    variant_type: str = Field(
-        default="parwa", description="Active variant type"
-    )
+    variant_type: str = Field(default="parwa", description="Active variant type")
 
 
 class TenantConfigUpdateRequest(BaseModel):
@@ -553,9 +533,7 @@ class GSDTransitionsResponse(BaseModel):
     transitions: List[GSDTransitionEntry] = Field(
         default_factory=list, description="Ordered transition history"
     )
-    total_transitions: int = Field(
-        default=0, description="Total number of transitions"
-    )
+    total_transitions: int = Field(default=0, description="Total number of transitions")
 
 
 class GSDAnalyticsResponse(BaseModel):
@@ -569,9 +547,7 @@ class GSDAnalyticsResponse(BaseModel):
     company_id: str = Field(description="Tenant company ID")
     ticket_id: str = Field(description="Ticket ID")
     current_state: str = Field(description="Current GSD state")
-    recommended_next_state: str = Field(
-        description="AI-recommended next state"
-    )
+    recommended_next_state: str = Field(description="AI-recommended next state")
     variant: str = Field(description="Active variant type")
     reasoning_chain: List[Dict[str, Any]] = Field(
         default_factory=list, description="Step-by-step reasoning"
@@ -633,9 +609,7 @@ class StateMigrateResponse(BaseModel):
     changes_made: List[str] = Field(
         default_factory=list, description="List of changes applied"
     )
-    warnings: List[str] = Field(
-        default_factory=list, description="Migration warnings"
-    )
+    warnings: List[str] = Field(default_factory=list, description="Migration warnings")
     state_after: Dict[str, Any] = Field(
         default_factory=dict,
         description="The state after migration (or preview)",

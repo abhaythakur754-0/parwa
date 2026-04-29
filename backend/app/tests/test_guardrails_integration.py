@@ -14,13 +14,14 @@ from app.core.guardrails_integration import (
     apply_guardrails_to_llm_result,
 )
 
-
 # ── Fixtures ────────────────────────────────────────────────────
 
 
 @pytest.fixture
 def clean_response():
-    return "Here's how to reset your password: Go to Settings > Security > Reset Password."
+    return (
+        "Here's how to reset your password: Go to Settings > Security > Reset Password."
+    )
 
 
 @pytest.fixture
@@ -128,7 +129,8 @@ class TestCheckLlmResponse:
         # PII leak guard should catch this
         assert result.action in [
             GuardrailsAction.BLOCK,
-            GuardrailsAction.FLAG_FOR_REVIEW]
+            GuardrailsAction.FLAG_FOR_REVIEW,
+        ]
 
     def test_company_id_in_result(self, clean_response):
         result = check_llm_response(
@@ -256,7 +258,8 @@ class TestEdgeCases:
         assert result.action in [
             GuardrailsAction.ALLOW,
             GuardrailsAction.FLAG_FOR_REVIEW,
-            GuardrailsAction.BLOCK]
+            GuardrailsAction.BLOCK,
+        ]
 
     def test_unicode_content(self):
         unicode_response = "Hello 你好 مرحبا Привет 🌍"
@@ -267,7 +270,8 @@ class TestEdgeCases:
         )
         assert result.action in [
             GuardrailsAction.ALLOW,
-            GuardrailsAction.FLAG_FOR_REVIEW]
+            GuardrailsAction.FLAG_FOR_REVIEW,
+        ]
 
     def test_code_content_allowed(self):
         """Code snippets should be allowed."""
@@ -337,9 +341,9 @@ class TestShadowModeBypass:
             company_id="normal_company_1",
             shadow_mode=None,
         )
-        assert result.action == GuardrailsAction.BLOCK, (
-            f"Normal mode should BLOCK hate speech, got {result.action}"
-        )
+        assert (
+            result.action == GuardrailsAction.BLOCK
+        ), f"Normal mode should BLOCK hate speech, got {result.action}"
 
     def test_supervised_mode_does_not_downgrade(self):
         """Shadow mode 'supervised' should NOT downgrade blocks."""
@@ -350,9 +354,9 @@ class TestShadowModeBypass:
             shadow_mode="supervised",
         )
         # Supervised mode should still block
-        assert result.action == GuardrailsAction.BLOCK, (
-            f"Supervised mode should still BLOCK, got {result.action}"
-        )
+        assert (
+            result.action == GuardrailsAction.BLOCK
+        ), f"Supervised mode should still BLOCK, got {result.action}"
 
     def test_graduated_mode_does_not_downgrade(self):
         """Shadow mode 'graduated' should NOT downgrade blocks."""
@@ -362,9 +366,9 @@ class TestShadowModeBypass:
             company_id="graduated_company_1",
             shadow_mode="graduated",
         )
-        assert result.action == GuardrailsAction.BLOCK, (
-            f"Graduated mode should still BLOCK, got {result.action}"
-        )
+        assert (
+            result.action == GuardrailsAction.BLOCK
+        ), f"Graduated mode should still BLOCK, got {result.action}"
 
     def test_shadow_mode_clean_response_passes(self):
         """Clean responses should still ALLOW in shadow mode."""
@@ -391,9 +395,9 @@ class TestShadowModeBypass:
             shadow_mode="shadow",
         )
         # Should be flagged, not blocked — content should be preserved
-        assert output["guardrails_action"] == "flag_for_review", (
-            f"Expected flag_for_review with shadow_mode, got {output['guardrails_action']}"
-        )
+        assert (
+            output["guardrails_action"] == "flag_for_review"
+        ), f"Expected flag_for_review with shadow_mode, got {output['guardrails_action']}"
         assert output.get("flagged_for_review") is True
         # Original content should still be there (not replaced with fallback)
         assert "hate speech" in output["content"]
@@ -417,7 +421,8 @@ class TestGuardrailsPipelineWiring:
         # Should be blocked or flagged due to PII
         assert result.action in [
             GuardrailsAction.BLOCK,
-            GuardrailsAction.FLAG_FOR_REVIEW]
+            GuardrailsAction.FLAG_FOR_REVIEW,
+        ]
 
     def test_day4_output_scanners_run_on_clean_output(self):
         """Day 4 scanners should allow clean output."""
@@ -449,12 +454,14 @@ class TestGuardrailsPipelineWiring:
         # mini_parwa (HIGH strictness) should be more restrictive
         assert result_mini.action in [
             GuardrailsAction.BLOCK,
-            GuardrailsAction.FLAG_FOR_REVIEW]
+            GuardrailsAction.FLAG_FOR_REVIEW,
+        ]
         # high_parwa may be more lenient
         assert result_high.action in [
             GuardrailsAction.ALLOW,
             GuardrailsAction.BLOCK,
-            GuardrailsAction.FLAG_FOR_REVIEW]
+            GuardrailsAction.FLAG_FOR_REVIEW,
+        ]
 
     def test_full_integration_clean_response(self):
         """Full integration: clean query → clean response → ALLOW."""
@@ -488,6 +495,6 @@ class TestGuardrailsPipelineWiring:
                 company_id=f"empty_test_{mode}",
                 shadow_mode=mode,
             )
-            assert result.action == GuardrailsAction.BLOCK, (
-                f"Empty response should be BLOCKED even with shadow_mode={mode}"
-            )
+            assert (
+                result.action == GuardrailsAction.BLOCK
+            ), f"Empty response should be BLOCKED even with shadow_mode={mode}"

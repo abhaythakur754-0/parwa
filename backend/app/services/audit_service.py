@@ -116,8 +116,7 @@ class AuditEntry:
         # Validate company_id first (BC-001 — multi-tenant isolation)
         if not company_id or not isinstance(company_id, str):
             raise ValueError(
-                "company_id is required and must be a "
-                "non-empty string (BC-001)"
+                "company_id is required and must be a " "non-empty string (BC-001)"
             )
         if len(company_id) > 128:
             raise ValueError("company_id must not exceed 128 characters")
@@ -466,11 +465,7 @@ def process_audit_queue() -> dict:
             "process_audit_queue failed error=%s",
             exc,
         )
-        return {
-            "status": "failed",
-            "processed": processed,
-            "error": str(exc)[
-                :200]}
+        return {"status": "failed", "processed": processed, "error": str(exc)[:200]}
 
     return {"status": "ok", "processed": processed}
 
@@ -547,23 +542,22 @@ def query_audit_trail(
 
     items = []
     for rec in records:
-        items.append({
-            "id": rec.id,
-            "company_id": rec.company_id,
-            "actor_id": rec.actor_id,
-            "actor_type": rec.actor_type,
-            "action": rec.action,
-            "resource_type": rec.resource_type,
-            "resource_id": rec.resource_id,
-            "old_value": rec.old_value,
-            "new_value": rec.new_value,
-            "ip_address": rec.ip_address,
-            "user_agent": rec.user_agent,
-            "created_at": (
-                rec.created_at.isoformat()
-                if rec.created_at else None
-            ),
-        })
+        items.append(
+            {
+                "id": rec.id,
+                "company_id": rec.company_id,
+                "actor_id": rec.actor_id,
+                "actor_type": rec.actor_type,
+                "action": rec.action,
+                "resource_type": rec.resource_type,
+                "resource_id": rec.resource_id,
+                "old_value": rec.old_value,
+                "new_value": rec.new_value,
+                "ip_address": rec.ip_address,
+                "user_agent": rec.user_agent,
+                "created_at": (rec.created_at.isoformat() if rec.created_at else None),
+            }
+        )
 
     return items, total
 
@@ -623,23 +617,22 @@ def export_audit_trail(
 
     items = []
     for rec in records:
-        items.append({
-            "id": rec.id,
-            "company_id": rec.company_id,
-            "actor_id": rec.actor_id,
-            "actor_type": rec.actor_type,
-            "action": rec.action,
-            "resource_type": rec.resource_type,
-            "resource_id": rec.resource_id,
-            "old_value": rec.old_value,
-            "new_value": rec.new_value,
-            "ip_address": rec.ip_address,
-            "user_agent": rec.user_agent,
-            "created_at": (
-                rec.created_at.isoformat()
-                if rec.created_at else None
-            ),
-        })
+        items.append(
+            {
+                "id": rec.id,
+                "company_id": rec.company_id,
+                "actor_id": rec.actor_id,
+                "actor_type": rec.actor_type,
+                "action": rec.action,
+                "resource_type": rec.resource_type,
+                "resource_id": rec.resource_id,
+                "old_value": rec.old_value,
+                "new_value": rec.new_value,
+                "ip_address": rec.ip_address,
+                "user_agent": rec.user_agent,
+                "created_at": (rec.created_at.isoformat() if rec.created_at else None),
+            }
+        )
 
     return items
 
@@ -793,6 +786,7 @@ def cleanup_old_audit_entries(
     owns_session = False
     if db is None:
         from database.base import SessionLocal
+
         db = SessionLocal()
         owns_session = True
 
@@ -807,17 +801,13 @@ def cleanup_old_audit_entries(
         total_deleted = 0
         batch_size = 1000
         while True:
-            batch_ids = (
-                query.with_entities(AuditTrail.id)
-                .limit(batch_size)
-                .all()
-            )
+            batch_ids = query.with_entities(AuditTrail.id).limit(batch_size).all()
             if not batch_ids:
                 break
             ids_to_delete = [bid[0] for bid in batch_ids]
-            db.query(AuditTrail).filter(
-                AuditTrail.id.in_(ids_to_delete)
-            ).delete(synchronize_session=False)
+            db.query(AuditTrail).filter(AuditTrail.id.in_(ids_to_delete)).delete(
+                synchronize_session=False
+            )
             total_deleted += len(ids_to_delete)
 
         if owns_session:

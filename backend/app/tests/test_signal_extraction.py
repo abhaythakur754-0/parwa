@@ -15,7 +15,6 @@ from app.core.signal_extraction import (
     SignalExtractor,
 )
 
-
 # ── Intent Extraction ────────────────────────────────────────────────
 
 
@@ -23,19 +22,22 @@ class TestExtractIntent:
     def setup_method(self):
         self.extractor = SignalExtractor()
 
-    @pytest.mark.parametrize("query,expected", [
-        ("I want a refund for my order", "refund"),
-        ("The app keeps crashing with an error", "technical"),
-        ("I have a question about my bill", "billing"),
-        ("I'm very unhappy with the service", "complaint"),
-        ("It would be great to add a dark mode", "feature_request"),
-        ("Cancel my subscription immediately", "cancellation"),
-        ("Where is my package? I need to track it", "shipping"),
-        ("How do I reset my password?", "account"),
-        ("Can you explain how this works?", "inquiry"),
-        ("I need to speak to a manager", "escalation"),
-        ("Your product is amazing, great job!", "feedback"),
-    ])
+    @pytest.mark.parametrize(
+        "query,expected",
+        [
+            ("I want a refund for my order", "refund"),
+            ("The app keeps crashing with an error", "technical"),
+            ("I have a question about my bill", "billing"),
+            ("I'm very unhappy with the service", "complaint"),
+            ("It would be great to add a dark mode", "feature_request"),
+            ("Cancel my subscription immediately", "cancellation"),
+            ("Where is my package? I need to track it", "shipping"),
+            ("How do I reset my password?", "account"),
+            ("Can you explain how this works?", "inquiry"),
+            ("I need to speak to a manager", "escalation"),
+            ("Your product is amazing, great job!", "feedback"),
+        ],
+    )
     def test_intent_detection(self, query, expected):
         assert self.extractor._extract_intent(query) == expected
 
@@ -65,8 +67,7 @@ class TestExtractSentiment:
         self.extractor = SignalExtractor()
 
     def test_positive_sentiment(self):
-        score = self.extractor._extract_sentiment(
-            "This is amazing and wonderful!")
+        score = self.extractor._extract_sentiment("This is amazing and wonderful!")
         assert score > 0.7
 
     def test_negative_sentiment(self):
@@ -76,14 +77,11 @@ class TestExtractSentiment:
         assert score < 0.3
 
     def test_neutral_sentiment(self):
-        score = self.extractor._extract_sentiment(
-            "How do I update my settings?")
+        score = self.extractor._extract_sentiment("How do I update my settings?")
         assert 0.3 <= score <= 0.7
 
     def test_mixed_sentiment(self):
-        score = self.extractor._extract_sentiment(
-            "Great product but terrible support"
-        )
+        score = self.extractor._extract_sentiment("Great product but terrible support")
         assert 0.3 <= score <= 0.7
 
     def test_empty_text(self):
@@ -93,7 +91,8 @@ class TestExtractSentiment:
     def test_intensifiers_boost(self):
         normal = self.extractor._extract_sentiment("This is bad and terrible")
         intensified = self.extractor._extract_sentiment(
-            "This is very very bad and extremely terrible")
+            "This is very very bad and extremely terrible"
+        )
         assert intensified <= normal
 
     def test_score_bounded(self):
@@ -127,8 +126,7 @@ class TestExtractComplexity:
         assert questions > simple
 
     def test_technical_terms_increase(self):
-        normal = self.extractor._extract_complexity(
-            "My thing is broken", self.weights)
+        normal = self.extractor._extract_complexity("My thing is broken", self.weights)
         techy = self.extractor._extract_complexity(
             "The API endpoint has a 500 error and the database server is down",
             self.weights,
@@ -153,43 +151,36 @@ class TestExtractMonetaryValue:
         assert currency == "$"
 
     def test_gbp_pound(self):
-        value, currency = self.extractor._extract_monetary_value(
-            "Costs £1,200.50")
+        value, currency = self.extractor._extract_monetary_value("Costs £1,200.50")
         assert value > 1300  # converted to USD
         assert currency == "£"
 
     def test_euro(self):
-        value, currency = self.extractor._extract_monetary_value(
-            "Price is €99")
+        value, currency = self.extractor._extract_monetary_value("Price is €99")
         assert value > 90  # converted to USD
         assert currency == "€"
 
     def test_inr_rupee(self):
-        value, currency = self.extractor._extract_monetary_value(
-            "I paid ₹50000")
+        value, currency = self.extractor._extract_monetary_value("I paid ₹50000")
         assert 0 < value < 1000  # INR to USD
         assert currency == "₹"
 
     def test_jpy_yen(self):
-        value, currency = self.extractor._extract_monetary_value(
-            "Price ¥10000")
+        value, currency = self.extractor._extract_monetary_value("Price ¥10000")
         assert 0 < value < 200  # JPY to USD
         assert currency == "¥"
 
     def test_currency_code_usd(self):
-        value, currency = self.extractor._extract_monetary_value(
-            "Total 500 USD")
+        value, currency = self.extractor._extract_monetary_value("Total 500 USD")
         assert value == 500.0
         assert currency == "USD"
 
     def test_currency_code_eur(self):
-        value, currency = self.extractor._extract_monetary_value(
-            "Costs 250 EUR")
+        value, currency = self.extractor._extract_monetary_value("Costs 250 EUR")
         assert value > 250  # converted
 
     def test_no_monetary_value(self):
-        value, currency = self.extractor._extract_monetary_value(
-            "No money mentioned")
+        value, currency = self.extractor._extract_monetary_value("No money mentioned")
         assert value == 0.0
         assert currency is None
 
@@ -219,14 +210,16 @@ class TestResolveCustomerTier:
 
     def test_from_metadata(self):
         req = SignalExtractionRequest(
-            query="test", company_id="c1",
+            query="test",
+            company_id="c1",
             customer_metadata={"tier": "enterprise"},
         )
         assert self.extractor._resolve_customer_tier(req) == "enterprise"
 
     def test_metadata_overrides_request(self):
         req = SignalExtractionRequest(
-            query="test", company_id="c1",
+            query="test",
+            company_id="c1",
             customer_tier="free",
             customer_metadata={"tier": "pro"},
         )
@@ -234,7 +227,8 @@ class TestResolveCustomerTier:
 
     def test_invalid_metadata_falls_back(self):
         req = SignalExtractionRequest(
-            query="test", company_id="c1",
+            query="test",
+            company_id="c1",
             customer_metadata={"tier": "invalid_tier"},
         )
         assert self.extractor._resolve_customer_tier(req) == "free"
@@ -258,16 +252,15 @@ class TestReasoningLoopDetection:
 
     def test_no_loop(self):
         history = ["How do I reset?", "Where is settings?", "Thanks"]
-        assert not self.extractor._detect_reasoning_loop(
-            "New question here", history)
+        assert not self.extractor._detect_reasoning_loop("New question here", history)
 
     def test_loop_detected(self):
         history = [
             "refund my order now",
             "I need a refund please",
-            "refund my order now"]
-        assert self.extractor._detect_reasoning_loop(
-            "refund my order now", history)
+            "refund my order now",
+        ]
+        assert self.extractor._detect_reasoning_loop("refund my order now", history)
 
     def test_empty_history_items(self):
         history = ["", None, "refund"]
@@ -277,7 +270,8 @@ class TestReasoningLoopDetection:
         """Queries must be very similar (>=0.85) to trigger loop."""
         history = ["I have a billing problem", "I have a shipping problem"]
         assert not self.extractor._detect_reasoning_loop(
-            "I have a refund problem", history)
+            "I have a refund problem", history
+        )
 
 
 # ── Resolution Path Count ────────────────────────────────────────────
@@ -292,20 +286,18 @@ class TestResolutionPathCount:
         assert paths == 1
 
     def test_technical_intent(self):
-        paths = self.extractor._count_resolution_paths(
-            "bug in api", "technical")
+        paths = self.extractor._count_resolution_paths("bug in api", "technical")
         assert paths >= 2
 
     def test_complaint_high_paths(self):
-        paths = self.extractor._count_resolution_paths(
-            "terrible service", "complaint")
+        paths = self.extractor._count_resolution_paths("terrible service", "complaint")
         assert paths >= 3
 
     def test_monetary_boost(self):
-        normal = self.extractor._count_resolution_paths(
-            "I want a refund", "refund")
+        normal = self.extractor._count_resolution_paths("I want a refund", "refund")
         with_money = self.extractor._count_resolution_paths(
-            "I want a $500 refund", "refund")
+            "I want a $500 refund", "refund"
+        )
         assert with_money > normal
 
 
@@ -364,11 +356,16 @@ class TestToQuerySignals:
 
     def test_conversion(self):
         signals = ExtractedSignals(
-            intent="refund", sentiment=0.3, complexity=0.5,
-            monetary_value=100.0, monetary_currency="$",
-            customer_tier="vip", turn_count=3,
+            intent="refund",
+            sentiment=0.3,
+            complexity=0.5,
+            monetary_value=100.0,
+            monetary_currency="$",
+            customer_tier="vip",
+            turn_count=3,
             previous_response_status="rejected",
-            reasoning_loop_detected=True, resolution_path_count=3,
+            reasoning_loop_detected=True,
+            resolution_path_count=3,
             query_breadth=0.6,
         )
         qs = self.extractor.to_query_signals(signals)
@@ -385,11 +382,16 @@ class TestToQuerySignals:
     def test_external_data_required(self):
         for intent in ("technical", "shipping", "account"):
             signals = ExtractedSignals(
-                intent=intent, sentiment=0.5, complexity=0.5,
-                monetary_value=0, monetary_currency=None,
-                customer_tier="free", turn_count=0,
+                intent=intent,
+                sentiment=0.5,
+                complexity=0.5,
+                monetary_value=0,
+                monetary_currency=None,
+                customer_tier="free",
+                turn_count=0,
                 previous_response_status="none",
-                reasoning_loop_detected=False, resolution_path_count=1,
+                reasoning_loop_detected=False,
+                resolution_path_count=1,
                 query_breadth=0.5,
             )
             qs = self.extractor.to_query_signals(signals)
@@ -397,11 +399,16 @@ class TestToQuerySignals:
 
     def test_no_external_data_for_billing(self):
         signals = ExtractedSignals(
-            intent="billing", sentiment=0.5, complexity=0.5,
-            monetary_value=0, monetary_currency=None,
-            customer_tier="free", turn_count=0,
+            intent="billing",
+            sentiment=0.5,
+            complexity=0.5,
+            monetary_value=0,
+            monetary_currency=None,
+            customer_tier="free",
+            turn_count=0,
             previous_response_status="none",
-            reasoning_loop_detected=False, resolution_path_count=1,
+            reasoning_loop_detected=False,
+            resolution_path_count=1,
             query_breadth=0.5,
         )
         qs = self.extractor.to_query_signals(signals)
@@ -475,8 +482,16 @@ class TestFullPipeline:
         req = SignalExtractionRequest(
             query="test query", company_id="c1", variant_type="parwa"
         )
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, side_effect=Exception("Redis down")):
-            with patch("app.core.redis.cache_set", new_callable=AsyncMock, side_effect=Exception("Redis down")):
+        with patch(
+            "app.core.redis.cache_get",
+            new_callable=AsyncMock,
+            side_effect=Exception("Redis down"),
+        ):
+            with patch(
+                "app.core.redis.cache_set",
+                new_callable=AsyncMock,
+                side_effect=Exception("Redis down"),
+            ):
                 result = await self.extractor.extract(req)
                 assert result.cached is False
 
@@ -487,14 +502,22 @@ class TestFullPipeline:
             query="I need a refund", company_id="c1", variant_type="parwa"
         )
         cached_data = {
-            "intent": "refund", "sentiment": 0.3, "complexity": 0.4,
-            "monetary_value": 0.0, "monetary_currency": None,
-            "customer_tier": "free", "turn_count": 0,
+            "intent": "refund",
+            "sentiment": 0.3,
+            "complexity": 0.4,
+            "monetary_value": 0.0,
+            "monetary_currency": None,
+            "customer_tier": "free",
+            "turn_count": 0,
             "previous_response_status": "none",
-            "reasoning_loop_detected": False, "resolution_path_count": 2,
-            "query_breadth": 0.5, "extraction_version": "1.0",
+            "reasoning_loop_detected": False,
+            "resolution_path_count": 2,
+            "query_breadth": 0.5,
+            "extraction_version": "1.0",
         }
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.extractor.extract(req)
                 assert result.intent == "refund"
@@ -507,11 +530,16 @@ class TestFullPipeline:
 class TestSerialization:
     def test_to_dict(self):
         signals = ExtractedSignals(
-            intent="refund", sentiment=0.5, complexity=0.6,
-            monetary_value=100.0, monetary_currency="$",
-            customer_tier="pro", turn_count=2,
+            intent="refund",
+            sentiment=0.5,
+            complexity=0.6,
+            monetary_value=100.0,
+            monetary_currency="$",
+            customer_tier="pro",
+            turn_count=2,
             previous_response_status="none",
-            reasoning_loop_detected=False, resolution_path_count=2,
+            reasoning_loop_detected=False,
+            resolution_path_count=2,
             query_breadth=0.5,
         )
         d = signals.to_dict()
@@ -522,11 +550,16 @@ class TestSerialization:
 
     def test_round_trip(self):
         signals = ExtractedSignals(
-            intent="technical", sentiment=0.4, complexity=0.7,
-            monetary_value=0.0, monetary_currency=None,
-            customer_tier="free", turn_count=5,
+            intent="technical",
+            sentiment=0.4,
+            complexity=0.7,
+            monetary_value=0.0,
+            monetary_currency=None,
+            customer_tier="free",
+            turn_count=5,
             previous_response_status="rejected",
-            reasoning_loop_detected=True, resolution_path_count=3,
+            reasoning_loop_detected=True,
+            resolution_path_count=3,
             query_breadth=0.8,
         )
         d = signals.to_dict()

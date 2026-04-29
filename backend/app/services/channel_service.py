@@ -30,7 +30,6 @@ from database.models.tickets import (
     TicketStatus,
 )
 
-
 # Default channel types supported by the system
 DEFAULT_CHANNELS = [
     {"name": "email", "channel_type": "email", "description": "Email channel"},
@@ -63,7 +62,8 @@ DEFAULT_ALLOWED_FILE_TYPES = [
     "gif",
     "csv",
     "xls",
-    "xlsx"]
+    "xlsx",
+]
 
 
 class ChannelService:
@@ -87,9 +87,7 @@ class ChannelService:
             List of channel definitions
         """
         # Check database for any custom channels
-        db_channels = self.db.query(Channel).filter(
-            Channel.is_active
-        ).all()
+        db_channels = self.db.query(Channel).filter(Channel.is_active).all()
 
         # Merge with defaults
         channel_map = {c["name"]: c for c in DEFAULT_CHANNELS}
@@ -111,9 +109,11 @@ class ChannelService:
             List of channel configs with status
         """
         # Get all channel configs for company
-        configs = self.db.query(ChannelConfig).filter(
-            ChannelConfig.company_id == self.company_id
-        ).all()
+        configs = (
+            self.db.query(ChannelConfig)
+            .filter(ChannelConfig.company_id == self.company_id)
+            .all()
+        )
 
         config_map = {c.channel_type: c for c in configs}
 
@@ -123,17 +123,33 @@ class ChannelService:
             name = channel["name"]
             config = config_map.get(name)
 
-            result.append({
-                "channel_type": name,
-                "channel_category": channel["channel_type"],
-                "description": channel["description"],
-                "is_enabled": config.is_enabled if config else False,
-                "config": json.loads(config.config_json) if config and config.config_json else {},
-                "auto_create_ticket": config.auto_create_ticket if config else True,
-                "char_limit": config.char_limit if config and config.char_limit else CHANNEL_CHAR_LIMITS.get(name),
-                "allowed_file_types": json.loads(config.allowed_file_types) if config and config.allowed_file_types else DEFAULT_ALLOWED_FILE_TYPES,
-                "max_file_size": config.max_file_size if config else 5 * 1024 * 1024,  # 5MB default
-            })
+            result.append(
+                {
+                    "channel_type": name,
+                    "channel_category": channel["channel_type"],
+                    "description": channel["description"],
+                    "is_enabled": config.is_enabled if config else False,
+                    "config": (
+                        json.loads(config.config_json)
+                        if config and config.config_json
+                        else {}
+                    ),
+                    "auto_create_ticket": config.auto_create_ticket if config else True,
+                    "char_limit": (
+                        config.char_limit
+                        if config and config.char_limit
+                        else CHANNEL_CHAR_LIMITS.get(name)
+                    ),
+                    "allowed_file_types": (
+                        json.loads(config.allowed_file_types)
+                        if config and config.allowed_file_types
+                        else DEFAULT_ALLOWED_FILE_TYPES
+                    ),
+                    "max_file_size": (
+                        config.max_file_size if config else 5 * 1024 * 1024
+                    ),  # 5MB default
+                }
+            )
 
         return result
 
@@ -146,10 +162,14 @@ class ChannelService:
         Returns:
             ChannelConfig object or None
         """
-        return self.db.query(ChannelConfig).filter(
-            ChannelConfig.company_id == self.company_id,
-            ChannelConfig.channel_type == channel_type,
-        ).first()
+        return (
+            self.db.query(ChannelConfig)
+            .filter(
+                ChannelConfig.company_id == self.company_id,
+                ChannelConfig.channel_type == channel_type,
+            )
+            .first()
+        )
 
     def update_channel_config(
         self,
@@ -188,22 +208,21 @@ class ChannelService:
 
         if not config:
             config = ChannelConfig(
-                id=str(
-                    uuid.uuid4()),
+                id=str(uuid.uuid4()),
                 company_id=self.company_id,
                 channel_type=channel_type,
                 is_enabled=is_enabled if is_enabled is not None else True,
-                config_json=json.dumps(
-                    config_json or {}),
-                auto_create_ticket=auto_create_ticket if auto_create_ticket is not None else True,
+                config_json=json.dumps(config_json or {}),
+                auto_create_ticket=(
+                    auto_create_ticket if auto_create_ticket is not None else True
+                ),
                 char_limit=char_limit,
                 allowed_file_types=json.dumps(
-                    allowed_file_types or DEFAULT_ALLOWED_FILE_TYPES),
+                    allowed_file_types or DEFAULT_ALLOWED_FILE_TYPES
+                ),
                 max_file_size=max_file_size,
-                created_at=datetime.now(
-                    timezone.utc),
-                updated_at=datetime.now(
-                    timezone.utc),
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
             )
             self.db.add(config)
         else:
@@ -242,8 +261,9 @@ class ChannelService:
         """
         # Get config
         config = self.get_channel_config(channel_type)
-        config_data = test_config or (json.loads(
-            config.config_json) if config and config.config_json else {})
+        config_data = test_config or (
+            json.loads(config.config_json) if config and config.config_json else {}
+        )
 
         # Simulate connectivity test (in production, this would actually test)
         # For now, return success if config has required fields
@@ -256,22 +276,25 @@ class ChannelService:
 
         # Channel-specific validation
         if channel_type == "email":
-            if not config_data.get(
-                    "smtp_host") and not config_data.get("provider"):
+            if not config_data.get("smtp_host") and not config_data.get("provider"):
                 result["success"] = False
-                result["message"] = "Email configuration incomplete: missing SMTP or provider settings"
+                result["message"] = (
+                    "Email configuration incomplete: missing SMTP or provider settings"
+                )
 
         elif channel_type == "sms":
-            if not config_data.get(
-                    "provider") and not config_data.get("twilio_sid"):
+            if not config_data.get("provider") and not config_data.get("twilio_sid"):
                 result["success"] = False
-                result["message"] = "SMS configuration incomplete: missing provider settings"
+                result["message"] = (
+                    "SMS configuration incomplete: missing provider settings"
+                )
 
         elif channel_type == "slack":
-            if not config_data.get(
-                    "bot_token") and not config_data.get("webhook_url"):
+            if not config_data.get("bot_token") and not config_data.get("webhook_url"):
                 result["success"] = False
-                result["message"] = "Slack configuration incomplete: missing bot token or webhook"
+                result["message"] = (
+                    "Slack configuration incomplete: missing bot token or webhook"
+                )
 
         return result
 
@@ -320,7 +343,7 @@ class ChannelService:
         char_limit = CHANNEL_CHAR_LIMITS.get(channel_type)
 
         if truncate and char_limit and len(content) > char_limit:
-            content = content[:char_limit - 3] + "..."
+            content = content[: char_limit - 3] + "..."
 
         return content
 
@@ -385,10 +408,14 @@ class ChannelService:
             Handling result with retry status
         """
         # Get ticket
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")
@@ -398,7 +425,9 @@ class ChannelService:
             return {
                 "status": "already_queued",
                 "ticket_id": ticket_id,
-                "queued_at": ticket.updated_at.isoformat() if ticket.updated_at else None,
+                "queued_at": (
+                    ticket.updated_at.isoformat() if ticket.updated_at else None
+                ),
             }
 
         # Update ticket status to queued
@@ -409,15 +438,13 @@ class ChannelService:
         # Store variant failure metadata
         metadata = json.loads(ticket.metadata_json or "{}")
         metadata["variant_failure"] = {
-            "queued_at": datetime.now(
-                timezone.utc).isoformat(),
+            "queued_at": datetime.now(timezone.utc).isoformat(),
             "channel_type": channel_type,
             "retry_count": 0,
             "next_retry_at": (
-                datetime.now(
-                    timezone.utc)
-                + timedelta(
-                    minutes=self.VARIANT_RETRY_DELAY_MINUTES)).isoformat(),
+                datetime.now(timezone.utc)
+                + timedelta(minutes=self.VARIANT_RETRY_DELAY_MINUTES)
+            ).isoformat(),
         }
         ticket.metadata_json = json.dumps(metadata)
 
@@ -440,16 +467,20 @@ class ChannelService:
             List of tickets requiring action
         """
         now = datetime.now(timezone.utc)
-        retry_threshold = now - \
-            timedelta(minutes=self.VARIANT_RETRY_DELAY_MINUTES)
-        fallback_threshold = now - \
-            timedelta(minutes=self.HUMAN_FALLBACK_THRESHOLD_MINUTES)
+        retry_threshold = now - timedelta(minutes=self.VARIANT_RETRY_DELAY_MINUTES)
+        fallback_threshold = now - timedelta(
+            minutes=self.HUMAN_FALLBACK_THRESHOLD_MINUTES
+        )
 
         # Find queued tickets
-        queued_tickets = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.status == TicketStatus.queued.value,
-        ).all()
+        queued_tickets = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.status == TicketStatus.queued.value,
+            )
+            .all()
+        )
 
         results = []
 
@@ -502,10 +533,14 @@ class ChannelService:
         Returns:
             Updated ticket status
         """
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")
@@ -519,13 +554,11 @@ class ChannelService:
             del metadata["variant_failure"]
         else:
             # Increment retry count
-            failure_info["retry_count"] = failure_info.get(
-                "retry_count", 0) + 1
+            failure_info["retry_count"] = failure_info.get("retry_count", 0) + 1
             failure_info["next_retry_at"] = (
-                datetime.now(
-                    timezone.utc)
-                + timedelta(
-                    minutes=self.VARIANT_RETRY_DELAY_MINUTES)).isoformat()
+                datetime.now(timezone.utc)
+                + timedelta(minutes=self.VARIANT_RETRY_DELAY_MINUTES)
+            ).isoformat()
             metadata["variant_failure"] = failure_info
 
         ticket.metadata_json = json.dumps(metadata)
@@ -554,10 +587,14 @@ class ChannelService:
         Returns:
             Updated ticket status
         """
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")
@@ -576,7 +613,9 @@ class ChannelService:
             "from_status": old_status,
         }
         if "variant_failure" in metadata:
-            metadata["human_escalation"]["variant_failure"] = metadata["variant_failure"]
+            metadata["human_escalation"]["variant_failure"] = metadata[
+                "variant_failure"
+            ]
             del metadata["variant_failure"]
 
         ticket.metadata_json = json.dumps(metadata)

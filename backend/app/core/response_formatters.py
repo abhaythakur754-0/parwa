@@ -123,9 +123,7 @@ class TokenLimitFormatter(BaseFormatter):
         if not response:
             return response
 
-        limit = self.TIER_LIMITS.get(
-            context.model_tier,
-            self.TIER_LIMITS["standard"])
+        limit = self.TIER_LIMITS.get(context.model_tier, self.TIER_LIMITS["standard"])
         max_chars = limit * self.CHARS_PER_TOKEN
 
         if len(response) <= max_chars:
@@ -164,11 +162,7 @@ class MarkdownFormatter(BaseFormatter):
         text = response
 
         # Fix headers without space after # (e.g., "##Header" → "## Header")
-        text = re.sub(
-            r"^(#{1,6})([^ #\n])",
-            r"\1 \2",
-            text,
-            flags=re.MULTILINE)
+        text = re.sub(r"^(#{1,6})([^ #\n])", r"\1 \2", text, flags=re.MULTILINE)
 
         # Fix broken list items (e.g., "-item" → "- item", "*item" → "* item")
         text = re.sub(r"^(\s*[-*+])(\S)", r"\1 \2", text, flags=re.MULTILINE)
@@ -369,11 +363,24 @@ class CodeBlockFormatter(BaseFormatter):
 
     # Common file extensions to language tags
     EXT_TO_LANG = {
-        ".py": "python", ".js": "javascript", ".ts": "typescript",
-        ".html": "html", ".css": "css", ".json": "json",
-        ".sql": "sql", ".sh": "bash", ".yaml": "yaml", ".yml": "yaml",
-        ".md": "markdown", ".rb": "ruby", ".go": "go", ".rs": "rust",
-        ".java": "java", ".cpp": "cpp", ".c": "c", ".php": "php",
+        ".py": "python",
+        ".js": "javascript",
+        ".ts": "typescript",
+        ".html": "html",
+        ".css": "css",
+        ".json": "json",
+        ".sql": "sql",
+        ".sh": "bash",
+        ".yaml": "yaml",
+        ".yml": "yaml",
+        ".md": "markdown",
+        ".rb": "ruby",
+        ".go": "go",
+        ".rs": "rust",
+        ".java": "java",
+        ".cpp": "cpp",
+        ".c": "c",
+        ".php": "php",
     }
 
     @property
@@ -418,7 +425,7 @@ class ListFormatter(BaseFormatter):
             match = re.match(r"^(\s*)[*•▸▹►▹–—]\s+", line)
             if match:
                 indent = match.group(1)
-                rest = line[match.end():]
+                rest = line[match.end() :]
                 normalized.append(f"{indent}- {rest}")
             else:
                 normalized.append(line)
@@ -460,10 +467,7 @@ class BoldFormatter(BaseFormatter):
         # Remove excessive italic (> 3 italic sections)
         if italic_pairs > 3:
             # Remove remaining italic markers (avoid removing bold markers)
-            text = re.sub(
-                r"(?<!\*)\*(?!\*)([^*]+)(?<!\*)\*(?!\*)",
-                r"\1",
-                text)
+            text = re.sub(r"(?<!\*)\*(?!\*)([^*]+)(?<!\*)\*(?!\*)", r"\1", text)
 
         # Remove consecutive bold/italic on same text (e.g., ***text***)
         text = re.sub(r"\*\*\*(.+?)\*\*\*", r"\1", text)
@@ -502,17 +506,17 @@ class EmojiFormatter(BaseFormatter):
     # Regex to match common emojis
     EMOJI_PATTERN = re.compile(
         "["
-        "\U0001F600-\U0001F64F"  # emoticons
-        "\U0001F300-\U0001F5FF"  # symbols & pictographs
-        "\U0001F680-\U0001F6FF"  # transport & map
-        "\U0001F700-\U0001F77F"  # alchemical symbols
-        "\U0001F780-\U0001F7FF"  # Geometric Shapes Extended
-        "\U0001F800-\U0001F8FF"  # Supplemental Arrows-C
-        "\U0001F900-\U0001F9FF"  # Supplemental Symbols and Pictographs
-        "\U0001FA00-\U0001FA6F"  # Chess Symbols
-        "\U0001FA70-\U0001FAFF"  # Symbols and Pictographs Extended-A
-        "\U00002702-\U000027B0"  # Dingbats
-        "\U000024C2-\U0001F251"
+        "\U0001f600-\U0001f64f"  # emoticons
+        "\U0001f300-\U0001f5ff"  # symbols & pictographs
+        "\U0001f680-\U0001f6ff"  # transport & map
+        "\U0001f700-\U0001f77f"  # alchemical symbols
+        "\U0001f780-\U0001f7ff"  # Geometric Shapes Extended
+        "\U0001f800-\U0001f8ff"  # Supplemental Arrows-C
+        "\U0001f900-\U0001f9ff"  # Supplemental Symbols and Pictographs
+        "\U0001fa00-\U0001fa6f"  # Chess Symbols
+        "\U0001fa70-\U0001faff"  # Symbols and Pictographs Extended-A
+        "\U00002702-\U000027b0"  # Dingbats
+        "\U000024c2-\U0001f251"
         "]+",
         flags=re.UNICODE,
     )
@@ -606,8 +610,13 @@ class SignatureFormatter(BaseFormatter):
 
         # Check if there's already a sign-off
         sign_off_indicators = [
-            "best regards", "sincerely", "cheers", "thanks",
-            "support team", "customer support", "help team",
+            "best regards",
+            "sincerely",
+            "cheers",
+            "thanks",
+            "support team",
+            "customer support",
+            "help team",
         ]
         last_lines = response.lower().split("\n")[-3:]
         # G5 FIX: Check if indicator appears as a word in last lines, not substring
@@ -664,7 +673,10 @@ class DisambiguationFormatter(BaseFormatter):
             return response
 
         # Check if response already has disambiguation
-        if "did you mean" in response.lower() or "were you looking for" in response.lower():
+        if (
+            "did you mean" in response.lower()
+            or "were you looking for" in response.lower()
+        ):
             return response
 
         # Don't add to short responses
@@ -748,9 +760,7 @@ class EscalationFormatter(BaseFormatter):
 
         # G11 FIX: Also escalate for very frustrated customers regardless of
         # intent
-        if intent not in (
-            "escalation",
-                "complaint") and context.sentiment_score >= 0.3:
+        if intent not in ("escalation", "complaint") and context.sentiment_score >= 0.3:
             return response  # Only format escalation for high-frustration or specific intents
 
         # Only format escalation-related responses
@@ -758,7 +768,11 @@ class EscalationFormatter(BaseFormatter):
             return response
 
         # Check if already has escalation formatting
-        if "⚠️" in response or "**Priority:**" in response or "ESCALATION" in response.upper():
+        if (
+            "⚠️" in response
+            or "**Priority:**" in response
+            or "ESCALATION" in response.upper()
+        ):
             return response
 
         # Add priority header
@@ -789,17 +803,34 @@ class FormatterRegistry:
     # Per-variant default formatter lists
     VARIANT_DEFAULTS: Dict[str, List[str]] = {
         "mini_parwa": [
-            "token_limit", "markdown", "whitespace",
+            "token_limit",
+            "markdown",
+            "whitespace",
         ],
         "parwa": [
-            "token_limit", "markdown", "whitespace",
-            "citation", "tone", "length",
+            "token_limit",
+            "markdown",
+            "whitespace",
+            "citation",
+            "tone",
+            "length",
         ],
         "high_parwa": [
-            "token_limit", "markdown", "citation", "tone", "length",
-            "code_block", "list", "bold", "link", "emoji",
-            "whitespace", "signature", "disambiguation",
-            "action_item", "escalation",
+            "token_limit",
+            "markdown",
+            "citation",
+            "tone",
+            "length",
+            "code_block",
+            "list",
+            "bold",
+            "link",
+            "emoji",
+            "whitespace",
+            "signature",
+            "disambiguation",
+            "action_item",
+            "escalation",
         ],
     }
 
@@ -900,9 +931,8 @@ class FormatterRegistry:
             List of formatter names.
         """
         return list(
-            self.VARIANT_DEFAULTS.get(
-                variant_type,
-                self.VARIANT_DEFAULTS["parwa"]))
+            self.VARIANT_DEFAULTS.get(variant_type, self.VARIANT_DEFAULTS["parwa"])
+        )
 
     def list_registered(self) -> List[str]:
         """List all registered formatter names."""

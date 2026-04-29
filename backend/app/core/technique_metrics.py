@@ -34,7 +34,6 @@ from app.core.technique_router import (
     TechniqueID,
 )
 
-
 # ── Time Windows ───────────────────────────────────────────────────
 
 TIME_WINDOWS_SECONDS = {
@@ -127,14 +126,10 @@ class TechniqueMetricsCollector:
         self._lock = threading.Lock()
 
         # Raw records: keyed by (technique_id, company_id)
-        self._records: Dict[
-            Tuple[str, str], List[ExecutionRecord]
-        ] = defaultdict(list)
+        self._records: Dict[Tuple[str, str], List[ExecutionRecord]] = defaultdict(list)
 
         # Aggregated stats: keyed by (technique_id, company_id)
-        self._stats: Dict[
-            Tuple[str, str], TechniqueStats
-        ] = {}
+        self._stats: Dict[Tuple[str, str], TechniqueStats] = {}
 
         # Variant stats: keyed by variant
         self._variant_stats: Dict[str, VariantSummary] = {}
@@ -186,7 +181,9 @@ class TechniqueMetricsCollector:
             self._update_variant_stats(record)
 
     def _update_stats(
-        self, key: Tuple[str, str], record: ExecutionRecord,
+        self,
+        key: Tuple[str, str],
+        record: ExecutionRecord,
     ) -> None:
         """Update aggregated stats for a technique/company pair."""
         if key not in self._stats:
@@ -216,7 +213,8 @@ class TechniqueMetricsCollector:
             stats.max_exec_time_ms = record.exec_time_ms
 
     def _update_variant_stats(
-        self, record: ExecutionRecord,
+        self,
+        record: ExecutionRecord,
     ) -> None:
         """Update aggregated stats for a variant."""
         variant = record.variant
@@ -277,7 +275,8 @@ class TechniqueMetricsCollector:
             return self._merge_stats(technique_id, all_stats)
 
     def get_variant_summary(
-        self, variant: str,
+        self,
+        variant: str,
     ) -> Optional[VariantSummary]:
         """Get aggregated summary for a variant."""
         with self._lock:
@@ -491,14 +490,10 @@ class TechniqueMetricsCollector:
                 td["total_executions"] += stats.total_executions
                 td["success_count"] += stats.success_count
                 td["failure_count"] += (
-                    stats.failure_count
-                    + stats.timeout_count
-                    + stats.error_count
+                    stats.failure_count + stats.timeout_count + stats.error_count
                 )
                 td["total_tokens"] += stats.total_tokens
-                td["total_exec_time_ms"] += (
-                    stats.total_exec_time_ms
-                )
+                td["total_exec_time_ms"] += stats.total_exec_time_ms
                 td["exec_time_count"] += len(stats.exec_times)
 
             entries: List[LeaderboardEntry] = []
@@ -510,18 +505,12 @@ class TechniqueMetricsCollector:
                 if sort_by == "total_executions":
                     value = float(total)
                 elif sort_by == "success_rate":
-                    value = (
-                        td["success_count"] / total * 100.0
-                    )
+                    value = td["success_count"] / total * 100.0
                 elif sort_by == "failure_rate":
-                    value = (
-                        td["failure_count"] / total * 100.0
-                    )
+                    value = td["failure_count"] / total * 100.0
                 elif sort_by == "avg_exec_time_ms":
                     count = td["exec_time_count"] or 1
-                    value = (
-                        td["total_exec_time_ms"] / count
-                    )
+                    value = td["total_exec_time_ms"] / count
                 elif sort_by == "total_tokens":
                     value = float(td["total_tokens"])
                 elif sort_by == "avg_tokens":
@@ -529,11 +518,13 @@ class TechniqueMetricsCollector:
                 else:
                     value = float(total)
 
-                entries.append(LeaderboardEntry(
-                    technique_id=tid,
-                    value=round(value, 2),
-                    label=sort_by,
-                ))
+                entries.append(
+                    LeaderboardEntry(
+                        technique_id=tid,
+                        value=round(value, 2),
+                        label=sort_by,
+                    )
+                )
 
             entries.sort(key=lambda e: e.value, reverse=True)
             return entries[:limit]
@@ -541,7 +532,8 @@ class TechniqueMetricsCollector:
     # ── Reset / Cleanup ───────────────────────────────────────────
 
     def reset_metrics(
-        self, company_id: Optional[str] = None,
+        self,
+        company_id: Optional[str] = None,
     ) -> int:
         """
         Reset metrics.
@@ -562,9 +554,7 @@ class TechniqueMetricsCollector:
                 return count
 
             keys_to_remove = [
-                (tid, cid)
-                for tid, cid in self._records
-                if cid == company_id
+                (tid, cid) for tid, cid in self._records if cid == company_id
             ]
             for key in keys_to_remove:
                 del self._records[key]
@@ -593,8 +583,7 @@ class TechniqueMetricsCollector:
                 tid, cid = key
                 before = len(self._records[key])
                 self._records[key] = [
-                    r for r in self._records[key]
-                    if r.timestamp >= cutoff
+                    r for r in self._records[key] if r.timestamp >= cutoff
                 ]
                 removed += before - len(self._records[key])
 

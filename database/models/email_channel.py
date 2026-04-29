@@ -140,7 +140,9 @@ class EmailThread(Base):
     participants_json = Column(Text, default="[]")
 
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())
+    updated_at = Column(
+        DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow()
+    )
 
     # Relationship
     ticket = relationship("Ticket", foreign_keys=[ticket_id])

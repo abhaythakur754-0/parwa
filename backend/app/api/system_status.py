@@ -47,13 +47,13 @@ async def system_status():
         # Map frontend service keys to backend subsystem names.
         # If a backend subsystem is not monitored, we default to healthy.
         service_map = {
-            "llm": None,            # No dedicated health check
+            "llm": None,  # No dedicated health check
             "postgres": "postgresql",
             "redis": "redis",
             "email": "external_brevo",
             "sms": "external_twilio",
-            "chat": None,           # No dedicated health check
-            "voice": None,          # No dedicated health check
+            "chat": None,  # No dedicated health check
+            "voice": None,  # No dedicated health check
             "celery": "celery",
             "socketio": "socketio",
         }

@@ -71,22 +71,19 @@ COMPANY_ID = "test-company-billing"
 
 
 class TestCheckBudget:
-    def test_allows_when_under_limit(
-            self, service: CostProtectionService, mock_db):
+    def test_allows_when_under_limit(self, service: CostProtectionService, mock_db):
         budget = _make_budget(used_tokens=400, max_tokens=1000)
         mock_db.query.return_value.filter_by.return_value.first.return_value = budget
         result = service.check_budget(COMPANY_ID, requested_tokens=100)
         assert result.allowed is True
 
-    def test_blocks_when_over_limit(
-            self, service: CostProtectionService, mock_db):
+    def test_blocks_when_over_limit(self, service: CostProtectionService, mock_db):
         budget = _make_budget(used_tokens=950, max_tokens=1000)
         mock_db.query.return_value.filter_by.return_value.first.return_value = budget
         result = service.check_budget(COMPANY_ID, requested_tokens=100)
         assert result.allowed is False
 
-    def test_allows_when_no_budget_found(
-            self, service: CostProtectionService, mock_db):
+    def test_allows_when_no_budget_found(self, service: CostProtectionService, mock_db):
         mock_db.query.return_value.filter_by.return_value.first.return_value = None
         result = service.check_budget(COMPANY_ID, requested_tokens=100)
         # BC-008: allow when no budget record
@@ -97,23 +94,22 @@ class TestCheckBudget:
 
 
 class TestHardStop:
-    def test_hard_stop_blocks_at_limit(
-            self, service: CostProtectionService, mock_db):
+    def test_hard_stop_blocks_at_limit(self, service: CostProtectionService, mock_db):
         budget = _make_budget(used_tokens=999, max_tokens=1000, hard_stop=True)
         mock_db.query.return_value.filter_by.return_value.first.return_value = budget
         result = service.check_budget(COMPANY_ID, requested_tokens=5)
         assert result.allowed is False
 
     def test_no_hard_stop_allows_at_exact_limit(
-            self, service: CostProtectionService, mock_db):
+        self, service: CostProtectionService, mock_db
+    ):
         budget = _make_budget(used_tokens=0, max_tokens=1000, hard_stop=False)
         mock_db.query.return_value.filter_by.return_value.first.return_value = budget
         result = service.check_budget(COMPANY_ID, requested_tokens=1000)
         # Without hard_stop, should be allowed at exact limit
         assert result.allowed is True
 
-    def test_zero_tokens_always_allowed(
-            self, service: CostProtectionService, mock_db):
+    def test_zero_tokens_always_allowed(self, service: CostProtectionService, mock_db):
         budget = _make_budget(used_tokens=1000, max_tokens=1000)
         mock_db.query.return_value.filter_by.return_value.first.return_value = budget
         result = service.check_budget(COMPANY_ID, requested_tokens=0)
@@ -150,12 +146,15 @@ class TestAlertLevels:
 
 class TestRecordUsage:
     def test_increments_daily_and_monthly(
-            self, service: CostProtectionService, mock_db):
+        self, service: CostProtectionService, mock_db
+    ):
         daily_budget = _make_budget(used_tokens=100, max_tokens=1000)
         monthly_budget = _make_budget(used_tokens=500, max_tokens=10000)
         # Configure mock to return different budgets for daily vs monthly
         mock_db.query.return_value.filter_by.return_value.first.side_effect = [
-            daily_budget, monthly_budget]
+            daily_budget,
+            monthly_budget,
+        ]
         result = service.record_usage(COMPANY_ID, tokens_used=50)
         assert daily_budget.used_tokens == 150
         assert monthly_budget.used_tokens == 550
@@ -165,8 +164,7 @@ class TestRecordUsage:
         result = service.record_usage(COMPANY_ID, tokens_used=0)
         assert result["tokens_recorded"] == 0
 
-    def test_sets_exceeded_when_over(
-            self, service: CostProtectionService, mock_db):
+    def test_sets_exceeded_when_over(self, service: CostProtectionService, mock_db):
         budget = _make_budget(used_tokens=990, max_tokens=1000)
         mock_db.query.return_value.filter_by.return_value.first.return_value = budget
         service.record_usage(COMPANY_ID, tokens_used=20)
@@ -177,16 +175,9 @@ class TestRecordUsage:
 
 
 class TestResetDailyBudgets:
-    def test_resets_daily_to_zero(
-            self,
-            service: CostProtectionService,
-            mock_db):
-        budget = _make_budget(
-            used_tokens=500,
-            max_tokens=1000,
-            status="active")
-        mock_db.query.return_value.filter_by.return_value.all.return_value = [
-            budget]
+    def test_resets_daily_to_zero(self, service: CostProtectionService, mock_db):
+        budget = _make_budget(used_tokens=500, max_tokens=1000, status="active")
+        mock_db.query.return_value.filter_by.return_value.all.return_value = [budget]
         result = service.reset_daily_budgets(COMPANY_ID)
         assert budget.used_tokens == 0
         assert budget.status == "active"
@@ -230,20 +221,15 @@ class TestCheckTierBudget:
         assert hasattr(service, "check_tier_budget")
         assert callable(service.check_tier_budget)
 
-    def test_returns_budget_check_result(
-            self, service: CostProtectionService, mock_db):
+    def test_returns_budget_check_result(self, service: CostProtectionService, mock_db):
         budget = _make_budget(used_tokens=0, max_tokens=2500)
         mock_db.query.return_value.filter_by.return_value.first.return_value = budget
         result = service.check_tier_budget(COMPANY_ID, "medium")
         assert isinstance(result, BudgetCheckResult)
         assert result.allowed is True
 
-    def test_blocks_when_tier_exhausted(
-            self, service: CostProtectionService, mock_db):
-        budget = _make_budget(
-            used_tokens=2500,
-            max_tokens=2500,
-            status="exceeded")
+    def test_blocks_when_tier_exhausted(self, service: CostProtectionService, mock_db):
+        budget = _make_budget(used_tokens=2500, max_tokens=2500, status="exceeded")
         mock_db.query.return_value.filter_by.return_value.first.return_value = budget
         result = service.check_tier_budget(COMPANY_ID, "medium")
         assert result.allowed is False
@@ -263,8 +249,7 @@ class TestRecordTierUsage:
         service.record_tier_usage(COMPANY_ID, "medium")
         assert budget.used_tokens == 1
 
-    def test_marks_exceeded_at_limit(
-            self, service: CostProtectionService, mock_db):
+    def test_marks_exceeded_at_limit(self, service: CostProtectionService, mock_db):
         budget = _make_budget(used_tokens=2499, max_tokens=2500)
         mock_db.query.return_value.filter_by.return_value.first.return_value = budget
         service.record_tier_usage(COMPANY_ID, "medium")
@@ -277,23 +262,28 @@ class TestRecordTierUsage:
 
 class TestTimezoneAwareDatetime:
     def test_no_utcnow_in_source(self):
-        with open('/home/z/my-project/parwa/backend/app/services/cost_protection_service.py') as f:
+        with open(
+            "/home/z/my-project/parwa/backend/app/services/cost_protection_service.py"
+        ) as f:
             source = f.read()
-        assert 'utcnow' not in source, (
-            'cost_protection_service must use datetime.now(timezone.utc), NOT datetime.now(timezone.utc)'
-        )
+        assert (
+            "utcnow" not in source
+        ), "cost_protection_service must use datetime.now(timezone.utc), NOT datetime.now(timezone.utc)"
 
     def test_uses_timezone_utc(self):
-        with open('/home/z/my-project/parwa/backend/app/services/cost_protection_service.py') as f:
+        with open(
+            "/home/z/my-project/parwa/backend/app/services/cost_protection_service.py"
+        ) as f:
             source = f.read()
-        assert 'timezone.utc' in source, 'Must use timezone-aware UTC datetimes'
+        assert "timezone.utc" in source, "Must use timezone-aware UTC datetimes"
 
     def test_token_usage_record_uses_tz_aware(self):
         with patch.dict("sys.modules", {"database.models.variant_engine": MagicMock()}):
             from app.services.cost_protection_service import TokenUsageRecord
-            record = TokenUsageRecord(company_id='test')
+
+            record = TokenUsageRecord(company_id="test")
             assert record.timestamp is not None
-            assert 'T' in record.timestamp  # ISO-8601 format with time component
+            assert "T" in record.timestamp  # ISO-8601 format with time component
 
 
 # ── 10. BC-002: tokens must be non-negative integers ─────────────

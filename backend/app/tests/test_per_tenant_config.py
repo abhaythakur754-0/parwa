@@ -30,7 +30,6 @@ from app.core.per_tenant_config import (
     VARIANT_DEFAULTS,
 )
 
-
 # ── Fixtures ────────────────────────────────────────────────────
 
 
@@ -68,10 +67,7 @@ class TestDefaultConfigPerVariant:
         assert config.technique.token_budget_override == 500
         assert config.compression.strategy == "extractive"
         assert config.compression.level == "aggressive"
-        assert (
-            "chain_of_thought"
-            in config.technique.disabled_techniques
-        )
+        assert "chain_of_thought" in config.technique.disabled_techniques
         assert config.model.preferred_model_tier == "light"
         assert config.model.temperature == 0.1
         assert not config.workflow.enable_human_checkpoint
@@ -121,7 +117,8 @@ class TestPerCompanyOverrides:
 
     def test_override_technique_config(self, manager):
         manager.update_config(
-            "acme", "technique",
+            "acme",
+            "technique",
             {"token_budget_override": 2500},
         )
         config = manager.get_config("acme")
@@ -129,7 +126,8 @@ class TestPerCompanyOverrides:
 
     def test_override_compression_config(self, manager):
         manager.update_config(
-            "acme", "compression",
+            "acme",
+            "compression",
             {"strategy": "extractive", "level": "aggressive"},
         )
         config = manager.get_config("acme")
@@ -138,7 +136,8 @@ class TestPerCompanyOverrides:
 
     def test_override_workflow_config(self, manager):
         manager.update_config(
-            "acme", "workflow",
+            "acme",
+            "workflow",
             {"max_concurrent_workflows": 20},
         )
         config = manager.get_config("acme")
@@ -146,7 +145,8 @@ class TestPerCompanyOverrides:
 
     def test_override_model_config(self, manager):
         manager.update_config(
-            "acme", "model",
+            "acme",
+            "model",
             {"temperature": 0.8, "max_tokens": 8192},
         )
         config = manager.get_config("acme")
@@ -155,7 +155,8 @@ class TestPerCompanyOverrides:
 
     def test_override_does_not_affect_other_tenants(self, manager):
         manager.update_config(
-            "acme", "technique",
+            "acme",
+            "technique",
             {"token_budget_override": 9999},
         )
         other = manager.get_config("other_co")
@@ -163,11 +164,13 @@ class TestPerCompanyOverrides:
 
     def test_multiple_overrides_same_tenant(self, manager):
         manager.update_config(
-            "acme", "technique",
+            "acme",
+            "technique",
             {"token_budget_override": 2000},
         )
         manager.update_config(
-            "acme", "compression",
+            "acme",
+            "compression",
             {"level": "aggressive"},
         )
         config = manager.get_config("acme")
@@ -184,7 +187,8 @@ class TestConfigMerging:
     def test_merge_preserves_non_overridden_defaults(self, manager):
         """Overriding one field does not change others."""
         manager.update_config(
-            "acme", "technique",
+            "acme",
+            "technique",
             {"token_budget_override": 999},
         )
         config = manager.get_config("acme")
@@ -195,7 +199,8 @@ class TestConfigMerging:
 
     def test_merge_overrides_all_technique_fields(self, manager):
         manager.update_config(
-            "acme", "technique",
+            "acme",
+            "technique",
             {
                 "enabled_techniques": ["a", "b"],
                 "disabled_techniques": ["c"],
@@ -211,7 +216,8 @@ class TestConfigMerging:
 
     def test_variant_change_via_workflow_override(self, manager):
         manager.update_config(
-            "acme", "workflow",
+            "acme",
+            "workflow",
             {"variant_type": "high_parwa"},
         )
         config = manager.get_config("acme")
@@ -223,7 +229,8 @@ class TestConfigMerging:
 
     def test_overridden_tenant_keeps_variant(self, manager):
         manager.update_config(
-            "acme", "model",
+            "acme",
+            "model",
             {"temperature": 0.7},
         )
         config = manager.get_config("acme")
@@ -252,12 +259,11 @@ class TestConfigValidation:
 
     def test_invalid_category(self, manager):
         result = manager.validate_config(
-            "nonexistent", {},
+            "nonexistent",
+            {},
         )
         assert result.valid is False
-        assert any(
-            "Unknown category" in e for e in result.errors
-        )
+        assert any("Unknown category" in e for e in result.errors)
 
     def test_unknown_field_in_category(self, manager):
         result = manager.validate_config(
@@ -265,9 +271,7 @@ class TestConfigValidation:
             {"nonexistent_field": "value"},
         )
         assert result.valid is False
-        assert any(
-            "Unknown field" in e for e in result.errors
-        )
+        assert any("Unknown field" in e for e in result.errors)
 
     def test_wrong_type_int_instead_of_str(self, manager):
         result = manager.validate_config(
@@ -306,9 +310,7 @@ class TestConfigValidation:
             {"variant_type": "super_parwa"},
         )
         assert result.valid is False
-        assert any(
-            "Invalid variant_type" in e for e in result.errors
-        )
+        assert any("Invalid variant_type" in e for e in result.errors)
 
     def test_invalid_model_tier(self, manager):
         result = manager.validate_config(
@@ -316,10 +318,7 @@ class TestConfigValidation:
             {"preferred_model_tier": "ultra"},
         )
         assert result.valid is False
-        assert any(
-            "Invalid preferred_model_tier" in e
-            for e in result.errors
-        )
+        assert any("Invalid preferred_model_tier" in e for e in result.errors)
 
     def test_temperature_out_of_range_warning(self, manager):
         result = manager.validate_config(
@@ -328,9 +327,7 @@ class TestConfigValidation:
         )
         # Should be valid (just a warning)
         assert result.valid is True
-        assert any(
-            "Temperature" in w for w in result.warnings
-        )
+        assert any("Temperature" in w for w in result.warnings)
 
     def test_negative_max_tokens_error(self, manager):
         result = manager.validate_config(
@@ -379,7 +376,8 @@ class TestConfigValidation:
         for strategy in VALID_STRATEGIES:
             mgr = TenantConfigManager()
             result = mgr.validate_config(
-                "compression", {"strategy": strategy},
+                "compression",
+                {"strategy": strategy},
             )
             assert result.valid is True, f"Strategy {strategy} failed"
 
@@ -387,7 +385,8 @@ class TestConfigValidation:
         for level in VALID_LEVELS:
             mgr = TenantConfigManager()
             result = mgr.validate_config(
-                "compression", {"level": level},
+                "compression",
+                {"level": level},
             )
             assert result.valid is True, f"Level {level} failed"
 
@@ -400,7 +399,8 @@ class TestConfigVersioning:
 
     def test_first_update_increments_version(self, manager):
         manager.update_config(
-            "acme", "model",
+            "acme",
+            "model",
             {"temperature": 0.5},
         )
         history = manager.get_version_history("acme")
@@ -410,11 +410,13 @@ class TestConfigVersioning:
 
     def test_multiple_updates_increment_version(self, manager):
         manager.update_config(
-            "acme", "model",
+            "acme",
+            "model",
             {"temperature": 0.5},
         )
         manager.update_config(
-            "acme", "compression",
+            "acme",
+            "compression",
             {"level": "aggressive"},
         )
         history = manager.get_version_history("acme")
@@ -424,7 +426,8 @@ class TestConfigVersioning:
 
     def test_version_history_includes_timestamp(self, manager):
         manager.update_config(
-            "acme", "model",
+            "acme",
+            "model",
             {"temperature": 0.5},
         )
         history = manager.get_version_history("acme")
@@ -433,7 +436,8 @@ class TestConfigVersioning:
 
     def test_version_history_includes_changes(self, manager):
         manager.update_config(
-            "acme", "model",
+            "acme",
+            "model",
             {"temperature": 0.5},
         )
         history = manager.get_version_history("acme")
@@ -446,7 +450,8 @@ class TestConfigVersioning:
 
     def test_version_resets_on_full_reset(self, manager):
         manager.update_config(
-            "acme", "model",
+            "acme",
+            "model",
             {"temperature": 0.5},
         )
         manager.reset_to_defaults("acme")
@@ -462,7 +467,8 @@ class TestConfigReset:
 
     def test_full_reset_returns_defaults(self, manager):
         manager.update_config(
-            "acme", "model",
+            "acme",
+            "model",
             {"temperature": 0.9},
         )
         config = manager.reset_to_defaults("acme")
@@ -470,11 +476,13 @@ class TestConfigReset:
 
     def test_category_reset_keeps_other_overrides(self, manager):
         manager.update_config(
-            "acme", "model",
+            "acme",
+            "model",
             {"temperature": 0.9},
         )
         manager.update_config(
-            "acme", "compression",
+            "acme",
+            "compression",
             {"level": "aggressive"},
         )
         manager.reset_to_defaults("acme", category="model")
@@ -484,9 +492,7 @@ class TestConfigReset:
 
     def test_reset_unknown_category_raises(self, manager):
         with pytest.raises(ValueError, match="Invalid category"):
-            manager.reset_to_defaults(
-                "acme", category="nonexistent"
-            )
+            manager.reset_to_defaults("acme", category="nonexistent")
 
     def test_reset_unknown_tenant_returns_defaults(self, manager):
         config = manager.reset_to_defaults("nonexistent")
@@ -494,7 +500,8 @@ class TestConfigReset:
 
     def test_reset_clears_version_history(self, manager):
         manager.update_config(
-            "acme", "model",
+            "acme",
+            "model",
             {"temperature": 0.9},
         )
         manager.reset_to_defaults("acme", category="model")
@@ -511,7 +518,8 @@ class TestConfigExportImport:
 
     def test_export_returns_valid_json(self, manager):
         manager.update_config(
-            "acme", "model",
+            "acme",
+            "model",
             {"temperature": 0.7},
         )
         exported = manager.export_config("acme")
@@ -522,7 +530,8 @@ class TestConfigExportImport:
 
     def test_export_includes_overrides(self, manager):
         manager.update_config(
-            "acme", "model",
+            "acme",
+            "model",
             {"temperature": 0.7},
         )
         exported = manager.export_config("acme")
@@ -536,12 +545,14 @@ class TestConfigExportImport:
         assert data["overrides"] == {}
 
     def test_import_valid_config(self, manager):
-        json_str = json.dumps({
-            "overrides": {
-                "model": {"temperature": 0.9},
-                "compression": {"level": "aggressive"},
+        json_str = json.dumps(
+            {
+                "overrides": {
+                    "model": {"temperature": 0.9},
+                    "compression": {"level": "aggressive"},
+                }
             }
-        })
+        )
         result = manager.import_config("acme", json_str)
         assert result.valid is True
 
@@ -559,20 +570,24 @@ class TestConfigExportImport:
         assert result.valid is False
 
     def test_import_invalid_config_values(self, manager):
-        json_str = json.dumps({
-            "overrides": {
-                "model": {"temperature": "not_a_number"},
+        json_str = json.dumps(
+            {
+                "overrides": {
+                    "model": {"temperature": "not_a_number"},
+                }
             }
-        })
+        )
         result = manager.import_config("acme", json_str)
         assert result.valid is False
 
     def test_import_from_full_config(self, manager):
-        json_str = json.dumps({
-            "full_config": {
-                "model": {"temperature": 0.8},
+        json_str = json.dumps(
+            {
+                "full_config": {
+                    "model": {"temperature": 0.8},
+                }
             }
-        })
+        )
         result = manager.import_config("acme", json_str)
         assert result.valid is True
         config = manager.get_config("acme")
@@ -580,7 +595,8 @@ class TestConfigExportImport:
 
     def test_roundtrip_export_import(self, manager):
         manager.update_config(
-            "acme", "model",
+            "acme",
+            "model",
             {"temperature": 0.7},
         )
         exported = manager.export_config("acme")
@@ -591,10 +607,7 @@ class TestConfigExportImport:
 
         config_acme = manager.get_config("acme")
         config_new = manager.get_config("new_co")
-        assert (
-            config_acme.model.temperature
-            == config_new.model.temperature
-        )
+        assert config_acme.model.temperature == config_new.model.temperature
 
 
 # ── Change Notifications ────────────────────────────────────────
@@ -605,38 +618,33 @@ class TestChangeNotifications:
 
     def test_callback_fired_on_update(self, manager):
         received = []
-        manager.on_config_change(
-            lambda cid, cat, chg: received.append(
-                (cid, cat, chg)
-            )
-        )
+        manager.on_config_change(lambda cid, cat, chg: received.append((cid, cat, chg)))
         manager.update_config(
-            "acme", "model",
+            "acme",
+            "model",
             {"temperature": 0.7},
         )
         assert len(received) == 1
         assert received[0] == (
-            "acme", "model", {"temperature": 0.7},
+            "acme",
+            "model",
+            {"temperature": 0.7},
         )
 
     def test_callback_not_fired_on_get(self, manager):
         received = []
-        manager.on_config_change(
-            lambda cid, cat, chg: received.append(True)
-        )
+        manager.on_config_change(lambda cid, cat, chg: received.append(True))
         manager.get_config("acme")
         assert len(received) == 0
 
     def test_multiple_callbacks(self, manager):
         r1, r2 = [], []
-        manager.on_config_change(
-            lambda cid, cat, chg: r1.append(True)
-        )
-        manager.on_config_change(
-            lambda cid, cat, chg: r2.append(True)
-        )
+        manager.on_config_change(lambda cid, cat, chg: r1.append(True))
+        manager.on_config_change(lambda cid, cat, chg: r2.append(True))
         manager.update_config(
-            "acme", "model", {"temperature": 0.5},
+            "acme",
+            "model",
+            {"temperature": 0.5},
         )
         assert len(r1) == 1
         assert len(r2) == 1
@@ -646,17 +654,18 @@ class TestChangeNotifications:
 
         def cb(cid, cat, chg):
             return received.append(True)
+
         manager.on_config_change(cb)
         manager.remove_config_change_callback(cb)
         manager.update_config(
-            "acme", "model", {"temperature": 0.5},
+            "acme",
+            "model",
+            {"temperature": 0.5},
         )
         assert len(received) == 0
 
     def test_remove_nonexistent_callback(self, manager):
-        result = manager.remove_config_change_callback(
-            lambda: None
-        )
+        result = manager.remove_config_change_callback(lambda: None)
         assert result is False
 
     def test_callback_error_does_not_break_update(self, manager):
@@ -666,7 +675,8 @@ class TestChangeNotifications:
 
         manager.on_config_change(bad_cb)
         config = manager.update_config(
-            "acme", "model",
+            "acme",
+            "model",
             {"temperature": 0.7},
         )
         assert config.model.temperature == 0.7
@@ -686,15 +696,15 @@ class TestThreadSafety:
             try:
                 for i in range(50):
                     manager.update_config(
-                        tenant_id, "model",
+                        tenant_id,
+                        "model",
                         {"temperature": float(i) / 100},
                     )
             except Exception as exc:
                 errors.append(exc)
 
         threads = [
-            threading.Thread(target=update_tenant, args=(f"t{i}",))
-            for i in range(10)
+            threading.Thread(target=update_tenant, args=(f"t{i}",)) for i in range(10)
         ]
         for t in threads:
             t.start()
@@ -712,16 +722,14 @@ class TestThreadSafety:
             try:
                 for i in range(100):
                     manager.update_config(
-                        "acme", "model",
+                        "acme",
+                        "model",
                         {"temperature": float(i % 100) / 100},
                     )
             except Exception as exc:
                 errors.append(exc)
 
-        threads = [
-            threading.Thread(target=update_model)
-            for _ in range(5)
-        ]
+        threads = [threading.Thread(target=update_model) for _ in range(5)]
         for t in threads:
             t.start()
         for t in threads:
@@ -744,7 +752,8 @@ class TestThreadSafety:
             try:
                 for i in range(100):
                     manager.update_config(
-                        "acme", "model",
+                        "acme",
+                        "model",
                         {"temperature": float(i) / 100},
                     )
             except Exception as exc:
@@ -774,7 +783,8 @@ class TestThreadSafety:
             try:
                 for i in range(50):
                     manager.update_config(
-                        f"co_{i}", "model",
+                        f"co_{i}",
+                        "model",
                         {"temperature": 0.5},
                     )
             except Exception as exc:
@@ -804,20 +814,28 @@ class TestTenantListing:
 
     def test_list_tenants_after_updates(self, manager):
         manager.update_config(
-            "acme", "model", {"temperature": 0.5},
+            "acme",
+            "model",
+            {"temperature": 0.5},
         )
         manager.update_config(
-            "beta", "model", {"temperature": 0.5},
+            "beta",
+            "model",
+            {"temperature": 0.5},
         )
         tenants = manager.list_tenants()
         assert tenants == ["acme", "beta"]
 
     def test_list_tenants_sorted(self, manager):
         manager.update_config(
-            "charlie", "model", {"temperature": 0.5},
+            "charlie",
+            "model",
+            {"temperature": 0.5},
         )
         manager.update_config(
-            "alpha", "model", {"temperature": 0.5},
+            "alpha",
+            "model",
+            {"temperature": 0.5},
         )
         tenants = manager.list_tenants()
         assert tenants == ["alpha", "charlie"]
@@ -836,20 +854,24 @@ class TestEdgeCases:
     def test_update_invalid_category(self, manager):
         with pytest.raises(ValueError, match="Invalid category"):
             manager.update_config(
-                "acme", "nonexistent", {},
+                "acme",
+                "nonexistent",
+                {},
             )
 
     def test_update_invalid_config_raises(self, manager):
         with pytest.raises(ValueError, match="validation failed"):
             manager.update_config(
-                "acme", "model",
+                "acme",
+                "model",
                 {"temperature": "not_a_float"},
             )
 
     def test_update_invalid_strategy_raises(self, manager):
         with pytest.raises(ValueError):
             manager.update_config(
-                "acme", "compression",
+                "acme",
+                "compression",
                 {"strategy": "bad_strategy"},
             )
 
@@ -866,7 +888,8 @@ class TestEdgeCases:
     def test_large_number_of_overrides(self, manager):
         for i in range(100):
             manager.update_config(
-                f"co_{i}", "model",
+                f"co_{i}",
+                "model",
                 {"temperature": float(i) / 100},
             )
         assert len(manager.list_tenants()) == 100
@@ -879,9 +902,7 @@ class TestEdgeCases:
         assert data["version"] == 0
 
     def test_import_empty_overrides(self, manager):
-        result = manager.import_config(
-            "acme", '{"overrides": {}}'
-        )
+        result = manager.import_config("acme", '{"overrides": {}}')
         assert result.valid is True
 
     def test_update_with_empty_dict(self, manager):
@@ -894,6 +915,7 @@ class TestEdgeCases:
     def test_reset_category_on_tenant_with_no_overrides(self, manager):
         """Reset on unknown tenant should return defaults."""
         config = manager.reset_to_defaults(
-            "nobody", category="model",
+            "nobody",
+            category="model",
         )
         assert isinstance(config, TenantFullConfig)

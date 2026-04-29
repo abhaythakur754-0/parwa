@@ -15,7 +15,6 @@ from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # P1/P2: 30-Day Period Calculation Tests
 # ═══════════════════════════════════════════════════════════════════════
@@ -26,7 +25,10 @@ class Test30DayPeriodCalculation:
 
     def test_monthly_period_is_exactly_30_days(self):
         """P1: Monthly period should be exactly 30 days, not calendar month."""
-        from app.services.subscription_service import SubscriptionService, BILLING_PERIOD_DAYS
+        from app.services.subscription_service import (
+            SubscriptionService,
+            BILLING_PERIOD_DAYS,
+        )
 
         service = SubscriptionService()
 
@@ -112,10 +114,11 @@ class Test30DayPeriodCalculation:
     def test_no_relativedelta_used(self):
         """P2: Verify relativedelta is NOT imported or used in subscription service."""
         from app.services import subscription_service
+
         source = open(subscription_service.__file__).read()
-        assert "relativedelta" not in source, (
-            "relativedelta should not be used; use timedelta(days=30) instead"
-        )
+        assert (
+            "relativedelta" not in source
+        ), "relativedelta should not be used; use timedelta(days=30) instead"
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -215,12 +218,13 @@ class TestPeriodEndTransitions:
             mock_sub.current_period_end = datetime.now(timezone.utc)
 
             mock_db = MagicMock()
-            mock_db.query.return_value.filter.return_value \
-                .all.return_value = [mock_sub]
+            mock_db.query.return_value.filter.return_value.all.return_value = [mock_sub]
             mock_db.__enter__ = MagicMock(return_value=mock_db)
             mock_db.__exit__ = MagicMock(return_value=False)
 
-            with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+            with patch(
+                "app.services.subscription_service.SessionLocal", return_value=mock_db
+            ):
                 result = service.process_period_end_transitions()
 
             assert result["downgrades_applied"] == 1
@@ -242,12 +246,13 @@ class TestPeriodEndTransitions:
             mock_db = MagicMock()
             # First query returns empty (no pending downgrades)
             # Second query returns the cancellation
-            mock_db.query.return_value.filter.return_value \
-                .all.return_value = [mock_sub]
+            mock_db.query.return_value.filter.return_value.all.return_value = [mock_sub]
             mock_db.__enter__ = MagicMock(return_value=mock_db)
             mock_db.__exit__ = MagicMock(return_value=False)
 
-            with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+            with patch(
+                "app.services.subscription_service.SessionLocal", return_value=mock_db
+            ):
                 result = service.process_period_end_transitions()
 
             assert result["cancellations_applied"] == 1
@@ -274,10 +279,16 @@ class TestPeriodEndTransitions:
         mock_db = MagicMock()
         mock_db.query.return_value.filter.return_value.first.return_value = mock_company
 
-        with patch.object(service, "_cleanup_resources_on_downgrade", return_value={
-            "agents_paused": 0, "team_members_downgraded": 0,
-            "kb_docs_archived": 0, "voice_channels_disabled": 0,
-        }):
+        with patch.object(
+            service,
+            "_cleanup_resources_on_downgrade",
+            return_value={
+                "agents_paused": 0,
+                "team_members_downgraded": 0,
+                "kb_docs_archived": 0,
+                "voice_channels_disabled": 0,
+            },
+        ):
             service._apply_pending_downgrade(mock_db, mock_sub)
 
         assert mock_sub.tier == "mini_parwa"
@@ -333,21 +344,31 @@ class TestResourceCleanup:
         # Since database.models.provisioning may not have KnowledgeBaseDocument,
         # we install mock modules in sys.modules before patching.
         import sys
+
         mock_provisioning = MagicMock()
         mock_provisioning.KnowledgeBaseDocument = MagicMock()
         mock_core = MagicMock()
         mock_core.Agent = MagicMock()
         mock_core.User = MagicMock()
-        with patch.dict(sys.modules, {
-            "database.models.provisioning": mock_provisioning,
-            "database.models.core": mock_core,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "database.models.provisioning": mock_provisioning,
+                "database.models.core": mock_core,
+            },
+        ):
             mock_query_agents = MagicMock()
-            mock_query_agents.filter.return_value.order_by.return_value.all.return_value = mock_agents
+            mock_query_agents.filter.return_value.order_by.return_value.all.return_value = (
+                mock_agents
+            )
             mock_query_members = MagicMock()
-            mock_query_members.filter.return_value.order_by.return_value.all.return_value = mock_members
+            mock_query_members.filter.return_value.order_by.return_value.all.return_value = (
+                mock_members
+            )
             mock_query_docs = MagicMock()
-            mock_query_docs.filter.return_value.order_by.return_value.all.return_value = mock_docs
+            mock_query_docs.filter.return_value.order_by.return_value.all.return_value = (
+                mock_docs
+            )
             mock_query_voice = MagicMock()
             mock_query_voice.filter.return_value.all.return_value = []
 
@@ -378,17 +399,22 @@ class TestResourceCleanup:
 
         mock_query_agents = MagicMock()
         mock_query_agents.filter.return_value.order_by.return_value.all.return_value = [
-            MagicMock()]
+            MagicMock()
+        ]
         mock_query_members = MagicMock()
-        mock_query_members.filter.return_value.order_by.return_value.all.return_value = []
+        mock_query_members.filter.return_value.order_by.return_value.all.return_value = (
+            []
+        )
         mock_query_docs = MagicMock()
         mock_query_docs.filter.return_value.order_by.return_value.all.return_value = []
         mock_query_voice = MagicMock()
         mock_query_voice.filter.return_value.all.return_value = []
 
         mock_db.query.side_effect = [
-            mock_query_agents, mock_query_members,
-            mock_query_docs, mock_query_voice,
+            mock_query_agents,
+            mock_query_members,
+            mock_query_docs,
+            mock_query_voice,
         ]
 
         result = service._cleanup_resources_on_downgrade(
@@ -416,9 +442,7 @@ class TestPreDowngradeWarning:
         mock_sub.company_id = "company-1"
         mock_sub.tier = "parwa"
         mock_sub.pending_downgrade_tier = "mini_parwa"
-        mock_sub.current_period_end = (
-            datetime.now(timezone.utc) + timedelta(days=5)
-        )
+        mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=5)
 
         mock_db = MagicMock()
 
@@ -432,19 +456,21 @@ class TestPreDowngradeWarning:
 
         # Patch model imports to avoid DB dependency issues
         import sys as _sys
+
         _mock_prov = MagicMock()
         _mock_prov.KnowledgeBaseDocument = MagicMock()
         _mock_core = MagicMock()
         _mock_core.Agent = MagicMock()
         _mock_core.User = MagicMock()
 
-        with patch.dict(_sys.modules, {
-            "database.models.provisioning": _mock_prov,
-            "database.models.core": _mock_core,
-        }):
-            mock_db.query.side_effect = [
-                mock_q_agents, mock_q_members, mock_q_docs
-            ]
+        with patch.dict(
+            _sys.modules,
+            {
+                "database.models.provisioning": _mock_prov,
+                "database.models.core": _mock_core,
+            },
+        ):
+            mock_db.query.side_effect = [mock_q_agents, mock_q_members, mock_q_docs]
             data = service._build_downgrade_warning_data(mock_db, mock_sub)
 
         assert data["current_tier"] == "parwa"
@@ -478,17 +504,15 @@ class TestDowngradeUndo:
         mock_sub = MagicMock()
         mock_sub.tier = "mini_parwa"
         mock_sub.previous_tier = "parwa"
-        mock_sub.downgrade_executed_at = (
-            datetime.now(timezone.utc) - timedelta(hours=12)
+        mock_sub.downgrade_executed_at = datetime.now(timezone.utc) - timedelta(
+            hours=12
         )  # 12 hours ago — within window
         mock_sub.billing_frequency = "monthly"
         mock_sub.id = str(test_id)
         mock_sub.company_id = str(test_id)
         mock_sub.status = "active"
-        mock_sub.current_period_start = datetime.now(
-            timezone.utc) - timedelta(days=10)
-        mock_sub.current_period_end = datetime.now(
-            timezone.utc) + timedelta(days=20)
+        mock_sub.current_period_start = datetime.now(timezone.utc) - timedelta(days=10)
+        mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=20)
         mock_sub.cancel_at_period_end = False
         mock_sub.paddle_subscription_id = None
         mock_sub.created_at = datetime.now(timezone.utc) - timedelta(days=30)
@@ -501,7 +525,9 @@ class TestDowngradeUndo:
         mock_db = MagicMock()
         # First query: subscription with for_update
         mock_q_sub = MagicMock()
-        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = (
+            mock_sub
+        )
         # Second query: company
         mock_q_company = MagicMock()
         mock_q_company.filter.return_value.first.return_value = mock_company
@@ -510,8 +536,12 @@ class TestDowngradeUndo:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch.object(service, "_restore_resources_after_undo", new_callable=AsyncMock) as mock_restore:
-            with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch.object(
+            service, "_restore_resources_after_undo", new_callable=AsyncMock
+        ) as mock_restore:
+            with patch(
+                "app.services.subscription_service.SessionLocal", return_value=mock_db
+            ):
                 result = asyncio.run(service.undo_downgrade(uuid.uuid4()))
 
         assert mock_sub.tier == "parwa"
@@ -531,18 +561,22 @@ class TestDowngradeUndo:
         mock_sub = MagicMock()
         mock_sub.tier = "mini_parwa"
         mock_sub.previous_tier = "parwa"
-        mock_sub.downgrade_executed_at = (
-            datetime.now(timezone.utc) - timedelta(hours=25)
+        mock_sub.downgrade_executed_at = datetime.now(timezone.utc) - timedelta(
+            hours=25
         )  # 25 hours ago — expired
 
         mock_db = MagicMock()
         mock_q_sub = MagicMock()
-        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.query.side_effect = [mock_q_sub]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             with pytest.raises(DowngradeUndoExpiredError):
                 asyncio.run(service.undo_downgrade(uuid.uuid4()))
 
@@ -560,12 +594,16 @@ class TestDowngradeUndo:
 
         mock_db = MagicMock()
         mock_q_sub = MagicMock()
-        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.query.side_effect = [mock_q_sub]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             with pytest.raises(SubscriptionError):
                 asyncio.run(service.undo_downgrade(uuid.uuid4()))
 
@@ -641,9 +679,9 @@ class TestYearlyPricing:
             yearly = VARIANT_LIMITS[vt]["yearly_price"]
             # Yearly should be 10x monthly (2 months free)
             expected_yearly = monthly * 10
-            assert yearly == expected_yearly, (
-                f"{vt}: expected yearly={expected_yearly}, got {yearly}"
-            )
+            assert (
+                yearly == expected_yearly
+            ), f"{vt}: expected yearly={expected_yearly}, got {yearly}"
 
     def test_get_variant_price_yearly(self):
         """Y3: _get_variant_price with yearly frequency should return yearly price."""
@@ -697,10 +735,8 @@ class TestFrequencySwitch:
         mock_sub.billing_frequency = "monthly"
         mock_sub.company_id = str(test_company_id)
         mock_sub.paddle_subscription_id = None
-        mock_sub.current_period_end = datetime.now(
-            timezone.utc) + timedelta(days=20)
-        mock_sub.current_period_start = datetime.now(
-            timezone.utc) - timedelta(days=10)
+        mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=20)
+        mock_sub.current_period_start = datetime.now(timezone.utc) - timedelta(days=10)
         mock_sub.days_in_period = 30
         mock_sub.id = str(uuid.uuid4())
         mock_sub.status = "active"
@@ -711,12 +747,16 @@ class TestFrequencySwitch:
 
         mock_db = MagicMock()
         mock_q = MagicMock()
-        mock_q.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        mock_q.filter.return_value.with_for_update.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.query.side_effect = [mock_q]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             result = asyncio.run(
                 service.switch_billing_frequency(
                     company_id=test_company_id,
@@ -741,10 +781,8 @@ class TestFrequencySwitch:
         mock_sub.company_id = str(test_company_id)
         mock_sub.id = str(uuid.uuid4())
         mock_sub.status = "active"
-        mock_sub.current_period_start = datetime.now(
-            timezone.utc) - timedelta(days=10)
-        mock_sub.current_period_end = datetime.now(
-            timezone.utc) + timedelta(days=20)
+        mock_sub.current_period_start = datetime.now(timezone.utc) - timedelta(days=10)
+        mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=20)
         mock_sub.cancel_at_period_end = False
         mock_sub.pending_downgrade_tier = None
         mock_sub.previous_tier = None
@@ -753,12 +791,16 @@ class TestFrequencySwitch:
 
         mock_db = MagicMock()
         mock_q = MagicMock()
-        mock_q.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        mock_q.filter.return_value.with_for_update.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.query.side_effect = [mock_q]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             result = asyncio.run(
                 service.switch_billing_frequency(
                     company_id=test_company_id,
@@ -779,7 +821,10 @@ class TestUsagePeriodAlignment:
 
     def test_get_billing_period_returns_correct_window(self):
         """P4: get_current_billing_period should return billing period window."""
-        from app.services.subscription_service import SubscriptionService, BILLING_PERIOD_DAYS
+        from app.services.subscription_service import (
+            SubscriptionService,
+            BILLING_PERIOD_DAYS,
+        )
 
         service = SubscriptionService()
 
@@ -795,12 +840,15 @@ class TestUsagePeriodAlignment:
         mock_sub.tier = "parwa"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             result = service.get_current_billing_period(uuid.uuid4())
 
         assert result["billing_frequency"] == "monthly"
@@ -848,11 +896,8 @@ class TestYearlyUpgradeDowngrade:
         mock_sub.billing_frequency = "yearly"
         mock_sub.company_id = str(test_company_id)
         mock_sub.id = str(uuid.uuid4())
-        mock_sub.current_period_end = (
-            datetime.now(timezone.utc) + timedelta(days=30)
-        )
-        mock_sub.current_period_start = datetime.now(
-            timezone.utc) - timedelta(days=10)
+        mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=30)
+        mock_sub.current_period_start = datetime.now(timezone.utc) - timedelta(days=10)
         mock_sub.cancel_at_period_end = False
         mock_sub.pending_downgrade_tier = None
         mock_sub.previous_tier = None
@@ -862,12 +907,16 @@ class TestYearlyUpgradeDowngrade:
 
         mock_db = MagicMock()
         mock_q = MagicMock()
-        mock_q.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        mock_q.filter.return_value.with_for_update.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.query.side_effect = [mock_q]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             result = asyncio.run(
                 service.downgrade_subscription(
                     company_id=test_company_id,
@@ -908,12 +957,16 @@ class TestYearlyRenewal:
         mock_db = MagicMock()
         # First call: upcoming renewals (empty)
         # Second call: expired subscriptions
-        mock_db.query.return_value.filter.return_value \
-            .all.side_effect = [[], [mock_sub]]
+        mock_db.query.return_value.filter.return_value.all.side_effect = [
+            [],
+            [mock_sub],
+        ]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             result = service.process_renewals()
 
         assert result["renewed"] == 1
@@ -945,7 +998,10 @@ class TestValidationEdgeCases:
 
     def test_validate_frequency_rejects_invalid(self):
         """Should reject invalid frequency."""
-        from app.services.subscription_service import SubscriptionService, SubscriptionError
+        from app.services.subscription_service import (
+            SubscriptionService,
+            SubscriptionError,
+        )
 
         service = SubscriptionService()
         with pytest.raises(SubscriptionError):

@@ -18,9 +18,7 @@ logger = logging.getLogger(__name__)
 # ── Knowledge Base Files ──────────────────────────────────────────
 
 KNOWLEDGE_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)),
-    "data",
-    "jarvis_knowledge"
+    os.path.dirname(os.path.dirname(__file__)), "data", "jarvis_knowledge"
 )
 
 KB_FILES = {
@@ -61,11 +59,13 @@ def load_all_knowledge():
             logger.error(f"Failed to load knowledge file {filename}: {str(e)}")
             _knowledge_cache[key] = {}
 
+
 # ── Public API ─────────────────────────────────────────────────────
 
 
 def search_knowledge(
-        query: str, context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    query: str, context: Optional[Dict[str, Any]] = None
+) -> List[Dict[str, Any]]:
     """Search the knowledge base for snippets relevant to the query.
 
     Returns a list of match objects: {"source": str, "content": str, "score": float}
@@ -80,50 +80,39 @@ def search_knowledge(
     for item in faq.get("faqs", []):
         q = item.get("question", "").lower()
         if any(word in q for word in query_lower.split() if len(word) > 3):
-            matches.append({
-                "source": "08_faq.json",
-                "content": f"FAQ: Q: {item['question']} A: {item['answer']}",
-                "score": 0.9
-            })
+            matches.append(
+                {
+                    "source": "08_faq.json",
+                    "content": f"FAQ: Q: {item['question']} A: {item['answer']}",
+                    "score": 0.9,
+                }
+            )
 
     # 2. Check Pricing if query contains pricing-related keywords
-    pricing_keywords = [
-        "price",
-        "cost",
-        "how much",
-        "tier",
-        "plan",
-        "bill",
-        "variant"]
+    pricing_keywords = ["price", "cost", "how much", "tier", "plan", "bill", "variant"]
     if any(k in query_lower for k in pricing_keywords):
         pricing = _knowledge_cache.get("pricing", {})
         for tier in pricing.get("pricing_tiers", []):
             matches.append(
-                {
-                    "source": "01_pricing_tiers.json",
-                    "content": f"PRICING TIER: {
+                {"source": "01_pricing_tiers.json", "content": f"PRICING TIER: {
                         tier['name']} costs {
                         tier['price']}/mo. Includes {
                         tier['tickets_per_month']} tickets and features: {
                         ', '.join(
-                            tier['key_features'])}.",
-                    "score": 0.9})
+                            tier['key_features'])}.", "score": 0.9}
+            )
 
     # 3. Check Capabilities
     capabilities = _knowledge_cache.get("capabilities", {})
     for cap in capabilities.get("capabilities", []):
         name = cap.get("name", "").lower()
         if any(word in name for word in query_lower.split() if len(word) > 3):
-            matches.append(
-                {
-                    "source": "05_capabilities.json",
-                    "content": f"CAPABILITY: {
+            matches.append({"source": "05_capabilities.json", "content": f"CAPABILITY: {
                         cap['name']}: {
                         cap['description']}. Key value: {
                         cap.get(
                             'value_proposition',
-                            '')}",
-                    "score": 0.8})
+                            '')}", "score": 0.8})
 
     # 4. Check Objections
     objections = _knowledge_cache.get("objections", {})
@@ -136,7 +125,9 @@ def search_knowledge(
                     "content": f"OBJECTION: When user says '{
                         obj['theme']}', the answer is: {
                         obj['best_response']}",
-                    "score": 0.85})
+                    "score": 0.85,
+                }
+            )
 
     # 5. Check Integrations
     integrations = _knowledge_cache.get("integrations", {})
@@ -144,11 +135,13 @@ def search_knowledge(
         for item in cat.get("items", []):
             name = item.get("name", "").lower()
             if any(word in name for word in query_lower.split() if len(word) > 3):
-                matches.append({
-                    "source": "04_integrations.json",
-                    "content": f"INTEGRATION: We support {item['name']}. {item.get('description', '')}",
-                    "score": 0.7
-                })
+                matches.append(
+                    {
+                        "source": "04_integrations.json",
+                        "content": f"INTEGRATION: We support {item['name']}. {item.get('description', '')}",
+                        "score": 0.7,
+                    }
+                )
 
     # 6. Check Shadow Mode knowledge
     shadow_keywords = [
@@ -162,35 +155,44 @@ def search_knowledge(
         "risk score",
         "safety floor",
         "dual control",
-        "approval queue"]
+        "approval queue",
+    ]
     if any(k in query_lower for k in shadow_keywords):
         shadow = _knowledge_cache.get("shadow_mode", {})
         sm = shadow.get("shadow_mode", {})
         if sm.get("overview"):
-            matches.append({
-                "source": "11_shadow_mode.json",
-                "content": f"SHADOW MODE: {sm['overview']}",
-                "score": 0.95
-            })
+            matches.append(
+                {
+                    "source": "11_shadow_mode.json",
+                    "content": f"SHADOW MODE: {sm['overview']}",
+                    "score": 0.95,
+                }
+            )
         # Match specific modes
         modes = sm.get("modes", {})
         for mode_name, mode_data in modes.items():
             if mode_name in query_lower:
-                matches.append({"source": "11_shadow_mode.json",
-                                "content": f"SHADOW MODE - {mode_data.get('name',
+                matches.append(
+                    {
+                        "source": "11_shadow_mode.json",
+                        "content": f"SHADOW MODE - {mode_data.get('name',
                                                                           mode_name)}: {mode_data.get('description',
                                                                                                       '')} When used: {mode_data.get('when_used',
                                                                                                                                      '')}",
-                                "score": 0.9})
+                        "score": 0.9,
+                    }
+                )
         # Match dual control
         dc = sm.get("dual_control", {})
         if "dual control" in query_lower or "jarvis command" in query_lower:
             cmds = dc.get("jarvis_commands", [])
-            matches.append({
-                "source": "11_shadow_mode.json",
-                "content": f"DUAL CONTROL: {dc.get('concept', '')} Commands: {', '.join(cmds[:5])}",
-                "score": 0.85
-            })
+            matches.append(
+                {
+                    "source": "11_shadow_mode.json",
+                    "content": f"DUAL CONTROL: {dc.get('concept', '')} Commands: {', '.join(cmds[:5])}",
+                    "score": 0.85,
+                }
+            )
 
     # Sort matches by score descending
     matches.sort(key=lambda x: x["score"], reverse=True)
@@ -198,13 +200,15 @@ def search_knowledge(
 
 
 def search_and_format_knowledge(
-        query: str, context: Optional[Dict[str, Any]] = None) -> str:
+    query: str, context: Optional[Dict[str, Any]] = None
+) -> str:
     """Convenience: Search and return a formatted string for AI prompt injection."""
     matches = search_knowledge(query, context)
     if not matches:
         return ""
-    return "## Relevant Knowledge Base Results:\n" + \
-        "\n\n".join([m["content"] for m in matches])
+    return "## Relevant Knowledge Base Results:\n" + "\n\n".join(
+        [m["content"] for m in matches]
+    )
 
 
 def build_context_knowledge(context: Dict[str, Any]) -> str:
@@ -227,17 +231,14 @@ def build_context_knowledge(context: Dict[str, Any]) -> str:
         industry_data = _knowledge_cache.get("industries", {})
         for ind in industry_data.get("industries", []):
             if ind["name"].lower() == industry.lower():
-                sections.append(
-                    f"## Industry Context ({industry}):\n{
+                sections.append(f"## Industry Context ({industry}):\n{
                         ind['description']}")
-                sections.append(
-                    f"Key Challenges: {
+                sections.append(f"Key Challenges: {
                         ', '.join(
                             ind.get(
                                 'common_pain_points',
                                 []))}")
-                sections.append(
-                    f"Recommended Strategy: {
+                sections.append(f"Recommended Strategy: {
                         ind.get(
                             'recommended_variant_strategy',
                             '')}")
@@ -249,7 +250,8 @@ def build_context_knowledge(context: Dict[str, Any]) -> str:
         tiers = []
         for tier in pricing.get("pricing_tiers", []):
             tiers.append(
-                f"- {tier['name']}: {tier['price']}/mo ({tier['tickets_per_month']} tickets)")
+                f"- {tier['name']}: {tier['price']}/mo ({tier['tickets_per_month']} tickets)"
+            )
         sections.append("## Product Pricing:\n" + "\n".join(tiers))
 
     elif stage == "demo":
@@ -260,7 +262,8 @@ def build_context_knowledge(context: Dict[str, Any]) -> str:
             scenes.append(f"- {s['name']}: {s['description']}")
         sections.append("## Available Demo Scenarios:\n" + "\n".join(scenes))
         sections.append(
-            "\nDemo Pack Details: $1 for 500 messages + 3-min AI call (24h access).")
+            "\nDemo Pack Details: $1 for 500 messages + 3-min AI call (24h access)."
+        )
 
     # 3. Variant details for clicked/selected variants
     variant_id = context.get("variant_id")
@@ -268,17 +271,14 @@ def build_context_knowledge(context: Dict[str, Any]) -> str:
         variants = _knowledge_cache.get("variants", {})
         for v in variants.get("variants", []):
             if v["id"] == variant_id:
-                sections.append(
-                    f"## Details for '{
+                sections.append(f"## Details for '{
                         v['name']}':\n{
                         v['description']}")
-                sections.append(
-                    f"Problem solved: {
+                sections.append(f"Problem solved: {
                         v.get(
                             'problem_it_solves',
                             '')}")
-                sections.append(
-                    f"Differentiator: {
+                sections.append(f"Differentiator: {
                         v.get(
                             'differentiator',
                             '')}")

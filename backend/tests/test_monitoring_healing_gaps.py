@@ -57,21 +57,24 @@ def _mock_logger():
             _LOW_SCORE_CONSECUTIVE,
             _RECOVERY_HIGH_SCORE_CONSECUTIVE,
         )
-        globals().update({
-            "AIMonitoringService": AIMonitoringService,
-            "SelfHealingEngine": SelfHealingEngine,
-            "HealingRule": HealingRule,
-            "HealingAction": HealingAction,
-            "HealingStatus": HealingStatus,
-            "ActionType": ActionType,
-            "ConditionType": ConditionType,
-            "ProviderState": ProviderState,
-            "ThresholdAdjustment": ThresholdAdjustment,
-            "VariantHealingState": VariantHealingState,
-            "_MAX_DATA_POINTS": _MAX_DATA_POINTS,
-            "_LOW_SCORE_CONSECUTIVE": _LOW_SCORE_CONSECUTIVE,
-            "_RECOVERY_HIGH_SCORE_CONSECUTIVE": _RECOVERY_HIGH_SCORE_CONSECUTIVE,
-        })
+
+        globals().update(
+            {
+                "AIMonitoringService": AIMonitoringService,
+                "SelfHealingEngine": SelfHealingEngine,
+                "HealingRule": HealingRule,
+                "HealingAction": HealingAction,
+                "HealingStatus": HealingStatus,
+                "ActionType": ActionType,
+                "ConditionType": ConditionType,
+                "ProviderState": ProviderState,
+                "ThresholdAdjustment": ThresholdAdjustment,
+                "VariantHealingState": VariantHealingState,
+                "_MAX_DATA_POINTS": _MAX_DATA_POINTS,
+                "_LOW_SCORE_CONSECUTIVE": _LOW_SCORE_CONSECUTIVE,
+                "_RECOVERY_HIGH_SCORE_CONSECUTIVE": _RECOVERY_HIGH_SCORE_CONSECUTIVE,
+            }
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -111,15 +114,14 @@ def _record_query(
         routing_decision={
             "provider": provider,
             "model_id": "gemini-pro",
-            "tier": "medium"},
+            "tier": "medium",
+        },
         confidence_result={
             "overall_score": confidence_score,
             "passed": True,
-            "threshold": 85.0},
-        guardrails_report={
-            "passed": True,
-            "blocked_count": 0,
-            "flagged_count": 0},
+            "threshold": 85.0,
+        },
+        guardrails_report={"passed": True, "blocked_count": 0, "flagged_count": 0},
         latency_ms=latency_ms,
         error=error,
     )
@@ -220,9 +222,9 @@ class TestTenantIsolationInMonitoring:
         for j in range(num_companies):
             cid = f"concurrent_co_{j}"
             count = svc.get_record_count(cid)
-            assert count == records_per_company, (
-                f"Company {cid}: expected {records_per_company} records, got {count}"
-            )
+            assert (
+                count == records_per_company
+            ), f"Company {cid}: expected {records_per_company} records, got {count}"
 
     def test_dashboard_isolated_per_company(self):
         """Dashboard snapshot must only contain the requesting company's data."""
@@ -232,11 +234,8 @@ class TestTenantIsolationInMonitoring:
         for _ in range(10):
             _record_query(svc, "co_x", latency_ms=100.0, confidence_score=90.0)
             _record_query(
-                svc,
-                "co_y",
-                latency_ms=500.0,
-                confidence_score=40.0,
-                error="fail")
+                svc, "co_y", latency_ms=500.0, confidence_score=40.0, error="fail"
+            )
 
         dashboard_x = svc.get_dashboard_data("co_x")
         dashboard_y = svc.get_dashboard_data("co_y")
@@ -299,8 +298,7 @@ class TestSelfHealingStateTransitionRaceCondition:
         # Should have triggered a disable action
         history = engine.get_healing_history("co1")
         disable_actions = [
-            a for a in history
-            if a.action_type == ActionType.PROVIDER_DISABLE.value
+            a for a in history if a.action_type == ActionType.PROVIDER_DISABLE.value
         ]
         assert len(disable_actions) >= 1
 
@@ -351,8 +349,10 @@ class TestSelfHealingStateTransitionRaceCondition:
         # Should have recovery actions
         history = engine.get_healing_history("co1")
         recovery_actions = [
-            a for a in history
-            if a.action_type in (
+            a
+            for a in history
+            if a.action_type
+            in (
                 ActionType.TRAFFIC_RAMP_UP.value,
                 ActionType.PROVIDER_ENABLE.value,
             )
@@ -403,9 +403,12 @@ class TestSelfHealingStateTransitionRaceCondition:
 
         # State should be one of: healthy, disabled, degraded, recovering
         for pkey, status in parwa_health[0].provider_status.items():
-            assert status in ("healthy", "degraded", "disabled", "recovering"), (
-                f"Invalid provider state: {status}"
-            )
+            assert status in (
+                "healthy",
+                "degraded",
+                "disabled",
+                "recovering",
+            ), f"Invalid provider state: {status}"
 
     def test_healing_action_status_consistency(self):
         """All healing actions must have valid status transitions."""
@@ -424,9 +427,9 @@ class TestSelfHealingStateTransitionRaceCondition:
 
         valid_statuses = {s.value for s in HealingStatus}
         for action in actions:
-            assert action.status in valid_statuses, (
-                f"Invalid action status: {action.status}"
-            )
+            assert (
+                action.status in valid_statuses
+            ), f"Invalid action status: {action.status}"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -466,8 +469,7 @@ class TestCooldownPeriodBypass:
 
         history = engine.get_healing_history("co_cd")
         disable_count = sum(
-            1 for a in history
-            if a.action_type == ActionType.PROVIDER_DISABLE.value
+            1 for a in history if a.action_type == ActionType.PROVIDER_DISABLE.value
         )
         assert disable_count >= 1
 
@@ -491,13 +493,14 @@ class TestCooldownPeriodBypass:
 
         history_after = engine.get_healing_history("co_cd")
         disable_after = sum(
-            1 for a in history_after
+            1
+            for a in history_after
             if a.action_type == ActionType.PROVIDER_DISABLE.value
         )
         # Should NOT have additional disables (cooldown active)
-        assert disable_after == disable_count, (
-            f"Cooldown bypassed! Expected {disable_count} disables, got {disable_after}"
-        )
+        assert (
+            disable_after == disable_count
+        ), f"Cooldown bypassed! Expected {disable_count} disables, got {disable_after}"
 
     def test_cooldown_elapsed_allows_retrigger(self):
         """After cooldown elapses, healing actions can trigger again."""
@@ -522,7 +525,8 @@ class TestCooldownPeriodBypass:
 
         history_first = engine.get_healing_history("co_cd2")
         first_disable_count = sum(
-            1 for a in history_first
+            1
+            for a in history_first
             if a.action_type == ActionType.PROVIDER_DISABLE.value
         )
 
@@ -559,7 +563,8 @@ class TestCooldownPeriodBypass:
 
         history_second = engine.get_healing_history("co_cd2")
         second_disable_count = sum(
-            1 for a in history_second
+            1
+            for a in history_second
             if a.action_type == ActionType.PROVIDER_DISABLE.value
         )
 
@@ -591,7 +596,8 @@ class TestCooldownPeriodBypass:
                 )
 
         disable_count_initial = sum(
-            1 for a in engine.get_healing_history("co_flood")
+            1
+            for a in engine.get_healing_history("co_flood")
             if a.action_type == ActionType.PROVIDER_DISABLE.value
         )
 
@@ -613,21 +619,21 @@ class TestCooldownPeriodBypass:
                 )
 
         disable_count_after = sum(
-            1 for a in engine.get_healing_history("co_flood")
+            1
+            for a in engine.get_healing_history("co_flood")
             if a.action_type == ActionType.PROVIDER_DISABLE.value
         )
 
-        assert disable_count_after == disable_count_initial, (
-            f"Flood bypassed cooldown! {disable_count_initial} -> {disable_count_after}"
-        )
+        assert (
+            disable_count_after == disable_count_initial
+        ), f"Flood bypassed cooldown! {disable_count_initial} -> {disable_count_after}"
 
     def test_default_cooldown_is_300_seconds(self):
         """Verify default cooldown for consecutive failures rule is 300s."""
         engine = _make_healing_engine()
         rules = engine.get_rules("co1")
         consecutive_rule = next(
-            (r for r in rules
-             if r.rule_id == "consecutive_failures_disable"),
+            (r for r in rules if r.rule_id == "consecutive_failures_disable"),
             None,
         )
         assert consecutive_rule is not None
@@ -676,9 +682,9 @@ class TestIncompleteRollbackAfterFailedHealing:
 
         # Provider state should be "disabled", not some undefined intermediate
         for pkey, status in parwa.provider_status.items():
-            assert status == "disabled", (
-                f"Expected 'disabled', got '{status}' for {pkey}"
-            )
+            assert (
+                status == "disabled"
+            ), f"Expected 'disabled', got '{status}' for {pkey}"
 
     def test_recovery_stages_progress_correctly(self):
         """Recovery stages should progress 10% → 25% → 50% → 100%."""
@@ -823,9 +829,9 @@ class TestAlertFalsePositiveFromPruning:
 
         # Should have at most _MAX_DATA_POINTS
         count = svc.get_record_count("co_prune")
-        assert count <= _MAX_DATA_POINTS, (
-            f"Expected <= {_MAX_DATA_POINTS} records, got {count}"
-        )
+        assert (
+            count <= _MAX_DATA_POINTS
+        ), f"Expected <= {_MAX_DATA_POINTS} records, got {count}"
 
     def test_error_rate_accurate_after_pruning(self):
         """Error rate should remain accurate even after records are pruned."""
@@ -851,9 +857,10 @@ class TestAlertFalsePositiveFromPruning:
         errors_after = svc.get_error_metrics("co_err_rate")
         # 30 errors out of 50 total = 60% error rate
         expected_rate = 30 / _MAX_DATA_POINTS
-        assert abs(
-            errors_after.error_rate - expected_rate) < 0.01, (f"Error rate inaccurate: {
-                errors_after.error_rate} != {expected_rate}")
+        assert (
+            abs(errors_after.error_rate - expected_rate) < 0.01
+        ), f"Error rate inaccurate: {
+                errors_after.error_rate} != {expected_rate}"
 
     def test_no_false_alert_after_pruning_good_data(self):
         """After pruning, only errors that remain in window should trigger alerts."""
@@ -865,10 +872,7 @@ class TestAlertFalsePositiveFromPruning:
 
         # Alerts should exist for high error rate
         alerts_before = svc.get_alert_conditions("co_no_false")
-        error_alerts_before = [
-            a for a in alerts_before
-            if "error" in a.condition_id
-        ]
+        error_alerts_before = [a for a in alerts_before if "error" in a.condition_id]
         assert len(error_alerts_before) >= 1
 
         # Now overwrite with all success records
@@ -877,13 +881,10 @@ class TestAlertFalsePositiveFromPruning:
 
         # Old errors should be pruned, no error alerts
         alerts_after = svc.get_alert_conditions("co_no_false")
-        error_alerts_after = [
-            a for a in alerts_after
-            if "error" in a.condition_id
-        ]
-        assert len(error_alerts_after) == 0, (
-            "False alert: old errors still triggering after pruning"
-        )
+        error_alerts_after = [a for a in alerts_after if "error" in a.condition_id]
+        assert (
+            len(error_alerts_after) == 0
+        ), "False alert: old errors still triggering after pruning"
 
     def test_confidence_distribution_accurate_after_pruning(self):
         """Confidence buckets should be accurate after record pruning."""
@@ -965,12 +966,11 @@ class TestSilentFailureConfidenceThresholdAdjustment:
         # Should have a threshold_lower action
         history = engine.get_healing_history("co_thresh")
         threshold_actions = [
-            a for a in history
-            if a.action_type == ActionType.THRESHOLD_LOWER.value
+            a for a in history if a.action_type == ActionType.THRESHOLD_LOWER.value
         ]
-        assert len(threshold_actions) >= 1, (
-            "Expected threshold to be lowered after consecutive low scores"
-        )
+        assert (
+            len(threshold_actions) >= 1
+        ), "Expected threshold to be lowered after consecutive low scores"
 
     def test_threshold_not_below_floor(self):
         """Threshold must never go below the floor value."""
@@ -997,9 +997,9 @@ class TestSilentFailureConfidenceThresholdAdjustment:
         parwa = [h for h in health if h.variant == "parwa"]
         if parwa:
             # parwa floor is 70.0
-            assert parwa[0].threshold_current >= 70.0, (
-                f"Threshold {parwa[0].threshold_current} below floor 70.0"
-            )
+            assert (
+                parwa[0].threshold_current >= 70.0
+            ), f"Threshold {parwa[0].threshold_current} below floor 70.0"
 
     def test_threshold_restored_after_consecutive_high_scores(self):
         """Threshold should be restored to default after consecutive high scores."""
@@ -1026,9 +1026,7 @@ class TestSilentFailureConfidenceThresholdAdjustment:
         health_before = engine.get_variant_health("co_restore")
         parwa_before = [h for h in health_before if h.variant == "parwa"]
         assert len(parwa_before) >= 1
-        assert parwa_before[0].threshold_current < 85.0, (
-            "Threshold should be lowered"
-        )
+        assert parwa_before[0].threshold_current < 85.0, "Threshold should be lowered"
 
         # Now send high scores to trigger restore
         with patch(
@@ -1049,12 +1047,11 @@ class TestSilentFailureConfidenceThresholdAdjustment:
         # Check for threshold restore action
         history = engine.get_healing_history("co_restore")
         restore_actions = [
-            a for a in history
-            if a.action_type == ActionType.THRESHOLD_RESTORE.value
+            a for a in history if a.action_type == ActionType.THRESHOLD_RESTORE.value
         ]
-        assert len(restore_actions) >= 1, (
-            "Threshold should be restored after consecutive high scores"
-        )
+        assert (
+            len(restore_actions) >= 1
+        ), "Threshold should be restored after consecutive high scores"
 
     def test_healing_engine_never_crashes_on_bad_input_bc008(self):
         """BC-008: Engine must never crash regardless of input."""
@@ -1107,10 +1104,13 @@ class TestSilentFailureConfidenceThresholdAdjustment:
                     latency_ms=100.0,
                 )
 
-        first_count = len([
-            a for a in engine.get_healing_history("co_cd_test")
-            if a.action_type == ActionType.THRESHOLD_LOWER.value
-        ])
+        first_count = len(
+            [
+                a
+                for a in engine.get_healing_history("co_cd_test")
+                if a.action_type == ActionType.THRESHOLD_LOWER.value
+            ]
+        )
         assert first_count >= 1
 
         # Try again immediately — cooldown should block
@@ -1129,14 +1129,16 @@ class TestSilentFailureConfidenceThresholdAdjustment:
                     latency_ms=100.0,
                 )
 
-        second_count = len([
-            a for a in engine.get_healing_history("co_cd_test")
-            if a.action_type == ActionType.THRESHOLD_LOWER.value
-        ])
+        second_count = len(
+            [
+                a
+                for a in engine.get_healing_history("co_cd_test")
+                if a.action_type == ActionType.THRESHOLD_LOWER.value
+            ]
+        )
 
         assert second_count == first_count, (
-            "Cooldown bypassed for confidence drop! "
-            f"{first_count} -> {second_count}"
+            "Cooldown bypassed for confidence drop! " f"{first_count} -> {second_count}"
         )
 
     def test_variant_health_shows_adjusted_threshold(self):

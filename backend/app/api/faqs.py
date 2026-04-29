@@ -12,14 +12,15 @@ from pydantic import BaseModel, Field
 from app.api.deps import get_current_user
 from app.services.faq_service import get_faq_service, FAQService
 
-
 router = APIRouter(prefix="/api/v1/faqs", tags=["FAQs"])
 
 
 # ── Schemas ────────────────────────────────────────────────────────────────
 
+
 class FAQCreate(BaseModel):
     """Request to create a new FAQ."""
+
     question: str = Field(..., min_length=5, max_length=500)
     answer: str = Field(..., min_length=10, max_length=2000)
     category: str = Field(default="General", max_length=50)
@@ -28,6 +29,7 @@ class FAQCreate(BaseModel):
 
 class FAQUpdate(BaseModel):
     """Request to update an existing FAQ."""
+
     question: Optional[str] = Field(None, min_length=5, max_length=500)
     answer: Optional[str] = Field(None, min_length=10, max_length=2000)
     category: Optional[str] = Field(None, max_length=50)
@@ -36,6 +38,7 @@ class FAQUpdate(BaseModel):
 
 class FAQResponse(BaseModel):
     """FAQ response schema."""
+
     id: str
     question: str
     answer: str
@@ -47,6 +50,7 @@ class FAQResponse(BaseModel):
 
 class FAQListResponse(BaseModel):
     """List of FAQs with metadata."""
+
     faqs: List[FAQResponse]
     total: int
     categories: List[str]
@@ -54,45 +58,38 @@ class FAQListResponse(BaseModel):
 
 class FAQImportRequest(BaseModel):
     """Request to import FAQs."""
+
     faqs: List[FAQCreate]
-    merge: bool = Field(
-        default=True,
-        description="Merge with existing or replace")
+    merge: bool = Field(default=True, description="Merge with existing or replace")
 
 
 class FAQImportResponse(BaseModel):
     """Response for FAQ import."""
+
     imported: int
     message: str
 
 
 # ── Dependencies ────────────────────────────────────────────────────────────
 
+
 def get_faq_service_dep(current_user=Depends(get_current_user)) -> FAQService:
     """Get FAQ service with company context from current user."""
-    company_id = str(
-        current_user.company_id) if hasattr(
-        current_user,
-        'company_id') else None
+    company_id = (
+        str(current_user.company_id) if hasattr(current_user, "company_id") else None
+    )
     return get_faq_service(company_id=company_id)
 
 
 # ── Endpoints ───────────────────────────────────────────────────────────────
 
+
 @router.get("", response_model=FAQListResponse)
 async def list_faqs(
-        category: Optional[str] = Query(
-            None,
-            description="Filter by category"),
-    search: Optional[str] = Query(
-            None,
-            description="Search in questions and answers"),
-        limit: int = Query(
-            50,
-            ge=1,
-            le=100,
-            description="Max results"),
-        service: FAQService = Depends(get_faq_service_dep),
+    category: Optional[str] = Query(None, description="Filter by category"),
+    search: Optional[str] = Query(None, description="Search in questions and answers"),
+    limit: int = Query(50, ge=1, le=100, description="Max results"),
+    service: FAQService = Depends(get_faq_service_dep),
 ):
     """List all FAQs with optional filtering.
 

@@ -139,9 +139,13 @@ def paginate_query(
 
     if not _is_sqlite(bind):
         # ── PostgreSQL: single-query with COUNT(*) OVER() ─────────
-        base_select = query.statement.with_only_columns(
-            query.column_descriptions[0]["expr"]  # type: ignore[arg-type]
-        ) if hasattr(query, "column_descriptions") else query.statement
+        base_select = (
+            query.statement.with_only_columns(
+                query.column_descriptions[0]["expr"]  # type: ignore[arg-type]
+            )
+            if hasattr(query, "column_descriptions")
+            else query.statement
+        )
 
         # Build: SELECT <original columns>, COUNT(*) OVER() AS _total
         # We use add_columns to inject the window function.
@@ -261,9 +265,7 @@ def build_paginated_response(
     """
 
     if schema is not None and transform is not None:
-        raise ValueError(
-            "Provide either 'schema' or 'transform', not both."
-        )
+        raise ValueError("Provide either 'schema' or 'transform', not both.")
 
     # Pick the right executor based on query type
     if isinstance(query, Select):
@@ -273,9 +275,7 @@ def build_paginated_response(
 
     # Transform items if a schema or transform was given
     if schema is not None:
-        mapped_items: list[Any] = [
-            schema.model_validate(item) for item in items
-        ]
+        mapped_items: list[Any] = [schema.model_validate(item) for item in items]
     elif transform is not None:
         mapped_items = [transform(item) for item in items]
     else:
@@ -303,30 +303,30 @@ DEFAULT_SORT_DIRECTION = "desc"
 # Columns that must NEVER appear in ORDER BY clauses, even without
 # an explicit whitelist.  Sorting by these could leak sensitive data
 # or cause performance issues (full table scans on unindexed columns).
-_SENSITIVE_SORT_COLUMNS: frozenset[str] = frozenset({
-    "password_hash",
-    "password",
-    "secret_key",
-    "secret",
-    "token_hash",
-    "token",
-    "credentials_encrypted",
-    "auth_config",
-    "connection_string",
-    "mfa_secret",
-    "refresh_token",
-    "access_token",
-    "api_key",
-    "key_hash",
-    "card_number",
-    "ssn",
-    "social_security",
-})
+_SENSITIVE_SORT_COLUMNS: frozenset[str] = frozenset(
+    {
+        "password_hash",
+        "password",
+        "secret_key",
+        "secret",
+        "token_hash",
+        "token",
+        "credentials_encrypted",
+        "auth_config",
+        "connection_string",
+        "mfa_secret",
+        "refresh_token",
+        "access_token",
+        "api_key",
+        "key_hash",
+        "card_number",
+        "ssn",
+        "social_security",
+    }
+)
 
 
-class SortParams(
-    __import__("typing").NamedTuple  # type: ignore[misc, valid-type]
-):
+class SortParams(__import__("typing").NamedTuple):  # type: ignore[misc, valid-type]
     """Validated sort parameters.
 
     Attributes:
@@ -365,9 +365,7 @@ def parse_sort(
     """
 
     # Normalise direction
-    direction = (
-        sort_dir.strip().lower() if sort_dir else default_direction
-    )
+    direction = sort_dir.strip().lower() if sort_dir else default_direction
     if direction not in ("asc", "desc"):
         direction = default_direction
 
@@ -408,8 +406,12 @@ _OPERATOR_MAP: dict[str, Callable] = {
     "lte": lambda col, val: col <= val,
     "like": lambda col, val: col.like(val),
     "ilike": lambda col, val: col.ilike(val),
-    "in": lambda col, val: col.in_(val) if isinstance(val, (list, tuple)) else col == val,
-    "not_in": lambda col, val: col.notin_(val) if isinstance(val, (list, tuple)) else col != val,
+    "in": lambda col, val: (
+        col.in_(val) if isinstance(val, (list, tuple)) else col == val
+    ),
+    "not_in": lambda col, val: (
+        col.notin_(val) if isinstance(val, (list, tuple)) else col != val
+    ),
 }
 
 
@@ -484,7 +486,10 @@ def apply_filters(
             )
 
         expression: ColumnElement = op_func(column, f.value)
-        query = query.filter(expression) if isinstance(
-            query, Query) else query.where(expression)  # type: ignore[union-attr]
+        query = (
+            query.filter(expression)
+            if isinstance(query, Query)
+            else query.where(expression)
+        )  # type: ignore[union-attr]
 
     return query

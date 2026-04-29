@@ -32,6 +32,7 @@ class TestDatasetPreparationService:
     def service(self, mock_db):
         """Create service instance."""
         from app.services.dataset_preparation_service import DatasetPreparationService
+
         return DatasetPreparationService(mock_db)
 
     def test_create_dataset(self, service, mock_db):
@@ -48,7 +49,7 @@ class TestDatasetPreparationService:
         mock_db.commit = Mock()
         mock_db.refresh = Mock()
 
-        with patch.dict('sys.modules', {'database.models.training': MagicMock()}):
+        with patch.dict("sys.modules", {"database.models.training": MagicMock()}):
             result = service.create_dataset(
                 company_id=str(uuid4()),
                 agent_id=str(uuid4()),
@@ -72,7 +73,7 @@ class TestDatasetPreparationService:
         mock_db.query.return_value.filter.return_value.first.return_value = mock_dataset
 
         # Mock mistakes collection (empty)
-        with patch.object(service, '_collect_from_mistakes', return_value=[]):
+        with patch.object(service, "_collect_from_mistakes", return_value=[]):
             result = service.prepare_dataset(
                 company_id=company_id,
                 agent_id=agent_id,
@@ -98,8 +99,10 @@ class TestDatasetPreparationService:
         # Mock data collection
         samples = [{"id": "1", "input": "test", "expected_output": "response"}]
 
-        with patch.object(service, '_collect_from_mistakes', return_value=samples):
-            with patch.object(service, '_store_dataset', return_value="/path/to/dataset"):
+        with patch.object(service, "_collect_from_mistakes", return_value=samples):
+            with patch.object(
+                service, "_store_dataset", return_value="/path/to/dataset"
+            ):
                 result = service.prepare_dataset(
                     company_id=company_id,
                     agent_id=agent_id,
@@ -176,7 +179,9 @@ class TestDatasetPreparationService:
                 created_at=datetime.now(timezone.utc),
             )
         ]
-        mock_db.query.return_value.filter.return_value.limit.return_value.all.return_value = mock_docs
+        mock_db.query.return_value.filter.return_value.limit.return_value.all.return_value = (
+            mock_docs
+        )
 
         result = service._collect_from_knowledge_base(company_id, str(uuid4()))
 
@@ -188,6 +193,7 @@ class TestDatasetPreparationService:
 # F-102: GPU Provider Service Tests
 # ══════════════════════════════════════════════════════════════════════════
 
+
 class TestGPUProviderService:
     """Tests for GPUProviderService (F-102)."""
 
@@ -195,6 +201,7 @@ class TestGPUProviderService:
     def service(self):
         """Create service instance."""
         from app.services.gpu_provider_service import GPUProviderServiceSync
+
         return GPUProviderServiceSync()
 
     def test_provision_local_instance(self, service):
@@ -251,7 +258,12 @@ class TestGPUProviderService:
 
     def test_gpu_cost_mapping(self):
         """Test GPU cost mapping."""
-        from app.services.gpu_provider_service import GPU_COSTS, GPU_T4, GPU_A100, GPU_V100
+        from app.services.gpu_provider_service import (
+            GPU_COSTS,
+            GPU_T4,
+            GPU_A100,
+            GPU_V100,
+        )
 
         assert GPU_COSTS[GPU_T4] == 0.50
         assert GPU_COSTS[GPU_A100] == 3.50
@@ -265,6 +277,7 @@ class TestGPUProviderServiceAsync:
     def service(self):
         """Create service instance."""
         from app.services.gpu_provider_service import GPUProviderService
+
         return GPUProviderService()
 
     @pytest.mark.asyncio
@@ -297,6 +310,7 @@ class TestGPUProviderServiceAsync:
 # ══════════════════════════════════════════════════════════════════════════
 # Integration Tests: Training Execution with GPU
 # ══════════════════════════════════════════════════════════════════════════
+
 
 class TestTrainingExecutionWithGPU:
     """Integration tests for training execution with GPU provider."""
@@ -351,6 +365,7 @@ class TestTrainingExecutionWithGPU:
 # F-102/F-103 Combined Tests
 # ══════════════════════════════════════════════════════════════════════════
 
+
 class TestDay4Integration:
     """Integration tests combining F-102 and F-103."""
 
@@ -369,15 +384,17 @@ class TestDay4Integration:
 
         # Step 1: Prepare dataset (simulated)
         dataset_service = DatasetPreparationService(mock_db)
-        quality_score = dataset_service._calculate_quality_score([
-            {
-                "id": "1",
-                "messages": [
-                    {"role": "user", "content": "Test question"},
-                    {"role": "assistant", "content": "Test answer"},
-                ],
-            }
-        ])
+        quality_score = dataset_service._calculate_quality_score(
+            [
+                {
+                    "id": "1",
+                    "messages": [
+                        {"role": "user", "content": "Test question"},
+                        {"role": "assistant", "content": "Test answer"},
+                    ],
+                }
+            ]
+        )
         assert quality_score > 0
 
         # Step 2: Provision GPU
@@ -390,8 +407,7 @@ class TestDay4Integration:
         assert instance["status"] == "running"
 
         # Step 3: Cleanup
-        result = gpu_service.terminate_instance(
-            instance["instance_id"], "local")
+        result = gpu_service.terminate_instance(instance["instance_id"], "local")
         assert result["status"] == "stopped"
 
     def test_error_handling_in_gpu_provisioning(self):
@@ -414,6 +430,7 @@ class TestDay4Integration:
 # ══════════════════════════════════════════════════════════════════════════
 # Fixtures and Setup
 # ══════════════════════════════════════════════════════════════════════════
+
 
 @pytest.fixture(autouse=True)
 def setup_environment():

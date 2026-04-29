@@ -18,7 +18,6 @@ from app.exceptions import (
     NotFoundError,
 )
 
-
 # ══════════════════════════════════════════════════════════════════
 # CONSTANTS
 # ══════════════════════════════════════════════════════════════════
@@ -41,6 +40,7 @@ VALID_ROLES = {
 # ══════════════════════════════════════════════════════════════════
 # VALIDATION HELPERS
 # ══════════════════════════════════════════════════════════════════
+
 
 def _validate_agent_name(agent_name: str) -> None:
     """Validate agent name is non-empty."""
@@ -114,6 +114,7 @@ def _parse_json_list(value: str | None) -> list[str]:
 # SERVICE FUNCTIONS
 # ══════════════════════════════════════════════════════════════════
 
+
 def register_agent(
     db: Session,
     agent_name: str,
@@ -131,15 +132,16 @@ def register_agent(
     _validate_agent_role(agent_role)
 
     # Check for duplicate name
-    existing = db.query(AIAgentAssignment).filter_by(
-        agent_name=agent_name.strip(),
-    ).first()
+    existing = (
+        db.query(AIAgentAssignment)
+        .filter_by(
+            agent_name=agent_name.strip(),
+        )
+        .first()
+    )
     if existing is not None:
         raise ValidationError(
-            message=(
-                f"Agent with name '{agent_name.strip()}' "
-                "already exists"
-            ),
+            message=(f"Agent with name '{agent_name.strip()}' " "already exists"),
         )
 
     effective_features = feature_ids or []
@@ -147,9 +149,7 @@ def register_agent(
 
     agent = AIAgentAssignment(
         agent_name=agent_name.strip(),
-        agent_role=(
-            agent_role.strip() if agent_role else None
-        ),
+        agent_role=(agent_role.strip() if agent_role else None),
         feature_ids=json.dumps(effective_features),
         task_ids=json.dumps(effective_tasks),
         status="active",
@@ -172,9 +172,13 @@ def get_agent(
     """
     _validate_agent_name(agent_name)
 
-    return db.query(AIAgentAssignment).filter_by(
-        agent_name=agent_name.strip(),
-    ).first()
+    return (
+        db.query(AIAgentAssignment)
+        .filter_by(
+            agent_name=agent_name.strip(),
+        )
+        .first()
+    )
 
 
 def list_agents(
@@ -206,15 +210,17 @@ def update_agent_features(
     _validate_agent_name(agent_name)
     _validate_feature_ids(feature_ids)
 
-    agent = db.query(AIAgentAssignment).filter_by(
-        agent_name=agent_name.strip(),
-    ).first()
+    agent = (
+        db.query(AIAgentAssignment)
+        .filter_by(
+            agent_name=agent_name.strip(),
+        )
+        .first()
+    )
 
     if agent is None:
         raise NotFoundError(
-            message=(
-                f"Agent '{agent_name.strip()}' not found"
-            ),
+            message=(f"Agent '{agent_name.strip()}' not found"),
         )
 
     agent.feature_ids = json.dumps(feature_ids)
@@ -234,15 +240,17 @@ def update_agent_tasks(
     _validate_agent_name(agent_name)
     _validate_task_ids(task_ids)
 
-    agent = db.query(AIAgentAssignment).filter_by(
-        agent_name=agent_name.strip(),
-    ).first()
+    agent = (
+        db.query(AIAgentAssignment)
+        .filter_by(
+            agent_name=agent_name.strip(),
+        )
+        .first()
+    )
 
     if agent is None:
         raise NotFoundError(
-            message=(
-                f"Agent '{agent_name.strip()}' not found"
-            ),
+            message=(f"Agent '{agent_name.strip()}' not found"),
         )
 
     agent.task_ids = json.dumps(task_ids)
@@ -262,15 +270,17 @@ def update_agent_status(
     _validate_agent_name(agent_name)
     _validate_status(status)
 
-    agent = db.query(AIAgentAssignment).filter_by(
-        agent_name=agent_name.strip(),
-    ).first()
+    agent = (
+        db.query(AIAgentAssignment)
+        .filter_by(
+            agent_name=agent_name.strip(),
+        )
+        .first()
+    )
 
     if agent is None:
         raise NotFoundError(
-            message=(
-                f"Agent '{agent_name.strip()}' not found"
-            ),
+            message=(f"Agent '{agent_name.strip()}' not found"),
         )
 
     agent.status = status
@@ -293,9 +303,14 @@ def get_agent_feature_coverage(db: Session) -> dict:
     for agent in agents:
         features = _parse_json_list(agent.feature_ids)
         for feature_id in features:
-            fid = feature_id.strip() if isinstance(
-                feature_id, str,
-            ) else str(feature_id)
+            fid = (
+                feature_id.strip()
+                if isinstance(
+                    feature_id,
+                    str,
+                )
+                else str(feature_id)
+            )
             if fid:
                 coverage[fid] = agent.agent_name
 
@@ -340,15 +355,9 @@ def get_build_progress(db: Session) -> dict:
     all_agents = list_agents(db)
 
     total_agents = len(all_agents)
-    active_agents = sum(
-        1 for a in all_agents if a.status == "active"
-    )
-    completed_agents = sum(
-        1 for a in all_agents if a.status == "completed"
-    )
-    paused_agents = sum(
-        1 for a in all_agents if a.status == "paused"
-    )
+    active_agents = sum(1 for a in all_agents if a.status == "active")
+    completed_agents = sum(1 for a in all_agents if a.status == "completed")
+    paused_agents = sum(1 for a in all_agents if a.status == "paused")
 
     # Count features across all agents
     all_features: set[str] = set()
@@ -357,17 +366,20 @@ def get_build_progress(db: Session) -> dict:
     for agent in all_agents:
         features = _parse_json_list(agent.feature_ids)
         for fid in features:
-            fid_clean = fid.strip() if isinstance(
-                fid, str,
-            ) else str(fid)
+            fid_clean = (
+                fid.strip()
+                if isinstance(
+                    fid,
+                    str,
+                )
+                else str(fid)
+            )
             if fid_clean:
                 all_features.add(fid_clean)
                 if agent.status == "completed":
                     completed_features.add(fid_clean)
 
-    pending_features = (
-        len(all_features) - len(completed_features)
-    )
+    pending_features = len(all_features) - len(completed_features)
 
     return {
         "total_agents": total_agents,
@@ -380,9 +392,7 @@ def get_build_progress(db: Session) -> dict:
         ),
         "pending_features": pending_features,
         "completion_pct": round(
-            len(completed_features)
-            / max(len(all_features), 1)
-            * 100,
+            len(completed_features) / max(len(all_features), 1) * 100,
             1,
         ),
     }
@@ -413,9 +423,13 @@ def get_agent_by_id(
         raise ValidationError(
             message="agent_id is required and cannot be empty",
         )
-    agent = db.query(AIAgentAssignment).filter(
-        AIAgentAssignment.id == agent_id.strip(),
-    ).first()
+    agent = (
+        db.query(AIAgentAssignment)
+        .filter(
+            AIAgentAssignment.id == agent_id.strip(),
+        )
+        .first()
+    )
     if agent is None:
         raise NotFoundError(
             message=f"Agent with id '{agent_id.strip()}' not found",
@@ -441,9 +455,13 @@ def get_agent_for_feature(
         )
 
     fid = feature_id.strip()
-    agents = db.query(AIAgentAssignment).filter(
-        AIAgentAssignment.status == "active",
-    ).all()
+    agents = (
+        db.query(AIAgentAssignment)
+        .filter(
+            AIAgentAssignment.status == "active",
+        )
+        .all()
+    )
 
     for agent in agents:
         features = _parse_json_list(agent.feature_ids)
@@ -491,9 +509,13 @@ def update_agent_by_id(
             message="agent_id is required and cannot be empty",
         )
 
-    agent = db.query(AIAgentAssignment).filter(
-        AIAgentAssignment.id == agent_id.strip(),
-    ).first()
+    agent = (
+        db.query(AIAgentAssignment)
+        .filter(
+            AIAgentAssignment.id == agent_id.strip(),
+        )
+        .first()
+    )
     if agent is None:
         raise NotFoundError(
             message=f"Agent with id '{agent_id.strip()}' not found",
@@ -501,8 +523,11 @@ def update_agent_by_id(
         )
 
     allowed_fields = {
-        "agent_name", "agent_role", "feature_ids",
-        "task_ids", "status",
+        "agent_name",
+        "agent_role",
+        "feature_ids",
+        "task_ids",
+        "status",
     }
 
     for field, value in kwargs.items():
@@ -520,9 +545,7 @@ def update_agent_by_id(
 
         elif field == "agent_role":
             _validate_agent_role(str(value) if value else None)
-            agent.agent_role = (
-                str(value).strip() if value else None
-            )
+            agent.agent_role = str(value).strip() if value else None
 
         elif field == "feature_ids":
             _validate_feature_ids(list(value))  # type: ignore[arg-type]
@@ -537,6 +560,7 @@ def update_agent_by_id(
             agent.status = str(value)
 
     from datetime import datetime as dt
+
     agent.updated_at = dt.utcnow()
     db.commit()
     db.refresh(agent)
@@ -553,9 +577,13 @@ def delete_agent(
             message="agent_id is required and cannot be empty",
         )
 
-    agent = db.query(AIAgentAssignment).filter(
-        AIAgentAssignment.id == agent_id.strip(),
-    ).first()
+    agent = (
+        db.query(AIAgentAssignment)
+        .filter(
+            AIAgentAssignment.id == agent_id.strip(),
+        )
+        .first()
+    )
     if agent is None:
         raise NotFoundError(
             message=f"Agent with id '{agent_id.strip()}' not found",
@@ -564,6 +592,7 @@ def delete_agent(
 
     agent.status = "inactive"
     from datetime import datetime as dt
+
     agent.updated_at = dt.utcnow()
     db.commit()
     db.refresh(agent)
@@ -604,16 +633,18 @@ def get_task_decomposition_summary(db: Session) -> dict:
                 unique_tasks.add(t_clean)
                 all_tasks.add(t_clean)
 
-        agent_breakdown.append({
-            "id": agent.id,
-            "agent_name": agent.agent_name,
-            "agent_role": agent.agent_role,
-            "feature_count": len(unique_features),
-            "task_count": len(unique_tasks),
-            "feature_ids": sorted(unique_features),
-            "task_ids": sorted(unique_tasks),
-            "status": agent.status,
-        })
+        agent_breakdown.append(
+            {
+                "id": agent.id,
+                "agent_name": agent.agent_name,
+                "agent_role": agent.agent_role,
+                "feature_count": len(unique_features),
+                "task_count": len(unique_tasks),
+                "feature_ids": sorted(unique_features),
+                "task_ids": sorted(unique_tasks),
+                "status": agent.status,
+            }
+        )
 
     # Find features assigned to multiple agents
     feature_agent_count: dict[str, list[str]] = {}
@@ -623,9 +654,7 @@ def get_task_decomposition_summary(db: Session) -> dict:
                 ab["agent_name"],
             )
     overlapping_features = {
-        fid: names
-        for fid, names in feature_agent_count.items()
-        if len(names) > 1
+        fid: names for fid, names in feature_agent_count.items() if len(names) > 1
     }
 
     return {
@@ -635,17 +664,14 @@ def get_task_decomposition_summary(db: Session) -> dict:
         "agents": agent_breakdown,
         "coverage_stats": {
             "features_per_agent": {
-                ab["agent_name"]: ab["feature_count"]
-                for ab in agent_breakdown
+                ab["agent_name"]: ab["feature_count"] for ab in agent_breakdown
             },
             "tasks_per_agent": {
-                ab["agent_name"]: ab["task_count"]
-                for ab in agent_breakdown
+                ab["agent_name"]: ab["task_count"] for ab in agent_breakdown
             },
             "overlapping_features": overlapping_features,
             "avg_features_per_agent": round(
-                len(all_features)
-                / max(len(active_agents), 1),
+                len(all_features) / max(len(active_agents), 1),
                 1,
             ),
         },
@@ -659,8 +685,13 @@ _DEFAULT_AGENTS = [
         "agent_name": "Agent 1",
         "agent_role": "Infrastructure",
         "feature_ids": [
-            "F-055", "F-056", "F-064",
-            "SG-28", "SG-32", "SG-33", "SG-15",
+            "F-055",
+            "F-056",
+            "F-064",
+            "SG-28",
+            "SG-32",
+            "SG-33",
+            "SG-15",
         ],
         "task_ids": ["SG-30"],
     },
@@ -668,10 +699,21 @@ _DEFAULT_AGENTS = [
         "agent_name": "Agent 2",
         "agent_role": "Routing & Classification",
         "feature_ids": [
-            "F-054", "SG-03", "F-059", "SG-04",
-            "F-050", "SG-06", "SG-11", "F-053",
-            "F-060", "SG-18", "SG-07", "SG-08",
-            "SG-10", "SG-02", "BC-013",
+            "F-054",
+            "SG-03",
+            "F-059",
+            "SG-04",
+            "F-050",
+            "SG-06",
+            "SG-11",
+            "F-053",
+            "F-060",
+            "SG-18",
+            "SG-07",
+            "SG-08",
+            "SG-10",
+            "SG-02",
+            "BC-013",
         ],
         "task_ids": [],
     },
@@ -679,8 +721,15 @@ _DEFAULT_AGENTS = [
         "agent_name": "Agent 3",
         "agent_role": "Safety & Guardrails",
         "feature_ids": [
-            "SG-05", "F-057", "SG-36", "SG-27",
-            "F-058", "SG-09", "F-067", "F-068", "F-069",
+            "SG-05",
+            "F-057",
+            "SG-36",
+            "SG-27",
+            "F-058",
+            "SG-09",
+            "F-067",
+            "F-068",
+            "F-069",
         ],
         "task_ids": [],
     },
@@ -688,8 +737,15 @@ _DEFAULT_AGENTS = [
         "agent_name": "Agent 4",
         "agent_role": "Optimization & Data",
         "feature_ids": [
-            "SG-35", "SG-21", "SG-22", "SG-24",
-            "SG-25", "SG-26", "F-061", "SG-12", "SG-17",
+            "SG-35",
+            "SG-21",
+            "SG-22",
+            "SG-24",
+            "SG-25",
+            "SG-26",
+            "F-061",
+            "SG-12",
+            "SG-17",
         ],
         "task_ids": [],
     },
@@ -697,9 +753,16 @@ _DEFAULT_AGENTS = [
         "agent_name": "Agent 5",
         "agent_role": "Operations & Monitoring",
         "feature_ids": [
-            "SG-38", "SG-19", "SG-20", "SG-13",
-            "SG-16", "SG-29", "SG-23", "SG-31",
-            "SG-34", "SG-14",
+            "SG-38",
+            "SG-19",
+            "SG-20",
+            "SG-13",
+            "SG-16",
+            "SG-29",
+            "SG-23",
+            "SG-31",
+            "SG-34",
+            "SG-14",
         ],
         "task_ids": [],
     },
@@ -717,9 +780,13 @@ def initialize_default_agents(db: Session) -> dict:
 
     for spec in _DEFAULT_AGENTS:
         name = spec["agent_name"]
-        agent = db.query(AIAgentAssignment).filter_by(
-            agent_name=name,
-        ).first()
+        agent = (
+            db.query(AIAgentAssignment)
+            .filter_by(
+                agent_name=name,
+            )
+            .first()
+        )
 
         if agent is not None:
             existing.append(name)

@@ -41,10 +41,10 @@ class SpamDetectionService:
     """
 
     # Spam score thresholds
-    SPAM_THRESHOLD_LOW = 30      # Low confidence
-    SPAM_THRESHOLD_MEDIUM = 50   # Medium confidence
-    SPAM_THRESHOLD_HIGH = 70     # High confidence
-    SPAM_THRESHOLD_AUTO = 85     # Auto-flag as spam
+    SPAM_THRESHOLD_LOW = 30  # Low confidence
+    SPAM_THRESHOLD_MEDIUM = 50  # Medium confidence
+    SPAM_THRESHOLD_HIGH = 70  # High confidence
+    SPAM_THRESHOLD_AUTO = 85  # Auto-flag as spam
 
     # Rate limits (per hour)
     DEFAULT_RATE_LIMITS = {
@@ -103,14 +103,12 @@ class SpamDetectionService:
         indicators = []
 
         # Check spam patterns
-        pattern_score, pattern_indicators = self._check_spam_patterns(
-            subject, content)
+        pattern_score, pattern_indicators = self._check_spam_patterns(subject, content)
         score += pattern_score
         indicators.extend(pattern_indicators)
 
         # Check gibberish
-        gibberish_score, gibberish_indicators = self._check_gibberish(
-            subject, content)
+        gibberish_score, gibberish_indicators = self._check_gibberish(subject, content)
         score += gibberish_score
         indicators.extend(gibberish_indicators)
 
@@ -122,7 +120,8 @@ class SpamDetectionService:
 
         # Check content quality
         quality_score, quality_indicators = self._check_content_quality(
-            subject, content)
+            subject, content
+        )
         score += quality_score
         indicators.extend(quality_indicators)
 
@@ -265,18 +264,26 @@ class SpamDetectionService:
         day_ago = now - timedelta(days=1)
 
         # Count tickets in last hour
-        tickets_last_hour = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.customer_id == customer_id,
-            Ticket.created_at >= hour_ago,
-        ).count()
+        tickets_last_hour = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.customer_id == customer_id,
+                Ticket.created_at >= hour_ago,
+            )
+            .count()
+        )
 
         # Count tickets in last day
-        tickets_last_day = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.customer_id == customer_id,
-            Ticket.created_at >= day_ago,
-        ).count()
+        tickets_last_day = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.customer_id == customer_id,
+                Ticket.created_at >= day_ago,
+            )
+            .count()
+        )
 
         limits = self.DEFAULT_RATE_LIMITS
 
@@ -322,10 +329,15 @@ class SpamDetectionService:
 
         total = query.count()
 
-        tickets = query.order_by(
-            desc(Ticket.spam_score),
-            desc(Ticket.created_at),
-        ).offset(offset).limit(limit).all()
+        tickets = (
+            query.order_by(
+                desc(Ticket.spam_score),
+                desc(Ticket.created_at),
+            )
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
 
         return list(tickets), total
 
@@ -334,16 +346,24 @@ class SpamDetectionService:
     ) -> Dict[str, Any]:
         """Get spam statistics for the company."""
         # Total spam tickets
-        total_spam = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.is_spam,
-        ).count()
+        total_spam = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.is_spam,
+            )
+            .count()
+        )
 
         # Total non-spam tickets
-        total_non_spam = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.is_spam is False,
-        ).count()
+        total_non_spam = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.is_spam is False,
+            )
+            .count()
+        )
 
         # By spam level (using simplified approach since spam_score is not on
         # model)
@@ -377,10 +397,14 @@ class SpamDetectionService:
         since = datetime.now(timezone.utc) - timedelta(hours=time_window_hours)
 
         # Get recent tickets
-        recent_tickets = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.created_at >= since,
-        ).all()
+        recent_tickets = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.created_at >= since,
+            )
+            .all()
+        )
 
         # Analyze patterns
         patterns = {
@@ -401,8 +425,7 @@ class SpamDetectionService:
                 customer_counts[ticket.customer_id].append(ticket)
 
             # Group by subject similarity
-            subject_key = ticket.subject.lower().strip()[
-                :50] if ticket.subject else ""
+            subject_key = ticket.subject.lower().strip()[:50] if ticket.subject else ""
             if subject_key:
                 if subject_key not in subject_contents:
                     subject_contents[subject_key] = []
@@ -411,18 +434,22 @@ class SpamDetectionService:
         # Find high frequency customers
         for customer_id, tickets in customer_counts.items():
             if len(tickets) > 5:  # More than 5 tickets in window
-                patterns["high_frequency_customers"].append({
-                    "customer_id": customer_id,
-                    "ticket_count": len(tickets),
-                })
+                patterns["high_frequency_customers"].append(
+                    {
+                        "customer_id": customer_id,
+                        "ticket_count": len(tickets),
+                    }
+                )
 
         # Find similar subjects
         for subject_key, tickets in subject_contents.items():
             if len(tickets) > 2:  # Same subject pattern
-                patterns["similar_subjects"].append({
-                    "subject_pattern": subject_key,
-                    "ticket_count": len(tickets),
-                })
+                patterns["similar_subjects"].append(
+                    {
+                        "subject_pattern": subject_key,
+                        "ticket_count": len(tickets),
+                    }
+                )
 
         return {
             "time_window_hours": time_window_hours,
@@ -459,8 +486,7 @@ class SpamDetectionService:
         indicators = []
 
         for pattern in self.GIBBERISH_PATTERNS:
-            if re.search(pattern, subject) or re.search(
-                    pattern, content[:100]):
+            if re.search(pattern, subject) or re.search(pattern, content[:100]):
                 score += 20
                 indicators.append("gibberish_detected")
 
@@ -502,20 +528,19 @@ class SpamDetectionService:
         indicators = []
 
         # Check for excessive links
-        link_count = len(re.findall(r'https?://', content))
+        link_count = len(re.findall(r"https?://", content))
         if link_count > 3:
             score += 15
             indicators.append("excessive_links")
 
         # Check for excessive caps
-        caps_ratio = sum(1 for c in content if c.isupper()) / \
-            max(len(content), 1)
+        caps_ratio = sum(1 for c in content if c.isupper()) / max(len(content), 1)
         if caps_ratio > 0.7:
             score += 10
             indicators.append("excessive_caps")
 
         # Check for excessive punctuation
-        punct_count = len(re.findall(r'[!?.]{3,}', content))
+        punct_count = len(re.findall(r"[!?.]{3,}", content))
         if punct_count > 2:
             score += 5
             indicators.append("excessive_punctuation")
@@ -527,10 +552,14 @@ class SpamDetectionService:
         ticket_id: str,
     ) -> Ticket:
         """Get ticket by ID."""
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")
@@ -549,10 +578,14 @@ class SpamDetectionService:
         notification_service = NotificationService(self.db, self.company_id)
 
         # Get admins
-        admins = self.db.query(User).filter(
-            User.company_id == self.company_id,
-            User.role.in_(["admin", "manager"]),
-        ).all()
+        admins = (
+            self.db.query(User)
+            .filter(
+                User.company_id == self.company_id,
+                User.role.in_(["admin", "manager"]),
+            )
+            .all()
+        )
 
         if not admins:
             return

@@ -30,6 +30,7 @@ logger = get_logger("conversation_service")
 @dataclass
 class ConversationContext:
     """Rich context object for a conversation session."""
+
     conversation_id: str
     user_id: str
     company_id: Optional[str]
@@ -142,12 +143,22 @@ def get_conversation_context(
         pages_visited=ctx.get("pages_visited", []),
         concerns_raised=ctx.get("concerns_raised", []),
         custom_data={
-            k: v for k, v in ctx.items()
-            if k not in (
-                "user_id", "company_id", "type", "industry",
-                "business_email", "email_verified", "detected_stage",
-                "selected_variants", "entry_source", "pages_visited",
-                "concerns_raised", "last_sentiment",
+            k: v
+            for k, v in ctx.items()
+            if k
+            not in (
+                "user_id",
+                "company_id",
+                "type",
+                "industry",
+                "business_email",
+                "email_verified",
+                "detected_stage",
+                "selected_variants",
+                "entry_source",
+                "pages_visited",
+                "concerns_raised",
+                "last_sentiment",
             )
         },
     )
@@ -286,7 +297,8 @@ def build_conversation_summary(context: ConversationContext) -> Dict[str, Any]:
         "sentiment_trend": context.sentiment_trend,
         "last_frustration": (
             context.last_sentiment.get("frustration_score", 0)
-            if context.last_sentiment else 0
+            if context.last_sentiment
+            else 0
         ),
         "concerns_count": len(context.concerns_raised),
         "pages_explored": len(context.pages_visited),

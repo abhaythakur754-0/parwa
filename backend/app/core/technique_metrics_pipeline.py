@@ -150,8 +150,7 @@ class MetricsPipeline:
                 If None, creates a default StdoutLogSink.
         """
         self._collector = collector or TechniqueMetricsCollector()
-        self._sinks: List[LogSink] = sinks if sinks is not None else [
-            StdoutLogSink()]
+        self._sinks: List[LogSink] = sinks if sinks is not None else [StdoutLogSink()]
         self._lock = threading.Lock()
 
         # In-memory storage for MetricsRecords by company_id
@@ -249,8 +248,10 @@ class MetricsPipeline:
                     sink.emit(record)
                 except Exception as exc:
                     logger.debug(
-                        "metrics_individual_sink_failed", sink=str(
-                            type(sink).__name__), error=str(exc))
+                        "metrics_individual_sink_failed",
+                        sink=str(type(sink).__name__),
+                        error=str(exc),
+                    )
 
             return record
 
@@ -287,7 +288,8 @@ class MetricsPipeline:
         """
         try:
             records = self._get_company_records(
-                company_id, time_window,
+                company_id,
+                time_window,
             )
 
             if not records:
@@ -333,9 +335,7 @@ class MetricsPipeline:
 
             # Compute averages for per-technique stats
             for tid, t in techniques.items():
-                technique_records = [
-                    r for r in records if r.technique_id == tid
-                ]
+                technique_records = [r for r in records if r.technique_id == tid]
                 t["avg_latency_ms"] = (
                     sum(r.latency_ms for r in technique_records)
                     / len(technique_records)
@@ -343,10 +343,7 @@ class MetricsPipeline:
                     else 0.0
                 )
                 t["avg_quality_score"] = (
-                    sum(
-                        r.output_quality_score
-                        for r in technique_records
-                    )
+                    sum(r.output_quality_score for r in technique_records)
                     / len(technique_records)
                     if technique_records
                     else 0.0
@@ -362,7 +359,8 @@ class MetricsPipeline:
                 "total_token_cost": total_tokens,
                 "avg_latency_ms": round(total_latency / total, 2),
                 "avg_quality_score": round(
-                    total_quality / total, 2,
+                    total_quality / total,
+                    2,
                 ),
                 "techniques": techniques,
             }
@@ -370,9 +368,8 @@ class MetricsPipeline:
         except Exception as exc:
             # BC-008: never crash
             logger.debug(
-                "metrics_summary_failed",
-                company_id=company_id,
-                error=str(exc))
+                "metrics_summary_failed", company_id=company_id, error=str(exc)
+            )
             return {
                 "company_id": company_id,
                 "total_executions": 0,
@@ -393,9 +390,7 @@ class MetricsPipeline:
     ) -> List[MetricsRecord]:
         """Get records for a company, optionally filtered by time window."""
         with self._lock:
-            records = list(
-                self._company_records.get(company_id, [])
-            )
+            records = list(self._company_records.get(company_id, []))
 
         if time_window is None:
             return records
@@ -423,14 +418,9 @@ class MetricsPipeline:
         """
         try:
             with self._lock:
-                return len(
-                    self._company_records.get(company_id, [])
-                )
+                return len(self._company_records.get(company_id, []))
         except Exception as exc:
-            logger.debug(
-                "metrics_count_failed",
-                company_id=company_id,
-                error=str(exc))
+            logger.debug("metrics_count_failed", company_id=company_id, error=str(exc))
             return 0
 
     def reset_company_metrics(self, company_id: str) -> int:
@@ -445,15 +435,13 @@ class MetricsPipeline:
         try:
             with self._lock:
                 records = self._company_records.pop(
-                    company_id, [],
+                    company_id,
+                    [],
                 )
                 self._collector.reset_metrics(
                     company_id=company_id,
                 )
                 return len(records)
         except Exception as exc:
-            logger.debug(
-                "metrics_reset_failed",
-                company_id=company_id,
-                error=str(exc))
+            logger.debug("metrics_reset_failed", company_id=company_id, error=str(exc))
             return 0

@@ -41,27 +41,21 @@ FEATURE_REGISTRY: dict[str, dict] = {}
 
 # ── Routing Features (Day 2-3) ─────────────────────────────────
 _routing = [
-    ("F-054", "Smart Router (3-tier LLM)",
-     "routing", 1, None, {}),
-    ("SG-03", "Variant-Specific Model Access",
-     "routing", 1, None, {}),
-    ("F-055", "Query Pre-Processing",
-     "routing", 1, None, {}),
-    ("F-056", "Context Window Manager",
-     "routing", 2, None, {}),
-    ("F-057", "Multi-Turn Memory Manager",
-     "routing", 2, None, {}),
-    ("F-058", "Conversation Thread Manager",
-     "routing", 1, None, {}),
-    ("SG-06", "Cross-Variant Routing Rules",
-     "routing", 2, None, {}),
-    ("SG-11", "Cross-Variant Ticket Routing Logic",
-     "routing", 2, None, {}),
+    ("F-054", "Smart Router (3-tier LLM)", "routing", 1, None, {}),
+    ("SG-03", "Variant-Specific Model Access", "routing", 1, None, {}),
+    ("F-055", "Query Pre-Processing", "routing", 1, None, {}),
+    ("F-056", "Context Window Manager", "routing", 2, None, {}),
+    ("F-057", "Multi-Turn Memory Manager", "routing", 2, None, {}),
+    ("F-058", "Conversation Thread Manager", "routing", 1, None, {}),
+    ("SG-06", "Cross-Variant Routing Rules", "routing", 2, None, {}),
+    ("SG-11", "Cross-Variant Ticket Routing Logic", "routing", 2, None, {}),
 ]
 for fid, name, cat, lvl, tt, cfg in _routing:
     FEATURE_REGISTRY[fid] = {
-        "name": name, "category": cat,
-        "min_level": lvl, "technique_tier": tt,
+        "name": name,
+        "category": cat,
+        "min_level": lvl,
+        "technique_tier": tt,
         "config": cfg,
     }
 
@@ -73,8 +67,7 @@ _classification = [
     ("F-063", "Language Detection", "classification", 1, None, {}),
     ("F-064", "Spam Detection", "classification", 1, None, {}),
     ("F-065", "Topic Classification", "classification", 2, None, {}),
-    ("F-066", "Customer Tier Classification",
-     "classification", 2, None, {}),
+    ("F-066", "Customer Tier Classification", "classification", 2, None, {}),
     ("F-067", "Complexity Scoring", "classification", 2, None, {}),
     ("F-068", "Multi-Intent Detection", "classification", 3, None, {}),
     ("F-069", "Emotion Analysis", "classification", 3, None, {}),
@@ -83,8 +76,10 @@ _classification = [
 ]
 for fid, name, cat, lvl, tt, cfg in _classification:
     FEATURE_REGISTRY[fid] = {
-        "name": name, "category": cat,
-        "min_level": lvl, "technique_tier": tt,
+        "name": name,
+        "category": cat,
+        "min_level": lvl,
+        "technique_tier": tt,
         "config": cfg,
     }
 
@@ -94,8 +89,7 @@ _rag = [
     ("F-081", "Document Chunking", "rag", 1, None, {}),
     ("F-082", "Embedding Generation", "rag", 1, None, {}),
     ("F-083", "Semantic Search", "rag", 1, None, {}),
-    ("F-084", "Hybrid Search (BM25+Vector)",
-     "rag", 2, None, {}),
+    ("F-084", "Hybrid Search (BM25+Vector)", "rag", 2, None, {}),
     ("F-085", "Re-Ranking", "rag", 2, None, {}),
     ("F-086", "Context Compression", "rag", 2, None, {}),
     ("F-087", "Source Citation", "rag", 2, None, {}),
@@ -106,23 +100,31 @@ _rag = [
 ]
 for fid, name, cat, lvl, tt, cfg in _rag:
     FEATURE_REGISTRY[fid] = {
-        "name": name, "category": cat,
-        "min_level": lvl, "technique_tier": tt,
+        "name": name,
+        "category": cat,
+        "min_level": lvl,
+        "technique_tier": tt,
         "config": cfg,
     }
 
 # ── Confidence Scoring ─────────────────────────────────────────
 _confidence = [
-    ("F-059", "Confidence Scoring Engine",
-     "monitoring", 1, None, {}),
-    ("SG-04", "Variant-Specific Confidence Thresholds",
-     "monitoring", 1,
-     None, {"mini_parwa": 95, "parwa": 85, "high_parwa": 75}),
+    ("F-059", "Confidence Scoring Engine", "monitoring", 1, None, {}),
+    (
+        "SG-04",
+        "Variant-Specific Confidence Thresholds",
+        "monitoring",
+        1,
+        None,
+        {"mini_parwa": 95, "parwa": 85, "high_parwa": 75},
+    ),
 ]
 for fid, name, cat, lvl, tt, cfg in _confidence:
     FEATURE_REGISTRY[fid] = {
-        "name": name, "category": cat,
-        "min_level": lvl, "technique_tier": tt,
+        "name": name,
+        "category": cat,
+        "min_level": lvl,
+        "technique_tier": tt,
         "config": cfg,
     }
 
@@ -142,8 +144,10 @@ _response = [
 ]
 for fid, name, cat, lvl, tt, cfg in _response:
     FEATURE_REGISTRY[fid] = {
-        "name": name, "category": cat,
-        "min_level": lvl, "technique_tier": tt,
+        "name": name,
+        "category": cat,
+        "min_level": lvl,
+        "technique_tier": tt,
         "config": cfg,
     }
 
@@ -155,78 +159,70 @@ _tier1 = [
 ]
 for fid, name, cat, lvl, tt, cfg in _tier1:
     FEATURE_REGISTRY[fid] = {
-        "name": name, "category": cat,
-        "min_level": lvl, "technique_tier": tt,
+        "name": name,
+        "category": cat,
+        "min_level": lvl,
+        "technique_tier": tt,
         "config": cfg,
     }
 
 # ── Technique Features (Tier 2 — parwa+) ──────────────────────
 _tier2 = [
-    ("F-143", "Generative Self-Training (GST)",
-     "technique", 2, "tier_2", {}),
-    ("F-144", "Chain-of-Review-and-Plan (CRP)",
-     "technique", 2, "tier_2", {}),
-    ("F-145", "Tree-of-Thought (ToT)",
-     "technique", 2, "tier_2", {}),
-    ("F-146", "Step-Back Prompting",
-     "technique", 2, "tier_2", {}),
-    ("F-147", "Least-to-Most Prompting",
-     "technique", 2, "tier_2", {}),
-    ("F-148", "Self-Consistency",
-     "technique", 2, "tier_2", {}),
-    ("F-149", "Reflexion",
-     "technique", 2, "tier_2", {}),
+    ("F-143", "Generative Self-Training (GST)", "technique", 2, "tier_2", {}),
+    ("F-144", "Chain-of-Review-and-Plan (CRP)", "technique", 2, "tier_2", {}),
+    ("F-145", "Tree-of-Thought (ToT)", "technique", 2, "tier_2", {}),
+    ("F-146", "Step-Back Prompting", "technique", 2, "tier_2", {}),
+    ("F-147", "Least-to-Most Prompting", "technique", 2, "tier_2", {}),
+    ("F-148", "Self-Consistency", "technique", 2, "tier_2", {}),
+    ("F-149", "Reflexion", "technique", 2, "tier_2", {}),
 ]
 for fid, name, cat, lvl, tt, cfg in _tier2:
     FEATURE_REGISTRY[fid] = {
-        "name": name, "category": cat,
-        "min_level": lvl, "technique_tier": tt,
+        "name": name,
+        "category": cat,
+        "min_level": lvl,
+        "technique_tier": tt,
         "config": cfg,
     }
 
 # ── Technique Features (Tier 3 — high_parwa only) ─────────────
 _tier3 = [
-    ("F-150", "CLARA (Contrastive Learning)",
-     "technique", 3, "tier_3", {}),
-    ("F-151", "Graph-of-Thought (GoT)",
-     "technique", 3, "tier_3", {}),
-    ("F-152", "Uncertainty-over-Threshold (UoT)",
-     "technique", 3, "tier_3", {}),
-    ("F-153", "Tournament-of-Thoughts (ToT-v2)",
-     "technique", 3, "tier_3", {}),
-    ("F-154", "Reverse Thinking",
-     "technique", 3, "tier_3", {}),
-    ("F-155", "Meta-Prompting",
-     "technique", 3, "tier_3", {}),
+    ("F-150", "CLARA (Contrastive Learning)", "technique", 3, "tier_3", {}),
+    ("F-151", "Graph-of-Thought (GoT)", "technique", 3, "tier_3", {}),
+    ("F-152", "Uncertainty-over-Threshold (UoT)", "technique", 3, "tier_3", {}),
+    ("F-153", "Tournament-of-Thoughts (ToT-v2)", "technique", 3, "tier_3", {}),
+    ("F-154", "Reverse Thinking", "technique", 3, "tier_3", {}),
+    ("F-155", "Meta-Prompting", "technique", 3, "tier_3", {}),
 ]
 for fid, name, cat, lvl, tt, cfg in _tier3:
     FEATURE_REGISTRY[fid] = {
-        "name": name, "category": cat,
-        "min_level": lvl, "technique_tier": tt,
+        "name": name,
+        "category": cat,
+        "min_level": lvl,
+        "technique_tier": tt,
         "config": cfg,
     }
 
 # ── Guardrail Features ─────────────────────────────────────────
 _guardrails = [
-    ("F-160", "Prompt Injection Detection",
-     "guardrail", 1, None, {}),
+    ("F-160", "Prompt Injection Detection", "guardrail", 1, None, {}),
     ("F-161", "PII Redaction", "guardrail", 1, None, {}),
     ("F-162", "Content Policy Filter", "guardrail", 1, None, {}),
     ("F-163", "Toxicity Detection", "guardrail", 1, None, {}),
-    ("F-164", "Hallucination Detection",
-     "guardrail", 2, None, {}),
+    ("F-164", "Hallucination Detection", "guardrail", 2, None, {}),
     ("F-165", "Bias Detection", "guardrail", 2, None, {}),
     ("F-166", "Fact-Checking", "guardrail", 3, None, {}),
     ("F-167", "Output Guardrails", "guardrail", 1, None, {}),
     ("F-168", "Input Sanitization", "guardrail", 1, None, {}),
     ("F-169", "Rate Limit Guard", "guardrail", 2, None, {}),
-    ("F-170", "Budget Guard (Token)",
-     "guardrail", 1, None, {}),
+    ("F-170", "Budget Guard (Token)", "guardrail", 1, None, {}),
 ]
 for fid, name, cat, lvl, tt, cfg in _guardrails:
     FEATURE_REGISTRY[fid] = {
-        "name": name, "category": cat,
-        "min_level": lvl, "technique_tier": tt,
+        "name": name,
+        "category": cat,
+        "min_level": lvl,
+        "technique_tier": tt,
         "config": cfg,
     }
 
@@ -237,172 +233,126 @@ _monitoring = [
     ("F-182", "Latency Monitoring", "monitoring", 1, None, {}),
     ("F-183", "Error Rate Monitoring", "monitoring", 1, None, {}),
     ("F-184", "Cost Analytics", "monitoring", 2, None, {}),
-    ("F-185", "Model Performance Comparison",
-     "monitoring", 3, None, {}),
+    ("F-185", "Model Performance Comparison", "monitoring", 3, None, {}),
     ("F-186", "A/B Test Analytics", "monitoring", 3, None, {}),
     ("F-187", "Alerting System", "monitoring", 2, None, {}),
     ("F-188", "Audit Trail", "monitoring", 1, None, {}),
-    ("F-189", "Pipeline State Recovery",
-     "monitoring", 2, None, {}),
-    ("F-190", "Real-Time Metrics Streaming",
-     "monitoring", 3, None, {}),
+    ("F-189", "Pipeline State Recovery", "monitoring", 2, None, {}),
+    ("F-190", "Real-Time Metrics Streaming", "monitoring", 3, None, {}),
 ]
 for fid, name, cat, lvl, tt, cfg in _monitoring:
     FEATURE_REGISTRY[fid] = {
-        "name": name, "category": cat,
-        "min_level": lvl, "technique_tier": tt,
+        "name": name,
+        "category": cat,
+        "min_level": lvl,
+        "technique_tier": tt,
         "config": cfg,
     }
 
 # ── Orchestration Features ─────────────────────────────────────
 _orchestration = [
-    ("SG-37", "Unlimited Variant Instance Architecture",
-     "orchestration", 1, None, {}),
-    ("SG-38", "Variant Orchestration Layer",
-     "orchestration", 2, None, {}),
-    ("SG-21", "Task Decomposition",
-     "orchestration", 2, None, {}),
-    ("SG-22", "Agent Assignment Strategy",
-     "orchestration", 2, None, {}),
-    ("SG-05", "Feature Entitlement Middleware",
-     "orchestration", 1, None, {}),
-    ("F-200", "LangGraph Workflow Engine",
-     "orchestration", 1, None, {}),
-    ("F-201", "Celery Task Distribution",
-     "orchestration", 1, None, {}),
-    ("F-202", "Redis State Management",
-     "orchestration", 1, None, {}),
-    ("F-203", "Workload Balancer",
-     "orchestration", 2, None, {}),
-    ("F-204", "Auto-Scaling Orchestration",
-     "orchestration", 3, None, {}),
-    ("F-205", "Pipeline Checkpointing",
-     "orchestration", 2, None, {}),
-    ("F-206", "Cross-Instance Context Sharing",
-     "orchestration", 3, None, {}),
-    ("F-207", "Fallback Chain Manager",
-     "orchestration", 2, None, {}),
-    ("F-208", "Dead Letter Queue Handler",
-     "orchestration", 2, None, {}),
-    ("F-209", "Workflow Versioning",
-     "orchestration", 3, None, {}),
-    ("F-210", "Multi-Tenant Queue Isolation",
-     "orchestration", 2, None, {}),
+    ("SG-37", "Unlimited Variant Instance Architecture", "orchestration", 1, None, {}),
+    ("SG-38", "Variant Orchestration Layer", "orchestration", 2, None, {}),
+    ("SG-21", "Task Decomposition", "orchestration", 2, None, {}),
+    ("SG-22", "Agent Assignment Strategy", "orchestration", 2, None, {}),
+    ("SG-05", "Feature Entitlement Middleware", "orchestration", 1, None, {}),
+    ("F-200", "LangGraph Workflow Engine", "orchestration", 1, None, {}),
+    ("F-201", "Celery Task Distribution", "orchestration", 1, None, {}),
+    ("F-202", "Redis State Management", "orchestration", 1, None, {}),
+    ("F-203", "Workload Balancer", "orchestration", 2, None, {}),
+    ("F-204", "Auto-Scaling Orchestration", "orchestration", 3, None, {}),
+    ("F-205", "Pipeline Checkpointing", "orchestration", 2, None, {}),
+    ("F-206", "Cross-Instance Context Sharing", "orchestration", 3, None, {}),
+    ("F-207", "Fallback Chain Manager", "orchestration", 2, None, {}),
+    ("F-208", "Dead Letter Queue Handler", "orchestration", 2, None, {}),
+    ("F-209", "Workflow Versioning", "orchestration", 3, None, {}),
+    ("F-210", "Multi-Tenant Queue Isolation", "orchestration", 2, None, {}),
 ]
 for fid, name, cat, lvl, tt, cfg in _orchestration:
     FEATURE_REGISTRY[fid] = {
-        "name": name, "category": cat,
-        "min_level": lvl, "technique_tier": tt,
+        "name": name,
+        "category": cat,
+        "min_level": lvl,
+        "technique_tier": tt,
         "config": cfg,
     }
 
 # ── Signal Extraction Features ─────────────────────────────────
 _signals = [
-    ("F-220", "Intent Signal Extraction",
-     "routing", 1, None, {}),
-    ("F-221", "Sentiment Signal Extraction",
-     "routing", 1, None, {}),
+    ("F-220", "Intent Signal Extraction", "routing", 1, None, {}),
+    ("F-221", "Sentiment Signal Extraction", "routing", 1, None, {}),
     ("F-222", "Complexity Signal", "routing", 1, None, {}),
-    ("F-223", "Monetary Value Signal",
-     "routing", 2, None, {}),
-    ("F-224", "Customer Tier Signal",
-     "routing", 2, None, {}),
+    ("F-223", "Monetary Value Signal", "routing", 2, None, {}),
+    ("F-224", "Customer Tier Signal", "routing", 2, None, {}),
     ("F-225", "Turn Count Signal", "routing", 1, None, {}),
-    ("F-226", "Previous Response Status Signal",
-     "routing", 1, None, {}),
-    ("F-227", "Reasoning Loop Detection",
-     "routing", 2, None, {}),
-    ("F-228", "Resolution Path Count",
-     "routing", 2, None, {}),
+    ("F-226", "Previous Response Status Signal", "routing", 1, None, {}),
+    ("F-227", "Reasoning Loop Detection", "routing", 2, None, {}),
+    ("F-228", "Resolution Path Count", "routing", 2, None, {}),
     ("F-229", "Query Breadth Signal", "routing", 2, None, {}),
-    ("SG-13", "Signal Extraction Layer (detailed)",
-     "routing", 2, None, {}),
+    ("SG-13", "Signal Extraction Layer (detailed)", "routing", 2, None, {}),
 ]
 for fid, name, cat, lvl, tt, cfg in _signals:
     FEATURE_REGISTRY[fid] = {
-        "name": name, "category": cat,
-        "min_level": lvl, "technique_tier": tt,
+        "name": name,
+        "category": cat,
+        "min_level": lvl,
+        "technique_tier": tt,
         "config": cfg,
     }
 
 # ── GSD / State Machine Features ──────────────────────────────
 _gsd = [
     ("F-053", "GSD State Engine", "orchestration", 2, None, {}),
-    ("F-240", "Multi-Step Conversation Handler",
-     "orchestration", 2, None, {}),
+    ("F-240", "Multi-Step Conversation Handler", "orchestration", 2, None, {}),
     ("F-241", "State Persistence", "orchestration", 2, None, {}),
     ("F-242", "State Recovery", "orchestration", 3, None, {}),
 ]
 for fid, name, cat, lvl, tt, cfg in _gsd:
     FEATURE_REGISTRY[fid] = {
-        "name": name, "category": cat,
-        "min_level": lvl, "technique_tier": tt,
+        "name": name,
+        "category": cat,
+        "min_level": lvl,
+        "technique_tier": tt,
         "config": cfg,
     }
 
 # ── Additional Situation Gap Features ──────────────────────────
 _gaps = [
-    ("SG-01", "Variant AI Capability Matrix",
-     "orchestration", 1, None, {}),
-    ("SG-02", "Variant Config Inheritance",
-     "orchestration", 1, None, {}),
-    ("SG-07", "Same-Type Instance Isolation",
-     "orchestration", 2, None, {}),
-    ("SG-08", "Instance Health Monitoring",
-     "monitoring", 2, None, {}),
-    ("SG-09", "Graceful Instance Failover",
-     "orchestration", 3, None, {}),
-    ("SG-10", "Instance Auto-Recovery",
-     "orchestration", 3, None, {}),
-    ("SG-12", "Variant Upgrade Path",
-     "orchestration", 1, None, {}),
-    ("SG-14", "Multi-Instance Billing Split",
-     "monitoring", 2, None, {}),
-    ("SG-15", "Per-Instance API Key",
-     "guardrail", 2, None, {}),
-    ("SG-16", "Cross-Instance Ticket Transfer",
-     "orchestration", 2, None, {}),
-    ("SG-17", "Shared Knowledge Base",
-     "rag", 1, None, {}),
-    ("SG-18", "Instance-Specific Training",
-     "technique", 2, None, {}),
-    ("SG-19", "Batch Operations across Instances",
-     "orchestration", 3, None, {}),
-    ("SG-20", "Instance Grouping",
-     "orchestration", 2, None, {}),
-    ("SG-23", "Human-in-the-Loop Config",
-     "orchestration", 1, None, {}),
-    ("SG-24", "Conversation Handoff Protocol",
-     "orchestration", 2, None, {}),
-    ("SG-25", "Multi-Channel Sync",
-     "routing", 2, None, {}),
-    ("SG-26", "Context Window Optimization",
-     "routing", 2, None, {}),
-    ("SG-27", "Fallback Response Cache",
-     "response", 2, None, {}),
-    ("SG-28", "Rate Limit per Instance",
-     "guardrail", 2, None, {}),
-    ("SG-29", "Token Budget per Instance",
-     "guardrail", 1, None, {}),
-    ("SG-30", "Model Fallback Chain",
-     "routing", 1, None, {}),
-    ("SG-31", "Instance-Specific Prompts",
-     "response", 2, None, {}),
-    ("SG-32", "Custom Guardrail Rules",
-     "guardrail", 2, None, {}),
-    ("SG-33", "Escalation to Human",
-     "response", 1, None, {}),
-    ("SG-34", "Auto-Close Rules",
-     "response", 2, None, {}),
-    ("SG-35", "Priority Queue per Instance",
-     "orchestration", 2, None, {}),
-    ("SG-36", "Workload Rebalancing",
-     "orchestration", 3, None, {}),
+    ("SG-01", "Variant AI Capability Matrix", "orchestration", 1, None, {}),
+    ("SG-02", "Variant Config Inheritance", "orchestration", 1, None, {}),
+    ("SG-07", "Same-Type Instance Isolation", "orchestration", 2, None, {}),
+    ("SG-08", "Instance Health Monitoring", "monitoring", 2, None, {}),
+    ("SG-09", "Graceful Instance Failover", "orchestration", 3, None, {}),
+    ("SG-10", "Instance Auto-Recovery", "orchestration", 3, None, {}),
+    ("SG-12", "Variant Upgrade Path", "orchestration", 1, None, {}),
+    ("SG-14", "Multi-Instance Billing Split", "monitoring", 2, None, {}),
+    ("SG-15", "Per-Instance API Key", "guardrail", 2, None, {}),
+    ("SG-16", "Cross-Instance Ticket Transfer", "orchestration", 2, None, {}),
+    ("SG-17", "Shared Knowledge Base", "rag", 1, None, {}),
+    ("SG-18", "Instance-Specific Training", "technique", 2, None, {}),
+    ("SG-19", "Batch Operations across Instances", "orchestration", 3, None, {}),
+    ("SG-20", "Instance Grouping", "orchestration", 2, None, {}),
+    ("SG-23", "Human-in-the-Loop Config", "orchestration", 1, None, {}),
+    ("SG-24", "Conversation Handoff Protocol", "orchestration", 2, None, {}),
+    ("SG-25", "Multi-Channel Sync", "routing", 2, None, {}),
+    ("SG-26", "Context Window Optimization", "routing", 2, None, {}),
+    ("SG-27", "Fallback Response Cache", "response", 2, None, {}),
+    ("SG-28", "Rate Limit per Instance", "guardrail", 2, None, {}),
+    ("SG-29", "Token Budget per Instance", "guardrail", 1, None, {}),
+    ("SG-30", "Model Fallback Chain", "routing", 1, None, {}),
+    ("SG-31", "Instance-Specific Prompts", "response", 2, None, {}),
+    ("SG-32", "Custom Guardrail Rules", "guardrail", 2, None, {}),
+    ("SG-33", "Escalation to Human", "response", 1, None, {}),
+    ("SG-34", "Auto-Close Rules", "response", 2, None, {}),
+    ("SG-35", "Priority Queue per Instance", "orchestration", 2, None, {}),
+    ("SG-36", "Workload Rebalancing", "orchestration", 3, None, {}),
 ]
 for fid, name, cat, lvl, tt, cfg in _gaps:
     FEATURE_REGISTRY[fid] = {
-        "name": name, "category": cat,
-        "min_level": lvl, "technique_tier": tt,
+        "name": name,
+        "category": cat,
+        "min_level": lvl,
+        "technique_tier": tt,
         "config": cfg,
     }
 
@@ -415,91 +365,59 @@ _channels = [
 ]
 for fid, name, cat, lvl, tt, cfg in _channels:
     FEATURE_REGISTRY[fid] = {
-        "name": name, "category": cat,
-        "min_level": lvl, "technique_tier": tt,
+        "name": name,
+        "category": cat,
+        "min_level": lvl,
+        "technique_tier": tt,
         "config": cfg,
     }
 
 # ── Additional Features to reach 170+ ─────────────────────────
 _extra = [
     ("F-260", "Auto-Summarization", "response", 2, None, {}),
-    ("F-261", "Knowledge Base Auto-Update",
-     "rag", 3, None, {}),
-    ("F-262", "Feedback Loop Learning",
-     "technique", 3, None, {}),
-    ("F-263", "Customer Satisfaction Prediction",
-     "classification", 3, None, {}),
-    ("F-264", "Churn Risk Detection",
-     "classification", 3, None, {}),
-    ("F-265", "Response Quality Scoring",
-     "monitoring", 2, None, {}),
-    ("F-266", "SLA Compliance Monitor",
-     "monitoring", 2, None, {}),
-    ("F-267", "Agent Performance Analytics",
-     "monitoring", 2, None, {}),
-    ("F-268", "Ticket Volume Forecasting",
-     "monitoring", 3, None, {}),
-    ("F-269", "Knowledge Gap Detection",
-     "rag", 3, None, {}),
-    ("F-270", "Automated FAQ Generation",
-     "response", 3, None, {}),
-    ("F-271", "Conversation Analytics",
-     "monitoring", 2, None, {}),
-    ("F-272", "Customer Journey Mapping",
-     "classification", 3, None, {}),
-    ("F-273", "Proactive Engagement",
-     "response", 3, None, {}),
-    ("F-274", "Batch Response Processing",
-     "response", 2, None, {}),
-    ("F-275", "Template Suggestion Engine",
-     "response", 2, None, {}),
-    ("F-276", "Duplicate Detection (AI)",
-     "classification", 1, None, {}),
-    ("F-277", "Similar Ticket Matching",
-     "classification", 2, None, {}),
-    ("F-278", "Response Time Optimization",
-     "monitoring", 2, None, {}),
-    ("F-279", "Multi-Tenant AI Isolation",
-     "guardrail", 1, None, {}),
-    ("F-280", "Custom Model Configuration",
-     "routing", 3, None, {}),
-    ("F-281", "Prompt Versioning",
-     "response", 3, None, {}),
-    ("F-282", "Experiment Tracking",
-     "monitoring", 3, None, {}),
-    ("F-283", "Model Drift Detection",
-     "monitoring", 3, None, {}),
-    ("F-284", "Data Lineage Tracking",
-     "monitoring", 3, None, {}),
-    ("F-285", "Compliance Audit AI",
-     "guardrail", 3, None, {}),
-    ("F-286", "Secure Response Generation",
-     "guardrail", 2, None, {}),
-    ("F-287", "Anomaly Detection",
-     "monitoring", 2, None, {}),
-    ("F-288", "Capacity Planning AI",
-     "monitoring", 3, None, {}),
-    ("F-289", "Intelligent Routing Cache",
-     "routing", 2, None, {}),
-    ("F-290", "Context Deduplication",
-     "rag", 2, None, {}),
-    ("F-291", "Embedding Cache Management",
-     "rag", 2, None, {}),
-    ("F-292", "Query Rewrite Engine",
-     "rag", 2, None, {}),
-    ("F-293", "Response Personalization ML",
-     "response", 3, None, {}),
-    ("F-294", "Multi-Modal Input Support",
-     "routing", 3, None, {}),
-    ("F-295", "Image Understanding",
-     "classification", 3, None, {}),
-    ("F-296", "Document Understanding",
-     "rag", 3, None, {}),
+    ("F-261", "Knowledge Base Auto-Update", "rag", 3, None, {}),
+    ("F-262", "Feedback Loop Learning", "technique", 3, None, {}),
+    ("F-263", "Customer Satisfaction Prediction", "classification", 3, None, {}),
+    ("F-264", "Churn Risk Detection", "classification", 3, None, {}),
+    ("F-265", "Response Quality Scoring", "monitoring", 2, None, {}),
+    ("F-266", "SLA Compliance Monitor", "monitoring", 2, None, {}),
+    ("F-267", "Agent Performance Analytics", "monitoring", 2, None, {}),
+    ("F-268", "Ticket Volume Forecasting", "monitoring", 3, None, {}),
+    ("F-269", "Knowledge Gap Detection", "rag", 3, None, {}),
+    ("F-270", "Automated FAQ Generation", "response", 3, None, {}),
+    ("F-271", "Conversation Analytics", "monitoring", 2, None, {}),
+    ("F-272", "Customer Journey Mapping", "classification", 3, None, {}),
+    ("F-273", "Proactive Engagement", "response", 3, None, {}),
+    ("F-274", "Batch Response Processing", "response", 2, None, {}),
+    ("F-275", "Template Suggestion Engine", "response", 2, None, {}),
+    ("F-276", "Duplicate Detection (AI)", "classification", 1, None, {}),
+    ("F-277", "Similar Ticket Matching", "classification", 2, None, {}),
+    ("F-278", "Response Time Optimization", "monitoring", 2, None, {}),
+    ("F-279", "Multi-Tenant AI Isolation", "guardrail", 1, None, {}),
+    ("F-280", "Custom Model Configuration", "routing", 3, None, {}),
+    ("F-281", "Prompt Versioning", "response", 3, None, {}),
+    ("F-282", "Experiment Tracking", "monitoring", 3, None, {}),
+    ("F-283", "Model Drift Detection", "monitoring", 3, None, {}),
+    ("F-284", "Data Lineage Tracking", "monitoring", 3, None, {}),
+    ("F-285", "Compliance Audit AI", "guardrail", 3, None, {}),
+    ("F-286", "Secure Response Generation", "guardrail", 2, None, {}),
+    ("F-287", "Anomaly Detection", "monitoring", 2, None, {}),
+    ("F-288", "Capacity Planning AI", "monitoring", 3, None, {}),
+    ("F-289", "Intelligent Routing Cache", "routing", 2, None, {}),
+    ("F-290", "Context Deduplication", "rag", 2, None, {}),
+    ("F-291", "Embedding Cache Management", "rag", 2, None, {}),
+    ("F-292", "Query Rewrite Engine", "rag", 2, None, {}),
+    ("F-293", "Response Personalization ML", "response", 3, None, {}),
+    ("F-294", "Multi-Modal Input Support", "routing", 3, None, {}),
+    ("F-295", "Image Understanding", "classification", 3, None, {}),
+    ("F-296", "Document Understanding", "rag", 3, None, {}),
 ]
 for fid, name, cat, lvl, tt, cfg in _extra:
     FEATURE_REGISTRY[fid] = {
-        "name": name, "category": cat,
-        "min_level": lvl, "technique_tier": tt,
+        "name": name,
+        "category": cat,
+        "min_level": lvl,
+        "technique_tier": tt,
         "config": cfg,
     }
 
@@ -507,6 +425,7 @@ for fid, name, cat, lvl, tt, cfg in _extra:
 # ══════════════════════════════════════════════════════════════════
 # SERVICE FUNCTIONS
 # ══════════════════════════════════════════════════════════════════
+
 
 def _validate_company_id(company_id: str) -> None:
     """Validate company_id is not empty (BC-001)."""
@@ -558,12 +477,16 @@ def initialize_variant_matrix(
             cfg = json.dumps(feat["config"])
 
             # Idempotent: check if already exists
-            existing = db.query(VariantAICapability).filter_by(
-                company_id=company_id,
-                variant_type=variant_type,
-                instance_id=None,
-                feature_id=feature_id,
-            ).first()
+            existing = (
+                db.query(VariantAICapability)
+                .filter_by(
+                    company_id=company_id,
+                    variant_type=variant_type,
+                    instance_id=None,
+                    feature_id=feature_id,
+                )
+                .first()
+            )
 
             if existing is not None:
                 continue
@@ -640,7 +563,11 @@ def check_feature_enabled(
     variant/instance combination.
     """
     cap = get_capability(
-        db, company_id, feature_id, variant_type, instance_id,
+        db,
+        company_id,
+        feature_id,
+        variant_type,
+        instance_id,
     )
     if cap is None:
         return False
@@ -711,8 +638,7 @@ def update_capability_config(
         raise ParwaBaseError(
             error_code="CAPABILITY_NOT_FOUND",
             message=(
-                f"Capability '{feature_id}' not found for "
-                f"variant '{variant_type}'"
+                f"Capability '{feature_id}' not found for " f"variant '{variant_type}'"
             ),
             status_code=404,
         )
@@ -765,11 +691,15 @@ def get_variant_feature_count(
     _validate_company_id(company_id)
     _validate_variant_type(variant_type)
 
-    caps = db.query(VariantAICapability).filter_by(
-        company_id=company_id,
-        variant_type=variant_type,
-        instance_id=None,
-    ).all()
+    caps = (
+        db.query(VariantAICapability)
+        .filter_by(
+            company_id=company_id,
+            variant_type=variant_type,
+            instance_id=None,
+        )
+        .all()
+    )
 
     enabled = sum(1 for c in caps if c.is_enabled)
     disabled = sum(1 for c in caps if not c.is_enabled)
@@ -820,26 +750,30 @@ def batch_update_capabilities(
 
         if not fid or not vt or en is None:
             result["errors"] += 1
-            result["error_details"].append({
-                "index": idx,
-                "reason": (
-                    "Missing required fields: "
-                    f"feature_id={fid!r}, variant_type={vt!r}, "
-                    f"is_enabled={en!r}"
-                ),
-                "input": upd,
-            })
+            result["error_details"].append(
+                {
+                    "index": idx,
+                    "reason": (
+                        "Missing required fields: "
+                        f"feature_id={fid!r}, variant_type={vt!r}, "
+                        f"is_enabled={en!r}"
+                    ),
+                    "input": upd,
+                }
+            )
             continue
 
         try:
             _validate_variant_type(vt)
         except ParwaBaseError as e:
             result["errors"] += 1
-            result["error_details"].append({
-                "index": idx,
-                "reason": e.message,
-                "input": upd,
-            })
+            result["error_details"].append(
+                {
+                    "index": idx,
+                    "reason": e.message,
+                    "input": upd,
+                }
+            )
             continue
 
         try:
@@ -867,11 +801,13 @@ def batch_update_capabilities(
             # Individual item failure should not break
             # the entire batch (BC-008 graceful degradation)
             result["errors"] += 1
-            result["error_details"].append({
-                "index": idx,
-                "reason": str(exc),
-                "input": upd,
-            })
+            result["error_details"].append(
+                {
+                    "index": idx,
+                    "reason": str(exc),
+                    "input": upd,
+                }
+            )
             continue
 
     if result["updated"] > 0:

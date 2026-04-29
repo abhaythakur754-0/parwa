@@ -142,11 +142,13 @@ class AgentTrainingService:
             .filter(
                 TrainingRun.company_id == company_id,
                 TrainingRun.agent_id == agent_id,
-                TrainingRun.status.in_([
-                    TRAINING_STATUS_QUEUED,
-                    TRAINING_STATUS_INITIALIZING,
-                    TRAINING_STATUS_RUNNING,
-                ]),
+                TrainingRun.status.in_(
+                    [
+                        TRAINING_STATUS_QUEUED,
+                        TRAINING_STATUS_INITIALIZING,
+                        TRAINING_STATUS_RUNNING,
+                    ]
+                ),
             )
             .first()
         )
@@ -155,8 +157,7 @@ class AgentTrainingService:
                 "status": "error",
                 "error": f"Agent already has an active training run: {
                     existing_run.id}",
-                "existing_run_id": str(
-                    existing_run.id),
+                "existing_run_id": str(existing_run.id),
             }
 
         # Create training run
@@ -255,10 +256,7 @@ class AgentTrainingService:
         """
         from database.models.training import TrainingRun
 
-        query = (
-            self.db.query(TrainingRun)
-            .filter(TrainingRun.company_id == company_id)
-        )
+        query = self.db.query(TrainingRun).filter(TrainingRun.company_id == company_id)
 
         if agent_id:
             query = query.filter(TrainingRun.agent_id == agent_id)
@@ -267,8 +265,7 @@ class AgentTrainingService:
 
         total = query.count()
         runs = (
-            query
-            .order_by(TrainingRun.created_at.desc())
+            query.order_by(TrainingRun.created_at.desc())
             .offset(offset)
             .limit(limit)
             .all()
@@ -478,9 +475,10 @@ class AgentTrainingService:
             return {"status": "error", "error": "Run not found"}
 
         if run.status not in [
-                TRAINING_STATUS_COMPLETED,
-                TRAINING_STATUS_FAILED,
-                TRAINING_STATUS_CANCELLED]:
+            TRAINING_STATUS_COMPLETED,
+            TRAINING_STATUS_FAILED,
+            TRAINING_STATUS_CANCELLED,
+        ]:
             return {
                 "status": "error",
                 "error": f"Cannot cancel run with status: {run.status}",
@@ -588,10 +586,7 @@ class AgentTrainingService:
             "is_best": is_best,
         }
 
-    def get_best_checkpoint(
-            self,
-            company_id: str,
-            run_id: str) -> Optional[Dict]:
+    def get_best_checkpoint(self, company_id: str, run_id: str) -> Optional[Dict]:
         """Get the best checkpoint for a training run.
 
         Args:
@@ -617,14 +612,15 @@ class AgentTrainingService:
             return None
 
         return {
-            "checkpoint_id": str(
-                checkpoint.id),
+            "checkpoint_id": str(checkpoint.id),
             "checkpoint_name": checkpoint.checkpoint_name,
             "model_path": checkpoint.model_path,
             "s3_path": checkpoint.s3_path,
             "epoch": checkpoint.epoch,
             "metrics": checkpoint.metrics,
-            "created_at": checkpoint.created_at.isoformat() if checkpoint.created_at else None,
+            "created_at": (
+                checkpoint.created_at.isoformat() if checkpoint.created_at else None
+            ),
         }
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -632,9 +628,8 @@ class AgentTrainingService:
     # ══════════════════════════════════════════════════════════════════════════
 
     def get_training_stats(
-            self,
-            company_id: str,
-            agent_id: Optional[str] = None) -> Dict:
+        self, company_id: str, agent_id: Optional[str] = None
+    ) -> Dict:
         """Get training statistics for a tenant or agent.
 
         Args:
@@ -646,18 +641,14 @@ class AgentTrainingService:
         """
         from database.models.training import TrainingRun
 
-        query = (
-            self.db.query(TrainingRun)
-            .filter(TrainingRun.company_id == company_id)
-        )
+        query = self.db.query(TrainingRun).filter(TrainingRun.company_id == company_id)
         if agent_id:
             query = query.filter(TrainingRun.agent_id == agent_id)
 
         runs = query.all()
 
         total_runs = len(runs)
-        completed = len([r for r in runs if r.status
-                        == TRAINING_STATUS_COMPLETED])
+        completed = len([r for r in runs if r.status == TRAINING_STATUS_COMPLETED])
         failed = len([r for r in runs if r.status == TRAINING_STATUS_FAILED])
         running = len([r for r in runs if r.status == TRAINING_STATUS_RUNNING])
         queued = len([r for r in runs if r.status == TRAINING_STATUS_QUEUED])

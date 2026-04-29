@@ -75,7 +75,6 @@ from app.core.techniques.base import (
     GSDState,
 )
 
-
 # ══════════════════════════════════════════════════════════════════════════
 # HELPERS
 # ══════════════════════════════════════════════════════════════════════════
@@ -99,35 +98,23 @@ def _make_conversation_state(
     return ConversationState(
         query=query,
         gsd_state=gsd_state,
-        gsd_history=gsd_history or [
-            GSDState.NEW,
-            GSDState.GREETING,
-            GSDState.DIAGNOSIS],
+        gsd_history=gsd_history
+        or [GSDState.NEW, GSDState.GREETING, GSDState.DIAGNOSIS],
         token_usage=token_usage,
-        technique_results=technique_results or {
-            "active_listening": {
-                "status": "success",
-                "result": "empathy"},
-            "clarification": {
-                "status": "success",
-                "result": "refund_details"},
-            "technique_token_budget": {
-                "status": "skipped",
-                "reason": "budget"},
+        technique_results=technique_results
+        or {
+            "active_listening": {"status": "success", "result": "empathy"},
+            "clarification": {"status": "success", "result": "refund_details"},
+            "technique_token_budget": {"status": "skipped", "reason": "budget"},
         },
-        response_parts=response_parts or [
-            "Part 1",
-            "Part 2"],
+        response_parts=response_parts or ["Part 1", "Part 2"],
         final_response=final_response,
         ticket_id=ticket_id,
         conversation_id="conv_001",
         company_id=company_id,
-        reasoning_thread=reasoning_thread or [
-            "Step 1: classify",
-            "Step 2: extract signals"],
-        reflexion_trace=reflexion_trace or {
-            "attempts": 2,
-            "improved": True},
+        reasoning_thread=reasoning_thread
+        or ["Step 1: classify", "Step 2: extract signals"],
+        reflexion_trace=reflexion_trace or {"attempts": 2, "improved": True},
     )
 
 
@@ -179,8 +166,12 @@ class TestStateSerializationRoundTripFidelity:
         """15-turn conversation history survives serialization."""
         history = [GSDState.NEW]
         states_cycle = [
-            GSDState.GREETING, GSDState.DIAGNOSIS, GSDState.RESOLUTION,
-            GSDState.FOLLOW_UP, GSDState.DIAGNOSIS, GSDState.RESOLUTION,
+            GSDState.GREETING,
+            GSDState.DIAGNOSIS,
+            GSDState.RESOLUTION,
+            GSDState.FOLLOW_UP,
+            GSDState.DIAGNOSIS,
+            GSDState.RESOLUTION,
         ]
         for i in range(14):
             history.append(states_cycle[i % len(states_cycle)])
@@ -276,12 +267,12 @@ class TestRedisPostgresFailoverDataLoss:
 
     @pytest.mark.asyncio
     async def test_save_falls_back_to_postgres_when_redis_fails(self):
-        serializer = self._make_serializer_with_mocks(
-            redis_fail=True, pg_fail=False)
+        serializer = self._make_serializer_with_mocks(redis_fail=True, pg_fail=False)
         state = _make_conversation_state()
 
         result = await serializer.save_state(
-            ticket_id="t1", company_id="c1",
+            ticket_id="t1",
+            company_id="c1",
             conversation_state=state,
         )
 
@@ -291,13 +282,13 @@ class TestRedisPostgresFailoverDataLoss:
 
     @pytest.mark.asyncio
     async def test_save_raises_when_both_backends_fail(self):
-        serializer = self._make_serializer_with_mocks(
-            redis_fail=True, pg_fail=True)
+        serializer = self._make_serializer_with_mocks(redis_fail=True, pg_fail=True)
         state = _make_conversation_state()
 
         with pytest.raises(StateSerializationError):
             await serializer.save_state(
-                ticket_id="t1", company_id="c1",
+                ticket_id="t1",
+                company_id="c1",
                 conversation_state=state,
             )
 
@@ -321,8 +312,7 @@ class TestRedisPostgresFailoverDataLoss:
         assert loaded.technique_results == state.technique_results
 
     @pytest.mark.asyncio
-    async def test_failover_preserves_technique_stack_not_just_current_node(
-            self):
+    async def test_failover_preserves_technique_stack_not_just_current_node(self):
         """Verify that PG fallback returns ALL fields, not just current_node/variables."""
         complex_results = {
             "technique_a": {"status": "success", "result": {"nested": True}},
@@ -335,11 +325,9 @@ class TestRedisPostgresFailoverDataLoss:
                 GSDState.NEW,
                 GSDState.GREETING,
                 GSDState.DIAGNOSIS,
-                GSDState.RESOLUTION],
-            reasoning_thread=[
-                "reason1",
-                "reason2",
-                "reason3"],
+                GSDState.RESOLUTION,
+            ],
+            reasoning_thread=["reason1", "reason2", "reason3"],
         )
 
         serializer = StateSerializer()
@@ -395,16 +383,14 @@ class TestDistributedLocksConcurrentMutation:
                 errors.append(e)
 
         threads = [
-            threading.Thread(target=serialize_worker, args=(i,))
-            for i in range(10)
+            threading.Thread(target=serialize_worker, args=(i,)) for i in range(10)
         ]
         for t in threads:
             t.start()
         for t in threads:
             t.join(timeout=5)
 
-        assert len(
-            errors) == 0, f"Errors during concurrent serialization: {errors}"
+        assert len(errors) == 0, f"Errors during concurrent serialization: {errors}"
         assert len(results) == 10
 
         # All results should be identical
@@ -432,11 +418,8 @@ class TestDistributedLocksConcurrentMutation:
                 errors.append(e)
 
         threads = [
-            threading.Thread(
-                target=round_trip_worker,
-                args=(
-                    i,
-                )) for i in range(5)]
+            threading.Thread(target=round_trip_worker, args=(i,)) for i in range(5)
+        ]
         for t in threads:
             t.start()
         for t in threads:
@@ -512,10 +495,8 @@ class TestTenantIsolationStateKeys:
         # Lock is intentionally NOT company-scoped per source code
 
     def test_serialized_state_preserves_company_id(self):
-        state_a = _make_conversation_state(
-            company_id="tenant_alpha", ticket_id="t1")
-        state_b = _make_conversation_state(
-            company_id="tenant_beta", ticket_id="t1")
+        state_a = _make_conversation_state(company_id="tenant_alpha", ticket_id="t1")
+        state_b = _make_conversation_state(company_id="tenant_beta", ticket_id="t1")
 
         serializer = StateSerializer()
         dict_a = serializer.serialize_state(state_a)
@@ -527,9 +508,11 @@ class TestTenantIsolationStateKeys:
 
     def test_deserialize_distinguishes_same_ticket_different_tenant(self):
         state_a = _make_conversation_state(
-            company_id="corp_A", query="Corp A secret data")
+            company_id="corp_A", query="Corp A secret data"
+        )
         state_b = _make_conversation_state(
-            company_id="corp_B", query="Corp B secret data")
+            company_id="corp_B", query="Corp B secret data"
+        )
 
         serializer = StateSerializer()
         dict_a = serializer.serialize_state(state_a)
@@ -568,7 +551,9 @@ class TestGSDTransitionsAtomicityConsistency:
         engine = GSDEngine()
         state = _make_conversation_state(gsd_state=GSDState.DIAGNOSIS)
 
-        new_state = await engine.transition(state, GSDState.RESOLUTION, trigger_reason="diagnosis_complete")
+        new_state = await engine.transition(
+            state, GSDState.RESOLUTION, trigger_reason="diagnosis_complete"
+        )
 
         assert new_state.gsd_state == GSDState.RESOLUTION
 
@@ -595,7 +580,9 @@ class TestGSDTransitionsAtomicityConsistency:
         engine = GSDEngine()
 
         can = await engine.can_transition_with_variant(
-            GSDState.DIAGNOSIS, GSDState.ESCALATE, "mini_parwa",
+            GSDState.DIAGNOSIS,
+            GSDState.ESCALATE,
+            "mini_parwa",
         )
         assert can is False
 
@@ -609,7 +596,9 @@ class TestGSDTransitionsAtomicityConsistency:
 
         # DIAGNOSIS can escalate to ESCALATE in parwa/high_parwa
         can = await engine.can_transition_with_variant(
-            GSDState.DIAGNOSIS, GSDState.ESCALATE, "high_parwa",
+            GSDState.DIAGNOSIS,
+            GSDState.ESCALATE,
+            "high_parwa",
         )
         assert can is True
 
@@ -625,9 +614,7 @@ class TestGSDTransitionsAtomicityConsistency:
         # appended by each transition. Must have grown.
         assert len(state.gsd_history) >= 3
         # Verify the appended TransitionRecord objects contain expected states
-        transition_records = [
-            h for h in state.gsd_history if isinstance(
-                h, dict)]
+        transition_records = [h for h in state.gsd_history if isinstance(h, dict)]
         assert len(transition_records) == 2
         assert transition_records[0]["state"] == "greeting"
         assert transition_records[1]["state"] == "diagnosis"
@@ -638,9 +625,13 @@ class TestGSDTransitionsAtomicityConsistency:
         for from_state, targets in FULL_TRANSITION_TABLE.items():
             for target_state in targets:
                 can = await engine.can_transition_with_variant(
-                    from_state, target_state, "parwa",
+                    from_state,
+                    target_state,
+                    "parwa",
                 )
-                assert can, f"Expected {from_state} -> {target_state} to be valid in parwa"
+                assert (
+                    can
+                ), f"Expected {from_state} -> {target_state} to be valid in parwa"
 
     @pytest.mark.asyncio
     async def test_all_mini_table_transitions_are_valid(self):
@@ -649,7 +640,9 @@ class TestGSDTransitionsAtomicityConsistency:
             for target_state in targets:
                 if target_state:  # skip empty sets
                     can = await engine.can_transition_with_variant(
-                        from_state, target_state, "mini_parwa",
+                        from_state,
+                        target_state,
+                        "mini_parwa",
                     )
                     assert can, f"Expected {from_state} -> {target_state} in mini_parwa"
 
@@ -704,9 +697,10 @@ class TestAutoEscalationRaceConditions:
 
         # Record a recent escalation timestamp
         from datetime import datetime, timezone
-        engine._escalation_timestamps["co_cooldown"] = (
-            datetime.now(timezone.utc).isoformat()
-        )
+
+        engine._escalation_timestamps["co_cooldown"] = datetime.now(
+            timezone.utc
+        ).isoformat()
 
         state = _make_conversation_state(company_id="co_cooldown")
         with pytest.raises(EscalationCooldownError):
@@ -757,8 +751,7 @@ class TestHistoryBufferOverflow:
         )
         engine.update_config("co_hist", config)
 
-        state = _make_conversation_state(
-            gsd_state=GSDState.NEW, company_id="co_hist")
+        state = _make_conversation_state(gsd_state=GSDState.NEW, company_id="co_hist")
         await engine.transition(state, GSDState.GREETING)
         await engine.transition(state, GSDState.DIAGNOSIS)
 
@@ -801,7 +794,9 @@ class TestHistoryBufferOverflow:
             # Simulate the prune logic directly
             key = "co:conv1"
             if len(meter._turn_history[key]) > _MAX_HISTORY_LENGTH:
-                meter._turn_history[key] = meter._turn_history[key][-_MAX_HISTORY_LENGTH:]
+                meter._turn_history[key] = meter._turn_history[key][
+                    -_MAX_HISTORY_LENGTH:
+                ]
 
         assert len(meter._turn_history["co:conv1"]) == _MAX_HISTORY_LENGTH
 
@@ -812,7 +807,9 @@ class TestHistoryBufferOverflow:
 
         # Add more than _MAX_HISTORY_LENGTH entries
         for i in range(_MAX_HISTORY_LENGTH + 20):
-            await meter.check_health("co_overflow", "conv_overflow", metrics, turn_number=i)
+            await meter.check_health(
+                "co_overflow", "conv_overflow", metrics, turn_number=i
+            )
 
         history = meter.get_history("co_overflow", "conv_overflow")
         assert len(history) <= _MAX_HISTORY_LENGTH
@@ -837,9 +834,12 @@ class TestWorkflowConcurrentStatePersistence:
         errors = []
 
         async def run_workflow(idx):
-            wf = LangGraphWorkflow(config=WorkflowConfig(
-                company_id="tenant_42", variant_type="parwa",
-            ))
+            wf = LangGraphWorkflow(
+                config=WorkflowConfig(
+                    company_id="tenant_42",
+                    variant_type="parwa",
+                )
+            )
             try:
                 result = await wf.execute(
                     company_id="tenant_42",
@@ -863,9 +863,12 @@ class TestWorkflowConcurrentStatePersistence:
         results = {}
 
         async def run_variant(v):
-            wf = LangGraphWorkflow(config=WorkflowConfig(
-                company_id="tenant_multi", variant_type=v,
-            ))
+            wf = LangGraphWorkflow(
+                config=WorkflowConfig(
+                    company_id="tenant_multi",
+                    variant_type=v,
+                )
+            )
             result = await wf.execute(company_id="tenant_multi", query="test")
             results[v] = result
 
@@ -878,9 +881,12 @@ class TestWorkflowConcurrentStatePersistence:
         assert len(results["high_parwa"].steps_completed) == 9
 
     def test_workflow_result_contains_expected_variant(self):
-        wf = LangGraphWorkflow(config=WorkflowConfig(
-            company_id="co1", variant_type="high_parwa",
-        ))
+        wf = LangGraphWorkflow(
+            config=WorkflowConfig(
+                company_id="co1",
+                variant_type="high_parwa",
+            )
+        )
         wf.build_graph()
 
         assert wf._config.variant_type == "high_parwa"
@@ -898,9 +904,7 @@ class TestConditionalBranchingLogic:
     """
 
     def test_mini_parwa_has_correct_3_steps(self):
-        wf = LangGraphWorkflow(
-            config=WorkflowConfig(
-                variant_type="mini_parwa"))
+        wf = LangGraphWorkflow(config=WorkflowConfig(variant_type="mini_parwa"))
         wf.build_graph()
 
         step_ids = [s.step_id for s in wf._steps]
@@ -912,21 +916,29 @@ class TestConditionalBranchingLogic:
 
         step_ids = [s.step_id for s in wf._steps]
         assert step_ids == [
-            "classify", "extract_signals", "technique_select",
-            "generate", "quality_gate", "format",
+            "classify",
+            "extract_signals",
+            "technique_select",
+            "generate",
+            "quality_gate",
+            "format",
         ]
 
     def test_high_parwa_has_correct_9_steps(self):
-        wf = LangGraphWorkflow(
-            config=WorkflowConfig(
-                variant_type="high_parwa"))
+        wf = LangGraphWorkflow(config=WorkflowConfig(variant_type="high_parwa"))
         wf.build_graph()
 
         step_ids = [s.step_id for s in wf._steps]
         assert step_ids == [
-            "classify", "extract_signals", "technique_select",
-            "context_compress", "generate", "quality_gate",
-            "context_health", "dedup", "format",
+            "classify",
+            "extract_signals",
+            "technique_select",
+            "context_compress",
+            "generate",
+            "quality_gate",
+            "context_health",
+            "dedup",
+            "format",
         ]
 
     def test_pipeline_config_matches_variant_definitions(self):
@@ -938,7 +950,9 @@ class TestConditionalBranchingLogic:
     @pytest.mark.asyncio
     async def test_refund_query_routes_to_refund_handling(self):
         wf = LangGraphWorkflow(config=WorkflowConfig(variant_type="parwa"))
-        result = await wf.execute(company_id="co1", query="I want a refund for my order")
+        result = await wf.execute(
+            company_id="co1", query="I want a refund for my order"
+        )
 
         classify_result = result.step_results.get("classify")
         assert classify_result is not None
@@ -952,7 +966,9 @@ class TestConditionalBranchingLogic:
     @pytest.mark.asyncio
     async def test_technical_query_routes_to_troubleshooting(self):
         wf = LangGraphWorkflow(config=WorkflowConfig(variant_type="parwa"))
-        result = await wf.execute(company_id="co1", query="The app is broken and shows an error")
+        result = await wf.execute(
+            company_id="co1", query="The app is broken and shows an error"
+        )
 
         classify_result = result.step_results.get("classify")
         assert classify_result.output.get("intent") == "technical_issue"
@@ -979,10 +995,12 @@ class TestHumanCheckpointTimeoutHandling:
         so even a 1ms timeout may not trigger. We test the mechanism by
         verifying the timeout check logic in the execute loop.
         """
-        wf = LangGraphWorkflow(config=WorkflowConfig(
-            variant_type="high_parwa",
-            max_pipeline_time_seconds=0.0,  # 0s — force immediate timeout
-        ))
+        wf = LangGraphWorkflow(
+            config=WorkflowConfig(
+                variant_type="high_parwa",
+                max_pipeline_time_seconds=0.0,  # 0s — force immediate timeout
+            )
+        )
         wf.build_graph()
 
         result = await wf.execute(company_id="co1", query="test query")
@@ -999,10 +1017,12 @@ class TestHumanCheckpointTimeoutHandling:
     @pytest.mark.asyncio
     async def test_pipeline_timeout_records_partial_results(self):
         """Steps before timeout should be recorded as success."""
-        wf = LangGraphWorkflow(config=WorkflowConfig(
-            variant_type="parwa",
-            max_pipeline_time_seconds=0.001,
-        ))
+        wf = LangGraphWorkflow(
+            config=WorkflowConfig(
+                variant_type="parwa",
+                max_pipeline_time_seconds=0.001,
+            )
+        )
         wf.build_graph()
 
         result = await wf.execute(company_id="co1", query="test")
@@ -1015,10 +1035,12 @@ class TestHumanCheckpointTimeoutHandling:
     @pytest.mark.asyncio
     async def test_workflow_never_crashes_on_timeout(self):
         """BC-008: Even extreme timeouts should return a result, not crash."""
-        wf = LangGraphWorkflow(config=WorkflowConfig(
-            variant_type="high_parwa",
-            max_pipeline_time_seconds=0.0,
-        ))
+        wf = LangGraphWorkflow(
+            config=WorkflowConfig(
+                variant_type="high_parwa",
+                max_pipeline_time_seconds=0.0,
+            )
+        )
         wf.build_graph()
 
         result = await wf.execute(company_id="co1", query="any query")
@@ -1038,15 +1060,19 @@ class TestHumanCheckpointTimeoutHandling:
         original_execute = wf._execute_step
 
         async def failing_step(*args, **kwargs):
-            step = kwargs.get('wf_step') if 'wf_step' in kwargs else (
-                args[1] if len(args) > 1 else None)
-            if step and hasattr(
-                    step, 'step_id') and step.step_id == "generate":
+            step = (
+                kwargs.get("wf_step")
+                if "wf_step" in kwargs
+                else (args[1] if len(args) > 1 else None)
+            )
+            if step and hasattr(step, "step_id") and step.step_id == "generate":
                 # Return error result (simulating what _execute_step does on
                 # error)
                 from app.core.langgraph_workflow import WorkflowStepResult
+
                 return WorkflowStepResult(
-                    step_id="generate", status="error",
+                    step_id="generate",
+                    status="error",
                     error="Simulated generate failure",
                 )
             return await original_execute(*args, **kwargs)
@@ -1076,17 +1102,18 @@ class TestContextCompressionQualityThresholds:
     @pytest.mark.asyncio
     async def test_light_compression_at_60_percent_threshold(self):
         """At 60% budget, LIGHT compression should retain most content."""
-        compressor = ContextCompressor(CompressionConfig(
-            variant_type="parwa",
-            level=CompressionLevel.LIGHT,
-            strategy=CompressionStrategy.HYBRID,
-            max_tokens=2000,
-            preserve_recent_n=3,
-        ))
+        compressor = ContextCompressor(
+            CompressionConfig(
+                variant_type="parwa",
+                level=CompressionLevel.LIGHT,
+                strategy=CompressionStrategy.HYBRID,
+                max_tokens=2000,
+                preserve_recent_n=3,
+            )
+        )
 
         # 10 chunks, each ~100 chars (~25 tokens), total ~250 tokens
-        content = [
-            f"Chunk {i}: Important customer detail about order #{
+        content = [f"Chunk {i}: Important customer detail about order #{
                 1000 + i}. " * 3 for i in range(10)]
         priorities = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05]
         input_data = CompressionInput(content=content, priorities=priorities)
@@ -1103,17 +1130,20 @@ class TestContextCompressionQualityThresholds:
     @pytest.mark.asyncio
     async def test_aggressive_compression_at_80_percent_threshold(self):
         """At 80% budget, AGGRESSIVE compression should still keep critical info."""
-        compressor = ContextCompressor(CompressionConfig(
-            variant_type="high_parwa",
-            level=CompressionLevel.AGGRESSIVE,
-            strategy=CompressionStrategy.EXTRACTIVE,
-            max_tokens=500,
-            preserve_recent_n=2,
-            priority_threshold=0.3,
-        ))
+        compressor = ContextCompressor(
+            CompressionConfig(
+                variant_type="high_parwa",
+                level=CompressionLevel.AGGRESSIVE,
+                strategy=CompressionStrategy.EXTRACTIVE,
+                max_tokens=500,
+                preserve_recent_n=2,
+                priority_threshold=0.3,
+            )
+        )
 
         content = [
-            f"Critical info chunk {i}: customer name is John Doe, order #ORD-{i}, email john@example.com" * 2
+            f"Critical info chunk {i}: customer name is John Doe, order #ORD-{i}, email john@example.com"
+            * 2
             for i in range(20)
         ]
         priorities = [0.9, 0.8, 0.7, 0.6, 0.5] + [0.2] * 15
@@ -1130,13 +1160,15 @@ class TestContextCompressionQualityThresholds:
     @pytest.mark.asyncio
     async def test_compression_preserves_recent_high_priority_content(self):
         """Most recent N chunks must always be preserved."""
-        compressor = ContextCompressor(CompressionConfig(
-            variant_type="parwa",
-            level=CompressionLevel.AGGRESSIVE,
-            strategy=CompressionStrategy.EXTRACTIVE,
-            max_tokens=10,  # Very small budget
-            preserve_recent_n=3,
-        ))
+        compressor = ContextCompressor(
+            CompressionConfig(
+                variant_type="parwa",
+                level=CompressionLevel.AGGRESSIVE,
+                strategy=CompressionStrategy.EXTRACTIVE,
+                max_tokens=10,  # Very small budget
+                preserve_recent_n=3,
+            )
+        )
 
         content = [f"Old chunk {i}" * 20 for i in range(10)] + [
             "CRITICAL: customer SSN is 123-45-6789",
@@ -1150,17 +1182,18 @@ class TestContextCompressionQualityThresholds:
 
         # The last 3 chunks (critical ones) should be preserved
         for critical_chunk in content[-3:]:
-            found = any(critical_chunk[:20]
-                        in c for c in output.compressed_content)
+            found = any(critical_chunk[:20] in c for c in output.compressed_content)
             assert found, f"Critical content not preserved: {critical_chunk[:30]}"
 
     @pytest.mark.asyncio
     async def test_sliding_window_keeps_most_recent(self):
         """Sliding window strategy keeps most recent chunks within budget."""
-        compressor = ContextCompressor(CompressionConfig(
-            strategy=CompressionStrategy.SLIDING_WINDOW,
-            max_tokens=200,
-        ))
+        compressor = ContextCompressor(
+            CompressionConfig(
+                strategy=CompressionStrategy.SLIDING_WINDOW,
+                max_tokens=200,
+            )
+        )
 
         content = [f"Message {i}: " + "word " * 50 for i in range(20)]
         input_data = CompressionInput(content=content)
@@ -1176,10 +1209,12 @@ class TestContextCompressionQualityThresholds:
     @pytest.mark.asyncio
     async def test_mini_parwa_no_compression(self):
         """Mini PARWA variant should apply NO compression."""
-        compressor = ContextCompressor(CompressionConfig(
-            variant_type="mini_parwa",
-            level=CompressionLevel.NONE,
-        ))
+        compressor = ContextCompressor(
+            CompressionConfig(
+                variant_type="mini_parwa",
+                level=CompressionLevel.NONE,
+            )
+        )
 
         content = ["Chunk A", "Chunk B", "Chunk C"]
         input_data = CompressionInput(content=content)
@@ -1207,10 +1242,12 @@ class TestContextCompressionQualityThresholds:
         content when any strategy fails. We trigger this by making
         _apply_extractive raise an error.
         """
-        compressor = ContextCompressor(CompressionConfig(
-            level=CompressionLevel.LIGHT,
-            strategy=CompressionStrategy.EXTRACTIVE,
-        ))
+        compressor = ContextCompressor(
+            CompressionConfig(
+                level=CompressionLevel.LIGHT,
+                strategy=CompressionStrategy.EXTRACTIVE,
+            )
+        )
 
         # Patch the strategy method to raise
         original_apply = compressor._apply_extractive
@@ -1294,10 +1331,12 @@ class TestContextHealthMeterAccuracy:
 
     @pytest.mark.asyncio
     async def test_high_token_usage_triggers_alert(self):
-        meter = ContextHealthMeter(HealthConfig(
-            token_budget_threshold=0.8,
-            alert_cooldown_seconds=0,
-        ))
+        meter = ContextHealthMeter(
+            HealthConfig(
+                token_budget_threshold=0.8,
+                alert_cooldown_seconds=0,
+            )
+        )
         metrics = HealthMetrics(
             token_usage_ratio=0.85,
             compression_ratio=0.8,
@@ -1370,24 +1409,48 @@ class TestContextHealthMeterAccuracy:
         meter = ContextHealthMeter(HealthConfig(alert_cooldown_seconds=0))
 
         # Turn 1: healthy
-        r1 = await meter.check_health("co1", "conv2", HealthMetrics(
-            token_usage_ratio=0.1, relevance_score=0.9, freshness_score=0.9,
-            signal_preservation=0.9, context_coherence=0.9,
-        ), turn_number=1)
+        r1 = await meter.check_health(
+            "co1",
+            "conv2",
+            HealthMetrics(
+                token_usage_ratio=0.1,
+                relevance_score=0.9,
+                freshness_score=0.9,
+                signal_preservation=0.9,
+                context_coherence=0.9,
+            ),
+            turn_number=1,
+        )
         assert r1.status == HealthStatus.HEALTHY
 
         # Turn 2: degrading
-        r2 = await meter.check_health("co1", "conv2", HealthMetrics(
-            token_usage_ratio=0.5, relevance_score=0.4, freshness_score=0.5,
-            signal_preservation=0.4, context_coherence=0.5,
-        ), turn_number=2)
+        r2 = await meter.check_health(
+            "co1",
+            "conv2",
+            HealthMetrics(
+                token_usage_ratio=0.5,
+                relevance_score=0.4,
+                freshness_score=0.5,
+                signal_preservation=0.4,
+                context_coherence=0.5,
+            ),
+            turn_number=2,
+        )
         assert r2.status == HealthStatus.DEGRADING
 
         # Turn 3: critical
-        r3 = await meter.check_health("co1", "conv2", HealthMetrics(
-            token_usage_ratio=0.95, relevance_score=0.1, freshness_score=0.1,
-            signal_preservation=0.1, context_coherence=0.2,
-        ), turn_number=3)
+        r3 = await meter.check_health(
+            "co1",
+            "conv2",
+            HealthMetrics(
+                token_usage_ratio=0.95,
+                relevance_score=0.1,
+                freshness_score=0.1,
+                signal_preservation=0.1,
+                context_coherence=0.2,
+            ),
+            turn_number=3,
+        )
         assert r3.status in (HealthStatus.CRITICAL, HealthStatus.EXHAUSTED)
 
 
@@ -1404,11 +1467,11 @@ class TestTenantIsolationGraphSharing:
     def test_workflow_config_is_per_instance_not_global(self):
         """Each WorkflowConfig is independent; changing one does not affect others."""
         config_mini = WorkflowConfig(
-            company_id="tenant_mini",
-            variant_type="mini_parwa")
+            company_id="tenant_mini", variant_type="mini_parwa"
+        )
         config_high = WorkflowConfig(
-            company_id="tenant_high",
-            variant_type="high_parwa")
+            company_id="tenant_high", variant_type="high_parwa"
+        )
 
         wf_mini = LangGraphWorkflow(config=config_mini)
         wf_high = LangGraphWorkflow(config=config_high)
@@ -1427,9 +1490,12 @@ class TestTenantIsolationGraphSharing:
         results = {}
 
         async def run_tenant(variant, company_id):
-            wf = LangGraphWorkflow(config=WorkflowConfig(
-                company_id=company_id, variant_type=variant,
-            ))
+            wf = LangGraphWorkflow(
+                config=WorkflowConfig(
+                    company_id=company_id,
+                    variant_type=variant,
+                )
+            )
             result = await wf.execute(company_id=company_id, query="test")
             results[company_id] = (variant, result)
 
@@ -1450,9 +1516,7 @@ class TestTenantIsolationGraphSharing:
     async def test_reset_does_not_affect_other_instances(self):
         """Resetting one workflow engine does not affect another."""
         wf1 = LangGraphWorkflow(config=WorkflowConfig(variant_type="parwa"))
-        wf2 = LangGraphWorkflow(
-            config=WorkflowConfig(
-                variant_type="high_parwa"))
+        wf2 = LangGraphWorkflow(config=WorkflowConfig(variant_type="high_parwa"))
 
         wf1.build_graph()
         wf2.build_graph()
@@ -1467,28 +1531,36 @@ class TestTenantIsolationGraphSharing:
 
     def test_compressor_config_isolation_between_tenants(self):
         """Each compressor instance has independent config."""
-        comp_a = ContextCompressor(CompressionConfig(
-            variant_type="mini_parwa",
-            level=CompressionLevel.NONE,
-        ))
-        comp_b = ContextCompressor(CompressionConfig(
-            variant_type="high_parwa",
-            level=CompressionLevel.AGGRESSIVE,
-        ))
+        comp_a = ContextCompressor(
+            CompressionConfig(
+                variant_type="mini_parwa",
+                level=CompressionLevel.NONE,
+            )
+        )
+        comp_b = ContextCompressor(
+            CompressionConfig(
+                variant_type="high_parwa",
+                level=CompressionLevel.AGGRESSIVE,
+            )
+        )
 
         assert comp_a._config.level == CompressionLevel.NONE
         assert comp_b._config.level == CompressionLevel.AGGRESSIVE
 
     def test_health_meter_config_isolation_between_tenants(self):
         """Each health meter instance has independent state."""
-        meter_a = ContextHealthMeter(HealthConfig(
-            company_id="tenant_A",
-            token_budget_threshold=0.9,
-        ))
-        meter_b = ContextHealthMeter(HealthConfig(
-            company_id="tenant_B",
-            token_budget_threshold=0.7,
-        ))
+        meter_a = ContextHealthMeter(
+            HealthConfig(
+                company_id="tenant_A",
+                token_budget_threshold=0.9,
+            )
+        )
+        meter_b = ContextHealthMeter(
+            HealthConfig(
+                company_id="tenant_B",
+                token_budget_threshold=0.7,
+            )
+        )
 
         assert meter_a._config.token_budget_threshold == 0.9
         assert meter_b._config.token_budget_threshold == 0.7
@@ -1518,12 +1590,19 @@ class TestWorkflowRollbackAtomicity:
         original_execute = wf._execute_step
 
         async def failing_generate(*args, **kwargs):
-            wf_step = kwargs.get('wf_step') if 'wf_step' in kwargs else (
-                args[1] if len(args) > 1 else None)
-            if wf_step and hasattr(wf_step,
-                                   'step_id') and wf_step.step_id == "generate":
+            wf_step = (
+                kwargs.get("wf_step")
+                if "wf_step" in kwargs
+                else (args[1] if len(args) > 1 else None)
+            )
+            if (
+                wf_step
+                and hasattr(wf_step, "step_id")
+                and wf_step.step_id == "generate"
+            ):
                 return WorkflowStepResult(
-                    step_id="generate", status="error",
+                    step_id="generate",
+                    status="error",
                     error="Generate step crash",
                 )
             return await original_execute(*args, **kwargs)
@@ -1546,10 +1625,14 @@ class TestWorkflowRollbackAtomicity:
         wf = LangGraphWorkflow(config=WorkflowConfig(variant_type="parwa"))
 
         # Force complete failure by breaking the step list
-        wf._steps = [WorkflowStep(
-            step_id="broken", step_name="Broken",
-            step_type="core", timeout_seconds=0.001,
-        )]
+        wf._steps = [
+            WorkflowStep(
+                step_id="broken",
+                step_name="Broken",
+                step_type="core",
+                timeout_seconds=0.001,
+            )
+        ]
 
         result = await wf.execute(company_id="co1", query="test")
 
@@ -1633,21 +1716,13 @@ class TestCrossModuleIntegration:
             workflow_id="wf_test",
             variant_type="parwa",
             status="success",
-            steps_completed=[
-                "classify",
-                "generate",
-                "format"],
+            steps_completed=["classify", "generate", "format"],
             step_results={
-                "classify": WorkflowStepResult(
-                    step_id="classify",
-                    status="success"),
+                "classify": WorkflowStepResult(step_id="classify", status="success"),
                 "generate": WorkflowStepResult(
-                    step_id="generate",
-                    status="success",
-                    tokens_used=800),
-                "format": WorkflowStepResult(
-                    step_id="format",
-                    status="success"),
+                    step_id="generate", status="success", tokens_used=800
+                ),
+                "format": WorkflowStepResult(step_id="format", status="success"),
             },
             final_response="Test response",
             total_tokens_used=950,
@@ -1657,6 +1732,7 @@ class TestCrossModuleIntegration:
         )
 
         from dataclasses import asdict
+
         result_dict = asdict(result)
         json_str = json.dumps(result_dict)
 
@@ -1683,6 +1759,7 @@ class TestCrossModuleIntegration:
         )
 
         from dataclasses import asdict
+
         json_str = json.dumps(asdict(output))
         restored = json.loads(json_str)
 
@@ -1693,11 +1770,16 @@ class TestCrossModuleIntegration:
     async def test_health_report_can_be_json_serialized(self):
         """HealthReport must be JSON-serializable for logging/auditing."""
         meter = ContextHealthMeter(HealthConfig(alert_cooldown_seconds=0))
-        report = await meter.check_health("co1", "conv1", HealthMetrics(
-            token_usage_ratio=0.5,
-        ))
+        report = await meter.check_health(
+            "co1",
+            "conv1",
+            HealthMetrics(
+                token_usage_ratio=0.5,
+            ),
+        )
 
         from dataclasses import asdict
+
         json_str = json.dumps(asdict(report), default=str)
 
         assert isinstance(json_str, str)

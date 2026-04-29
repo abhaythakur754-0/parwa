@@ -45,6 +45,7 @@ def _uuid() -> str:
 
 class TicketStatus(str, enum.Enum):
     """Full lifecycle of a ticket."""
+
     open = "open"
     assigned = "assigned"
     in_progress = "in_progress"
@@ -60,6 +61,7 @@ class TicketStatus(str, enum.Enum):
 
 class TicketPriority(str, enum.Enum):
     """Priority levels for tickets."""
+
     critical = "critical"
     high = "high"
     medium = "medium"
@@ -68,6 +70,7 @@ class TicketPriority(str, enum.Enum):
 
 class TicketCategory(str, enum.Enum):
     """Classification categories for tickets."""
+
     tech_support = "tech_support"
     billing = "billing"
     feature_request = "feature_request"
@@ -84,8 +87,10 @@ class Customer(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     external_id = Column(String(255))
     email = Column(String(255))
@@ -114,19 +119,22 @@ class Ticket(Base):
     Tracks the full lifecycle of a customer support ticket with SLA,
     priority, classification, assignment, and status information.
     """
+
     __tablename__ = "tickets"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
-    customer_id = Column(
-        String(36), ForeignKey("customers.id", ondelete="SET NULL")
-    )
+    customer_id = Column(String(36), ForeignKey("customers.id", ondelete="SET NULL"))
     channel = Column(String(50), nullable=False)
     status = Column(
-        String(50), default=TicketStatus.open.value, nullable=False,
+        String(50),
+        default=TicketStatus.open.value,
+        nullable=False,
     )
     subject = Column(String(255))
     priority = Column(
@@ -148,12 +156,14 @@ class Ticket(Base):
     frozen = Column(Boolean, default=False, nullable=False)
     # PS19: cross-variant parent tickets
     parent_ticket_id = Column(
-        String(36), ForeignKey("tickets.id", ondelete="SET NULL"),
+        String(36),
+        ForeignKey("tickets.id", ondelete="SET NULL"),
         nullable=True,
     )
     # PS05: duplicate linking
     duplicate_of_id = Column(
-        String(36), ForeignKey("tickets.id", ondelete="SET NULL"),
+        String(36),
+        ForeignKey("tickets.id", ondelete="SET NULL"),
         nullable=True,
     )
     # MF21: spam flag
@@ -187,7 +197,8 @@ class Ticket(Base):
     approved_at = Column(DateTime, nullable=True)
     # Link to shadow_log entry
     shadow_log_id = Column(
-        String(36), ForeignKey("shadow_log.id", ondelete="SET NULL"),
+        String(36),
+        ForeignKey("shadow_log.id", ondelete="SET NULL"),
         nullable=True,
     )
 
@@ -202,7 +213,8 @@ class Ticket(Base):
 
     # Relationships
     messages = relationship(
-        "TicketMessage", back_populates="ticket",
+        "TicketMessage",
+        back_populates="ticket",
         cascade="all, delete-orphan",
     )
 
@@ -212,16 +224,21 @@ class TicketMessage(Base):
 
     Each message can be from customer, agent, system, or AI.
     """
+
     __tablename__ = "ticket_messages"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     ticket_id = Column(
-        String(36), ForeignKey("tickets.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     # customer, agent, system, ai
     role = Column(String(50), nullable=False)
@@ -250,12 +267,16 @@ class TicketAttachment(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     ticket_id = Column(
-        String(36), ForeignKey("tickets.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     filename = Column(String(255), nullable=False)
     file_url = Column(Text, nullable=False)
@@ -270,16 +291,18 @@ class TicketInternalNote(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     ticket_id = Column(
-        String(36), ForeignKey("tickets.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
-    author_id = Column(
-        String(36), ForeignKey("users.id"), nullable=False
-    )
+    author_id = Column(String(36), ForeignKey("users.id"), nullable=False)
     content = Column(Text, nullable=False)
     is_pinned = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
@@ -290,21 +313,28 @@ class TicketInternalNote(Base):
 
 class TicketStatusChange(Base):
     """Activity log for every status change on a ticket (MF04 support)."""
+
     __tablename__ = "ticket_status_changes"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     ticket_id = Column(
-        String(36), ForeignKey("tickets.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     from_status = Column(String(50))
     to_status = Column(String(50), nullable=False)
     changed_by = Column(
-        String(36), ForeignKey("users.id"), nullable=False,
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
     )
     reason = Column(Text)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
@@ -312,12 +342,15 @@ class TicketStatusChange(Base):
 
 class SLAPolicy(Base):
     """SLA policies per plan × priority (MF06 support)."""
+
     __tablename__ = "sla_policies"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     # starter, growth, high
     plan_tier = Column(String(50), nullable=False)
@@ -334,19 +367,25 @@ class SLAPolicy(Base):
 
 class SLATimer(Base):
     """Per-ticket SLA tracking."""
+
     __tablename__ = "sla_timers"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     ticket_id = Column(
-        String(36), ForeignKey("tickets.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     policy_id = Column(
-        String(36), ForeignKey("sla_policies.id", ondelete="SET NULL"),
+        String(36),
+        ForeignKey("sla_policies.id", ondelete="SET NULL"),
         nullable=True,
     )
     first_response_at = Column(DateTime)
@@ -359,21 +398,27 @@ class SLATimer(Base):
 
 class TicketAssignment(Base):
     """Track assignment history (F-050 support)."""
+
     __tablename__ = "ticket_assignments"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     ticket_id = Column(
-        String(36), ForeignKey("tickets.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     # ai, human, system
     assignee_type = Column(String(50), nullable=False)
     assignee_id = Column(
-        String(36), ForeignKey("users.id", ondelete="SET NULL"),
+        String(36),
+        ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
     # AI scoring for AI assignments
@@ -384,19 +429,24 @@ class TicketAssignment(Base):
 
 class BulkActionLog(Base):
     """Track bulk operations (F-051 support)."""
+
     __tablename__ = "bulk_action_logs"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     # status_change, reassign, tag, merge, close
     action_type = Column(String(50), nullable=False)
     # JSON array of ticket IDs
     ticket_ids = Column(Text, nullable=False)
     performed_by = Column(
-        String(36), ForeignKey("users.id"), nullable=False,
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
     )
     result_summary = Column(Text)
     # Unique token for undo capability
@@ -407,21 +457,28 @@ class BulkActionLog(Base):
 
 class TicketMerge(Base):
     """Track merged tickets (F-051 support)."""
+
     __tablename__ = "ticket_merges"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     primary_ticket_id = Column(
-        String(36), ForeignKey("tickets.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     # JSON array of merged ticket IDs
     merged_ticket_ids = Column(Text, nullable=False)
     merged_by = Column(
-        String(36), ForeignKey("users.id"), nullable=False,
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     reason = Column(Text)
     undo_token = Column(String(255), unique=True, nullable=True)
@@ -431,12 +488,15 @@ class TicketMerge(Base):
 
 class NotificationTemplate(Base):
     """Email/notification templates (MF05 support)."""
+
     __tablename__ = "notification_templates"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     # ticket_created, ticket_updated, ticket_assigned, ticket_resolved,
     # ticket_closed, ticket_reopened, sla_warning, sla_breached
@@ -455,16 +515,21 @@ class NotificationTemplate(Base):
 
 class TicketFeedback(Base):
     """CSAT ratings (MF13 support)."""
+
     __tablename__ = "ticket_feedbacks"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     ticket_id = Column(
-        String(36), ForeignKey("tickets.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     rating = Column(Integer, nullable=False)
     comment = Column(Text)
@@ -475,16 +540,21 @@ class TicketFeedback(Base):
 
 class CustomerChannel(Base):
     """Link customers to channels (F-052, F-070 support)."""
+
     __tablename__ = "customer_channels"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     customer_id = Column(
-        String(36), ForeignKey("customers.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("customers.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     # email, chat, sms, voice, social
     channel_type = Column(String(50), nullable=False)
@@ -498,17 +568,21 @@ class CustomerChannel(Base):
 
 class IdentityMatchLog(Base):
     """Track identity resolution attempts (F-070 support)."""
+
     __tablename__ = "identity_match_logs"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     input_email = Column(String(255))
     input_phone = Column(String(50))
     matched_customer_id = Column(
-        String(36), ForeignKey("customers.id", ondelete="SET NULL"),
+        String(36),
+        ForeignKey("customers.id", ondelete="SET NULL"),
         nullable=True,
     )
     # email, phone, social_id, device
@@ -524,16 +598,21 @@ class IdentityMatchLog(Base):
 
 class TicketIntent(Base):
     """AI classification results for tickets (F-049 support)."""
+
     __tablename__ = "ticket_intents"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     ticket_id = Column(
-        String(36), ForeignKey("tickets.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     # refund, technical, billing, complaint, feature_request, general
     intent = Column(String(50), nullable=False)
@@ -548,23 +627,30 @@ class TicketIntent(Base):
 
 class ClassificationCorrection(Base):
     """Human corrections to AI classifications (F-049 feedback loop)."""
+
     __tablename__ = "classification_corrections"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     ticket_id = Column(
-        String(36), ForeignKey("tickets.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     original_intent = Column(String(50), nullable=False)
     corrected_intent = Column(String(50), nullable=False)
     original_urgency = Column(String(50))
     corrected_urgency = Column(String(50))
     corrected_by = Column(
-        String(36), ForeignKey("users.id"), nullable=False,
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
     )
     reason = Column(Text)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
@@ -572,12 +658,15 @@ class ClassificationCorrection(Base):
 
 class AssignmentRule(Base):
     """Custom assignment rules per company (F-050 support)."""
+
     __tablename__ = "assignment_rules"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name = Column(String(255), nullable=False)
     # Condition: JSON with category, priority, channel filters
@@ -592,16 +681,21 @@ class AssignmentRule(Base):
 
 class BulkActionFailure(Base):
     """Individual failures within a bulk action (F-051 support)."""
+
     __tablename__ = "bulk_action_failures"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     bulk_action_id = Column(
-        String(36), ForeignKey("bulk_action_logs.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("bulk_action_logs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     ticket_id = Column(String(36), nullable=False)
     error_message = Column(Text, nullable=False)
@@ -612,12 +706,15 @@ class BulkActionFailure(Base):
 
 class ChannelConfig(Base):
     """Per-company channel configuration (F-052 support)."""
+
     __tablename__ = "channel_configs"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     channel_type = Column(String(50), nullable=False)
     # email, chat, sms, voice, social
@@ -638,22 +735,29 @@ class ChannelConfig(Base):
 
 class CustomerMergeAudit(Base):
     """Audit trail for customer identity merges (F-070 support)."""
+
     __tablename__ = "customer_merge_audits"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     # The customer that survives the merge
     primary_customer_id = Column(
-        String(36), ForeignKey("customers.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("customers.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     # JSON array of absorbed customer IDs
     merged_customer_ids = Column(Text, nullable=False)
     merged_by = Column(
-        String(36), ForeignKey("users.id"), nullable=False,
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
     )
     # merge_reason, unmerge
     action_type = Column(String(50), nullable=False)
@@ -663,13 +767,16 @@ class CustomerMergeAudit(Base):
 
 # ── Ticket Triggers (MF08: Automated trigger rules) ────────────────
 
+
 class TicketTrigger(Base):
     __tablename__ = "ticket_triggers"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name = Column(String(255), nullable=False)
     description = Column(Text)
@@ -688,17 +795,22 @@ class TicketTrigger(Base):
 
 # ── Custom Fields (MF09: Custom ticket fields) ──────────────────────
 
+
 class CustomField(Base):
     __tablename__ = "custom_fields"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name = Column(String(255), nullable=False)
     field_key = Column(String(100), nullable=False)  # Used in metadata_json
-    field_type = Column(String(50), nullable=False)  # text, number, dropdown, multi_select, date, checkbox
+    field_type = Column(
+        String(50), nullable=False
+    )  # text, number, dropdown, multi_select, date, checkbox
     # JSON: {"options": ["option1", "option2"], "required": true, "default": "..."}
     config = Column(Text, default="{}")
     # Which categories this field applies to (empty = all)
@@ -711,7 +823,8 @@ class CustomField(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "company_id", "field_key",
+            "company_id",
+            "field_key",
             name="uq_custom_fields_company_key",
         ),
     )
@@ -719,13 +832,16 @@ class CustomField(Base):
 
 # ── Ticket Collision (MF11: Concurrent editing detection) ───────────
 
+
 class TicketCollision(Base):
     __tablename__ = "ticket_collisions"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     ticket_id = Column(String(36), ForeignKey("tickets.id"), nullable=False, index=True)
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)

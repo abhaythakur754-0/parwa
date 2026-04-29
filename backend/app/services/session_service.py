@@ -30,7 +30,7 @@ def _mask_ip(ip: str) -> str:
     parts = ip.split(".")
     if len(parts) == 4:
         return ".".join(parts[:3]) + ".xxx"
-    return ip[:max(1, len(ip) - 3)] + "..."
+    return ip[: max(1, len(ip) - 3)] + "..."
 
 
 def list_sessions(
@@ -52,11 +52,14 @@ def list_sessions(
     Returns:
         List of session dicts.
     """
-    sessions = db.query(RefreshToken).filter(
-        RefreshToken.user_id == user_id,
-    ).order_by(
-        RefreshToken.created_at.desc()
-    ).all()
+    sessions = (
+        db.query(RefreshToken)
+        .filter(
+            RefreshToken.user_id == user_id,
+        )
+        .order_by(RefreshToken.created_at.desc())
+        .all()
+    )
 
     result = []
     for s in sessions:
@@ -73,13 +76,15 @@ def list_sessions(
         if current_token_hash and s.token_hash == current_token_hash:
             is_current = True
 
-        result.append({
-            "id": s.id,
-            "device_info": device_info,
-            "ip_address": _mask_ip(ip_addr),
-            "last_active": last_active,
-            "is_current": is_current,
-        })
+        result.append(
+            {
+                "id": s.id,
+                "device_info": device_info,
+                "ip_address": _mask_ip(ip_addr),
+                "last_active": last_active,
+                "is_current": is_current,
+            }
+        )
 
     return result
 
@@ -107,24 +112,21 @@ def revoke_session(
         ValidationError: If trying to revoke current session.
         NotFoundError: If session not found.
     """
-    session = db.query(RefreshToken).filter(
-        RefreshToken.id == session_id,
-        RefreshToken.user_id == user_id,
-    ).first()
+    session = (
+        db.query(RefreshToken)
+        .filter(
+            RefreshToken.id == session_id,
+            RefreshToken.user_id == user_id,
+        )
+        .first()
+    )
 
     if not session:
-        raise NotFoundError(
-            message="Session not found"
-        )
+        raise NotFoundError(message="Session not found")
 
     # Prevent self-revocation
-    if (
-        current_token_hash
-        and session.token_hash == current_token_hash
-    ):
-        raise ValidationError(
-            message="Cannot revoke your current session"
-        )
+    if current_token_hash and session.token_hash == current_token_hash:
+        raise ValidationError(message="Cannot revoke your current session")
 
     db.delete(session)
     db.commit()
@@ -158,10 +160,14 @@ def revoke_other_sessions(
     Returns:
         Dict with status and count.
     """
-    others = db.query(RefreshToken).filter(
-        RefreshToken.user_id == user_id,
-        RefreshToken.token_hash != current_token_hash,
-    ).all()
+    others = (
+        db.query(RefreshToken)
+        .filter(
+            RefreshToken.user_id == user_id,
+            RefreshToken.token_hash != current_token_hash,
+        )
+        .all()
+    )
 
     count = len(others)
     for s in others:

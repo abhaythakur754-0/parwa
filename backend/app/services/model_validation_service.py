@@ -169,12 +169,17 @@ class ModelValidationService:
             # Step 4: Compare against baseline if provided
             if baseline_model_path:
                 comparison = self._compare_with_baseline(
-                    model_path, baseline_model_path, test_data)
+                    model_path, baseline_model_path, test_data
+                )
                 validation["comparison"] = comparison
 
             # Step 5: Determine overall result
             all_gates_passed = all(g["passed"] for g in quality_gates.values())
-            validation["status"] = VALIDATION_STATUS_PASSED if all_gates_passed else VALIDATION_STATUS_FAILED
+            validation["status"] = (
+                VALIDATION_STATUS_PASSED
+                if all_gates_passed
+                else VALIDATION_STATUS_FAILED
+            )
 
             validation["completed_at"] = datetime.now(timezone.utc).isoformat()
 
@@ -208,9 +213,8 @@ class ModelValidationService:
     # ══════════════════════════════════════════════════════════════════════════
 
     def _load_test_data(
-            self,
-            company_id: str,
-            test_dataset_id: Optional[str]) -> List[Dict]:
+        self, company_id: str, test_dataset_id: Optional[str]
+    ) -> List[Dict]:
         """Load test dataset for evaluation.
 
         Args:
@@ -233,8 +237,7 @@ class ModelValidationService:
 
         # Fall back to generating synthetic test data
         # In production, this would use a held-out test set
-        logger.info("generating_synthetic_test_data",
-                    extra={"company_id": company_id})
+        logger.info("generating_synthetic_test_data", extra={"company_id": company_id})
         return self._generate_synthetic_test_data()
 
     def _generate_synthetic_test_data(self) -> List[Dict]:
@@ -249,7 +252,10 @@ class ModelValidationService:
                 "id": str(uuid4()),
                 "messages": [
                     {"role": "user", "content": "What are your pricing tiers?"},
-                    {"role": "assistant", "content": "We offer three tiers: Mini at $999/mo, Standard at $2,499/mo, and High at $3,999/mo."},
+                    {
+                        "role": "assistant",
+                        "content": "We offer three tiers: Mini at $999/mo, Standard at $2,499/mo, and High at $3,999/mo.",
+                    },
                 ],
                 "expected_topics": ["pricing", "tiers", "cost"],
             },
@@ -257,7 +263,10 @@ class ModelValidationService:
                 "id": str(uuid4()),
                 "messages": [
                     {"role": "user", "content": "How do I create a new ticket?"},
-                    {"role": "assistant", "content": "To create a new ticket, click the 'New Ticket' button in the dashboard."},
+                    {
+                        "role": "assistant",
+                        "content": "To create a new ticket, click the 'New Ticket' button in the dashboard.",
+                    },
                 ],
                 "expected_topics": ["ticket", "create", "dashboard"],
             },
@@ -265,15 +274,19 @@ class ModelValidationService:
                 "id": str(uuid4()),
                 "messages": [
                     {"role": "user", "content": "Can you help with a billing issue?"},
-                    {"role": "assistant", "content": "I'd be happy to help with billing. What specific issue are you experiencing?"},
+                    {
+                        "role": "assistant",
+                        "content": "I'd be happy to help with billing. What specific issue are you experiencing?",
+                    },
                 ],
                 "expected_topics": ["billing", "help", "support"],
             },
         ]
         return test_cases
 
-    def _run_evaluation(self, model_path: str,
-                        test_data: List[Dict]) -> Dict[str, float]:
+    def _run_evaluation(
+        self, model_path: str, test_data: List[Dict]
+    ) -> Dict[str, float]:
         """Run evaluation metrics on the model.
 
         Args:
@@ -309,8 +322,7 @@ class ModelValidationService:
 
         return metrics
 
-    def _check_quality_gates(
-            self, metrics: Dict[str, float]) -> Dict[str, Dict]:
+    def _check_quality_gates(self, metrics: Dict[str, float]) -> Dict[str, Dict]:
         """Check metrics against quality gate thresholds.
 
         Args:
@@ -333,12 +345,14 @@ class ModelValidationService:
             "latency_p95": {
                 "threshold": MAX_LATENCY_MS,
                 "actual": metrics.get(METRIC_LATENCY_P95, 0),
-                "passed": metrics.get(METRIC_LATENCY_P95, float("inf")) <= MAX_LATENCY_MS,
+                "passed": metrics.get(METRIC_LATENCY_P95, float("inf"))
+                <= MAX_LATENCY_MS,
             },
             "hallucination_rate": {
                 "threshold": MAX_HALLUCINATION_RATE,
                 "actual": metrics.get(METRIC_HALLUCINATION_RATE, 1),
-                "passed": metrics.get(METRIC_HALLUCINATION_RATE, 1) <= MAX_HALLUCINATION_RATE,
+                "passed": metrics.get(METRIC_HALLUCINATION_RATE, 1)
+                <= MAX_HALLUCINATION_RATE,
             },
             "safety_score": {
                 "threshold": MIN_SAFETY_SCORE,
@@ -370,39 +384,21 @@ class ModelValidationService:
 
         # Get metrics for baseline (simulated)
         baseline_metrics = self._run_evaluation(
-            baseline_path, test_data[:max(1, len(test_data) // 2)])
+            baseline_path, test_data[: max(1, len(test_data) // 2)]
+        )
 
         # Calculate delta
         comparison = {
-            "baseline_accuracy": baseline_metrics.get(
-                METRIC_ACCURACY,
-                0),
-            "new_accuracy": new_metrics.get(
-                METRIC_ACCURACY,
-                0),
-            "accuracy_delta": new_metrics.get(
-                METRIC_ACCURACY,
-                0)
-            - baseline_metrics.get(
-                METRIC_ACCURACY,
-                0),
-            "baseline_latency_p95": baseline_metrics.get(
-                METRIC_LATENCY_P95,
-                0),
-            "new_latency_p95": new_metrics.get(
-                METRIC_LATENCY_P95,
-                0),
-            "latency_delta": new_metrics.get(
-                METRIC_LATENCY_P95,
-                0)
-            - baseline_metrics.get(
-                METRIC_LATENCY_P95,
-                0),
-            "is_improvement": new_metrics.get(
-                METRIC_ACCURACY,
-                0) > baseline_metrics.get(
-                METRIC_ACCURACY,
-                0),
+            "baseline_accuracy": baseline_metrics.get(METRIC_ACCURACY, 0),
+            "new_accuracy": new_metrics.get(METRIC_ACCURACY, 0),
+            "accuracy_delta": new_metrics.get(METRIC_ACCURACY, 0)
+            - baseline_metrics.get(METRIC_ACCURACY, 0),
+            "baseline_latency_p95": baseline_metrics.get(METRIC_LATENCY_P95, 0),
+            "new_latency_p95": new_metrics.get(METRIC_LATENCY_P95, 0),
+            "latency_delta": new_metrics.get(METRIC_LATENCY_P95, 0)
+            - baseline_metrics.get(METRIC_LATENCY_P95, 0),
+            "is_improvement": new_metrics.get(METRIC_ACCURACY, 0)
+            > baseline_metrics.get(METRIC_ACCURACY, 0),
         }
 
         return comparison
@@ -441,25 +437,31 @@ class ModelValidationService:
         for test_case in test_cases:
             try:
                 # Simulate running the test
-                passed = self._run_single_regression_test(
-                    model_path, test_case)
+                passed = self._run_single_regression_test(model_path, test_case)
                 if passed:
                     results["passed"] += 1
                 else:
                     results["failed"] += 1
-                    results["errors"].append({
-                        "test_id": test_case.get("id"),
-                        "reason": "Output did not match expected",
-                    })
+                    results["errors"].append(
+                        {
+                            "test_id": test_case.get("id"),
+                            "reason": "Output did not match expected",
+                        }
+                    )
             except Exception as exc:
                 results["failed"] += 1
-                results["errors"].append({
-                    "test_id": test_case.get("id"),
-                    "reason": str(exc)[:100],
-                })
+                results["errors"].append(
+                    {
+                        "test_id": test_case.get("id"),
+                        "reason": str(exc)[:100],
+                    }
+                )
 
-        results["pass_rate"] = results["passed"] / \
-            results["total_tests"] if results["total_tests"] > 0 else 0
+        results["pass_rate"] = (
+            results["passed"] / results["total_tests"]
+            if results["total_tests"] > 0
+            else 0
+        )
 
         logger.info(
             "regression_tests_completed",
@@ -484,7 +486,14 @@ class ModelValidationService:
                 "id": "reg_001",
                 "name": "Pricing query returns correct tiers",
                 "input": "What pricing options do you have?",
-                "expected_keywords": ["mini", "standard", "high", "999", "2499", "3999"],
+                "expected_keywords": [
+                    "mini",
+                    "standard",
+                    "high",
+                    "999",
+                    "2499",
+                    "3999",
+                ],
             },
             {
                 "id": "reg_002",
@@ -508,10 +517,7 @@ class ModelValidationService:
             },
         ]
 
-    def _run_single_regression_test(
-            self,
-            model_path: str,
-            test_case: Dict) -> bool:
+    def _run_single_regression_test(self, model_path: str, test_case: Dict) -> bool:
         """Run a single regression test.
 
         Args:
@@ -535,11 +541,13 @@ class ModelValidationService:
         # Check for expected keywords
         simulated_response = f"Response to: {input_text}"
         found_keywords = sum(
-            1 for kw in expected_keywords if kw.lower() in simulated_response.lower())
+            1 for kw in expected_keywords if kw.lower() in simulated_response.lower()
+        )
 
         # Pass if we found at least half of expected keywords
-        return found_keywords >= len(
-            expected_keywords) / 2 if expected_keywords else True
+        return (
+            found_keywords >= len(expected_keywords) / 2 if expected_keywords else True
+        )
 
     # ══════════════════════════════════════════════════════════════════════════
     # Validation Status

@@ -58,8 +58,10 @@ logger = logging.getLogger(__name__)
 # Enums
 # ---------------------------------------------------------------------------
 
+
 class MigrationStatus(Enum):
     """Lifecycle states for a feature migration."""
+
     RULE_BASED = "rule"
     AI_BASED = "ai"
     TRANSITIONING = "transitioning"
@@ -69,6 +71,7 @@ class MigrationStatus(Enum):
 
 class FeatureCategory(Enum):
     """High-level grouping of migratable features."""
+
     TICKET_ASSIGNMENT = "ticket_assignment"
     SENTIMENT_ANALYSIS = "sentiment_analysis"
     AUTO_RESPONSE = "auto_response"
@@ -81,6 +84,7 @@ class FeatureCategory(Enum):
 
 class RolloutStrategy(Enum):
     """Supported rollout strategies."""
+
     PERCENTAGE = "percentage"
     CANARY_TENANTS = "canary_tenants"
     ALLOW_LIST = "allow_list"
@@ -90,8 +94,9 @@ class RolloutStrategy(Enum):
 
 class CircuitState(Enum):
     """Circuit-breaker states."""
-    CLOSED = "closed"       # normal operation
-    OPEN = "open"           # failing, requests short-circuit to rule
+
+    CLOSED = "closed"  # normal operation
+    OPEN = "open"  # failing, requests short-circuit to rule
     HALF_OPEN = "half_open"  # probing to see if AI has recovered
 
 
@@ -99,13 +104,14 @@ class CircuitState(Enum):
 # Data Models
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class MigrationConfig:
     """Per-tenant, per-feature migration configuration."""
 
     tenant_id: str
     feature: str
-    rollout_percentage: float = 0.0        # 0.0 → 1.0
+    rollout_percentage: float = 0.0  # 0.0 → 1.0
     rollout_strategy: RolloutStrategy = RolloutStrategy.PERCENTAGE
     enabled: bool = True
     confidence_threshold: float = 0.80
@@ -210,33 +216,24 @@ class CircuitBreakerState:
 # Feature-Flag Backend (abstract)
 # ---------------------------------------------------------------------------
 
+
 class FeatureFlagBackend(ABC):
     """Pluggable backend for feature-flag reads / writes."""
 
     @abstractmethod
-    async def get(self, key: str) -> Optional[str]:
-        ...
+    async def get(self, key: str) -> Optional[str]: ...
 
     @abstractmethod
-    async def set(
-            self,
-            key: str,
-            value: str,
-            ttl: Optional[int] = None) -> None:
-        ...
+    async def set(self, key: str, value: str, ttl: Optional[int] = None) -> None: ...
 
     @abstractmethod
-    async def delete(self, key: str) -> None:
-        ...
+    async def delete(self, key: str) -> None: ...
 
 
 class RedisFeatureFlagBackend(FeatureFlagBackend):
     """Redis-backed implementation."""
 
-    def __init__(
-            self,
-            redis_client: Any,
-            key_prefix: str = "migration") -> None:
+    def __init__(self, redis_client: Any, key_prefix: str = "migration") -> None:
         self._redis = redis_client
         self._prefix = key_prefix
 
@@ -253,11 +250,7 @@ class RedisFeatureFlagBackend(FeatureFlagBackend):
             logger.warning("Redis GET failed for %s", key)
             return None
 
-    async def set(
-            self,
-            key: str,
-            value: str,
-            ttl: Optional[int] = None) -> None:
+    async def set(self, key: str, value: str, ttl: Optional[int] = None) -> None:
         try:
             kw: Dict[str, Any] = {}
             if ttl is not None:
@@ -282,11 +275,7 @@ class InMemoryFeatureFlagBackend(FeatureFlagBackend):
     async def get(self, key: str) -> Optional[str]:
         return self._store.get(key)
 
-    async def set(
-            self,
-            key: str,
-            value: str,
-            ttl: Optional[int] = None) -> None:
+    async def set(self, key: str, value: str, ttl: Optional[int] = None) -> None:
         self._store[key] = value
 
     async def delete(self, key: str) -> None:
@@ -296,6 +285,7 @@ class InMemoryFeatureFlagBackend(FeatureFlagBackend):
 # ---------------------------------------------------------------------------
 # Circuit Breaker
 # ---------------------------------------------------------------------------
+
 
 class CircuitBreaker:
     """Standard circuit-breaker pattern per feature key.
@@ -349,8 +339,7 @@ class CircuitBreaker:
                 cb.state = CircuitState.CLOSED
                 cb.failure_count = 0
                 cb.half_open_calls = 0
-                logger.info(
-                    "Circuit CLOSED for %s after successful probe", key)
+                logger.info("Circuit CLOSED for %s after successful probe", key)
 
     def record_failure(self, key: str) -> None:
         cb = self._ensure(key)
@@ -362,28 +351,23 @@ class CircuitBreaker:
             cb.state = CircuitState.OPEN
             cb.opened_at = now
             cb.half_open_calls = 0
-            logger.warning(
-                "Circuit re-OPENED for %s during half-open probe", key)
+            logger.warning("Circuit re-OPENED for %s during half-open probe", key)
         elif cb.failure_count >= cb.error_threshold:
             cb.state = CircuitState.OPEN
             cb.opened_at = now
-            logger.warning(
-                "Circuit OPENED for %s (failures=%d)", key, cb.failure_count
-            )
+            logger.warning("Circuit OPENED for %s (failures=%d)", key, cb.failure_count)
 
     def get_state(self, key: str) -> CircuitState:
         cb = self._ensure(key)
         if self._should_transition_to_half_open(cb):
             cb.state = CircuitState.HALF_OPEN
             cb.half_open_calls = 0
-            logger.info(
-                "Circuit HALF_OPEN for %s (recovery timeout elapsed)", key)
+            logger.info("Circuit HALF_OPEN for %s (recovery timeout elapsed)", key)
         return cb.state
 
     def is_available(self, key: str) -> bool:
         """True when the circuit allows traffic (CLOSED or HALF_OPEN)."""
-        return self.get_state(key) in (
-            CircuitState.CLOSED, CircuitState.HALF_OPEN)
+        return self.get_state(key) in (CircuitState.CLOSED, CircuitState.HALF_OPEN)
 
     def get_state_detail(self, key: str) -> Dict[str, Any]:
         cb = self._ensure(key)
@@ -401,6 +385,7 @@ class CircuitBreaker:
 # Rollout Evaluator
 # ---------------------------------------------------------------------------
 
+
 class RolloutEvaluator:
     """Determines whether a specific request falls within the rollout window."""
 
@@ -417,10 +402,7 @@ class RolloutEvaluator:
         if rollout_pct <= 0.0:
             return False
         seed = f"{tenant_id}:{ticket_id or ''}"
-        bucket = int(
-            hashlib.sha256(
-                seed.encode()).hexdigest()[
-                :8], 16) / 0xFFFFFFFF
+        bucket = int(hashlib.sha256(seed.encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
         return bucket < rollout_pct
 
     @staticmethod
@@ -450,6 +432,7 @@ class RolloutEvaluator:
 # ---------------------------------------------------------------------------
 # Migration Event Bus
 # ---------------------------------------------------------------------------
+
 
 class MigrationEvent:
     """Immutable record of a migration lifecycle event."""
@@ -492,14 +475,12 @@ class MigrationEventBus:
     def publish(self, event: MigrationEvent) -> None:
         self._history.append(event)
         if len(self._history) > self._max_history:
-            self._history = self._history[-self._max_history:]
+            self._history = self._history[-self._max_history :]
         for handler in self._subs.get(event.event_type, []):
             try:
                 handler(event)
             except Exception:
-                logger.exception(
-                    "Migration event handler error (%s)",
-                    event.event_type)
+                logger.exception("Migration event handler error (%s)", event.event_type)
 
     def get_history(
         self, event_type: Optional[str] = None, limit: int = 100
@@ -516,6 +497,7 @@ class MigrationEventBus:
 # ---------------------------------------------------------------------------
 # Migration Engine (main orchestrator)
 # ---------------------------------------------------------------------------
+
 
 class MigrationEngine:
     """Manages gradual rule → AI migration with Redis-backed feature flags.
@@ -582,35 +564,40 @@ class MigrationEngine:
                 self._metrics["ai_enabled_checks"] += 1
                 self._bump_feature(tenant_id, feature, "ai_enabled")
             logger.debug(
-                "Flag check: %s → val=%r, ai=%s", key, val, result,
+                "Flag check: %s → val=%r, ai=%s",
+                key,
+                val,
+                result,
             )
             return result
         except Exception as exc:
             logger.error(
-                "Migration check error for %s:%s — %s",
-                tenant_id,
-                feature,
-                exc)
+                "Migration check error for %s:%s — %s", tenant_id, feature, exc
+            )
             self._metrics["migration_errors"] += 1
             return True  # fail-open
 
     async def enable_ai(self, tenant_id: str, feature: str) -> bool:
         key = self._redis_key(tenant_id, feature)
         await self._backend.set(key, "ai")
-        self._event_bus.publish(MigrationEvent(
-            event_type="migration.ai_enabled",
-            payload={"tenant_id": tenant_id, "feature": feature},
-        ))
+        self._event_bus.publish(
+            MigrationEvent(
+                event_type="migration.ai_enabled",
+                payload={"tenant_id": tenant_id, "feature": feature},
+            )
+        )
         logger.info("AI enabled for %s:%s", tenant_id, feature)
         return True
 
     async def disable_ai(self, tenant_id: str, feature: str) -> bool:
         key = self._redis_key(tenant_id, feature)
         await self._backend.set(key, "rule")
-        self._event_bus.publish(MigrationEvent(
-            event_type="migration.ai_disabled",
-            payload={"tenant_id": tenant_id, "feature": feature},
-        ))
+        self._event_bus.publish(
+            MigrationEvent(
+                event_type="migration.ai_disabled",
+                payload={"tenant_id": tenant_id, "feature": feature},
+            )
+        )
         logger.info("AI disabled for %s:%s", tenant_id, feature)
         return True
 
@@ -618,10 +605,7 @@ class MigrationEngine:
         key = self._redis_key(tenant_id, feature)
         await self._backend.delete(key)
 
-    async def get_flag_value(
-            self,
-            tenant_id: str,
-            feature: str) -> Optional[str]:
+    async def get_flag_value(self, tenant_id: str, feature: str) -> Optional[str]:
         key = self._redis_key(tenant_id, feature)
         return await self._backend.get(key)
 
@@ -637,17 +621,20 @@ class MigrationEngine:
         config.updated_at = datetime.now(timezone.utc).isoformat()
         key = self._redis_key(config.tenant_id, config.feature)
         self._configs[key] = config
-        self._event_bus.publish(MigrationEvent(
-            event_type="migration.config_updated",
-            payload=config.to_dict(),
-        ))
+        self._event_bus.publish(
+            MigrationEvent(
+                event_type="migration.config_updated",
+                payload=config.to_dict(),
+            )
+        )
 
     async def delete_config(self, tenant_id: str, feature: str) -> None:
         key = self._redis_key(tenant_id, feature)
         self._configs.pop(key, None)
 
     async def list_configs(
-            self, tenant_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        self, tenant_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         configs = self._configs.values()
         if tenant_id:
             configs = [c for c in configs if c.tenant_id == tenant_id]
@@ -671,12 +658,8 @@ class MigrationEngine:
         start = time.monotonic()
         config = await self.get_config(tenant_id, feature)
         rollout_pct = config.rollout_percentage if config else 1.0
-        rollout_strategy = (
-            config.rollout_strategy.value if config else "all_at_once"
-        )
-        confidence_threshold = (
-            config.confidence_threshold if config else 0.80
-        )
+        rollout_strategy = config.rollout_strategy.value if config else "all_at_once"
+        confidence_threshold = config.confidence_threshold if config else 0.80
 
         circuit_key = self._redis_key(tenant_id, feature)
         circuit_state = self._circuit.get_state(circuit_key)
@@ -687,10 +670,15 @@ class MigrationEngine:
             self._metrics["rule_fallbacks"] += 1
             self._bump_feature(tenant_id, feature, "rule_fallbacks")
             return self._result(
-                tenant_id, feature, False,
+                tenant_id,
+                feature,
+                False,
                 "AI disabled by feature flag",
-                rollout_strategy, confidence, rollout_pct,
-                circuit_state.value, start,
+                rollout_strategy,
+                confidence,
+                rollout_pct,
+                circuit_state.value,
+                start,
             )
 
         # Step 2: circuit breaker
@@ -712,16 +700,24 @@ class MigrationEngine:
 
         # Step 3: rollout
         rollout_ok = self._evaluate_rollout(
-            tenant_id, config, region, ticket_id,
+            tenant_id,
+            config,
+            region,
+            ticket_id,
         )
         if not rollout_ok:
             self._metrics["rollout_blocked"] += 1
             self._bump_feature(tenant_id, feature, "rollout_blocked")
             return self._result(
-                tenant_id, feature, False,
+                tenant_id,
+                feature,
+                False,
                 f"Not in rollout (pct={rollout_pct:.0%})",
-                rollout_strategy, confidence, rollout_pct,
-                circuit_state.value, start,
+                rollout_strategy,
+                confidence,
+                rollout_pct,
+                circuit_state.value,
+                start,
             )
 
         # Step 4: confidence
@@ -743,10 +739,15 @@ class MigrationEngine:
             )
 
         return self._result(
-            tenant_id, feature, True,
+            tenant_id,
+            feature,
+            True,
             "AI enabled",
-            rollout_strategy, confidence, rollout_pct,
-            circuit_state.value, start,
+            rollout_strategy,
+            confidence,
+            rollout_pct,
+            circuit_state.value,
+            start,
         )
 
     # -- Rollout evaluation --
@@ -768,7 +769,9 @@ class MigrationEngine:
 
         if strategy == RolloutStrategy.PERCENTAGE:
             return RolloutEvaluator.by_percentage(
-                config.rollout_percentage, tenant_id, ticket_id,
+                config.rollout_percentage,
+                tenant_id,
+                ticket_id,
             )
 
         if strategy == RolloutStrategy.CANARY_TENANTS:
@@ -793,10 +796,12 @@ class MigrationEngine:
         self._circuit.record_failure(key)
         state = self._circuit.get_state(key)
         if state == CircuitState.OPEN:
-            self._event_bus.publish(MigrationEvent(
-                event_type="migration.circuit_opened",
-                payload={"tenant_id": tenant_id, "feature": feature},
-            ))
+            self._event_bus.publish(
+                MigrationEvent(
+                    event_type="migration.circuit_opened",
+                    payload={"tenant_id": tenant_id, "feature": feature},
+                )
+            )
 
     # -- Batch --
 
@@ -811,7 +816,11 @@ class MigrationEngine:
             region = chk.get("region")
             ticket_id = chk.get("ticket_id")
             result = await self.check_should_use_ai(
-                tid, feat, confidence=conf, region=region, ticket_id=ticket_id,
+                tid,
+                feat,
+                confidence=conf,
+                region=region,
+                ticket_id=ticket_id,
             )
             results[f"{tid}:{feat}"] = result
         return results
@@ -838,8 +847,7 @@ class MigrationEngine:
             "per_feature": dict(self._metrics.get("per_feature", {})),
         }
 
-    def get_circuit_state(self, tenant_id: str,
-                          feature: str) -> Dict[str, Any]:
+    def get_circuit_state(self, tenant_id: str, feature: str) -> Dict[str, Any]:
         key = self._redis_key(tenant_id, feature)
         return self._circuit.get_state_detail(key)
 
@@ -853,8 +861,12 @@ class MigrationEngine:
 
     async def reset_metrics(self) -> None:
         counters = [
-            "total_checks", "ai_enabled_checks", "rule_fallbacks",
-            "rollout_blocked", "circuit_blocked", "confidence_blocked",
+            "total_checks",
+            "ai_enabled_checks",
+            "rule_fallbacks",
+            "rollout_blocked",
+            "circuit_blocked",
+            "confidence_blocked",
             "migration_errors",
         ]
         for k in counters:
@@ -871,9 +883,7 @@ class MigrationEngine:
 
     # -- helpers --
 
-    def _bump_feature(
-        self, tenant_id: str, feature: str, metric: str
-    ) -> None:
+    def _bump_feature(self, tenant_id: str, feature: str, metric: str) -> None:
         key = f"{tenant_id}:{feature}"
         pf = self._metrics.setdefault("per_feature", {})
         feat_map = pf.setdefault(key, {})
@@ -908,6 +918,7 @@ class MigrationEngine:
 # Migration Planner (staged rollout orchestration)
 # ---------------------------------------------------------------------------
 
+
 class MigrationPlanner:
     """Plans and executes staged rollouts for a feature.
 
@@ -937,9 +948,7 @@ class MigrationPlanner:
     def _key(self, tenant_id: str, feature: str) -> str:
         return f"{tenant_id}:{feature}"
 
-    async def advance(
-        self, tenant_id: str, feature: str
-    ) -> Dict[str, Any]:
+    async def advance(self, tenant_id: str, feature: str) -> Dict[str, Any]:
         """Move to the next rollout stage and return the new config."""
         key = self._key(tenant_id, feature)
         idx = self._stage_index.get(key, -1) + 1
@@ -957,15 +966,17 @@ class MigrationPlanner:
         await self._engine.set_config(config)
         await self._engine.enable_ai(tenant_id, feature)
 
-        self._engine._event_bus.publish(MigrationEvent(
-            event_type="migration.stage_advanced",
-            payload={
-                "tenant_id": tenant_id,
-                "feature": feature,
-                "stage": stage["name"],
-                "percentage": stage["percentage"],
-            },
-        ))
+        self._engine._event_bus.publish(
+            MigrationEvent(
+                event_type="migration.stage_advanced",
+                payload={
+                    "tenant_id": tenant_id,
+                    "feature": feature,
+                    "stage": stage["name"],
+                    "percentage": stage["percentage"],
+                },
+            )
+        )
 
         return {
             "status": "advanced",
@@ -993,8 +1004,10 @@ class MigrationPlanner:
                 payload={
                     "tenant_id": tenant_id,
                     "feature": feature,
-                    "previous_stage": prev_stage},
-            ))
+                    "previous_stage": prev_stage,
+                },
+            )
+        )
 
         return {"status": "rolled_back", "previous_stage": prev_stage}
 
@@ -1028,6 +1041,7 @@ class MigrationPlanner:
 # Audit logger (optional companion for compliance)
 # ---------------------------------------------------------------------------
 
+
 class MigrationAuditLogger:
     """Persistent audit trail for migration state changes.
 
@@ -1058,7 +1072,7 @@ class MigrationAuditLogger:
         }
         self._entries.append(entry)
         if len(self._entries) > self._max:
-            self._entries = self._entries[-self._max:]
+            self._entries = self._entries[-self._max :]
         logger.info("AUDIT %s %s:%s by %s", action, tenant_id, feature, actor)
         return entry
 
@@ -1085,6 +1099,7 @@ class MigrationAuditLogger:
 # ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
+
 
 def create_migration_engine(
     redis_client: Any = None,

@@ -15,7 +15,6 @@ import hashlib
 import hmac
 import ipaddress
 
-
 # Default Brevo IP ranges (from Brevo documentation)
 DEFAULT_BREVO_IPS = [
     "185.107.232.0/24",
@@ -52,7 +51,8 @@ def verify_paddle_signature(
             hashlib.sha256,
         ).hexdigest()
         return hmac.compare_digest(
-            expected, signature_header.strip(),
+            expected,
+            signature_header.strip(),
         )
     except Exception:
         return False
@@ -94,7 +94,8 @@ def verify_twilio_signature(
         ).hexdigest()
 
         return hmac.compare_digest(
-            expected, twilio_signature.strip(),
+            expected,
+            twilio_signature.strip(),
         )
     except Exception:
         return False
@@ -122,6 +123,7 @@ def verify_shopify_hmac(
         return False
     try:
         import base64
+
         expected = hmac.new(
             secret.encode("utf-8"),
             payload_body,
@@ -129,7 +131,8 @@ def verify_shopify_hmac(
         ).digest()
         expected_b64 = base64.b64encode(expected).decode("utf-8")
         return hmac.compare_digest(
-            expected_b64, hmac_header.strip(),
+            expected_b64,
+            hmac_header.strip(),
         )
     except Exception:
         return False

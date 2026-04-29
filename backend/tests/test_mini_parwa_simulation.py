@@ -30,14 +30,13 @@ import uuid
 
 # Add project root to path
 _project_root = os.path.dirname(
-    os.path.dirname(
-        os.path.dirname(
-            os.path.abspath(__file__))))
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 # Backend dir for 'app' imports
-_backend_dir = os.path.join(_project_root, 'backend')
+_backend_dir = os.path.join(_project_root, "backend")
 if _backend_dir not in sys.path:
     sys.path.insert(0, _backend_dir)
 
@@ -52,6 +51,7 @@ os.environ.setdefault("ENVIRONMENT", "test")
 # ═══════════════════════════════════════════════════════════════════════════════
 # FAKE COMPANY SCENARIO
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class FakeCompany:
     """Simulates a real company hiring Mini PARWA."""
@@ -96,17 +96,14 @@ class FakeCompany:
     def add_team_member(self, name: str, email: str, role: str = "agent"):
         """Add a team member (max 3 for Mini PARWA)."""
         if self.usage["team_members_used"] >= self.limits["team_members"]:
-            return {
-                "success": False,
-                "error": "TEAM_LIMIT_REACHED",
-                "limit": 3}
+            return {"success": False, "error": "TEAM_LIMIT_REACHED", "limit": 3}
 
         member = {
             "id": str(uuid.uuid4()),
             "name": name,
             "email": email,
             "role": role,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.utcnow(),
         }
         self.team.append(member)
         self.usage["team_members_used"] += 1
@@ -119,19 +116,22 @@ class FakeCompany:
             "question": question,
             "answer": answer,
             "category": category,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.utcnow(),
         }
         self.faqs.append(faq)
         return faq
 
-    def create_ticket(self, subject: str, message: str, customer_email: str,
-                      channel: str = "email", language: str = "en"):
+    def create_ticket(
+        self,
+        subject: str,
+        message: str,
+        customer_email: str,
+        channel: str = "email",
+        language: str = "en",
+    ):
         """Create a support ticket."""
         if self.usage["tickets_used"] >= self.limits["monthly_tickets"]:
-            return {
-                "success": False,
-                "error": "TICKET_LIMIT_REACHED",
-                "limit": 2000}
+            return {"success": False, "error": "TICKET_LIMIT_REACHED", "limit": 2000}
 
         ticket = {
             "id": str(uuid.uuid4()),
@@ -144,12 +144,14 @@ class FakeCompany:
             "status": "open",
             "priority": "medium",
             "created_at": datetime.utcnow(),
-            "messages": [{
-                "id": str(uuid.uuid4()),
-                "role": "customer",
-                "content": message,
-                "created_at": datetime.utcnow()
-            }]
+            "messages": [
+                {
+                    "id": str(uuid.uuid4()),
+                    "role": "customer",
+                    "content": message,
+                    "created_at": datetime.utcnow(),
+                }
+            ],
         }
         self.tickets.append(ticket)
         self.usage["tickets_used"] += 1
@@ -177,7 +179,7 @@ class FakeCompany:
             return {
                 "available": False,
                 "reason": blocked_features[feature],
-                "upgrade_required": self._get_upgrade_for_feature(feature)
+                "upgrade_required": self._get_upgrade_for_feature(feature),
             }
         return {"available": True}
 
@@ -190,7 +192,8 @@ class FakeCompany:
             "technique_least_to_most",
             "technique_step_back",
             "custom_integrations",
-            "api_readwrite"]
+            "api_readwrite",
+        ]
         if feature in parwa_features:
             return "parwa"
         return "high_parwa"
@@ -199,6 +202,7 @@ class FakeCompany:
 # ═══════════════════════════════════════════════════════════════════════════════
 # AI RESPONSE SIMULATOR
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class AIResponseSimulator:
     """Simulates Mini PARWA AI responses."""
@@ -213,20 +217,11 @@ class AIResponseSimulator:
         query_lower = query.lower()
         for faq in self.company.faqs:
             # Simple keyword matching
-            if any(
-                    word in query_lower for word in faq["question"].lower().split()):
-                return {
-                    "matched": True,
-                    "faq": faq,
-                    "confidence": 0.85
-                }
+            if any(word in query_lower for word in faq["question"].lower().split()):
+                return {"matched": True, "faq": faq, "confidence": 0.85}
             # Check for similar question patterns
             if self._similar_questions(query_lower, faq["question"].lower()):
-                return {
-                    "matched": True,
-                    "faq": faq,
-                    "confidence": 0.75
-                }
+                return {"matched": True, "faq": faq, "confidence": 0.75}
         return {"matched": False}
 
     def _similar_questions(self, query: str, faq_question: str) -> bool:
@@ -239,16 +234,13 @@ class AIResponseSimulator:
             return True
         return False
 
-    def generate_response(
-            self,
-            ticket: dict,
-            technique: str = "clara") -> dict:
+    def generate_response(self, ticket: dict, technique: str = "clara") -> dict:
         """Generate AI response using specified technique."""
         result = {
             "ticket_id": ticket["id"],
             "technique_used": technique,
             "model_used": self.model_tier,
-            "timestamp": datetime.utcnow()
+            "timestamp": datetime.utcnow(),
         }
 
         # Check FAQ match first
@@ -282,7 +274,8 @@ class AIResponseSimulator:
                 ticket['subject']}. Let me help you with this issue. Could you please provide more details so I can assist you better?",
             "confidence": 0.78,
             "reasoning": "Used CLARA technique for contextual understanding",
-            "tier": 1}
+            "tier": 1,
+        }
 
     def _crp_technique(self, ticket: dict) -> dict:
         """CRP: Contextual Response Protocol."""
@@ -293,7 +286,8 @@ class AIResponseSimulator:
                 ticket['subject']}', I've analyzed our knowledge base and found relevant information. Here's what I can suggest...",
             "confidence": 0.82,
             "reasoning": "Used CRP protocol for structured response",
-            "tier": 1}
+            "tier": 1,
+        }
 
     def _gsd_technique(self, ticket: dict) -> dict:
         """GSD: Guided Solution Discovery."""
@@ -304,7 +298,8 @@ class AIResponseSimulator:
                 ticket['subject']}', I'll guide you through the solution process. First, can you confirm if you've tried the basic troubleshooting steps?",
             "confidence": 0.80,
             "reasoning": "Used GSD for guided discovery approach",
-            "tier": 1}
+            "tier": 1,
+        }
 
     def _basic_response(self, ticket: dict) -> dict:
         """Basic fallback response."""
@@ -314,21 +309,14 @@ class AIResponseSimulator:
             "response": f"Thank you for your message. Our team will review your request regarding '{
                 ticket['subject']}' and get back to you shortly.",
             "confidence": 0.65,
-            "reasoning": "Basic fallback response"}
+            "reasoning": "Basic fallback response",
+        }
 
     def can_use_technique(self, technique: str) -> dict:
         """Check if technique is available for Mini PARWA."""
-        tier1_techniques = [
-            "clara",
-            "crp",
-            "gsd",
-            "chain_of_thought",
-            "basic_react"]
+        tier1_techniques = ["clara", "crp", "gsd", "chain_of_thought", "basic_react"]
         tier2_techniques = ["tree_of_thoughts", "least_to_most", "step_back"]
-        tier3_techniques = [
-            "self_consistency",
-            "reflexion",
-            "universe_of_thoughts"]
+        tier3_techniques = ["self_consistency", "reflexion", "universe_of_thoughts"]
 
         if technique.lower() in tier1_techniques:
             return {"available": True, "tier": 1}
@@ -336,12 +324,14 @@ class AIResponseSimulator:
             return {
                 "available": False,
                 "reason": "Tier 2 technique requires Parwa tier",
-                "tier": 2}
+                "tier": 2,
+            }
         elif technique.lower() in tier3_techniques:
             return {
                 "available": False,
                 "reason": "Tier 3 technique requires High Parwa tier",
-                "tier": 3}
+                "tier": 3,
+            }
 
         return {"available": False, "reason": "Unknown technique"}
 
@@ -349,6 +339,7 @@ class AIResponseSimulator:
 # ═══════════════════════════════════════════════════════════════════════════════
 # TEST CLASS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestMiniParwaSimulation:
     """End-to-end simulation tests for Mini PARWA."""
@@ -395,14 +386,12 @@ class TestMiniParwaSimulation:
         assert fake_company.limits["kb_docs"] == 100
         assert fake_company.limits["voice_slots"] == 0
 
-        print(
-            f"\n✓ Monthly Tickets Limit: {
+        print(f"\n✓ Monthly Tickets Limit: {
                 fake_company.limits['monthly_tickets']}")
         print(f"✓ AI Agents Limit: {fake_company.limits['ai_agents']}")
         print(f"✓ Team Members Limit: {fake_company.limits['team_members']}")
         print(f"✓ KB Docs Limit: {fake_company.limits['kb_docs']}")
-        print(
-            f"✓ Voice Slots: {
+        print(f"✓ Voice Slots: {
                 fake_company.limits['voice_slots']} (Not available)")
 
         print("\n✅ SCENARIO 1 PASSED: Company onboarded successfully\n")
@@ -423,30 +412,48 @@ class TestMiniParwaSimulation:
         print("=" * 80)
 
         # Add FAQs
-        faqs = [{"question": "How do I reset my password?",
-                 "answer": "To reset your password, go to Settings > Security > Reset Password. You'll receive an email with a reset link valid for 24 hours.",
-                 "category": "account"},
-                {"question": "What payment methods do you accept?",
-                 "answer": "We accept all major credit cards (Visa, MasterCard, American Express), PayPal, and bank transfers for annual subscriptions.",
-                 "category": "billing"},
-                {"question": "How do I upgrade my plan?",
-                 "answer": "To upgrade your plan, go to Settings > Subscription > Change Plan. Select your new plan and complete the payment. Your billing will be prorated.",
-                 "category": "billing"},
-                {"question": "Is my data secure?",
-                 "answer": "Yes, we use AES-256 encryption for all data at rest and TLS 1.3 for data in transit. We are SOC 2 Type II certified and GDPR compliant.",
-                 "category": "security"},
-                {"question": "How do I contact support?",
-                 "answer": "You can reach our support team via email at support@techstartup.io, or through the live chat widget on our website. Our business hours are 9 AM - 6 PM IST, Monday to Friday.",
-                 "category": "general"},
-                {"question": "What is your refund policy?",
-                 "answer": "We offer a 14-day money-back guarantee for all new subscriptions. For annual plans, you can request a prorated refund within 30 days.",
-                 "category": "billing"},
-                {"question": "How do I integrate with Slack?",
-                 "answer": "Go to Settings > Integrations > Slack. Click 'Connect to Slack' and authorize the integration. You'll be able to receive notifications and create tickets from Slack.",
-                 "category": "integrations"},
-                {"question": "Can I export my data?",
-                 "answer": "Yes, you can export all your data including tickets, customers, and knowledge base. Go to Settings > Data Management > Export Data. Choose your format (CSV, JSON, or PDF).",
-                 "category": "general"}]
+        faqs = [
+            {
+                "question": "How do I reset my password?",
+                "answer": "To reset your password, go to Settings > Security > Reset Password. You'll receive an email with a reset link valid for 24 hours.",
+                "category": "account",
+            },
+            {
+                "question": "What payment methods do you accept?",
+                "answer": "We accept all major credit cards (Visa, MasterCard, American Express), PayPal, and bank transfers for annual subscriptions.",
+                "category": "billing",
+            },
+            {
+                "question": "How do I upgrade my plan?",
+                "answer": "To upgrade your plan, go to Settings > Subscription > Change Plan. Select your new plan and complete the payment. Your billing will be prorated.",
+                "category": "billing",
+            },
+            {
+                "question": "Is my data secure?",
+                "answer": "Yes, we use AES-256 encryption for all data at rest and TLS 1.3 for data in transit. We are SOC 2 Type II certified and GDPR compliant.",
+                "category": "security",
+            },
+            {
+                "question": "How do I contact support?",
+                "answer": "You can reach our support team via email at support@techstartup.io, or through the live chat widget on our website. Our business hours are 9 AM - 6 PM IST, Monday to Friday.",
+                "category": "general",
+            },
+            {
+                "question": "What is your refund policy?",
+                "answer": "We offer a 14-day money-back guarantee for all new subscriptions. For annual plans, you can request a prorated refund within 30 days.",
+                "category": "billing",
+            },
+            {
+                "question": "How do I integrate with Slack?",
+                "answer": "Go to Settings > Integrations > Slack. Click 'Connect to Slack' and authorize the integration. You'll be able to receive notifications and create tickets from Slack.",
+                "category": "integrations",
+            },
+            {
+                "question": "Can I export my data?",
+                "answer": "Yes, you can export all your data including tickets, customers, and knowledge base. Go to Settings > Data Management > Export Data. Choose your format (CSV, JSON, or PDF).",
+                "category": "general",
+            },
+        ]
 
         for faq_data in faqs:
             faq = fake_company.add_faq(**faq_data)
@@ -473,7 +480,8 @@ class TestMiniParwaSimulation:
     # ═══════════════════════════════════════════════════════════════════════════
 
     def test_scenario_3_ticket_creation_and_ai_response(
-            self, fake_company, ai_simulator):
+        self, fake_company, ai_simulator
+    ):
         """
         SCENARIO 3: Customer Creates Ticket, AI Responds
 
@@ -488,14 +496,16 @@ class TestMiniParwaSimulation:
         fake_company.add_faq(
             question="How do I reset my password?",
             answer="To reset your password, go to Settings > Security > Reset Password. You'll receive an email with a reset link valid for 24 hours.",
-            category="account")
+            category="account",
+        )
 
         # Customer creates ticket
         ticket_result = fake_company.create_ticket(
             subject="Can't login to my account",
             message="I forgot my password and cannot login. How do I reset my password?",
             customer_email="john.doe@example.com",
-            channel="email")
+            channel="email",
+        )
 
         assert ticket_result["success"]
         ticket = ticket_result["ticket"]
@@ -510,8 +520,7 @@ class TestMiniParwaSimulation:
 
         print("\n✓ AI Response Generated:")
         print(f"  Type: {ai_response.get('response_type', 'unknown')}")
-        print(
-            f"  Technique: {
+        print(f"  Technique: {
                 ai_response.get(
                     'technique',
                     ai_response.get(
@@ -548,18 +557,14 @@ class TestMiniParwaSimulation:
 
         # Setup FAQs
         test_faqs = [
-            ("How do I reset my password?",
-             "To reset your password...",
-             "account"),
-            ("What payment methods do you accept?",
-             "We accept all major credit cards...",
-             "billing"),
-            ("How do I upgrade my plan?",
-             "To upgrade your plan...",
-             "billing"),
-            ("Is my data secure?",
-             "Yes, we use AES-256 encryption...",
-             "security"),
+            ("How do I reset my password?", "To reset your password...", "account"),
+            (
+                "What payment methods do you accept?",
+                "We accept all major credit cards...",
+                "billing",
+            ),
+            ("How do I upgrade my plan?", "To upgrade your plan...", "billing"),
+            ("Is my data secure?", "Yes, we use AES-256 encryption...", "security"),
         ]
 
         for q, a, cat in test_faqs:
@@ -593,7 +598,7 @@ class TestMiniParwaSimulation:
                 "query": test_case["query"],
                 "matched": match_result.get("matched", False),
                 "confidence": match_result.get("confidence", 0),
-                "expected": test_case["expected_match"]
+                "expected": test_case["expected_match"],
             }
             results.append(result)
 
@@ -628,32 +633,32 @@ class TestMiniParwaSimulation:
                 "subject": "Password Reset Issue",
                 "message": "I cannot reset my password. Please help.",
                 "language": "en",
-                "expected": "english"
+                "expected": "english",
             },
             {
                 "subject": "Problema de inicio de sesión",
                 "message": "No puedo iniciar sesión en mi cuenta.",
                 "language": "es",
-                "expected": "spanish"
+                "expected": "spanish",
             },
             {
                 "subject": "Problème de connexion",
                 "message": "Je ne peux pas me connecter à mon compte.",
                 "language": "fr",
-                "expected": "french"
+                "expected": "french",
             },
             {
                 "subject": "登录问题",
                 "message": "我无法登录我的账户。",
                 "language": "zh",
-                "expected": "chinese"
+                "expected": "chinese",
             },
             {
                 "subject": "ログインの問題",
                 "message": "アカウントにログインできません。",
                 "language": "ja",
-                "expected": "japanese"
-            }
+                "expected": "japanese",
+            },
         ]
 
         for ticket_data in multi_lang_tickets:
@@ -662,10 +667,10 @@ class TestMiniParwaSimulation:
                 message=ticket_data["message"],
                 customer_email=f"customer_{
                     ticket_data['language']}@example.com",
-                language=ticket_data["language"])
+                language=ticket_data["language"],
+            )
 
-            print(
-                f"\n✓ Ticket Created ({
+            print(f"\n✓ Ticket Created ({
                     ticket_data['expected']}): {
                     ticket_data['subject']}")
             print(f"  Language: {ticket_data['language']}")
@@ -696,8 +701,7 @@ class TestMiniParwaSimulation:
         print("\n--- Team Member Limit Test ---")
         for i in range(5):
             result = fake_company.add_team_member(
-                name=f"Team Member {i + 1}",
-                email=f"member{i + 1}@techstartup.io"
+                name=f"Team Member {i + 1}", email=f"member{i + 1}@techstartup.io"
             )
             if result["success"]:
                 print(f"✓ Added Team Member {i + 1}")
@@ -706,8 +710,7 @@ class TestMiniParwaSimulation:
                 assert result["error"] == "TEAM_LIMIT_REACHED"
 
         assert fake_company.usage["team_members_used"] == 3
-        print(
-            f"\n✓ Team members: {
+        print(f"\n✓ Team members: {
                 fake_company.usage['team_members_used']}/{
                 fake_company.limits['team_members']}")
 
@@ -720,18 +723,17 @@ class TestMiniParwaSimulation:
         result = fake_company.create_ticket(
             subject="Test ticket",
             message="This is a test",
-            customer_email="test@example.com"
+            customer_email="test@example.com",
         )
         assert result["success"]
-        print(
-            f"✓ Created ticket at limit: {
+        print(f"✓ Created ticket at limit: {
                 fake_company.usage['tickets_used']}/2000")
 
         # Should block next
         result = fake_company.create_ticket(
             subject="Overflow ticket",
             message="This should be blocked",
-            customer_email="test@example.com"
+            customer_email="test@example.com",
         )
         assert result["success"] is False
         assert result["error"] == "TICKET_LIMIT_REACHED"
@@ -767,7 +769,7 @@ class TestMiniParwaSimulation:
             "technique_self_consistency",
             "custom_integrations",
             "api_readwrite",
-            "outgoing_webhooks"
+            "outgoing_webhooks",
         ]
 
         for feature in blocked_features:
@@ -783,7 +785,7 @@ class TestMiniParwaSimulation:
             "chat_widget",
             "ai_resolution",
             "kb_search",
-            "shadow_mode"
+            "shadow_mode",
         ]
 
         print("\n--- Allowed Features ---")
@@ -815,7 +817,8 @@ class TestMiniParwaSimulation:
         ticket_result = fake_company.create_ticket(
             subject="Need help with integration",
             message="I'm trying to integrate your API but getting authentication errors.",
-            customer_email="developer@example.com")
+            customer_email="developer@example.com",
+        )
         ticket = ticket_result["ticket"]
 
         # Test Tier 1 Techniques (Should work)
@@ -825,15 +828,13 @@ class TestMiniParwaSimulation:
         for technique in tier1_techniques:
             result = ai_simulator.can_use_technique(technique)
             assert result["available"]
-            print(
-                f"\n✓ {
+            print(f"\n✓ {
                     technique.upper()}: AVAILABLE (Tier {
                     result['tier']})")
 
             # Generate response with this technique
             response = ai_simulator.generate_response(ticket, technique)
-            print(
-                f"  Response generated: {
+            print(f"  Response generated: {
                     response.get(
                         'technique',
                         'unknown')}")
@@ -920,7 +921,7 @@ class TestMiniParwaSimulation:
         ticket_result = fake_company.create_ticket(
             subject="Billing question",
             message="I was charged twice this month. Can you help?",
-            customer_email="customer@example.com"
+            customer_email="customer@example.com",
         )
         ticket = ticket_result["ticket"]
 
@@ -982,26 +983,20 @@ class TestMiniParwaSimulation:
 
         print("\n--- Mini PARWA Pipeline Configuration (Official Docs) ---")
         print(f"✓ Model Tiers: {expected_config['model_tiers']}")
-        print(
-            f"✓ RAG Depth: top_k={
+        print(f"✓ RAG Depth: top_k={
                 expected_config['rag_depth']['top_k']}, rerank={
                 expected_config['rag_depth']['rerank']}")
-        print(
-            f"✓ Confidence Threshold: {
+        print(f"✓ Confidence Threshold: {
                 expected_config['confidence_threshold']}%")
-        print(
-            f"✓ Auto Action Threshold: {
+        print(f"✓ Auto Action Threshold: {
                 expected_config['auto_action_threshold']}%")
         print(f"✓ Technique Tiers: {expected_config['technique_tiers']}")
         print(f"✓ Guardrails Level: {expected_config['guardrails_level']}")
-        print(
-            f"✓ Max Response Length: {
+        print(f"✓ Max Response Length: {
                 expected_config['max_response_length']} chars")
-        print(
-            f"✓ Brand Voice: {
+        print(f"✓ Brand Voice: {
                 'Yes' if expected_config['brand_voice'] else 'No'}")
-        print(
-            f"✓ Escalation on Low Confidence: {
+        print(f"✓ Escalation on Low Confidence: {
                 'Yes' if expected_config['escalation_on_low_confidence'] else 'No'}")
 
         # Verify these match Mini PARWA limits
@@ -1012,7 +1007,9 @@ class TestMiniParwaSimulation:
         assert expected_config["max_response_length"] == 500
         assert expected_config["brand_voice"] is False
 
-        print("\n✅ SCENARIO 11 PASSED: Pipeline config matches official documentation\n")
+        print(
+            "\n✅ SCENARIO 11 PASSED: Pipeline config matches official documentation\n"
+        )
 
     # ═══════════════════════════════════════════════════════════════════════════
     # SCENARIO 12: Smart Routing & Overflow Testing
@@ -1038,13 +1035,11 @@ class TestMiniParwaSimulation:
         }
 
         print("\n--- Overflow Chain Rules ---")
-        print(
-            f"Mini PARWA overflow: {
+        print(f"Mini PARWA overflow: {
                 ' → '.join(
                     overflow_chain['mini_parwa'])}")
         print(f"Parwa overflow: {' → '.join(overflow_chain['parwa'])}")
-        print(
-            f"High PARWA overflow: {
+        print(f"High PARWA overflow: {
                 ' → '.join(
                     overflow_chain['high_parwa'])}")
 
@@ -1100,8 +1095,7 @@ class TestMiniParwaSimulation:
         print("\n--- Available Industry Add-ons ---")
         for addon, details in addons.items():
             print(f"✓ {addon.upper()}: ${details['price']}/mo")
-            print(
-                f"   +{details['tickets']} tickets, +{details['kb_docs']} KB docs")
+            print(f"   +{details['tickets']} tickets, +{details['kb_docs']} KB docs")
 
         # Mini PARWA with E-commerce add-on
         base_tickets = 2000
@@ -1127,6 +1121,7 @@ class TestMiniParwaSimulation:
 # RUN SIMULATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def run_simulation():
     """Run all simulation tests."""
     print("\n" + "#" * 80)
@@ -1142,24 +1137,29 @@ def run_simulation():
     fake_company = FakeCompany()
     ai_simulator = AIResponseSimulator(fake_company)
 
-    results = {
-        "passed": 0,
-        "failed": 0,
-        "tests": []
-    }
+    results = {"passed": 0, "failed": 0, "tests": []}
 
     tests = [
         ("Scenario 1: Company Onboarding", test.test_scenario_1_company_onboarding),
         ("Scenario 2: Knowledge Base Setup", test.test_scenario_2_knowledge_base_setup),
-        ("Scenario 3: Ticket Creation & AI Response", test.test_scenario_3_ticket_creation_and_ai_response),
+        (
+            "Scenario 3: Ticket Creation & AI Response",
+            test.test_scenario_3_ticket_creation_and_ai_response,
+        ),
         ("Scenario 4: FAQ Match Testing", test.test_scenario_4_faq_match_testing),
-        ("Scenario 5: Multi-Language Support", test.test_scenario_5_multi_language_support),
+        (
+            "Scenario 5: Multi-Language Support",
+            test.test_scenario_5_multi_language_support,
+        ),
         ("Scenario 6: Limit Enforcement", test.test_scenario_6_limit_enforcement),
         ("Scenario 7: Blocked Features", test.test_scenario_7_blocked_features),
         ("Scenario 8: Technique Execution", test.test_scenario_8_technique_execution),
         ("Scenario 9: API Read-Only", test.test_scenario_9_api_readonly_enforcement),
         ("Scenario 10: Shadow Mode", test.test_scenario_10_shadow_mode),
-        ("Scenario 11: Pipeline Config (Official Docs)", test.test_scenario_11_pipeline_config),
+        (
+            "Scenario 11: Pipeline Config (Official Docs)",
+            test.test_scenario_11_pipeline_config,
+        ),
         ("Scenario 12: Smart Routing & Overflow", test.test_scenario_12_smart_routing),
         ("Scenario 13: Industry Add-ons", test.test_scenario_13_industry_addons),
     ]
@@ -1174,8 +1174,7 @@ def run_simulation():
             results["tests"].append({"name": name, "status": "PASSED"})
         except Exception as e:
             results["failed"] += 1
-            results["tests"].append(
-                {"name": name, "status": "FAILED", "error": str(e)})
+            results["tests"].append({"name": name, "status": "FAILED", "error": str(e)})
             print(f"\n❌ {name} FAILED: {e}")
 
     # Print summary

@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 # ── CLASSIFICATION TASKS ───────────────────────────────────────────────────
 
+
 @app.task(
     base=ParwaTask,
     bind=True,
@@ -63,7 +64,7 @@ def classify_ticket(
             "company_id": company_id,
             "ticket_id": ticket_id,
             "force_reclassify": force_reclassify,
-        }
+        },
     )
 
     from app.services.classification_service import ClassificationService
@@ -81,7 +82,7 @@ def classify_ticket(
                     "intent": result.get("intent"),
                     "urgency": result.get("urgency"),
                     "confidence": result.get("confidence"),
-                }
+                },
             )
 
             return result
@@ -93,7 +94,7 @@ def classify_ticket(
                     "company_id": company_id,
                     "ticket_id": ticket_id,
                     "error": str(e),
-                }
+                },
             )
             raise self.retry(exc=e)
 
@@ -125,7 +126,7 @@ def batch_classify(
         extra={
             "company_id": company_id,
             "ticket_count": len(ticket_ids),
-        }
+        },
     )
 
     success_count = 0
@@ -142,11 +143,13 @@ def batch_classify(
             results.append({"ticket_id": ticket_id, "status": "queued"})
         except Exception as e:
             failure_count += 1
-            results.append({
-                "ticket_id": ticket_id,
-                "status": "failed",
-                "error": str(e),
-            })
+            results.append(
+                {
+                    "ticket_id": ticket_id,
+                    "status": "failed",
+                    "error": str(e),
+                }
+            )
 
     return {
         "total": len(ticket_ids),
@@ -157,6 +160,7 @@ def batch_classify(
 
 
 # ── ASSIGNMENT TASKS ───────────────────────────────────────────────────────
+
 
 @app.task(
     base=ParwaTask,
@@ -189,7 +193,7 @@ def score_assignments(
         extra={
             "company_id": company_id,
             "ticket_id": ticket_id,
-        }
+        },
     )
 
     from app.services.assignment_service import AssignmentService
@@ -208,7 +212,7 @@ def score_assignments(
                     "company_id": company_id,
                     "ticket_id": ticket_id,
                     "error": str(e),
-                }
+                },
             )
             raise self.retry(exc=e)
 
@@ -243,7 +247,7 @@ def auto_assign_ticket(
         extra={
             "company_id": company_id,
             "ticket_id": ticket_id,
-        }
+        },
     )
 
     from app.services.assignment_service import AssignmentService
@@ -260,7 +264,7 @@ def auto_assign_ticket(
                     "ticket_id": ticket_id,
                     "assignee_id": result.get("assignee_id"),
                     "rule_name": result.get("rule_name"),
-                }
+                },
             )
 
             return result
@@ -272,7 +276,7 @@ def auto_assign_ticket(
                     "company_id": company_id,
                     "ticket_id": ticket_id,
                     "error": str(e),
-                }
+                },
             )
             raise self.retry(exc=e)
 
@@ -299,18 +303,19 @@ def auto_assign_new_tickets(
     Returns:
         Summary of assignments
     """
-    logger.info(
-        "Auto-assigning new tickets",
-        extra={"company_id": company_id}
-    )
+    logger.info("Auto-assigning new tickets", extra={"company_id": company_id})
 
     with SessionLocal() as db:
         # Get unassigned open tickets
-        unassigned = db.query(Ticket).filter(
-            Ticket.company_id == company_id,
-            Ticket.assigned_to is None,
-            Ticket.status == TicketStatus.open.value,
-        ).all()
+        unassigned = (
+            db.query(Ticket)
+            .filter(
+                Ticket.company_id == company_id,
+                Ticket.assigned_to is None,
+                Ticket.status == TicketStatus.open.value,
+            )
+            .all()
+        )
 
         assigned_count = 0
         failed_count = 0
@@ -330,7 +335,7 @@ def auto_assign_new_tickets(
                         "company_id": company_id,
                         "ticket_id": ticket.id,
                         "error": str(e),
-                    }
+                    },
                 )
                 failed_count += 1
 
@@ -342,6 +347,7 @@ def auto_assign_new_tickets(
 
 
 # ── DUPLICATE DETECTION ────────────────────────────────────────────────────
+
 
 @app.task(
     base=ParwaTask,
@@ -370,7 +376,7 @@ def check_duplicate_ticket(
         extra={
             "company_id": company_id,
             "ticket_id": ticket_id,
-        }
+        },
     )
 
     from app.services.ticket_search_service import TicketSearchService
@@ -398,10 +404,7 @@ def check_duplicate_ticket(
             )
 
             # Filter out self
-            similar = [
-                s for s in similar
-                if s["ticket"]["id"] != ticket_id
-            ]
+            similar = [s for s in similar if s["ticket"]["id"] != ticket_id]
 
             if similar:
                 logger.info(
@@ -410,16 +413,14 @@ def check_duplicate_ticket(
                         "company_id": company_id,
                         "ticket_id": ticket_id,
                         "duplicate_count": len(similar),
-                    }
+                    },
                 )
 
             return {
                 "ticket_id": ticket_id,
                 "duplicate_found": len(similar) > 0,
                 "similar_tickets": similar[:3],
-                "highest_similarity": (
-                    similar[0]["similarity"] if similar else 0
-                ),
+                "highest_similarity": (similar[0]["similarity"] if similar else 0),
             }
 
         except Exception as e:
@@ -429,12 +430,13 @@ def check_duplicate_ticket(
                     "company_id": company_id,
                     "ticket_id": ticket_id,
                     "error": str(e),
-                }
+                },
             )
             raise self.retry(exc=e)
 
 
 # ── SEARCH INDEXING ────────────────────────────────────────────────────────
+
 
 @app.task(
     base=ParwaTask,
@@ -466,7 +468,7 @@ def index_ticket_for_search(
         extra={
             "company_id": company_id,
             "ticket_id": ticket_id,
-        }
+        },
     )
 
     # Placeholder for external search index integration
@@ -498,15 +500,16 @@ def reindex_company_tickets(
     Returns:
         Reindex result
     """
-    logger.info(
-        "Reindexing company tickets",
-        extra={"company_id": company_id}
-    )
+    logger.info("Reindexing company tickets", extra={"company_id": company_id})
 
     with SessionLocal() as db:
-        tickets = db.query(Ticket.id).filter(
-            Ticket.company_id == company_id,
-        ).all()
+        tickets = (
+            db.query(Ticket.id)
+            .filter(
+                Ticket.company_id == company_id,
+            )
+            .all()
+        )
 
         indexed_count = 0
         for (ticket_id,) in tickets:
@@ -523,7 +526,7 @@ def reindex_company_tickets(
                         "company_id": company_id,
                         "ticket_id": ticket_id,
                         "error": str(e),
-                    }
+                    },
                 )
 
         return {
@@ -534,6 +537,7 @@ def reindex_company_tickets(
 
 
 # ── TICKET LIFECYCLE TASKS ─────────────────────────────────────────────────
+
 
 @app.task(
     base=ParwaTask,
@@ -566,7 +570,7 @@ def process_new_ticket(
         extra={
             "company_id": company_id,
             "ticket_id": ticket_id,
-        }
+        },
     )
 
     results = {}
@@ -620,6 +624,7 @@ def process_new_ticket(
 
 # ── SLA TASKS (PS11, PS17) ───────────────────────────────────────────────────
 
+
 @app.task(
     base=ParwaTask,
     bind=True,
@@ -642,10 +647,7 @@ def run_sla_check(
     Returns:
         Summary of SLA check results
     """
-    logger.info(
-        "Running SLA check",
-        extra={"company_id": company_id}
-    )
+    logger.info("Running SLA check", extra={"company_id": company_id})
 
     from app.services.sla_service import SLAService
 
@@ -673,7 +675,7 @@ def run_sla_check(
                             "company_id": company_id,
                             "ticket_id": ticket.id,
                             "error": str(e),
-                        }
+                        },
                     )
 
             for item in approaching:
@@ -689,7 +691,7 @@ def run_sla_check(
                             "company_id": company_id,
                             "ticket_id": item["ticket"].id,
                             "error": str(e),
-                        }
+                        },
                     )
 
             return {
@@ -705,7 +707,7 @@ def run_sla_check(
                 extra={
                     "company_id": company_id,
                     "error": str(e),
-                }
+                },
             )
             raise self.retry(exc=e)
 
@@ -737,7 +739,7 @@ def send_sla_warning(
         extra={
             "company_id": company_id,
             "ticket_id": ticket_id,
-        }
+        },
     )
 
     with SessionLocal() as db:
@@ -760,10 +762,14 @@ def send_sla_warning(
                     "reason": "Not approaching",
                 }
 
-            ticket = db.query(Ticket).filter(
-                Ticket.id == ticket_id,
-                Ticket.company_id == company_id,
-            ).first()
+            ticket = (
+                db.query(Ticket)
+                .filter(
+                    Ticket.id == ticket_id,
+                    Ticket.company_id == company_id,
+                )
+                .first()
+            )
 
             if not ticket:
                 return {
@@ -783,12 +789,15 @@ def send_sla_warning(
 
             # Emit SLA warning event
             import asyncio
-            asyncio.run(emit_sla_warning(
-                company_id=company_id,
-                ticket_id=ticket_id,
-                percentage_elapsed=percentage or 0.75,
-                minutes_remaining=minutes_remaining or 0,
-            ))
+
+            asyncio.run(
+                emit_sla_warning(
+                    company_id=company_id,
+                    ticket_id=ticket_id,
+                    percentage_elapsed=percentage or 0.75,
+                    minutes_remaining=minutes_remaining or 0,
+                )
+            )
 
             # Send notification to assignee
             if ticket.assigned_to:
@@ -801,9 +810,7 @@ def send_sla_warning(
                         ticket.subject or ticket_id} is approaching SLA breach",
                     data={
                         "ticket_id": ticket_id,
-                        "percentage_elapsed": round(
-                            (percentage or 0.75) * 100,
-                            1),
+                        "percentage_elapsed": round((percentage or 0.75) * 100, 1),
                     },
                 )
 
@@ -820,7 +827,7 @@ def send_sla_warning(
                     "company_id": company_id,
                     "ticket_id": ticket_id,
                     "error": str(e),
-                }
+                },
             )
             raise self.retry(exc=e)
 
@@ -852,7 +859,7 @@ def send_sla_breach(
         extra={
             "company_id": company_id,
             "ticket_id": ticket_id,
-        }
+        },
     )
 
     with SessionLocal() as db:
@@ -864,8 +871,7 @@ def send_sla_breach(
             sla_service = SLAService(db)
 
             # Check if actually breached
-            is_breached, breach_type = sla_service.check_breach(
-                company_id, ticket_id)
+            is_breached, breach_type = sla_service.check_breach(company_id, ticket_id)
 
             if not is_breached:
                 return {
@@ -874,10 +880,14 @@ def send_sla_breach(
                     "reason": "Not breached",
                 }
 
-            ticket = db.query(Ticket).filter(
-                Ticket.id == ticket_id,
-                Ticket.company_id == company_id,
-            ).first()
+            ticket = (
+                db.query(Ticket)
+                .filter(
+                    Ticket.id == ticket_id,
+                    Ticket.company_id == company_id,
+                )
+                .first()
+            )
 
             if not ticket:
                 return {
@@ -896,12 +906,15 @@ def send_sla_breach(
 
             # Emit SLA breach event
             import asyncio
-            asyncio.run(emit_sla_breach(
-                company_id=company_id,
-                ticket_id=ticket_id,
-                breach_type=breach_type or "resolution",
-                minutes_overdue=minutes_overdue,
-            ))
+
+            asyncio.run(
+                emit_sla_breach(
+                    company_id=company_id,
+                    ticket_id=ticket_id,
+                    breach_type=breach_type or "resolution",
+                    minutes_overdue=minutes_overdue,
+                )
+            )
 
             # Send notification to assignee and managers
             notification_service = NotificationService(db, company_id)
@@ -934,12 +947,13 @@ def send_sla_breach(
                     "company_id": company_id,
                     "ticket_id": ticket_id,
                     "error": str(e),
-                }
+                },
             )
             raise self.retry(exc=e)
 
 
 # ── STALE TICKET TASKS (PS06) ────────────────────────────────────────────────
+
 
 @app.task(
     base=ParwaTask,
@@ -969,7 +983,7 @@ def check_stale_tickets(
         extra={
             "company_id": company_id,
             "stale_days": stale_days,
-        }
+        },
     )
 
     from app.services.stale_ticket_service import StaleTicketService
@@ -993,7 +1007,7 @@ def check_stale_tickets(
                             "company_id": company_id,
                             "ticket_id": ticket.id,
                             "error": str(e),
-                        }
+                        },
                     )
 
             return {
@@ -1008,7 +1022,7 @@ def check_stale_tickets(
                 extra={
                     "company_id": company_id,
                     "error": str(e),
-                }
+                },
             )
             raise self.retry(exc=e)
 
@@ -1040,15 +1054,19 @@ def send_awaiting_client_reminder(
         extra={
             "company_id": company_id,
             "ticket_id": ticket_id,
-        }
+        },
     )
 
     with SessionLocal() as db:
         try:
-            ticket = db.query(Ticket).filter(
-                Ticket.id == ticket_id,
-                Ticket.company_id == company_id,
-            ).first()
+            ticket = (
+                db.query(Ticket)
+                .filter(
+                    Ticket.id == ticket_id,
+                    Ticket.company_id == company_id,
+                )
+                .first()
+            )
 
             if not ticket:
                 return {
@@ -1071,7 +1089,7 @@ def send_awaiting_client_reminder(
                 extra={
                     "company_id": company_id,
                     "ticket_id": ticket_id,
-                }
+                },
             )
 
             return {
@@ -1086,12 +1104,13 @@ def send_awaiting_client_reminder(
                     "company_id": company_id,
                     "ticket_id": ticket_id,
                     "error": str(e),
-                }
+                },
             )
             raise self.retry(exc=e)
 
 
 # ── SPAM DETECTION (PS15) ────────────────────────────────────────────────────
+
 
 @app.task(
     base=ParwaTask,
@@ -1114,10 +1133,7 @@ def detect_spam_tickets(
     Returns:
         Summary of spam detection
     """
-    logger.info(
-        "Detecting spam tickets",
-        extra={"company_id": company_id}
-    )
+    logger.info("Detecting spam tickets", extra={"company_id": company_id})
 
     from app.services.spam_detection_service import SpamDetectionService
 
@@ -1140,7 +1156,7 @@ def detect_spam_tickets(
                             "company_id": company_id,
                             "ticket_id": ticket.id,
                             "error": str(e),
-                        }
+                        },
                     )
 
             db.commit()
@@ -1157,12 +1173,13 @@ def detect_spam_tickets(
                 extra={
                     "company_id": company_id,
                     "error": str(e),
-                }
+                },
             )
             raise self.retry(exc=e)
 
 
 # ── FROZEN TICKET CLEANUP (PS07) ─────────────────────────────────────────────
+
 
 @app.task(
     base=ParwaTask,
@@ -1185,18 +1202,19 @@ def cleanup_frozen_tickets(
     Returns:
         Summary of cleanup
     """
-    logger.info(
-        "Cleaning up frozen tickets",
-        extra={"company_id": company_id}
-    )
+    logger.info("Cleaning up frozen tickets", extra={"company_id": company_id})
 
     with SessionLocal() as db:
         try:
             # Get all frozen tickets
-            frozen_tickets = db.query(Ticket).filter(
-                Ticket.company_id == company_id,
-                Ticket.frozen is True,  # noqa: E712
-            ).all()
+            frozen_tickets = (
+                db.query(Ticket)
+                .filter(
+                    Ticket.company_id == company_id,
+                    Ticket.frozen is True,  # noqa: E712
+                )
+                .all()
+            )
 
             processed_count = 0
             reactivated_count = 0
@@ -1214,7 +1232,7 @@ def cleanup_frozen_tickets(
                             "company_id": company_id,
                             "ticket_id": ticket.id,
                             "error": str(e),
-                        }
+                        },
                     )
 
             return {
@@ -1230,12 +1248,13 @@ def cleanup_frozen_tickets(
                 extra={
                     "company_id": company_id,
                     "error": str(e),
-                }
+                },
             )
             raise self.retry(exc=e)
 
 
 # ── BULK ACTION PROCESSING ──────────────────────────────────────────────────
+
 
 @app.task(
     base=ParwaTask,
@@ -1264,7 +1283,7 @@ def process_bulk_action(
         extra={
             "company_id": company_id,
             "bulk_action_id": bulk_action_id,
-        }
+        },
     )
 
     from app.services.bulk_action_service import BulkActionService
@@ -1288,6 +1307,6 @@ def process_bulk_action(
                     "company_id": company_id,
                     "bulk_action_id": bulk_action_id,
                     "error": str(e),
-                }
+                },
             )
             raise self.retry(exc=e)

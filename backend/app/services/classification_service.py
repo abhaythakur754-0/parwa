@@ -32,6 +32,7 @@ from app.exceptions import NotFoundError
 
 class IntentCategory:
     """Intent category constants."""
+
     REFUND = "refund"
     TECHNICAL = "technical"
     BILLING = "billing"
@@ -44,6 +45,7 @@ class IntentCategory:
 
 class UrgencyLevel:
     """Urgency level constants."""
+
     URGENT = "urgent"
     ROUTINE = "routine"
     INFORMATIONAL = "informational"
@@ -61,42 +63,108 @@ class ClassificationService:
     # Classification rules (keyword -> intent mappings)
     INTENT_KEYWORDS = {
         IntentCategory.REFUND: [
-            "refund", "money back", "return", "reimburse", "credit back",
-            "chargeback", "cancel order", "want my money", "get my money back",
+            "refund",
+            "money back",
+            "return",
+            "reimburse",
+            "credit back",
+            "chargeback",
+            "cancel order",
+            "want my money",
+            "get my money back",
         ],
         IntentCategory.TECHNICAL: [
-            "error", "bug", "not working", "broken", "crash", "issue",
-            "problem", "doesn't work", "failed", "glitch", "not loading",
-            "slow", "connection", "timeout", "offline", "down",
+            "error",
+            "bug",
+            "not working",
+            "broken",
+            "crash",
+            "issue",
+            "problem",
+            "doesn't work",
+            "failed",
+            "glitch",
+            "not loading",
+            "slow",
+            "connection",
+            "timeout",
+            "offline",
+            "down",
         ],
         IntentCategory.BILLING: [
-            "bill", "invoice", "charge", "payment", "subscription",
-            "price", "cost", "fee", "overcharge", "duplicate charge",
-            "unauthorized charge", "subscription cancel", "renewal",
+            "bill",
+            "invoice",
+            "charge",
+            "payment",
+            "subscription",
+            "price",
+            "cost",
+            "fee",
+            "overcharge",
+            "duplicate charge",
+            "unauthorized charge",
+            "subscription cancel",
+            "renewal",
         ],
         IntentCategory.COMPLAINT: [
-            "complaint", "unhappy", "disappointed", "frustrated", "angry",
-            "terrible", "awful", "worst", "horrible", "unacceptable",
-            "speak to manager", "escalate", "report", "formal complaint",
+            "complaint",
+            "unhappy",
+            "disappointed",
+            "frustrated",
+            "angry",
+            "terrible",
+            "awful",
+            "worst",
+            "horrible",
+            "unacceptable",
+            "speak to manager",
+            "escalate",
+            "report",
+            "formal complaint",
         ],
         IntentCategory.FEATURE_REQUEST: [
-            "feature", "suggestion", "would be great", "wish you had",
-            "please add", "would like to see", "enhancement", "improve",
-            "new functionality", "missing feature", "roadmap",
+            "feature",
+            "suggestion",
+            "would be great",
+            "wish you had",
+            "please add",
+            "would like to see",
+            "enhancement",
+            "improve",
+            "new functionality",
+            "missing feature",
+            "roadmap",
         ],
     }
 
     # Urgency indicators
     URGENCY_KEYWORDS = {
         UrgencyLevel.URGENT: [
-            "urgent", "emergency", "asap", "immediately", "right now",
-            "critical", "production down", "system down", "data loss",
-            "security breach", "hacked", "leaked", "legal",
+            "urgent",
+            "emergency",
+            "asap",
+            "immediately",
+            "right now",
+            "critical",
+            "production down",
+            "system down",
+            "data loss",
+            "security breach",
+            "hacked",
+            "leaked",
+            "legal",
         ],
         UrgencyLevel.INFORMATIONAL: [
-            "just wondering", "curious", "question about", "how do i",
-            "what is", "can you explain", "information", "documentation",
-            "help me understand", "guide",
+            "just wondering",
+            "curious",
+            "question about",
+            "how do i",
+            "what is",
+            "can you explain",
+            "information",
+            "documentation",
+            "help me understand",
+            "guide",
         ],
     }
 
@@ -141,19 +209,27 @@ class ClassificationService:
             NotFoundError: If ticket not found
         """
         # Get ticket
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")
 
         # Check if already classified
-        existing = self.db.query(TicketIntent).filter(
-            TicketIntent.ticket_id == ticket_id,
-            TicketIntent.company_id == self.company_id,
-        ).first()
+        existing = (
+            self.db.query(TicketIntent)
+            .filter(
+                TicketIntent.ticket_id == ticket_id,
+                TicketIntent.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if existing and not force_reclassify:
             return {
@@ -303,10 +379,14 @@ class ClassificationService:
         self.db.add(correction)
 
         # Update ticket classification
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if ticket:
             ticket.classification_intent = corrected_intent
@@ -314,10 +394,14 @@ class ClassificationService:
                 ticket.classification_type = corrected_urgency
 
         # Update intent record
-        intent_record = self.db.query(TicketIntent).filter(
-            TicketIntent.ticket_id == ticket_id,
-            TicketIntent.company_id == self.company_id,
-        ).first()
+        intent_record = (
+            self.db.query(TicketIntent)
+            .filter(
+                TicketIntent.ticket_id == ticket_id,
+                TicketIntent.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if intent_record:
             intent_record.intent = corrected_intent
@@ -360,23 +444,28 @@ class ClassificationService:
         total = query.count()
 
         offset = (page - 1) * page_size
-        corrections = query.order_by(
-            desc(ClassificationCorrection.created_at)
-        ).offset(offset).limit(page_size).all()
+        corrections = (
+            query.order_by(desc(ClassificationCorrection.created_at))
+            .offset(offset)
+            .limit(page_size)
+            .all()
+        )
 
         results = []
         for c in corrections:
-            results.append({
-                "id": c.id,
-                "ticket_id": c.ticket_id,
-                "original_intent": c.original_intent,
-                "corrected_intent": c.corrected_intent,
-                "original_urgency": c.original_urgency,
-                "corrected_urgency": c.corrected_urgency,
-                "corrected_by": c.corrected_by,
-                "reason": c.reason,
-                "created_at": c.created_at.isoformat() if c.created_at else None,
-            })
+            results.append(
+                {
+                    "id": c.id,
+                    "ticket_id": c.ticket_id,
+                    "original_intent": c.original_intent,
+                    "corrected_intent": c.corrected_intent,
+                    "original_urgency": c.original_urgency,
+                    "corrected_urgency": c.corrected_urgency,
+                    "corrected_by": c.corrected_by,
+                    "reason": c.reason,
+                    "created_at": c.created_at.isoformat() if c.created_at else None,
+                }
+            )
 
         return results, total
 
@@ -387,45 +476,69 @@ class ClassificationService:
             Dict with intent distribution, correction rate, etc.
         """
         # Get intent distribution
-        intent_counts = self.db.query(
-            TicketIntent.intent,
-            func.count(TicketIntent.id),
-        ).filter(
-            TicketIntent.company_id == self.company_id,
-        ).group_by(TicketIntent.intent).all()
+        intent_counts = (
+            self.db.query(
+                TicketIntent.intent,
+                func.count(TicketIntent.id),
+            )
+            .filter(
+                TicketIntent.company_id == self.company_id,
+            )
+            .group_by(TicketIntent.intent)
+            .all()
+        )
 
         intent_distribution = {k: v for k, v in intent_counts}
 
         # Get urgency distribution
-        urgency_counts = self.db.query(
-            TicketIntent.urgency,
-            func.count(TicketIntent.id),
-        ).filter(
-            TicketIntent.company_id == self.company_id,
-        ).group_by(TicketIntent.urgency).all()
+        urgency_counts = (
+            self.db.query(
+                TicketIntent.urgency,
+                func.count(TicketIntent.id),
+            )
+            .filter(
+                TicketIntent.company_id == self.company_id,
+            )
+            .group_by(TicketIntent.urgency)
+            .all()
+        )
 
         urgency_distribution = {k: v for k, v in urgency_counts}
 
         # Get correction stats
-        total_classifications = self.db.query(TicketIntent).filter(
-            TicketIntent.company_id == self.company_id,
-        ).count()
+        total_classifications = (
+            self.db.query(TicketIntent)
+            .filter(
+                TicketIntent.company_id == self.company_id,
+            )
+            .count()
+        )
 
-        total_corrections = self.db.query(ClassificationCorrection).filter(
-            ClassificationCorrection.company_id == self.company_id,
-        ).count()
+        total_corrections = (
+            self.db.query(ClassificationCorrection)
+            .filter(
+                ClassificationCorrection.company_id == self.company_id,
+            )
+            .count()
+        )
 
         correction_rate = (
             total_corrections / total_classifications * 100
-            if total_classifications > 0 else 0
+            if total_classifications > 0
+            else 0
         )
 
         # Get average confidence
-        avg_confidence = self.db.query(
-            func.avg(TicketIntent.confidence),
-        ).filter(
-            TicketIntent.company_id == self.company_id,
-        ).scalar() or 0
+        avg_confidence = (
+            self.db.query(
+                func.avg(TicketIntent.confidence),
+            )
+            .filter(
+                TicketIntent.company_id == self.company_id,
+            )
+            .scalar()
+            or 0
+        )
 
         return {
             "total_classifications": total_classifications,
@@ -446,10 +559,16 @@ class ClassificationService:
             parts.append(ticket.subject)
 
         # Get first few messages
-        messages = self.db.query(TicketMessage).filter(
-            TicketMessage.ticket_id == ticket.id,
-            TicketMessage.company_id == self.company_id,
-        ).order_by(TicketMessage.created_at).limit(3).all()
+        messages = (
+            self.db.query(TicketMessage)
+            .filter(
+                TicketMessage.ticket_id == ticket.id,
+                TicketMessage.company_id == self.company_id,
+            )
+            .order_by(TicketMessage.created_at)
+            .limit(3)
+            .all()
+        )
 
         for msg in messages:
             if msg.content:
@@ -484,8 +603,7 @@ class ClassificationService:
 
         best_intent = max(scores, key=scores.get)
         total_score = sum(scores.values())
-        confidence = scores[best_intent] / \
-            total_score if total_score > 0 else 0.3
+        confidence = scores[best_intent] / total_score if total_score > 0 else 0.3
 
         # Cap confidence at 0.95 for rule-based (reserving 1.0 for human)
         confidence = min(confidence, 0.95)
@@ -518,8 +636,7 @@ class ClassificationService:
 
         best_urgency = max(scores, key=scores.get)
         total_score = sum(scores.values())
-        confidence = scores[best_urgency] / \
-            total_score if total_score > 0 else 0.5
+        confidence = scores[best_urgency] / total_score if total_score > 0 else 0.5
 
         return best_urgency, round(confidence, 4)
 

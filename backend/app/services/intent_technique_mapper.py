@@ -174,9 +174,7 @@ class IntentTechniqueMapper:
                         TechniqueTier.TIER_2: 2,
                         TechniqueTier.TIER_3: 3,
                     }
-                    if tier_order.get(
-                            tier, 1) <= tier_order.get(
-                            tier_limit, 1):
+                    if tier_order.get(tier, 1) <= tier_order.get(tier_limit, 1):
                         filtered.append(tech.value)
                 variant_override[variant] = filtered
 
@@ -213,17 +211,21 @@ class IntentTechniqueMapper:
 
         # Resolve techniques and tiers from the mapping
         technique_ids = [
-            TechniqueID(t) for t in mapping.recommended_techniques
+            TechniqueID(t)
+            for t in mapping.recommended_techniques
             if t in [tid.value for tid in TechniqueID]
         ]
         technique_tiers = [
-            TechniqueTier(t) for t in mapping.recommended_tiers
+            TechniqueTier(t)
+            for t in mapping.recommended_tiers
             if t in [tid.value for tid in TechniqueTier]
         ]
 
         # Apply variant filtering (GAP-001)
         selected, selected_tiers, blocked = self._filter_by_variant(
-            technique_ids, technique_tiers, variant_type,
+            technique_ids,
+            technique_tiers,
+            variant_type,
         )
 
         logger.info(
@@ -255,7 +257,8 @@ class IntentTechniqueMapper:
         Blocked techniques get substituted with Tier 1 fallbacks.
         """
         tier_limit = VARIANT_TIER_LIMITS.get(
-            variant_type, TechniqueTier.TIER_1,
+            variant_type,
+            TechniqueTier.TIER_1,
         )
         tier_order = {
             TechniqueTier.TIER_1: 1,

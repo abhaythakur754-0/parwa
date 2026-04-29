@@ -154,7 +154,8 @@ class MistakeThresholdService:
 
         if current_count >= MISTAKE_THRESHOLD:
             training_triggered, training_run_id = self._trigger_training_if_needed(
-                company_id, agent_id)
+                company_id, agent_id
+            )
 
         return {
             "status": "reported",
@@ -212,12 +213,9 @@ class MistakeThresholdService:
         """
         from database.models.training import AgentMistake
 
-        query = (
-            self.db.query(AgentMistake)
-            .filter(
-                AgentMistake.company_id == company_id,
-                AgentMistake.agent_id == agent_id,
-            )
+        query = self.db.query(AgentMistake).filter(
+            AgentMistake.company_id == company_id,
+            AgentMistake.agent_id == agent_id,
         )
 
         if severity:
@@ -227,8 +225,7 @@ class MistakeThresholdService:
 
         total = query.count()
         mistakes = (
-            query
-            .order_by(AgentMistake.created_at.desc())
+            query.order_by(AgentMistake.created_at.desc())
             .offset(offset)
             .limit(limit)
             .all()
@@ -241,7 +238,11 @@ class MistakeThresholdService:
                     "ticket_id": str(m.session_id) if m.session_id else None,
                     "mistake_type": m.mistake_type,
                     "severity": m.severity,
-                    "original_response": m.original_response[:200] + "..." if m.original_response and len(m.original_response) > 200 else m.original_response,
+                    "original_response": (
+                        m.original_response[:200] + "..."
+                        if m.original_response and len(m.original_response) > 200
+                        else m.original_response
+                    ),
                     "used_in_training": m.used_in_training,
                     "created_at": m.created_at.isoformat() if m.created_at else None,
                 }
@@ -318,9 +319,7 @@ class MistakeThresholdService:
         return {
             "total_mistakes": total,
             "threshold": MISTAKE_THRESHOLD,
-            "percentage_to_threshold": round(
-                (total / MISTAKE_THRESHOLD) * 100,
-                1),
+            "percentage_to_threshold": round((total / MISTAKE_THRESHOLD) * 100, 1),
             "by_type": by_type,
             "by_severity": by_severity,
             "used_in_training": used_in_training,
@@ -328,10 +327,8 @@ class MistakeThresholdService:
         }
 
     def reset_mistake_count(
-            self,
-            company_id: str,
-            agent_id: str,
-            reason: str = "training_completed") -> Dict:
+        self, company_id: str, agent_id: str, reason: str = "training_completed"
+    ) -> Dict:
         """Reset the mistake count for an agent.
 
         This should only be called after a successful training run deployment.
@@ -405,10 +402,7 @@ class MistakeThresholdService:
             .scalar()
         ) or 0
 
-    def _trigger_training_if_needed(
-            self,
-            company_id: str,
-            agent_id: str) -> tuple:
+    def _trigger_training_if_needed(self, company_id: str, agent_id: str) -> tuple:
         """Trigger training if threshold is reached and not already training.
 
         Args:
@@ -432,11 +426,13 @@ class MistakeThresholdService:
             .filter(
                 TrainingRun.company_id == company_id,
                 TrainingRun.agent_id == agent_id,
-                TrainingRun.status.in_([
-                    TRAINING_STATUS_QUEUED,
-                    TRAINING_STATUS_INITIALIZING,
-                    TRAINING_STATUS_RUNNING,
-                ]),
+                TrainingRun.status.in_(
+                    [
+                        TRAINING_STATUS_QUEUED,
+                        TRAINING_STATUS_INITIALIZING,
+                        TRAINING_STATUS_RUNNING,
+                    ]
+                ),
             )
             .first()
         )
@@ -490,7 +486,8 @@ class MistakeThresholdService:
 
             # Send notification
             self._send_threshold_notification(
-                company_id, agent_id, result.get("run_id"))
+                company_id, agent_id, result.get("run_id")
+            )
 
             return (True, result.get("run_id"))
         else:
@@ -505,9 +502,8 @@ class MistakeThresholdService:
             return (False, None)
 
     def _create_dataset_from_mistakes(
-            self,
-            company_id: str,
-            agent_id: str) -> Optional[Dict]:
+        self, company_id: str, agent_id: str
+    ) -> Optional[Dict]:
         """Create a training dataset from agent mistakes.
 
         Args:

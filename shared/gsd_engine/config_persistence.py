@@ -77,12 +77,18 @@ class GSDTenantConfig:
             max_retries_per_state=data.get("max_retries_per_state", 3),
             escalation_enabled=data.get("escalation_enabled", True),
             escalation_timeout_seconds=data.get("escalation_timeout_seconds", 300),
-            greeting_template=data.get("greeting_template", "Hello! How can I help you today?"),
+            greeting_template=data.get(
+                "greeting_template", "Hello! How can I help you today?"
+            ),
             collect_name_enabled=data.get("collect_name_enabled", True),
             max_diagnosis_questions=data.get("max_diagnosis_questions", 5),
-            diagnosis_confidence_threshold=data.get("diagnosis_confidence_threshold", 0.85),
+            diagnosis_confidence_threshold=data.get(
+                "diagnosis_confidence_threshold", 0.85
+            ),
             auto_resolution_enabled=data.get("auto_resolution_enabled", True),
-            resolution_confirmation_required=data.get("resolution_confirmation_required", True),
+            resolution_confirmation_required=data.get(
+                "resolution_confirmation_required", True
+            ),
             follow_up_delay_hours=data.get("follow_up_delay_hours", 24),
             follow_up_max_attempts=data.get("follow_up_max_attempts", 2),
             custom_settings=data.get("custom_settings", {}),
@@ -222,7 +228,9 @@ class GSDConfigPersistence:
     async def _load_from_postgres(self, company_id: str) -> Optional[GSDTenantConfig]:
         """Load config from PostgreSQL gsd_tenant_configs table."""
         if not self._db_session_factory:
-            logger.warning("No DB session factory, returning default config for %s", company_id)
+            logger.warning(
+                "No DB session factory, returning default config for %s", company_id
+            )
             return GSDTenantConfig(company_id=company_id)
 
         try:
@@ -312,11 +320,9 @@ class GSDConfigPersistence:
 
         try:
             async with self._db_session_factory() as session:
-                result = await session.execute(
-                    """
+                result = await session.execute("""
                     SELECT company_id, config_data FROM gsd_tenant_configs
-                    """
-                )
+                    """)
                 rows = result.fetchall()
 
                 for row in rows:
@@ -325,7 +331,9 @@ class GSDConfigPersistence:
                     config = GSDTenantConfig.from_dict(config_dict)
                     await self._update_caches(company_id, config)
 
-                logger.info("Bootstrapped %d GSD tenant configs from PostgreSQL", len(rows))
+                logger.info(
+                    "Bootstrapped %d GSD tenant configs from PostgreSQL", len(rows)
+                )
                 return len(rows)
 
         except Exception as e:
@@ -350,6 +358,7 @@ async def get_gsd_config_persistence() -> GSDConfigPersistence:
         db_session_factory = None
         try:
             from app.core.database import get_async_session
+
             db_session_factory = get_async_session
         except ImportError:
             pass

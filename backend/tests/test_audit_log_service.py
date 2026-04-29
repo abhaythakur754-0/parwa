@@ -29,6 +29,7 @@ IntegrityStatus = None  # type: ignore[assignment,misc]
 def _mock_logger_and_lock():
     with patch("app.logger.get_logger", return_value=MagicMock()):
         import app.services.audit_log_service as _svc_mod
+
         _orig_lock = _svc_mod.threading.Lock
         _svc_mod.threading.Lock = _svc_mod.threading.RLock
         try:
@@ -46,6 +47,7 @@ def _mock_logger_and_lock():
                 ExportFormat as _ExportFormat,
                 IntegrityStatus as _IntegrityStatus,
             )
+
             globals()["AuditLogService"] = _AuditLogService
             globals()["AuditLogError"] = _AuditLogError
             globals()["AuditLogConfig"] = _AuditLogConfig
@@ -403,13 +405,22 @@ class TestDataclasses:
     def test_entry_custom_all_fields(self):
         ts = datetime(2025, 1, 1, tzinfo=timezone.utc)
         entry = AuditLogEntry(
-            entry_id="e-99", company_id="co-5",
-            category=AuditCategory.BILLING, severity=AuditSeverity.CRITICAL,
-            action="charge", actor_id="user-1", actor_type="system",
-            resource_type="invoice", resource_id="inv-1",
-            old_value="10", new_value="20", ip_address="1.2.3.4",
-            user_agent="test-agent", metadata={"key": "val"},
-            checksum="abc123", created_at=ts,
+            entry_id="e-99",
+            company_id="co-5",
+            category=AuditCategory.BILLING,
+            severity=AuditSeverity.CRITICAL,
+            action="charge",
+            actor_id="user-1",
+            actor_type="system",
+            resource_type="invoice",
+            resource_id="inv-1",
+            old_value="10",
+            new_value="20",
+            ip_address="1.2.3.4",
+            user_agent="test-agent",
+            metadata={"key": "val"},
+            checksum="abc123",
+            created_at=ts,
         )
         assert entry.entry_id == "e-99"
         assert entry.company_id == "co-5"
@@ -460,8 +471,7 @@ class TestDataclasses:
             enable_auto_cleanup=False,
             cleanup_frequency_hours=12,
         )
-        assert p.category_retention_days == {
-            "system": 30, "authentication": 2555}
+        assert p.category_retention_days == {"system": 30, "authentication": 2555}
         assert p.max_entries_per_category == 100
         assert p.enable_auto_cleanup is False
         assert p.cleanup_frequency_hours == 12
@@ -639,7 +649,10 @@ class TestLogEvent:
     def test_log_basic_event(self):
         svc = self._make_svc()
         entry = svc.log_event(
-            "co-1", "authentication", "info", "user_login",
+            "co-1",
+            "authentication",
+            "info",
+            "user_login",
         )
         assert entry.company_id == "co-1"
         assert entry.category == AuditCategory.AUTHENTICATION
@@ -698,18 +711,28 @@ class TestLogEvent:
     def test_log_with_enum_severity(self):
         svc = self._make_svc()
         entry = svc.log_event(
-            "co-1", "system", AuditSeverity.CRITICAL, "error",
+            "co-1",
+            "system",
+            AuditSeverity.CRITICAL,
+            "error",
         )
         assert entry.severity == AuditSeverity.CRITICAL
 
     def test_log_with_all_optional_fields(self):
         svc = self._make_svc()
         entry = svc.log_event(
-            "co-1", "data_access", "info", "read_record",
-            actor_id="user-1", actor_type="api_key",
-            resource_type="document", resource_id="doc-1",
-            old_value="v1", new_value="v2",
-            metadata={"key": "val"}, ip_address="10.0.0.1",
+            "co-1",
+            "data_access",
+            "info",
+            "read_record",
+            actor_id="user-1",
+            actor_type="api_key",
+            resource_type="document",
+            resource_id="doc-1",
+            old_value="v1",
+            new_value="v2",
+            metadata={"key": "val"},
+            ip_address="10.0.0.1",
             user_agent="test-browser",
         )
         assert entry.actor_id == "user-1"
@@ -849,24 +872,11 @@ class TestQueryEvents:
     def _seed_svc(self, company_id="co-1"):
         svc = AuditLogService()
         svc.reset(company_id)
+        svc.log_event(company_id, "authentication", "info", "login", actor_id="user-1")
+        svc.log_event(company_id, "billing", "warning", "charge", actor_id="user-2")
         svc.log_event(
-            company_id,
-            "authentication",
-            "info",
-            "login",
-            actor_id="user-1")
-        svc.log_event(
-            company_id,
-            "billing",
-            "warning",
-            "charge",
-            actor_id="user-2")
-        svc.log_event(
-            company_id,
-            "authentication",
-            "critical",
-            "login_failed",
-            actor_id="user-1")
+            company_id, "authentication", "critical", "login_failed", actor_id="user-1"
+        )
         svc.log_event(company_id, "system", "info", "ping", actor_id="user-3")
         svc.log_event(
             company_id,
@@ -875,7 +885,8 @@ class TestQueryEvents:
             "read_doc",
             actor_id="user-1",
             resource_type="document",
-            resource_id="doc-1")
+            resource_id="doc-1",
+        )
         return svc
 
     def test_query_empty_company(self):
@@ -974,7 +985,9 @@ class TestQueryEvents:
     def test_query_combined_filters(self):
         svc = self._seed_svc()
         entries, total = svc.query_events(
-            "co-1", category="authentication", actor_id="user-1",
+            "co-1",
+            category="authentication",
+            actor_id="user-1",
         )
         assert total == 2
         assert all(
@@ -1001,7 +1014,8 @@ class TestStatistics:
             "login",
             actor_id="user-1",
             resource_type="session",
-            resource_id="s-1")
+            resource_id="s-1",
+        )
         svc.log_event(
             "co-1",
             "billing",
@@ -1009,7 +1023,8 @@ class TestStatistics:
             "charge",
             actor_id="user-2",
             resource_type="invoice",
-            resource_id="inv-1")
+            resource_id="inv-1",
+        )
         svc.log_event(
             "co-1",
             "authentication",
@@ -1017,7 +1032,8 @@ class TestStatistics:
             "login_failed",
             actor_id="user-1",
             resource_type="session",
-            resource_id="s-2")
+            resource_id="s-2",
+        )
         return svc
 
     def test_stats_empty_company(self):
@@ -1175,9 +1191,12 @@ class TestIntegrity:
         svc = AuditLogService()
         svc.reset("co-1")
         entry = AuditLogEntry(
-            entry_id="e-no-cs", company_id="co-1",
-            category=AuditCategory.SYSTEM, severity=AuditSeverity.INFO,
-            action="ping", checksum="",
+            entry_id="e-no-cs",
+            company_id="co-1",
+            category=AuditCategory.SYSTEM,
+            severity=AuditSeverity.INFO,
+            action="ping",
+            checksum="",
         )
         svc._set_entries("co-1", [entry])
         report = svc.verify_integrity("co-1")
@@ -1208,8 +1227,9 @@ class TestExport:
         svc = AuditLogService()
         svc.reset("co-1")
         svc.log_event("co-1", "system", "info", "ping")
-        svc.log_event("co-1", "billing", "warning", "charge",
-                      metadata={"password": "secret123"})
+        svc.log_event(
+            "co-1", "billing", "warning", "charge", metadata={"password": "secret123"}
+        )
         return svc
 
     def test_export_json_format(self):
@@ -1260,8 +1280,7 @@ class TestExport:
 
     def test_export_filter_by_category(self):
         svc = self._seed_svc()
-        result = svc.export_events("co-1", format=ExportFormat.JSON,
-                                   category="system")
+        result = svc.export_events("co-1", format=ExportFormat.JSON, category="system")
         assert result.total_entries == 1
 
     def test_export_redacts_sensitive_metadata(self):
@@ -1291,7 +1310,9 @@ class TestExport:
     def test_export_json_meta_has_filters(self):
         svc = self._seed_svc()
         result = svc.export_events(
-            "co-1", format=ExportFormat.JSON, category="system",
+            "co-1",
+            format=ExportFormat.JSON,
+            category="system",
         )
         meta = result.file_path_or_data["export_meta"]
         assert meta["filters"]["category"] == "system"
@@ -1436,8 +1457,7 @@ class TestRetention:
 
     def test_set_policy_empty_company_id_raises(self):
         svc = AuditLogService()
-        custom = AuditRetentionPolicy(
-            company_id="", category_retention_days={})
+        custom = AuditRetentionPolicy(company_id="", category_retention_days={})
         with pytest.raises(AuditLogError):
             svc.set_retention_policy("", custom)
 
@@ -1497,7 +1517,10 @@ class TestRedaction:
         svc = AuditLogService()
         svc.reset("co-1")
         entry = svc.log_event(
-            "co-1", "system", "info", "config_change",
+            "co-1",
+            "system",
+            "info",
+            "config_change",
             metadata={"password": "mysecret"},
         )
         result = svc.redact_sensitive_data("co-1", entry.entry_id)
@@ -1509,7 +1532,10 @@ class TestRedaction:
         svc = AuditLogService()
         svc.reset("co-1")
         entry = svc.log_event(
-            "co-1", "system", "info", "config_change",
+            "co-1",
+            "system",
+            "info",
+            "config_change",
             metadata={"token": "bearer_abc"},
         )
         svc.redact_sensitive_data("co-1", entry.entry_id)
@@ -1520,7 +1546,10 @@ class TestRedaction:
         svc = AuditLogService()
         svc.reset("co-1")
         entry = svc.log_event(
-            "co-1", "system", "info", "config_change",
+            "co-1",
+            "system",
+            "info",
+            "config_change",
             metadata={"api_key": "key123"},
         )
         svc.redact_sensitive_data("co-1", entry.entry_id)
@@ -1531,7 +1560,10 @@ class TestRedaction:
         svc = AuditLogService()
         svc.reset("co-1")
         entry = svc.log_event(
-            "co-1", "system", "info", "config_change",
+            "co-1",
+            "system",
+            "info",
+            "config_change",
             metadata={"secret": "top_secret"},
         )
         svc.redact_sensitive_data("co-1", entry.entry_id)
@@ -1542,7 +1574,10 @@ class TestRedaction:
         svc = AuditLogService()
         svc.reset("co-1")
         entry = svc.log_event(
-            "co-1", "system", "info", "config_change",
+            "co-1",
+            "system",
+            "info",
+            "config_change",
             metadata={"password": "mypass"},
         )
         old_checksum = entry.checksum
@@ -1831,12 +1866,22 @@ class TestInternalHelpers:
 
     def test_compute_checksum_deterministic(self):
         svc = AuditLogService()
-        data = {"entry_id": "e-1", "company_id": "c-1",
-                "category": "system", "severity": "info",
-                "action": "ping", "actor_id": None, "actor_type": "user",
-                "resource_type": None, "resource_id": None,
-                "old_value": None, "new_value": None, "ip_address": None,
-                "metadata": {}, "created_at": "2025-01-01T00:00:00+00:00"}
+        data = {
+            "entry_id": "e-1",
+            "company_id": "c-1",
+            "category": "system",
+            "severity": "info",
+            "action": "ping",
+            "actor_id": None,
+            "actor_type": "user",
+            "resource_type": None,
+            "resource_id": None,
+            "old_value": None,
+            "new_value": None,
+            "ip_address": None,
+            "metadata": {},
+            "created_at": "2025-01-01T00:00:00+00:00",
+        }
         cs1 = svc._compute_checksum(data)
         cs2 = svc._compute_checksum(data)
         assert cs1 == cs2
@@ -1859,18 +1904,24 @@ class TestInternalHelpers:
         cfg = AuditLogConfig(enable_checksum=False)
         svc = AuditLogService(config=cfg)
         entry = AuditLogEntry(
-            entry_id="e-1", company_id="c-1",
-            category=AuditCategory.SYSTEM, severity=AuditSeverity.INFO,
-            action="ping", checksum="invalid",
+            entry_id="e-1",
+            company_id="c-1",
+            category=AuditCategory.SYSTEM,
+            severity=AuditSeverity.INFO,
+            action="ping",
+            checksum="invalid",
         )
         assert svc._validate_checksum(entry) is True
 
     def test_entry_to_dict_without_redact(self):
         svc = AuditLogService()
         entry = AuditLogEntry(
-            entry_id="e-1", company_id="c-1",
-            category=AuditCategory.SYSTEM, severity=AuditSeverity.INFO,
-            action="ping", metadata={"secret": "value"},
+            entry_id="e-1",
+            company_id="c-1",
+            category=AuditCategory.SYSTEM,
+            severity=AuditSeverity.INFO,
+            action="ping",
+            metadata={"secret": "value"},
         )
         d = svc._entry_to_dict(entry, redact=False)
         assert d["metadata"]["secret"] == "value"
@@ -1878,9 +1929,12 @@ class TestInternalHelpers:
     def test_entry_to_dict_with_redact(self):
         svc = AuditLogService()
         entry = AuditLogEntry(
-            entry_id="e-1", company_id="c-1",
-            category=AuditCategory.SYSTEM, severity=AuditSeverity.INFO,
-            action="ping", metadata={"password": "mysecret"},
+            entry_id="e-1",
+            company_id="c-1",
+            category=AuditCategory.SYSTEM,
+            severity=AuditSeverity.INFO,
+            action="ping",
+            metadata={"password": "mysecret"},
         )
         d = svc._entry_to_dict(entry, redact=True)
         assert "*" in d["metadata"]["password"]
@@ -1897,9 +1951,12 @@ class TestInternalHelpers:
         svc.reset("co-1")
         old_time = datetime.now(timezone.utc) - timedelta(days=200)
         entry = AuditLogEntry(
-            entry_id="e-old", company_id="co-1",
-            category=AuditCategory.SYSTEM, severity=AuditSeverity.INFO,
-            action="ping", created_at=old_time,
+            entry_id="e-old",
+            company_id="co-1",
+            category=AuditCategory.SYSTEM,
+            severity=AuditSeverity.INFO,
+            action="ping",
+            created_at=old_time,
         )
         policy = AuditRetentionPolicy(company_id="co-1")
         assert svc._should_retain(entry, policy) is False
@@ -1964,8 +2021,7 @@ class TestSecurityRelevantActions:
         svc = self._make_svc()
         svc.log_event("co-1", "authorization", "warning", "permission_change")
         alerts = svc.get_alerts("co-1")
-        assert any(a["alert_type"]
-                   == "audit_permission_change" for a in alerts)
+        assert any(a["alert_type"] == "audit_permission_change" for a in alerts)
 
     def test_api_key_revoke_creates_alert(self):
         svc = self._make_svc()

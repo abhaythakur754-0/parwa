@@ -47,12 +47,11 @@ class IPAllowlistMiddleware:
     def __init__(self, app):
         self.app = app
         self._environment = os.environ.get(
-            "ENVIRONMENT", "development",
+            "ENVIRONMENT",
+            "development",
         )
         self._allowed_ips = self._parse_allowed_ips()
-        self._skip_prefixes = (
-            self._parse_skip_prefixes()
-        )
+        self._skip_prefixes = self._parse_skip_prefixes()
 
     def _parse_allowed_ips(self) -> list:
         """Parse ALLOWED_IPS from environment variable."""
@@ -62,27 +61,30 @@ class IPAllowlistMiddleware:
         ips = [ip.strip() for ip in raw.split(",") if ip.strip()]
         logger.info(
             "ip_allowlist_configured source=%s count=%d",
-            "env", len(ips),
+            "env",
+            len(ips),
         )
         return ips
 
     def _parse_skip_prefixes(self) -> list:
         """Parse IP_ALLOWLIST_SKIP_PREFIXES from env."""
         raw = os.environ.get(
-            "IP_ALLOWLIST_SKIP_PREFIXES", "",
+            "IP_ALLOWLIST_SKIP_PREFIXES",
+            "",
         )
         if not raw:
             return list(DEFAULT_SKIP_PREFIXES)
-        return [
-            p.strip() for p in raw.split(",")
-            if p.strip()
-        ]
+        return [p.strip() for p in raw.split(",") if p.strip()]
 
     def _is_enabled(self) -> bool:
         """Check if IP allowlist is enabled."""
-        return os.environ.get(
-            "IP_ALLOWLIST_ENABLED", "false",
-        ).lower() == "true"
+        return (
+            os.environ.get(
+                "IP_ALLOWLIST_ENABLED",
+                "false",
+            ).lower()
+            == "true"
+        )
 
     async def __call__(self, scope, receive, send):
         """Process ASGI request through IP allowlist."""
@@ -121,15 +123,19 @@ class IPAllowlistMiddleware:
 
         # Check IP against allowlist
         allowed = await self._check_ip_allowed(
-            client_ip, path,
+            client_ip,
+            path,
         )
         if not allowed:
             logger.warning(
                 "ip_allowlist_blocked client_ip=%s path=%s",
-                client_ip, path,
+                client_ip,
+                path,
             )
             await self._send_forbidden(
-                scope, receive, send,
+                scope,
+                receive,
+                send,
                 "Access denied: IP not in allowlist",
             )
             return
@@ -158,7 +164,8 @@ class IPAllowlistMiddleware:
         """
         headers = dict(scope.get("headers", []))
         forwarded = headers.get(
-            b"x-forwarded-for", b"",
+            b"x-forwarded-for",
+            b"",
         ).decode("utf-8", errors="ignore")
 
         trusted_proxy_count = int(
@@ -176,7 +183,9 @@ class IPAllowlistMiddleware:
         return ""
 
     async def _check_ip_allowed(
-        self, client_ip: str, path: str,
+        self,
+        client_ip: str,
+        path: str,
     ) -> bool:
         """Check if client IP is in the allowlist.
 
@@ -203,7 +212,8 @@ class IPAllowlistMiddleware:
         # Config-based ALLOWED_IPS takes priority
         if self._allowed_ips:
             return self._ip_in_ranges(
-                ip_obj, self._allowed_ips,
+                ip_obj,
+                self._allowed_ips,
             )
 
         # Fall back to Redis-based allowlist
@@ -215,7 +225,8 @@ class IPAllowlistMiddleware:
             )
             if allowed_ips is not None:
                 return self._ip_in_ranges(
-                    ip_obj, allowed_ips,
+                    ip_obj,
+                    allowed_ips,
                 )
 
             global_ips = await self._get_redis_allowlist(
@@ -223,15 +234,17 @@ class IPAllowlistMiddleware:
             )
             if global_ips is not None:
                 return self._ip_in_ranges(
-                    ip_obj, global_ips,
+                    ip_obj,
+                    global_ips,
                 )
         except Exception as exc:
             # FIX L35: Log Redis errors instead of
             # silently passing (fail-open still applies)
             logger.warning(
-                "ip_allowlist_redis_error_fail_open path=%s "
-                "route_key=%s error=%s",
-                path, route_key, exc,
+                "ip_allowlist_redis_error_fail_open path=%s " "route_key=%s error=%s",
+                path,
+                route_key,
+                exc,
             )
 
         # No allowlist configured -> fail-open
@@ -247,11 +260,13 @@ class IPAllowlistMiddleware:
         return "global"
 
     async def _get_redis_allowlist(
-        self, key: str,
+        self,
+        key: str,
     ) -> list | None:
         """Get allowlist from Redis."""
         try:
             from app.core.redis import get_redis
+
             redis_client = await get_redis()
             redis_key = f"parwa:ip_allowlist:{key}"
             raw = await redis_client.get(redis_key)
@@ -262,13 +277,16 @@ class IPAllowlistMiddleware:
             raise
 
     def _ip_in_ranges(
-        self, ip_obj, ranges: list,
+        self,
+        ip_obj,
+        ranges: list,
     ) -> bool:
         """Check if an IP falls within any CIDR range."""
         for cidr in ranges:
             try:
                 if ip_obj in ipaddress.ip_network(
-                    cidr, strict=False,
+                    cidr,
+                    strict=False,
                 ):
                     return True
             except Exception:
@@ -276,26 +294,35 @@ class IPAllowlistMiddleware:
         return False
 
     async def _send_forbidden(
-        self, scope, receive, send,
+        self,
+        scope,
+        receive,
+        send,
         message: str,
     ):
         """Send a 403 JSON response (BC-012)."""
-        body = json.dumps({
-            "error": {
-                "code": "FORBIDDEN",
-                "message": message,
-                "details": None,
+        body = json.dumps(
+            {
+                "error": {
+                    "code": "FORBIDDEN",
+                    "message": message,
+                    "details": None,
+                }
             }
-        }).encode("utf-8")
+        ).encode("utf-8")
 
-        await send({
-            "type": "http.response.start",
-            "status": 403,
-            "headers": [
-                [b"content-type", b"application/json"],
-            ],
-        })
-        await send({
-            "type": "http.response.body",
-            "body": body,
-        })
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 403,
+                "headers": [
+                    [b"content-type", b"application/json"],
+                ],
+            }
+        )
+        await send(
+            {
+                "type": "http.response.body",
+                "body": body,
+            }
+        )

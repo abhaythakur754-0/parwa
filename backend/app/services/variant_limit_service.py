@@ -35,12 +35,7 @@ logger = logging.getLogger("parwa.services.variant_limit")
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
-VALID_LIMIT_TYPES = {
-    "tickets",
-    "team_members",
-    "ai_agents",
-    "voice_slots",
-    "kb_docs"}
+VALID_LIMIT_TYPES = {"tickets", "team_members", "ai_agents", "voice_slots", "kb_docs"}
 
 _LIMIT_KEY_MAP = {
     "tickets": "monthly_tickets",
@@ -60,16 +55,28 @@ _LIMIT_LABEL_MAP = {
 
 _HARDCODED_LIMITS: Dict[str, Dict[str, Any]] = {
     "mini_parwa": {
-        "monthly_tickets": 2000, "ai_agents": 1, "team_members": 3,
-        "voice_slots": 0, "kb_docs": 100, "price": "999.00",
+        "monthly_tickets": 2000,
+        "ai_agents": 1,
+        "team_members": 3,
+        "voice_slots": 0,
+        "kb_docs": 100,
+        "price": "999.00",
     },
     "parwa": {
-        "monthly_tickets": 5000, "ai_agents": 3, "team_members": 10,
-        "voice_slots": 2, "kb_docs": 500, "price": "2499.00",
+        "monthly_tickets": 5000,
+        "ai_agents": 3,
+        "team_members": 10,
+        "voice_slots": 2,
+        "kb_docs": 500,
+        "price": "2499.00",
     },
     "high_parwa": {
-        "monthly_tickets": 15000, "ai_agents": 5, "team_members": 25,
-        "voice_slots": 5, "kb_docs": 2000, "price": "3999.00",
+        "monthly_tickets": 15000,
+        "ai_agents": 5,
+        "team_members": 25,
+        "voice_slots": 5,
+        "kb_docs": 2000,
+        "price": "3999.00",
     },
 }
 
@@ -253,10 +260,7 @@ class VariantLimitService:
             "variant_limits_fallback variant=%s source=hardcoded",
             variant_key,
         )
-        return dict(
-            _HARDCODED_LIMITS.get(
-                variant_key,
-                _HARDCODED_LIMITS["mini_parwa"]))
+        return dict(_HARDCODED_LIMITS.get(variant_key, _HARDCODED_LIMITS["mini_parwa"]))
 
     def get_company_limits(self, company_id: Any) -> Dict[str, Any]:
         """Get effective limits for a company based on their subscription tier."""
@@ -295,7 +299,8 @@ class VariantLimitService:
         except Exception as exc:
             logger.warning(
                 "addon_tickets_query_failed company_id=%s error=%s",
-                company_id, str(exc),
+                company_id,
+                str(exc),
             )
             return 0
 
@@ -321,7 +326,8 @@ class VariantLimitService:
         except Exception as exc:
             logger.warning(
                 "addon_kb_docs_query_failed company_id=%s error=%s",
-                company_id, str(exc),
+                company_id,
+                str(exc),
             )
             return 0
 
@@ -381,14 +387,16 @@ class VariantLimitService:
             "addon_tickets": addon_tickets,
             "base_limit": base_ticket_limit,
             "message": (
-                f"{usage}/{ticket_limit} tickets used this month "
-                f"(base: {base_ticket_limit} + addons: {addon_tickets}). "
-                f"{remaining} remaining."
-            )
-            if allowed
-            else (
-                f"Ticket limit exceeded: {usage}/{ticket_limit}. "
-                "Upgrade your plan or remove add-ons to adjust capacity."
+                (
+                    f"{usage}/{ticket_limit} tickets used this month "
+                    f"(base: {base_ticket_limit} + addons: {addon_tickets}). "
+                    f"{remaining} remaining."
+                )
+                if allowed
+                else (
+                    f"Ticket limit exceeded: {usage}/{ticket_limit}. "
+                    "Upgrade your plan or remove add-ons to adjust capacity."
+                )
             ),
         }
 
@@ -408,8 +416,7 @@ class VariantLimitService:
         self, company_id: Any, current_count: int
     ) -> Dict[str, Any]:
         """Check if a company can add more team members."""
-        return self._check_count_limit(
-            company_id, "team_members", current_count)
+        return self._check_count_limit(company_id, "team_members", current_count)
 
     def check_ai_agent_limit(
         self, company_id: Any, current_count: int
@@ -421,12 +428,9 @@ class VariantLimitService:
         self, company_id: Any, current_count: int
     ) -> Dict[str, Any]:
         """Check if a company can provision more voice slots."""
-        return self._check_count_limit(
-            company_id, "voice_slots", current_count)
+        return self._check_count_limit(company_id, "voice_slots", current_count)
 
-    def check_kb_doc_limit(
-        self, company_id: Any, current_count: int
-    ) -> Dict[str, Any]:
+    def check_kb_doc_limit(self, company_id: Any, current_count: int) -> Dict[str, Any]:
         """Check if a company can upload more KB documents."""
         return self._check_count_limit(company_id, "kb_docs", current_count)
 
@@ -460,9 +464,7 @@ class VariantLimitService:
                 raise VariantLimitError(
                     f"current_count is required for limit_type '{lt}'"
                 )
-            check_result = self._check_count_limit(
-                company_id, lt, int(current_count)
-            )
+            check_result = self._check_count_limit(company_id, lt, int(current_count))
 
         if not check_result["allowed"]:
             logger.warning(
@@ -547,15 +549,15 @@ class VariantLimitService:
             checks["kb_docs"]["limit"],
         )
 
-        return {
-            "company_id": company_id_str,
-            "variant": variant,
-            "checks": checks}
+        return {"company_id": company_id_str, "variant": variant, "checks": checks}
 
     # ── Private Helpers ─────────────────────────────────────────────
 
     def _check_count_limit(
-        self, company_id: Any, limit_type: str, current_count: int,
+        self,
+        company_id: Any,
+        limit_type: str,
+        current_count: int,
     ) -> Dict[str, Any]:
         """Generic count-based limit check for non-ticket resources.
 
@@ -593,11 +595,19 @@ class VariantLimitService:
             "base_limit": base_limit,
             "addon_amount": addon_amount,
             "message": (
-                f"{usage}/{plan_limit} {label} in use. {remaining} remaining."
-                + (f" (base: {base_limit} + addons: {addon_amount})" if addon_amount else "")
-            ) if allowed else (
-                f"{label.title()} limit exceeded: {usage}/{plan_limit}. "
-                f"Upgrade your plan to add more {label}."
+                (
+                    f"{usage}/{plan_limit} {label} in use. {remaining} remaining."
+                    + (
+                        f" (base: {base_limit} + addons: {addon_amount})"
+                        if addon_amount
+                        else ""
+                    )
+                )
+                if allowed
+                else (
+                    f"{label.title()} limit exceeded: {usage}/{plan_limit}. "
+                    f"Upgrade your plan to add more {label}."
+                )
             ),
         }
 
@@ -617,7 +627,9 @@ class VariantLimitService:
 
     @staticmethod
     def _build_check_result(
-        limit_type: str, current_count: int, limit: int,
+        limit_type: str,
+        current_count: int,
+        limit: int,
     ) -> Dict[str, Any]:
         """Build a standard check result dict without DB access."""
         usage = int(current_count)
@@ -632,10 +644,12 @@ class VariantLimitService:
             "limit": limit,
             "remaining": remaining,
             "message": (
-                f"{usage}/{limit} {label} in use. {remaining} remaining."
-            ) if allowed else (
-                f"{label.title()} limit exceeded: {usage}/{limit}. "
-                f"Upgrade your plan to add more {label}."
+                (f"{usage}/{limit} {label} in use. {remaining} remaining.")
+                if allowed
+                else (
+                    f"{label.title()} limit exceeded: {usage}/{limit}. "
+                    f"Upgrade your plan to add more {label}."
+                )
             ),
         }
 
@@ -663,6 +677,7 @@ class VariantLimitService:
         try:
             module_path, model_name = entry
             import importlib
+
             module = importlib.import_module(module_path)
             model_cls = getattr(module, model_name)
 
@@ -675,9 +690,10 @@ class VariantLimitService:
                 return int(count or 0)
         except Exception as exc:
             logger.warning(
-                "resource_count_query_failed company_id=%s "
-                "limit_type=%s error=%s",
-                company_id, limit_type, str(exc),
+                "resource_count_query_failed company_id=%s " "limit_type=%s error=%s",
+                company_id,
+                limit_type,
+                str(exc),
             )
             return 0
 

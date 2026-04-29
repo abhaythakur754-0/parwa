@@ -8,8 +8,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ── Bounce Listing Schemas ──────────────────────────────────────
+
 
 class BounceListItem(BaseModel):
     """Single bounce event in list response."""
@@ -39,6 +39,7 @@ class BounceListResponse(BaseModel):
 
 # ── Whitelist Schema ────────────────────────────────────────────
 
+
 class WhitelistRequest(BaseModel):
     """Request to whitelist a bounced email."""
 
@@ -60,6 +61,7 @@ class WhitelistResponse(BaseModel):
 
 # ── Stats Schemas ───────────────────────────────────────────────
 
+
 class BounceStatsResponse(BaseModel):
     """Response for GET /api/email/bounces/stats."""
 
@@ -75,6 +77,7 @@ class BounceStatsResponse(BaseModel):
 
 
 # ── Digest Schema ───────────────────────────────────────────────
+
 
 class DeliverabilityAlertItem(BaseModel):
     """Single deliverability alert."""
@@ -98,6 +101,7 @@ class BounceDigestResponse(BaseModel):
 
 
 # ── Email Status Check Schema ───────────────────────────────────
+
 
 class EmailStatusCheckResponse(BaseModel):
     """Response for checking if an email can receive messages."""

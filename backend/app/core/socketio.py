@@ -74,9 +74,7 @@ def get_tenant_room(company_id: str) -> str:
             f"company_id exceeds max length {MAX_COMPANY_ID_LENGTH} (BC-005)"
         )
     if any(ord(c) < 32 for c in company_id):
-        raise ValueError(
-            "Invalid company_id: contains control characters (BC-005)"
-        )
+        raise ValueError("Invalid company_id: contains control characters (BC-005)")
     return f"{TENANT_ROOM_PREFIX}{company_id}"
 
 
@@ -121,9 +119,12 @@ if _socketio_pkg is not None:
     sio = _socketio_pkg.AsyncServer(
         async_mode="asgi",
         cors_allowed_origins=[
-            origin.strip() for origin in os.getenv(
-                "ALLOWED_ORIGINS",
-                "http://localhost:3000").split(",") if origin.strip()],
+            origin.strip()
+            for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(
+                ","
+            )
+            if origin.strip()
+        ],
         ping_timeout=60,
         ping_interval=25,
         max_http_buffer_size=1_000_000,  # 1MB max message size
@@ -181,6 +182,7 @@ def _register_handlers() -> None:
                 from app.core.auth import (
                     verify_access_token,
                 )
+
                 payload = verify_access_token(token)
                 company_id = payload.get("company_id")
                 user_id = payload.get("sub")
@@ -265,9 +267,7 @@ async def emit_to_tenant(
         ValueError: If company_id is invalid.
     """
     if not _validate_company_id(company_id):
-        raise ValueError(
-            f"Invalid company_id for emit: {company_id!r} (BC-001)"
-        )
+        raise ValueError(f"Invalid company_id for emit: {company_id!r} (BC-001)")
 
     room = get_tenant_room(company_id)
 
@@ -367,6 +367,7 @@ def register_business_handlers() -> None:
             registry = None
             try:
                 from app.core.events import get_event_registry
+
                 registry = get_event_registry()
             except Exception:
                 logger.debug("event_registry_import_failed")
@@ -387,9 +388,7 @@ def register_business_handlers() -> None:
             )
             return {"subscribed": valid_types}
         except Exception as exc:
-            logger.warning(
-                "event_subscribe_error", sid=sid, error=str(exc)
-            )
+            logger.warning("event_subscribe_error", sid=sid, error=str(exc))
             return {"error": "subscription_failed"}
 
     @sio.on("event:unsubscribe")
@@ -403,9 +402,7 @@ def register_business_handlers() -> None:
 
             event_types = data.get("event_types", []) if data else []
             current = session.get("subscriptions", [])
-            session["subscriptions"] = [
-                t for t in current if t not in event_types
-            ]
+            session["subscriptions"] = [t for t in current if t not in event_types]
             await sio.save_session(sid, session)
 
             logger.info(
@@ -415,9 +412,7 @@ def register_business_handlers() -> None:
             )
             return {"unsubscribed": event_types}
         except Exception as exc:
-            logger.warning(
-                "event_unsubscribe_error", sid=sid, error=str(exc)
-            )
+            logger.warning("event_unsubscribe_error", sid=sid, error=str(exc))
             return {"error": "unsubscription_failed"}
 
     @sio.on("ping")
@@ -435,6 +430,7 @@ def register_business_handlers() -> None:
         except Exception:
             return {"error": "unauthenticated"}
         import time as _time
+
         return {
             "pong": True,
             "server_time": _time.time(),

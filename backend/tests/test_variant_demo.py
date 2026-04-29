@@ -17,7 +17,7 @@ Run: python backend/tests/test_variant_demo.py
 import sys
 
 # Add backend to path
-sys.path.insert(0, '/home/z/my-project/parwa/backend')
+sys.path.insert(0, "/home/z/my-project/parwa/backend")
 
 
 def test_demo_service():
@@ -37,9 +37,10 @@ def test_demo_service():
 
         # Test each variant
         for variant in [
-                DemoVariant.MINI_PARWA,
-                DemoVariant.PARWA,
-                DemoVariant.HIGH_PARWA]:
+            DemoVariant.MINI_PARWA,
+            DemoVariant.PARWA,
+            DemoVariant.HIGH_PARWA,
+        ]:
             caps = VARIANT_DEMO_CAPABILITIES[variant]
             print(f"\n📦 {caps['display_name']} ({variant.value}):")
             print(f"   Price: ${caps['price_monthly']}/mo")
@@ -54,6 +55,7 @@ def test_demo_service():
     except Exception as e:
         print(f"❌ Demo service test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -71,9 +73,10 @@ def test_demo_session_creation():
 
         # Test session creation for each variant
         for variant in [
-                DemoVariant.MINI_PARWA,
-                DemoVariant.PARWA,
-                DemoVariant.HIGH_PARWA]:
+            DemoVariant.MINI_PARWA,
+            DemoVariant.PARWA,
+            DemoVariant.HIGH_PARWA,
+        ]:
             session = demo_service.create_demo_session(
                 variant=variant,
                 industry="ecommerce",
@@ -89,6 +92,7 @@ def test_demo_session_creation():
     except Exception as e:
         print(f"❌ Session creation test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -122,8 +126,7 @@ def test_demo_chat():
         print(f"   {result.ai_response[:200]}...")
         print(f"   Confidence: {result.confidence:.0%}")
         print(f"   Features Used: {', '.join(result.features_used)}")
-        print(
-            f"   Remaining Messages: {
+        print(f"   Remaining Messages: {
                 result.variant_capabilities.get(
                     'remaining_messages',
                     0)}")
@@ -138,6 +141,7 @@ def test_demo_chat():
     except Exception as e:
         print(f"❌ Demo chat test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -167,6 +171,7 @@ def test_variant_comparison():
     except Exception as e:
         print(f"❌ Variant comparison test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -184,9 +189,10 @@ def test_demo_scenarios():
 
         # Test scenarios for each variant
         for variant in [
-                DemoVariant.MINI_PARWA,
-                DemoVariant.PARWA,
-                DemoVariant.HIGH_PARWA]:
+            DemoVariant.MINI_PARWA,
+            DemoVariant.PARWA,
+            DemoVariant.HIGH_PARWA,
+        ]:
             scenarios = demo_service.get_demo_scenarios(
                 variant=variant,
                 industry="ecommerce",
@@ -202,6 +208,7 @@ def test_demo_scenarios():
     except Exception as e:
         print(f"❌ Demo scenarios test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -233,13 +240,11 @@ def test_demo_completion():
         result = demo_service.complete_demo_session(session.session_id)
 
         print(f"\n✅ Demo completed: {result.get('message')}")
-        print(
-            f"   Variant tested: {
+        print(f"   Variant tested: {
                 result.get(
                     'summary',
                     {}).get('variant_tested')}")
-        print(
-            f"   Messages sent: {
+        print(f"   Messages sent: {
                 result.get(
                     'summary',
                     {}).get('messages_sent')}")
@@ -249,6 +254,7 @@ def test_demo_completion():
     except Exception as e:
         print(f"❌ Demo completion test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

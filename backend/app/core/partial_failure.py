@@ -44,6 +44,7 @@ class PipelineStageStatus(str, Enum):
     SKIPPED: Stage was deliberately bypassed (e.g. reduced pipeline).
     DEGRADED: Stage produced a result but quality is compromised.
     """
+
     SUCCESS = "success"
     FAILED = "failed"
     TIMEOUT = "timeout"
@@ -59,6 +60,7 @@ class DegradationLevel(str, Enum):
     critical:       Many stages failed; minimal response only.
     human_handoff:  Too many failures; escalate to human agent.
     """
+
     NONE = "none"
     DEGRADED = "degraded"
     CRITICAL = "critical"
@@ -67,6 +69,7 @@ class DegradationLevel(str, Enum):
 
 class PipelineFinalStatus(str, Enum):
     """Final status recorded after a pipeline completes."""
+
     FULL_SUCCESS = "full_success"
     PARTIAL_SUCCESS = "partial_success"
     DEGRADED_RESPONSE = "degraded_response"
@@ -94,6 +97,7 @@ class StageFailure:
         retry_count:  Number of times this stage was retried before
                       recording this failure.
     """
+
     stage_id: str
     error: str
     status: PipelineStageStatus
@@ -122,6 +126,7 @@ class PipelineContext:
                              extracted (for template matching).
         metadata:            Arbitrary metadata attached by stages.
     """
+
     company_id: str = ""
     ticket_id: str = ""
     variant: str = "parwa"
@@ -149,6 +154,7 @@ class FallbackTemplate:
         requires_signals:   List of signal names that must be present
                              for this template to be eligible.
     """
+
     intent: str
     template: str
     priority: int = 10
@@ -173,6 +179,7 @@ class DegradationConfig:
         skip_failed_stages:        Whether to continue the pipeline without
                                    the failed stages (reduced pipeline).
     """
+
     max_failed_stages: int = 3
     retry_enabled: bool = True
     max_retries: int = 1
@@ -196,6 +203,7 @@ class PipelineResultRecord:
                           handoff).
         timestamp:      UTC ISO-8601 (BC-012).
     """
+
     company_id: str
     ticket_id: str
     variant: str
@@ -240,9 +248,9 @@ _VARIANT_DEGRADATION_CONFIGS: Dict[str, DegradationConfig] = {
 # Per-variant critical thresholds — when degradation is "critical"
 # (more than half of max_failed_stages have failed)
 _VARIANT_CRITICAL_THRESHOLD: Dict[str, float] = {
-    "mini_parwa": 0.5,   # 1+ failures out of 2
-    "parwa": 0.5,         # 2+ failures out of 3
-    "high_parwa": 0.5,    # 2+ failures out of 4
+    "mini_parwa": 0.5,  # 1+ failures out of 2
+    "parwa": 0.5,  # 2+ failures out of 3
+    "high_parwa": 0.5,  # 2+ failures out of 4
 }
 
 # Default fallback templates — one per supported intent
@@ -371,7 +379,8 @@ def _now_utc() -> str:
 def _get_variant_config(variant: str) -> DegradationConfig:
     """Retrieve degradation config for a variant with safe fallback."""
     return _VARIANT_DEGRADATION_CONFIGS.get(
-        variant, _VARIANT_DEGRADATION_CONFIGS["parwa"],
+        variant,
+        _VARIANT_DEGRADATION_CONFIGS["parwa"],
     )
 
 
@@ -388,18 +397,15 @@ def _count_failures(failures: List[StageFailure]) -> int:
     reduced pipeline and should not penalize the run.
     """
     return sum(
-        1 for f in failures
-        if f.status
-        in (PipelineStageStatus.FAILED, PipelineStageStatus.TIMEOUT)
+        1
+        for f in failures
+        if f.status in (PipelineStageStatus.FAILED, PipelineStageStatus.TIMEOUT)
     )
 
 
 def _count_all_non_success(failures: List[StageFailure]) -> int:
     """Count all non-success statuses including DEGRADED and SKIPPED."""
-    return sum(
-        1 for f in failures
-        if f.status != PipelineStageStatus.SUCCESS
-    )
+    return sum(1 for f in failures if f.status != PipelineStageStatus.SUCCESS)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -437,27 +443,21 @@ class PartialFailureHandler:
         self._lock = threading.RLock()
 
         # Fallback template registry: intent -> sorted list of templates
-        self._fallback_templates: Dict[str, List[FallbackTemplate]] = (
-            defaultdict(list)
-        )
+        self._fallback_templates: Dict[str, List[FallbackTemplate]] = defaultdict(list)
 
         # Per-company custom degradation configs:
         # company_id -> variant -> DegradationConfig
-        self._custom_configs: Dict[str, Dict[str, DegradationConfig]] = (
-            defaultdict(dict)
+        self._custom_configs: Dict[str, Dict[str, DegradationConfig]] = defaultdict(
+            dict
         )
 
         # Pipeline result history for analytics
         # company_id -> list of PipelineResultRecord
-        self._result_history: Dict[str, List[PipelineResultRecord]] = (
-            defaultdict(list)
-        )
+        self._result_history: Dict[str, List[PipelineResultRecord]] = defaultdict(list)
 
         # Failure statistics per company
         # company_id -> list of dicts with stage-level failure info
-        self._failure_stats: Dict[str, List[Dict[str, Any]]] = (
-            defaultdict(list)
-        )
+        self._failure_stats: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
 
         # Register all default templates
         self._register_default_templates()
@@ -534,12 +534,16 @@ class PartialFailureHandler:
 
                 # Update error context for downstream stages
                 self._update_error_context(
-                    pipeline_context, failure,
+                    pipeline_context,
+                    failure,
                 )
 
                 # Track failure stats
                 self._record_failure_stat(
-                    company_id, ticket_id, failure, pipeline_context,
+                    company_id,
+                    ticket_id,
+                    failure,
+                    pipeline_context,
                 )
 
             logger.warning(
@@ -590,7 +594,10 @@ class PartialFailureHandler:
         # (heuristic based on common stage-to-signal mappings)
         stage_signal_map: Dict[str, List[str]] = {
             "signal_extraction": [
-                "intent", "sentiment", "urgency", "language",
+                "intent",
+                "sentiment",
+                "urgency",
+                "language",
             ],
             "rag_retrieval": ["knowledge_context", "relevant_docs"],
             "sentiment_analysis": ["sentiment", "emotion"],
@@ -608,9 +615,7 @@ class PartialFailureHandler:
         ctx.error_context["missing_signals"] = existing_missing
 
         # Track which partial results are still available
-        ctx.error_context["partial_results_available"] = (
-            len(ctx.stage_results) > 0
-        )
+        ctx.error_context["partial_results_available"] = len(ctx.stage_results) > 0
 
         # Increment confidence penalty for each failure
         current_penalty = ctx.error_context.get("confidence_penalty", 0.0)
@@ -621,7 +626,8 @@ class PartialFailureHandler:
         elif failure.status == PipelineStageStatus.DEGRADED:
             current_penalty += 0.05
         ctx.error_context["confidence_penalty"] = min(
-            current_penalty, 0.75,  # Cap at 75% penalty
+            current_penalty,
+            0.75,  # Cap at 75% penalty
         )
 
         # Check retry eligibility
@@ -684,7 +690,8 @@ class PartialFailureHandler:
 
                 variant = pipeline_context.variant or "parwa"
                 config = self._get_effective_config(
-                    pipeline_context.company_id, variant,
+                    pipeline_context.company_id,
+                    variant,
                 )
 
                 failed_count = _count_failures(failures)
@@ -696,8 +703,7 @@ class PartialFailureHandler:
 
                 # Check critical threshold
                 critical_ratio = _get_critical_ratio(variant)
-                if (failed_count / config.max_failed_stages
-                        >= critical_ratio):
+                if failed_count / config.max_failed_stages >= critical_ratio:
                     return DegradationLevel.CRITICAL.value
 
                 # At least one failure means degraded
@@ -749,13 +755,17 @@ class PartialFailureHandler:
 
             # Attempt to find a matching fallback template
             template = self.get_fallback_template(
-                intent, variant, available,
+                intent,
+                variant,
+                available,
             )
 
             if template:
                 # Enrich template with available signal data
                 enriched = self._enrich_template(
-                    template, signals, pipeline_context,
+                    template,
+                    signals,
+                    pipeline_context,
                 )
                 logger.info(
                     "degraded_response_generated_from_template",
@@ -769,7 +779,8 @@ class PartialFailureHandler:
 
             # No template found — generate from available signals
             response = self._generate_from_signals(
-                signals, pipeline_context,
+                signals,
+                pipeline_context,
             )
             if response:
                 logger.info(
@@ -902,21 +913,14 @@ class PartialFailureHandler:
 
         # Add signal-derived context
         if signals.get("order_id"):
-            parts.append(
-                f"related to order {signals['order_id']}. "
-            )
+            parts.append(f"related to order {signals['order_id']}. ")
         if signals.get("product_name"):
-            parts.append(
-                f"concerning {signals['product_name']}. "
-            )
+            parts.append(f"concerning {signals['product_name']}. ")
         if signals.get("urgency") == "high":
-            parts.append(
-                "We understand this is urgent. "
-            )
+            parts.append("We understand this is urgent. ")
 
         parts.append(
-            "Our team is reviewing the details and will "
-            "respond as soon as possible."
+            "Our team is reviewing the details and will " "respond as soon as possible."
         )
 
         response = "".join(parts)
@@ -962,17 +966,11 @@ class PartialFailureHandler:
 
                 # Filter while preserving order
                 reduced = [
-                    step_id
-                    for step_id in full_step_ids
-                    if step_id not in excluded
+                    step_id for step_id in full_step_ids if step_id not in excluded
                 ]
 
                 # Record skipped stages in metadata
-                skipped = [
-                    step_id
-                    for step_id in full_step_ids
-                    if step_id in excluded
-                ]
+                skipped = [step_id for step_id in full_step_ids if step_id in excluded]
                 pipeline_context.metadata["skipped_stages"] = skipped
                 pipeline_context.metadata["reduced_pipeline"] = reduced
 
@@ -1020,12 +1018,11 @@ class PartialFailureHandler:
             with self._lock:
                 variant = pipeline_context.variant or "parwa"
                 config = self._get_effective_config(
-                    pipeline_context.company_id, variant,
+                    pipeline_context.company_id,
+                    variant,
                 )
                 failed_count = _count_failures(pipeline_context.failures)
-                should_handoff = (
-                    failed_count >= config.max_failed_stages
-                )
+                should_handoff = failed_count >= config.max_failed_stages
 
                 if should_handoff:
                     logger.warning(
@@ -1035,10 +1032,7 @@ class PartialFailureHandler:
                         variant=variant,
                         failed_count=failed_count,
                         threshold=config.max_failed_stages,
-                        failed_stages=[
-                            f.stage_id
-                            for f in pipeline_context.failures
-                        ],
+                        failed_stages=[f.stage_id for f in pipeline_context.failures],
                     )
 
                 return should_handoff
@@ -1091,16 +1085,20 @@ class PartialFailureHandler:
                         pipeline_context,
                     ),
                     "failed_stage_ids": base_context.get(
-                        "failed_stage_ids", [],
+                        "failed_stage_ids",
+                        [],
                     ),
                     "missing_signals": base_context.get(
-                        "missing_signals", [],
+                        "missing_signals",
+                        [],
                     ),
                     "confidence_penalty": base_context.get(
-                        "confidence_penalty", 0.0,
+                        "confidence_penalty",
+                        0.0,
                     ),
                     "retry_eligible": base_context.get(
-                        "retry_eligible", False,
+                        "retry_eligible",
+                        False,
                     ),
                     "partial_results_available": (
                         len(pipeline_context.stage_results) > 0
@@ -1113,19 +1111,22 @@ class PartialFailureHandler:
                 # Add per-stage failure details
                 stage_errors: List[Dict[str, Any]] = []
                 for failure in failures:
-                    stage_errors.append({
-                        "stage_id": failure.stage_id,
-                        "status": failure.status.value,
-                        "error": failure.error,
-                        "timestamp": failure.timestamp,
-                        "retry_count": failure.retry_count,
-                    })
+                    stage_errors.append(
+                        {
+                            "stage_id": failure.stage_id,
+                            "status": failure.status.value,
+                            "error": failure.error,
+                            "timestamp": failure.timestamp,
+                            "retry_count": failure.retry_count,
+                        }
+                    )
                 error_context["stage_errors"] = stage_errors
 
                 # Add handoff recommendation
                 variant = pipeline_context.variant or "parwa"
                 config = self._get_effective_config(
-                    pipeline_context.company_id, variant,
+                    pipeline_context.company_id,
+                    variant,
                 )
                 error_context["handoff_recommended"] = (
                     _count_failures(failures) >= config.max_failed_stages
@@ -1202,7 +1203,8 @@ class PartialFailureHandler:
                 if not templates:
                     # Fall back to "general" intent
                     templates = self._fallback_templates.get(
-                        "general", [],
+                        "general",
+                        [],
                     )
                 if not templates:
                     return None
@@ -1213,7 +1215,9 @@ class PartialFailureHandler:
 
                 for tmpl in templates:
                     score = self._score_template(
-                        tmpl, variant, available_signals,
+                        tmpl,
+                        variant,
+                        available_signals,
                     )
                     if score > best_score:
                         best_score = score
@@ -1328,9 +1332,7 @@ class PartialFailureHandler:
                 template_used = pipeline_context.metadata.get(
                     "template_used",
                 )
-                response_source = (
-                    "fallback" if template_used else "degraded_ai"
-                )
+                response_source = "fallback" if template_used else "degraded_ai"
 
             record = PipelineResultRecord(
                 company_id=company_id,
@@ -1348,9 +1350,7 @@ class PartialFailureHandler:
                 history = self._result_history[company_id]
                 history.append(record)
                 if len(history) > _MAX_RESULT_HISTORY:
-                    self._result_history[company_id] = (
-                        history[-_MAX_RESULT_HISTORY:]
-                    )
+                    self._result_history[company_id] = history[-_MAX_RESULT_HISTORY:]
 
             logger.info(
                 "pipeline_result_recorded",
@@ -1440,7 +1440,9 @@ class PartialFailureHandler:
                 error_msg = stat.get("error", "unknown")
                 all_errors[error_msg] += 1
             top_errors = sorted(
-                all_errors.items(), key=lambda x: x[1], reverse=True,
+                all_errors.items(),
+                key=lambda x: x[1],
+                reverse=True,
             )[:10]
 
             # Recent failures (last 20)
@@ -1456,7 +1458,8 @@ class PartialFailureHandler:
 
             # Handoff rate
             handoff_count = result_summary.get(
-                PipelineFinalStatus.HUMAN_HANDOFF_TRIGGERED.value, 0,
+                PipelineFinalStatus.HUMAN_HANDOFF_TRIGGERED.value,
+                0,
             )
             total_results = len(result_history) or 1
             handoff_rate = round(handoff_count / total_results, 4)
@@ -1465,15 +1468,10 @@ class PartialFailureHandler:
                 "company_id": company_id,
                 "total_failures": len(stats),
                 "stage_breakdown": dict(stage_counts),
-                "stage_top_errors": {
-                    k: v for k, v in stage_errors.items()
-                },
+                "stage_top_errors": {k: v for k, v in stage_errors.items()},
                 "variant_breakdown": dict(variant_counts),
                 "status_breakdown": dict(status_counts),
-                "top_errors": [
-                    {"error": err, "count": cnt}
-                    for err, cnt in top_errors
-                ],
+                "top_errors": [{"error": err, "count": cnt} for err, cnt in top_errors],
                 "recent_failures": recent,
                 "result_summary": dict(result_summary),
                 "handoff_rate": handoff_rate,
@@ -1635,9 +1633,7 @@ class PartialFailureHandler:
                 "max_failed_stages": config.max_failed_stages,
                 "retry_enabled": config.retry_enabled,
                 "max_retries": config.max_retries,
-                "degraded_response_enabled": (
-                    config.degraded_response_enabled
-                ),
+                "degraded_response_enabled": (config.degraded_response_enabled),
                 "skip_failed_stages": config.skip_failed_stages,
                 "is_custom": (
                     company_id in self._custom_configs
@@ -1746,7 +1742,9 @@ class PartialFailureHandler:
 
             # Build recommendations based on state
             recommendations = self._build_recommendations(
-                pipeline_context, degradation, should_handoff,
+                pipeline_context,
+                degradation,
+                should_handoff,
             )
 
             return {
@@ -1758,11 +1756,13 @@ class PartialFailureHandler:
                 "should_handoff": should_handoff,
                 "total_failures": len(pipeline_context.failures),
                 "failed_stage_ids": [
-                    f.stage_id for f in pipeline_context.failures
+                    f.stage_id
+                    for f in pipeline_context.failures
                     if f.status != PipelineStageStatus.SKIPPED
                 ],
                 "skipped_stage_ids": [
-                    f.stage_id for f in pipeline_context.failures
+                    f.stage_id
+                    for f in pipeline_context.failures
                     if f.status == PipelineStageStatus.SKIPPED
                 ],
                 "available_signals": pipeline_context.available_signals,
@@ -1771,10 +1771,12 @@ class PartialFailureHandler:
                 ),
                 "stage_results_count": len(pipeline_context.stage_results),
                 "confidence_penalty": error_context.get(
-                    "confidence_penalty", 0.0,
+                    "confidence_penalty",
+                    0.0,
                 ),
                 "retry_eligible": error_context.get(
-                    "retry_eligible", False,
+                    "retry_eligible",
+                    False,
                 ),
                 "recommendations": recommendations,
                 "error_context": error_context,
@@ -1836,7 +1838,8 @@ class PartialFailureHandler:
 
         if degradation == DegradationLevel.DEGRADED.value:
             failed_ids = [
-                f.stage_id for f in ctx.failures
+                f.stage_id
+                for f in ctx.failures
                 if f.status != PipelineStageStatus.SKIPPED
             ]
             recommendations.append(
@@ -1847,11 +1850,13 @@ class PartialFailureHandler:
 
             # Check if retry is viable
             config = self._get_effective_config(
-                ctx.company_id, ctx.variant or "parwa",
+                ctx.company_id,
+                ctx.variant or "parwa",
             )
             if config.retry_enabled:
                 retryable = [
-                    f for f in ctx.failures
+                    f
+                    for f in ctx.failures
                     if f.status == PipelineStageStatus.FAILED
                     and f.retry_count < config.max_retries
                 ]
@@ -1909,7 +1914,8 @@ class PartialFailureHandler:
 
                 # Remove custom templates for this company
                 keys_to_remove = [
-                    key for key in self._fallback_templates
+                    key
+                    for key in self._fallback_templates
                     if key.startswith(f"custom:{company_id}:")
                 ]
                 for key in keys_to_remove:

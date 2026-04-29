@@ -37,6 +37,7 @@ logger = get_logger("provider_management")
 
 class ProviderStatus(str, Enum):
     """Health status of a provider+model combination."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -47,6 +48,7 @@ class ProviderStatus(str, Enum):
 
 class AlertLevel(str, Enum):
     """Severity level for provider alerts."""
+
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"
@@ -86,6 +88,7 @@ class ProviderModelStatus:
     Aggregates data from SmartRouter's ProviderHealthTracker with
     any manual overrides (disabled models, etc.).
     """
+
     provider: str  # google, cerebras, groq
     model_id: str
     display_name: str
@@ -108,6 +111,7 @@ class ProviderModelStatus:
 @dataclass
 class ProviderSummary:
     """Aggregated health summary for one provider across all its models."""
+
     provider: str
     display_name: str
     status: str  # worst status across its models
@@ -122,6 +126,7 @@ class ProviderSummary:
 @dataclass
 class ProviderAlert:
     """An alert generated for a provider health event."""
+
     id: str
     provider: str
     model_id: Optional[str]
@@ -135,6 +140,7 @@ class ProviderAlert:
 @dataclass
 class ProviderUsageStats:
     """Usage analytics for a provider over a date range."""
+
     provider: str
     date: str  # YYYY-MM-DD
     total_requests: int
@@ -149,6 +155,7 @@ class ProviderUsageStats:
 @dataclass
 class APIKeyConfig:
     """Configuration for a provider API key."""
+
     provider: str
     key_id: str
     key_value: str  # full value stored here; masked in responses
@@ -325,7 +332,8 @@ class ProviderManagementService:
     # ════════════════════════════════════════════════════════════
 
     def get_all_providers_status(
-        self, company_id: str,
+        self,
+        company_id: str,
     ) -> List[ProviderSummary]:
         """Return full status overview for all 3 providers.
 
@@ -346,7 +354,8 @@ class ProviderManagementService:
             for provider in _KNOWN_PROVIDERS:
                 try:
                     summary = self._build_provider_summary(
-                        company_id, provider,
+                        company_id,
+                        provider,
                     )
                     summaries.append(summary)
                 except Exception as exc:
@@ -358,18 +367,21 @@ class ProviderManagementService:
                             "error": str(exc),
                         },
                     )
-                    summaries.append(ProviderSummary(
-                        provider=provider,
-                        display_name=_PROVIDER_DISPLAY_NAMES.get(
-                            provider, provider,
-                        ),
-                        status=ProviderStatus.UNKNOWN.value,
-                        total_models=0,
-                        healthy_models=0,
-                        degraded_models=0,
-                        unhealthy_models=0,
-                        total_requests_today=0,
-                    ))
+                    summaries.append(
+                        ProviderSummary(
+                            provider=provider,
+                            display_name=_PROVIDER_DISPLAY_NAMES.get(
+                                provider,
+                                provider,
+                            ),
+                            status=ProviderStatus.UNKNOWN.value,
+                            total_models=0,
+                            healthy_models=0,
+                            degraded_models=0,
+                            unhealthy_models=0,
+                            total_requests_today=0,
+                        )
+                    )
 
             logger.info(
                 "all_providers_status_retrieved",
@@ -403,7 +415,9 @@ class ProviderManagementService:
             ]
 
     def get_provider_status(
-        self, company_id: str, provider: str,
+        self,
+        company_id: str,
+        provider: str,
     ) -> ProviderSummary:
         """Return health summary for a single provider.
 
@@ -428,9 +442,7 @@ class ProviderManagementService:
                 )
                 return ProviderSummary(
                     provider=provider,
-                    display_name=_PROVIDER_DISPLAY_NAMES.get(
-                        provider,
-                        provider),
+                    display_name=_PROVIDER_DISPLAY_NAMES.get(provider, provider),
                     status=ProviderStatus.UNKNOWN.value,
                     total_models=0,
                     healthy_models=0,
@@ -464,7 +476,10 @@ class ProviderManagementService:
             )
 
     def get_model_status(
-        self, company_id: str, provider: str, model_id: str,
+        self,
+        company_id: str,
+        provider: str,
+        model_id: str,
     ) -> ProviderModelStatus:
         """Return status for a single provider+model combination.
 
@@ -485,7 +500,10 @@ class ProviderManagementService:
 
             # Find the matching model config(s) in registry.
             model_statuses = self._build_all_model_statuses(
-                company_id, provider, registry, tracker,
+                company_id,
+                provider,
+                registry,
+                tracker,
             )
             for ms in model_statuses:
                 if ms.model_id == model_id:
@@ -716,21 +734,20 @@ class ProviderManagementService:
 
                     # Check if manually disabled.
                     disabled = self._disabled_models.get(company_id, {})
-                    is_disabled = (
-                        (provider, config.model_id) in disabled
-                    )
+                    is_disabled = (provider, config.model_id) in disabled
                     if is_disabled:
-                        model_statuses.append(
-                            ProviderStatus.DISABLED.value
+                        model_statuses.append(ProviderStatus.DISABLED.value)
+                        model_results.append(
+                            {
+                                "model_id": config.model_id,
+                                "display_name": config.display_name,
+                                "status": ProviderStatus.DISABLED.value,
+                                "reason": disabled.get(
+                                    (provider, config.model_id),
+                                    "manual",
+                                ),
+                            }
                         )
-                        model_results.append({
-                            "model_id": config.model_id,
-                            "display_name": config.display_name,
-                            "status": ProviderStatus.DISABLED.value,
-                            "reason": disabled.get(
-                                (provider, config.model_id), "manual",
-                            ),
-                        })
                         continue
 
                     # Check availability via tracker.
@@ -739,7 +756,8 @@ class ProviderManagementService:
 
                         mp = ModelProvider(provider)
                         available = tracker.is_available(
-                            mp, config.model_id,
+                            mp,
+                            config.model_id,
                         )
                     except Exception:
                         available = True  # fail-open
@@ -755,7 +773,8 @@ class ProviderManagementService:
 
                             mp = ModelProvider(provider)
                             rate_limited = tracker.check_rate_limit(
-                                mp, config.model_id,
+                                mp,
+                                config.model_id,
                             )
                         except Exception:
                             rate_limited = False
@@ -766,20 +785,26 @@ class ProviderManagementService:
                             status = ProviderStatus.UNHEALTHY.value
 
                     model_statuses.append(status)
-                    model_results.append({
-                        "model_id": config.model_id,
-                        "display_name": config.display_name,
-                        "status": status,
-                        "tier": config.tier.value,
-                    })
+                    model_results.append(
+                        {
+                            "model_id": config.model_id,
+                            "display_name": config.display_name,
+                            "status": status,
+                            "tier": config.tier.value,
+                        }
+                    )
 
-                worst = _worst_status(
-                    model_statuses) if model_statuses else ProviderStatus.UNKNOWN.value
+                worst = (
+                    _worst_status(model_statuses)
+                    if model_statuses
+                    else ProviderStatus.UNKNOWN.value
+                )
                 all_statuses.append(worst)
 
                 provider_results[provider] = {
                     "display_name": _PROVIDER_DISPLAY_NAMES.get(
-                        provider, provider,
+                        provider,
+                        provider,
                     ),
                     "status": worst,
                     "total_models": len(model_results),
@@ -801,8 +826,11 @@ class ProviderManagementService:
                         ),
                     )
 
-            overall = _worst_status(
-                all_statuses) if all_statuses else ProviderStatus.UNKNOWN.value
+            overall = (
+                _worst_status(all_statuses)
+                if all_statuses
+                else ProviderStatus.UNKNOWN.value
+            )
 
             logger.info(
                 "health_check_completed",
@@ -865,9 +893,7 @@ class ProviderManagementService:
 
             # Filter by acknowledgement status.
             if acknowledged is not None:
-                alerts = [
-                    a for a in alerts if a.acknowledged == acknowledged
-                ]
+                alerts = [a for a in alerts if a.acknowledged == acknowledged]
 
             # Sort newest first.
             alerts.sort(key=lambda a: a.created_at, reverse=True)
@@ -918,9 +944,7 @@ class ProviderManagementService:
                     )
                     return alert
 
-            raise ValueError(
-                f"Alert '{alert_id}' not found for company '{company_id}'"
-            )
+            raise ValueError(f"Alert '{alert_id}' not found for company '{company_id}'")
 
         except (ValueError, TypeError):
             raise
@@ -977,7 +1001,7 @@ class ProviderManagementService:
             # Prune old alerts to prevent unbounded memory growth.
             if len(self._alerts[company_id]) > self._MAX_ALERTS_PER_COMPANY:
                 self._alerts[company_id] = self._alerts[company_id][
-                    -self._MAX_ALERTS_PER_COMPANY // 2:
+                    -self._MAX_ALERTS_PER_COMPANY // 2 :
                 ]
 
             logger.debug(
@@ -1044,29 +1068,25 @@ class ProviderManagementService:
             now = datetime.now(timezone.utc)
             results: List[ProviderUsageStats] = []
 
-            providers = (
-                [provider.lower().strip()]
-                if provider
-                else _KNOWN_PROVIDERS
-            )
+            providers = [provider.lower().strip()] if provider else _KNOWN_PROVIDERS
 
             for prov in providers:
                 for day_offset in range(days):
-                    date = (
-                        now - timedelta(days=day_offset)
-                    ).strftime("%Y-%m-%d")
+                    date = (now - timedelta(days=day_offset)).strftime("%Y-%m-%d")
 
                     if date == _utc_today() and tracker and registry:
                         # Build today's stats from live tracker data.
                         stats = self._build_today_usage_stats(
-                            company_id, prov, registry, tracker,
+                            company_id,
+                            prov,
+                            registry,
+                            tracker,
                         )
                         stats.date = date
                     else:
                         # Look up stored historical data.
                         stored = (
-                            self._usage_stats
-                            .get(company_id, {})
+                            self._usage_stats.get(company_id, {})
                             .get(prov, {})
                             .get(date)
                         )
@@ -1075,25 +1095,32 @@ class ProviderManagementService:
                                 provider=prov,
                                 date=date,
                                 total_requests=stored.get(
-                                    "total_requests", 0,
+                                    "total_requests",
+                                    0,
                                 ),
                                 successful_requests=stored.get(
-                                    "successful_requests", 0,
+                                    "successful_requests",
+                                    0,
                                 ),
                                 failed_requests=stored.get(
-                                    "failed_requests", 0,
+                                    "failed_requests",
+                                    0,
                                 ),
                                 rate_limited_count=stored.get(
-                                    "rate_limited_count", 0,
+                                    "rate_limited_count",
+                                    0,
                                 ),
                                 avg_latency_ms=stored.get(
-                                    "avg_latency_ms", 0.0,
+                                    "avg_latency_ms",
+                                    0.0,
                                 ),
                                 total_tokens_used=stored.get(
-                                    "total_tokens_used", 0,
+                                    "total_tokens_used",
+                                    0,
                                 ),
                                 error_types=stored.get(
-                                    "error_types", {},
+                                    "error_types",
+                                    {},
                                 ),
                             )
                         else:
@@ -1150,8 +1177,7 @@ class ProviderManagementService:
             keys = list(self._api_keys.get(company_id, []))
 
             if provider:
-                keys = [k for k in keys if k.provider
-                        == provider.lower().strip()]
+                keys = [k for k in keys if k.provider == provider.lower().strip()]
 
             # Return masked representation.
             return [
@@ -1293,7 +1319,8 @@ class ProviderManagementService:
 
             providers = self.get_all_providers_status(company_id)
             recent_alerts = self.get_alerts(
-                company_id, limit=10,
+                company_id,
+                limit=10,
             )
             api_keys = self.get_api_keys(company_id)
 
@@ -1360,7 +1387,10 @@ class ProviderManagementService:
         tracker = self._get_health_tracker()
 
         model_statuses = self._build_all_model_statuses(
-            company_id, provider, registry, tracker,
+            company_id,
+            provider,
+            registry,
+            tracker,
         )
 
         if not model_statuses:
@@ -1377,17 +1407,15 @@ class ProviderManagementService:
 
         status_list = [m.status for m in model_statuses]
         worst = _worst_status(status_list)
-        healthy_count = sum(
-            1 for s in status_list
-            if s == ProviderStatus.HEALTHY.value
-        )
+        healthy_count = sum(1 for s in status_list if s == ProviderStatus.HEALTHY.value)
         degraded_count = sum(
-            1 for s in status_list
-            if s == ProviderStatus.DEGRADED.value
+            1 for s in status_list if s == ProviderStatus.DEGRADED.value
         )
         unhealthy_count = sum(
-            1 for s in status_list
-            if s in (
+            1
+            for s in status_list
+            if s
+            in (
                 ProviderStatus.UNHEALTHY.value,
                 ProviderStatus.DISABLED.value,
                 ProviderStatus.RATE_LIMITED.value,
@@ -1427,29 +1455,34 @@ class ProviderManagementService:
 
             # Check manual disable override.
             if key in disabled:
-                model_statuses.append(ProviderModelStatus(
-                    provider=provider,
-                    model_id=model_id,
-                    display_name=config.display_name,
-                    tier=config.tier.value,
-                    status=ProviderStatus.DISABLED.value,
-                    daily_requests=0,
-                    daily_limit=config.max_requests_per_day,
-                    daily_remaining=config.max_requests_per_day,
-                    minute_tokens=0,
-                    minute_limit=config.max_tokens_per_minute,
-                    consecutive_failures=0,
-                    last_error=disabled[key],
-                    is_rate_limited=False,
-                    rate_limit_expires_at=None,
-                    last_success_at=self._last_success.get(
-                        company_id, {},
-                    ).get(key),
-                    avg_latency_ms=self._avg_latency(
-                        company_id, provider, model_id,
-                    ),
-                    total_requests_today=0,
-                ))
+                model_statuses.append(
+                    ProviderModelStatus(
+                        provider=provider,
+                        model_id=model_id,
+                        display_name=config.display_name,
+                        tier=config.tier.value,
+                        status=ProviderStatus.DISABLED.value,
+                        daily_requests=0,
+                        daily_limit=config.max_requests_per_day,
+                        daily_remaining=config.max_requests_per_day,
+                        minute_tokens=0,
+                        minute_limit=config.max_tokens_per_minute,
+                        consecutive_failures=0,
+                        last_error=disabled[key],
+                        is_rate_limited=False,
+                        rate_limit_expires_at=None,
+                        last_success_at=self._last_success.get(
+                            company_id,
+                            {},
+                        ).get(key),
+                        avg_latency_ms=self._avg_latency(
+                            company_id,
+                            provider,
+                            model_id,
+                        ),
+                        total_requests_today=0,
+                    )
+                )
                 continue
 
             # Pull live data from ProviderHealthTracker.
@@ -1469,13 +1502,16 @@ class ProviderManagementService:
 
                     mp = ModelProvider(provider)
                     daily_requests = tracker.get_daily_usage(
-                        mp, model_id,
+                        mp,
+                        model_id,
                     )
                     daily_remaining = tracker.get_daily_remaining(
-                        mp, model_id,
+                        mp,
+                        model_id,
                     )
                     is_rate_limited = tracker.check_rate_limit(
-                        mp, model_id,
+                        mp,
+                        model_id,
                     )
 
                     # Get raw usage for minute tokens and failures.
@@ -1484,18 +1520,18 @@ class ProviderManagementService:
                     raw = all_status.get(registry_key, {})
                     minute_tokens = raw.get("minute_count", 0)
                     minute_limit = raw.get(
-                        "minute_limit", config.max_tokens_per_minute,
+                        "minute_limit",
+                        config.max_tokens_per_minute,
                     )
                     consecutive_failures = raw.get(
-                        "consecutive_failures", 0,
+                        "consecutive_failures",
+                        0,
                     )
                     last_error = raw.get("last_error", "")
 
                     if is_rate_limited and raw.get("rate_limited"):
                         # Estimate expiry from last error message.
-                        rate_limit_expires_at = (
-                            _utc_now()
-                        )  # Approximation.
+                        rate_limit_expires_at = _utc_now()  # Approximation.
 
                 except Exception as exc:
                     logger.warning(
@@ -1520,29 +1556,34 @@ class ProviderManagementService:
             if daily_remaining <= 0 and daily_requests >= daily_limit:
                 status = ProviderStatus.RATE_LIMITED.value
 
-            model_statuses.append(ProviderModelStatus(
-                provider=provider,
-                model_id=model_id,
-                display_name=config.display_name,
-                tier=config.tier.value,
-                status=status,
-                daily_requests=daily_requests,
-                daily_limit=daily_limit,
-                daily_remaining=max(0, daily_remaining),
-                minute_tokens=minute_tokens,
-                minute_limit=minute_limit,
-                consecutive_failures=consecutive_failures,
-                last_error=last_error,
-                is_rate_limited=is_rate_limited,
-                rate_limit_expires_at=rate_limit_expires_at,
-                last_success_at=self._last_success.get(
-                    company_id, {},
-                ).get(key),
-                avg_latency_ms=self._avg_latency(
-                    company_id, provider, model_id,
-                ),
-                total_requests_today=daily_requests,
-            ))
+            model_statuses.append(
+                ProviderModelStatus(
+                    provider=provider,
+                    model_id=model_id,
+                    display_name=config.display_name,
+                    tier=config.tier.value,
+                    status=status,
+                    daily_requests=daily_requests,
+                    daily_limit=daily_limit,
+                    daily_remaining=max(0, daily_remaining),
+                    minute_tokens=minute_tokens,
+                    minute_limit=minute_limit,
+                    consecutive_failures=consecutive_failures,
+                    last_error=last_error,
+                    is_rate_limited=is_rate_limited,
+                    rate_limit_expires_at=rate_limit_expires_at,
+                    last_success_at=self._last_success.get(
+                        company_id,
+                        {},
+                    ).get(key),
+                    avg_latency_ms=self._avg_latency(
+                        company_id,
+                        provider,
+                        model_id,
+                    ),
+                    total_requests_today=daily_requests,
+                )
+            )
 
         return model_statuses
 
@@ -1614,7 +1655,9 @@ class ProviderManagementService:
         for prov in _KNOWN_PROVIDERS:
             try:
                 stats = self.get_usage_stats(
-                    company_id, provider=prov, days=1,
+                    company_id,
+                    provider=prov,
+                    days=1,
                 )
                 if stats:
                     s = stats[0]
@@ -1644,15 +1687,11 @@ class ProviderManagementService:
 
         # Add totals across all providers.
         totals = {
-            "total_requests": sum(
-                v["total_requests"] for v in summary.values()
-            ),
+            "total_requests": sum(v["total_requests"] for v in summary.values()),
             "successful_requests": sum(
                 v["successful_requests"] for v in summary.values()
             ),
-            "failed_requests": sum(
-                v["failed_requests"] for v in summary.values()
-            ),
+            "failed_requests": sum(v["failed_requests"] for v in summary.values()),
             "rate_limited_count": sum(
                 v["rate_limited_count"] for v in summary.values()
             ),
@@ -1663,26 +1702,29 @@ class ProviderManagementService:
     # ── Latency Tracking ────────────────────────────────────────
 
     def _avg_latency(
-        self, company_id: str, provider: str, model_id: str,
+        self,
+        company_id: str,
+        provider: str,
+        model_id: str,
     ) -> float:
         """Get average latency for a provider+model from samples."""
-        samples = (
-            self._latency_samples
-            .get(company_id, {})
-            .get((provider, model_id), [])
+        samples = self._latency_samples.get(company_id, {}).get(
+            (provider, model_id), []
         )
         if not samples:
             return 0.0
         return sum(samples) / len(samples)
 
     def _avg_latency_for_provider(
-        self, company_id: str, provider: str,
+        self,
+        company_id: str,
+        provider: str,
     ) -> float:
         """Get average latency across all models for a provider."""
         provider_samples: List[float] = []
-        for (prov, _model), samples in (
-            self._latency_samples.get(company_id, {}).items()
-        ):
+        for (prov, _model), samples in self._latency_samples.get(
+            company_id, {}
+        ).items():
             if prov == provider and samples:
                 provider_samples.extend(samples)
         if not provider_samples:
@@ -1785,7 +1827,8 @@ class ProviderManagementService:
             return False  # BC-008: fail-open
 
     def get_disabled_models(
-        self, company_id: str,
+        self,
+        company_id: str,
     ) -> Dict[str, List[dict]]:
         """Get all manually disabled models for a company.
 
@@ -1803,10 +1846,12 @@ class ProviderManagementService:
             for (prov, model_id), reason in disabled.items():
                 if prov not in result:
                     result[prov] = []
-                result[prov].append({
-                    "model_id": model_id,
-                    "reason": reason,
-                })
+                result[prov].append(
+                    {
+                        "model_id": model_id,
+                        "reason": reason,
+                    }
+                )
 
             return result
 

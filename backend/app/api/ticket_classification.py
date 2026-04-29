@@ -26,7 +26,6 @@ from app.services.classification_service import (
 )
 from app.exceptions import NotFoundError
 
-
 router = APIRouter(
     prefix="/tickets",
     tags=["ticket-classification"],
@@ -36,8 +35,10 @@ router = APIRouter(
 
 # ── SCHEMAS ────────────────────────────────────────────────────────────────
 
+
 class ClassificationResult(BaseModel):
     """Classification result."""
+
     ticket_id: str
     intent: str
     urgency: str
@@ -50,6 +51,7 @@ class ClassificationResult(BaseModel):
 
 class TextClassificationRequest(BaseModel):
     """Text classification request."""
+
     subject: Optional[str] = None
     message: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
@@ -57,6 +59,7 @@ class TextClassificationRequest(BaseModel):
 
 class TextClassificationResult(BaseModel):
     """Text classification result."""
+
     intent: str
     urgency: str
     confidence: float
@@ -69,15 +72,15 @@ class TextClassificationResult(BaseModel):
 
 class CorrectionRequest(BaseModel):
     """Correction request."""
-    corrected_intent: str = Field(...,
-                                  description="Correct intent classification")
-    corrected_urgency: Optional[str] = Field(
-        None, description="Correct urgency level")
+
+    corrected_intent: str = Field(..., description="Correct intent classification")
+    corrected_urgency: Optional[str] = Field(None, description="Correct urgency level")
     reason: Optional[str] = Field(None, description="Reason for correction")
 
 
 class CorrectionResponse(BaseModel):
     """Correction response."""
+
     id: str
     ticket_id: str
     original_intent: str
@@ -91,6 +94,7 @@ class CorrectionResponse(BaseModel):
 
 class CorrectionListResponse(BaseModel):
     """Correction list response."""
+
     items: List[CorrectionResponse]
     total: int
     page: int
@@ -99,6 +103,7 @@ class CorrectionListResponse(BaseModel):
 
 class ClassificationStatsResponse(BaseModel):
     """Classification statistics response."""
+
     total_classifications: int
     total_corrections: int
     correction_rate: float
@@ -109,11 +114,13 @@ class ClassificationStatsResponse(BaseModel):
 
 class IntentListResponse(BaseModel):
     """Available intents response."""
+
     intents: List[str]
     urgencies: List[str]
 
 
 # ── ENDPOINTS ──────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/{ticket_id}/classify",
@@ -122,9 +129,7 @@ class IntentListResponse(BaseModel):
 )
 async def classify_ticket(
     ticket_id: str,
-    force_reclassify: bool = Query(
-        False, description="Force reclassification"
-    ),
+    force_reclassify: bool = Query(False, description="Force reclassification"),
     db: Session = Depends(get_db),
     current_user: Dict = Depends(get_current_user),
 ) -> Any:

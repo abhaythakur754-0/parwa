@@ -25,7 +25,6 @@ from app.core.techniques.thread_of_thought import (
     _NEGATION_WORDS,
 )
 
-
 # ── Fixtures ────────────────────────────────────────────────────────
 
 
@@ -202,8 +201,12 @@ class TestThreadAnalysis:
         analysis = ThreadAnalysis()
         d = analysis.to_dict()
         expected_keys = {
-            "turn_count", "topic_continuity", "contradictions",
-            "repeated_info", "loop_detected", "summary",
+            "turn_count",
+            "topic_continuity",
+            "contradictions",
+            "repeated_info",
+            "loop_detected",
+            "summary",
         }
         assert set(d.keys()) == expected_keys
 
@@ -255,8 +258,11 @@ class TestThoTResult:
         result = ThoTResult()
         d = result.to_dict()
         expected_keys = {
-            "thread_analysis", "context_prefix", "enhanced_response",
-            "steps_applied", "continuity_score",
+            "thread_analysis",
+            "context_prefix",
+            "enhanced_response",
+            "steps_applied",
+            "continuity_score",
         }
         assert set(d.keys()) == expected_keys
 
@@ -357,7 +363,8 @@ class TestThreadExtraction:
     @pytest.mark.asyncio
     async def test_extraction_with_thread(self, processor, sample_thread):
         thread, topic, shift = await processor.extract_thread(
-            sample_thread, "What about the refund?",
+            sample_thread,
+            "What about the refund?",
         )
         assert len(thread) == 6
         assert isinstance(topic, str)
@@ -366,7 +373,8 @@ class TestThreadExtraction:
     @pytest.mark.asyncio
     async def test_extraction_empty_thread(self, processor):
         thread, topic, shift = await processor.extract_thread(
-            [], "What is my billing balance?",
+            [],
+            "What is my billing balance?",
         )
         assert thread == []
         # Topic should still be identified even with empty thread
@@ -385,26 +393,32 @@ class TestThreadExtraction:
 
     @pytest.mark.asyncio
     async def test_identify_topic_billing(self, processor):
-        topic = processor._identify_topic([
-            "The billing charge is incorrect",
-            "Refund the payment for this invoice",
-        ])
+        topic = processor._identify_topic(
+            [
+                "The billing charge is incorrect",
+                "Refund the payment for this invoice",
+            ]
+        )
         assert topic == "billing"
 
     @pytest.mark.asyncio
     async def test_identify_topic_technical(self, processor):
-        topic = processor._identify_topic([
-            "The API endpoint is returning a 500 error",
-            "Need to fix the webhook integration",
-        ])
+        topic = processor._identify_topic(
+            [
+                "The API endpoint is returning a 500 error",
+                "Need to fix the webhook integration",
+            ]
+        )
         assert topic == "technical"
 
     @pytest.mark.asyncio
     async def test_identify_topic_account(self, processor):
-        topic = processor._identify_topic([
-            "I need to update my account settings",
-            "Change the email address for my profile",
-        ])
+        topic = processor._identify_topic(
+            [
+                "I need to update my account settings",
+                "Change the email address for my profile",
+            ]
+        )
         assert topic == "account"
 
     @pytest.mark.asyncio
@@ -425,7 +439,8 @@ class TestTopicShiftDetection:
     @pytest.mark.asyncio
     async def test_no_shift_same_topic(self, processor, sample_thread):
         _, _, shift = await processor.extract_thread(
-            sample_thread, "I need a refund for the charge",
+            sample_thread,
+            "I need a refund for the charge",
         )
         assert shift == TopicShift.NONE
 
@@ -437,7 +452,8 @@ class TestTopicShiftDetection:
             "Checking the billing records",
         ]
         _, _, shift = await processor.extract_thread(
-            thread, "The API endpoint is returning a 500 error",
+            thread,
+            "The API endpoint is returning a 500 error",
         )
         assert shift == TopicShift.COMPLETE
 
@@ -447,7 +463,8 @@ class TestTopicShiftDetection:
             "Checking the billing records",
         ]
         _, _, shift = await processor.extract_thread(
-            thread, "hello there unknown query",
+            thread,
+            "hello there unknown query",
         )
         assert shift == TopicShift.PARTIAL
 
@@ -469,24 +486,29 @@ class TestContinuityCheck:
     @pytest.mark.asyncio
     async def test_high_continuity_same_topic(self, processor, sample_thread):
         analysis = await processor.check_continuity(
-            sample_thread, "What about the billing?", TopicShift.NONE,
+            sample_thread,
+            "What about the billing?",
+            TopicShift.NONE,
         )
         assert analysis.turn_count == 6
         assert analysis.topic_continuity > 0.7
         assert analysis.loop_detected is False
 
     @pytest.mark.asyncio
-    async def test_low_continuity_complete_shift(
-            self, processor, sample_thread):
+    async def test_low_continuity_complete_shift(self, processor, sample_thread):
         analysis = await processor.check_continuity(
-            sample_thread, "The API is broken", TopicShift.COMPLETE,
+            sample_thread,
+            "The API is broken",
+            TopicShift.COMPLETE,
         )
         assert analysis.topic_continuity < 0.5
 
     @pytest.mark.asyncio
     async def test_empty_thread_continuity(self, processor):
         analysis = await processor.check_continuity(
-            [], "query", TopicShift.NONE,
+            [],
+            "query",
+            TopicShift.NONE,
         )
         assert analysis.turn_count == 0
         assert analysis.topic_continuity == 1.0
@@ -494,7 +516,9 @@ class TestContinuityCheck:
     @pytest.mark.asyncio
     async def test_single_entry_thread(self, processor):
         analysis = await processor.check_continuity(
-            ["Single entry"], "query", TopicShift.NONE,
+            ["Single entry"],
+            "query",
+            TopicShift.NONE,
         )
         assert analysis.turn_count == 1
         assert analysis.topic_continuity > 0.0
@@ -506,7 +530,9 @@ class TestContinuityCheck:
             "The charge is incorrect and wrong",
         ]
         analysis = await processor.check_continuity(
-            thread, "query", TopicShift.NONE,
+            thread,
+            "query",
+            TopicShift.NONE,
         )
         assert len(analysis.contradictions) > 0
 
@@ -517,7 +543,9 @@ class TestContinuityCheck:
             "Reviewing the payment history",
         ]
         analysis = await processor.check_continuity(
-            thread, "query", TopicShift.NONE,
+            thread,
+            "query",
+            TopicShift.NONE,
         )
         assert len(analysis.contradictions) == 0
 
@@ -528,7 +556,9 @@ class TestContinuityCheck:
             "The billing charge was for the monthly subscription plan",
         ]
         analysis = await processor.check_continuity(
-            thread, "query", TopicShift.NONE,
+            thread,
+            "query",
+            TopicShift.NONE,
         )
         assert len(analysis.repeated_info) > 0
 
@@ -540,7 +570,9 @@ class TestContinuityCheck:
             "Reviewing the API integration issue",
         ]
         analysis = await processor.check_continuity(
-            thread, "query", TopicShift.NONE,
+            thread,
+            "query",
+            TopicShift.NONE,
         )
         assert len(analysis.repeated_info) == 0
 
@@ -562,7 +594,9 @@ class TestContinuityCheck:
     @pytest.mark.asyncio
     async def test_summary_generation(self, processor, sample_thread):
         analysis = await processor.check_continuity(
-            sample_thread, "query", TopicShift.NONE,
+            sample_thread,
+            "query",
+            TopicShift.NONE,
         )
         assert analysis.summary != ""
         assert "Thread depth:" in analysis.summary
@@ -621,7 +655,9 @@ class TestLoopDetection:
             "order status order order checking order",
         ]
         analysis = await processor.check_continuity(
-            thread, "query", TopicShift.NONE,
+            thread,
+            "query",
+            TopicShift.NONE,
         )
         assert analysis.loop_detected is True
 
@@ -640,7 +676,10 @@ class TestContextEnhancement:
             summary="Topic: billing",
         )
         prefix, enhanced = await processor.enhance_context(
-            analysis, ["entry"], "query", TopicShift.COMPLETE,
+            analysis,
+            ["entry"],
+            "query",
+            TopicShift.COMPLETE,
         )
         assert prefix != ""
         assert "query" in enhanced
@@ -656,7 +695,10 @@ class TestContextEnhancement:
             summary="",
         )
         prefix, enhanced = await processor.enhance_context(
-            analysis, ["entry"], "query", TopicShift.NONE,
+            analysis,
+            ["entry"],
+            "query",
+            TopicShift.NONE,
         )
         assert prefix == ""
         assert enhanced == "query"
@@ -671,7 +713,10 @@ class TestContextEnhancement:
             summary="Topic: billing",
         )
         prefix, _ = await processor.enhance_context(
-            analysis, [], "query", TopicShift.COMPLETE,
+            analysis,
+            [],
+            "query",
+            TopicShift.COMPLETE,
         )
         assert "2 contradiction" in prefix
 
@@ -685,7 +730,10 @@ class TestContextEnhancement:
             summary="Topic: technical",
         )
         prefix, _ = await processor.enhance_context(
-            analysis, [], "query", TopicShift.NONE,
+            analysis,
+            [],
+            "query",
+            TopicShift.NONE,
         )
         assert "reasoning loop" in prefix.lower()
 
@@ -699,7 +747,10 @@ class TestContextEnhancement:
             summary="Topic: billing",
         )
         prefix, _ = await processor.enhance_context(
-            analysis, [], "query", TopicShift.NONE,
+            analysis,
+            [],
+            "query",
+            TopicShift.NONE,
         )
         assert "3 repeated" in prefix
 
@@ -713,7 +764,10 @@ class TestContextEnhancement:
             summary="",
         )
         prefix, _ = await processor.enhance_context(
-            analysis, [], "query", TopicShift.COMPLETE,
+            analysis,
+            [],
+            "query",
+            TopicShift.COMPLETE,
         )
         assert "Topic shift detected" in prefix
 
@@ -727,17 +781,22 @@ class TestContextEnhancement:
             summary="",
         )
         prefix, _ = await processor.enhance_context(
-            analysis, [], "query", TopicShift.PARTIAL,
+            analysis,
+            [],
+            "query",
+            TopicShift.PARTIAL,
         )
         assert "Partial topic shift" in prefix
 
     @pytest.mark.asyncio
-    async def test_low_threshold_processor_enhances(
-            self, low_threshold_processor):
+    async def test_low_threshold_processor_enhances(self, low_threshold_processor):
         """With low threshold (0.3), a score of 0.4 should NOT enhance."""
         analysis = ThreadAnalysis(topic_continuity=0.4)
         prefix, enhanced = await low_threshold_processor.enhance_context(
-            analysis, [], "query", TopicShift.NONE,
+            analysis,
+            [],
+            "query",
+            TopicShift.NONE,
         )
         assert prefix == ""
         assert enhanced == "query"
@@ -804,13 +863,11 @@ class TestFullPipeline:
         result = await processor.process(sample_thread, "query")
         steps = result.steps_applied
         if "thread_extraction" in steps and "continuity_check" in steps:
-            assert steps.index("thread_extraction") < steps.index(
-                "continuity_check")
+            assert steps.index("thread_extraction") < steps.index("continuity_check")
 
     @pytest.mark.asyncio
     async def test_pipeline_very_long_thread(self, processor):
-        thread = [
-            f"Entry number {i} about billing charges" for i in range(100)]
+        thread = [f"Entry number {i} about billing charges" for i in range(100)]
         result = await processor.process(thread, "What about the refund?")
         assert "thread_extraction" in result.steps_applied
         # Thread should be truncated to max_thread_length
@@ -833,7 +890,9 @@ class TestThreadOfThoughtNodeIntegration:
         ]
         result_state = await node.execute(base_state)
         assert "thread_of_thought" in result_state.technique_results
-        assert result_state.technique_results["thread_of_thought"]["status"] == "success"
+        assert (
+            result_state.technique_results["thread_of_thought"]["status"] == "success"
+        )
 
     @pytest.mark.asyncio
     async def test_execute_records_result(self, node):
@@ -841,9 +900,12 @@ class TestThreadOfThoughtNodeIntegration:
             query="What is my refund status?",
             signals=QuerySignals(turn_count=6),
             reasoning_thread=[
-                "checking billing", "checking billing",
-                "checking billing", "checking billing",
-                "checking billing", "checking billing",
+                "checking billing",
+                "checking billing",
+                "checking billing",
+                "checking billing",
+                "checking billing",
+                "checking billing",
             ],
         )
         result_state = await node.execute(state)
@@ -877,7 +939,12 @@ class TestThreadOfThoughtNodeIntegration:
     @pytest.mark.asyncio
     async def test_execute_returns_state(self, node, base_state):
         base_state.reasoning_thread = [
-            "a", "b", "c", "d", "e", "f",
+            "a",
+            "b",
+            "c",
+            "d",
+            "e",
+            "f",
         ]
         result_state = await node.execute(base_state)
         assert isinstance(result_state, ConversationState)
@@ -946,17 +1013,18 @@ class TestCompanyIsolation:
 
     @pytest.mark.asyncio
     async def test_company_isolation_different_thresholds(self):
-        analysis_low = ThreadAnalysis(
-            topic_continuity=0.5,
-            summary="Topic: billing")
-        analysis_high = ThreadAnalysis(
-            topic_continuity=0.5, summary="Topic: billing")
+        analysis_low = ThreadAnalysis(topic_continuity=0.5, summary="Topic: billing")
+        analysis_high = ThreadAnalysis(topic_continuity=0.5, summary="Topic: billing")
 
         p_low = ThoTProcessor(ThoTConfig(continuity_threshold=0.3))
         p_high = ThoTProcessor(ThoTConfig(continuity_threshold=0.7))
 
-        prefix_low, _ = await p_low.enhance_context(analysis_low, [], "q", TopicShift.NONE)
-        prefix_high, _ = await p_high.enhance_context(analysis_high, [], "q", TopicShift.COMPLETE)
+        prefix_low, _ = await p_low.enhance_context(
+            analysis_low, [], "q", TopicShift.NONE
+        )
+        prefix_high, _ = await p_high.enhance_context(
+            analysis_high, [], "q", TopicShift.COMPLETE
+        )
 
         # Low threshold: 0.5 >= 0.3, no enhancement
         assert prefix_low == ""
@@ -973,7 +1041,8 @@ class TestErrorFallback:
     @pytest.mark.asyncio
     async def test_process_error_fallback(self, processor):
         with patch.object(
-            processor, 'extract_thread',
+            processor,
+            "extract_thread",
             side_effect=RuntimeError("boom"),
         ):
             result = await processor.process(["entry"], "query")
@@ -984,7 +1053,8 @@ class TestErrorFallback:
     @pytest.mark.asyncio
     async def test_process_error_preserves_query(self, processor):
         with patch.object(
-            processor, 'check_continuity',
+            processor,
+            "check_continuity",
             side_effect=ValueError("err"),
         ):
             result = await processor.process(["entry"], "original query")
@@ -997,14 +1067,14 @@ class TestErrorFallback:
             signals=QuerySignals(turn_count=6),
         )
         with patch.object(
-            node._processor, 'process',
+            node._processor,
+            "process",
             side_effect=RuntimeError("node boom"),
         ):
             result_state = await node.execute(state)
             assert result_state is state
             # Should record a skip
-            recorded = result_state.technique_results.get(
-                "thread_of_thought", {})
+            recorded = result_state.technique_results.get("thread_of_thought", {})
             assert recorded.get("status") in ("skipped_budget", "error")
 
 

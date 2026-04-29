@@ -82,33 +82,49 @@ async def export_tickets_csv(
     writer = csv.writer(output)
 
     # Header
-    writer.writerow([
-        "Ticket ID", "Subject", "Status", "Priority", "Category",
-        "Channel", "Customer ID", "Assigned To", "Created At",
-        "Updated At", "First Response At", "Resolved At", "Closed At",
-        "SLA Status", "Tags", "CSAT Score"
-    ])
+    writer.writerow(
+        [
+            "Ticket ID",
+            "Subject",
+            "Status",
+            "Priority",
+            "Category",
+            "Channel",
+            "Customer ID",
+            "Assigned To",
+            "Created At",
+            "Updated At",
+            "First Response At",
+            "Resolved At",
+            "Closed At",
+            "SLA Status",
+            "Tags",
+            "CSAT Score",
+        ]
+    )
 
     # Data rows
     for t in tickets:
-        writer.writerow([
-            str(t.id),
-            t.subject or "",
-            t.status or "",
-            t.priority or "",
-            t.category or "",
-            getattr(t, "channel", "") or "",
-            str(t.customer_id or ""),
-            str(t.assigned_to or ""),
-            t.created_at.isoformat() if t.created_at else "",
-            t.updated_at.isoformat() if t.updated_at else "",
-            t.first_response_at.isoformat() if t.first_response_at else "",
-            t.resolved_at.isoformat() if t.resolved_at else "",
-            t.closed_at.isoformat() if t.closed_at else "",
-            getattr(t, "sla_status", "") or "",
-            json.dumps(t.tags) if t.tags else "[]",
-            str(getattr(t, "csat_score", "") or ""),
-        ])
+        writer.writerow(
+            [
+                str(t.id),
+                t.subject or "",
+                t.status or "",
+                t.priority or "",
+                t.category or "",
+                getattr(t, "channel", "") or "",
+                str(t.customer_id or ""),
+                str(t.assigned_to or ""),
+                t.created_at.isoformat() if t.created_at else "",
+                t.updated_at.isoformat() if t.updated_at else "",
+                t.first_response_at.isoformat() if t.first_response_at else "",
+                t.resolved_at.isoformat() if t.resolved_at else "",
+                t.closed_at.isoformat() if t.closed_at else "",
+                getattr(t, "sla_status", "") or "",
+                json.dumps(t.tags) if t.tags else "[]",
+                str(getattr(t, "csat_score", "") or ""),
+            ]
+        )
 
     output.seek(0)
 
@@ -118,9 +134,9 @@ async def export_tickets_csv(
             timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
 
     return StreamingResponse(
-        io.BytesIO(output.getvalue().encode('utf-8')),
+        io.BytesIO(output.getvalue().encode("utf-8")),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
@@ -167,7 +183,7 @@ async def export_tickets_json(
         "exported_at": datetime.now(timezone.utc).isoformat(),
         "company_id": company_id,
         "total_tickets": len(tickets),
-        "tickets": []
+        "tickets": [],
     }
 
     for t in tickets:
@@ -182,7 +198,9 @@ async def export_tickets_json(
             "assigned_to": str(t.assigned_to) if t.assigned_to else None,
             "created_at": t.created_at.isoformat() if t.created_at else None,
             "updated_at": t.updated_at.isoformat() if t.updated_at else None,
-            "first_response_at": t.first_response_at.isoformat() if t.first_response_at else None,
+            "first_response_at": (
+                t.first_response_at.isoformat() if t.first_response_at else None
+            ),
             "resolved_at": t.resolved_at.isoformat() if t.resolved_at else None,
             "closed_at": t.closed_at.isoformat() if t.closed_at else None,
             "tags": t.tags or [],
@@ -191,9 +209,12 @@ async def export_tickets_json(
         }
 
         if include_messages:
-            messages = db.query(TicketMessage).filter(
-                TicketMessage.ticket_id == t.id
-            ).order_by(TicketMessage.created_at).all()
+            messages = (
+                db.query(TicketMessage)
+                .filter(TicketMessage.ticket_id == t.id)
+                .order_by(TicketMessage.created_at)
+                .all()
+            )
 
             ticket_data["messages"] = [
                 {
@@ -203,7 +224,9 @@ async def export_tickets_json(
                     "channel": m.channel,
                     "created_at": m.created_at.isoformat() if m.created_at else None,
                     "is_internal": m.is_internal,
-                    "ai_confidence": float(m.ai_confidence) if m.ai_confidence else None,
+                    "ai_confidence": (
+                        float(m.ai_confidence) if m.ai_confidence else None
+                    ),
                 }
                 for m in messages
             ]
@@ -225,21 +248,27 @@ async def export_ticket_pdf(
     """Export a single ticket as PDF document."""
     company_id = current_user.get("company_id")
 
-    ticket = db.query(Ticket).filter(
-        Ticket.id == ticket_id,
-        Ticket.company_id == company_id,
-    ).first()
+    ticket = (
+        db.query(Ticket)
+        .filter(
+            Ticket.id == ticket_id,
+            Ticket.company_id == company_id,
+        )
+        .first()
+    )
 
     if not ticket:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Ticket not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
         )
 
     # Get messages
-    messages = db.query(TicketMessage).filter(
-        TicketMessage.ticket_id == ticket_id
-    ).order_by(TicketMessage.created_at).all()
+    messages = (
+        db.query(TicketMessage)
+        .filter(TicketMessage.ticket_id == ticket_id)
+        .order_by(TicketMessage.created_at)
+        .all()
+    )
 
     # Generate PDF
     try:
@@ -248,7 +277,11 @@ async def export_ticket_pdf(
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import mm
         from reportlab.platypus import (
-            SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
+            SimpleDocTemplate,
+            Table,
+            TableStyle,
+            Paragraph,
+            Spacer,
         )
 
         os.makedirs(EXPORT_DIR, exist_ok=True)
@@ -281,10 +314,7 @@ async def export_ticket_pdf(
 
         # Title
         elements.append(Paragraph(f"Ticket #{ticket_id[:8]}", title_style))
-        elements.append(
-            Paragraph(
-                ticket.subject or "No Subject",
-                styles["Heading2"]))
+        elements.append(Paragraph(ticket.subject or "No Subject", styles["Heading2"]))
         elements.append(Spacer(1, 10))
 
         # Ticket metadata table
@@ -293,19 +323,33 @@ async def export_ticket_pdf(
             ["Priority", ticket.priority or ""],
             ["Category", ticket.category or ""],
             ["Channel", getattr(ticket, "channel", "") or ""],
-            ["Created", ticket.created_at.strftime("%Y-%m-%d %H:%M") if ticket.created_at else ""],
-            ["Assigned To", str(ticket.assigned_to) if ticket.assigned_to else "Unassigned"],
+            [
+                "Created",
+                (
+                    ticket.created_at.strftime("%Y-%m-%d %H:%M")
+                    if ticket.created_at
+                    else ""
+                ),
+            ],
+            [
+                "Assigned To",
+                str(ticket.assigned_to) if ticket.assigned_to else "Unassigned",
+            ],
         ]
 
         meta_table = Table(meta_data, colWidths=[80, 200])
-        meta_table.setStyle(TableStyle([
-            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 10),
-            ("TEXTCOLOR", (0, 0), (0, -1), colors.grey),
-            ("ALIGN", (0, 0), (0, -1), "RIGHT"),
-            ("ALIGN", (1, 0), (1, -1), "LEFT"),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ]))
+        meta_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 10),
+                    ("TEXTCOLOR", (0, 0), (0, -1), colors.grey),
+                    ("ALIGN", (0, 0), (0, -1), "RIGHT"),
+                    ("ALIGN", (1, 0), (1, -1), "LEFT"),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
         elements.append(meta_table)
         elements.append(Spacer(1, 20))
 
@@ -336,8 +380,9 @@ async def export_ticket_pdf(
                 textColor=role_color,
                 fontName="Helvetica-Bold",
             )
-            created = msg.created_at.strftime(
-                "%Y-%m-%d %H:%M") if msg.created_at else ""
+            created = (
+                msg.created_at.strftime("%Y-%m-%d %H:%M") if msg.created_at else ""
+            )
             elements.append(Paragraph(f"{role_label} - {created}", role_style))
 
             # Message content
@@ -346,28 +391,24 @@ async def export_ticket_pdf(
             if len(content) > 2000:
                 content = content[:2000] + "..."
 
-            elements.append(
-                Paragraph(
-                    content.replace(
-                        "\n",
-                        "<br/>"),
-                    styles["Normal"]))
+            elements.append(Paragraph(content.replace("\n", "<br/>"), styles["Normal"]))
             elements.append(Spacer(1, 10))
 
         doc.build(elements)
 
         # Return file
         from fastapi.responses import FileResponse
+
         return FileResponse(
             file_path,
             media_type="application/pdf",
-            filename=f"ticket_{ticket_id[:8]}.pdf"
+            filename=f"ticket_{ticket_id[:8]}.pdf",
         )
 
     except ImportError:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="PDF generation not available"
+            detail="PDF generation not available",
         )
 
 
@@ -388,41 +429,51 @@ async def find_duplicate_tickets(
     company_id = current_user.get("company_id")
 
     # Get open tickets for comparison
-    tickets = db.query(Ticket).filter(
-        Ticket.company_id == company_id,
-        Ticket.status.in_(["open", "assigned", "in_progress"]),
-    ).order_by(desc(Ticket.created_at)).limit(500).all()
+    tickets = (
+        db.query(Ticket)
+        .filter(
+            Ticket.company_id == company_id,
+            Ticket.status.in_(["open", "assigned", "in_progress"]),
+        )
+        .order_by(desc(Ticket.created_at))
+        .limit(500)
+        .all()
+    )
 
     from difflib import SequenceMatcher
 
     duplicates = []
 
     for i, t1 in enumerate(tickets):
-        for t2 in tickets[i + 1:]:
+        for t2 in tickets[i + 1 :]:
             # Compare subjects
             subject_similarity = SequenceMatcher(
-                None,
-                (t1.subject or "").lower(),
-                (t2.subject or "").lower()
+                None, (t1.subject or "").lower(), (t2.subject or "").lower()
             ).ratio()
 
             if subject_similarity >= threshold:
-                duplicates.append({
-                    "ticket_1": {
-                        "id": str(t1.id),
-                        "subject": t1.subject,
-                        "status": t1.status,
-                        "created_at": t1.created_at.isoformat() if t1.created_at else None,
-                    },
-                    "ticket_2": {
-                        "id": str(t2.id),
-                        "subject": t2.subject,
-                        "status": t2.status,
-                        "created_at": t2.created_at.isoformat() if t2.created_at else None,
-                    },
-                    "similarity": round(subject_similarity, 2),
-                    "match_type": "subject",
-                })
+                duplicates.append(
+                    {
+                        "ticket_1": {
+                            "id": str(t1.id),
+                            "subject": t1.subject,
+                            "status": t1.status,
+                            "created_at": (
+                                t1.created_at.isoformat() if t1.created_at else None
+                            ),
+                        },
+                        "ticket_2": {
+                            "id": str(t2.id),
+                            "subject": t2.subject,
+                            "status": t2.status,
+                            "created_at": (
+                                t2.created_at.isoformat() if t2.created_at else None
+                            ),
+                        },
+                        "similarity": round(subject_similarity, 2),
+                        "match_type": "subject",
+                    }
+                )
 
                 if len(duplicates) >= limit:
                     return {"duplicates": duplicates, "total": len(duplicates)}
@@ -452,26 +503,33 @@ async def preview_ticket_merge(
     if not primary_ticket_id or not merged_ticket_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="primary_ticket_id and merged_ticket_ids are required"
+            detail="primary_ticket_id and merged_ticket_ids are required",
         )
 
     # Get primary ticket
-    primary = db.query(Ticket).filter(
-        Ticket.id == primary_ticket_id,
-        Ticket.company_id == company_id,
-    ).first()
+    primary = (
+        db.query(Ticket)
+        .filter(
+            Ticket.id == primary_ticket_id,
+            Ticket.company_id == company_id,
+        )
+        .first()
+    )
 
     if not primary:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Primary ticket not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Primary ticket not found"
         )
 
     # Get tickets to merge
-    tickets_to_merge = db.query(Ticket).filter(
-        Ticket.id.in_(merged_ticket_ids),
-        Ticket.company_id == company_id,
-    ).all()
+    tickets_to_merge = (
+        db.query(Ticket)
+        .filter(
+            Ticket.id.in_(merged_ticket_ids),
+            Ticket.company_id == company_id,
+        )
+        .all()
+    )
 
     # Count items to transfer
     total_messages = 0
@@ -479,22 +537,24 @@ async def preview_ticket_merge(
     total_notes = 0
 
     for t in tickets_to_merge:
-        total_messages += db.query(TicketMessage).filter(
-            TicketMessage.ticket_id == t.id
-        ).count()
+        total_messages += (
+            db.query(TicketMessage).filter(TicketMessage.ticket_id == t.id).count()
+        )
 
-        total_attachments += db.query(TicketAttachment).filter(
-            TicketAttachment.ticket_id == t.id
-        ).count()
+        total_attachments += (
+            db.query(TicketAttachment)
+            .filter(TicketAttachment.ticket_id == t.id)
+            .count()
+        )
 
     return {
         "primary_ticket": {
             "id": str(primary.id),
             "subject": primary.subject,
             "status": primary.status,
-            "message_count": db.query(TicketMessage).filter(
-                TicketMessage.ticket_id == primary.id
-            ).count(),
+            "message_count": db.query(TicketMessage)
+            .filter(TicketMessage.ticket_id == primary.id)
+            .count(),
         },
         "tickets_to_merge": [
             {

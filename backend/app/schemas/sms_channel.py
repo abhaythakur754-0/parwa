@@ -8,11 +8,12 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-
 # ── SMS Message Schemas ────────────────────────────────────────
+
 
 class SMSMessageResponse(BaseModel):
     """SMS message data returned by API."""
+
     id: str
     company_id: str
     conversation_id: Optional[str]
@@ -41,6 +42,7 @@ class SMSMessageResponse(BaseModel):
 
 class SMSMessageListResponse(BaseModel):
     """Paginated list of SMS messages."""
+
     items: List[SMSMessageResponse]
     total: int
     page: int
@@ -50,10 +52,11 @@ class SMSMessageListResponse(BaseModel):
 
 class SMSSendRequest(BaseModel):
     """Request to send an outbound SMS message."""
-    to_number: str = Field(..., min_length=1, max_length=30,
-                           description="Recipient phone in E.164")
-    body: str = Field(..., min_length=1, max_length=1600,
-                      description="SMS body text")
+
+    to_number: str = Field(
+        ..., min_length=1, max_length=30, description="Recipient phone in E.164"
+    )
+    body: str = Field(..., min_length=1, max_length=1600, description="SMS body text")
     conversation_id: Optional[str] = Field(None, max_length=36)
     ticket_id: Optional[str] = Field(None, max_length=36)
     sender_role: str = Field("agent", pattern="^(agent|bot|system)$")
@@ -61,6 +64,7 @@ class SMSSendRequest(BaseModel):
 
 class SMSSendResponse(BaseModel):
     """Response after sending an outbound SMS."""
+
     id: str
     conversation_id: str
     twilio_message_sid: Optional[str]
@@ -74,8 +78,10 @@ class SMSSendResponse(BaseModel):
 
 # ── SMS Conversation Schemas ──────────────────────────────────
 
+
 class SMSConversationResponse(BaseModel):
     """SMS conversation data returned by API."""
+
     id: str
     company_id: str
     customer_number: str
@@ -92,6 +98,7 @@ class SMSConversationResponse(BaseModel):
 
 class SMSConversationListResponse(BaseModel):
     """Paginated list of SMS conversations."""
+
     items: List[SMSConversationResponse]
     total: int
     page: int
@@ -101,8 +108,10 @@ class SMSConversationListResponse(BaseModel):
 
 # ── SMS Channel Config Schemas ────────────────────────────────
 
+
 class SMSConfigCreate(BaseModel):
     """Request to create/update SMS channel config."""
+
     twilio_account_sid: str = Field(..., min_length=1, max_length=64)
     twilio_auth_token: str = Field(..., min_length=1)
     twilio_phone_number: str = Field(..., min_length=1, max_length=30)
@@ -115,14 +124,19 @@ class SMSConfigCreate(BaseModel):
     opt_in_keywords: str = "START,YES,UNSTOP,CONTINUE"
     opt_out_response: str = "You have been opted out. Reply START to resume."
     auto_reply_enabled: bool = False
-    auto_reply_message: Optional[str] = "Thanks for your message! An agent will respond shortly."
+    auto_reply_message: Optional[str] = (
+        "Thanks for your message! An agent will respond shortly."
+    )
     auto_reply_delay_seconds: int = Field(10, ge=0)
-    after_hours_message: Optional[str] = "We're currently closed. We'll respond during business hours."
+    after_hours_message: Optional[str] = (
+        "We're currently closed. We'll respond during business hours."
+    )
     business_hours_json: str = "{}"
 
 
 class SMSConfigUpdate(BaseModel):
     """Request to update SMS channel config (partial)."""
+
     is_enabled: Optional[bool] = None
     auto_create_ticket: Optional[bool] = None
     char_limit: Optional[int] = Field(None, gt=0, le=1600)
@@ -142,6 +156,7 @@ class SMSConfigUpdate(BaseModel):
 
 class SMSConfigResponse(BaseModel):
     """SMS channel config returned by API (secrets redacted)."""
+
     id: str
     company_id: str
     twilio_account_sid: str
@@ -165,8 +180,10 @@ class SMSConfigResponse(BaseModel):
 
 # ── SMS Consent Schemas ────────────────────────────────────────
 
+
 class SMSConsentRecord(BaseModel):
     """SMS consent record for TCPA compliance."""
+
     conversation_id: str
     customer_number: str
     is_opted_out: bool

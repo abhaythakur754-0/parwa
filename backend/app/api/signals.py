@@ -53,8 +53,7 @@ class SignalRequest(BaseModel):
     )
     previous_response_status: str = Field(
         default="none",
-        description="Previous response status: "
-        "accepted, rejected, corrected, none",
+        description="Previous response status: " "accepted, rejected, corrected, none",
     )
     conversation_history: Optional[List[str]] = Field(
         default=None,
@@ -79,6 +78,7 @@ def _get_extractor():
             from app.core.signal_extraction import (
                 SignalExtractor,
             )
+
             _extractor = SignalExtractor()
         except Exception as exc:
             logger.error(

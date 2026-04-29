@@ -31,7 +31,6 @@ from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # C1: Cancel Confirmation Flow
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -51,7 +50,9 @@ class TestCancelFeedbackSave:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             result = service.save_cancel_feedback(
                 company_id=company_id,
                 reason="too_expensive",
@@ -74,7 +75,9 @@ class TestCancelFeedbackSave:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             result = service.save_cancel_feedback(company_id=company_id)
 
         assert result["status"] == "feedback_saved"
@@ -96,7 +99,9 @@ class TestCancelFeedbackSave:
         mock_db.add.side_effect = lambda r: setattr(r, "id", str(uuid.uuid4()))
         mock_db.refresh = MagicMock()
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             result = service.save_cancel_feedback(
                 company_id=company_id,
                 reason="missing_features",
@@ -131,7 +136,9 @@ class TestCancelSaveOffer:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             result = service.apply_save_offer(company_id)
 
         assert result["discount_percentage"] == 20
@@ -141,7 +148,8 @@ class TestCancelSaveOffer:
         # Verify discounted price = 80% of original
         expected_discounted = result["original_price"] * Decimal("0.80")
         assert result["discounted_price"] == expected_discounted.quantize(
-            Decimal("0.01"))
+            Decimal("0.01")
+        )
 
     def test_apply_save_offer_stores_metadata(self):
         """C1: apply_save_offer should store offer details in subscription metadata."""
@@ -160,7 +168,9 @@ class TestCancelSaveOffer:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             result = service.apply_save_offer(company_id)
 
         assert mock_sub.metadata_json is not None
@@ -183,7 +193,9 @@ class TestCancelSaveOffer:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             with pytest.raises(SubscriptionNotFoundError):
                 service.apply_save_offer(company_id)
 
@@ -204,7 +216,9 @@ class TestCancelSaveOffer:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             result = service.apply_save_offer(company_id)
 
         # Yearly high price: $39990 * 0.80 = $31992
@@ -229,8 +243,7 @@ class TestCancelConfirm:
         mock_sub.tier = "parwa"
         mock_sub.status = "active"
         mock_sub.cancel_at_period_end = False
-        mock_sub.current_period_end = datetime.now(
-            timezone.utc) + timedelta(days=15)
+        mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=15)
         mock_sub.paddle_subscription_id = None
         mock_sub.billing_frequency = "monthly"
         mock_sub.pending_downgrade_tier = None
@@ -242,20 +255,26 @@ class TestCancelConfirm:
 
         mock_db = MagicMock()
         mock_q_sub = MagicMock()
-        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = (
+            mock_sub
+        )
         mock_q_company = MagicMock()
         mock_q_company.filter.return_value.first.return_value = mock_company
         mock_db.query.side_effect = [mock_q_sub, mock_q_company]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
-            result = asyncio.run(service.cancel_subscription(
-                company_id=company_id,
-                reason="Cancel confirmation flow",
-                effective_immediately=False,
-                user_id=user_id,
-            ))
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
+            result = asyncio.run(
+                service.cancel_subscription(
+                    company_id=company_id,
+                    reason="Cancel confirmation flow",
+                    effective_immediately=False,
+                    user_id=user_id,
+                )
+            )
 
         assert result["subscription"] is not None
         assert mock_sub.cancel_at_period_end is True
@@ -286,18 +305,24 @@ class TestCancelConfirm:
 
         mock_db = MagicMock()
         mock_q_sub = MagicMock()
-        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = (
+            mock_sub
+        )
         mock_q_company = MagicMock()
         mock_q_company.filter.return_value.first.return_value = mock_company
         mock_db.query.side_effect = [mock_q_sub, mock_q_company]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
-            result = asyncio.run(service.cancel_subscription(
-                company_id=company_id,
-                effective_immediately=True,
-            ))
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
+            result = asyncio.run(
+                service.cancel_subscription(
+                    company_id=company_id,
+                    effective_immediately=True,
+                )
+            )
 
         assert mock_sub.status == "canceled"
         assert result["cancellation"]["effective_immediately"] is True
@@ -314,7 +339,10 @@ class TestCancelEffectiveImmediately:
 
     def test_effective_immediately_sets_canceled_status(self):
         """C2: effective_immediately=True should set status to canceled immediately."""
-        from app.services.subscription_service import SubscriptionService, SubscriptionStatus
+        from app.services.subscription_service import (
+            SubscriptionService,
+            SubscriptionStatus,
+        )
 
         service = SubscriptionService()
         company_id = uuid.uuid4()
@@ -337,18 +365,24 @@ class TestCancelEffectiveImmediately:
 
         mock_db = MagicMock()
         mock_q_sub = MagicMock()
-        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = (
+            mock_sub
+        )
         mock_q_company = MagicMock()
         mock_q_company.filter.return_value.first.return_value = mock_company
         mock_db.query.side_effect = [mock_q_sub, mock_q_company]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
-            result = asyncio.run(service.cancel_subscription(
-                company_id=company_id,
-                effective_immediately=True,
-            ))
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
+            result = asyncio.run(
+                service.cancel_subscription(
+                    company_id=company_id,
+                    effective_immediately=True,
+                )
+            )
 
         assert mock_sub.status == SubscriptionStatus.CANCELED.value
         assert mock_sub.cancel_at_period_end is False
@@ -378,16 +412,22 @@ class TestCancelEffectiveImmediately:
 
         mock_db = MagicMock()
         mock_q_sub = MagicMock()
-        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.query.side_effect = [mock_q_sub]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
-            result = asyncio.run(service.cancel_subscription(
-                company_id=company_id,
-                effective_immediately=False,
-            ))
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
+            result = asyncio.run(
+                service.cancel_subscription(
+                    company_id=company_id,
+                    effective_immediately=False,
+                )
+            )
 
         # Status stays active until period end
         assert mock_sub.cancel_at_period_end is True
@@ -420,20 +460,26 @@ class TestCancelEffectiveImmediately:
 
         mock_db = MagicMock()
         mock_q_sub = MagicMock()
-        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = (
+            mock_sub
+        )
         mock_q_company = MagicMock()
         mock_q_company.filter.return_value.first.return_value = mock_company
         mock_db.query.side_effect = [mock_q_sub, mock_q_company]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             with patch.object(service, "_get_paddle", return_value=mock_paddle):
-                result = asyncio.run(service.cancel_subscription(
-                    company_id=company_id,
-                    effective_immediately=True,
-                    reason="test",
-                ))
+                result = asyncio.run(
+                    service.cancel_subscription(
+                        company_id=company_id,
+                        effective_immediately=True,
+                        reason="test",
+                    )
+                )
 
         mock_paddle.cancel_subscription.assert_called_once_with(
             paddle_sub_id,
@@ -463,7 +509,9 @@ class TestServiceStopOnCancel:
 
         mock_query_agents = MagicMock()
         mock_query_agents.filter.return_value.all.return_value = [
-            mock_agent1, mock_agent2]
+            mock_agent1,
+            mock_agent2,
+        ]
         mock_query_team = MagicMock()
         mock_query_team.filter.return_value.all.return_value = []
         mock_query_channels = MagicMock()
@@ -471,7 +519,9 @@ class TestServiceStopOnCancel:
 
         mock_db = MagicMock()
         mock_db.query.side_effect = [
-            mock_query_agents, mock_query_team, mock_query_channels,
+            mock_query_agents,
+            mock_query_team,
+            mock_query_channels,
         ]
 
         # sys already imported at top of file
@@ -480,8 +530,7 @@ class TestServiceStopOnCancel:
         mock_core.User = MagicMock()
         mock_core.Channel = MagicMock()
         with patch.dict(sys.modules, {"database.models.core": mock_core}):
-            result = service._apply_service_stop_on_cancel(
-                mock_db, "company-1")
+            result = service._apply_service_stop_on_cancel(mock_db, "company-1")
 
         assert result["agents_paused"] == 2
         assert mock_agent1.status == "paused"
@@ -502,13 +551,17 @@ class TestServiceStopOnCancel:
         mock_query_agents.filter.return_value.all.return_value = []
         mock_query_team = MagicMock()
         mock_query_team.filter.return_value.all.return_value = [
-            mock_member1, mock_member2]
+            mock_member1,
+            mock_member2,
+        ]
         mock_query_channels = MagicMock()
         mock_query_channels.filter.return_value.all.return_value = []
 
         mock_db = MagicMock()
         mock_db.query.side_effect = [
-            mock_query_agents, mock_query_team, mock_query_channels,
+            mock_query_agents,
+            mock_query_team,
+            mock_query_channels,
         ]
 
         mock_core = MagicMock()
@@ -516,8 +569,7 @@ class TestServiceStopOnCancel:
         mock_core.User = MagicMock()
         mock_core.Channel = MagicMock()
         with patch.dict(sys.modules, {"database.models.core": mock_core}):
-            result = service._apply_service_stop_on_cancel(
-                mock_db, "company-1")
+            result = service._apply_service_stop_on_cancel(mock_db, "company-1")
 
         assert result["team_members_disabled"] == 2
         assert mock_member1.is_active is False
@@ -542,12 +594,16 @@ class TestServiceStopOnCancel:
         mock_query_team.filter.return_value.all.return_value = []
         mock_query_channels = MagicMock()
         mock_query_channels.filter.return_value.all.return_value = [
-            mock_channel1, mock_channel2, mock_channel3,
+            mock_channel1,
+            mock_channel2,
+            mock_channel3,
         ]
 
         mock_db = MagicMock()
         mock_db.query.side_effect = [
-            mock_query_agents, mock_query_team, mock_query_channels,
+            mock_query_agents,
+            mock_query_team,
+            mock_query_channels,
         ]
 
         mock_core = MagicMock()
@@ -555,15 +611,12 @@ class TestServiceStopOnCancel:
         mock_core.User = MagicMock()
         mock_core.Channel = MagicMock()
         with patch.dict(sys.modules, {"database.models.core": mock_core}):
-            result = service._apply_service_stop_on_cancel(
-                mock_db, "company-1")
+            result = service._apply_service_stop_on_cancel(mock_db, "company-1")
 
         assert result["channels_disabled"] == 3
         assert all(
-            c.is_enabled is False for c in [
-                mock_channel1,
-                mock_channel2,
-                mock_channel3])
+            c.is_enabled is False for c in [mock_channel1, mock_channel2, mock_channel3]
+        )
 
     def test_service_stop_empty_company(self):
         """C3: Should return zeros for a company with no resources."""
@@ -580,7 +633,9 @@ class TestServiceStopOnCancel:
 
         mock_db = MagicMock()
         mock_db.query.side_effect = [
-            mock_query_agents, mock_query_team, mock_query_channels,
+            mock_query_agents,
+            mock_query_team,
+            mock_query_channels,
         ]
 
         mock_core = MagicMock()
@@ -588,8 +643,7 @@ class TestServiceStopOnCancel:
         mock_core.User = MagicMock()
         mock_core.Channel = MagicMock()
         with patch.dict(sys.modules, {"database.models.core": mock_core}):
-            result = service._apply_service_stop_on_cancel(
-                mock_db, "empty-company")
+            result = service._apply_service_stop_on_cancel(mock_db, "empty-company")
 
         assert result["agents_paused"] == 0
         assert result["team_members_disabled"] == 0
@@ -616,12 +670,15 @@ class TestDataRetentionStatus:
         mock_sub.service_stopped_at = None
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.data_retention_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.data_retention_service.SessionLocal", return_value=mock_db
+        ):
             result = service.get_retention_status(company_id)
 
         assert result["status"] == "active"
@@ -639,12 +696,15 @@ class TestDataRetentionStatus:
         mock_sub.created_at = datetime.now(timezone.utc) - timedelta(days=5)
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.data_retention_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.data_retention_service.SessionLocal", return_value=mock_db
+        ):
             result = service.get_retention_status(company_id)
 
         # Canceled with no explicit service_stopped_at uses created_at
@@ -653,7 +713,10 @@ class TestDataRetentionStatus:
 
     def test_in_retention_returns_countdown(self):
         """C4: Within 30-day retention should return 'in_retention' with days_remaining."""
-        from app.services.data_retention_service import DataRetentionService, RETENTION_PERIOD_DAYS
+        from app.services.data_retention_service import (
+            DataRetentionService,
+            RETENTION_PERIOD_DAYS,
+        )
 
         service = DataRetentionService()
         company_id = uuid.uuid4()
@@ -664,12 +727,15 @@ class TestDataRetentionStatus:
         mock_sub.service_stopped_at = stopped_at
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.data_retention_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.data_retention_service.SessionLocal", return_value=mock_db
+        ):
             result = service.get_retention_status(company_id)
 
         assert result["status"] == "in_retention"
@@ -691,12 +757,15 @@ class TestDataRetentionStatus:
         mock_sub.service_stopped_at = stopped_at
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.data_retention_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.data_retention_service.SessionLocal", return_value=mock_db
+        ):
             result = service.get_retention_status(company_id)
 
         assert result["status"] == "retention_expired"
@@ -710,12 +779,15 @@ class TestDataRetentionStatus:
         company_id = uuid.uuid4()
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = None
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            None
+        )
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.data_retention_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.data_retention_service.SessionLocal", return_value=mock_db
+        ):
             result = service.get_retention_status(company_id)
 
         assert result["status"] == "no_subscription"
@@ -751,11 +823,16 @@ class TestDataExport:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.data_retention_service.SessionLocal", return_value=mock_db):
-            with patch.object(service, "get_retention_status", return_value={"status": "active"}):
-                with patch.object(service, "_generate_export_data", return_value={"export_info": {}}):
-                    result = asyncio.run(
-                        service.request_data_export(company_id))
+        with patch(
+            "app.services.data_retention_service.SessionLocal", return_value=mock_db
+        ):
+            with patch.object(
+                service, "get_retention_status", return_value={"status": "active"}
+            ):
+                with patch.object(
+                    service, "_generate_export_data", return_value={"export_info": {}}
+                ):
+                    result = asyncio.run(service.request_data_export(company_id))
 
         assert "export_id" in result
         assert result["status"] == "completed"
@@ -774,11 +851,15 @@ class TestDataExport:
         mock_existing.id = str(uuid.uuid4())
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_existing
+        mock_db.query.return_value.filter.return_value.first.return_value = (
+            mock_existing
+        )
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.data_retention_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.data_retention_service.SessionLocal", return_value=mock_db
+        ):
             with pytest.raises(DataExportInProgressError):
                 asyncio.run(service.request_data_export(company_id))
 
@@ -792,8 +873,7 @@ class TestDataExport:
 
         mock_export = MagicMock()
         mock_export.status = "completed"
-        mock_export.expires_at = datetime.now(
-            timezone.utc) + timedelta(hours=23)
+        mock_export.expires_at = datetime.now(timezone.utc) + timedelta(hours=23)
         mock_export.export_data_json = '{"export_info": {"company_id": "test"}}'
 
         mock_db = MagicMock()
@@ -801,7 +881,9 @@ class TestDataExport:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.data_retention_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.data_retention_service.SessionLocal", return_value=mock_db
+        ):
             zip_bytes = service.get_export_download(company_id, export_id)
 
         # Verify it's a valid ZIP
@@ -824,7 +906,9 @@ class TestDataExport:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.data_retention_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.data_retention_service.SessionLocal", return_value=mock_db
+        ):
             with pytest.raises(DataExportNotFoundError):
                 service.get_export_download(company_id, export_id)
 
@@ -841,8 +925,7 @@ class TestDataExport:
 
         mock_export = MagicMock()
         mock_export.status = "completed"
-        mock_export.expires_at = datetime.now(
-            timezone.utc) - timedelta(hours=1)
+        mock_export.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
         mock_export.export_data_json = "{}"
 
         mock_db = MagicMock()
@@ -850,7 +933,9 @@ class TestDataExport:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.data_retention_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.data_retention_service.SessionLocal", return_value=mock_db
+        ):
             with pytest.raises(DataRetentionExpiredError):
                 service.get_export_download(company_id, export_id)
 
@@ -874,16 +959,16 @@ class TestDataRetentionCron:
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(uuid.uuid4())
         mock_sub.data_hard_deleted = False
-        mock_sub.service_stopped_at = datetime.now(
-            timezone.utc) - timedelta(days=35)
+        mock_sub.service_stopped_at = datetime.now(timezone.utc) - timedelta(days=35)
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value.all.return_value = [
-            mock_sub]
+        mock_db.query.return_value.filter.return_value.all.return_value = [mock_sub]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.data_retention_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.data_retention_service.SessionLocal", return_value=mock_db
+        ):
             with patch.object(service, "_execute_data_cleanup", return_value=None):
                 result = service.process_retention_cron()
 
@@ -900,8 +985,7 @@ class TestDataRetentionCron:
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(uuid.uuid4())
         mock_sub.data_hard_deleted = False
-        mock_sub.service_stopped_at = datetime.now(
-            timezone.utc) - timedelta(days=15)
+        mock_sub.service_stopped_at = datetime.now(timezone.utc) - timedelta(days=15)
 
         mock_db = MagicMock()
         # The query filter uses service_stopped_at <= cutoff (30 days ago)
@@ -910,7 +994,9 @@ class TestDataRetentionCron:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.data_retention_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.data_retention_service.SessionLocal", return_value=mock_db
+        ):
             result = service.process_retention_cron()
 
         assert result["companies_processed"] == 0
@@ -925,15 +1011,16 @@ class TestDataRetentionCron:
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(uuid.uuid4())
         mock_sub.data_hard_deleted = True  # Already deleted
-        mock_sub.service_stopped_at = datetime.now(
-            timezone.utc) - timedelta(days=35)
+        mock_sub.service_stopped_at = datetime.now(timezone.utc) - timedelta(days=35)
 
         mock_db = MagicMock()
         mock_db.query.return_value.filter.return_value.all.return_value = []
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.data_retention_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.data_retention_service.SessionLocal", return_value=mock_db
+        ):
             result = service.process_retention_cron()
 
         assert result["companies_processed"] == 0
@@ -964,24 +1051,31 @@ class TestDataCleanup:
         mock_db = MagicMock()
         mock_query_ticket = MagicMock()
         mock_query_ticket.filter.return_value.all.return_value = [
-            mock_ticket1, mock_ticket2]
+            mock_ticket1,
+            mock_ticket2,
+        ]
         mock_query_customer = MagicMock()
         mock_query_customer.filter.return_value.all.return_value = []
         mock_query_kb = MagicMock()
         mock_query_kb.filter.return_value.all.return_value = []
         mock_db.query.side_effect = [
-            mock_query_ticket, mock_query_customer, mock_query_kb,
+            mock_query_ticket,
+            mock_query_customer,
+            mock_query_kb,
         ]
 
         mock_ticket_model = MagicMock()
         mock_customer_model = MagicMock()
         mock_kb_model = MagicMock()
 
-        with patch.dict(sys.modules, {
-            "database.models.ticket": mock_ticket_model,
-            "database.models.tickets": mock_customer_model,
-            "database.models.onboarding": mock_kb_model,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "database.models.ticket": mock_ticket_model,
+                "database.models.tickets": mock_customer_model,
+                "database.models.onboarding": mock_kb_model,
+            },
+        ):
             service._execute_data_cleanup(mock_db, "company-1")
 
         assert mock_ticket1.status == "deleted"
@@ -1004,19 +1098,23 @@ class TestDataCleanup:
         mock_query_ticket = MagicMock()
         mock_query_ticket.filter.return_value.all.return_value = []
         mock_query_customer = MagicMock()
-        mock_query_customer.filter.return_value.all.return_value = [
-            mock_customer]
+        mock_query_customer.filter.return_value.all.return_value = [mock_customer]
         mock_query_kb = MagicMock()
         mock_query_kb.filter.return_value.all.return_value = []
         mock_db.query.side_effect = [
-            mock_query_ticket, mock_query_customer, mock_query_kb,
+            mock_query_ticket,
+            mock_query_customer,
+            mock_query_kb,
         ]
 
-        with patch.dict(sys.modules, {
-            "database.models.ticket": MagicMock(),
-            "database.models.tickets": MagicMock(),
-            "database.models.onboarding": MagicMock(),
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "database.models.ticket": MagicMock(),
+                "database.models.tickets": MagicMock(),
+                "database.models.onboarding": MagicMock(),
+            },
+        ):
             service._execute_data_cleanup(mock_db, "company-1")
 
         assert mock_customer.name == "[REDACTED]"
@@ -1040,17 +1138,21 @@ class TestDataCleanup:
         mock_query_customer = MagicMock()
         mock_query_customer.filter.return_value.all.return_value = []
         mock_query_kb = MagicMock()
-        mock_query_kb.filter.return_value.all.return_value = [
-            mock_doc1, mock_doc2]
+        mock_query_kb.filter.return_value.all.return_value = [mock_doc1, mock_doc2]
         mock_db.query.side_effect = [
-            mock_query_ticket, mock_query_customer, mock_query_kb,
+            mock_query_ticket,
+            mock_query_customer,
+            mock_query_kb,
         ]
 
-        with patch.dict(sys.modules, {
-            "database.models.ticket": MagicMock(),
-            "database.models.tickets": MagicMock(),
-            "database.models.onboarding": MagicMock(),
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "database.models.ticket": MagicMock(),
+                "database.models.tickets": MagicMock(),
+                "database.models.onboarding": MagicMock(),
+            },
+        ):
             service._execute_data_cleanup(mock_db, "company-1")
 
         assert mock_doc1.status == "archived"
@@ -1077,12 +1179,11 @@ class TestResubscribeWithinRetention:
         mock_canceled_sub.id = str(uuid.uuid4())
         mock_canceled_sub.company_id = str(company_id)
         mock_canceled_sub.status = "canceled"
-        mock_canceled_sub.service_stopped_at = datetime.now(
-            timezone.utc) - timedelta(days=10)
-        mock_canceled_sub.updated_at = datetime.now(
-            timezone.utc) - timedelta(days=10)
-        mock_canceled_sub.created_at = datetime.now(
-            timezone.utc) - timedelta(days=45)
+        mock_canceled_sub.service_stopped_at = datetime.now(timezone.utc) - timedelta(
+            days=10
+        )
+        mock_canceled_sub.updated_at = datetime.now(timezone.utc) - timedelta(days=10)
+        mock_canceled_sub.created_at = datetime.now(timezone.utc) - timedelta(days=45)
 
         mock_company = MagicMock()
         mock_company.paddle_customer_id = None
@@ -1094,22 +1195,35 @@ class TestResubscribeWithinRetention:
         mock_q1 = MagicMock()
         mock_q1.filter.return_value.first.return_value = None
         mock_q2 = MagicMock()
-        mock_q2.filter.return_value.order_by.return_value.first.return_value = mock_canceled_sub
+        mock_q2.filter.return_value.order_by.return_value.first.return_value = (
+            mock_canceled_sub
+        )
         mock_q3 = MagicMock()
         mock_q3.filter.return_value.first.return_value = mock_company
         mock_db.query.side_effect = [mock_q1, mock_q2, mock_q3]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
-            with patch.object(service, "_restore_archived_data", new_callable=AsyncMock, return_value={
-                "agents_restored": 2, "team_members_restored": 3, "channels_restored": 1,
-            }):
-                result = asyncio.run(service.resubscribe(
-                    company_id=company_id,
-                    variant="parwa",
-                    restore_data=True,
-                ))
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
+            with patch.object(
+                service,
+                "_restore_archived_data",
+                new_callable=AsyncMock,
+                return_value={
+                    "agents_restored": 2,
+                    "team_members_restored": 3,
+                    "channels_restored": 1,
+                },
+            ):
+                result = asyncio.run(
+                    service.resubscribe(
+                        company_id=company_id,
+                        variant="parwa",
+                        restore_data=True,
+                    )
+                )
 
         assert result["data_restored"] is True
         assert result["retention_status"] == "within_retention"
@@ -1132,14 +1246,15 @@ class TestResubscribeWithinRetention:
         mock_db = MagicMock()
         mock_q_agent = MagicMock()
         mock_q_agent.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [
-            mock_agent]
+            mock_agent
+        ]
         mock_q_member = MagicMock()
         mock_q_member.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [
-            mock_member]
+            mock_member
+        ]
         mock_q_channel = MagicMock()
         mock_q_channel.filter.return_value.all.return_value = [mock_channel]
-        mock_db.query.side_effect = [
-            mock_q_agent, mock_q_member, mock_q_channel]
+        mock_db.query.side_effect = [mock_q_agent, mock_q_member, mock_q_channel]
 
         mock_core = MagicMock()
         mock_core.Agent = MagicMock()
@@ -1147,8 +1262,8 @@ class TestResubscribeWithinRetention:
         mock_core.Channel = MagicMock()
         with patch.dict(sys.modules, {"database.models.core": mock_core}):
             result = asyncio.run(
-                service._restore_archived_data(
-                    mock_db, "company-1", "parwa"))
+                service._restore_archived_data(mock_db, "company-1", "parwa")
+            )
 
         assert result["agents_restored"] == 1
         assert mock_agent.status == "active"
@@ -1179,12 +1294,11 @@ class TestResubscribeAfterRetention:
         mock_canceled_sub.id = str(uuid.uuid4())
         mock_canceled_sub.company_id = str(company_id)
         mock_canceled_sub.status = "canceled"
-        mock_canceled_sub.service_stopped_at = datetime.now(
-            timezone.utc) - timedelta(days=45)
-        mock_canceled_sub.updated_at = datetime.now(
-            timezone.utc) - timedelta(days=45)
-        mock_canceled_sub.created_at = datetime.now(
-            timezone.utc) - timedelta(days=80)
+        mock_canceled_sub.service_stopped_at = datetime.now(timezone.utc) - timedelta(
+            days=45
+        )
+        mock_canceled_sub.updated_at = datetime.now(timezone.utc) - timedelta(days=45)
+        mock_canceled_sub.created_at = datetime.now(timezone.utc) - timedelta(days=80)
 
         mock_company = MagicMock()
         mock_company.paddle_customer_id = None
@@ -1193,19 +1307,25 @@ class TestResubscribeAfterRetention:
         mock_q1 = MagicMock()
         mock_q1.filter.return_value.first.return_value = None
         mock_q2 = MagicMock()
-        mock_q2.filter.return_value.order_by.return_value.first.return_value = mock_canceled_sub
+        mock_q2.filter.return_value.order_by.return_value.first.return_value = (
+            mock_canceled_sub
+        )
         mock_q3 = MagicMock()
         mock_q3.filter.return_value.first.return_value = mock_company
         mock_db.query.side_effect = [mock_q1, mock_q2, mock_q3]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
-            result = asyncio.run(service.resubscribe(
-                company_id=company_id,
-                variant="parwa",
-                restore_data=True,
-            ))
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
+            result = asyncio.run(
+                service.resubscribe(
+                    company_id=company_id,
+                    variant="parwa",
+                    restore_data=True,
+                )
+            )
 
         assert result["data_restored"] is False
         assert result["retention_status"] == "after_retention"
@@ -1230,12 +1350,16 @@ class TestResubscribeAfterRetention:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             with pytest.raises(SubscriptionError):
-                asyncio.run(service.resubscribe(
-                    company_id=company_id,
-                    variant="mini_parwa",
-                ))
+                asyncio.run(
+                    service.resubscribe(
+                        company_id=company_id,
+                        variant="mini_parwa",
+                    )
+                )
 
     def test_resubscribe_active_sub_raises(self):
         """R2: Should raise SubscriptionAlreadyExistsError if active subscription exists."""
@@ -1258,12 +1382,16 @@ class TestResubscribeAfterRetention:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             with pytest.raises(SubscriptionAlreadyExistsError):
-                asyncio.run(service.resubscribe(
-                    company_id=company_id,
-                    variant="mini_parwa",
-                ))
+                asyncio.run(
+                    service.resubscribe(
+                        company_id=company_id,
+                        variant="mini_parwa",
+                    )
+                )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1287,12 +1415,11 @@ class TestResubscribePlanChange:
         mock_canceled_sub.company_id = str(company_id)
         mock_canceled_sub.status = "canceled"
         mock_canceled_sub.tier = "parwa"  # Was on growth
-        mock_canceled_sub.service_stopped_at = datetime.now(
-            timezone.utc) - timedelta(days=5)
-        mock_canceled_sub.updated_at = datetime.now(
-            timezone.utc) - timedelta(days=5)
-        mock_canceled_sub.created_at = datetime.now(
-            timezone.utc) - timedelta(days=40)
+        mock_canceled_sub.service_stopped_at = datetime.now(timezone.utc) - timedelta(
+            days=5
+        )
+        mock_canceled_sub.updated_at = datetime.now(timezone.utc) - timedelta(days=5)
+        mock_canceled_sub.created_at = datetime.now(timezone.utc) - timedelta(days=40)
 
         mock_company = MagicMock()
         mock_company.paddle_customer_id = None
@@ -1301,19 +1428,25 @@ class TestResubscribePlanChange:
         mock_q1 = MagicMock()
         mock_q1.filter.return_value.first.return_value = None
         mock_q2 = MagicMock()
-        mock_q2.filter.return_value.order_by.return_value.first.return_value = mock_canceled_sub
+        mock_q2.filter.return_value.order_by.return_value.first.return_value = (
+            mock_canceled_sub
+        )
         mock_q3 = MagicMock()
         mock_q3.filter.return_value.first.return_value = mock_company
         mock_db.query.side_effect = [mock_q1, mock_q2, mock_q3]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
-            result = asyncio.run(service.resubscribe(
-                company_id=company_id,
-                variant="high",  # Now choosing high
-                restore_data=True,
-            ))
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
+            result = asyncio.run(
+                service.resubscribe(
+                    company_id=company_id,
+                    variant="high",  # Now choosing high
+                    restore_data=True,
+                )
+            )
 
         assert result["data_restored"] is True
         # Verify the new subscription was created with "high" tier
@@ -1331,10 +1464,12 @@ class TestResubscribePlanChange:
         company_id = uuid.uuid4()
 
         with pytest.raises(InvalidVariantError):
-            asyncio.run(service.resubscribe(
-                company_id=company_id,
-                variant="enterprise",  # Invalid
-            ))
+            asyncio.run(
+                service.resubscribe(
+                    company_id=company_id,
+                    variant="enterprise",  # Invalid
+                )
+            )
 
     def test_resubscribe_accepts_yearly_frequency(self):
         """R3: Should accept yearly billing frequency on re-subscription."""
@@ -1347,12 +1482,11 @@ class TestResubscribePlanChange:
         mock_canceled_sub.id = str(uuid.uuid4())
         mock_canceled_sub.company_id = str(company_id)
         mock_canceled_sub.status = "canceled"
-        mock_canceled_sub.service_stopped_at = datetime.now(
-            timezone.utc) - timedelta(days=5)
-        mock_canceled_sub.updated_at = datetime.now(
-            timezone.utc) - timedelta(days=5)
-        mock_canceled_sub.created_at = datetime.now(
-            timezone.utc) - timedelta(days=40)
+        mock_canceled_sub.service_stopped_at = datetime.now(timezone.utc) - timedelta(
+            days=5
+        )
+        mock_canceled_sub.updated_at = datetime.now(timezone.utc) - timedelta(days=5)
+        mock_canceled_sub.created_at = datetime.now(timezone.utc) - timedelta(days=40)
 
         mock_company = MagicMock()
         mock_company.paddle_customer_id = None
@@ -1361,19 +1495,25 @@ class TestResubscribePlanChange:
         mock_q1 = MagicMock()
         mock_q1.filter.return_value.first.return_value = None
         mock_q2 = MagicMock()
-        mock_q2.filter.return_value.order_by.return_value.first.return_value = mock_canceled_sub
+        mock_q2.filter.return_value.order_by.return_value.first.return_value = (
+            mock_canceled_sub
+        )
         mock_q3 = MagicMock()
         mock_q3.filter.return_value.first.return_value = mock_company
         mock_db.query.side_effect = [mock_q1, mock_q2, mock_q3]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
-            result = asyncio.run(service.resubscribe(
-                company_id=company_id,
-                variant="parwa",
-                billing_frequency="yearly",
-            ))
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
+            result = asyncio.run(
+                service.resubscribe(
+                    company_id=company_id,
+                    variant="parwa",
+                    billing_frequency="yearly",
+                )
+            )
 
         # Verify the new subscription was created with yearly billing
         added_sub = mock_db.add.call_args[0][0]
@@ -1401,8 +1541,7 @@ class TestPaymentFailureImmediateStop:
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(uuid.uuid4())
         mock_sub.status = SubscriptionStatus.PAYMENT_FAILED.value
-        mock_sub.payment_failed_at = datetime.now(
-            timezone.utc) - timedelta(days=8)
+        mock_sub.payment_failed_at = datetime.now(timezone.utc) - timedelta(days=8)
 
         mock_company = MagicMock()
         mock_company.subscription_status = "payment_failed"
@@ -1416,10 +1555,18 @@ class TestPaymentFailureImmediateStop:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
-            with patch.object(service, "_apply_service_stop_on_cancel", return_value={
-                "agents_paused": 0, "team_members_disabled": 0, "channels_disabled": 0,
-            }):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
+            with patch.object(
+                service,
+                "_apply_service_stop_on_cancel",
+                return_value={
+                    "agents_paused": 0,
+                    "team_members_disabled": 0,
+                    "channels_disabled": 0,
+                },
+            ):
                 result = service.process_payment_failure_timeouts()
 
         assert result["subscriptions_canceled"] == 1
@@ -1428,7 +1575,10 @@ class TestPaymentFailureImmediateStop:
 
     def test_payment_failure_within_7_days_not_canceled(self):
         """G2: Subscriptions failed less than 7 days should NOT be canceled."""
-        from app.services.subscription_service import SubscriptionService, SubscriptionStatus
+        from app.services.subscription_service import (
+            SubscriptionService,
+            SubscriptionStatus,
+        )
 
         service = SubscriptionService()
 
@@ -1436,8 +1586,7 @@ class TestPaymentFailureImmediateStop:
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(uuid.uuid4())
         mock_sub.status = SubscriptionStatus.PAYMENT_FAILED.value
-        mock_sub.payment_failed_at = datetime.now(
-            timezone.utc) - timedelta(days=3)
+        mock_sub.payment_failed_at = datetime.now(timezone.utc) - timedelta(days=3)
 
         mock_db = MagicMock()
         mock_q_sub = MagicMock()
@@ -1446,14 +1595,19 @@ class TestPaymentFailureImmediateStop:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             result = service.process_payment_failure_timeouts()
 
         assert result["subscriptions_canceled"] == 0
 
     def test_payment_failure_no_payment_failed_at_skipped(self):
         """G1: Subscriptions without payment_failed_at should be skipped."""
-        from app.services.subscription_service import SubscriptionService, SubscriptionStatus
+        from app.services.subscription_service import (
+            SubscriptionService,
+            SubscriptionStatus,
+        )
 
         service = SubscriptionService()
 
@@ -1470,7 +1624,9 @@ class TestPaymentFailureImmediateStop:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             result = service.process_payment_failure_timeouts()
 
         assert result["subscriptions_canceled"] == 0
@@ -1487,7 +1643,10 @@ class TestAutoRetryPayments:
 
     def test_retry_day_1_attempts_retry(self):
         """G3: Should retry on day 1 after failure."""
-        from app.services.subscription_service import SubscriptionService, SubscriptionStatus
+        from app.services.subscription_service import (
+            SubscriptionService,
+            SubscriptionStatus,
+        )
 
         service = SubscriptionService()
 
@@ -1495,8 +1654,7 @@ class TestAutoRetryPayments:
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(uuid.uuid4())
         mock_sub.status = SubscriptionStatus.PAYMENT_FAILED.value
-        mock_sub.payment_failed_at = datetime.now(
-            timezone.utc) - timedelta(days=1)
+        mock_sub.payment_failed_at = datetime.now(timezone.utc) - timedelta(days=1)
 
         mock_db = MagicMock()
         mock_q_sub = MagicMock()
@@ -1505,17 +1663,27 @@ class TestAutoRetryPayments:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
-            with patch.object(service, "retry_failed_payment", new_callable=AsyncMock, return_value={
-                "success": True,
-            }):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
+            with patch.object(
+                service,
+                "retry_failed_payment",
+                new_callable=AsyncMock,
+                return_value={
+                    "success": True,
+                },
+            ):
                 result = service.process_auto_retry_payments()
 
         assert result["retries_attempted"] == 1
 
     def test_retry_day_2_skips(self):
         """G3: Should NOT retry on day 2 (only 1, 3, 5, 7)."""
-        from app.services.subscription_service import SubscriptionService, SubscriptionStatus
+        from app.services.subscription_service import (
+            SubscriptionService,
+            SubscriptionStatus,
+        )
 
         service = SubscriptionService()
 
@@ -1523,8 +1691,7 @@ class TestAutoRetryPayments:
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(uuid.uuid4())
         mock_sub.status = SubscriptionStatus.PAYMENT_FAILED.value
-        mock_sub.payment_failed_at = datetime.now(
-            timezone.utc) - timedelta(days=2)
+        mock_sub.payment_failed_at = datetime.now(timezone.utc) - timedelta(days=2)
 
         mock_db = MagicMock()
         mock_q_sub = MagicMock()
@@ -1533,14 +1700,19 @@ class TestAutoRetryPayments:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             result = service.process_auto_retry_payments()
 
         assert result["retries_attempted"] == 0
 
     def test_retry_day_3_5_7_attempts(self):
         """G3: Should retry on days 3, 5, and 7."""
-        from app.services.subscription_service import SubscriptionService, SubscriptionStatus
+        from app.services.subscription_service import (
+            SubscriptionService,
+            SubscriptionStatus,
+        )
 
         service = SubscriptionService()
 
@@ -1549,8 +1721,9 @@ class TestAutoRetryPayments:
             mock_sub.id = str(uuid.uuid4())
             mock_sub.company_id = str(uuid.uuid4())
             mock_sub.status = SubscriptionStatus.PAYMENT_FAILED.value
-            mock_sub.payment_failed_at = datetime.now(
-                timezone.utc) - timedelta(days=day)
+            mock_sub.payment_failed_at = datetime.now(timezone.utc) - timedelta(
+                days=day
+            )
 
             mock_db = MagicMock()
             mock_q_sub = MagicMock()
@@ -1559,10 +1732,17 @@ class TestAutoRetryPayments:
             mock_db.__enter__ = MagicMock(return_value=mock_db)
             mock_db.__exit__ = MagicMock(return_value=False)
 
-            with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
-                with patch.object(service, "retry_failed_payment", new_callable=AsyncMock, return_value={
-                    "success": True,
-                }):
+            with patch(
+                "app.services.subscription_service.SessionLocal", return_value=mock_db
+            ):
+                with patch.object(
+                    service,
+                    "retry_failed_payment",
+                    new_callable=AsyncMock,
+                    return_value={
+                        "success": True,
+                    },
+                ):
                     result = service.process_auto_retry_payments()
 
             assert result["retries_attempted"] == 1, f"Day {day} should trigger retry"
@@ -1591,21 +1771,24 @@ class TestAutoRetryPayments:
 
         mock_db = MagicMock()
         mock_q_sub = MagicMock()
-        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = (
+            mock_sub
+        )
         mock_q_company = MagicMock()
         mock_q_company.filter.return_value.first.return_value = mock_company
         mock_db.query.side_effect = [mock_q_sub, mock_q_company]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             with patch.object(service, "_get_paddle", return_value=mock_paddle):
                 result = asyncio.run(service.retry_failed_payment(company_id))
 
         assert result["success"] is True
         assert mock_sub.status == SubscriptionStatus.ACTIVE.value
-        mock_paddle.resume_subscription.assert_called_once_with(
-            "paddle_sub_123")
+        mock_paddle.resume_subscription.assert_called_once_with("paddle_sub_123")
 
     def test_retry_no_subscription_raises(self):
         """G3: retry_failed_payment should raise if no payment_failed subscription."""
@@ -1619,12 +1802,16 @@ class TestAutoRetryPayments:
 
         mock_db = MagicMock()
         mock_q = MagicMock()
-        mock_q.filter.return_value.with_for_update.return_value.first.return_value = None
+        mock_q.filter.return_value.with_for_update.return_value.first.return_value = (
+            None
+        )
         mock_db.query.side_effect = [mock_q]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             with pytest.raises(SubscriptionNotFoundError):
                 asyncio.run(service.retry_failed_payment(company_id))
 
@@ -1652,7 +1839,9 @@ class TestPaymentMethodUpdate:
         mock_sub.status = "payment_failed"
 
         mock_paddle = AsyncMock()
-        mock_paddle.generate_portal_url.return_value = "https://checkout.paddle.com/portal/xyz"
+        mock_paddle.generate_portal_url.return_value = (
+            "https://checkout.paddle.com/portal/xyz"
+        )
 
         mock_db = MagicMock()
         mock_q1 = MagicMock()
@@ -1663,12 +1852,16 @@ class TestPaymentMethodUpdate:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             with patch.object(service, "_get_paddle", return_value=mock_paddle):
-                result = asyncio.run(service.generate_payment_method_update_url(
-                    company_id=company_id,
-                    return_url="https://example.com/billing",
-                ))
+                result = asyncio.run(
+                    service.generate_payment_method_update_url(
+                        company_id=company_id,
+                        return_url="https://example.com/billing",
+                    )
+                )
 
         assert "paddle_portal_url" in result
         assert result["paddle_portal_url"] == "https://checkout.paddle.com/portal/xyz"
@@ -1690,10 +1883,11 @@ class TestPaymentMethodUpdate:
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             with pytest.raises(SubscriptionError):
-                asyncio.run(
-                    service.generate_payment_method_update_url(company_id))
+                asyncio.run(service.generate_payment_method_update_url(company_id))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1704,31 +1898,31 @@ class TestPaymentMethodUpdate:
 class TestDay4Coverage:
     """Meta-test to verify all 14 Day 4 items are tested."""
 
-    @pytest.mark.parametrize("item_id,description", [
-        ("C1", "Cancel confirmation flow"),
-        ("C2", "Auto-pay removal vs cancel"),
-        ("C3", "Period-end service stop"),
-        ("C4", "30-day data retention"),
-        ("C5", "Data export"),
-        ("C6", "Data retention cron"),
-        ("C7", "Hard delete after retention"),
-        ("R1", "Re-subscribe within retention restores data"),
-        ("R2", "Re-subscribe after retention is fresh start"),
-        ("R3", "Plan change on re-subscription"),
-        ("G1", "Payment failure immediate stop"),
-        ("G2", "7-day reactivation window"),
-        ("G3", "Auto-retry on Day 1,3,5,7"),
-        ("G4", "Payment method update via Paddle portal"),
-    ])
+    @pytest.mark.parametrize(
+        "item_id,description",
+        [
+            ("C1", "Cancel confirmation flow"),
+            ("C2", "Auto-pay removal vs cancel"),
+            ("C3", "Period-end service stop"),
+            ("C4", "30-day data retention"),
+            ("C5", "Data export"),
+            ("C6", "Data retention cron"),
+            ("C7", "Hard delete after retention"),
+            ("R1", "Re-subscribe within retention restores data"),
+            ("R2", "Re-subscribe after retention is fresh start"),
+            ("R3", "Plan change on re-subscription"),
+            ("G1", "Payment failure immediate stop"),
+            ("G2", "7-day reactivation window"),
+            ("G3", "Auto-retry on Day 1,3,5,7"),
+            ("G4", "Payment method update via Paddle portal"),
+        ],
+    )
     def test_day4_item_has_test_coverage(self, item_id, description):
         """Verify each Day 4 item is covered by the test classes above."""
         # This meta-test just ensures we've organized tests by item ID
         # The actual coverage is provided by the test classes above
         test_classes = {
-            "C1": [
-                TestCancelFeedbackSave,
-                TestCancelSaveOffer,
-                TestCancelConfirm],
+            "C1": [TestCancelFeedbackSave, TestCancelSaveOffer, TestCancelConfirm],
             "C2": [TestCancelEffectiveImmediately],
             "C3": [TestServiceStopOnCancel],
             "C4": [TestDataRetentionStatus],
@@ -1743,6 +1937,7 @@ class TestDay4Coverage:
             "G3": [TestAutoRetryPayments],
             "G4": [TestPaymentMethodUpdate],
         }
-        assert item_id in test_classes, f"Item {item_id} ({description}) has no test class"
-        assert len(test_classes[item_id]
-                   ) > 0, f"Item {item_id} has no test classes"
+        assert (
+            item_id in test_classes
+        ), f"Item {item_id} ({description}) has no test class"
+        assert len(test_classes[item_id]) > 0, f"Item {item_id} has no test classes"

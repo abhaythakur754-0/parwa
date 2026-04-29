@@ -49,6 +49,7 @@ _VERIFICATION_RATE_LIMIT_SECONDS = 60
 
 # ── GAP-001: XSS Sanitization ─────────────────────────────────────────────
 
+
 def sanitize_text_input(text: str, max_length: int = 100) -> str:
     """
     Sanitize text input to prevent XSS attacks.
@@ -65,27 +66,27 @@ def sanitize_text_input(text: str, max_length: int = 100) -> str:
     so they render safely as-is in the browser.
     """
     if not text or not isinstance(text, str):
-        return ''
+        return ""
 
     sanitized = text.strip()
 
     # P13: Escape HTML entities instead of stripping them.
     # This preserves content like "AT&T < Partner >" as
     # "AT&T &lt; Partner &gt;" instead of destroying it.
-    sanitized = sanitized.replace('&', '&amp;')
-    sanitized = sanitized.replace('<', '&lt;')
-    sanitized = sanitized.replace('>', '&gt;')
-    sanitized = sanitized.replace('"', '&quot;')
-    sanitized = sanitized.replace("'", '&#x27;')
+    sanitized = sanitized.replace("&", "&amp;")
+    sanitized = sanitized.replace("<", "&lt;")
+    sanitized = sanitized.replace(">", "&gt;")
+    sanitized = sanitized.replace('"', "&quot;")
+    sanitized = sanitized.replace("'", "&#x27;")
 
     # Remove javascript: protocol (after escaping, look for the escaped form)
-    sanitized = re.sub(r'javascript\s*:', '', sanitized, flags=re.IGNORECASE)
+    sanitized = re.sub(r"javascript\s*:", "", sanitized, flags=re.IGNORECASE)
 
     # Remove event handlers (onclick, onerror, etc.)
-    sanitized = re.sub(r'on\w+\s*=', '', sanitized, flags=re.IGNORECASE)
+    sanitized = re.sub(r"on\w+\s*=", "", sanitized, flags=re.IGNORECASE)
 
     # Remove data: URLs
-    sanitized = re.sub(r'data\s*:', '', sanitized, flags=re.IGNORECASE)
+    sanitized = re.sub(r"data\s*:", "", sanitized, flags=re.IGNORECASE)
 
     # Truncate to max length
     return sanitized[:max_length]
@@ -98,19 +99,19 @@ def sanitize_url_input(url: str) -> str:
     Only allows http:// and https:// protocols.
     """
     if not url or not isinstance(url, str):
-        return ''
+        return ""
 
     url = url.strip()
     url_lower = url.lower()
 
     # Block dangerous protocols
-    dangerous_protocols = ['javascript:', 'data:', 'vbscript:', 'file:']
+    dangerous_protocols = ["javascript:", "data:", "vbscript:", "file:"]
     for protocol in dangerous_protocols:
         if url_lower.startswith(protocol):
-            return ''
+            return ""
 
     # Only allow http/https
-    if url and not url_lower.startswith(('http://', 'https://')):
+    if url and not url_lower.startswith(("http://", "https://")):
         # Don't add protocol - just return empty for safety
         # Frontend should handle URL normalization
         pass
@@ -121,11 +122,11 @@ def sanitize_url_input(url: str) -> str:
 def sanitize_email(email: str) -> str:
     """Sanitize email input."""
     if not email or not isinstance(email, str):
-        return ''
+        return ""
 
     # Check for XSS attempts
-    if '<' in email or '>' in email or 'javascript:' in email.lower():
-        return ''
+    if "<" in email or ">" in email or "javascript:" in email.lower():
+        return ""
 
     return email.strip().lower()[:255]
 
@@ -150,10 +151,14 @@ def get_user_details(
     Returns:
         UserDetailsResponse or None if not found.
     """
-    details = db.query(UserDetails).filter(
-        UserDetails.user_id == user_id,
-        UserDetails.company_id == company_id,
-    ).first()
+    details = (
+        db.query(UserDetails)
+        .filter(
+            UserDetails.user_id == user_id,
+            UserDetails.company_id == company_id,
+        )
+        .first()
+    )
 
     if not details:
         return None
@@ -209,8 +214,9 @@ def create_or_update_user_details(
     full_name = sanitize_text_input(full_name, max_length=100)
     company_name = sanitize_text_input(company_name, max_length=100)
     industry = sanitize_text_input(industry, max_length=50)
-    company_size = sanitize_text_input(
-        company_size, max_length=20) if company_size else None
+    company_size = (
+        sanitize_text_input(company_size, max_length=20) if company_size else None
+    )
     work_email = sanitize_email(work_email) if work_email else None
     website = sanitize_url_input(website) if website else None
 
@@ -234,10 +240,14 @@ def create_or_update_user_details(
         )
 
     # Check if details already exist
-    details = db.query(UserDetails).filter(
-        UserDetails.user_id == user_id,
-        UserDetails.company_id == company_id,
-    ).first()
+    details = (
+        db.query(UserDetails)
+        .filter(
+            UserDetails.user_id == user_id,
+            UserDetails.company_id == company_id,
+        )
+        .first()
+    )
 
     if details:
         # Update existing
@@ -307,7 +317,7 @@ def _hash_verification_token(token: str) -> str:
     cryptographically random values — we just need a one-way transform
     to prevent raw token recovery from the DB.
     """
-    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def send_work_email_verification(
@@ -344,10 +354,14 @@ def send_work_email_verification(
             details={"work_email": work_email},
         )
 
-    details = db.query(UserDetails).filter(
-        UserDetails.user_id == user_id,
-        UserDetails.company_id == company_id,
-    ).first()
+    details = (
+        db.query(UserDetails)
+        .filter(
+            UserDetails.user_id == user_id,
+            UserDetails.company_id == company_id,
+        )
+        .first()
+    )
 
     if not details:
         raise ValidationError(
@@ -378,12 +392,12 @@ def send_work_email_verification(
 
         time_since_last = datetime.now(timezone.utc) - sent_at
         if time_since_last.total_seconds() < _VERIFICATION_RATE_LIMIT_SECONDS:
-            remaining = _VERIFICATION_RATE_LIMIT_SECONDS - \
-                int(time_since_last.total_seconds())
+            remaining = _VERIFICATION_RATE_LIMIT_SECONDS - int(
+                time_since_last.total_seconds()
+            )
             raise ValidationError(
                 message=f"Please wait {remaining} seconds before requesting another verification email.",
-                details={
-                    "retry_after_seconds": remaining},
+                details={"retry_after_seconds": remaining},
             )
 
     # Generate verification token (plaintext — only exists in email link)
@@ -440,7 +454,7 @@ def verify_work_email(
         ValidationError: If token invalid or expired.
     """
     # Sanitize token - allow reasonable length for test tokens
-    token = token.strip()[:64] if token else ''
+    token = token.strip()[:64] if token else ""
 
     if not token or len(token) < 8:
         raise ValidationError(
@@ -450,9 +464,13 @@ def verify_work_email(
 
     # P10 FIX: Compare hashed token (DB stores hashes, not plaintext)
     token_hash = _hash_verification_token(token)
-    details = db.query(UserDetails).filter(
-        UserDetails.work_email_verification_token == token_hash,
-    ).first()
+    details = (
+        db.query(UserDetails)
+        .filter(
+            UserDetails.work_email_verification_token == token_hash,
+        )
+        .first()
+    )
 
     if not details:
         raise ValidationError(
@@ -471,8 +489,9 @@ def verify_work_email(
             details.work_email_verification_token = None
             db.commit()
             raise ValidationError(
-                message="Verification token expired. Please request a new one.", details={
-                    "expired_at": expiry.isoformat()}, )
+                message="Verification token expired. Please request a new one.",
+                details={"expired_at": expiry.isoformat()},
+            )
 
     # Mark as verified
     details.work_email_verified = True
@@ -509,10 +528,14 @@ def get_onboarding_state(
     """
     import json
 
-    session = db.query(OnboardingSession).filter(
-        OnboardingSession.user_id == user_id,
-        OnboardingSession.company_id == company_id,
-    ).first()
+    session = (
+        db.query(OnboardingSession)
+        .filter(
+            OnboardingSession.user_id == user_id,
+            OnboardingSession.company_id == company_id,
+        )
+        .first()
+    )
 
     if not session:
         # Create new session
@@ -555,6 +578,7 @@ def get_onboarding_state(
 
 # ── GAP-003: AI Activation Prerequisites Check ────────────────────────────
 
+
 def check_ai_activation_prerequisites(
     db: Session,
     user_id: str,
@@ -576,16 +600,24 @@ def check_ai_activation_prerequisites(
     missing = []
 
     # Get user details
-    details = db.query(UserDetails).filter(
-        UserDetails.user_id == user_id,
-        UserDetails.company_id == company_id,
-    ).first()
+    details = (
+        db.query(UserDetails)
+        .filter(
+            UserDetails.user_id == user_id,
+            UserDetails.company_id == company_id,
+        )
+        .first()
+    )
 
     # Get onboarding session
-    session = db.query(OnboardingSession).filter(
-        OnboardingSession.user_id == user_id,
-        OnboardingSession.company_id == company_id,
-    ).first()
+    session = (
+        db.query(OnboardingSession)
+        .filter(
+            OnboardingSession.user_id == user_id,
+            OnboardingSession.company_id == company_id,
+        )
+        .first()
+    )
 
     if not session:
         missing.append("onboarding_not_started")
@@ -602,20 +634,30 @@ def check_ai_activation_prerequisites(
     # Check integrations or KB — query actual Integration table (not stale
     # session.integrations)
     from database.models.integration import Integration
-    integration_count = db.query(Integration).filter(
-        Integration.company_id == company_id,
-        Integration.status.in_(["active", "pending"]),
-    ).count()
+
+    integration_count = (
+        db.query(Integration)
+        .filter(
+            Integration.company_id == company_id,
+            Integration.status.in_(["active", "pending"]),
+        )
+        .count()
+    )
     has_integrations = integration_count > 0
 
     # P22 FIX: Only count "completed" KB documents as valid.
     # Previously "processing" documents counted too — a doc that just
     # started processing but will fail in 10 seconds was treated as valid.
     # This could allow activation with a KB that never actually processed.
-    kb_doc_count = db.query(KnowledgeDocument).filter(
-        KnowledgeDocument.company_id == company_id,
-        KnowledgeDocument.status == "completed",  # P22: Only completed, not processing
-    ).count()
+    kb_doc_count = (
+        db.query(KnowledgeDocument)
+        .filter(
+            KnowledgeDocument.company_id == company_id,
+            KnowledgeDocument.status
+            == "completed",  # P22: Only completed, not processing
+        )
+        .count()
+    )
     has_kb = kb_doc_count > 0
 
     if not has_integrations and not has_kb:
@@ -639,10 +681,14 @@ def _mark_details_completed(
 
     Creates session if doesn't exist.
     """
-    session = db.query(OnboardingSession).filter(
-        OnboardingSession.user_id == user_id,
-        OnboardingSession.company_id == company_id,
-    ).first()
+    session = (
+        db.query(OnboardingSession)
+        .filter(
+            OnboardingSession.user_id == user_id,
+            OnboardingSession.company_id == company_id,
+        )
+        .first()
+    )
 
     if not session:
         session = OnboardingSession(

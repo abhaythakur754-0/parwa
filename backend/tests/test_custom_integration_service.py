@@ -35,10 +35,10 @@ from app.services.custom_integration_service import (
     _parse_json,
 )
 
-
 # ══════════════════════════════════════════════════════════════════
 # FIXTURES
 # ══════════════════════════════════════════════════════════════════
+
 
 @pytest.fixture
 def mock_db():
@@ -82,12 +82,14 @@ def _make_mock_integration(
     integration.name = name
     integration.integration_type = integration_type
     integration.status = status
-    integration.config_encrypted = config_encrypted or _encrypt_config({
-        "url": "https://api.example.com",
-        "method": "GET",
-        "auth_type": "bearer",
-        "token": "secret-token-12345",
-    })
+    integration.config_encrypted = config_encrypted or _encrypt_config(
+        {
+            "url": "https://api.example.com",
+            "method": "GET",
+            "auth_type": "bearer",
+            "token": "secret-token-12345",
+        }
+    )
     integration.settings = "{}"
     integration.webhook_id = webhook_id
     integration.webhook_secret = webhook_secret
@@ -103,6 +105,7 @@ def _make_mock_integration(
 # ══════════════════════════════════════════════════════════════════
 # CONSTANTS TESTS
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestConstants:
     """Verify that service constants match the spec."""
@@ -152,13 +155,13 @@ class TestConstants:
         assert "trigger_events" in REQUIRED_CONFIG_FIELDS["webhook_out"]
 
     def test_required_config_fields_database(self):
-        assert REQUIRED_CONFIG_FIELDS["database"] == [
-            "connection_string", "db_type"]
+        assert REQUIRED_CONFIG_FIELDS["database"] == ["connection_string", "db_type"]
 
 
 # ══════════════════════════════════════════════════════════════════
 # CREDENTIAL HELPERS TESTS
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestCredentialHelpers:
     """Test encryption, decryption, and masking."""
@@ -182,9 +185,7 @@ class TestCredentialHelpers:
         assert _decrypt_config(None) == {}
 
     def test_mask_config_api_key(self):
-        config = {
-            "api_key": "sk-1234567890abcdef",
-            "url": "https://api.example.com"}
+        config = {"api_key": "sk-1234567890abcdef", "url": "https://api.example.com"}
         masked = _mask_config(config)
         assert masked["api_key"] == "sk-1****"
         assert masked["url"] == "https://api.example.com"
@@ -200,8 +201,7 @@ class TestCredentialHelpers:
         assert masked["secret"] == "****"
 
     def test_mask_config_connection_string(self):
-        config = {
-            "connection_string": "postgresql://user:password123@host:5432/db"}
+        config = {"connection_string": "postgresql://user:password123@host:5432/db"}
         masked = _mask_config(config)
         assert "password" not in masked["connection_string"]
         assert "****" in masked["connection_string"]
@@ -235,6 +235,7 @@ class TestCredentialHelpers:
 # CREATE TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestCreate:
     """Test custom integration creation."""
 
@@ -264,7 +265,8 @@ class TestCreate:
         config = {
             "url": "https://api.example.com/graphql",
             "auth_type": "bearer",
-            "token": "ghp_123"}
+            "token": "ghp_123",
+        }
         mock_db.query.return_value.filter.return_value.count.return_value = 0
 
         result = service.create(
@@ -277,8 +279,7 @@ class TestCreate:
         assert result["type"] == "graphql"
         assert result["status"] == "draft"
 
-    def test_create_webhook_in_generates_ids(
-            self, service, mock_db, company_id):
+    def test_create_webhook_in_generates_ids(self, service, mock_db, company_id):
         config = {"expected_payload_schema": {"type": "object"}}
         mock_db.query.return_value.filter.return_value.count.return_value = 0
 
@@ -366,7 +367,8 @@ class TestCreate:
                 config={
                     "url": "https://example.com",
                     "method": "GET",
-                    "auth_type": "ntlm"},
+                    "auth_type": "ntlm",
+                },
             )
         assert "Invalid auth_type" in str(exc_info.value.message)
 
@@ -392,8 +394,7 @@ class TestCreate:
             )
         assert "limit" in str(exc_info.value.message).lower()
 
-    def test_create_method_uppercases_http_method(
-            self, service, mock_db, company_id):
+    def test_create_method_uppercases_http_method(self, service, mock_db, company_id):
         mock_db.query.return_value.filter.return_value.count.return_value = 0
         config = {"url": "https://example.com", "method": "post"}
         service.create(
@@ -411,6 +412,7 @@ class TestCreate:
 # ══════════════════════════════════════════════════════════════════
 # GET / LIST TESTS
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestGetAndList:
     """Test retrieval operations."""
@@ -441,7 +443,8 @@ class TestGetAndList:
         integration = _make_mock_integration()
         mock_query = MagicMock()
         mock_query.filter.return_value.order_by.return_value.all.return_value = [
-            integration]
+            integration
+        ]
         mock_db.query.return_value = mock_query
 
         results = service.list("comp-abc-123")
@@ -478,6 +481,7 @@ class TestGetAndList:
 # UPDATE / DELETE / ACTIVATE TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestUpdateDeleteActivate:
     """Test update, delete, and activate operations."""
 
@@ -501,7 +505,8 @@ class TestUpdateDeleteActivate:
         mock_db.query.return_value = mock_query
 
         result = service.update(
-            "int-123", "comp-abc-123",
+            "int-123",
+            "comp-abc-123",
             config={"url": "https://new-url.example.com"},
         )
         assert integration.consecutive_error_count == 0
@@ -576,27 +581,33 @@ class TestUpdateDeleteActivate:
 # TEST CONNECTIVITY TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestConnectivity:
     """Test connectivity testing for each integration type."""
 
     def test_test_rest_success(self, service, mock_db):
         integration = _make_mock_integration(
             integration_type="rest",
-            config_encrypted=_encrypt_config({
-                "url": "https://httpbin.org/get",
-                "method": "GET",
-                "auth_type": "none",
-            }),
+            config_encrypted=_encrypt_config(
+                {
+                    "url": "https://httpbin.org/get",
+                    "method": "GET",
+                    "auth_type": "none",
+                }
+            ),
         )
         mock_query = MagicMock()
         mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
-        with patch("app.services.custom_integration_service.httpx.Client") as mock_client:
+        with patch(
+            "app.services.custom_integration_service.httpx.Client"
+        ) as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_client.return_value.__enter__ = MagicMock(
-                return_value=mock_client.return_value)
+                return_value=mock_client.return_value
+            )
             mock_client.return_value.__exit__ = MagicMock(return_value=False)
             mock_client.return_value.request.return_value = mock_response
 
@@ -609,21 +620,26 @@ class TestConnectivity:
     def test_test_rest_server_error(self, service, mock_db):
         integration = _make_mock_integration(
             integration_type="rest",
-            config_encrypted=_encrypt_config({
-                "url": "https://httpbin.org/status/500",
-                "method": "GET",
-                "auth_type": "none",
-            }),
+            config_encrypted=_encrypt_config(
+                {
+                    "url": "https://httpbin.org/status/500",
+                    "method": "GET",
+                    "auth_type": "none",
+                }
+            ),
         )
         mock_query = MagicMock()
         mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
-        with patch("app.services.custom_integration_service.httpx.Client") as mock_client:
+        with patch(
+            "app.services.custom_integration_service.httpx.Client"
+        ) as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 500
             mock_client.return_value.__enter__ = MagicMock(
-                return_value=mock_client.return_value)
+                return_value=mock_client.return_value
+            )
             mock_client.return_value.__exit__ = MagicMock(return_value=False)
             mock_client.return_value.request.return_value = mock_response
 
@@ -635,23 +651,30 @@ class TestConnectivity:
     def test_test_rest_timeout(self, service, mock_db):
         integration = _make_mock_integration(
             integration_type="rest",
-            config_encrypted=_encrypt_config({
-                "url": "https://slow.example.com",
-                "method": "GET",
-                "auth_type": "none",
-            }),
+            config_encrypted=_encrypt_config(
+                {
+                    "url": "https://slow.example.com",
+                    "method": "GET",
+                    "auth_type": "none",
+                }
+            ),
         )
         mock_query = MagicMock()
         mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         import httpx
-        with patch("app.services.custom_integration_service.httpx.Client") as mock_client:
+
+        with patch(
+            "app.services.custom_integration_service.httpx.Client"
+        ) as mock_client:
             mock_client.return_value.__enter__ = MagicMock(
-                return_value=mock_client.return_value)
+                return_value=mock_client.return_value
+            )
             mock_client.return_value.__exit__ = MagicMock(return_value=False)
             mock_client.return_value.request.side_effect = httpx.TimeoutException(
-                "timeout")
+                "timeout"
+            )
 
             result = service.test_connectivity("int-123", "comp-abc-123")
 
@@ -662,10 +685,12 @@ class TestConnectivity:
         integration = _make_mock_integration(
             integration_type="webhook_in",
             webhook_id="wh-abc-123",
-            config_encrypted=_encrypt_config({
-                "expected_payload_schema": {"type": "object"},
-                "secret": "whsec-test-secret",
-            }),
+            config_encrypted=_encrypt_config(
+                {
+                    "expected_payload_schema": {"type": "object"},
+                    "secret": "whsec-test-secret",
+                }
+            ),
         )
         mock_query = MagicMock()
         mock_query.filter.return_value.first.return_value = integration
@@ -692,21 +717,26 @@ class TestConnectivity:
     def test_test_webhook_out_success(self, service, mock_db):
         integration = _make_mock_integration(
             integration_type="webhook_out",
-            config_encrypted=_encrypt_config({
-                "url": "https://hooks.example.com/parwa",
-                "method": "POST",
-                "trigger_events": ["ticket.created"],
-            }),
+            config_encrypted=_encrypt_config(
+                {
+                    "url": "https://hooks.example.com/parwa",
+                    "method": "POST",
+                    "trigger_events": ["ticket.created"],
+                }
+            ),
         )
         mock_query = MagicMock()
         mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
-        with patch("app.services.custom_integration_service.httpx.Client") as mock_client:
+        with patch(
+            "app.services.custom_integration_service.httpx.Client"
+        ) as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_client.return_value.__enter__ = MagicMock(
-                return_value=mock_client.return_value)
+                return_value=mock_client.return_value
+            )
             mock_client.return_value.__exit__ = MagicMock(return_value=False)
             mock_client.return_value.request.return_value = mock_response
 
@@ -717,10 +747,12 @@ class TestConnectivity:
     def test_test_database_unsupported_type(self, service, mock_db):
         integration = _make_mock_integration(
             integration_type="database",
-            config_encrypted=_encrypt_config({
-                "connection_string": "some-connection",
-                "db_type": "oracle",
-            }),
+            config_encrypted=_encrypt_config(
+                {
+                    "connection_string": "some-connection",
+                    "db_type": "oracle",
+                }
+            ),
         )
         mock_query = MagicMock()
         mock_query.filter.return_value.first.return_value = integration
@@ -743,6 +775,7 @@ class TestConnectivity:
 # ERROR TRACKING & AUTO-DISABLE TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestErrorTracking:
     """Test error recording and auto-disable at 3 consecutive errors."""
 
@@ -763,7 +796,8 @@ class TestErrorTracking:
         mock_db.query.return_value = mock_query
 
         auto_disabled = service.record_failure(
-            "int-123", "comp-abc-123", "Connection refused")
+            "int-123", "comp-abc-123", "Connection refused"
+        )
         assert integration.consecutive_error_count == 1
         assert auto_disabled is False
 
@@ -777,7 +811,8 @@ class TestErrorTracking:
         mock_db.query.return_value = mock_query
 
         auto_disabled = service.record_failure(
-            "int-123", "comp-abc-123", "Connection refused")
+            "int-123", "comp-abc-123", "Connection refused"
+        )
         assert integration.consecutive_error_count == 3
         assert integration.status == "disabled"
         assert auto_disabled is True
@@ -787,8 +822,7 @@ class TestErrorTracking:
         mock_query.filter.return_value.first.return_value = None
         mock_db.query.return_value = mock_query
 
-        auto_disabled = service.record_failure(
-            "nonexistent", "comp-abc-123", "Error")
+        auto_disabled = service.record_failure("nonexistent", "comp-abc-123", "Error")
         assert auto_disabled is False
 
     def test_test_connectivity_auto_disables_at_3(self, service, mock_db):
@@ -796,23 +830,28 @@ class TestErrorTracking:
             integration_type="rest",
             status="active",
             consecutive_error_count=2,
-            config_encrypted=_encrypt_config({
-                "url": "https://failing.example.com",
-                "method": "GET",
-                "auth_type": "none",
-            }),
+            config_encrypted=_encrypt_config(
+                {
+                    "url": "https://failing.example.com",
+                    "method": "GET",
+                    "auth_type": "none",
+                }
+            ),
         )
         mock_query = MagicMock()
         mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         import httpx
-        with patch("app.services.custom_integration_service.httpx.Client") as mock_client:
+
+        with patch(
+            "app.services.custom_integration_service.httpx.Client"
+        ) as mock_client:
             mock_client.return_value.__enter__ = MagicMock(
-                return_value=mock_client.return_value)
+                return_value=mock_client.return_value
+            )
             mock_client.return_value.__exit__ = MagicMock(return_value=False)
-            mock_client.return_value.request.side_effect = httpx.ConnectError(
-                "refused")
+            mock_client.return_value.request.side_effect = httpx.ConnectError("refused")
 
             result = service.test_connectivity("int-123", "comp-abc-123")
 
@@ -824,6 +863,7 @@ class TestErrorTracking:
 # ══════════════════════════════════════════════════════════════════
 # WEBHOOK ID LOOKUP TESTS
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestWebhookIdLookup:
     """Test get_by_webhook_id for incoming webhooks."""
@@ -854,6 +894,7 @@ class TestWebhookIdLookup:
 # ══════════════════════════════════════════════════════════════════
 # TO_DICT TESTS
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestToDict:
     """Test _to_dict serialization."""
@@ -892,40 +933,48 @@ class TestToDict:
 # AUTH HEADER BUILDER TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestAuthHeaders:
     """Test _build_auth_headers."""
 
     def test_bearer_auth(self, service):
         headers = service._build_auth_headers(
-            {"auth_type": "bearer", "token": "test-token"})
+            {"auth_type": "bearer", "token": "test-token"}
+        )
         assert headers["Authorization"] == "Bearer test-token"
 
     def test_bearer_auth_uses_access_token(self, service):
         headers = service._build_auth_headers(
-            {"auth_type": "bearer", "access_token": "ghp_123"})
+            {"auth_type": "bearer", "access_token": "ghp_123"}
+        )
         assert headers["Authorization"] == "Bearer ghp_123"
 
     def test_basic_auth(self, service):
         headers = service._build_auth_headers(
-            {"auth_type": "basic", "username": "user", "password": "pass"})
+            {"auth_type": "basic", "username": "user", "password": "pass"}
+        )
         assert headers["Authorization"].startswith("Basic ")
 
     def test_api_key_auth(self, service):
         headers = service._build_auth_headers(
-            {"auth_type": "api_key", "api_key": "sk-123"})
+            {"auth_type": "api_key", "api_key": "sk-123"}
+        )
         assert headers["X-API-Key"] == "sk-123"
 
     def test_api_key_custom_header(self, service):
-        headers = service._build_auth_headers({
-            "auth_type": "api_key",
-            "api_key_header": "X-Custom-Key",
-            "api_key": "custom-val",
-        })
+        headers = service._build_auth_headers(
+            {
+                "auth_type": "api_key",
+                "api_key_header": "X-Custom-Key",
+                "api_key": "custom-val",
+            }
+        )
         assert headers["X-Custom-Key"] == "custom-val"
 
     def test_oauth2_auth(self, service):
         headers = service._build_auth_headers(
-            {"auth_type": "oauth2", "access_token": "ya29.abc"})
+            {"auth_type": "oauth2", "access_token": "ya29.abc"}
+        )
         assert headers["Authorization"] == "Bearer ya29.abc"
 
     def test_none_auth(self, service):
@@ -940,6 +989,7 @@ class TestAuthHeaders:
 # ══════════════════════════════════════════════════════════════════
 # CONNECTION STRING MASKING TESTS
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestConnectionMasking:
     """Test _mask_connection_string."""

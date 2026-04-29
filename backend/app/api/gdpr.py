@@ -48,12 +48,7 @@ logger = logging.getLogger("parwa.gdpr")
 router = APIRouter(
     prefix="/api/gdpr",
     tags=["GDPR"],
-    dependencies=[
-        Depends(
-            require_roles(
-                "owner",
-                "admin",
-                "agent"))],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
 )
 
 # ── Helpers ──────────────────────────────────────────────────────
@@ -75,69 +70,138 @@ def _serialize_model(obj, allowed_fields: list[str]) -> dict:
 def _collect_user_data(db: Session, user: User) -> dict:
     """Gather all data related to a user for GDPR export."""
     # Company info
-    company = db.query(Company).filter(
-        Company.id == user.company_id,
-    ).first()
-    company_data = _serialize_model(
-        company,
-        ["id", "name", "industry", "subscription_tier",
-         "subscription_status", "created_at", "updated_at"],
-    ) if company else None
+    company = (
+        db.query(Company)
+        .filter(
+            Company.id == user.company_id,
+        )
+        .first()
+    )
+    company_data = (
+        _serialize_model(
+            company,
+            [
+                "id",
+                "name",
+                "industry",
+                "subscription_tier",
+                "subscription_status",
+                "created_at",
+                "updated_at",
+            ],
+        )
+        if company
+        else None
+    )
 
     # API keys (metadata only — never export the secret hash)
-    api_keys = db.query(APIKey).filter(
-        APIKey.created_by == user.id,
-    ).all()
+    api_keys = (
+        db.query(APIKey)
+        .filter(
+            APIKey.created_by == user.id,
+        )
+        .all()
+    )
     api_keys_data = [
-        _serialize_model(k, [
-            "id", "name", "key_prefix", "scope", "scopes",
-            "is_active", "revoked", "last_used_at",
-            "expires_at", "created_at",
-        ])
+        _serialize_model(
+            k,
+            [
+                "id",
+                "name",
+                "key_prefix",
+                "scope",
+                "scopes",
+                "is_active",
+                "revoked",
+                "last_used_at",
+                "expires_at",
+                "created_at",
+            ],
+        )
         for k in api_keys
     ]
 
     # Notification preferences
-    notif_prefs = db.query(UserNotificationPreference).filter(
-        UserNotificationPreference.user_id == user.id,
-    ).all()
+    notif_prefs = (
+        db.query(UserNotificationPreference)
+        .filter(
+            UserNotificationPreference.user_id == user.id,
+        )
+        .all()
+    )
     notif_prefs_data = [
-        _serialize_model(p, [
-            "channel", "event_type", "enabled", "updated_at",
-        ])
+        _serialize_model(
+            p,
+            [
+                "channel",
+                "event_type",
+                "enabled",
+                "updated_at",
+            ],
+        )
         for p in notif_prefs
     ]
 
     # OAuth accounts (never export tokens)
-    oauth_accounts = db.query(OAuthAccount).filter(
-        OAuthAccount.user_id == user.id,
-    ).all()
+    oauth_accounts = (
+        db.query(OAuthAccount)
+        .filter(
+            OAuthAccount.user_id == user.id,
+        )
+        .all()
+    )
     oauth_accounts_data = [
-        _serialize_model(o, [
-            "provider", "provider_account_id", "email",
-            "created_at",
-        ])
+        _serialize_model(
+            o,
+            [
+                "provider",
+                "provider_account_id",
+                "email",
+                "created_at",
+            ],
+        )
         for o in oauth_accounts
     ]
 
     # Refresh tokens (active sessions — metadata only)
-    refresh_tokens = db.query(RefreshToken).filter(
-        RefreshToken.user_id == user.id,
-    ).all()
+    refresh_tokens = (
+        db.query(RefreshToken)
+        .filter(
+            RefreshToken.user_id == user.id,
+        )
+        .all()
+    )
     refresh_tokens_data = [
-        _serialize_model(t, [
-            "id", "device_info", "ip_address",
-            "expires_at", "created_at",
-        ])
+        _serialize_model(
+            t,
+            [
+                "id",
+                "device_info",
+                "ip_address",
+                "expires_at",
+                "created_at",
+            ],
+        )
         for t in refresh_tokens
     ]
 
     return {
         "user": _serialize_model(
             user,
-            ["id", "email", "full_name", "phone", "avatar_url",
-             "role", "is_active", "is_verified", "mfa_enabled",
-             "company_id", "created_at", "updated_at"],
+            [
+                "id",
+                "email",
+                "full_name",
+                "phone",
+                "avatar_url",
+                "role",
+                "is_active",
+                "is_verified",
+                "mfa_enabled",
+                "company_id",
+                "created_at",
+                "updated_at",
+            ],
         ),
         "company": company_data,
         "api_keys": api_keys_data,
@@ -160,83 +224,123 @@ def _cascade_delete_user_data(db: Session, user: User) -> None:
     company_id = user.company_id
 
     # 1. Delete refresh tokens (ends all active sessions)
-    deleted = db.query(RefreshToken).filter(
-        RefreshToken.user_id == user_id,
-    ).delete(synchronize_session=False)
+    deleted = (
+        db.query(RefreshToken)
+        .filter(
+            RefreshToken.user_id == user_id,
+        )
+        .delete(synchronize_session=False)
+    )
     if deleted:
         logger.info(
             "gdpr_erase: deleted %d refresh_tokens for user=%s",
-            deleted, user_id,
+            deleted,
+            user_id,
         )
 
     # 2. Delete backup codes
-    deleted = db.query(BackupCode).filter(
-        BackupCode.user_id == user_id,
-    ).delete(synchronize_session=False)
+    deleted = (
+        db.query(BackupCode)
+        .filter(
+            BackupCode.user_id == user_id,
+        )
+        .delete(synchronize_session=False)
+    )
     if deleted:
         logger.info(
             "gdpr_erase: deleted %d backup_codes for user=%s",
-            deleted, user_id,
+            deleted,
+            user_id,
         )
 
     # 3. Delete OAuth accounts (revokes third-party access)
-    deleted = db.query(OAuthAccount).filter(
-        OAuthAccount.user_id == user_id,
-    ).delete(synchronize_session=False)
+    deleted = (
+        db.query(OAuthAccount)
+        .filter(
+            OAuthAccount.user_id == user_id,
+        )
+        .delete(synchronize_session=False)
+    )
     if deleted:
         logger.info(
             "gdpr_erase: deleted %d oauth_accounts for user=%s",
-            deleted, user_id,
+            deleted,
+            user_id,
         )
 
     # 4. Delete MFA secret (disables MFA enrollment)
-    deleted = db.query(MFASecret).filter(
-        MFASecret.user_id == user_id,
-    ).delete(synchronize_session=False)
+    deleted = (
+        db.query(MFASecret)
+        .filter(
+            MFASecret.user_id == user_id,
+        )
+        .delete(synchronize_session=False)
+    )
     if deleted:
         logger.info(
             "gdpr_erase: deleted %d mfa_secrets for user=%s",
-            deleted, user_id,
+            deleted,
+            user_id,
         )
 
     # 5. Delete verification tokens (invalidate pending emails)
-    deleted = db.query(VerificationToken).filter(
-        VerificationToken.user_id == user_id,
-    ).delete(synchronize_session=False)
+    deleted = (
+        db.query(VerificationToken)
+        .filter(
+            VerificationToken.user_id == user_id,
+        )
+        .delete(synchronize_session=False)
+    )
     if deleted:
         logger.info(
             "gdpr_erase: deleted %d verification_tokens for user=%s",
-            deleted, user_id,
+            deleted,
+            user_id,
         )
 
     # 6. Delete password reset tokens
-    deleted = db.query(PasswordResetToken).filter(
-        PasswordResetToken.user_id == user_id,
-    ).delete(synchronize_session=False)
+    deleted = (
+        db.query(PasswordResetToken)
+        .filter(
+            PasswordResetToken.user_id == user_id,
+        )
+        .delete(synchronize_session=False)
+    )
     if deleted:
         logger.info(
             "gdpr_erase: deleted %d password_reset_tokens for user=%s",
-            deleted, user_id,
+            deleted,
+            user_id,
         )
 
     # 7. Delete notification preferences
-    deleted = db.query(UserNotificationPreference).filter(
-        UserNotificationPreference.user_id == user_id,
-    ).delete(synchronize_session=False)
+    deleted = (
+        db.query(UserNotificationPreference)
+        .filter(
+            UserNotificationPreference.user_id == user_id,
+        )
+        .delete(synchronize_session=False)
+    )
     if deleted:
         logger.info(
             "gdpr_erase: deleted %d notif_prefs for user=%s",
-            deleted, user_id,
+            deleted,
+            user_id,
         )
 
     # 8. Revoke API keys created by this user
-    deleted = db.query(APIKey).filter(
-        APIKey.created_by == user_id,
-    ).delete(synchronize_session=False)
+    deleted = (
+        db.query(APIKey)
+        .filter(
+            APIKey.created_by == user_id,
+        )
+        .delete(synchronize_session=False)
+    )
     if deleted:
         logger.info(
             "gdpr_erase: deleted %d api_keys for user=%s",
-            deleted, user_id,
+            deleted,
+            user_id,
         )
 
     # 9. Anonymize user record (preserve FK integrity, scrub PII)
@@ -293,7 +397,8 @@ def erase_user_data(
         db.rollback()
         logger.error(
             "gdpr_erase_failed user_id=%s error=%s",
-            user.id, exc,
+            user.id,
+            exc,
         )
         raise HTTPException(
             status_code=500,
@@ -341,7 +446,8 @@ def export_user_data(
     except Exception as exc:
         logger.error(
             "gdpr_export_failed user_id=%s error=%s",
-            user.id, exc,
+            user.id,
+            exc,
         )
         raise HTTPException(
             status_code=500,

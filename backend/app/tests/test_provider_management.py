@@ -33,7 +33,6 @@ from app.services.provider_management_service import (
     _worst_status,
 )
 
-
 # ── Constants ────────────────────────────────────────────────────
 
 COMPANY_ID = "test-company-abc123"
@@ -178,7 +177,9 @@ class TestProviderStatus:
     def test_get_single_model_status(self, svc_with_registry):
         """get_model_status returns a ProviderModelStatus for a known model."""
         status = svc_with_registry.get_model_status(
-            COMPANY_ID, "cerebras", "llama-3.1-8b",
+            COMPANY_ID,
+            "cerebras",
+            "llama-3.1-8b",
         )
         assert isinstance(status, ProviderModelStatus)
         assert status.model_id == "llama-3.1-8b"
@@ -186,8 +187,7 @@ class TestProviderStatus:
 
     def test_unknown_provider_returns_unknown_status(self, svc_with_registry):
         """Unknown provider name returns a ProviderSummary with UNKNOWN status."""
-        summary = svc_with_registry.get_provider_status(
-            COMPANY_ID, "anthropic")
+        summary = svc_with_registry.get_provider_status(COMPANY_ID, "anthropic")
         assert isinstance(summary, ProviderSummary)
         assert summary.status == ProviderStatus.UNKNOWN.value
         assert summary.total_models == 0
@@ -195,7 +195,9 @@ class TestProviderStatus:
     def test_unknown_model_returns_unknown_status(self, svc_with_registry):
         """Unknown model_id returns a ProviderModelStatus with UNKNOWN status."""
         status = svc_with_registry.get_model_status(
-            COMPANY_ID, "google", "claude-3-opus",
+            COMPANY_ID,
+            "google",
+            "claude-3-opus",
         )
         assert isinstance(status, ProviderModelStatus)
         assert status.status == ProviderStatus.UNKNOWN.value
@@ -209,8 +211,7 @@ class TestProviderStatus:
         assert by_name["cerebras"] == "Cerebras"
         assert by_name["groq"] == "Groq"
 
-    def test_all_providers_status_returns_list_of_summaries(
-            self, svc_with_registry):
+    def test_all_providers_status_returns_list_of_summaries(self, svc_with_registry):
         """Result is a list of ProviderSummary dataclass instances."""
         summaries = svc_with_registry.get_all_providers_status(COMPANY_ID)
         assert all(isinstance(s, ProviderSummary) for s in summaries)
@@ -227,7 +228,10 @@ class TestDisableEnable:
     def test_disable_model(self, svc):
         """Disabling a model stores it and returns disabled status."""
         result = svc.disable_provider_model(
-            COMPANY_ID, "cerebras", "llama-3.1-8b", "testing",
+            COMPANY_ID,
+            "cerebras",
+            "llama-3.1-8b",
+            "testing",
         )
         assert result["status"] == ProviderStatus.DISABLED.value
         assert result["provider"] == "cerebras"
@@ -238,7 +242,10 @@ class TestDisableEnable:
     def test_disabled_model_shows_in_disabled_list(self, svc):
         """After disabling, get_disabled_models includes the model."""
         svc.disable_provider_model(
-            COMPANY_ID, "groq", "llama-3.1-8b", "rate limit",
+            COMPANY_ID,
+            "groq",
+            "llama-3.1-8b",
+            "rate limit",
         )
         disabled = svc.get_disabled_models(COMPANY_ID)
         assert "groq" in disabled
@@ -249,10 +256,15 @@ class TestDisableEnable:
     def test_re_enable_model(self, svc):
         """Re-enabling a disabled model removes it from disabled list."""
         svc.disable_provider_model(
-            COMPANY_ID, "cerebras", "llama-3.1-8b", "testing",
+            COMPANY_ID,
+            "cerebras",
+            "llama-3.1-8b",
+            "testing",
         )
         result = svc.enable_provider_model(
-            COMPANY_ID, "cerebras", "llama-3.1-8b",
+            COMPANY_ID,
+            "cerebras",
+            "llama-3.1-8b",
         )
         assert result["status"] == ProviderStatus.HEALTHY.value
         # Model should no longer be in the disabled list.
@@ -262,7 +274,10 @@ class TestDisableEnable:
     def test_disable_nonexistent_model_handled(self, svc):
         """Disabling a model that doesn't exist in registry still succeeds."""
         result = svc.disable_provider_model(
-            COMPANY_ID, "google", "fake-model-xyz", "because I can",
+            COMPANY_ID,
+            "google",
+            "fake-model-xyz",
+            "because I can",
         )
         assert result["status"] == ProviderStatus.DISABLED.value
         # It's stored in disabled models regardless of registry.
@@ -272,10 +287,16 @@ class TestDisableEnable:
     def test_double_disable_is_idempotent(self, svc):
         """Disabling the same model twice is safe (idempotent)."""
         svc.disable_provider_model(
-            COMPANY_ID, "groq", "llama-3.1-8b", "first",
+            COMPANY_ID,
+            "groq",
+            "llama-3.1-8b",
+            "first",
         )
         result = svc.disable_provider_model(
-            COMPANY_ID, "groq", "llama-3.1-8b", "second reason",
+            COMPANY_ID,
+            "groq",
+            "llama-3.1-8b",
+            "second reason",
         )
         assert result["status"] == ProviderStatus.DISABLED.value
         # Reason should be updated to the latest.
@@ -287,7 +308,9 @@ class TestDisableEnable:
     def test_enable_already_enabled_is_idempotent(self, svc):
         """Enabling a model that was never disabled is a safe no-op."""
         result = svc.enable_provider_model(
-            COMPANY_ID, "cerebras", "llama-3.1-8b",
+            COMPANY_ID,
+            "cerebras",
+            "llama-3.1-8b",
         )
         assert result["status"] == ProviderStatus.HEALTHY.value
         assert "enabled_at" in result
@@ -295,27 +318,48 @@ class TestDisableEnable:
     def test_is_model_disabled_returns_true(self, svc):
         """is_model_disabled returns True for a disabled model."""
         svc.disable_provider_model(
-            COMPANY_ID, "google", "gemini-2.0-flash", "test",
+            COMPANY_ID,
+            "google",
+            "gemini-2.0-flash",
+            "test",
         )
-        assert svc.is_model_disabled(
-            COMPANY_ID, "google", "gemini-2.0-flash",
-        ) is True
+        assert (
+            svc.is_model_disabled(
+                COMPANY_ID,
+                "google",
+                "gemini-2.0-flash",
+            )
+            is True
+        )
 
     def test_is_model_disabled_returns_false_for_enabled(self, svc):
         """is_model_disabled returns False when model is not disabled."""
-        assert svc.is_model_disabled(
-            COMPANY_ID, "google", "gemini-2.0-flash",
-        ) is False
+        assert (
+            svc.is_model_disabled(
+                COMPANY_ID,
+                "google",
+                "gemini-2.0-flash",
+            )
+            is False
+        )
 
     def test_disable_is_company_scoped(self, svc):
         """Disabling a model for one company does not affect another."""
         svc.disable_provider_model(
-            COMPANY_ID, "cerebras", "llama-3.1-8b", "company-A",
+            COMPANY_ID,
+            "cerebras",
+            "llama-3.1-8b",
+            "company-A",
         )
         # Other company should NOT see it disabled.
-        assert svc.is_model_disabled(
-            OTHER_COMPANY, "cerebras", "llama-3.1-8b",
-        ) is False
+        assert (
+            svc.is_model_disabled(
+                OTHER_COMPANY,
+                "cerebras",
+                "llama-3.1-8b",
+            )
+            is False
+        )
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -350,21 +394,9 @@ class TestAlerts:
 
     def test_get_alerts_filtered_by_level(self, svc):
         """get_alerts with level= filters to matching alerts only."""
-        svc.create_alert(
-            COMPANY_ID,
-            "google",
-            level="info",
-            message="info-msg")
-        svc.create_alert(
-            COMPANY_ID,
-            "google",
-            level="critical",
-            message="crit-msg")
-        svc.create_alert(
-            COMPANY_ID,
-            "groq",
-            level="critical",
-            message="crit-msg-2")
+        svc.create_alert(COMPANY_ID, "google", level="info", message="info-msg")
+        svc.create_alert(COMPANY_ID, "google", level="critical", message="crit-msg")
+        svc.create_alert(COMPANY_ID, "groq", level="critical", message="crit-msg-2")
 
         info_alerts = svc.get_alerts(COMPANY_ID, level="info")
         assert len(info_alerts) == 1
@@ -376,7 +408,10 @@ class TestAlerts:
     def test_acknowledge_alert(self, svc):
         """Acknowledging an alert marks it acknowledged with user_id."""
         alert = svc.create_alert(
-            COMPANY_ID, "groq", level="warning", message="test",
+            COMPANY_ID,
+            "groq",
+            level="warning",
+            message="test",
         )
         updated = svc.acknowledge_alert(COMPANY_ID, alert.id, "user-42")
         assert updated.acknowledged is True
@@ -384,16 +419,8 @@ class TestAlerts:
 
     def test_get_unacknowledged_alerts(self, svc):
         """get_alerts(acknowledged=False) returns only unacknowledged alerts."""
-        a1 = svc.create_alert(
-            COMPANY_ID,
-            "google",
-            level="info",
-            message="new")
-        a2 = svc.create_alert(
-            COMPANY_ID,
-            "google",
-            level="info",
-            message="old")
+        a1 = svc.create_alert(COMPANY_ID, "google", level="info", message="new")
+        a2 = svc.create_alert(COMPANY_ID, "google", level="info", message="old")
         svc.acknowledge_alert(COMPANY_ID, a1.id, "user-1")
 
         unacked = svc.get_alerts(COMPANY_ID, acknowledged=False)
@@ -406,7 +433,9 @@ class TestAlerts:
         # Create 501 alerts
         for i in range(max_alerts + 1):
             svc.create_alert(
-                COMPANY_ID, "google", level="info",
+                COMPANY_ID,
+                "google",
+                level="info",
                 message=f"alert-{i}",
             )
         # After pruning, count should be <= max_alerts
@@ -416,19 +445,23 @@ class TestAlerts:
     def test_alert_created_on_model_disable(self, svc):
         """Disabling a model automatically creates a WARNING alert."""
         svc.disable_provider_model(
-            COMPANY_ID, "cerebras", "llama-3.1-8b", "manual disable",
+            COMPANY_ID,
+            "cerebras",
+            "llama-3.1-8b",
+            "manual disable",
         )
         alerts = svc.get_alerts(COMPANY_ID, level="warning")
         assert any(
-            "llama-3.1-8b" in a.message and "disabled" in a.message
-            for a in alerts
+            "llama-3.1-8b" in a.message and "disabled" in a.message for a in alerts
         )
 
     def test_acknowledge_invalid_alert_raises(self, svc):
         """Acknowledging a non-existent alert_id raises ValueError."""
         with pytest.raises(ValueError, match="not found"):
             svc.acknowledge_alert(
-                COMPANY_ID, str(uuid.uuid4()), "user-1",
+                COMPANY_ID,
+                str(uuid.uuid4()),
+                "user-1",
             )
 
     def test_alerts_are_company_scoped(self, svc):
@@ -454,7 +487,9 @@ class TestAPIKeys:
     def test_rotate_api_key_creates_key(self, svc):
         """rotate_api_key creates a new active key."""
         result = svc.rotate_api_key(
-            COMPANY_ID, "google", "AIzaSuperSecretKey12345",
+            COMPANY_ID,
+            "google",
+            "AIzaSuperSecretKey12345",
         )
         assert result["provider"] == "google"
         assert result["is_active"] is True
@@ -529,7 +564,9 @@ class TestUsageStats:
     def test_filter_by_provider(self, svc_with_registry):
         """get_usage_stats with provider= returns stats for that provider only."""
         stats = svc_with_registry.get_usage_stats(
-            COMPANY_ID, provider="google", days=1,
+            COMPANY_ID,
+            provider="google",
+            days=1,
         )
         assert all(s.provider == "google" for s in stats)
 
@@ -613,13 +650,17 @@ class TestHealthCheckDashboard:
     def test_health_check_detects_disabled_models(self, svc_with_registry):
         """Health check marks manually disabled models as DISABLED."""
         svc_with_registry.disable_provider_model(
-            COMPANY_ID, "cerebras", "llama-3.1-8b", "manual test",
+            COMPANY_ID,
+            "cerebras",
+            "llama-3.1-8b",
+            "manual test",
         )
         result = svc_with_registry.health_check(COMPANY_ID)
         cerebras_info = result["providers"].get("cerebras", {})
         model_statuses = cerebras_info.get("models", [])
         disabled_models = [
-            m for m in model_statuses
+            m
+            for m in model_statuses
             if m.get("status") == ProviderStatus.DISABLED.value
         ]
         assert len(disabled_models) >= 1
@@ -668,15 +709,14 @@ class TestEdgeCases:
         """Multiple sequential operations on the same service instance work."""
         # Disable a model
         svc.disable_provider_model(
-            COMPANY_ID, "groq", "llama-3.1-8b", "test",
+            COMPANY_ID,
+            "groq",
+            "llama-3.1-8b",
+            "test",
         )
         # Create alerts
         svc.create_alert(COMPANY_ID, "groq", level="info", message="alert-1")
-        svc.create_alert(
-            COMPANY_ID,
-            "groq",
-            level="warning",
-            message="alert-2")
+        svc.create_alert(COMPANY_ID, "groq", level="warning", message="alert-2")
         # Rotate key
         svc.rotate_api_key(COMPANY_ID, "groq", "key-123")
         # Enable model
@@ -700,7 +740,9 @@ class TestEdgeCases:
         # Pass limit=1000, should be capped to 500
         for i in range(10):
             svc.create_alert(
-                COMPANY_ID, "google", level="info",
+                COMPANY_ID,
+                "google",
+                level="info",
                 message=f"msg-{i}",
             )
         alerts = svc.get_alerts(COMPANY_ID, limit=1000)
@@ -720,12 +762,13 @@ class TestHelperFunctions:
         assert _worst_status(["healthy", "healthy"]) == "healthy"
 
     def test_worst_status_unhealthy_wins(self):
-        assert _worst_status(
-            ["healthy", "unhealthy", "healthy"]) == "unhealthy"
+        assert _worst_status(["healthy", "unhealthy", "healthy"]) == "unhealthy"
 
     def test_worst_status_disabled_wins_over_all(self):
-        assert _worst_status(
-            ["healthy", "degraded", "unhealthy", "disabled"]) == "disabled"
+        assert (
+            _worst_status(["healthy", "degraded", "unhealthy", "disabled"])
+            == "disabled"
+        )
 
     def test_worst_status_empty_returns_unknown(self):
         assert _worst_status([]) == "unknown"
@@ -780,11 +823,7 @@ class TestLatencyAndSuccessRecording:
     def test_record_latency_keeps_max_100(self, svc):
         """Latency samples are capped at 100 per model."""
         for i in range(150):
-            svc.record_latency(
-                COMPANY_ID,
-                "cerebras",
-                "llama-3.1-8b",
-                float(i))
+            svc.record_latency(COMPANY_ID, "cerebras", "llama-3.1-8b", float(i))
         key = ("cerebras", "llama-3.1-8b")
         samples = svc._latency_samples[COMPANY_ID][key]
         assert len(samples) == 100

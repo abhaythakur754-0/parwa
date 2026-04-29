@@ -142,10 +142,7 @@ class SubscriptionService:
             )
         return freq_lower
 
-    def _get_variant_price(
-            self,
-            variant: str,
-            frequency: str = "monthly") -> Decimal:
+    def _get_variant_price(self, variant: str, frequency: str = "monthly") -> Decimal:
         """Get price for a variant based on billing frequency."""
         variant_type = VariantType(variant)
         limits = VARIANT_LIMITS[variant_type]
@@ -190,8 +187,8 @@ class SubscriptionService:
             use_366 = False
             # Case 1: Start year is leap and start is before Feb 29
             if calendar.isleap(start_year) and (
-                start.month < 2 or (
-                    start.month == 2 and start.day <= 29)):
+                start.month < 2 or (start.month == 2 and start.day <= 29)
+            ):
                 use_366 = True
             # Case 2: Next year is leap (period crosses into a leap year)
             if calendar.isleap(next_year):
@@ -201,8 +198,7 @@ class SubscriptionService:
             # P1: Monthly = exactly 30 days
             return start + timedelta(days=BILLING_PERIOD_DAYS)
 
-    def _calculate_period_days(
-            self, billing_frequency: str = "monthly") -> int:
+    def _calculate_period_days(self, billing_frequency: str = "monthly") -> int:
         """
         Get the number of days in a billing period.
 
@@ -280,10 +276,15 @@ class SubscriptionService:
 
         with SessionLocal() as db:
             # Check for existing subscription with row lock (GAP 1 fix)
-            existing = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-            ).with_for_update().first()
+            existing = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                    Subscription.status == SubscriptionStatus.ACTIVE.value,
+                )
+                .with_for_update()
+                .first()
+            )
 
             if existing:
                 raise SubscriptionAlreadyExistsError(
@@ -291,9 +292,7 @@ class SubscriptionService:
                 )
 
             # Get company for paddle_customer_id
-            company = db.query(Company).filter(
-                Company.id == str(company_id)
-            ).first()
+            company = db.query(Company).filter(Company.id == str(company_id)).first()
 
             if not company:
                 raise SubscriptionError(f"Company {company_id} not found")
@@ -304,9 +303,7 @@ class SubscriptionService:
                 try:
                     paddle = await self._get_paddle()
                     # Y2/Y3: Map variant + frequency to Paddle price ID
-                    price_id = self._get_paddle_price_id(
-                        variant, billing_frequency
-                    )
+                    price_id = self._get_paddle_price_id(variant, billing_frequency)
 
                     result = await paddle.create_subscription(
                         customer_id=company.paddle_customer_id,
@@ -336,7 +333,11 @@ class SubscriptionService:
             # If Paddle call was attempted (company has customer + payment)
             # but failed, the subscription must NOT be marked active.
             paddle_sync_pending = False
-            if company.paddle_customer_id and payment_method_id and paddle_subscription_id is None:
+            if (
+                company.paddle_customer_id
+                and payment_method_id
+                and paddle_subscription_id is None
+            ):
                 # Paddle was required but failed — do not grant active access
                 effective_status = SubscriptionStatus.PAYMENT_FAILED.value
                 paddle_sync_pending = True
@@ -348,18 +349,19 @@ class SubscriptionService:
             # Calculate billing period
             now = datetime.now(timezone.utc)
             period_end = self._calculate_period_end(now, billing_frequency)
-            period_days = self._calculate_period_days_for_range(
-                now, period_end)
+            period_days = self._calculate_period_days_for_range(now, period_end)
 
             # Build metadata JSON with Paddle sync info
             metadata = None
             if paddle_sync_pending:
-                metadata = _json.dumps({
-                    "paddle_sync_pending": True,
-                    "paddle_creation_failed": True,
-                    "note": "Paddle subscription creation failed; "
-                    "retry via reconciliation or manual setup",
-                })
+                metadata = _json.dumps(
+                    {
+                        "paddle_sync_pending": True,
+                        "paddle_creation_failed": True,
+                        "note": "Paddle subscription creation failed; "
+                        "retry via reconciliation or manual setup",
+                    }
+                )
 
             # Create subscription record
             subscription = Subscription(
@@ -395,9 +397,7 @@ class SubscriptionService:
 
             return self._to_subscription_info(subscription)
 
-    async def get_subscription(
-            self,
-            company_id: UUID) -> Optional[SubscriptionInfo]:
+    async def get_subscription(self, company_id: UUID) -> Optional[SubscriptionInfo]:
         """
         Get subscription details for a company.
 
@@ -408,9 +408,14 @@ class SubscriptionService:
             SubscriptionInfo or None if no subscription
         """
         with SessionLocal() as db:
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-            ).order_by(Subscription.created_at.desc()).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                )
+                .order_by(Subscription.created_at.desc())
+                .first()
+            )
 
             if not subscription:
                 return None
@@ -455,10 +460,15 @@ class SubscriptionService:
         new_variant = self._validate_variant(new_variant)
 
         with SessionLocal() as db:
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-            ).with_for_update().first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                    Subscription.status == SubscriptionStatus.ACTIVE.value,
+                )
+                .with_for_update()
+                .first()
+            )
 
             if not subscription:
                 raise SubscriptionNotFoundError(
@@ -466,9 +476,9 @@ class SubscriptionService:
                 )
 
             old_variant = subscription.tier
-            billing_frequency = getattr(
-                subscription, "billing_frequency", "monthly"
-            ) or "monthly"
+            billing_frequency = (
+                getattr(subscription, "billing_frequency", "monthly") or "monthly"
+            )
 
             if not self._is_upgrade(old_variant, new_variant):
                 raise InvalidVariantError(
@@ -496,9 +506,7 @@ class SubscriptionService:
             subscription.tier = new_variant
 
             # Update company
-            company = db.query(Company).filter(
-                Company.id == str(company_id)
-            ).first()
+            company = db.query(Company).filter(Company.id == str(company_id)).first()
             if company:
                 company.subscription_tier = new_variant
 
@@ -524,9 +532,7 @@ class SubscriptionService:
             if subscription.paddle_subscription_id:
                 try:
                     paddle = await self._get_paddle()
-                    price_id = self._get_paddle_price_id(
-                        new_variant, billing_frequency
-                    )
+                    price_id = self._get_paddle_price_id(new_variant, billing_frequency)
                     await paddle.update_subscription(
                         subscription.paddle_subscription_id,
                         items=[{"price_id": price_id}],
@@ -540,9 +546,7 @@ class SubscriptionService:
                         billing_frequency,
                     )
                 except PaddleError as e:
-                    logger.warning(
-                        "subscription_paddle_update_failed error=%s", str(e)
-                    )
+                    logger.warning("subscription_paddle_update_failed error=%s", str(e))
 
             db.commit()
             db.refresh(subscription)
@@ -587,10 +591,15 @@ class SubscriptionService:
         new_variant = self._validate_variant(new_variant)
 
         with SessionLocal() as db:
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-            ).with_for_update().first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                    Subscription.status == SubscriptionStatus.ACTIVE.value,
+                )
+                .with_for_update()
+                .first()
+            )
 
             if not subscription:
                 raise SubscriptionNotFoundError(
@@ -639,8 +648,10 @@ class SubscriptionService:
                     "effective_date": subscription.current_period_end,
                 },
                 "message": (
-                    f"Downgrade to {new_variant} scheduled for " f"{
-                        subscription.current_period_end.isoformat() if subscription.current_period_end else 'next billing cycle'}"),
+                    f"Downgrade to {new_variant} scheduled for "
+                    f"{
+                        subscription.current_period_end.isoformat() if subscription.current_period_end else 'next billing cycle'}"
+                ),
             }
 
     # ═══════════════════════════════════════════════════════════════════
@@ -662,26 +673,33 @@ class SubscriptionService:
         - effective_immediately: Stop now (no refund)
         """
         with SessionLocal() as db:
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-            ).with_for_update().first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                    Subscription.status == SubscriptionStatus.ACTIVE.value,
+                )
+                .with_for_update()
+                .first()
+            )
 
             if not subscription:
                 raise SubscriptionNotFoundError(
                     f"No active subscription for company {company_id}"
                 )
 
-            effective_from = "immediately" if effective_immediately else "next_billing_period"
+            effective_from = (
+                "immediately" if effective_immediately else "next_billing_period"
+            )
             canceled_at = datetime.now(timezone.utc)
 
             if effective_immediately:
                 subscription.status = SubscriptionStatus.CANCELED.value
                 subscription.cancel_at_period_end = False
 
-                company = db.query(Company).filter(
-                    Company.id == str(company_id)
-                ).first()
+                company = (
+                    db.query(Company).filter(Company.id == str(company_id)).first()
+                )
                 if company:
                     company.subscription_status = SubscriptionStatus.CANCELED.value
 
@@ -695,7 +713,8 @@ class SubscriptionService:
                         )
                     except PaddleError as e:
                         logger.warning(
-                            "subscription_paddle_cancel_failed error=%s", str(e))
+                            "subscription_paddle_cancel_failed error=%s", str(e)
+                        )
             else:
                 subscription.cancel_at_period_end = True
 
@@ -709,7 +728,8 @@ class SubscriptionService:
                         )
                     except PaddleError as e:
                         logger.warning(
-                            "subscription_paddle_cancel_failed error=%s", str(e))
+                            "subscription_paddle_cancel_failed error=%s", str(e)
+                        )
 
             # Create cancellation request record
             cancellation = CancellationRequest(
@@ -735,15 +755,16 @@ class SubscriptionService:
                 "cancellation": {
                     "effective_immediately": effective_immediately,
                     "access_until": (
-                        None if effective_immediately
+                        None
+                        if effective_immediately
                         else subscription.current_period_end
                     ),
                     "canceled_at": canceled_at,
                 },
                 "message": (
                     "Subscription canceled immediately."
-                    if effective_immediately else
-                    "Subscription will be canceled at end of billing period "
+                    if effective_immediately
+                    else "Subscription will be canceled at end of billing period "
                     f"({subscription.current_period_end.isoformat() if subscription.current_period_end else 'period end'}). "
                     "You can continue using PARWA until then."
                 ),
@@ -757,11 +778,16 @@ class SubscriptionService:
         Reactivate a canceled subscription (before period end).
         """
         with SessionLocal() as db:
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-                Subscription.cancel_at_period_end,
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-            ).with_for_update().first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                    Subscription.cancel_at_period_end,
+                    Subscription.status == SubscriptionStatus.ACTIVE.value,
+                )
+                .with_for_update()
+                .first()
+            )
 
             if not subscription:
                 raise InvalidStatusTransitionError(
@@ -778,9 +804,7 @@ class SubscriptionService:
                         subscription.paddle_subscription_id
                     )
                 except PaddleError as e:
-                    logger.warning(
-                        "subscription_paddle_resume_failed error=%s", str(e)
-                    )
+                    logger.warning("subscription_paddle_resume_failed error=%s", str(e))
 
             db.commit()
             db.refresh(subscription)
@@ -815,10 +839,15 @@ class SubscriptionService:
             SubscriptionError: No downgrade to undo
         """
         with SessionLocal() as db:
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-            ).with_for_update().first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                    Subscription.status == SubscriptionStatus.ACTIVE.value,
+                )
+                .with_for_update()
+                .first()
+            )
 
             if not subscription:
                 raise SubscriptionNotFoundError(
@@ -826,9 +855,7 @@ class SubscriptionService:
                 )
 
             if not subscription.downgrade_executed_at:
-                raise SubscriptionError(
-                    "No recent downgrade to undo"
-                )
+                raise SubscriptionError("No recent downgrade to undo")
 
             # Check 24-hour window
             now = datetime.now(timezone.utc)
@@ -839,9 +866,12 @@ class SubscriptionService:
             elapsed = now - executed_at
             if elapsed.total_seconds() > DOWNGRADE_UNDO_WINDOW_HOURS * 3600:
                 raise DowngradeUndoExpiredError(
-                    "Downgrade undo window expired. " f"Downgrade was executed {
+                    "Downgrade undo window expired. "
+                    f"Downgrade was executed {
                         elapsed.total_seconds()
-                        / 3600:.1f} " f"hours ago (limit: {DOWNGRADE_UNDO_WINDOW_HOURS} hours).")
+                        / 3600:.1f} "
+                    f"hours ago (limit: {DOWNGRADE_UNDO_WINDOW_HOURS} hours)."
+                )
 
             # Restore previous tier
             old_tier = subscription.previous_tier
@@ -852,9 +882,7 @@ class SubscriptionService:
             subscription.downgrade_executed_at = None
 
             # Update company
-            company = db.query(Company).filter(
-                Company.id == str(company_id)
-            ).first()
+            company = db.query(Company).filter(Company.id == str(company_id)).first()
             if company:
                 company.subscription_tier = old_tier
 
@@ -868,8 +896,7 @@ class SubscriptionService:
                 )
             except Exception as e:
                 logger.error(
-                    "downgrade_undo_resource_restore_failed "
-                    "company_id=%s error=%s",
+                    "downgrade_undo_resource_restore_failed " "company_id=%s error=%s",
                     company_id,
                     str(e),
                 )
@@ -884,9 +911,7 @@ class SubscriptionService:
                 "subscription": self._to_subscription_info(subscription),
                 "restored_to": old_tier,
                 "downgraded_from": new_tier,
-                "message": (
-                    f"Downgrade undone. Subscription restored to {old_tier}."
-                ),
+                "message": (f"Downgrade undone. Subscription restored to {old_tier}."),
             }
 
     # ═══════════════════════════════════════════════════════════════════
@@ -913,19 +938,24 @@ class SubscriptionService:
         new_frequency = self._validate_frequency(new_frequency)
 
         with SessionLocal() as db:
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-            ).with_for_update().first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                    Subscription.status == SubscriptionStatus.ACTIVE.value,
+                )
+                .with_for_update()
+                .first()
+            )
 
             if not subscription:
                 raise SubscriptionNotFoundError(
                     f"No active subscription for company {company_id}"
                 )
 
-            current_frequency = getattr(
-                subscription, "billing_frequency", "monthly"
-            ) or "monthly"
+            current_frequency = (
+                getattr(subscription, "billing_frequency", "monthly") or "monthly"
+            )
 
             if current_frequency == new_frequency:
                 return {
@@ -952,15 +982,17 @@ class SubscriptionService:
                 subscription, "days_in_period", None
             ) or self._calculate_period_days(current_frequency)
 
-            credit = (old_price / Decimal(max(old_period_days, 1))) * \
-                Decimal(max(remaining_days, 0))
+            credit = (old_price / Decimal(max(old_period_days, 1))) * Decimal(
+                max(remaining_days, 0)
+            )
 
             # Calculate charge for new frequency
             new_price = self._get_variant_price(variant, new_frequency)
             new_period_days = self._calculate_period_days(new_frequency)
 
-            charge = (new_price / Decimal(max(new_period_days, 1))) * \
-                Decimal(max(remaining_days, 0))
+            charge = (new_price / Decimal(max(new_period_days, 1))) * Decimal(
+                max(remaining_days, 0)
+            )
 
             net_charge = charge - credit
 
@@ -980,9 +1012,7 @@ class SubscriptionService:
             if subscription.paddle_subscription_id:
                 try:
                     paddle = await self._get_paddle()
-                    price_id = self._get_paddle_price_id(
-                        variant, new_frequency
-                    )
+                    price_id = self._get_paddle_price_id(variant, new_frequency)
                     await paddle.update_subscription(
                         subscription.paddle_subscription_id,
                         items=[{"price_id": price_id}],
@@ -996,9 +1026,7 @@ class SubscriptionService:
                         new_frequency,
                     )
                 except PaddleError as e:
-                    logger.warning(
-                        "frequency_switch_paddle_failed error=%s", str(e)
-                    )
+                    logger.warning("frequency_switch_paddle_failed error=%s", str(e))
 
             db.commit()
             db.refresh(subscription)
@@ -1017,9 +1045,7 @@ class SubscriptionService:
                 "charge_for_new": str(charge.quantize(Decimal("0.01"))),
                 "net_charge": str(net_charge.quantize(Decimal("0.01"))),
                 "remaining_days": remaining_days,
-                "message": (
-                    f"Switched from {current_frequency} to {new_frequency}."
-                ),
+                "message": (f"Switched from {current_frequency} to {new_frequency}."),
             }
 
     # ═══════════════════════════════════════════════════════════════════
@@ -1048,11 +1074,15 @@ class SubscriptionService:
 
         with SessionLocal() as db:
             # D2: Find subscriptions with pending downgrade
-            pending_downgrades = db.query(Subscription).filter(
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-                Subscription.pending_downgrade_tier.isnot(None),
-                Subscription.current_period_end <= now,
-            ).all()
+            pending_downgrades = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.status == SubscriptionStatus.ACTIVE.value,
+                    Subscription.pending_downgrade_tier.isnot(None),
+                    Subscription.current_period_end <= now,
+                )
+                .all()
+            )
 
             for sub in pending_downgrades:
                 try:
@@ -1064,20 +1094,26 @@ class SubscriptionService:
                         sub.id,
                         str(e),
                     )
-                    results["errors"].append({
-                        "subscription_id": sub.id,
-                        "type": "downgrade",
-                        "error": str(e)[:200],
-                    })
+                    results["errors"].append(
+                        {
+                            "subscription_id": sub.id,
+                            "type": "downgrade",
+                            "error": str(e)[:200],
+                        }
+                    )
 
             # D3: Find subscriptions with scheduled cancellation (no pending
             # downgrade)
-            pending_cancellations = db.query(Subscription).filter(
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-                Subscription.cancel_at_period_end,
-                Subscription.pending_downgrade_tier.is_(None),
-                Subscription.current_period_end <= now,
-            ).all()
+            pending_cancellations = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.status == SubscriptionStatus.ACTIVE.value,
+                    Subscription.cancel_at_period_end,
+                    Subscription.pending_downgrade_tier.is_(None),
+                    Subscription.current_period_end <= now,
+                )
+                .all()
+            )
 
             for sub in pending_cancellations:
                 try:
@@ -1089,32 +1125,38 @@ class SubscriptionService:
                         sub.id,
                         str(e),
                     )
-                    results["errors"].append({
-                        "subscription_id": sub.id,
-                        "type": "cancellation",
-                        "error": str(e)[:200],
-                    })
+                    results["errors"].append(
+                        {
+                            "subscription_id": sub.id,
+                            "type": "cancellation",
+                            "error": str(e)[:200],
+                        }
+                    )
 
             db.commit()
 
             # V7: Process variant removals at period end
             try:
                 from app.services.variant_addon_service import get_variant_addon_service
+
                 addon_service = get_variant_addon_service()
                 variant_results = addon_service.process_variant_period_end()
-                results["variants_archived"] = variant_results.get(
-                    "archived_count", 0)
+                results["variants_archived"] = variant_results.get("archived_count", 0)
                 if variant_results.get("errors"):
-                    results["errors"].extend([
-                        {"type": "variant_archival", "error": e}
-                        for e in variant_results["errors"]
-                    ])
+                    results["errors"].extend(
+                        [
+                            {"type": "variant_archival", "error": e}
+                            for e in variant_results["errors"]
+                        ]
+                    )
             except Exception as e:
                 logger.error("variant_period_end_failed error=%s", str(e))
-                results["errors"].append({
-                    "type": "variant_period_end",
-                    "error": str(e)[:200],
-                })
+                results["errors"].append(
+                    {
+                        "type": "variant_period_end",
+                        "error": str(e)[:200],
+                    }
+                )
 
         logger.info(
             "period_end_transitions_processed "
@@ -1145,9 +1187,9 @@ class SubscriptionService:
         """
         old_tier = subscription.tier
         new_tier = subscription.pending_downgrade_tier
-        billing_frequency = getattr(
-            subscription, "billing_frequency", "monthly"
-        ) or "monthly"
+        billing_frequency = (
+            getattr(subscription, "billing_frequency", "monthly") or "monthly"
+        )
         now = datetime.now(timezone.utc)
 
         # Store previous tier for undo (D6)
@@ -1162,16 +1204,15 @@ class SubscriptionService:
 
         # Calculate new period
         new_period_end = self._calculate_period_end(now, billing_frequency)
-        new_period_days = self._calculate_period_days_for_range(
-            now, new_period_end)
+        new_period_days = self._calculate_period_days_for_range(now, new_period_end)
         subscription.current_period_start = now
         subscription.current_period_end = new_period_end
         subscription.days_in_period = new_period_days
 
         # Update company
-        company = db.query(Company).filter(
-            Company.id == subscription.company_id
-        ).first()
+        company = (
+            db.query(Company).filter(Company.id == subscription.company_id).first()
+        )
         if company:
             company.subscription_tier = new_tier
 
@@ -1190,8 +1231,7 @@ class SubscriptionService:
             )
 
         logger.info(
-            "pending_downgrade_applied "
-            "company_id=%s old=%s new=%s freq=%s",
+            "pending_downgrade_applied " "company_id=%s old=%s new=%s freq=%s",
             subscription.company_id,
             old_tier,
             new_tier,
@@ -1221,17 +1261,15 @@ class SubscriptionService:
             subscription.service_stopped_at = now  # type: ignore
 
         # Update company status
-        company = db.query(Company).filter(
-            Company.id == subscription.company_id
-        ).first()
+        company = (
+            db.query(Company).filter(Company.id == subscription.company_id).first()
+        )
         if company:
             company.subscription_status = SubscriptionStatus.CANCELED.value
 
         # C3: Apply service stop on cancel
         try:
-            self._apply_service_stop_on_cancel(
-                db, subscription.company_id
-            )
+            self._apply_service_stop_on_cancel(db, subscription.company_id)
         except Exception as e:
             logger.error(
                 "service_stop_on_cancel_failed company_id=%s error=%s",
@@ -1287,11 +1325,17 @@ class SubscriptionService:
         # (a) Pause extra AI agents
         try:
             from database.models.core import Agent
+
             agent_limit = new_limits.get("ai_agents", 1)
-            active_agents = db.query(Agent).filter(
-                Agent.company_id == company_id,
-                Agent.status == "active",
-            ).order_by(Agent.created_at.asc()).all()
+            active_agents = (
+                db.query(Agent)
+                .filter(
+                    Agent.company_id == company_id,
+                    Agent.status == "active",
+                )
+                .order_by(Agent.created_at.asc())
+                .all()
+            )
 
             for i, agent in enumerate(active_agents):
                 if i >= agent_limit:
@@ -1303,12 +1347,18 @@ class SubscriptionService:
         # (b) Downgrade extra team members
         try:
             from database.models.core import User
+
             member_limit = new_limits.get("team_members", 3)
-            active_members = db.query(User).filter(
-                User.company_id == company_id,
-                User.is_active,
-                User.role != "owner",
-            ).order_by(User.created_at.asc()).all()
+            active_members = (
+                db.query(User)
+                .filter(
+                    User.company_id == company_id,
+                    User.is_active,
+                    User.role != "owner",
+                )
+                .order_by(User.created_at.asc())
+                .all()
+            )
 
             for i, member in enumerate(active_members):
                 if i >= member_limit:
@@ -1320,11 +1370,17 @@ class SubscriptionService:
         # (c) Archive extra KB docs
         try:
             from database.models.provisioning import KnowledgeBaseDocument
+
             kb_limit = new_limits.get("kb_docs", 100)
-            active_docs = db.query(KnowledgeBaseDocument).filter(
-                KnowledgeBaseDocument.company_id == company_id,
-                KnowledgeBaseDocument.is_archived is False,
-            ).order_by(KnowledgeBaseDocument.created_at.asc()).all()
+            active_docs = (
+                db.query(KnowledgeBaseDocument)
+                .filter(
+                    KnowledgeBaseDocument.company_id == company_id,
+                    KnowledgeBaseDocument.is_archived is False,
+                )
+                .order_by(KnowledgeBaseDocument.created_at.asc())
+                .all()
+            )
 
             for i, doc in enumerate(active_docs):
                 if i >= kb_limit:
@@ -1379,9 +1435,7 @@ class SubscriptionService:
         - Unarchive KB docs
         - Re-enable voice channels
         """
-        restored_limits = VARIANT_LIMITS.get(
-            VariantType(restored_tier), {}
-        )
+        restored_limits = VARIANT_LIMITS.get(VariantType(restored_tier), {})
 
         restored = {
             "agents_unpaused": 0,
@@ -1393,11 +1447,18 @@ class SubscriptionService:
         # (a) Unpause agents
         try:
             from database.models.core import Agent
+
             agent_limit = restored_limits.get("ai_agents", 1)
-            paused_agents = db.query(Agent).filter(
-                Agent.company_id == company_id,
-                Agent.status == "paused",
-            ).order_by(Agent.created_at.asc()).limit(agent_limit).all()
+            paused_agents = (
+                db.query(Agent)
+                .filter(
+                    Agent.company_id == company_id,
+                    Agent.status == "paused",
+                )
+                .order_by(Agent.created_at.asc())
+                .limit(agent_limit)
+                .all()
+            )
 
             for agent in paused_agents:
                 agent.status = "active"
@@ -1408,11 +1469,16 @@ class SubscriptionService:
         # (b) Restore team member roles
         try:
             from database.models.core import User
-            viewer_members = db.query(User).filter(
-                User.company_id == company_id,
-                User.is_active,
-                User.role == "viewer",
-            ).all()
+
+            viewer_members = (
+                db.query(User)
+                .filter(
+                    User.company_id == company_id,
+                    User.is_active,
+                    User.role == "viewer",
+                )
+                .all()
+            )
 
             for member in viewer_members:
                 member.role = "agent"  # Restore default non-owner role
@@ -1423,10 +1489,16 @@ class SubscriptionService:
         # (c) Unarchive KB docs
         try:
             from database.models.provisioning import KnowledgeBaseDocument
-            archived_docs = db.query(KnowledgeBaseDocument).filter(
-                KnowledgeBaseDocument.company_id == company_id,
-                KnowledgeBaseDocument.is_archived,
-            ).limit(restored_limits.get("kb_docs", 100)).all()
+
+            archived_docs = (
+                db.query(KnowledgeBaseDocument)
+                .filter(
+                    KnowledgeBaseDocument.company_id == company_id,
+                    KnowledgeBaseDocument.is_archived,
+                )
+                .limit(restored_limits.get("kb_docs", 100))
+                .all()
+            )
 
             for doc in archived_docs:
                 doc.is_archived = False
@@ -1479,18 +1551,20 @@ class SubscriptionService:
 
         with SessionLocal() as db:
             # Find subscriptions needing warning
-            subscriptions = db.query(Subscription).filter(
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-                Subscription.pending_downgrade_tier.isnot(None),
-                Subscription.current_period_end > now,
-                Subscription.current_period_end <= warning_threshold,
-            ).all()
+            subscriptions = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.status == SubscriptionStatus.ACTIVE.value,
+                    Subscription.pending_downgrade_tier.isnot(None),
+                    Subscription.current_period_end > now,
+                    Subscription.current_period_end <= warning_threshold,
+                )
+                .all()
+            )
 
             for sub in subscriptions:
                 try:
-                    warning_data = self._build_downgrade_warning_data(
-                        db, sub
-                    )
+                    warning_data = self._build_downgrade_warning_data(db, sub)
                     # Send notification (email + socket.io)
                     try:
                         from app.core.event_emitter import emit_billing_event
@@ -1522,10 +1596,12 @@ class SubscriptionService:
                         sub.id,
                         str(e),
                     )
-                    results["errors"].append({
-                        "subscription_id": sub.id,
-                        "error": str(e)[:200],
-                    })
+                    results["errors"].append(
+                        {
+                            "subscription_id": sub.id,
+                            "error": str(e)[:200],
+                        }
+                    )
 
         logger.info(
             "pre_downgrade_warnings_processed sent=%d errors=%d",
@@ -1559,34 +1635,49 @@ class SubscriptionService:
 
         try:
             from database.models.core import Agent
+
             agent_limit = new_limits.get("ai_agents", 1)
-            active_count = db.query(Agent).filter(
-                Agent.company_id == subscription.company_id,
-                Agent.status == "active",
-            ).count()
+            active_count = (
+                db.query(Agent)
+                .filter(
+                    Agent.company_id == subscription.company_id,
+                    Agent.status == "active",
+                )
+                .count()
+            )
             agents_paused = max(0, active_count - agent_limit)
         except Exception:
             pass
 
         try:
             from database.models.core import User
+
             member_limit = new_limits.get("team_members", 3)
-            member_count = db.query(User).filter(
-                User.company_id == subscription.company_id,
-                User.is_active,
-                User.role != "owner",
-            ).count()
+            member_count = (
+                db.query(User)
+                .filter(
+                    User.company_id == subscription.company_id,
+                    User.is_active,
+                    User.role != "owner",
+                )
+                .count()
+            )
             team_downgraded = max(0, member_count - member_limit)
         except Exception:
             pass
 
         try:
             from database.models.provisioning import KnowledgeBaseDocument
+
             kb_limit = new_limits.get("kb_docs", 100)
-            doc_count = db.query(KnowledgeBaseDocument).filter(
-                KnowledgeBaseDocument.company_id == subscription.company_id,
-                KnowledgeBaseDocument.is_archived is False,
-            ).count()
+            doc_count = (
+                db.query(KnowledgeBaseDocument)
+                .filter(
+                    KnowledgeBaseDocument.company_id == subscription.company_id,
+                    KnowledgeBaseDocument.is_archived is False,
+                )
+                .count()
+            )
             docs_archived = max(0, doc_count - kb_limit)
         except Exception:
             pass
@@ -1607,8 +1698,7 @@ class SubscriptionService:
                 "kb_docs_to_archive": docs_archived,
                 "voice_channels_to_disable": max(
                     0,
-                    old_limits.get("voice_slots", 0)
-                    - new_limits.get("voice_slots", 0)
+                    old_limits.get("voice_slots", 0) - new_limits.get("voice_slots", 0),
                 ),
             },
         }
@@ -1634,10 +1724,15 @@ class SubscriptionService:
             Dict with period_start, period_end, days_in_period, etc.
         """
         with SessionLocal() as db:
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-            ).order_by(Subscription.created_at.desc()).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                    Subscription.status == SubscriptionStatus.ACTIVE.value,
+                )
+                .order_by(Subscription.created_at.desc())
+                .first()
+            )
 
             if not subscription:
                 return {
@@ -1648,9 +1743,9 @@ class SubscriptionService:
                     "billing_frequency": "monthly",
                 }
 
-            billing_frequency = getattr(
-                subscription, "billing_frequency", "monthly"
-            ) or "monthly"
+            billing_frequency = (
+                getattr(subscription, "billing_frequency", "monthly") or "monthly"
+            )
 
             days_in_period = getattr(
                 subscription, "days_in_period", None
@@ -1692,17 +1787,20 @@ class SubscriptionService:
         # Send renewal reminders (30 days before)
         reminder_threshold = now + timedelta(days=30)
         with SessionLocal() as db:
-            upcoming_renewals = db.query(Subscription).filter(
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-                Subscription.cancel_at_period_end is False,
-                Subscription.current_period_end > now,
-                Subscription.current_period_end <= reminder_threshold,
-            ).all()
+            upcoming_renewals = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.status == SubscriptionStatus.ACTIVE.value,
+                    Subscription.cancel_at_period_end is False,
+                    Subscription.current_period_end > now,
+                    Subscription.current_period_end <= reminder_threshold,
+                )
+                .all()
+            )
 
             for sub in upcoming_renewals:
                 try:
-                    freq = getattr(
-                        sub, "billing_frequency", "monthly") or "monthly"
+                    freq = getattr(sub, "billing_frequency", "monthly") or "monthly"
                     logger.info(
                         "renewal_reminder company_id=%s tier=%s freq=%s ends=%s",
                         sub.company_id,
@@ -1712,25 +1810,30 @@ class SubscriptionService:
                     )
                     # TODO: Send email reminder via email service
                 except Exception as e:
-                    results["errors"].append({
-                        "subscription_id": sub.id,
-                        "type": "reminder",
-                        "error": str(e)[:200],
-                    })
+                    results["errors"].append(
+                        {
+                            "subscription_id": sub.id,
+                            "type": "reminder",
+                            "error": str(e)[:200],
+                        }
+                    )
 
         # Process expired subscriptions (renew)
         with SessionLocal() as db:
-            expired = db.query(Subscription).filter(
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-                Subscription.cancel_at_period_end is False,
-                Subscription.pending_downgrade_tier.is_(None),
-                Subscription.current_period_end <= now,
-            ).all()
+            expired = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.status == SubscriptionStatus.ACTIVE.value,
+                    Subscription.cancel_at_period_end is False,
+                    Subscription.pending_downgrade_tier.is_(None),
+                    Subscription.current_period_end <= now,
+                )
+                .all()
+            )
 
             for sub in expired:
                 try:
-                    freq = getattr(
-                        sub, "billing_frequency", "monthly") or "monthly"
+                    freq = getattr(sub, "billing_frequency", "monthly") or "monthly"
                     new_period_end = self._calculate_period_end(now, freq)
                     new_period_days = self._calculate_period_days_for_range(
                         now, new_period_end
@@ -1750,11 +1853,13 @@ class SubscriptionService:
                         new_period_end,
                     )
                 except Exception as e:
-                    results["errors"].append({
-                        "subscription_id": sub.id,
-                        "type": "renewal",
-                        "error": str(e)[:200],
-                    })
+                    results["errors"].append(
+                        {
+                            "subscription_id": sub.id,
+                            "type": "renewal",
+                            "error": str(e)[:200],
+                        }
+                    )
 
             db.commit()
 
@@ -1804,8 +1909,7 @@ class SubscriptionService:
             )
 
         if billing_cycle_start.tzinfo is None:
-            billing_cycle_start = billing_cycle_start.replace(
-                tzinfo=timezone.utc)
+            billing_cycle_start = billing_cycle_start.replace(tzinfo=timezone.utc)
         if billing_cycle_end.tzinfo is None:
             billing_cycle_end = billing_cycle_end.replace(tzinfo=timezone.utc)
 
@@ -1822,9 +1926,7 @@ class SubscriptionService:
         else:
             # Y5: For yearly, detect leap year from cycle start
             # and use 366 if the cycle spans a Feb 29
-            period_end_calc = self._calculate_period_end(
-                billing_cycle_start, "yearly"
-            )
+            period_end_calc = self._calculate_period_end(billing_cycle_start, "yearly")
             days_in_period = (period_end_calc - billing_cycle_start).days
             if days_in_period < 1:
                 days_in_period = max(total_period.days, 1)
@@ -1867,14 +1969,19 @@ class SubscriptionService:
         Y2: Yearly price IDs from PADDLE_YEARLY_PRICE_IDS env var.
         """
         from app.config import get_settings
+
         settings = get_settings()
 
         # Monthly price map
         monthly_map = {
             "mini_parwa": getattr(
-                settings, "PADDLE_PRICE_MINI_PARWA", "pri_mini_parwa"), "parwa": getattr(
-                settings, "PADDLE_PRICE_PARWA", "pri_parwa"), "high_parwa": getattr(
-                settings, "PADDLE_PRICE_HIGH_PARWA", "pri_high_parwa"), }
+                settings, "PADDLE_PRICE_MINI_PARWA", "pri_mini_parwa"
+            ),
+            "parwa": getattr(settings, "PADDLE_PRICE_PARWA", "pri_parwa"),
+            "high_parwa": getattr(
+                settings, "PADDLE_PRICE_HIGH_PARWA", "pri_high_parwa"
+            ),
+        }
 
         if billing_frequency == "yearly":
             # Y2: Load yearly price IDs from env
@@ -1882,15 +1989,20 @@ class SubscriptionService:
             if yearly_ids_str:
                 try:
                     import json
+
                     yearly_ids = json.loads(yearly_ids_str)
                     yearly_map = {
                         "mini_parwa": yearly_ids.get(
-                            "mini_parwa", "pri_mini_parwa_yearly"), "parwa": yearly_ids.get(
-                            "parwa", "pri_parwa_yearly"), "high_parwa": yearly_ids.get(
-                            "high_parwa", "pri_high_parwa_yearly"), }
+                            "mini_parwa", "pri_mini_parwa_yearly"
+                        ),
+                        "parwa": yearly_ids.get("parwa", "pri_parwa_yearly"),
+                        "high_parwa": yearly_ids.get(
+                            "high_parwa", "pri_high_parwa_yearly"
+                        ),
+                    }
                     return yearly_map.get(
-                        variant, monthly_map.get(
-                            variant, "pri_mini_parwa"))
+                        variant, monthly_map.get(variant, "pri_mini_parwa")
+                    )
                 except (json.JSONDecodeError, TypeError):
                     pass
 
@@ -1901,14 +2013,12 @@ class SubscriptionService:
                 "high_parwa": "pri_high_parwa_yearly",
             }
             return yearly_defaults.get(
-                variant, monthly_map.get(
-                    variant, "pri_mini_parwa"))
+                variant, monthly_map.get(variant, "pri_mini_parwa")
+            )
 
         return monthly_map.get(variant, "pri_mini_parwa")
 
-    def _to_subscription_info(
-            self,
-            subscription: Subscription) -> SubscriptionInfo:
+    def _to_subscription_info(self, subscription: Subscription) -> SubscriptionInfo:
         """Convert Subscription model to SubscriptionInfo schema."""
         variant = VariantType(subscription.tier)
         limits_data = VARIANT_LIMITS.get(variant)
@@ -1991,10 +2101,14 @@ class SubscriptionService:
 
         with SessionLocal() as db:
             # Check for existing active subscription
-            existing_active = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-            ).first()
+            existing_active = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                    Subscription.status == SubscriptionStatus.ACTIVE.value,
+                )
+                .first()
+            )
 
             if existing_active:
                 raise SubscriptionAlreadyExistsError(
@@ -2002,10 +2116,15 @@ class SubscriptionService:
                 )
 
             # Find canceled subscription
-            canceled_sub = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-                Subscription.status == SubscriptionStatus.CANCELED.value,
-            ).order_by(Subscription.created_at.desc()).first()
+            canceled_sub = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                    Subscription.status == SubscriptionStatus.CANCELED.value,
+                )
+                .order_by(Subscription.created_at.desc())
+                .first()
+            )
 
             if not canceled_sub:
                 raise SubscriptionError(
@@ -2015,20 +2134,17 @@ class SubscriptionService:
 
             # Determine retention status
             now = datetime.now(timezone.utc)
-            service_stopped_at = getattr(
-                canceled_sub, "service_stopped_at", None)
+            service_stopped_at = getattr(canceled_sub, "service_stopped_at", None)
             if not service_stopped_at:
                 # Use the canceled_at or created_at as fallback
                 service_stopped_at = canceled_sub.updated_at or canceled_sub.created_at
 
             if service_stopped_at and service_stopped_at.tzinfo is None:
-                service_stopped_at = service_stopped_at.replace(
-                    tzinfo=timezone.utc)
+                service_stopped_at = service_stopped_at.replace(tzinfo=timezone.utc)
 
             retention_deadline = (
-                service_stopped_at
-                + timedelta(
-                    days=30) if service_stopped_at else None)
+                service_stopped_at + timedelta(days=30) if service_stopped_at else None
+            )
 
             within_retention = (
                 retention_deadline is not None and now < retention_deadline
@@ -2042,9 +2158,7 @@ class SubscriptionService:
             # Restore data if within retention and requested
             if within_retention and restore_data:
                 try:
-                    await self._restore_archived_data(
-                        db, str(company_id), variant
-                    )
+                    await self._restore_archived_data(db, str(company_id), variant)
                     data_restored = True
                     logger.info(
                         "resubscribe_data_restored company_id=%s variant=%s",
@@ -2059,9 +2173,7 @@ class SubscriptionService:
                     )
 
             # Get company for Paddle
-            company = db.query(Company).filter(
-                Company.id == str(company_id)
-            ).first()
+            company = db.query(Company).filter(Company.id == str(company_id)).first()
 
             if not company:
                 raise SubscriptionError(f"Company {company_id} not found")
@@ -2071,9 +2183,7 @@ class SubscriptionService:
             if company.paddle_customer_id and payment_method_id:
                 try:
                     paddle = await self._get_paddle()
-                    price_id = self._get_paddle_price_id(
-                        variant, billing_frequency
-                    )
+                    price_id = self._get_paddle_price_id(variant, billing_frequency)
                     result = await paddle.create_subscription(
                         customer_id=company.paddle_customer_id,
                         price_id=price_id,
@@ -2093,8 +2203,7 @@ class SubscriptionService:
 
             # Create new subscription record
             period_end = self._calculate_period_end(now, billing_frequency)
-            period_days = self._calculate_period_days_for_range(
-                now, period_end)
+            period_days = self._calculate_period_days_for_range(now, period_end)
 
             new_subscription = Subscription(
                 company_id=str(company_id),
@@ -2180,11 +2289,18 @@ class SubscriptionService:
         # Restore AI agents
         try:
             from database.models.core import Agent
+
             agent_limit = new_limits.get("ai_agents", 1)
-            paused_agents = db.query(Agent).filter(
-                Agent.company_id == company_id,
-                Agent.status.in_(["paused", "disabled", "archived"]),
-            ).order_by(Agent.created_at.asc()).limit(agent_limit).all()
+            paused_agents = (
+                db.query(Agent)
+                .filter(
+                    Agent.company_id == company_id,
+                    Agent.status.in_(["paused", "disabled", "archived"]),
+                )
+                .order_by(Agent.created_at.asc())
+                .limit(agent_limit)
+                .all()
+            )
 
             for agent in paused_agents:
                 agent.status = "active"
@@ -2199,12 +2315,19 @@ class SubscriptionService:
         # Restore team members (except owner)
         try:
             from database.models.core import User
+
             member_limit = new_limits.get("team_members", 3)
-            inactive_members = db.query(User).filter(
-                User.company_id == company_id,
-                User.is_active is False,
-                User.role != "owner",
-            ).order_by(User.created_at.asc()).limit(member_limit).all()
+            inactive_members = (
+                db.query(User)
+                .filter(
+                    User.company_id == company_id,
+                    User.is_active is False,
+                    User.role != "owner",
+                )
+                .order_by(User.created_at.asc())
+                .limit(member_limit)
+                .all()
+            )
 
             for member in inactive_members:
                 member.is_active = True
@@ -2221,10 +2344,15 @@ class SubscriptionService:
         # Restore channels
         try:
             from database.models.core import Channel
-            disabled_channels = db.query(Channel).filter(
-                Channel.company_id == company_id,
-                Channel.is_enabled is False,
-            ).all()
+
+            disabled_channels = (
+                db.query(Channel)
+                .filter(
+                    Channel.company_id == company_id,
+                    Channel.is_enabled is False,
+                )
+                .all()
+            )
 
             for channel in disabled_channels:
                 channel.is_enabled = True
@@ -2309,10 +2437,14 @@ class SubscriptionService:
             Dict with offer details including original/discounted price
         """
         with SessionLocal() as db:
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-            ).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                    Subscription.status == SubscriptionStatus.ACTIVE.value,
+                )
+                .first()
+            )
 
             if not subscription:
                 raise SubscriptionNotFoundError(
@@ -2320,12 +2452,11 @@ class SubscriptionService:
                 )
 
             variant = subscription.tier
-            billing_frequency = getattr(
-                subscription, "billing_frequency", "monthly"
-            ) or "monthly"
+            billing_frequency = (
+                getattr(subscription, "billing_frequency", "monthly") or "monthly"
+            )
 
-            original_price = self._get_variant_price(
-                variant, billing_frequency)
+            original_price = self._get_variant_price(variant, billing_frequency)
             discounted_price = original_price * Decimal("0.80")  # 20% off
             discounted_price = discounted_price.quantize(Decimal("0.01"))
 
@@ -2394,10 +2525,15 @@ class SubscriptionService:
         # Pause all AI agents
         try:
             from database.models.core import Agent
-            active_agents = db.query(Agent).filter(
-                Agent.company_id == company_id,
-                Agent.status == "active",
-            ).all()
+
+            active_agents = (
+                db.query(Agent)
+                .filter(
+                    Agent.company_id == company_id,
+                    Agent.status == "active",
+                )
+                .all()
+            )
 
             for agent in active_agents:
                 agent.status = "paused"
@@ -2412,11 +2548,16 @@ class SubscriptionService:
         # Disable team member access (except admin/owner)
         try:
             from database.models.core import User
-            active_members = db.query(User).filter(
-                User.company_id == company_id,
-                User.is_active,
-                User.role.notin_(["owner", "admin"]),
-            ).all()
+
+            active_members = (
+                db.query(User)
+                .filter(
+                    User.company_id == company_id,
+                    User.is_active,
+                    User.role.notin_(["owner", "admin"]),
+                )
+                .all()
+            )
 
             for member in active_members:
                 member.is_active = False
@@ -2431,10 +2572,15 @@ class SubscriptionService:
         # Disable all channels
         try:
             from database.models.core import Channel
-            active_channels = db.query(Channel).filter(
-                Channel.company_id == company_id,
-                Channel.is_enabled,
-            ).all()
+
+            active_channels = (
+                db.query(Channel)
+                .filter(
+                    Channel.company_id == company_id,
+                    Channel.is_enabled,
+                )
+                .all()
+            )
 
             for channel in active_channels:
                 channel.is_enabled = False
@@ -2447,8 +2593,7 @@ class SubscriptionService:
             )
 
         logger.info(
-            "service_stop_completed company_id=%s "
-            "agents=%d team=%d channels=%d",
+            "service_stop_completed company_id=%s " "agents=%d team=%d channels=%d",
             company_id,
             stopped["agents_paused"],
             stopped["team_members_disabled"],
@@ -2483,9 +2628,13 @@ class SubscriptionService:
         }
 
         with SessionLocal() as db:
-            failed_subs = db.query(Subscription).filter(
-                Subscription.status == SubscriptionStatus.PAYMENT_FAILED.value,
-            ).all()
+            failed_subs = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.status == SubscriptionStatus.PAYMENT_FAILED.value,
+                )
+                .all()
+            )
 
             for sub in failed_subs:
                 try:
@@ -2505,18 +2654,18 @@ class SubscriptionService:
                         sub.service_stopped_at = now  # type: ignore
 
                         # Update company
-                        company = db.query(Company).filter(
-                            Company.id == sub.company_id
-                        ).first()
+                        company = (
+                            db.query(Company)
+                            .filter(Company.id == sub.company_id)
+                            .first()
+                        )
                         if company:
                             company.subscription_status = (
                                 SubscriptionStatus.CANCELED.value
                             )
 
                         # C3: Apply service stop
-                        self._apply_service_stop_on_cancel(
-                            db, sub.company_id
-                        )
+                        self._apply_service_stop_on_cancel(db, sub.company_id)
 
                         results["subscriptions_canceled"] += 1
 
@@ -2529,16 +2678,17 @@ class SubscriptionService:
                         )
                 except Exception as e:
                     logger.error(
-                        "payment_failure_timeout_failed "
-                        "sub_id=%s error=%s",
+                        "payment_failure_timeout_failed " "sub_id=%s error=%s",
                         sub.id,
                         str(e),
                     )
-                    results["errors"].append({
-                        "subscription_id": sub.id,
-                        "company_id": sub.company_id,
-                        "error": str(e)[:200],
-                    })
+                    results["errors"].append(
+                        {
+                            "subscription_id": sub.id,
+                            "company_id": sub.company_id,
+                            "error": str(e)[:200],
+                        }
+                    )
 
             db.commit()
 
@@ -2575,10 +2725,15 @@ class SubscriptionService:
             SubscriptionError: If retry fails
         """
         with SessionLocal() as db:
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-                Subscription.status == SubscriptionStatus.PAYMENT_FAILED.value,
-            ).with_for_update().first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                    Subscription.status == SubscriptionStatus.PAYMENT_FAILED.value,
+                )
+                .with_for_update()
+                .first()
+            )
 
             if not subscription:
                 raise SubscriptionNotFoundError(
@@ -2599,13 +2754,11 @@ class SubscriptionService:
                     subscription.status = SubscriptionStatus.ACTIVE.value
                     subscription.payment_failed_at = None  # type: ignore
 
-                    company = db.query(Company).filter(
-                        Company.id == str(company_id)
-                    ).first()
+                    company = (
+                        db.query(Company).filter(Company.id == str(company_id)).first()
+                    )
                     if company:
-                        company.subscription_status = (
-                            SubscriptionStatus.ACTIVE.value
-                        )
+                        company.subscription_status = SubscriptionStatus.ACTIVE.value
 
                     db.commit()
                     db.refresh(subscription)
@@ -2627,9 +2780,7 @@ class SubscriptionService:
                         company_id,
                         str(e),
                     )
-                    raise SubscriptionError(
-                        f"Payment retry failed: {str(e)}"
-                    )
+                    raise SubscriptionError(f"Payment retry failed: {str(e)}")
             else:
                 # No Paddle subscription — manual retry, just reset status
                 subscription.status = SubscriptionStatus.ACTIVE.value
@@ -2668,9 +2819,13 @@ class SubscriptionService:
         }
 
         with SessionLocal() as db:
-            failed_subs = db.query(Subscription).filter(
-                Subscription.status == SubscriptionStatus.PAYMENT_FAILED.value,
-            ).all()
+            failed_subs = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.status == SubscriptionStatus.PAYMENT_FAILED.value,
+                )
+                .all()
+            )
 
             for sub in failed_subs:
                 try:
@@ -2693,6 +2848,7 @@ class SubscriptionService:
 
                     # Use asyncio to call the async retry method
                     import asyncio
+
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     try:
@@ -2710,11 +2866,13 @@ class SubscriptionService:
                         sub.company_id,
                         str(e),
                     )
-                    results["errors"].append({
-                        "subscription_id": sub.id,
-                        "company_id": sub.company_id,
-                        "error": str(e)[:200],
-                    })
+                    results["errors"].append(
+                        {
+                            "subscription_id": sub.id,
+                            "company_id": sub.company_id,
+                            "error": str(e)[:200],
+                        }
+                    )
 
         logger.info(
             "auto_retry_payments_processed attempted=%d succeeded=%d errors=%d",
@@ -2749,16 +2907,19 @@ class SubscriptionService:
             Dict with portal URL and message
         """
         with SessionLocal() as db:
-            company = db.query(Company).filter(
-                Company.id == str(company_id)
-            ).first()
+            company = db.query(Company).filter(Company.id == str(company_id)).first()
 
             if not company:
                 raise SubscriptionError(f"Company {company_id} not found")
 
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-            ).order_by(Subscription.created_at.desc()).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == str(company_id),
+                )
+                .order_by(Subscription.created_at.desc())
+                .first()
+            )
 
             if not subscription or not subscription.paddle_subscription_id:
                 return {

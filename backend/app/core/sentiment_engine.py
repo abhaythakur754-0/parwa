@@ -35,6 +35,7 @@ logger = get_logger("sentiment_engine")
 
 class EmotionType(str):
     """Valid emotion types for classification."""
+
     ANGRY = "angry"
     FRUSTRATED = "frustrated"
     DISAPPOINTED = "disappointed"
@@ -45,6 +46,7 @@ class EmotionType(str):
 
 class UrgencyLevel(str):
     """Valid urgency levels."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -53,6 +55,7 @@ class UrgencyLevel(str):
 
 class ToneRecommendation(str):
     """Valid tone recommendations."""
+
     EMPATHETIC = "empathetic"
     URGENT = "urgent"
     DE_ESCALATION = "de-escalation"
@@ -61,6 +64,7 @@ class ToneRecommendation(str):
 
 class TrendDirection(str):
     """Conversation sentiment trend."""
+
     IMPROVING = "improving"
     STABLE = "stable"
     WORSENING = "worsening"
@@ -70,29 +74,87 @@ class TrendDirection(str):
 
 # Strong frustration/anger words
 FRUSTRATION_STRONG = {
-    "furious", "enraged", "livid", "outraged", "disgusted", "infuriated",
-    "unacceptable", "appalling", "atrocious", "abysmal", "horrendous",
-    "intolerable", "unbearable", "excruciating", "catastrophic", "devastating",
-    "despicable", "vile", "pathetic", "contemptible", "repulsive",
+    "furious",
+    "enraged",
+    "livid",
+    "outraged",
+    "disgusted",
+    "infuriated",
+    "unacceptable",
+    "appalling",
+    "atrocious",
+    "abysmal",
+    "horrendous",
+    "intolerable",
+    "unbearable",
+    "excruciating",
+    "catastrophic",
+    "devastating",
+    "despicable",
+    "vile",
+    "pathetic",
+    "contemptible",
+    "repulsive",
 }
 
 # Moderate frustration words
 FRUSTRATION_MODERATE = {
-    "angry", "annoyed", "annoying", "frustrated", "frustrating",
-    "irritated", "irritating", "mad", "upset",
-    "disappointed", "disappointing", "unhappy", "dissatisfied",
-    "aggravated", "aggravating", "bothered", "bothering",
-    "disturbed", "troubled", "worried", "concerned",
-    "terrible", "awful", "horrible", "worst", "rude", "useless",
-    "ridiculous", "scam", "garbage", "trash", "waste", "broken",
-    "unfair", "unhelpful", "wrong", "disgusting", "deplorable",
+    "angry",
+    "annoyed",
+    "annoying",
+    "frustrated",
+    "frustrating",
+    "irritated",
+    "irritating",
+    "mad",
+    "upset",
+    "disappointed",
+    "disappointing",
+    "unhappy",
+    "dissatisfied",
+    "aggravated",
+    "aggravating",
+    "bothered",
+    "bothering",
+    "disturbed",
+    "troubled",
+    "worried",
+    "concerned",
+    "terrible",
+    "awful",
+    "horrible",
+    "worst",
+    "rude",
+    "useless",
+    "ridiculous",
+    "scam",
+    "garbage",
+    "trash",
+    "waste",
+    "broken",
+    "unfair",
+    "unhelpful",
+    "wrong",
+    "disgusting",
+    "deplorable",
 }
 
 # Mild frustration words
 FRUSTRATION_MILD = {
-    "issue", "problem", "confused", "unclear", "uncertain",
-    "inconvenient", "difficult", "complicated", "slow",
-    "bad", "wrong", "error", "fail", "fault",
+    "issue",
+    "problem",
+    "confused",
+    "unclear",
+    "uncertain",
+    "inconvenient",
+    "difficult",
+    "complicated",
+    "slow",
+    "bad",
+    "wrong",
+    "error",
+    "fail",
+    "fault",
 }
 
 # ── Empathy Signal Patterns ──────────────────────────────────────────
@@ -100,37 +162,81 @@ FRUSTRATION_MILD = {
 EMPATHY_PATTERNS: Dict[str, Dict[str, Any]] = {
     "apology_expectation": {
         "keywords": [
-            "you should be ashamed", "how dare you", "you owe me",
-            "apologize", "apology", "you need to say sorry",
-            "this is your fault", "blame", "responsible for this",
-            "negligence", "careless",
+            "you should be ashamed",
+            "how dare you",
+            "you owe me",
+            "apologize",
+            "apology",
+            "you need to say sorry",
+            "this is your fault",
+            "blame",
+            "responsible for this",
+            "negligence",
+            "careless",
         ],
         "weight": 0.8,
     },
     "timeline_pressure": {
         "keywords": [
-            "right now", "immediately", "asap", "urgent", "emergency",
-            "deadline", "today", "by tomorrow", "running out of time",
-            "time sensitive", "critical deadline", "past due", "overdue",
-            "days ago", "weeks ago", "still waiting",
+            "right now",
+            "immediately",
+            "asap",
+            "urgent",
+            "emergency",
+            "deadline",
+            "today",
+            "by tomorrow",
+            "running out of time",
+            "time sensitive",
+            "critical deadline",
+            "past due",
+            "overdue",
+            "days ago",
+            "weeks ago",
+            "still waiting",
         ],
         "weight": 0.7,
     },
     "financial_impact": {
         "keywords": [
-            "lost money", "losing money", "cost me", "charged me",
-            "overcharged", "double charged", "stolen", "theft",
-            "bankrupt", "financial", "expensive", "overpriced",
-            "refund", "money back", "compensation", "damages",
+            "lost money",
+            "losing money",
+            "cost me",
+            "charged me",
+            "overcharged",
+            "double charged",
+            "stolen",
+            "theft",
+            "bankrupt",
+            "financial",
+            "expensive",
+            "overpriced",
+            "refund",
+            "money back",
+            "compensation",
+            "damages",
         ],
         "weight": 0.9,
     },
     "personal_impact": {
         "keywords": [
-            "ruined my", "destroyed my", "wasted my", "lost my",
-            "my family", "my children", "my business", "my job",
-            "my reputation", "health", "safety", "dangerous",
-            "stressed", "anxiety", "panic", "crying", "tears",
+            "ruined my",
+            "destroyed my",
+            "wasted my",
+            "lost my",
+            "my family",
+            "my children",
+            "my business",
+            "my job",
+            "my reputation",
+            "health",
+            "safety",
+            "dangerous",
+            "stressed",
+            "anxiety",
+            "panic",
+            "crying",
+            "tears",
         ],
         "weight": 1.0,
     },
@@ -144,13 +250,46 @@ EMPATHY_PATTERNS: Dict[str, Dict[str, Any]] = {
 # ── Tone Recommendation Keywords ─────────────────────────────────────
 
 POSITIVE_WORDS = {
-    "awesome", "brilliant", "excellent", "fantastic", "good", "great",
-    "happy", "helpful", "love", "perfect", "pleased", "quick", "satisfied",
-    "superb", "thank", "thanks", "wonderful", "amazing", "impressed",
-    "outstanding", "phenomenal", "remarkable", "stellar", "magnificent",
-    "splendid", "terrific", "marvelous", "exceptional", "delightful",
-    "grateful", "appreciate", "efficient", "reliable", "professional",
-    "friendly", "polite", "responsive", "smooth", "seamless", "easy",
+    "awesome",
+    "brilliant",
+    "excellent",
+    "fantastic",
+    "good",
+    "great",
+    "happy",
+    "helpful",
+    "love",
+    "perfect",
+    "pleased",
+    "quick",
+    "satisfied",
+    "superb",
+    "thank",
+    "thanks",
+    "wonderful",
+    "amazing",
+    "impressed",
+    "outstanding",
+    "phenomenal",
+    "remarkable",
+    "stellar",
+    "magnificent",
+    "splendid",
+    "terrific",
+    "marvelous",
+    "exceptional",
+    "delightful",
+    "grateful",
+    "appreciate",
+    "efficient",
+    "reliable",
+    "professional",
+    "friendly",
+    "polite",
+    "responsive",
+    "smooth",
+    "seamless",
+    "easy",
 }
 
 # ── Data Classes ─────────────────────────────────────────────────────
@@ -160,12 +299,12 @@ POSITIVE_WORDS = {
 class SentimentResult:
     """Output of sentiment analysis (F-063)."""
 
-    frustration_score: float          # 0-100
-    emotion: str                      # EmotionType value
-    urgency_level: str                # UrgencyLevel value
-    tone_recommendation: str          # ToneRecommendation value
-    empathy_signals: List[str]        # list of detected signal types
-    sentiment_score: float            # 0.0-1.0 (matching signal_extraction.py)
+    frustration_score: float  # 0-100
+    emotion: str  # EmotionType value
+    urgency_level: str  # UrgencyLevel value
+    tone_recommendation: str  # ToneRecommendation value
+    empathy_signals: List[str]  # list of detected signal types
+    sentiment_score: float  # 0.0-1.0 (matching signal_extraction.py)
     emotion_breakdown: Dict[str, float]  # emotion → score
     processing_time_ms: float
     conversation_trend: str = "stable"  # TrendDirection value
@@ -179,14 +318,10 @@ class SentimentResult:
             "urgency_level": self.urgency_level,
             "tone_recommendation": self.tone_recommendation,
             "empathy_signals": self.empathy_signals,
-            "sentiment_score": round(
-                self.sentiment_score,
-                4),
+            "sentiment_score": round(self.sentiment_score, 4),
             "emotion_breakdown": {
-                k: round(
-                    v,
-                    4) for k,
-                v in self.emotion_breakdown.items()},
+                k: round(v, 4) for k, v in self.emotion_breakdown.items()
+            },
             "processing_time_ms": self.processing_time_ms,
             "conversation_trend": self.conversation_trend,
         }
@@ -245,8 +380,7 @@ class FrustrationDetector:
         query_words = set(re.findall(r"\b\w+\b", query_lower))
 
         strong_hits = sum(1 for w in FRUSTRATION_STRONG if w in query_lower)
-        moderate_hits = sum(
-            1 for w in FRUSTRATION_MODERATE if w in query_lower)
+        moderate_hits = sum(1 for w in FRUSTRATION_MODERATE if w in query_lower)
         # G9-GAP-03: Word-boundary matching for mild frustration words
         mild_hits = sum(1 for w in FRUSTRATION_MILD if w in query_words)
 
@@ -259,8 +393,7 @@ class FrustrationDetector:
         if not words:
             return 0.0
 
-        caps_words = [w for w in words if w.isalpha() and w.isupper()
-                      and len(w) > 1]
+        caps_words = [w for w in words if w.isalpha() and w.isupper() and len(w) > 1]
         if not caps_words:
             return 0.0
 
@@ -294,6 +427,7 @@ class FrustrationDetector:
             return 0.0
 
         from collections import Counter
+
         word_counts = Counter(words)
         # Any word appearing 3+ times
         repeated = sum(1 for w, c in word_counts.items() if c >= 3)
@@ -325,9 +459,18 @@ class FrustrationDetector:
         """Score intensifier presence (0-5 pts)."""
         query_lower = query.lower()
         intensifiers = [
-            "very", "extremely", "really", "so", "incredibly",
-            "absolutely", "totally", "completely", "utterly",
-            "never ever", "absolutely not", "completely unacceptable",
+            "very",
+            "extremely",
+            "really",
+            "so",
+            "incredibly",
+            "absolutely",
+            "totally",
+            "completely",
+            "utterly",
+            "never ever",
+            "absolutely not",
+            "completely unacceptable",
         ]
         hits = sum(1 for i in intensifiers if i in query_lower)
         return min(5.0, hits * 1.5)
@@ -382,6 +525,7 @@ class EmpathySignalDetector:
 
         # Check if the current query is very similar to 2+ messages in history
         from difflib import SequenceMatcher
+
         similar = 0
         for msg in history[-5:]:
             if not msg or not isinstance(msg, str):
@@ -406,61 +550,130 @@ class EmotionClassifier:
     EMOTION_LEXICON: Dict[str, Dict[str, Any]] = {
         "angry": {
             "keywords": [
-                "furious", "enraged", "livid", "outraged", "disgusted",
-                "infuriated", "hate", "loathe", "despise", "angry",
-                "mad", "rage", "how dare", "unacceptable", "atrocious",
-                "vile", "despicable",
+                "furious",
+                "enraged",
+                "livid",
+                "outraged",
+                "disgusted",
+                "infuriated",
+                "hate",
+                "loathe",
+                "despise",
+                "angry",
+                "mad",
+                "rage",
+                "how dare",
+                "unacceptable",
+                "atrocious",
+                "vile",
+                "despicable",
             ],
             "weight": 1.0,
         },
         "frustrated": {
             "keywords": [
-                "frustrated", "annoyed", "irritated", "aggravated", "bothered",
-                "impossible", "ridiculous", "stupid", "useless", "waste of time",
-                "run around", "circular", "nowhere", "doing nothing",
-                "not helping", "ignoring me",
+                "frustrated",
+                "annoyed",
+                "irritated",
+                "aggravated",
+                "bothered",
+                "impossible",
+                "ridiculous",
+                "stupid",
+                "useless",
+                "waste of time",
+                "run around",
+                "circular",
+                "nowhere",
+                "doing nothing",
+                "not helping",
+                "ignoring me",
             ],
             "weight": 1.0,
         },
         "disappointed": {
             "keywords": [
-                "disappointed", "let down", "underwhelmed", "expected more",
-                "not what I expected", "below standard", "subpar", "mediocre",
-                "unfortunate", "sad", "unhappy", "dissatisfied", "poor quality",
+                "disappointed",
+                "let down",
+                "underwhelmed",
+                "expected more",
+                "not what I expected",
+                "below standard",
+                "subpar",
+                "mediocre",
+                "unfortunate",
+                "sad",
+                "unhappy",
+                "dissatisfied",
+                "poor quality",
                 "not good enough",
             ],
             "weight": 1.0,
         },
         "happy": {
             "keywords": [
-                "happy", "glad", "pleased", "satisfied", "thankful",
-                "great", "good", "nice", "wonderful", "helpful",
-                "appreciate", "thanks", "thank you", "well done",
-                "sorted", "resolved", "working now", "fixed",
+                "happy",
+                "glad",
+                "pleased",
+                "satisfied",
+                "thankful",
+                "great",
+                "good",
+                "nice",
+                "wonderful",
+                "helpful",
+                "appreciate",
+                "thanks",
+                "thank you",
+                "well done",
+                "sorted",
+                "resolved",
+                "working now",
+                "fixed",
             ],
             "weight": 1.0,
         },
         "delighted": {
             "keywords": [
-                "delighted", "amazed", "astounded", "impressed",
-                "outstanding", "excellent", "brilliant", "fantastic",
-                "superb", "phenomenal", "stellar", "exceptional",
-                "love it", "best ever", "above and beyond", "incredible",
+                "delighted",
+                "amazed",
+                "astounded",
+                "impressed",
+                "outstanding",
+                "excellent",
+                "brilliant",
+                "fantastic",
+                "superb",
+                "phenomenal",
+                "stellar",
+                "exceptional",
+                "love it",
+                "best ever",
+                "above and beyond",
+                "incredible",
             ],
             "weight": 1.0,
         },
     }
 
     def classify(
-        self, query: str, frustration_score: float = 0.0,
+        self,
+        query: str,
+        frustration_score: float = 0.0,
     ) -> Tuple[str, Dict[str, float]]:
         """Classify emotion and return breakdown scores.
 
         Returns (primary_emotion, emotion_breakdown_dict).
         """
         if not query or not isinstance(query, str):
-            return EmotionType.NEUTRAL, {"neutral": 1.0, "angry": 0.0, "frustrated": 0.0,
-                                         "disappointed": 0.0, "happy": 0.0, "delighted": 0.0}
+            return EmotionType.NEUTRAL, {
+                "neutral": 1.0,
+                "angry": 0.0,
+                "frustrated": 0.0,
+                "disappointed": 0.0,
+                "happy": 0.0,
+                "delighted": 0.0,
+            }
 
         query_lower = query.lower()
         words = set(re.findall(r"\b\w+\b", query_lower))
@@ -489,7 +702,8 @@ class EmotionClassifier:
 
         # Sentiment-based boost for positive emotions
         neg_count = sum(
-            1 for w in words if w in FRUSTRATION_STRONG | FRUSTRATION_MODERATE)
+            1 for w in words if w in FRUSTRATION_STRONG | FRUSTRATION_MODERATE
+        )
         pos_count = sum(1 for w in words if w in POSITIVE_WORDS)
         if pos_count > neg_count and pos_count > 0:
             scores["happy"] += pos_count * 0.5
@@ -556,16 +770,16 @@ class UrgencyScorer:
 
         # G9-GAP-09 FIX: Word-boundary matching for multi-word keywords,
         # substring matching for single-word context-dependent keywords
-        query_words_str = ' ' + query_lower + ' '
+        query_words_str = " " + query_lower + " "
         for keyword, weight in self.URGENCY_KEYWORDS.items():
-            if ' ' in keyword:
+            if " " in keyword:
                 # Multi-word keyword: require exact phrase match
                 if keyword in query_words_str:
                     raw_score += weight * 40
             else:
                 # Single-word keyword: use word-boundary matching
                 # to prevent false positives like 'down' in 'download'
-                pattern = r'\b' + re.escape(keyword) + r'\b'
+                pattern = r"\b" + re.escape(keyword) + r"\b"
                 if re.search(pattern, query_lower):
                     raw_score += weight * 40  # scale to 0-100 range
 
@@ -579,8 +793,9 @@ class UrgencyScorer:
         # ALL CAPS words boost urgency
         words = query.split()
         if words:
-            caps_ratio = sum(1 for w in words if w.isalpha()
-                             and w.isupper() and len(w) > 1) / len(words)
+            caps_ratio = sum(
+                1 for w in words if w.isalpha() and w.isupper() and len(w) > 1
+            ) / len(words)
             raw_score += min(10.0, caps_ratio * 20.0)
 
         raw_score = min(100.0, max(0.0, raw_score))
@@ -615,17 +830,20 @@ class ToneAdvisor:
         - Empathetic: frustration >= 40 OR emotion in (angry, frustrated, disappointed)
         - Standard: everything else
         """
-        if frustration_score >= 90 or (
-                emotion == "angry" and frustration_score >= 70):
+        if frustration_score >= 90 or (emotion == "angry" and frustration_score >= 70):
             return ToneRecommendation.DE_ESCALATION
 
-        if urgency_level in (
-                UrgencyLevel.HIGH,
-                UrgencyLevel.CRITICAL) and frustration_score >= 60:
+        if (
+            urgency_level in (UrgencyLevel.HIGH, UrgencyLevel.CRITICAL)
+            and frustration_score >= 60
+        ):
             return ToneRecommendation.URGENT
 
         if frustration_score >= 40 or emotion in (
-                "angry", "frustrated", "disappointed"):
+            "angry",
+            "frustrated",
+            "disappointed",
+        ):
             return ToneRecommendation.EMPATHETIC
 
         return ToneRecommendation.STANDARD
@@ -650,8 +868,8 @@ class ConversationTrendAnalyzer:
 
         # Filter out None/empty
         valid_msgs = [
-            m for m in conversation_history if m and isinstance(
-                m, str) and m.strip()]
+            m for m in conversation_history if m and isinstance(m, str) and m.strip()
+        ]
         if len(valid_msgs) < 3:
             return TrendDirection.STABLE
 
@@ -741,10 +959,13 @@ class SentimentAnalyzer:
         # prevent stale cached trends for same query with different history
         query_hash = self._compute_query_hash(cleaned)
         history_hash = self._compute_history_hash(conversation_history)
-        cache_key = f"sentiment_cache:{company_id}:{variant_type}:{query_hash}:{history_hash}"
+        cache_key = (
+            f"sentiment_cache:{company_id}:{variant_type}:{query_hash}:{history_hash}"
+        )
 
         try:
             from app.core.redis import cache_get, cache_set
+
             cached = await cache_get(company_id, cache_key)
             if cached is not None and isinstance(cached, dict):
                 logger.debug("sentiment_cache_hit", key=cache_key)
@@ -753,19 +974,11 @@ class SentimentAnalyzer:
                     emotion=cached["emotion"],
                     urgency_level=cached["urgency_level"],
                     tone_recommendation=cached["tone_recommendation"],
-                    empathy_signals=cached.get(
-                        "empathy_signals",
-                        []),
+                    empathy_signals=cached.get("empathy_signals", []),
                     sentiment_score=cached["sentiment_score"],
-                    emotion_breakdown=cached.get(
-                        "emotion_breakdown",
-                        {}),
-                    processing_time_ms=cached.get(
-                        "processing_time_ms",
-                        0.0),
-                    conversation_trend=cached.get(
-                        "conversation_trend",
-                        "stable"),
+                    emotion_breakdown=cached.get("emotion_breakdown", {}),
+                    processing_time_ms=cached.get("processing_time_ms", 0.0),
+                    conversation_trend=cached.get("conversation_trend", "stable"),
                     cached=True,
                 )
                 return result
@@ -780,7 +993,8 @@ class SentimentAnalyzer:
 
         # 2. Emotion classification
         emotion, emotion_breakdown = self._emotion_classifier.classify(
-            cleaned, frustration_score,
+            cleaned,
+            frustration_score,
         )
 
         # 3. Urgency scoring
@@ -788,12 +1002,16 @@ class SentimentAnalyzer:
 
         # 4. Empathy signal detection
         empathy_signals = self._empathy_detector.detect(
-            cleaned, conversation_history, customer_metadata,
+            cleaned,
+            conversation_history,
+            customer_metadata,
         )
 
         # 5. Tone recommendation
         tone_recommendation = self._tone_advisor.recommend(
-            frustration_score, emotion, urgency_level,
+            frustration_score,
+            emotion,
+            urgency_level,
         )
 
         # 6. Sentiment score (0.0-1.0) — inverse of frustration, normalized
@@ -831,8 +1049,10 @@ class SentimentAnalyzer:
         # ── Cache store ─────────────────────────────────────────
         try:
             await cache_set(
-                company_id, cache_key,
-                result.to_dict(), ttl_seconds=self.CACHE_TTL_SECONDS,
+                company_id,
+                cache_key,
+                result.to_dict(),
+                ttl_seconds=self.CACHE_TTL_SECONDS,
             )
         except Exception as exc:
             logger.warning("sentiment_cache_write_error", error=str(exc))
@@ -849,8 +1069,12 @@ class SentimentAnalyzer:
             empathy_signals=[],
             sentiment_score=0.5,
             emotion_breakdown={
-                "neutral": 1.0, "angry": 0.0, "frustrated": 0.0,
-                "disappointed": 0.0, "happy": 0.0, "delighted": 0.0,
+                "neutral": 1.0,
+                "angry": 0.0,
+                "frustrated": 0.0,
+                "disappointed": 0.0,
+                "happy": 0.0,
+                "delighted": 0.0,
             },
             processing_time_ms=0.0,
             conversation_trend=TrendDirection.STABLE,
@@ -863,16 +1087,14 @@ class SentimentAnalyzer:
         return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
 
     @staticmethod
-    def _compute_history_hash(
-            conversation_history: Optional[List[str]]) -> str:
+    def _compute_history_hash(conversation_history: Optional[List[str]]) -> str:
         """Compute hash from conversation_history for cache key (G9-GAP-02).
 
         Returns a short hash of the last 3 messages, or 'none' if no history.
         """
         if not conversation_history:
             return "none"
-        recent = [m for m in conversation_history[-3:]
-                  if m and isinstance(m, str)]
+        recent = [m for m in conversation_history[-3:] if m and isinstance(m, str)]
         if not recent:
             return "none"
         combined = "|".join(m.lower().strip() for m in recent)

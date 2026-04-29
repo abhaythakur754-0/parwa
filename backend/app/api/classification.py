@@ -61,6 +61,7 @@ def _get_engine():
             from app.core.classification_engine import (
                 ClassificationEngine,
             )
+
             _engine = ClassificationEngine()
         except Exception as exc:
             logger.error(

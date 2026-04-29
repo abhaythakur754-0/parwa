@@ -11,6 +11,7 @@ Implements BL06: Attachment whitelist with:
 from __future__ import annotations
 
 import hashlib
+
 try:
     import magic
 except ImportError:
@@ -32,11 +33,23 @@ class AttachmentService:
     # BL06: Allowed file extensions
     ALLOWED_EXTENSIONS = {
         # Documents
-        "pd", "doc", "docx", "txt", "rt", "odt",
+        "pd",
+        "doc",
+        "docx",
+        "txt",
+        "rt",
+        "odt",
         # Spreadsheets
-        "xls", "xlsx", "csv",
+        "xls",
+        "xlsx",
+        "csv",
         # Images
-        "png", "jpg", "jpeg", "gi", "bmp", "webp",
+        "png",
+        "jpg",
+        "jpeg",
+        "gi",
+        "bmp",
+        "webp",
         # Archives (scanned)
         "zip",
     }
@@ -62,9 +75,9 @@ class AttachmentService:
 
     # File size limits per plan tier (in bytes)
     PLAN_SIZE_LIMITS = {
-        "mini_parwa": 5 * 1024 * 1024,      # 5 MB
-        "parwa": 25 * 1024 * 1024,      # 25 MB
-        "high": 100 * 1024 * 1024,       # 100 MB
+        "mini_parwa": 5 * 1024 * 1024,  # 5 MB
+        "parwa": 25 * 1024 * 1024,  # 25 MB
+        "high": 100 * 1024 * 1024,  # 100 MB
         "enterprise": 500 * 1024 * 1024,  # 500 MB
     }
 
@@ -76,16 +89,31 @@ class AttachmentService:
 
     # Dangerous extensions (always blocked)
     DANGEROUS_EXTENSIONS = {
-        "exe", "bat", "cmd", "com", "pi", "scr", "vbs", "js",
-        "jar", "msi", "sh", "bash", "py", "pl", "php", "asp",
-        "aspx", "jsp", "cgi", "dll", "so", "dylib",
+        "exe",
+        "bat",
+        "cmd",
+        "com",
+        "pi",
+        "scr",
+        "vbs",
+        "js",
+        "jar",
+        "msi",
+        "sh",
+        "bash",
+        "py",
+        "pl",
+        "php",
+        "asp",
+        "aspx",
+        "jsp",
+        "cgi",
+        "dll",
+        "so",
+        "dylib",
     }
 
-    def __init__(
-            self,
-            db: Session,
-            company_id: str,
-            plan_tier: str = "mini_parwa"):
+    def __init__(self, db: Session, company_id: str, plan_tier: str = "mini_parwa"):
         self.db = db
         self.company_id = company_id
         self.plan_tier = plan_tier
@@ -125,7 +153,11 @@ class AttachmentService:
 
         # Check against dangerous extensions
         if ext in self.DANGEROUS_EXTENSIONS:
-            return False, f"File type '{ext}' is not allowed for security reasons", metadata
+            return (
+                False,
+                f"File type '{ext}' is not allowed for security reasons",
+                metadata,
+            )
 
         # Check extension whitelist
         if ext not in self.ALLOWED_EXTENSIONS:
@@ -135,10 +167,7 @@ class AttachmentService:
                         self.ALLOWED_EXTENSIONS))}", metadata
 
         # Check file size
-        size_limit = self.PLAN_SIZE_LIMITS.get(
-            self.plan_tier,
-            self.DEFAULT_SIZE_LIMIT
-        )
+        size_limit = self.PLAN_SIZE_LIMITS.get(self.plan_tier, self.DEFAULT_SIZE_LIMIT)
         if len(file_content) > size_limit:
             return False, f"File size exceeds {
                 size_limit // (
@@ -154,7 +183,11 @@ class AttachmentService:
                 expected_ext = self.ALLOWED_MIME_TYPES.get(mime_type)
                 if expected_ext and expected_ext != ext:
                     # MIME type doesn't match extension - suspicious
-                    return False, f"File content does not match extension '{ext}'", metadata
+                    return (
+                        False,
+                        f"File content does not match extension '{ext}'",
+                        metadata,
+                    )
             else:
                 # If magic not available, use extension-based MIME type
                 metadata["mime_type"] = self._get_mime_from_extension(ext)
@@ -192,20 +225,22 @@ class AttachmentService:
             ValidationError: If validation fails
         """
         # Validate file
-        is_valid, error_msg, metadata = self.validate_file(
-            filename, file_content)
+        is_valid, error_msg, metadata = self.validate_file(filename, file_content)
         if not is_valid:
             raise ValidationError(error_msg)
 
         # Check ticket attachment limit
-        existing_count = self.db.query(TicketAttachment).filter(
-            TicketAttachment.ticket_id == ticket_id,
-            TicketAttachment.company_id == self.company_id,
-        ).count()
+        existing_count = (
+            self.db.query(TicketAttachment)
+            .filter(
+                TicketAttachment.ticket_id == ticket_id,
+                TicketAttachment.company_id == self.company_id,
+            )
+            .count()
+        )
 
         if existing_count >= self.MAX_ATTACHMENTS_PER_TICKET:
-            raise ValidationError(
-                f"Maximum {
+            raise ValidationError(f"Maximum {
                     self.MAX_ATTACHMENTS_PER_TICKET} attachments per ticket")
 
         # Store file (using storage service if available)
@@ -222,6 +257,7 @@ class AttachmentService:
             # Fallback: store as base64 data URL (not recommended for
             # production)
             import base64
+
             b64 = base64.b64encode(file_content).decode()
             file_url = f"data:{metadata['mime_type']};base64,{b64}"
 
@@ -253,10 +289,15 @@ class AttachmentService:
         Returns:
             List of TicketAttachment objects
         """
-        return self.db.query(TicketAttachment).filter(
-            TicketAttachment.ticket_id == ticket_id,
-            TicketAttachment.company_id == self.company_id,
-        ).order_by(TicketAttachment.created_at.desc()).all()
+        return (
+            self.db.query(TicketAttachment)
+            .filter(
+                TicketAttachment.ticket_id == ticket_id,
+                TicketAttachment.company_id == self.company_id,
+            )
+            .order_by(TicketAttachment.created_at.desc())
+            .all()
+        )
 
     def delete_attachment(
         self,
@@ -277,13 +318,18 @@ class AttachmentService:
         Raises:
             NotFoundError: If attachment not found
         """
-        attachment = self.db.query(TicketAttachment).filter(
-            TicketAttachment.id == attachment_id,
-            TicketAttachment.company_id == self.company_id,
-        ).first()
+        attachment = (
+            self.db.query(TicketAttachment)
+            .filter(
+                TicketAttachment.id == attachment_id,
+                TicketAttachment.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not attachment:
             from app.exceptions import NotFoundError
+
             raise NotFoundError(f"Attachment {attachment_id} not found")
 
         # Delete from storage
@@ -305,10 +351,7 @@ class AttachmentService:
         Returns:
             Size limit in bytes
         """
-        return self.PLAN_SIZE_LIMITS.get(
-            self.plan_tier,
-            self.DEFAULT_SIZE_LIMIT
-        )
+        return self.PLAN_SIZE_LIMITS.get(self.plan_tier, self.DEFAULT_SIZE_LIMIT)
 
     def is_extension_allowed(self, extension: str) -> bool:
         """Check if an extension is allowed.

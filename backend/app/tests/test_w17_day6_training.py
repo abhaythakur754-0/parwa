@@ -32,11 +32,13 @@ class TestFallbackTrainingService:
     def service(self, mock_db):
         """Create FallbackTrainingService instance."""
         from app.services.fallback_training_service import FallbackTrainingService
+
         return FallbackTrainingService(mock_db)
 
     def test_retraining_interval_is_14_days(self):
         """Test that retraining interval is correctly set to 14 days."""
         from app.services.fallback_training_service import RETRAINING_INTERVAL_DAYS
+
         assert RETRAINING_INTERVAL_DAYS == 14
 
     def test_get_agents_due_for_retraining_no_agent(self, service, mock_db):
@@ -45,8 +47,7 @@ class TestFallbackTrainingService:
         result = service.get_agents_due_for_retraining("company-123")
         assert result == []
 
-    def test_get_agents_due_for_retraining_never_trained(
-            self, service, mock_db):
+    def test_get_agents_due_for_retraining_never_trained(self, service, mock_db):
         """Test that never-trained agents are not marked for retraining (cold start instead)."""
         # Mock agent
         mock_agent = Mock()
@@ -55,9 +56,10 @@ class TestFallbackTrainingService:
         mock_agent.status = "active"
         mock_agent.created_at = datetime.now(timezone.utc)
 
-        mock_db.query.return_value.filter.return_value.all.return_value = [
-            mock_agent]
-        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+        mock_db.query.return_value.filter.return_value.all.return_value = [mock_agent]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            None
+        )
         mock_db.query.return_value.filter.return_value.count.return_value = 0
 
         result = service.get_agents_due_for_retraining("company-123")
@@ -67,8 +69,7 @@ class TestFallbackTrainingService:
         assert result[0]["is_due_for_retraining"] is False
         assert "cold_start" in result[0]["reason"]
 
-    def test_get_agents_due_for_retraining_recently_trained(
-            self, service, mock_db):
+    def test_get_agents_due_for_retraining_recently_trained(self, service, mock_db):
         """Test that recently trained agents are not due."""
         mock_agent = Mock()
         mock_agent.id = "agent-123"
@@ -82,19 +83,22 @@ class TestFallbackTrainingService:
         mock_run.completed_at = datetime.now(timezone.utc) - timedelta(days=5)
         mock_run.status = "completed"
 
-        mock_db.query.return_value.filter.return_value.all.return_value = [
-            mock_agent]
-        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = mock_run
+        mock_db.query.return_value.filter.return_value.all.return_value = [mock_agent]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_run
+        )
         mock_db.query.return_value.filter.return_value.count.return_value = 0
 
         result = service.get_agents_due_for_retraining("company-123")
 
         assert len(result) == 1
         assert result[0]["is_due_for_retraining"] is False
-        assert "recently_trained" in result[0]["reason"] or "not_due" in result[0]["reason"]
+        assert (
+            "recently_trained" in result[0]["reason"]
+            or "not_due" in result[0]["reason"]
+        )
 
-    def test_get_agents_due_for_retraining_biweekly_due(
-            self, service, mock_db):
+    def test_get_agents_due_for_retraining_biweekly_due(self, service, mock_db):
         """Test that agents with 14+ days since training are due."""
         mock_agent = Mock()
         mock_agent.id = "agent-123"
@@ -108,10 +112,13 @@ class TestFallbackTrainingService:
         mock_run.completed_at = datetime.now(timezone.utc) - timedelta(days=15)
         mock_run.status = "completed"
 
-        mock_db.query.return_value.filter.return_value.all.return_value = [
-            mock_agent]
-        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = mock_run
-        mock_db.query.return_value.filter.return_value.count.return_value = 15  # 15 new mistakes
+        mock_db.query.return_value.filter.return_value.all.return_value = [mock_agent]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_run
+        )
+        mock_db.query.return_value.filter.return_value.count.return_value = (
+            15  # 15 new mistakes
+        )
 
         result = service.get_agents_due_for_retraining("company-123")
 
@@ -128,8 +135,7 @@ class TestFallbackTrainingService:
         assert result["status"] == "error"
         assert "not found" in result["error"].lower()
 
-    def test_schedule_retraining_agent_already_training(
-            self, service, mock_db):
+    def test_schedule_retraining_agent_already_training(self, service, mock_db):
         """Test that retraining is skipped if agent is already training."""
         mock_agent = Mock()
         mock_agent.id = "agent-123"
@@ -141,13 +147,13 @@ class TestFallbackTrainingService:
         mock_run.status = "running"
 
         # Mock the queries
-        mock_db.query.return_value.filter.return_value.all.return_value = [
-            mock_agent]
-        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+        mock_db.query.return_value.filter.return_value.all.return_value = [mock_agent]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            None
+        )
         mock_db.query.return_value.filter.return_value.first.return_value = mock_run
 
-        result = service.schedule_retraining(
-            "company-123", "agent-123", force=True)
+        result = service.schedule_retraining("company-123", "agent-123", force=True)
 
         assert result["status"] == "skipped"
         assert result["reason"] == "already_training"
@@ -163,9 +169,10 @@ class TestFallbackTrainingService:
         mock_run.completed_at = datetime.now(timezone.utc) - timedelta(days=10)
         mock_run.status = "completed"
 
-        mock_db.query.return_value.filter.return_value.all.return_value = [
-            mock_agent]
-        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = mock_run
+        mock_db.query.return_value.filter.return_value.all.return_value = [mock_agent]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_run
+        )
 
         result = service.get_retraining_schedule("company-123", days_ahead=30)
 
@@ -185,7 +192,8 @@ class TestFallbackTrainingService:
         mock_run.cost_usd = 5.50
 
         mock_db.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [
-            mock_run]
+            mock_run
+        ]
         mock_db.query.return_value.filter.return_value.count.return_value = 5
 
         result = service.get_training_effectiveness("company-123")
@@ -200,6 +208,7 @@ class TestFallbackTrainingService:
 # F-107: Cold Start Service Tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestColdStartService:
     """Tests for F-107 Cold Start Service."""
 
@@ -212,6 +221,7 @@ class TestColdStartService:
     def service(self, mock_db):
         """Create ColdStartService instance."""
         from app.services.cold_start_service import ColdStartService
+
         return ColdStartService(mock_db)
 
     def test_industry_templates_exist(self):
@@ -232,9 +242,13 @@ class TestColdStartService:
         for industry, template in INDUSTRY_TEMPLATES.items():
             assert "name" in template, f"Missing name for {industry}"
             assert "description" in template, f"Missing description for {industry}"
-            assert "common_queries" in template, f"Missing common_queries for {industry}"
+            assert (
+                "common_queries" in template
+            ), f"Missing common_queries for {industry}"
             assert "responses" in template, f"Missing responses for {industry}"
-            assert "knowledge_topics" in template, f"Missing knowledge_topics for {industry}"
+            assert (
+                "knowledge_topics" in template
+            ), f"Missing knowledge_topics for {industry}"
 
     def test_get_cold_start_status_agent_not_found(self, service, mock_db):
         """Test cold start status for non-existent agent."""
@@ -254,7 +268,9 @@ class TestColdStartService:
         mock_agent.industry = "ecommerce"
 
         mock_db.query.return_value.filter.return_value.first.return_value = mock_agent
-        mock_db.query.return_value.filter.return_value.count.return_value = 0  # No training runs
+        mock_db.query.return_value.filter.return_value.count.return_value = (
+            0  # No training runs
+        )
 
         result = service.get_cold_start_status("company-123", "agent-123")
 
@@ -270,7 +286,9 @@ class TestColdStartService:
         mock_agent.status = "active"
 
         mock_db.query.return_value.filter.return_value.first.return_value = mock_agent
-        mock_db.query.return_value.filter.return_value.count.return_value = 1  # Has training run
+        mock_db.query.return_value.filter.return_value.count.return_value = (
+            1  # Has training run
+        )
 
         result = service.get_cold_start_status("company-123", "agent-123")
 
@@ -294,7 +312,9 @@ class TestColdStartService:
         mock_agent2.created_at = datetime.now(timezone.utc)
 
         mock_db.query.return_value.filter.return_value.all.return_value = [
-            mock_agent1, mock_agent2]
+            mock_agent1,
+            mock_agent2,
+        ]
         # No training for agent1
         mock_db.query.return_value.filter.return_value.first.return_value = None
 
@@ -308,7 +328,9 @@ class TestColdStartService:
                 return None
             return Mock()  # Return something for agent 2
 
-        mock_db.query.return_value.filter.return_value.first.side_effect = side_effect_first
+        mock_db.query.return_value.filter.return_value.first.side_effect = (
+            side_effect_first
+        )
         mock_db.query.return_value.filter.return_value.count.return_value = 0
 
         result = service.get_agents_needing_cold_start("company-123")
@@ -361,12 +383,7 @@ class TestColdStartService:
         """Test that templates have minimum required samples."""
         from app.services.cold_start_service import MIN_TEMPLATE_SAMPLES
 
-        for industry in [
-            "ecommerce",
-            "saas",
-            "healthcare",
-            "finance",
-                "generic"]:
+        for industry in ["ecommerce", "saas", "healthcare", "finance", "generic"]:
             data = service.get_template_training_data(industry)
             assert len(data) >= MIN_TEMPLATE_SAMPLES, f"Template {industry} has only {
                 len(data)} samples, minimum is {MIN_TEMPLATE_SAMPLES}"
@@ -375,6 +392,7 @@ class TestColdStartService:
 # ─────────────────────────────────────────────────────────────────────────────
 # Integration Tests for API Endpoints
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestTrainingEndpointsIntegration:
     """Integration tests for Day 6 API endpoints."""
@@ -408,6 +426,7 @@ class TestTrainingEndpointsIntegration:
 # Model Tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestTrainingModels:
     """Tests for Training models."""
 
@@ -416,28 +435,28 @@ class TestTrainingModels:
         from database.models.analytics import TrainingRun
 
         # Check columns exist
-        assert hasattr(TrainingRun, 'company_id')
-        assert hasattr(TrainingRun, 'agent_id')
-        assert hasattr(TrainingRun, 'dataset_id')
-        assert hasattr(TrainingRun, 'trigger')
-        assert hasattr(TrainingRun, 'status')
-        assert hasattr(TrainingRun, 'progress_pct')
-        assert hasattr(TrainingRun, 'current_epoch')
-        assert hasattr(TrainingRun, 'total_epochs')
-        assert hasattr(TrainingRun, 'cost_usd')
-        assert hasattr(TrainingRun, 'provider')
-        assert hasattr(TrainingRun, 'gpu_type')
+        assert hasattr(TrainingRun, "company_id")
+        assert hasattr(TrainingRun, "agent_id")
+        assert hasattr(TrainingRun, "dataset_id")
+        assert hasattr(TrainingRun, "trigger")
+        assert hasattr(TrainingRun, "status")
+        assert hasattr(TrainingRun, "progress_pct")
+        assert hasattr(TrainingRun, "current_epoch")
+        assert hasattr(TrainingRun, "total_epochs")
+        assert hasattr(TrainingRun, "cost_usd")
+        assert hasattr(TrainingRun, "provider")
+        assert hasattr(TrainingRun, "gpu_type")
 
     def test_training_dataset_has_required_fields(self):
         """Test TrainingDataset model has all required fields."""
         from database.models.training import TrainingDataset
 
-        assert hasattr(TrainingDataset, 'company_id')
-        assert hasattr(TrainingDataset, 'agent_id')
-        assert hasattr(TrainingDataset, 'name')
-        assert hasattr(TrainingDataset, 'record_count')
-        assert hasattr(TrainingDataset, 'source')
-        assert hasattr(TrainingDataset, 'status')
+        assert hasattr(TrainingDataset, "company_id")
+        assert hasattr(TrainingDataset, "agent_id")
+        assert hasattr(TrainingDataset, "name")
+        assert hasattr(TrainingDataset, "record_count")
+        assert hasattr(TrainingDataset, "source")
+        assert hasattr(TrainingDataset, "status")
 
 
 if __name__ == "__main__":

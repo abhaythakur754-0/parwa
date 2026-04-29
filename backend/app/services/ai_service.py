@@ -25,6 +25,7 @@ logger = get_logger("ai_service")
 @dataclass
 class AIProcessRequest:
     """Input for AI message processing."""
+
     user_message: str
     session_id: str
     user_id: str
@@ -38,6 +39,7 @@ class AIProcessRequest:
 @dataclass
 class AIProcessResult:
     """Output from AI message processing."""
+
     response_content: str
     message_type: str = "text"
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -82,9 +84,11 @@ def process_message(request: AIProcessRequest) -> AIProcessResult:
     knowledge = _search_knowledge(request)
     trained_responses = _get_trained_responses(request)
     escalation_record = _evaluate_escalation(request, sentiment_data)
-    tone = sentiment_data.get(
-        "tone_recommendation",
-        "standard") if sentiment_data else "standard"
+    tone = (
+        sentiment_data.get("tone_recommendation", "standard")
+        if sentiment_data
+        else "standard"
+    )
 
     # Build context updates to merge back into session
     context_updates: Dict[str, Any] = {}
@@ -98,14 +102,15 @@ def process_message(request: AIProcessRequest) -> AIProcessResult:
         }
 
     if escalation_record:
-        context_updates["last_escalation"] = escalation_record.get(
-            "escalation_id")
+        context_updates["last_escalation"] = escalation_record.get("escalation_id")
 
     return AIProcessResult(
         response_content="",  # Filled by caller after AI provider call
         message_type="text",
         metadata={
-            "sentiment_score": sentiment_data.get("frustration_score", 0) if sentiment_data else 0,
+            "sentiment_score": (
+                sentiment_data.get("frustration_score", 0) if sentiment_data else 0
+            ),
             "tone": tone,
             "escalation_triggered": escalation_record is not None,
         },
@@ -149,7 +154,8 @@ def enrich_system_prompt(
             "Acknowledge their frustration first. Apologize sincerely. "
             "Focus on resolving their issue immediately. "
             "Do NOT be overly cheerful or dismissive. "
-            "Use calming language and assure them you're taking this seriously.\n")
+            "Use calming language and assure them you're taking this seriously.\n"
+        )
     elif tone_recommendation == "empathetic":
         tone_section += (
             "The user is experiencing some frustration or concern. "
@@ -236,7 +242,8 @@ def _analyze_sentiment(request: AIProcessRequest) -> Optional[Dict[str, Any]]:
         history_texts = None
         if request.conversation_history:
             history_texts = [
-                m.get("content", "") for m in request.conversation_history[-10:]
+                m.get("content", "")
+                for m in request.conversation_history[-10:]
                 if m.get("role") in ("user", "jarvis", "assistant")
             ]
 
@@ -249,6 +256,7 @@ def _analyze_sentiment(request: AIProcessRequest) -> Optional[Dict[str, Any]]:
             if loop.is_running():
                 # Running inside FastAPI event loop - use create_task
                 import concurrent.futures
+
                 with concurrent.futures.ThreadPoolExecutor() as pool:
                     future = pool.submit(
                         asyncio.run,
@@ -300,12 +308,14 @@ def _search_knowledge(request: AIProcessRequest) -> List[Dict[str, Any]]:
 
         knowledge = []
         for r in results:
-            knowledge.append({
-                "file": r.get("source", "unknown"),
-                "score": r.get("relevance_score", 0.5),
-                "content": r.get("content", "")[:200],
-                "type": r.get("type", "unknown"),
-            })
+            knowledge.append(
+                {
+                    "file": r.get("source", "unknown"),
+                    "score": r.get("relevance_score", 0.5),
+                    "content": r.get("content", "")[:200],
+                    "type": r.get("type", "unknown"),
+                }
+            )
         return knowledge
 
     except Exception as exc:
@@ -404,11 +414,14 @@ def _evaluate_escalation(
         )
 
         should_escalate, matched_rules, result_severity = manager.evaluate_escalation(
-            request.company_id, ctx, )
+            request.company_id,
+            ctx,
+        )
 
         if should_escalate:
             record = manager.create_escalation(
-                request.company_id, ctx,
+                request.company_id,
+                ctx,
             )
             if record:
                 return {

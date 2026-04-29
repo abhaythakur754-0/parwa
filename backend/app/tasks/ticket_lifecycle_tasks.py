@@ -42,8 +42,7 @@ def detect_stale_tickets_task(
             # Mark as stale
             marked_count = 0
             for stale_info in stale_tickets:
-                if stale_info["staleness_level"] in [
-                        "timeout", "double_timeout"]:
+                if stale_info["staleness_level"] in ["timeout", "double_timeout"]:
                     try:
                         service.mark_as_stale(stale_info["ticket_id"])
                         marked_count += 1
@@ -220,11 +219,15 @@ def detect_spam_patterns_task(
             for customer_info in patterns["patterns"]["high_frequency_customers"]:
                 if customer_info["ticket_count"] > 20:  # Very high frequency
                     # Get customer's recent tickets
-                    recent = db.query(Ticket).filter(
-                        Ticket.company_id == company_id,
-                        Ticket.customer_id == customer_info["customer_id"],
-                        Ticket.is_spam is False,
-                    ).all()
+                    recent = (
+                        db.query(Ticket)
+                        .filter(
+                            Ticket.company_id == company_id,
+                            Ticket.customer_id == customer_info["customer_id"],
+                            Ticket.is_spam is False,
+                        )
+                        .all()
+                    )
 
                     for ticket in recent:
                         try:
@@ -355,9 +358,8 @@ def handle_variant_status_change_task(
                 "success": True,
                 "variant_id": variant_id,
                 "is_online": is_online,
-                "affected_tickets": result.get("queued_tickets") or result.get(
-                    "resumed_tickets",
-                    0),
+                "affected_tickets": result.get("queued_tickets")
+                or result.get("resumed_tickets", 0),
             }
 
     except Exception as e:

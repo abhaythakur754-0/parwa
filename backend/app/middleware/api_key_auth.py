@@ -51,48 +51,40 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
         # Only validate tokens with parwa_ prefix as API keys
         # JWT tokens (dot-separated) should pass through to
         # the route-level auth dependency (get_current_user)
-        if not raw_key.startswith("parwa_live_") and \
-                not raw_key.startswith("parwa_test_"):
+        if not raw_key.startswith("parwa_live_") and not raw_key.startswith(
+            "parwa_test_"
+        ):
             response = await call_next(request)
             return response
 
         # Try DB-backed validation first
         key_data = None
         if self._has_db_available():
-            key_data = await self._validate_db(
-                request, raw_key
-            )
+            key_data = await self._validate_db(request, raw_key)
 
         # Fallback to in-memory key_store
         if not key_data:
             key_data = self._lookup_key_memory(raw_key)
 
         if not key_data:
-            return self._unauthorized_response(
-                request, "Invalid or expired API key"
-            )
+            return self._unauthorized_response(request, "Invalid or expired API key")
 
         if key_data.get("status") != "active":
-            return self._unauthorized_response(
-                request, "API key has been revoked"
-            )
+            return self._unauthorized_response(request, "API key has been revoked")
 
         expires_at = key_data.get("expires_at")
         if expires_at is not None:
             if isinstance(expires_at, str):
                 try:
                     from datetime import datetime
-                    exp = datetime.fromisoformat(
-                        expires_at
-                    )
+
+                    exp = datetime.fromisoformat(expires_at)
                     expires_at = exp.timestamp()
                 except (ValueError, TypeError):
                     pass
             if isinstance(expires_at, (int, float)):
                 if time.time() > expires_at:
-                    return self._unauthorized_response(
-                        request, "API key has expired"
-                    )
+                    return self._unauthorized_response(request, "API key has expired")
 
         # BC-001: Verify company_id
         req_cid = getattr(request.state, "company_id", None)
@@ -100,14 +92,8 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
         if req_cid is None and key_cid:
             request.state.company_id = key_cid
             req_cid = key_cid
-        if (
-            req_cid
-            and key_cid
-            and req_cid != key_cid
-        ):
-            return self._forbidden_response(
-                request, "API key does not match tenant"
-            )
+        if req_cid and key_cid and req_cid != key_cid:
+            return self._forbidden_response(request, "API key does not match tenant")
 
         request.state.api_key = {
             "id": key_data.get("id"),
@@ -128,9 +114,7 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
         return False
 
     def _extract_key(self, request: Request) -> str:
-        auth_header = request.headers.get(
-            "Authorization", ""
-        )
+        auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
             return ""
         return auth_header[7:]
@@ -139,12 +123,15 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
         """Check if DB-backed validation is available."""
         try:
             from database.base import SessionLocal as _  # noqa: F401
+
             return True
         except Exception:
             return False
 
     async def _validate_db(
-        self, request: Request, raw_key: str,
+        self,
+        request: Request,
+        raw_key: str,
     ):
         """Validate key against database."""
         try:
@@ -154,7 +141,8 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
             db = SessionLocal()
             try:
                 record = api_key_service.validate_key(
-                    db, raw_key,
+                    db,
+                    raw_key,
                 )
                 if not record:
                     return None
@@ -172,12 +160,14 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
                 db.commit()
 
                 import json
+
                 scopes = ["read"]
                 if record.scopes:
                     try:
                         scopes = json.loads(record.scopes)
                     except (
-                        json.JSONDecodeError, TypeError,
+                        json.JSONDecodeError,
+                        TypeError,
                     ):
                         if record.scope:
                             scopes = [record.scope]
@@ -189,21 +179,16 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
                     "name": record.name,
                     "company_id": record.company_id,
                     "scopes": scopes,
-                    "status": (
-                        "active"
-                        if not record.revoked
-                        else "revoked"
-                    ),
+                    "status": ("active" if not record.revoked else "revoked"),
                     "expires_at": (
-                        record.expires_at.isoformat()
-                        if record.expires_at
-                        else None
+                        record.expires_at.isoformat() if record.expires_at else None
                     ),
                 }
             finally:
                 db.close()
         except Exception as _exc:
             from app.logger import get_logger
+
             get_logger("api_key_auth").warning(
                 "api_key_db_validation_failed",
                 error=str(_exc),
@@ -215,25 +200,23 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
         if not raw_key:
             return None
         import hashlib
-        computed = hashlib.sha256(
-            raw_key.encode("utf-8")
-        ).hexdigest()
+
+        computed = hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
         from shared.utils.security import (
             constant_time_compare,
         )
+
         for stored_hash, key_data in self._key_store.items():
-            if constant_time_compare(
-                computed, stored_hash
-            ):
+            if constant_time_compare(computed, stored_hash):
                 return key_data
         return None
 
     def _unauthorized_response(
-        self, request: Request, message: str,
+        self,
+        request: Request,
+        message: str,
     ) -> JSONResponse:
-        cid = getattr(
-            request.state, "correlation_id", None
-        )
+        cid = getattr(request.state, "correlation_id", None)
         return build_error_response(
             status_code=401,
             error_code="AUTHENTICATION_ERROR",
@@ -242,11 +225,11 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
         )
 
     def _forbidden_response(
-        self, request: Request, message: str,
+        self,
+        request: Request,
+        message: str,
     ) -> JSONResponse:
-        cid = getattr(
-            request.state, "correlation_id", None
-        )
+        cid = getattr(request.state, "correlation_id", None)
         return build_error_response(
             status_code=403,
             error_code="AUTHORIZATION_ERROR",
@@ -262,6 +245,7 @@ def require_scope(required_scope: str):
     Passes through when authenticated via JWT (user on state),
     since JWT users have role-based permissions.
     """
+
     def checker(request: Request):
         api_key = getattr(request.state, "api_key", None)
         if not api_key:
@@ -269,15 +253,15 @@ def require_scope(required_scope: str):
             return
         scopes = api_key.get("scopes", [])
         from security.api_keys import validate_scopes
+
         if not validate_scopes(scopes, required_scope):
             from fastapi import HTTPException
+
             raise HTTPException(
                 status_code=403,
-                detail=(
-                    "Insufficient scope. "
-                    f"Required: {required_scope}"
-                ),
+                detail=("Insufficient scope. " f"Required: {required_scope}"),
             )
+
     return checker
 
 

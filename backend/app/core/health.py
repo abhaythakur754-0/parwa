@@ -26,6 +26,7 @@ logger = get_logger("health")
 
 class HealthStatus(str, Enum):
     """Health status levels for subsystem checks."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -44,6 +45,7 @@ class SubsystemHealth:
         error: Error message if check failed.
         is_critical: Whether this subsystem is required for readiness.
     """
+
     name: str
     status: str = HealthStatus.UNKNOWN.value
     latency_ms: float = 0.0
@@ -67,6 +69,7 @@ class HealthCheckResult:
         checks_unhealthy: Number of unhealthy checks.
         cached: Whether this result was served from cache.
     """
+
     status: str = HealthStatus.UNKNOWN.value
     subsystems: Dict[str, SubsystemHealth] = field(
         default_factory=dict,
@@ -148,6 +151,7 @@ async def check_postgresql() -> SubsystemHealth:
     start = time.monotonic()
     try:
         from database.base import engine
+
         with engine.connect() as conn:
             conn.execute(__import__("sqlalchemy").text("SELECT 1"))
 
@@ -161,9 +165,7 @@ async def check_postgresql() -> SubsystemHealth:
             pool_used = pool.checkedout()
             pool_max = pool.size()
         except Exception as _pool_exc:
-            logger.debug(
-                "health_postgresql_pool_stats_failed error=%s",
-                _pool_exc)
+            logger.debug("health_postgresql_pool_stats_failed error=%s", _pool_exc)
 
         pool_pct = (pool_used / pool_max * 100) if pool_max > 0 else 0
         status = HealthStatus.HEALTHY.value
@@ -202,6 +204,7 @@ async def check_redis() -> SubsystemHealth:
     start = time.monotonic()
     try:
         from app.core.redis import get_redis
+
         client = await get_redis()
         await client.ping()
 
@@ -213,12 +216,14 @@ async def check_redis() -> SubsystemHealth:
         try:
             info = await client.info("memory")
             memory_used_mb = round(
-                info.get("used_memory", 0) / (1024 * 1024), 2,
+                info.get("used_memory", 0) / (1024 * 1024),
+                2,
             )
             maxmemory = info.get("maxmemory", 0)
             if maxmemory > 0:
                 memory_max_mb = round(
-                    maxmemory / (1024 * 1024), 2,
+                    maxmemory / (1024 * 1024),
+                    2,
                 )
         except Exception as _mem_exc:
             logger.debug("health_redis_memory_info_failed error=%s", _mem_exc)
@@ -269,6 +274,7 @@ async def check_celery() -> SubsystemHealth:
             celery_health_check,
             get_active_workers,
         )
+
         broker_info = await celery_health_check()
         latency = round((time.monotonic() - start) * 1000, 2)
 
@@ -319,12 +325,18 @@ async def check_celery_queues() -> SubsystemHealth:
     """
     start = time.monotonic()
     queue_names = [
-        "default", "ai_heavy", "ai_light", "email",
-        "webhook", "analytics", "training",
+        "default",
+        "ai_heavy",
+        "ai_light",
+        "email",
+        "webhook",
+        "analytics",
+        "training",
     ]
 
     try:
         from app.tasks.celery_app import app as celery_app
+
         inspect = celery_app.control.inspect(timeout=3)
 
         queue_depths: Dict[str, int] = {q: 0 for q in queue_names}
@@ -335,18 +347,14 @@ async def check_celery_queues() -> SubsystemHealth:
             reserved = inspect.reserved() or {}
             active = inspect.active() or {}
             for worker_name, tasks in reserved.items():
-                for task in (tasks or []):
-                    q_name = task.get("delivery_info", {}).get(
-                        "routing_key", "default"
-                    )
+                for task in tasks or []:
+                    q_name = task.get("delivery_info", {}).get("routing_key", "default")
                     if q_name in queue_depths:
                         queue_depths[q_name] += 1
                     total_depth += 1
             for worker_name, tasks in active.items():
-                for task in (tasks or []):
-                    q_name = task.get("delivery_info", {}).get(
-                        "routing_key", "default"
-                    )
+                for task in tasks or []:
+                    q_name = task.get("delivery_info", {}).get("routing_key", "default")
                     if q_name in queue_depths:
                         queue_depths[q_name] += 1
                     total_depth += 1
@@ -359,7 +367,7 @@ async def check_celery_queues() -> SubsystemHealth:
         status = HealthStatus.HEALTHY.value
         if max_depth > 5000:
             status = HealthStatus.UNHEALTHY.value
-        elif (max_depth > 500 or total_depth > 1000):
+        elif max_depth > 500 or total_depth > 1000:
             status = HealthStatus.DEGRADED.value
 
         return SubsystemHealth(
@@ -419,7 +427,8 @@ async def check_socketio() -> SubsystemHealth:
 
 
 async def check_external_service(
-    name: str, url: str,
+    name: str,
+    url: str,
     degraded_timeout: float = 2.0,
     unhealthy_timeout: float = 5.0,
 ) -> SubsystemHealth:
@@ -497,14 +506,21 @@ async def check_disk_space() -> SubsystemHealth:
         block_size = stat.f_frsize
 
         total_gb = round(
-            (total_blocks * block_size) / (1024 ** 3), 2,
+            (total_blocks * block_size) / (1024**3),
+            2,
         )
         free_gb = round(
-            (free_blocks * block_size) / (1024 ** 3), 2,
+            (free_blocks * block_size) / (1024**3),
+            2,
         )
-        free_pct = round(
-            (free_blocks / total_blocks) * 100, 2,
-        ) if total_blocks > 0 else 0
+        free_pct = (
+            round(
+                (free_blocks / total_blocks) * 100,
+                2,
+            )
+            if total_blocks > 0
+            else 0
+        )
 
         latency = round((time.monotonic() - start) * 1000, 2)
 
@@ -589,6 +605,7 @@ async def run_health_checks(
         if not ext_urls:
             try:
                 from app.config import get_settings
+
                 get_settings()  # noqa: F841 — verify config is valid
                 ext_urls = {
                     "external_paddle": "https://vendors.paddle.com",
@@ -603,10 +620,12 @@ async def run_health_checks(
                 }
 
         for name, url in ext_urls.items():
-            tasks.append((
-                name,
-                check_external_service(name, url),
-            ))
+            tasks.append(
+                (
+                    name,
+                    check_external_service(name, url),
+                )
+            )
 
     # Await all checks concurrently
     for name, coro in tasks:
@@ -643,8 +662,7 @@ async def run_health_checks(
         # Check if any dependency is unhealthy
         for dep in deps:
             dep_health = subsystems.get(dep)
-            if (dep_health
-                    and dep_health.status == HealthStatus.UNHEALTHY.value):
+            if dep_health and dep_health.status == HealthStatus.UNHEALTHY.value:
                 # Force dependent to degraded (not unhealthy — the
                 # subsystem itself may be fine, just its dependency is down)
                 subsystems[name] = SubsystemHealth(
@@ -652,9 +670,7 @@ async def run_health_checks(
                     status=HealthStatus.DEGRADED.value,
                     latency_ms=current.latency_ms,
                     details=current.details,
-                    error=(
-                        f"dependency '{dep}' is unhealthy"
-                    ),
+                    error=(f"dependency '{dep}' is unhealthy"),
                     is_critical=current.is_critical,
                 )
                 break

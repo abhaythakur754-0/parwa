@@ -31,6 +31,7 @@ logger = get_logger("lead_service")
 @dataclass
 class LeadData:
     """Represents a captured lead."""
+
     lead_id: str
     user_id: str
     company_id: str
@@ -175,10 +176,7 @@ def get_lead(user_id: str) -> Optional[LeadData]:
     return None
 
 
-def update_lead_status(
-        user_id: str,
-        status: str,
-        **kwargs) -> Optional[LeadData]:
+def update_lead_status(user_id: str, status: str, **kwargs) -> Optional[LeadData]:
     """Update a lead's status and optional fields."""
     lead = get_lead(user_id)
     if not lead:
@@ -203,16 +201,17 @@ def update_lead_status(
         lead.industry = kwargs["industry"]
 
     # Recalculate value and status
-    lead.estimated_monthly_value = _estimate_monthly_value(
-        lead.selected_variants)
+    lead.estimated_monthly_value = _estimate_monthly_value(lead.selected_variants)
     if status not in ("converted", "lost"):
-        lead.lead_status = _determine_lead_status({
-            "business_email": lead.business_email,
-            "industry": lead.industry,
-            "selected_variants": lead.selected_variants,
-            "email_verified": lead.email_verified,
-            "payment_completed": lead.payment_completed,
-        })
+        lead.lead_status = _determine_lead_status(
+            {
+                "business_email": lead.business_email,
+                "industry": lead.industry,
+                "selected_variants": lead.selected_variants,
+                "email_verified": lead.email_verified,
+                "payment_completed": lead.payment_completed,
+            }
+        )
 
     _leads[lead.lead_id] = lead
     return lead

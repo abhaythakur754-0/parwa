@@ -44,17 +44,43 @@ logger = logging.getLogger(__name__)
 # ══════════════════════════════════════════════════════════════════
 
 VALID_CATEGORIES: Set[str] = {
-    "greeting", "farewell", "apology", "escalation",
-    "refund", "technical", "billing", "general", "custom",
+    "greeting",
+    "farewell",
+    "apology",
+    "escalation",
+    "refund",
+    "technical",
+    "billing",
+    "general",
+    "custom",
 }
 
 VALID_LANGUAGES: Set[str] = {
-    "en", "es", "fr", "de", "pt", "it", "nl", "ja", "zh",
-    "ko", "ar", "hi", "ru", "pl", "tr", "sv",
+    "en",
+    "es",
+    "fr",
+    "de",
+    "pt",
+    "it",
+    "nl",
+    "ja",
+    "zh",
+    "ko",
+    "ar",
+    "hi",
+    "ru",
+    "pl",
+    "tr",
+    "sv",
 }
 
 VALID_VARIABLE_TYPES: Set[str] = {
-    "string", "int", "float", "date", "email", "url",
+    "string",
+    "int",
+    "float",
+    "date",
+    "email",
+    "url",
 }
 
 # Regex helpers
@@ -71,6 +97,7 @@ CACHE_TTL_SECONDS = 1800
 @dataclass
 class TemplateVariable:
     """Describes a single template variable."""
+
     name: str
     description: str
     required: bool
@@ -81,6 +108,7 @@ class TemplateVariable:
 @dataclass
 class TemplateValidationResult:
     """Result of validating template syntax and variables."""
+
     is_valid: bool
     errors: list[str]
     warnings: list[str]
@@ -91,6 +119,7 @@ class TemplateValidationResult:
 @dataclass
 class ResponseTemplate:
     """A stored response template scoped to a tenant."""
+
     id: str
     company_id: str
     name: str
@@ -122,7 +151,9 @@ class ResponseTemplate:
             "language": self.language,
             "is_active": self.is_active,
             "usage_count": self.usage_count,
-            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
+            "last_used_at": (
+                self.last_used_at.isoformat() if self.last_used_at else None
+            ),
             "version": self.version,
             "created_by": self.created_by,
             "created_at": self.created_at.isoformat(),
@@ -175,15 +206,22 @@ class ResponseTemplate:
 # ══════════════════════════════════════════════════════════════════
 
 _ALLOWED_TAGS: Set[str] = {
-    "p", "br", "strong", "em", "ul", "ol", "li", "a", "span", "div",
+    "p",
+    "br",
+    "strong",
+    "em",
+    "ul",
+    "ol",
+    "li",
+    "a",
+    "span",
+    "div",
 }
 
 _ALLOWED_ATTRS: Set[str] = {"hre", "class", "style", "title"}
 
 # Regex for stripping dangerous content
-_RE_SCRIPT = re.compile(
-    r"<script[^>]*>.*?</script>",
-    re.DOTALL | re.IGNORECASE)
+_RE_SCRIPT = re.compile(r"<script[^>]*>.*?</script>", re.DOTALL | re.IGNORECASE)
 _RE_EVENT_HANDLER = re.compile(r"on\w+\s*=\s*[\"'][^\"']*[\"']", re.IGNORECASE)
 _RE_JAVASCRIPT = re.compile(r"javascript:", re.IGNORECASE)
 _RE_HTML_TAG = re.compile(r"<(/?)(\w+)([^>]*)>")
@@ -211,9 +249,7 @@ def _clean_tag(
 
     # Filter attributes
     clean_attrs: list[str] = []
-    for attr_match in re.finditer(
-        r'(\w+)\s*=\s*(["\'][^"\']*["\']|\S+)',
-            attr_string):
+    for attr_match in re.finditer(r'(\w+)\s*=\s*(["\'][^"\']*["\']|\S+)', attr_string):
         attr_name = attr_match.group(1).lower()
         if attr_name in allowed_attrs:
             # Only allow safe attribute values (no javascript: etc.)
@@ -429,22 +465,62 @@ _DEFAULT_TEMPLATES: List[Dict[str, Any]] = [
 # ══════════════════════════════════════════════════════════════════
 
 _KNOWN_VARIABLES: Dict[str, TemplateVariable] = {
-    "customer_name": TemplateVariable("customer_name", "Customer's full name", True, None, "string"),
-    "company_name": TemplateVariable("company_name", "Company / brand name", True, None, "string"),
-    "agent_name": TemplateVariable("agent_name", "Support agent name", False, "Support Team", "string"),
-    "ticket_id": TemplateVariable("ticket_id", "Ticket reference number", False, None, "string"),
-    "response_time": TemplateVariable("response_time", "Expected response time", False, "24 hours", "string"),
-    "issue_description": TemplateVariable("issue_description", "Short description of the issue", False, None, "string"),
-    "resolution_time": TemplateVariable("resolution_time", "Expected resolution timeframe", False, "48 hours", "string"),
-    "escalation_response_time": TemplateVariable("escalation_response_time", "Escalation SLA window", False, "2 hours", "string"),
-    "order_id": TemplateVariable("order_id", "Order reference number", False, None, "string"),
-    "refund_amount": TemplateVariable("refund_amount", "Refund monetary amount", False, None, "string"),
-    "payment_method": TemplateVariable("payment_method", "Payment method used", False, None, "string"),
-    "refund_reference": TemplateVariable("refund_reference", "Refund transaction reference", False, None, "string"),
-    "processing_time": TemplateVariable("processing_time", "Refund processing duration", False, "3-5 business days", "string"),
-    "issue_summary": TemplateVariable("issue_summary", "One-line summary of the issue", True, None, "string"),
-    "product_or_service": TemplateVariable("product_or_service", "Affected product or service", False, None, "string"),
-    "troubleshooting_steps": TemplateVariable("troubleshooting_steps", "Step-by-step troubleshooting guide", False, None, "string"),
+    "customer_name": TemplateVariable(
+        "customer_name", "Customer's full name", True, None, "string"
+    ),
+    "company_name": TemplateVariable(
+        "company_name", "Company / brand name", True, None, "string"
+    ),
+    "agent_name": TemplateVariable(
+        "agent_name", "Support agent name", False, "Support Team", "string"
+    ),
+    "ticket_id": TemplateVariable(
+        "ticket_id", "Ticket reference number", False, None, "string"
+    ),
+    "response_time": TemplateVariable(
+        "response_time", "Expected response time", False, "24 hours", "string"
+    ),
+    "issue_description": TemplateVariable(
+        "issue_description", "Short description of the issue", False, None, "string"
+    ),
+    "resolution_time": TemplateVariable(
+        "resolution_time", "Expected resolution timeframe", False, "48 hours", "string"
+    ),
+    "escalation_response_time": TemplateVariable(
+        "escalation_response_time", "Escalation SLA window", False, "2 hours", "string"
+    ),
+    "order_id": TemplateVariable(
+        "order_id", "Order reference number", False, None, "string"
+    ),
+    "refund_amount": TemplateVariable(
+        "refund_amount", "Refund monetary amount", False, None, "string"
+    ),
+    "payment_method": TemplateVariable(
+        "payment_method", "Payment method used", False, None, "string"
+    ),
+    "refund_reference": TemplateVariable(
+        "refund_reference", "Refund transaction reference", False, None, "string"
+    ),
+    "processing_time": TemplateVariable(
+        "processing_time",
+        "Refund processing duration",
+        False,
+        "3-5 business days",
+        "string",
+    ),
+    "issue_summary": TemplateVariable(
+        "issue_summary", "One-line summary of the issue", True, None, "string"
+    ),
+    "product_or_service": TemplateVariable(
+        "product_or_service", "Affected product or service", False, None, "string"
+    ),
+    "troubleshooting_steps": TemplateVariable(
+        "troubleshooting_steps",
+        "Step-by-step troubleshooting guide",
+        False,
+        None,
+        "string",
+    ),
 }
 
 
@@ -523,15 +599,12 @@ class ResponseTemplateService:
         self.__class__._defaults_loaded[company_id] = True
         logger.info(
             "response_template_defaults_loaded",
-            extra={
-                "company_id": company_id,
-                "defaults_count": len(_DEFAULT_TEMPLATES)},
+            extra={"company_id": company_id, "defaults_count": len(_DEFAULT_TEMPLATES)},
         )
 
     async def _cache_get(
-            self,
-            company_id: str,
-            template_id: str) -> Optional[ResponseTemplate]:
+        self, company_id: str, template_id: str
+    ) -> Optional[ResponseTemplate]:
         """Try to fetch a template from Redis cache."""
         if self.redis_client is None:
             return None
@@ -546,7 +619,8 @@ class ResponseTemplateService:
                 extra={
                     "company_id": company_id,
                     "template_id": template_id,
-                    "error": str(exc)},
+                    "error": str(exc),
+                },
             )
         return None
 
@@ -580,7 +654,8 @@ class ResponseTemplateService:
                 extra={
                     "company_id": company_id,
                     "template_id": template_id,
-                    "error": str(exc)},
+                    "error": str(exc),
+                },
             )
 
     def _get_store(self, company_id: str) -> Dict[str, ResponseTemplate]:
@@ -632,7 +707,8 @@ class ResponseTemplateService:
             body_template = template_data.get("body_template", "")
             if not subject_template and not body_template:
                 raise ValidationError(
-                    message="At least one of subject_template or body_template is required", )
+                    message="At least one of subject_template or body_template is required",
+                )
 
             language = template_data.get("language", "en").strip().lower()
             if language not in VALID_LANGUAGES:
@@ -693,8 +769,8 @@ class ResponseTemplateService:
             )
             raise InternalError(
                 message="Failed to create response template",
-                details={
-                    "error": str(exc)})
+                details={"error": str(exc)},
+            )
 
     async def get_template(
         self,
@@ -742,12 +818,13 @@ class ResponseTemplateService:
                 extra={
                     "template_id": template_id,
                     "company_id": company_id,
-                    "error": str(exc)},
+                    "error": str(exc),
+                },
             )
             raise InternalError(
                 message="Failed to retrieve response template",
-                details={
-                    "error": str(exc)})
+                details={"error": str(exc)},
+            )
 
     async def list_templates(
         self,
@@ -835,7 +912,8 @@ class ResponseTemplateService:
                     raise ValidationError(
                         message=f"Invalid category '{cat}'. " f"Must be one of: {
                             ', '.join(
-                                sorted(VALID_CATEGORIES))}", )
+                                sorted(VALID_CATEGORIES))}",
+                    )
                 template.category = cat
                 modified = True
 
@@ -891,12 +969,13 @@ class ResponseTemplateService:
                 extra={
                     "template_id": template_id,
                     "company_id": company_id,
-                    "error": str(exc)},
+                    "error": str(exc),
+                },
             )
             raise InternalError(
                 message="Failed to update response template",
-                details={
-                    "error": str(exc)})
+                details={"error": str(exc)},
+            )
 
     async def delete_template(
         self,
@@ -919,9 +998,7 @@ class ResponseTemplateService:
                 await self._cache_delete(company_id, template_id)
                 logger.info(
                     "response_template_deleted",
-                    extra={
-                        "template_id": template_id,
-                        "company_id": company_id},
+                    extra={"template_id": template_id, "company_id": company_id},
                 )
                 return True
             return False
@@ -932,7 +1009,8 @@ class ResponseTemplateService:
                 extra={
                     "template_id": template_id,
                     "company_id": company_id,
-                    "error": str(exc)},
+                    "error": str(exc),
+                },
             )
             return False
 
@@ -1001,12 +1079,13 @@ class ResponseTemplateService:
                 extra={
                     "template_id": template_id,
                     "company_id": company_id,
-                    "error": str(exc)},
+                    "error": str(exc),
+                },
             )
             raise InternalError(
                 message="Failed to duplicate response template",
-                details={
-                    "error": str(exc)})
+                details={"error": str(exc)},
+            )
 
     # ──────────────────────────────────────────────────────────────
     # Template operations
@@ -1041,7 +1120,8 @@ class ResponseTemplateService:
             safe_vars: Dict[str, str] = {}
             for key, value in variables.items():
                 safe_vars[key] = sanitize_template_variable(
-                    str(value) if value is not None else "", content_type)
+                    str(value) if value is not None else "", content_type
+                )
 
             def _replacer(match: re.Match) -> str:
                 var_name = match.group(1)
@@ -1051,9 +1131,9 @@ class ResponseTemplateService:
                 return match.group(0)
 
             rendered_subject = _VARIABLE_PATTERN.sub(
-                _replacer, template.subject_template)
-            rendered_body = _VARIABLE_PATTERN.sub(
-                _replacer, template.body_template)
+                _replacer, template.subject_template
+            )
+            rendered_body = _VARIABLE_PATTERN.sub(_replacer, template.body_template)
 
             # Increment usage
             await self.increment_usage(template_id)
@@ -1066,7 +1146,8 @@ class ResponseTemplateService:
                 extra={
                     "template_id": template_id,
                     "company_id": company_id,
-                    "error": str(exc)},
+                    "error": str(exc),
+                },
             )
             # BC-008: Return a safe fallback rather than crashing
             return ""
@@ -1129,13 +1210,11 @@ class ResponseTemplateService:
                     score += 30.0
 
                 # 3. Sentiment-appropriate category boost (up to 20 points)
-                category_score = sentiment_category_boost.get(
-                    template.category, 0.0)
+                category_score = sentiment_category_boost.get(template.category, 0.0)
                 score += category_score * 10.0
 
                 # 4. Recency bonus (up to 5 points for very recent updates)
-                age_hours = (
-                    _now() - template.updated_at).total_seconds() / 3600
+                age_hours = (_now() - template.updated_at).total_seconds() / 3600
                 # Decays over 30 days
                 recency = max(0.0, 5.0 - (age_hours / 720))
                 score += recency
@@ -1165,7 +1244,8 @@ class ResponseTemplateService:
                 extra={
                     "company_id": company_id,
                     "intent_type": intent_type,
-                    "error": str(exc)},
+                    "error": str(exc),
+                },
             )
             return None
 
@@ -1195,13 +1275,15 @@ class ResponseTemplateService:
                 if var_name in _KNOWN_VARIABLES:
                     result.append(_KNOWN_VARIABLES[var_name])
                 else:
-                    result.append(TemplateVariable(
-                        name=var_name,
-                        description=f"Custom variable: {var_name}",
-                        required=False,
-                        default_value=None,
-                        type="string",
-                    ))
+                    result.append(
+                        TemplateVariable(
+                            name=var_name,
+                            description=f"Custom variable: {var_name}",
+                            required=False,
+                            default_value=None,
+                            type="string",
+                        )
+                    )
 
             return result
 
@@ -1211,7 +1293,8 @@ class ResponseTemplateService:
                 extra={
                     "template_id": template_id,
                     "company_id": company_id,
-                    "error": str(exc)},
+                    "error": str(exc),
+                },
             )
             return []
 
@@ -1257,8 +1340,7 @@ class ResponseTemplateService:
                     for m in all_open[close_count:]:
                         unclosed.append("{{")
                 else:
-                    errors.append(
-                        "Orphan closing braces detected: " f"{
+                    errors.append("Orphan closing braces detected: " f"{
                             close_count
                             - open_count} more closing braces than opening")
 
@@ -1266,8 +1348,7 @@ class ResponseTemplateService:
             for m in re.finditer(r"\{\{([^}]*)\}\}", template_content):
                 inner = m.group(1).strip()
                 if not inner:
-                    errors.append(
-                        f"Empty variable tag at position {
+                    errors.append(f"Empty variable tag at position {
                             m.start()}")
                 elif not re.match(r"^\w+$", inner):
                     warnings.append(
@@ -1280,7 +1361,8 @@ class ResponseTemplateService:
             for var_name in variables_found:
                 if var_name not in known_var_names:
                     warnings.append(
-                        f"Unknown variable: '{var_name}' — not in the standard variable registry")
+                        f"Unknown variable: '{var_name}' — not in the standard variable registry"
+                    )
 
             is_valid = len(errors) == 0
 

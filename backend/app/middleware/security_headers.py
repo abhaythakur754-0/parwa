@@ -22,16 +22,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "0"
-        response.headers["Referrer-Policy"] = (
-            "strict-origin-when-cross-origin"
-        )
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = (
             "camera=(), microphone=(), geolocation=()"
         )
         response.headers["Content-Security-Policy"] = (
             "default-src 'sel'; script-src 'sel'; style-src 'sel' 'unsafe-inline'; "
             "img-src 'sel' data: blob:; font-src 'self'; "
-            "connect-src 'self' https://*.googleapis.com")
+            "connect-src 'self' https://*.googleapis.com"
+        )
         # HSTS only in production
         env = os.environ.get("ENVIRONMENT", "development")
         if env == "production":

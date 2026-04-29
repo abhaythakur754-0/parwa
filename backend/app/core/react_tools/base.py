@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class ValidationResult:
     """Result of parameter validation."""
+
     is_valid: bool
     errors: list[str] = field(default_factory=list)
     missing_params: list[str] = field(default_factory=list)
@@ -40,6 +41,7 @@ class ValidationResult:
 @dataclass
 class ToolResult:
     """Structured result returned by every tool action."""
+
     success: bool
     error: str | None
     data: dict | list | None
@@ -62,6 +64,7 @@ class ToolResult:
 @dataclass
 class ActionSchema:
     """JSON Schema descriptor for a single tool action."""
+
     name: str
     description: str
     parameters: dict  # JSON Schema
@@ -72,6 +75,7 @@ class ActionSchema:
 @dataclass
 class ToolSchema:
     """JSON Schema descriptor for a complete tool."""
+
     tool_name: str
     description: str
     actions: list[ActionSchema]
@@ -96,6 +100,7 @@ class ToolSchema:
 @dataclass
 class ToolCall:
     """A single tool execution request for parallel batching."""
+
     tool_name: str
     action: str
     company_id: str
@@ -243,10 +248,7 @@ class BaseReactTool(ABC):
 
     # ── Validation ──────────────────────────────────────────────
 
-    def validate_params(self,
-                        action: str,
-                        params: dict[str,
-                                     Any]) -> ValidationResult:
+    def validate_params(self, action: str, params: dict[str, Any]) -> ValidationResult:
         """
         Validate parameters against the action's schema.
 

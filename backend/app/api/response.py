@@ -75,6 +75,7 @@ logger = get_logger("response_api")
 
 class ResponseGenerationRequestSchema(BaseModel):
     """Schema for single response generation."""
+
     query: str = Field(..., min_length=1, description="Customer query text")
     conversation_id: str = Field(..., description="Conversation identifier")
     variant_type: str = Field(
@@ -83,19 +84,23 @@ class ResponseGenerationRequestSchema(BaseModel):
     )
     customer_id: Optional[str] = Field(None, description="Customer identifier")
     conversation_history: Optional[List[dict]] = Field(
-        None, description="Prior messages in the conversation",
+        None,
+        description="Prior messages in the conversation",
     )
     customer_metadata: Optional[dict] = Field(
-        None, description="Extra customer context",
+        None,
+        description="Extra customer context",
     )
     language: str = Field(default="en", description="Response language code")
     force_template_response: bool = Field(
-        default=False, description="Force template-based response",
+        default=False,
+        description="Force template-based response",
     )
 
 
 class BatchGenerationItemSchema(BaseModel):
     """Single item in a batch generation request."""
+
     query: str = Field(..., min_length=1)
     conversation_id: str = Field(...)
     variant_type: str = Field(default="parwa")
@@ -107,8 +112,11 @@ class BatchGenerationItemSchema(BaseModel):
 
 class BatchGenerationRequestSchema(BaseModel):
     """Schema for batch response generation."""
+
     items: List[BatchGenerationItemSchema] = Field(
-        ..., min_length=1, max_length=20,
+        ...,
+        min_length=1,
+        max_length=20,
         description="List of generation requests (max 20)",
     )
 
@@ -118,6 +126,7 @@ class BatchGenerationRequestSchema(BaseModel):
 
 class BudgetInitSchema(BaseModel):
     """Schema for initializing a token budget."""
+
     variant_type: str = Field(
         default="parwa",
         description="One of: mini_parwa, parwa, high_parwa",
@@ -126,8 +135,11 @@ class BudgetInitSchema(BaseModel):
 
 class OverflowCheckSchema(BaseModel):
     """Schema for checking token overflow."""
+
     estimated_tokens: int = Field(
-        ..., gt=0, description="Estimated tokens for the next message",
+        ...,
+        gt=0,
+        description="Estimated tokens for the next message",
     )
 
 
@@ -136,12 +148,15 @@ class OverflowCheckSchema(BaseModel):
 
 class BrandVoiceConfigSchema(BaseModel):
     """Schema for creating / updating brand voice config."""
+
     tone: str = Field(
         default="professional",
         description="professional | friendly | casual | empathetic | authoritative",
     )
     formality_level: float = Field(
-        default=0.5, ge=0.0, le=1.0,
+        default=0.5,
+        ge=0.0,
+        le=1.0,
         description="Formality from 0.0 (informal) to 1.0 (formal)",
     )
     prohibited_words: List[str] = Field(
@@ -153,10 +168,13 @@ class BrandVoiceConfigSchema(BaseModel):
         description="concise | standard | detailed",
     )
     max_response_sentences: int = Field(
-        default=10, ge=1, le=50,
+        default=10,
+        ge=1,
+        le=50,
     )
     min_response_sentences: int = Field(
-        default=1, ge=1,
+        default=1,
+        ge=1,
     )
     greeting_template: Optional[str] = Field(None)
     closing_template: Optional[str] = Field(None)
@@ -182,16 +200,22 @@ class BrandVoiceConfigSchema(BaseModel):
 
 class BrandVoiceCheckProhibitedSchema(BaseModel):
     """Schema for checking text against prohibited words."""
+
     text: str = Field(..., min_length=1, description="Text to check")
 
 
 class BrandVoiceValidateSchema(BaseModel):
     """Schema for validating a response against brand voice."""
+
     response_text: str = Field(
-        ..., min_length=1, description="The response to validate",
+        ...,
+        min_length=1,
+        description="The response to validate",
     )
     sentiment_score: float = Field(
-        default=0.5, ge=0.0, le=1.0,
+        default=0.5,
+        ge=0.0,
+        le=1.0,
         description="Customer sentiment context",
     )
 
@@ -201,6 +225,7 @@ class BrandVoiceValidateSchema(BaseModel):
 
 class TemplateCreateSchema(BaseModel):
     """Schema for creating a response template."""
+
     name: str = Field(..., min_length=1, max_length=255)
     category: str = Field(
         ...,
@@ -215,6 +240,7 @@ class TemplateCreateSchema(BaseModel):
 
 class TemplateUpdateSchema(BaseModel):
     """Schema for updating a response template."""
+
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     category: Optional[str] = None
     intent_types: Optional[List[str]] = None
@@ -226,6 +252,7 @@ class TemplateUpdateSchema(BaseModel):
 
 class TemplateRenderSchema(BaseModel):
     """Schema for rendering a template with variables."""
+
     variables: Dict[str, Any] = Field(
         default_factory=dict,
         description="Key-value pairs to substitute into {{variable}} placeholders",
@@ -241,16 +268,13 @@ class TemplateRenderSchema(BaseModel):
 
 class AIAssignmentRequestSchema(BaseModel):
     """Schema for AI-powered ticket assignment."""
+
     ticket_id: str = Field(..., description="Ticket to assign")
     variant_type: str = Field(default="parwa")
     intent_type: str = Field(default="general")
-    priority: str = Field(
-        default="medium",
-        description="low | medium | high | urgent")
+    priority: str = Field(default="medium", description="low | medium | high | urgent")
     sentiment_score: float = Field(default=0.5, ge=0.0, le=1.0)
-    customer_tier: str = Field(
-        default="basic",
-        description="basic | pro | enterprise")
+    customer_tier: str = Field(default="basic", description="basic | pro | enterprise")
     conversation_history: Optional[List[dict]] = None
     skills_required: Optional[List[str]] = None
     max_candidates: int = Field(default=5, ge=1, le=20)
@@ -261,6 +285,7 @@ class AIAssignmentRequestSchema(BaseModel):
 
 class MigrationStatusSchema(BaseModel):
     """Schema for getting migration status."""
+
     feature: Optional[str] = Field(
         None,
         description="Optional: specific feature to check (classification | assignment)",
@@ -269,6 +294,7 @@ class MigrationStatusSchema(BaseModel):
 
 class MigrationToggleSchema(BaseModel):
     """Schema for toggling AI features."""
+
     feature: str = Field(
         ...,
         description="classification | assignment",
@@ -279,7 +305,9 @@ class MigrationToggleSchema(BaseModel):
         description="Migration mode: static | shadow | canary | gradual | active",
     )
     percentage: float = Field(
-        default=0.0, ge=0.0, le=100.0,
+        default=0.0,
+        ge=0.0,
+        le=100.0,
         description="Traffic percentage for AI (canary/gradual modes)",
     )
 
@@ -353,9 +381,7 @@ async def generate_response(
         result = await generator.generate(req)
         return {
             "status": "ok",
-            "data": result.to_dict() if hasattr(
-                result,
-                "to_dict") else asdict(result),
+            "data": result.to_dict() if hasattr(result, "to_dict") else asdict(result),
         }
 
     except (ValidationError, NotFoundError) as exc:
@@ -369,9 +395,7 @@ async def generate_response(
             extra={"company_id": company_id, "error": str(exc)},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to generate response")
+        raise HTTPException(status_code=500, detail="Failed to generate response")
 
 
 @response_router.post("/generate/batch", summary="Batch generate responses")
@@ -409,11 +433,17 @@ async def generate_batch_responses(
                     language=item.language,
                 )
                 result = await generator.generate(req)
-                results.append({
-                    "index": idx,
-                    "conversation_id": item.conversation_id,
-                    "data": result.to_dict() if hasattr(result, "to_dict") else asdict(result),
-                })
+                results.append(
+                    {
+                        "index": idx,
+                        "conversation_id": item.conversation_id,
+                        "data": (
+                            result.to_dict()
+                            if hasattr(result, "to_dict")
+                            else asdict(result)
+                        ),
+                    }
+                )
             except Exception as item_exc:
                 logger.warning(
                     "batch_item_failed",
@@ -423,11 +453,13 @@ async def generate_batch_responses(
                         "error": str(item_exc),
                     },
                 )
-                errors.append({
-                    "index": idx,
-                    "conversation_id": item.conversation_id,
-                    "error": str(item_exc),
-                })
+                errors.append(
+                    {
+                        "index": idx,
+                        "conversation_id": item.conversation_id,
+                        "error": str(item_exc),
+                    }
+                )
 
         return {
             "status": "ok" if not errors else "partial",
@@ -485,9 +517,7 @@ async def get_token_budget(
             },
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to get budget status")
+        raise HTTPException(status_code=500, detail="Failed to get budget status")
 
 
 @response_router.post(
@@ -510,7 +540,9 @@ async def initialize_budget(
 
         service = TokenBudgetService()
         budget = await service.initialize_budget(
-            conversation_id, company_id, request.variant_type,
+            conversation_id,
+            company_id,
+            request.variant_type,
         )
         return {"status": "ok", "data": asdict(budget)}
 
@@ -524,9 +556,7 @@ async def initialize_budget(
             },
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to initialize budget")
+        raise HTTPException(status_code=500, detail="Failed to initialize budget")
 
 
 @response_router.post(
@@ -549,7 +579,8 @@ async def check_overflow(
 
         service = TokenBudgetService()
         result = await service.check_overflow(
-            conversation_id, request.estimated_tokens,
+            conversation_id,
+            request.estimated_tokens,
         )
         return {"status": "ok", "data": asdict(result)}
 
@@ -571,9 +602,7 @@ async def check_overflow(
 # ═══════════════════════════════════════════════════════════════════
 
 
-@response_router.post("/templates",
-                      summary="Create response template",
-                      status_code=201)
+@response_router.post("/templates", summary="Create response template", status_code=201)
 async def create_template(
     request: TemplateCreateSchema,
     company_id: str = Depends(get_company_id),
@@ -593,9 +622,9 @@ async def create_template(
         )
         return {
             "status": "ok",
-            "data": template.to_dict() if hasattr(
-                template,
-                "to_dict") else asdict(template),
+            "data": (
+                template.to_dict() if hasattr(template, "to_dict") else asdict(template)
+            ),
         }
 
     except (ValidationError, NotFoundError) as exc:
@@ -609,9 +638,7 @@ async def create_template(
             extra={"company_id": company_id, "error": str(exc)},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to create template")
+        raise HTTPException(status_code=500, detail="Failed to create template")
 
 
 @response_router.get("/templates", summary="List response templates")
@@ -656,8 +683,7 @@ async def list_templates(
         raise HTTPException(status_code=500, detail="Failed to list templates")
 
 
-@response_router.get("/templates/{template_id}",
-                     summary="Get response template")
+@response_router.get("/templates/{template_id}", summary="Get response template")
 async def get_template(
     template_id: str,
     company_id: str = Depends(get_company_id),
@@ -671,9 +697,9 @@ async def get_template(
         template = await service.get_template(template_id, company_id)
         return {
             "status": "ok",
-            "data": template.to_dict() if hasattr(
-                template,
-                "to_dict") else asdict(template),
+            "data": (
+                template.to_dict() if hasattr(template, "to_dict") else asdict(template)
+            ),
         }
 
     except NotFoundError as exc:
@@ -691,8 +717,7 @@ async def get_template(
         raise HTTPException(status_code=500, detail="Failed to get template")
 
 
-@response_router.put("/templates/{template_id}",
-                     summary="Update response template")
+@response_router.put("/templates/{template_id}", summary="Update response template")
 async def update_template(
     template_id: str,
     request: TemplateUpdateSchema,
@@ -710,13 +735,15 @@ async def update_template(
         service = ResponseTemplateService()
         updates = request.model_dump(exclude_unset=True)
         template = await service.update_template(
-            template_id, company_id, updates,
+            template_id,
+            company_id,
+            updates,
         )
         return {
             "status": "ok",
-            "data": template.to_dict() if hasattr(
-                template,
-                "to_dict") else asdict(template),
+            "data": (
+                template.to_dict() if hasattr(template, "to_dict") else asdict(template)
+            ),
         }
 
     except NotFoundError as exc:
@@ -733,13 +760,10 @@ async def update_template(
             },
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to update template")
+        raise HTTPException(status_code=500, detail="Failed to update template")
 
 
-@response_router.delete("/templates/{template_id}",
-                        summary="Delete response template")
+@response_router.delete("/templates/{template_id}", summary="Delete response template")
 async def delete_template(
     template_id: str,
     company_id: str = Depends(get_company_id),
@@ -762,12 +786,11 @@ async def delete_template(
             extra={
                 "template_id": template_id,
                 "company_id": company_id,
-                "error": str(exc)},
+                "error": str(exc),
+            },
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to delete template")
+        raise HTTPException(status_code=500, detail="Failed to delete template")
 
 
 @response_router.post(
@@ -811,12 +834,11 @@ async def render_template(
             extra={
                 "template_id": template_id,
                 "company_id": company_id,
-                "error": str(exc)},
+                "error": str(exc),
+            },
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to render template")
+        raise HTTPException(status_code=500, detail="Failed to render template")
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -838,8 +860,12 @@ async def get_brand_voice(
 
         service = BrandVoiceService()
         config = await service.get_config(company_id)
-        return {"status": "ok", "data": asdict(config) if hasattr(
-            config, "__dataclass_fields__") else config, }
+        return {
+            "status": "ok",
+            "data": (
+                asdict(config) if hasattr(config, "__dataclass_fields__") else config
+            ),
+        }
 
     except (ValidationError, NotFoundError) as exc:
         raise HTTPException(
@@ -852,8 +878,7 @@ async def get_brand_voice(
             extra={"company_id": company_id, "error": str(exc)},
             exc_info=True,
         )
-        raise HTTPException(status_code=500,
-                            detail="Failed to get brand voice config")
+        raise HTTPException(status_code=500, detail="Failed to get brand voice config")
 
 
 @brand_voice_router.post("", summary="Create or update brand voice config")
@@ -880,8 +905,12 @@ async def upsert_brand_voice(
         except (NotFoundError, Exception):
             config = await service.create_config(company_id, config_data)
 
-        return {"status": "ok", "data": asdict(config) if hasattr(
-            config, "__dataclass_fields__") else config, }
+        return {
+            "status": "ok",
+            "data": (
+                asdict(config) if hasattr(config, "__dataclass_fields__") else config
+            ),
+        }
 
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.to_dict())
@@ -891,8 +920,7 @@ async def upsert_brand_voice(
             extra={"company_id": company_id, "error": str(exc)},
             exc_info=True,
         )
-        raise HTTPException(status_code=500,
-                            detail="Failed to save brand voice config")
+        raise HTTPException(status_code=500, detail="Failed to save brand voice config")
 
 
 @brand_voice_router.delete("", summary="Delete brand voice config")
@@ -920,8 +948,9 @@ async def delete_brand_voice(
             extra={"company_id": company_id, "error": str(exc)},
             exc_info=True,
         )
-        raise HTTPException(status_code=500,
-                            detail="Failed to delete brand voice config")
+        raise HTTPException(
+            status_code=500, detail="Failed to delete brand voice config"
+        )
 
 
 @brand_voice_router.post(
@@ -1094,9 +1123,7 @@ async def get_agent_workload(
             extra={"company_id": company_id, "error": str(exc)},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to get agent workload")
+        raise HTTPException(status_code=500, detail="Failed to get agent workload")
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1138,8 +1165,7 @@ async def get_migration_status(
             extra={"company_id": company_id, "error": str(exc)},
             exc_info=True,
         )
-        raise HTTPException(status_code=500,
-                            detail="Failed to get migration status")
+        raise HTTPException(status_code=500, detail="Failed to get migration status")
 
 
 @migration_router.post("/toggle", summary="Enable/disable AI feature")
@@ -1204,9 +1230,7 @@ async def toggle_migration(
             },
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to toggle migration")
+        raise HTTPException(status_code=500, detail="Failed to toggle migration")
 
 
 # ═══════════════════════════════════════════════════════════════════

@@ -111,7 +111,9 @@ class TestTechniqueConfigStore:
     def test_set_config_enables_technique(self, store):
         """Test setting config with enabled=True."""
         config = store.set_config(
-            "company_1", "clara", enabled=True,
+            "company_1",
+            "clara",
+            enabled=True,
         )
         assert config["enabled"] is True
         assert config["updated_at"] is not None
@@ -119,7 +121,9 @@ class TestTechniqueConfigStore:
     def test_set_config_disables_technique(self, store):
         """Test setting config with enabled=False."""
         config = store.set_config(
-            "company_1", "clara", enabled=False,
+            "company_1",
+            "clara",
+            enabled=False,
         )
         assert config["enabled"] is False
 
@@ -127,7 +131,9 @@ class TestTechniqueConfigStore:
         """Test setting config with overrides."""
         overrides = {"max_tokens": 5000, "temperature": 0.8}
         config = store.set_config(
-            "company_1", "clara", enabled=True,
+            "company_1",
+            "clara",
+            enabled=True,
             overrides=overrides,
         )
         assert config["config_overrides"] == overrides
@@ -135,7 +141,9 @@ class TestTechniqueConfigStore:
     def test_set_config_empty_overrides(self, store):
         """Test setting config with empty overrides."""
         config = store.set_config(
-            "company_1", "clara", enabled=True,
+            "company_1",
+            "clara",
+            enabled=True,
             overrides={},
         )
         assert config["config_overrides"] == {}
@@ -143,7 +151,9 @@ class TestTechniqueConfigStore:
     def test_set_config_none_overrides(self, store):
         """Test setting config with None overrides defaults to {}."""
         config = store.set_config(
-            "company_1", "clara", enabled=True,
+            "company_1",
+            "clara",
+            enabled=True,
             overrides=None,
         )
         assert config["config_overrides"] == {}
@@ -151,7 +161,9 @@ class TestTechniqueConfigStore:
     def test_set_then_get_roundtrip(self, store):
         """Test set then get returns same values."""
         store.set_config(
-            "company_1", "clara", enabled=False,
+            "company_1",
+            "clara",
+            enabled=False,
             overrides={"key": "value"},
         )
         config = store.get_config("company_1", "clara")
@@ -163,7 +175,9 @@ class TestTechniqueConfigStore:
         """Test setting config twice overwrites first."""
         store.set_config("company_1", "clara", enabled=True)
         store.set_config(
-            "company_1", "clara", enabled=False,
+            "company_1",
+            "clara",
+            enabled=False,
             overrides={"new": "data"},
         )
         config = store.get_config("company_1", "clara")
@@ -188,9 +202,7 @@ class TestTechniqueConfigStore:
         """Test list_configs reflects disabled technique."""
         store.set_config("company_1", "clara", enabled=False)
         configs = store.list_configs("company_1")
-        clara_config = next(
-            c for c in configs if c["technique_id"] == "clara"
-        )
+        clara_config = next(c for c in configs if c["technique_id"] == "clara")
         assert clara_config["enabled"] is False
         # Others should still be enabled
         for c in configs:
@@ -200,9 +212,7 @@ class TestTechniqueConfigStore:
     def test_list_configs_includes_registry_info(self, store):
         """Test list_configs includes tier, description, etc."""
         configs = store.list_configs("company_1")
-        clara_config = next(
-            c for c in configs if c["technique_id"] == "clara"
-        )
+        clara_config = next(c for c in configs if c["technique_id"] == "clara")
         assert clara_config["tier"] == "tier_1"
         assert clara_config["description"] != ""
         assert clara_config["estimated_tokens"] > 0
@@ -239,7 +249,9 @@ class TestTechniqueConfigStore:
     def test_get_config_returns_copy(self, store):
         """Test get_config returns a copy, not a reference."""
         store.set_config(
-            "company_1", "clara", enabled=False,
+            "company_1",
+            "clara",
+            enabled=False,
             overrides={"k": "v"},
         )
         config = store.get_config("company_1", "clara")
@@ -255,9 +267,7 @@ class TestTechniqueConfigStore:
         """Test listing configs can be filtered by tier."""
         store = TechniqueConfigStore()
         all_configs = store.list_configs("company_1")
-        tier_1_configs = [
-            c for c in all_configs if c["tier"] == "tier_1"
-        ]
+        tier_1_configs = [c for c in all_configs if c["tier"] == "tier_1"]
         assert len(tier_1_configs) == 3  # clara, crp, gsd
 
 
@@ -374,10 +384,7 @@ class TestGetTechniqueConfigsEndpoint:
         )
         assert response.status_code == 200
         data = response.json()
-        clara = next(
-            t for t in data["techniques"]
-            if t["technique_id"] == "clara"
-        )
+        clara = next(t for t in data["techniques"] if t["technique_id"] == "clara")
         assert clara["enabled"] is False
 
     def test_list_configs_response_has_required_fields(self, client):
@@ -684,10 +691,7 @@ class TestCompanyIsolationAPI:
             params={"company_id": "company_b"},
         )
         data = response.json()
-        clara = next(
-            t for t in data["techniques"]
-            if t["technique_id"] == "clara"
-        )
+        clara = next(t for t in data["techniques"] if t["technique_id"] == "clara")
         assert clara["enabled"] is True
 
     def test_company_isolation_in_get(self, client):
@@ -740,18 +744,15 @@ class TestCompanyIsolationAPI:
         ).json()
 
         cot_a = next(
-            t for t in list_a["techniques"]
-            if t["technique_id"] == "chain_of_thought"
+            t for t in list_a["techniques"] if t["technique_id"] == "chain_of_thought"
         )
         rt_b = next(
-            t for t in list_b["techniques"]
-            if t["technique_id"] == "reverse_thinking"
+            t for t in list_b["techniques"] if t["technique_id"] == "reverse_thinking"
         )
 
         assert cot_a["enabled"] is False
         rt_b_enabled = next(
-            t for t in list_a["techniques"]
-            if t["technique_id"] == "reverse_thinking"
+            t for t in list_a["techniques"] if t["technique_id"] == "reverse_thinking"
         )
         assert rt_b_enabled["enabled"] is True
         assert rt_b["enabled"] is False
@@ -844,7 +845,8 @@ class TestErrorHandling:
             params={"company_id": "company_1"},
         )
         cot = next(
-            t for t in list_resp.json()["techniques"]
+            t
+            for t in list_resp.json()["techniques"]
             if t["technique_id"] == "chain_of_thought"
         )
         assert cot["enabled"] is False

@@ -13,13 +13,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # Fixtures — import source modules with mocked logger
 # ═══════════════════════════════════════════════════════════════════════
 
 # Runtime-injected by _mock_logger fixture — satisfies flake8 F821
-CACHE_TTL_SECONDS = QUERY_SYNONYMS = RAGChunk = RAGResult = RAGRetriever = VARIANT_CONFIG = MockVectorStore = SearchResult = StoredChunk = VectorStore = None
+CACHE_TTL_SECONDS = QUERY_SYNONYMS = RAGChunk = RAGResult = RAGRetriever = (
+    VARIANT_CONFIG
+) = MockVectorStore = SearchResult = StoredChunk = VectorStore = None
 
 
 @pytest.fixture(autouse=True)
@@ -39,18 +40,21 @@ def _mock_logger():
             StoredChunk,
             VectorStore,
         )
-        globals().update({
-            "CACHE_TTL_SECONDS": CACHE_TTL_SECONDS,
-            "QUERY_SYNONYMS": QUERY_SYNONYMS,
-            "RAGChunk": RAGChunk,
-            "RAGResult": RAGResult,
-            "RAGRetriever": RAGRetriever,
-            "VARIANT_CONFIG": VARIANT_CONFIG,
-            "MockVectorStore": MockVectorStore,
-            "SearchResult": SearchResult,
-            "StoredChunk": StoredChunk,
-            "VectorStore": VectorStore,
-        })
+
+        globals().update(
+            {
+                "CACHE_TTL_SECONDS": CACHE_TTL_SECONDS,
+                "QUERY_SYNONYMS": QUERY_SYNONYMS,
+                "RAGChunk": RAGChunk,
+                "RAGResult": RAGResult,
+                "RAGRetriever": RAGRetriever,
+                "VARIANT_CONFIG": VARIANT_CONFIG,
+                "MockVectorStore": MockVectorStore,
+                "SearchResult": SearchResult,
+                "StoredChunk": StoredChunk,
+                "VectorStore": VectorStore,
+            }
+        )
 
 
 def _make_store_with_data(company_id="c1", n_chunks=3):
@@ -72,6 +76,7 @@ def _make_store_with_data(company_id="c1", n_chunks=3):
 # 1. RAGRetriever init (3 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestRAGRetrieverInit:
     def test_default_store(self):
         retriever = RAGRetriever()
@@ -92,12 +97,15 @@ class TestRAGRetrieverInit:
 # 2. retrieve() basic (12 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestRetrieveBasic:
     @pytest.mark.asyncio
     async def test_empty_query(self):
         store = MockVectorStore()
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("", company_id="c1")
         assert result.chunks == []
@@ -107,7 +115,9 @@ class TestRetrieveBasic:
     async def test_whitespace_query(self):
         store = MockVectorStore()
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("   ", company_id="c1")
         assert result.chunks == []
@@ -116,9 +126,13 @@ class TestRetrieveBasic:
     async def test_valid_query_returns_result(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
-                result = await retriever.retrieve("refund billing help", company_id="c1")
+                result = await retriever.retrieve(
+                    "refund billing help", company_id="c1"
+                )
         assert isinstance(result, RAGResult)
         assert result.variant_tier_used == "parwa"
 
@@ -129,7 +143,9 @@ class TestRetrieveBasic:
         store_b = _make_store_with_data("co_b")
         retriever_a = RAGRetriever(vector_store=store_a)
         retriever_b = RAGRetriever(vector_store=store_b)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 r_a = await retriever_a.retrieve("refund", company_id="co_a")
                 r_b = await retriever_b.retrieve("refund", company_id="co_b")
@@ -141,7 +157,9 @@ class TestRetrieveBasic:
     async def test_custom_top_k(self):
         store = _make_store_with_data("c1", n_chunks=10)
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("refund", company_id="c1", top_k=2)
         assert len(result.chunks) <= 2
@@ -150,9 +168,13 @@ class TestRetrieveBasic:
     async def test_similarity_threshold(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
-                result = await retriever.retrieve("refund", company_id="c1", similarity_threshold=0.99)
+                result = await retriever.retrieve(
+                    "refund", company_id="c1", similarity_threshold=0.99
+                )
         # Very high threshold → likely 0 results
         assert result.total_found >= 0
 
@@ -160,10 +182,13 @@ class TestRetrieveBasic:
     async def test_filters_applied_for_parwa(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve(
-                    "refund", company_id="c1",
+                    "refund",
+                    company_id="c1",
                     filters={"document_type": "faq"},
                 )
         assert isinstance(result, RAGResult)
@@ -173,7 +198,9 @@ class TestRetrieveBasic:
     async def test_retrieval_time_populated(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("refund", company_id="c1")
         assert result.retrieval_time_ms >= 0
@@ -182,7 +209,9 @@ class TestRetrieveBasic:
     async def test_query_embedding_time_populated(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("refund", company_id="c1")
         assert result.query_embedding_time_ms >= 0
@@ -191,7 +220,9 @@ class TestRetrieveBasic:
     async def test_none_input_returns_empty(self):
         store = MockVectorStore()
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve(None, company_id="c1")
         assert result.chunks == []
@@ -200,7 +231,9 @@ class TestRetrieveBasic:
     async def test_non_string_input_returns_empty(self):
         store = MockVectorStore()
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve(12345, company_id="c1")
         assert result.chunks == []
@@ -209,7 +242,9 @@ class TestRetrieveBasic:
     async def test_no_matching_company(self):
         store = MockVectorStore()
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("refund", company_id="nonexistent")
         assert result.total_found == 0
@@ -219,14 +254,19 @@ class TestRetrieveBasic:
 # 3. Variant Tiers (8 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestVariantTiers:
     @pytest.mark.asyncio
     async def test_mini_parwa_basic_search(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
-                result = await retriever.retrieve("refund", company_id="c1", variant_type="mini_parwa")
+                result = await retriever.retrieve(
+                    "refund", company_id="c1", variant_type="mini_parwa"
+                )
         assert result.variant_tier_used == "mini_parwa"
         assert result.filters_applied == {}
 
@@ -234,10 +274,13 @@ class TestVariantTiers:
     async def test_parwa_with_metadata(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve(
-                    "refund", company_id="c1",
+                    "refund",
+                    company_id="c1",
                     variant_type="parwa",
                     filters={"document_type": "faq"},
                 )
@@ -248,9 +291,13 @@ class TestVariantTiers:
     async def test_parwa_high_with_reranking(self):
         store = _make_store_with_data("c1", n_chunks=5)
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
-                result = await retriever.retrieve("refund", company_id="c1", variant_type="parwa_high")
+                result = await retriever.retrieve(
+                    "refund", company_id="c1", variant_type="parwa_high"
+                )
         assert result.variant_tier_used == "parwa_high"
         # parwa_high uses reranking; all chunks should have citation
         for chunk in result.chunks:
@@ -260,9 +307,13 @@ class TestVariantTiers:
     async def test_parwa_high_citation_tracking(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
-                result = await retriever.retrieve("refund", company_id="c1", variant_type="parwa_high")
+                result = await retriever.retrieve(
+                    "refund", company_id="c1", variant_type="parwa_high"
+                )
         for chunk in result.chunks:
             assert "Source:" in (chunk.citation or "")
 
@@ -271,9 +322,13 @@ class TestVariantTiers:
         store = _make_store_with_data("c1", n_chunks=5)
         retriever = RAGRetriever(vector_store=store)
         # 'refund' should trigger query expansion with synonyms
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
-                result = await retriever.retrieve("refund", company_id="c1", variant_type="parwa_high")
+                result = await retriever.retrieve(
+                    "refund", company_id="c1", variant_type="parwa_high"
+                )
         assert isinstance(result, RAGResult)
 
     def test_variant_config_keys(self):
@@ -296,6 +351,7 @@ class TestVariantTiers:
 # 4. Keyword Fallback BC-008 (10 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestKeywordFallback:
     @pytest.mark.asyncio
     async def test_embedding_none_triggers_keyword(self):
@@ -303,10 +359,16 @@ class TestKeywordFallback:
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
         # Mock _generate_embedding to return None
-        with patch.object(retriever, "_generate_embedding", new_callable=AsyncMock, return_value=None):
-            with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch.object(
+            retriever, "_generate_embedding", new_callable=AsyncMock, return_value=None
+        ):
+            with patch(
+                "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+            ):
                 with patch("app.core.redis.cache_set", new_callable=AsyncMock):
-                    result = await retriever.retrieve("refund billing help", company_id="c1")
+                    result = await retriever.retrieve(
+                        "refund billing help", company_id="c1"
+                    )
         assert result.degradation_used is True
 
     @pytest.mark.asyncio
@@ -315,7 +377,9 @@ class TestKeywordFallback:
         store = _make_store_with_data("c1")
         store.set_healthy(False)
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("refund", company_id="c1")
         assert result.degradation_used is True
@@ -326,10 +390,11 @@ class TestKeywordFallback:
         store = MockVectorStore()
         store.set_healthy(True)
         # Override search to raise exception
-        store.search = MagicMock(
-            side_effect=RuntimeError("vector search failed"))
+        store.search = MagicMock(side_effect=RuntimeError("vector search failed"))
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("refund", company_id="c1")
         assert result.degradation_used is True
@@ -339,8 +404,12 @@ class TestKeywordFallback:
         """G9-GAP-07: Keyword fallback uses public get_all_documents method."""
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch.object(retriever, "_generate_embedding", new_callable=AsyncMock, return_value=None):
-            with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch.object(
+            retriever, "_generate_embedding", new_callable=AsyncMock, return_value=None
+        ):
+            with patch(
+                "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+            ):
                 with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                     result = await retriever.retrieve("refund billing", company_id="c1")
         # Should return results from keyword search
@@ -351,8 +420,12 @@ class TestKeywordFallback:
     async def test_keyword_fallback_scores_by_overlap(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch.object(retriever, "_generate_embedding", new_callable=AsyncMock, return_value=None):
-            with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch.object(
+            retriever, "_generate_embedding", new_callable=AsyncMock, return_value=None
+        ):
+            with patch(
+                "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+            ):
                 with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                     result = await retriever.retrieve("refund", company_id="c1")
         for chunk in result.chunks:
@@ -362,10 +435,16 @@ class TestKeywordFallback:
     async def test_keyword_fallback_respects_top_k(self):
         store = _make_store_with_data("c1", n_chunks=10)
         retriever = RAGRetriever(vector_store=store)
-        with patch.object(retriever, "_generate_embedding", new_callable=AsyncMock, return_value=None):
-            with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch.object(
+            retriever, "_generate_embedding", new_callable=AsyncMock, return_value=None
+        ):
+            with patch(
+                "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+            ):
                 with patch("app.core.redis.cache_set", new_callable=AsyncMock):
-                    result = await retriever.retrieve("refund", company_id="c1", top_k=2)
+                    result = await retriever.retrieve(
+                        "refund", company_id="c1", top_k=2
+                    )
         assert len(result.chunks) <= 2
 
     @pytest.mark.asyncio
@@ -374,7 +453,9 @@ class TestKeywordFallback:
         store = MockVectorStore()
         store.search = MagicMock(side_effect=RuntimeError("boom"))
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("test", company_id="c1")
         # Should still return a valid result
@@ -384,10 +465,16 @@ class TestKeywordFallback:
     async def test_keyword_fallback_sorts_by_score(self):
         store = _make_store_with_data("c1", n_chunks=5)
         retriever = RAGRetriever(vector_store=store)
-        with patch.object(retriever, "_generate_embedding", new_callable=AsyncMock, return_value=None):
-            with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch.object(
+            retriever, "_generate_embedding", new_callable=AsyncMock, return_value=None
+        ):
+            with patch(
+                "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+            ):
                 with patch("app.core.redis.cache_set", new_callable=AsyncMock):
-                    result = await retriever.retrieve("refund billing help", company_id="c1")
+                    result = await retriever.retrieve(
+                        "refund billing help", company_id="c1"
+                    )
         scores = [c.score for c in result.chunks]
         assert scores == sorted(scores, reverse=True)
 
@@ -395,7 +482,9 @@ class TestKeywordFallback:
     async def test_keyword_fallback_empty_query(self):
         store = MockVectorStore()
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("", company_id="c1")
         assert result.chunks == []
@@ -404,16 +493,23 @@ class TestKeywordFallback:
     async def test_keyword_fallback_variant_preserved(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch.object(retriever, "_generate_embedding", new_callable=AsyncMock, return_value=None):
-            with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch.object(
+            retriever, "_generate_embedding", new_callable=AsyncMock, return_value=None
+        ):
+            with patch(
+                "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+            ):
                 with patch("app.core.redis.cache_set", new_callable=AsyncMock):
-                    result = await retriever.retrieve("test", company_id="c1", variant_type="mini_parwa")
+                    result = await retriever.retrieve(
+                        "test", company_id="c1", variant_type="mini_parwa"
+                    )
         assert result.variant_tier_used == "mini_parwa"
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # 5. Query Expansion (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestQueryExpansion:
     def setup_method(self):
@@ -431,8 +527,7 @@ class TestQueryExpansion:
         assert len(expanded) >= 2
 
     def test_expand_max_3(self):
-        expanded = self.retriever._expand_query(
-            "refund error billing password")
+        expanded = self.retriever._expand_query("refund error billing password")
         assert len(expanded) <= 3  # max 3 total (original + 2 expansions)
 
     def test_expand_no_synonyms(self):
@@ -448,6 +543,7 @@ class TestQueryExpansion:
 # 6. Reranking (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestReranking:
     def setup_method(self):
         store = MockVectorStore()
@@ -455,21 +551,13 @@ class TestReranking:
 
     def test_rerank_returns_same_count(self):
         chunks = [
+            RAGChunk(chunk_id="c1", document_id="d1", content="refund help", score=0.8),
             RAGChunk(
-                chunk_id="c1",
-                document_id="d1",
-                content="refund help",
-                score=0.8),
+                chunk_id="c2", document_id="d2", content="billing issue", score=0.7
+            ),
             RAGChunk(
-                chunk_id="c2",
-                document_id="d2",
-                content="billing issue",
-                score=0.7),
-            RAGChunk(
-                chunk_id="c3",
-                document_id="d3",
-                content="password reset",
-                score=0.6),
+                chunk_id="c3", document_id="d3", content="password reset", score=0.6
+            ),
         ]
         reranked = self.retriever._rerank("refund help", chunks)
         assert len(reranked) == 3
@@ -477,15 +565,11 @@ class TestReranking:
     def test_rerank_sorted_descending(self):
         chunks = [
             RAGChunk(
-                chunk_id="c1",
-                document_id="d1",
-                content="unrelated topic",
-                score=0.9),
+                chunk_id="c1", document_id="d1", content="unrelated topic", score=0.9
+            ),
             RAGChunk(
-                chunk_id="c2",
-                document_id="d2",
-                content="refund help needed",
-                score=0.5),
+                chunk_id="c2", document_id="d2", content="refund help needed", score=0.5
+            ),
         ]
         reranked = self.retriever._rerank("refund help", chunks)
         scores = [c.score for c in reranked]
@@ -493,16 +577,13 @@ class TestReranking:
 
     def test_rerank_phrase_bonus(self):
         chunks = [
-            RAGChunk(
-                chunk_id="c1",
-                document_id="d1",
-                content="refund help",
-                score=0.5),
+            RAGChunk(chunk_id="c1", document_id="d1", content="refund help", score=0.5),
             RAGChunk(
                 chunk_id="c2",
                 document_id="d2",
                 content="related but different text",
-                score=0.5),
+                score=0.5,
+            ),
         ]
         reranked = self.retriever._rerank("refund help", chunks)
         # First chunk should have higher score due to exact phrase match
@@ -514,12 +595,14 @@ class TestReranking:
                 chunk_id="c1",
                 document_id="d1",
                 content="refund billing account",
-                score=0.5),
+                score=0.5,
+            ),
             RAGChunk(
                 chunk_id="c2",
                 document_id="d2",
                 content="shipping package delivery",
-                score=0.5),
+                score=0.5,
+            ),
         ]
         reranked = self.retriever._rerank("refund billing", chunks)
         # First chunk should score higher (more word overlap)
@@ -527,11 +610,7 @@ class TestReranking:
 
     def test_rerank_empty_query(self):
         chunks = [
-            RAGChunk(
-                chunk_id="c1",
-                document_id="d1",
-                content="test",
-                score=0.5),
+            RAGChunk(chunk_id="c1", document_id="d1", content="test", score=0.5),
         ]
         reranked = self.retriever._rerank("", chunks)
         assert len(reranked) == 1
@@ -541,6 +620,7 @@ class TestReranking:
 # 7. Citation Tracking (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestCitationTracking:
     def setup_method(self):
         store = MockVectorStore()
@@ -549,8 +629,11 @@ class TestCitationTracking:
     def test_citation_with_source(self):
         chunks = [
             RAGChunk(
-                chunk_id="c1", document_id="d1", content="test",
-                score=0.8, metadata={"source": "FAQ Document"},
+                chunk_id="c1",
+                document_id="d1",
+                content="test",
+                score=0.8,
+                metadata={"source": "FAQ Document"},
             ),
         ]
         result = self.retriever._add_citations(chunks)
@@ -560,8 +643,11 @@ class TestCitationTracking:
     def test_citation_with_page(self):
         chunks = [
             RAGChunk(
-                chunk_id="c1", document_id="d1", content="test",
-                score=0.8, metadata={"source": "KB", "page": 5},
+                chunk_id="c1",
+                document_id="d1",
+                content="test",
+                score=0.8,
+                metadata={"source": "KB", "page": 5},
             ),
         ]
         result = self.retriever._add_citations(chunks)
@@ -570,8 +656,11 @@ class TestCitationTracking:
     def test_citation_with_section(self):
         chunks = [
             RAGChunk(
-                chunk_id="c1", document_id="d1", content="test",
-                score=0.8, metadata={"source": "KB", "section": "Refunds"},
+                chunk_id="c1",
+                document_id="d1",
+                content="test",
+                score=0.8,
+                metadata={"source": "KB", "section": "Refunds"},
             ),
         ]
         result = self.retriever._add_citations(chunks)
@@ -579,11 +668,7 @@ class TestCitationTracking:
 
     def test_citation_default_source(self):
         chunks = [
-            RAGChunk(
-                chunk_id="c1",
-                document_id="d1",
-                content="test",
-                score=0.8),
+            RAGChunk(chunk_id="c1", document_id="d1", content="test", score=0.8),
         ]
         result = self.retriever._add_citations(chunks)
         assert "Knowledge Base" in result[0].citation
@@ -595,15 +680,15 @@ class TestCitationTracking:
                 document_id="d1",
                 content="test",
                 score=0.8,
-                metadata={
-                    "source": "A"}),
+                metadata={"source": "A"},
+            ),
             RAGChunk(
                 chunk_id="c2",
                 document_id="d2",
                 content="test2",
                 score=0.7,
-                metadata={
-                    "source": "B"}),
+                metadata={"source": "B"},
+            ),
         ]
         result = self.retriever._add_citations(chunks)
         assert len(result) == 2
@@ -614,6 +699,7 @@ class TestCitationTracking:
 # ═══════════════════════════════════════════════════════════════════════
 # 8. Dedup + Limit (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestDedupLimit:
     @pytest.mark.asyncio
@@ -630,7 +716,9 @@ class TestDedupLimit:
             )
             store.add_chunks([chunk], "c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("refund", company_id="c1", top_k=10)
         chunk_ids = [c.chunk_id for c in result.chunks]
@@ -640,7 +728,9 @@ class TestDedupLimit:
     async def test_top_k_applied(self):
         store = _make_store_with_data("c1", n_chunks=10)
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("refund", company_id="c1", top_k=3)
         assert len(result.chunks) <= 3
@@ -649,7 +739,9 @@ class TestDedupLimit:
     async def test_total_found_ge_returned(self):
         store = _make_store_with_data("c1", n_chunks=10)
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("refund", company_id="c1", top_k=2)
         assert result.total_found >= len(result.chunks)
@@ -674,7 +766,9 @@ class TestDedupLimit:
     async def test_empty_store_returns_zero(self):
         store = MockVectorStore()
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("refund", company_id="c1")
         assert result.total_found == 0
@@ -685,21 +779,32 @@ class TestDedupLimit:
 # 9. Cache (8 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestCache:
     @pytest.mark.asyncio
     async def test_cache_hit(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
         cached_data = {
-            "chunks": [{"chunk_id": "c1", "document_id": "d1", "content": "test",
-                        "score": 0.9, "metadata": {}, "citation": None}],
+            "chunks": [
+                {
+                    "chunk_id": "c1",
+                    "document_id": "d1",
+                    "content": "test",
+                    "score": 0.9,
+                    "metadata": {},
+                    "citation": None,
+                }
+            ],
             "total_found": 1,
             "retrieval_time_ms": 5.0,
             "query_embedding_time_ms": 2.0,
             "filters_applied": {},
             "variant_tier_used": "parwa",
         }
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data
+        ):
             result = await retriever.retrieve("refund", company_id="c1")
         assert result.cached is True
         assert len(result.chunks) == 1
@@ -709,7 +814,9 @@ class TestCache:
     async def test_cache_miss(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("refund", company_id="c1")
         assert result.cached is False
@@ -718,7 +825,11 @@ class TestCache:
     async def test_cache_fail_open(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, side_effect=Exception("Redis down")):
+        with patch(
+            "app.core.redis.cache_get",
+            new_callable=AsyncMock,
+            side_effect=Exception("Redis down"),
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("refund", company_id="c1")
         assert result.cached is False
@@ -728,7 +839,9 @@ class TestCache:
     async def test_cache_store_called(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock) as mock_set:
                 await retriever.retrieve("refund", company_id="c1")
                 mock_set.assert_called_once()
@@ -750,8 +863,7 @@ class TestCache:
 
     def test_cache_key_with_filters(self):
         key_no_filter = RAGRetriever._build_cache_key("q", "c1", "parwa", None)
-        key_filter = RAGRetriever._build_cache_key(
-            "q", "c1", "parwa", {"type": "faq"})
+        key_filter = RAGRetriever._build_cache_key("q", "c1", "parwa", {"type": "faq"})
         assert key_no_filter != key_filter
 
 
@@ -759,14 +871,19 @@ class TestCache:
 # 10. G9-GAP-12 — Unknown variant (3 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestUnknownVariant:
     @pytest.mark.asyncio
     async def test_unknown_variant_defaults_to_parwa(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
-                result = await retriever.retrieve("refund", company_id="c1", variant_type="unknown_tier")
+                result = await retriever.retrieve(
+                    "refund", company_id="c1", variant_type="unknown_tier"
+                )
         # Should use parwa config (default)
         assert isinstance(result, RAGResult)
 
@@ -776,10 +893,15 @@ class TestUnknownVariant:
         retriever = RAGRetriever(vector_store=store)
         # Get the module-level logger
         from app.core import rag_retrieval as mod
+
         with patch.object(mod.logger, "warning") as mock_warn:
-            with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch(
+                "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+            ):
                 with patch("app.core.redis.cache_set", new_callable=AsyncMock):
-                    await retriever.retrieve("test", company_id="c1", variant_type="bogus_variant")
+                    await retriever.retrieve(
+                        "test", company_id="c1", variant_type="bogus_variant"
+                    )
                     mock_warn.assert_called()
                     call_args = str(mock_warn.call_args)
                     assert "unknown_variant_type" in call_args
@@ -789,11 +911,20 @@ class TestUnknownVariant:
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
         from app.core import rag_retrieval as mod
-        with patch.object(retriever, "_generate_embedding", new_callable=AsyncMock, return_value=None):
+
+        with patch.object(
+            retriever, "_generate_embedding", new_callable=AsyncMock, return_value=None
+        ):
             with patch.object(mod.logger, "warning") as mock_warn:
-                with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+                with patch(
+                    "app.core.redis.cache_get",
+                    new_callable=AsyncMock,
+                    return_value=None,
+                ):
                     with patch("app.core.redis.cache_set", new_callable=AsyncMock):
-                        await retriever.retrieve("test", company_id="c1", variant_type="bogus")
+                        await retriever.retrieve(
+                            "test", company_id="c1", variant_type="bogus"
+                        )
                         # Should log warning for unknown variant in keyword
                         # fallback
                         call_strs = [str(c) for c in mock_warn.call_args_list]
@@ -804,11 +935,16 @@ class TestUnknownVariant:
 # 11. RAGChunk / RAGResult (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestRAGDataClasses:
     def test_rag_chunk_to_dict(self):
         chunk = RAGChunk(
-            chunk_id="c1", document_id="d1", content="test content",
-            score=0.856789, metadata={"source": "KB"}, citation="[Source: KB]",
+            chunk_id="c1",
+            document_id="d1",
+            content="test content",
+            score=0.856789,
+            metadata={"source": "KB"},
+            citation="[Source: KB]",
         )
         d = chunk.to_dict()
         assert d["chunk_id"] == "c1"
@@ -819,24 +955,21 @@ class TestRAGDataClasses:
         assert d["citation"] == "[Source: KB]"
 
     def test_rag_chunk_defaults(self):
-        chunk = RAGChunk(
-            chunk_id="c1",
-            document_id="d1",
-            content="test",
-            score=0.5)
+        chunk = RAGChunk(chunk_id="c1", document_id="d1", content="test", score=0.5)
         assert chunk.metadata == {}
         assert chunk.citation is None
 
     def test_rag_result_to_dict(self):
-        chunk = RAGChunk(
-            chunk_id="c1",
-            document_id="d1",
-            content="test",
-            score=0.8)
+        chunk = RAGChunk(chunk_id="c1", document_id="d1", content="test", score=0.8)
         result = RAGResult(
-            chunks=[chunk], total_found=1, retrieval_time_ms=10.5,
-            query_embedding_time_ms=3.2, filters_applied={"type": "faq"},
-            variant_tier_used="parwa", cached=False, degradation_used=False,
+            chunks=[chunk],
+            total_found=1,
+            retrieval_time_ms=10.5,
+            query_embedding_time_ms=3.2,
+            filters_applied={"type": "faq"},
+            variant_tier_used="parwa",
+            cached=False,
+            degradation_used=False,
         )
         d = result.to_dict()
         assert len(d["chunks"]) == 1
@@ -865,12 +998,15 @@ class TestRAGDataClasses:
 # 12. Edge Cases (10 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_none_query(self):
         store = MockVectorStore()
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve(None, company_id="c1")
         assert result.chunks == []
@@ -879,7 +1015,9 @@ class TestEdgeCases:
     async def test_non_string_query(self):
         store = MockVectorStore()
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve(12345, company_id="c1")
         assert result.chunks == []
@@ -889,7 +1027,9 @@ class TestEdgeCases:
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
         long_q = "refund " * 500
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve(long_q, company_id="c1")
         assert isinstance(result, RAGResult)
@@ -898,16 +1038,22 @@ class TestEdgeCases:
     async def test_special_chars_query(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
-                result = await retriever.retrieve("@#$%^&*() refund !@#$%^&*()", company_id="c1")
+                result = await retriever.retrieve(
+                    "@#$%^&*() refund !@#$%^&*()", company_id="c1"
+                )
         assert isinstance(result, RAGResult)
 
     @pytest.mark.asyncio
     async def test_unicode_query(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("返款 帮助", company_id="c1")
         assert isinstance(result, RAGResult)
@@ -916,10 +1062,13 @@ class TestEdgeCases:
     async def test_filters_with_no_match(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve(
-                    "refund", company_id="c1",
+                    "refund",
+                    company_id="c1",
                     filters={"document_type": "nonexistent_type"},
                 )
         assert result.total_found >= 0
@@ -928,15 +1077,20 @@ class TestEdgeCases:
     async def test_metadata_filtering(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result_faq = await retriever.retrieve(
-                    "refund", company_id="c1",
+                    "refund",
+                    company_id="c1",
                     filters={"document_type": "faq"},
                     variant_type="parwa",
                 )
                 result_all = await retriever.retrieve(
-                    "refund", company_id="c1", variant_type="parwa",
+                    "refund",
+                    company_id="c1",
+                    variant_type="parwa",
                 )
         assert result_faq.total_found <= result_all.total_found
 
@@ -944,7 +1098,9 @@ class TestEdgeCases:
     async def test_zero_top_k(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("refund", company_id="c1", top_k=0)
         assert len(result.chunks) == 0
@@ -953,7 +1109,9 @@ class TestEdgeCases:
     async def test_single_word_query(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await retriever.retrieve("refund", company_id="c1")
         assert isinstance(result, RAGResult)
@@ -962,9 +1120,13 @@ class TestEdgeCases:
     async def test_newlines_in_query(self):
         store = _make_store_with_data("c1")
         retriever = RAGRetriever(vector_store=store)
-        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "app.core.redis.cache_get", new_callable=AsyncMock, return_value=None
+        ):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
-                result = await retriever.retrieve("refund\n\nbilling\nhelp", company_id="c1")
+                result = await retriever.retrieve(
+                    "refund\n\nbilling\nhelp", company_id="c1"
+                )
         assert isinstance(result, RAGResult)
 
 
@@ -972,12 +1134,15 @@ class TestEdgeCases:
 # 13. Additional VectorStore & Integration tests
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestVectorStoreIntegration:
     def test_mock_store_add_chunks(self):
         store = MockVectorStore()
         chunk = StoredChunk(
-            chunk_id="c1", document_id="d1",
-            content="test", embedding=store._generate_embedding("test"),
+            chunk_id="c1",
+            document_id="d1",
+            content="test",
+            embedding=store._generate_embedding("test"),
         )
         count = store.add_chunks([chunk], "c1")
         assert count == 1
@@ -986,8 +1151,10 @@ class TestVectorStoreIntegration:
         store = MockVectorStore()
         emb = store._generate_embedding("refund help")
         chunk = StoredChunk(
-            chunk_id="c1", document_id="d1",
-            content="refund help here", embedding=emb,
+            chunk_id="c1",
+            document_id="d1",
+            content="refund help here",
+            embedding=emb,
         )
         store.add_chunks([chunk], "c1")
         results = store.search(emb, "c1", top_k=5)
@@ -997,8 +1164,10 @@ class TestVectorStoreIntegration:
     def test_mock_store_delete_document(self):
         store = MockVectorStore()
         chunk = StoredChunk(
-            chunk_id="c1", document_id="d1",
-            content="test", embedding=store._generate_embedding("test"),
+            chunk_id="c1",
+            document_id="d1",
+            content="test",
+            embedding=store._generate_embedding("test"),
         )
         store.add_chunks([chunk], "c1")
         assert store.delete_document("d1", "c1") is True
@@ -1028,8 +1197,10 @@ class TestVectorStoreIntegration:
 
     def test_search_result_to_dict(self):
         sr = SearchResult(
-            chunk_id="c1", document_id="d1",
-            content="test content", score=0.856789,
+            chunk_id="c1",
+            document_id="d1",
+            content="test content",
+            score=0.856789,
             metadata={"source": "KB"},
         )
         d = sr.to_dict()
@@ -1039,8 +1210,10 @@ class TestVectorStoreIntegration:
 
     def test_stored_chunk_to_dict(self):
         sc = StoredChunk(
-            chunk_id="c1", document_id="d1",
-            content="test", embedding=[0.1, 0.2],
+            chunk_id="c1",
+            document_id="d1",
+            content="test",
+            embedding=[0.1, 0.2],
             metadata={"key": "val"},
         )
         d = sc.to_dict()
@@ -1085,12 +1258,7 @@ class TestRerankingAdditional:
         self.retriever = RAGRetriever(vector_store=store)
 
     def test_rerank_single_chunk(self):
-        chunks = [
-            RAGChunk(
-                chunk_id="c1",
-                document_id="d1",
-                content="test",
-                score=0.5)]
+        chunks = [RAGChunk(chunk_id="c1", document_id="d1", content="test", score=0.5)]
         reranked = self.retriever._rerank("test", chunks)
         assert len(reranked) == 1
 
@@ -1101,10 +1269,8 @@ class TestRerankingAdditional:
     def test_rerank_score_capped_at_1(self):
         chunks = [
             RAGChunk(
-                chunk_id="c1",
-                document_id="d1",
-                content="test query words",
-                score=0.99),
+                chunk_id="c1", document_id="d1", content="test query words", score=0.99
+            ),
         ]
         reranked = self.retriever._rerank("test query words", chunks)
         assert reranked[0].score <= 1.0
@@ -1112,16 +1278,8 @@ class TestRerankingAdditional:
     def test_rerank_position_bonus(self):
         """Earlier chunks should get position bonus."""
         chunks = [
-            RAGChunk(
-                chunk_id="c1",
-                document_id="d1",
-                content="query words",
-                score=0.5),
-            RAGChunk(
-                chunk_id="c2",
-                document_id="d2",
-                content="query words",
-                score=0.5),
+            RAGChunk(chunk_id="c1", document_id="d1", content="query words", score=0.5),
+            RAGChunk(chunk_id="c2", document_id="d2", content="query words", score=0.5),
         ]
         reranked = self.retriever._rerank("query words", chunks)
         # First chunk should have slightly higher score due to position bonus
@@ -1144,19 +1302,22 @@ class TestCitationAdditional:
                 document_id="d1",
                 content="test",
                 score=0.8,
-                metadata={
-                    "source": "Manual",
-                    "page": 10,
-                    "section": "Troubleshooting"},
-            )]
+                metadata={"source": "Manual", "page": 10, "section": "Troubleshooting"},
+            )
+        ]
         result = self.retriever._add_citations(chunks)
         assert "p. 10" in result[0].citation
         assert "Troubleshooting" in result[0].citation
 
     def test_citation_format_bracket(self):
-        chunks = [RAGChunk(
-            chunk_id="c1", document_id="d1", content="test", score=0.8,
-            metadata={"source": "Test"},
-        )]
+        chunks = [
+            RAGChunk(
+                chunk_id="c1",
+                document_id="d1",
+                content="test",
+                score=0.8,
+                metadata={"source": "Test"},
+            )
+        ]
         result = self.retriever._add_citations(chunks)
         assert result[0].citation.startswith("[Source: Test]")

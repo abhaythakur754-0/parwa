@@ -50,8 +50,8 @@ PRIORITY_HIGH = "high"
 
 # Retraining triggers
 RETRAINING_TRIGGER_SCHEDULED = "scheduled"  # Bi-weekly scheduled
-RETRAINING_TRIGGER_FALLBACK = "fallback"    # Fallback after failed training
-RETRAINING_TRIGGER_STALE = "stale"          # Model is stale (old)
+RETRAINING_TRIGGER_FALLBACK = "fallback"  # Fallback after failed training
+RETRAINING_TRIGGER_STALE = "stale"  # Model is stale (old)
 
 
 class FallbackTrainingService:
@@ -120,12 +120,9 @@ class FallbackTrainingService:
             )
 
             # Get new mistakes since last training
-            mistakes_query = (
-                self.db.query(AgentMistake)
-                .filter(
-                    AgentMistake.company_id == company_id,
-                    AgentMistake.agent_id == str(agent.id),
-                )
+            mistakes_query = self.db.query(AgentMistake).filter(
+                AgentMistake.company_id == company_id,
+                AgentMistake.agent_id == str(agent.id),
             )
 
             if last_training and last_training.completed_at:
@@ -152,14 +149,20 @@ class FallbackTrainingService:
                 # Never trained - should use cold start (F-107) instead
                 is_due = False
                 reason = "never_trained_use_cold_start"
-            elif days_since_training is not None and days_since_training >= RETRAINING_INTERVAL_DAYS:
+            elif (
+                days_since_training is not None
+                and days_since_training >= RETRAINING_INTERVAL_DAYS
+            ):
                 if new_mistakes_count >= MIN_NEW_MISTAKES_FOR_RETRAINING:
                     is_due = True
                     reason = "scheduled_biweekly"
                 else:
                     is_due = True
                     reason = "scheduled_biweekly_low_mistakes"
-            elif days_since_training is not None and days_since_training >= MIN_DAYS_SINCE_TRAINING:
+            elif (
+                days_since_training is not None
+                and days_since_training >= MIN_DAYS_SINCE_TRAINING
+            ):
                 if new_mistakes_count >= MIN_NEW_MISTAKES_FOR_RETRAINING * 3:
                     is_due = True
                     reason = "high_mistakes_early_retrain"
@@ -172,18 +175,26 @@ class FallbackTrainingService:
                 is_due = False
                 reason = "recently_trained"
 
-            due_agents.append({
-                "agent_id": str(agent.id),
-                "agent_name": agent.name,
-                "agent_status": agent.status,
-                "last_training_id": str(last_training.id) if last_training else None,
-                "last_training_date": last_training.completed_at.isoformat() if last_training and last_training.completed_at else None,
-                "days_since_training": days_since_training,
-                "new_mistakes_count": new_mistakes_count,
-                "is_due_for_retraining": is_due,
-                "reason": reason,
-                "retraining_interval_days": RETRAINING_INTERVAL_DAYS,
-            })
+            due_agents.append(
+                {
+                    "agent_id": str(agent.id),
+                    "agent_name": agent.name,
+                    "agent_status": agent.status,
+                    "last_training_id": (
+                        str(last_training.id) if last_training else None
+                    ),
+                    "last_training_date": (
+                        last_training.completed_at.isoformat()
+                        if last_training and last_training.completed_at
+                        else None
+                    ),
+                    "days_since_training": days_since_training,
+                    "new_mistakes_count": new_mistakes_count,
+                    "is_due_for_retraining": is_due,
+                    "reason": reason,
+                    "retraining_interval_days": RETRAINING_INTERVAL_DAYS,
+                }
+            )
 
         return due_agents
 
@@ -230,19 +241,22 @@ class FallbackTrainingService:
             )
 
             if last_training and last_training.completed_at:
-                next_training = last_training.completed_at + \
-                    timedelta(days=RETRAINING_INTERVAL_DAYS)
+                next_training = last_training.completed_at + timedelta(
+                    days=RETRAINING_INTERVAL_DAYS
+                )
             else:
                 # Cold start agents - schedule immediately
                 next_training = now
 
             if next_training <= end_date:
-                schedule.append({
-                    "agent_id": str(agent.id),
-                    "agent_name": agent.name,
-                    "scheduled_date": next_training.isoformat(),
-                    "is_overdue": next_training < now,
-                })
+                schedule.append(
+                    {
+                        "agent_id": str(agent.id),
+                        "agent_name": agent.name,
+                        "scheduled_date": next_training.isoformat(),
+                        "is_overdue": next_training < now,
+                    }
+                )
 
         # Sort by scheduled date
         schedule.sort(key=lambda x: x["scheduled_date"])
@@ -280,10 +294,8 @@ class FallbackTrainingService:
         from app.services.dataset_preparation_service import DatasetPreparationService
 
         # Check eligibility
-        due_agents = self.get_agents_due_for_retraining(
-            company_id, include_force=force)
-        agent_info = next(
-            (a for a in due_agents if a["agent_id"] == agent_id), None)
+        due_agents = self.get_agents_due_for_retraining(company_id, include_force=force)
+        agent_info = next((a for a in due_agents if a["agent_id"] == agent_id), None)
 
         if not agent_info:
             return {
@@ -296,11 +308,13 @@ class FallbackTrainingService:
                 "status": "skipped",
                 "reason": agent_info["reason"],
                 "agent_id": agent_id,
-                "next_training_days": RETRAINING_INTERVAL_DAYS - (agent_info["days_since_training"] or 0),
+                "next_training_days": RETRAINING_INTERVAL_DAYS
+                - (agent_info["days_since_training"] or 0),
             }
 
         # Check if already training
         from database.models.training import TrainingRun
+
         active_run = (
             self.db.query(TrainingRun)
             .filter(
@@ -478,23 +492,15 @@ class FallbackTrainingService:
         """
         from database.models.training import TrainingRun, AgentMistake
 
-        query = (
-            self.db.query(TrainingRun)
-            .filter(
-                TrainingRun.company_id == company_id,
-                TrainingRun.status == "completed",
-            )
+        query = self.db.query(TrainingRun).filter(
+            TrainingRun.company_id == company_id,
+            TrainingRun.status == "completed",
         )
 
         if agent_id:
             query = query.filter(TrainingRun.agent_id == agent_id)
 
-        recent_runs = (
-            query
-            .order_by(TrainingRun.completed_at.desc())
-            .limit(runs)
-            .all()
-        )
+        recent_runs = query.order_by(TrainingRun.completed_at.desc()).limit(runs).all()
 
         effectiveness_data = []
 
@@ -504,13 +510,18 @@ class FallbackTrainingService:
                 before_start = run.started_at - timedelta(days=7)
                 before_end = run.started_at
             else:
-                before_start = run.created_at - \
-                    timedelta(days=7) if run.created_at else datetime.now(timezone.utc) - timedelta(days=7)
-                before_end = run.created_at if run.created_at else datetime.now(
-                    timezone.utc)
+                before_start = (
+                    run.created_at - timedelta(days=7)
+                    if run.created_at
+                    else datetime.now(timezone.utc) - timedelta(days=7)
+                )
+                before_end = (
+                    run.created_at if run.created_at else datetime.now(timezone.utc)
+                )
 
-            after_start = run.completed_at if run.completed_at else datetime.now(
-                timezone.utc)
+            after_start = (
+                run.completed_at if run.completed_at else datetime.now(timezone.utc)
+            )
             after_end = after_start + timedelta(days=7)
 
             mistakes_before = (
@@ -538,7 +549,8 @@ class FallbackTrainingService:
             # Calculate improvement
             if mistakes_before > 0:
                 improvement_pct = (
-                    (mistakes_before - mistakes_after) / mistakes_before) * 100
+                    (mistakes_before - mistakes_after) / mistakes_before
+                ) * 100
             else:
                 improvement_pct = 0 if mistakes_after == 0 else -100
 
@@ -546,18 +558,22 @@ class FallbackTrainingService:
             final_accuracy = run_metrics.get("final_accuracy", 0)
             quality_score = run_metrics.get("quality_score", 0)
 
-            effectiveness_data.append({
-                "run_id": str(run.id),
-                "agent_id": str(run.agent_id),
-                "completed_at": run.completed_at.isoformat() if run.completed_at else None,
-                "trigger": run.trigger,
-                "final_accuracy": final_accuracy,
-                "quality_score": quality_score,
-                "mistakes_before": mistakes_before,
-                "mistakes_after": mistakes_after,
-                "improvement_pct": round(improvement_pct, 2),
-                "cost_usd": float(run.cost_usd) if run.cost_usd else 0,
-            })
+            effectiveness_data.append(
+                {
+                    "run_id": str(run.id),
+                    "agent_id": str(run.agent_id),
+                    "completed_at": (
+                        run.completed_at.isoformat() if run.completed_at else None
+                    ),
+                    "trigger": run.trigger,
+                    "final_accuracy": final_accuracy,
+                    "quality_score": quality_score,
+                    "mistakes_before": mistakes_before,
+                    "mistakes_after": mistakes_after,
+                    "improvement_pct": round(improvement_pct, 2),
+                    "cost_usd": float(run.cost_usd) if run.cost_usd else 0,
+                }
+            )
 
         # Calculate aggregate metrics
         avg_improvement = 0
@@ -566,13 +582,13 @@ class FallbackTrainingService:
 
         if effectiveness_data:
             improvements = [d["improvement_pct"] for d in effectiveness_data]
-            accuracies = [d["final_accuracy"]
-                          for d in effectiveness_data if d["final_accuracy"]]
+            accuracies = [
+                d["final_accuracy"] for d in effectiveness_data if d["final_accuracy"]
+            ]
             costs = [d["cost_usd"] for d in effectiveness_data]
 
             avg_improvement = sum(improvements) / len(improvements)
-            avg_accuracy = sum(accuracies) / \
-                len(accuracies) if accuracies else 0
+            avg_accuracy = sum(accuracies) / len(accuracies) if accuracies else 0
             total_cost = sum(costs)
 
         return {

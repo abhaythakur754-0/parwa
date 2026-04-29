@@ -33,7 +33,6 @@ from app.services.variant_capability_service import (
 )
 from app.exceptions import ParwaBaseError
 
-
 # ══════════════════════════════════════════════════════════════════
 # PLAN DISPLAY NAMES FOR UPGRADE NUDGES
 # ══════════════════════════════════════════════════════════════════
@@ -63,9 +62,11 @@ ORDERED_VARIANT_TYPES = [
 # DATA CLASS
 # ══════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class EntitlementResult:
     """Result of an entitlement check."""
+
     is_entitled: bool
     feature_id: str
     variant_type: str
@@ -79,6 +80,7 @@ class EntitlementResult:
 # ══════════════════════════════════════════════════════════════════
 # INTERNAL HELPERS
 # ══════════════════════════════════════════════════════════════════
+
 
 def _get_required_variant_type(
     feature_id: str,
@@ -122,10 +124,7 @@ def _build_upgrade_suggestion(
         if VARIANT_LEVELS[vt] >= min_level:
             plan_name = PLAN_DISPLAY_NAMES[vt]
             price = PLAN_PRICING[vt]
-            return (
-                f"Upgrade to {plan_name} ({price}) "
-                f"for {feature_id}"
-            )
+            return f"Upgrade to {plan_name} ({price}) " f"for {feature_id}"
 
     return None
 
@@ -147,7 +146,10 @@ def _check_instance_override(
     )
 
     cap = get_capability(
-        db, company_id, feature_id, variant_type,
+        db,
+        company_id,
+        feature_id,
+        variant_type,
         instance_id=instance_id,
     )
 
@@ -167,7 +169,8 @@ def _check_instance_override(
                 variant_type=variant_type,
                 reason="instance_override_disabled",
                 upgrade_suggestion=_build_upgrade_suggestion(
-                    feature_id, variant_type,
+                    feature_id,
+                    variant_type,
                 ),
             )
 
@@ -177,6 +180,7 @@ def _check_instance_override(
 # ══════════════════════════════════════════════════════════════════
 # PUBLIC API
 # ══════════════════════════════════════════════════════════════════
+
 
 def check_entitlement(
     db,
@@ -204,15 +208,21 @@ def check_entitlement(
     #         override first
     if instance_id is not None:
         override_result = _check_instance_override(
-            db, company_id, feature_id,
-            variant_type, instance_id,
+            db,
+            company_id,
+            feature_id,
+            variant_type,
+            instance_id,
         )
         if override_result is not None:
             return override_result
 
     # Step 2: Check feature_enabled via capability service
     is_enabled = check_feature_enabled(
-        db, company_id, feature_id, variant_type,
+        db,
+        company_id,
+        feature_id,
+        variant_type,
         instance_id=instance_id,
     )
 
@@ -245,7 +255,8 @@ def check_entitlement(
             variant_type=variant_type,
             reason="disabled_for_variant",
             upgrade_suggestion=_build_upgrade_suggestion(
-                feature_id, variant_type,
+                feature_id,
+                variant_type,
             ),
         )
 
@@ -279,7 +290,11 @@ def enforce_entitlement(
       at instance level
     """
     result = check_entitlement(
-        db, company_id, feature_id, variant_type, instance_id,
+        db,
+        company_id,
+        feature_id,
+        variant_type,
+        instance_id,
     )
 
     if result.is_entitled:
@@ -299,9 +314,7 @@ def enforce_entitlement(
                 "variant_type": variant_type,
                 "instance_id": instance_id,
                 "reason": result.reason,
-                "upgrade_suggestion": (
-                    result.upgrade_suggestion
-                ),
+                "upgrade_suggestion": (result.upgrade_suggestion),
             },
         )
 
@@ -318,9 +331,7 @@ def enforce_entitlement(
             "variant_type": variant_type,
             "instance_id": instance_id,
             "reason": result.reason,
-            "upgrade_suggestion": (
-                result.upgrade_suggestion
-            ),
+            "upgrade_suggestion": (result.upgrade_suggestion),
         },
     )
 
@@ -348,7 +359,8 @@ def get_upgrade_nudge(
             "feature_name": feature_id,
             "current_variant": variant_type,
             "current_plan": PLAN_DISPLAY_NAMES.get(
-                variant_type, variant_type,
+                variant_type,
+                variant_type,
             ),
             "required_variant": None,
             "required_plan": None,
@@ -370,10 +382,9 @@ def get_upgrade_nudge(
         for vt in ORDERED_VARIANT_TYPES:
             if VARIANT_LEVELS[vt] >= min_level:
                 required_variant = vt
-                upgrade_suggestion = (
-                    _build_upgrade_suggestion(
-                        feature_id, variant_type,
-                    )
+                upgrade_suggestion = _build_upgrade_suggestion(
+                    feature_id,
+                    variant_type,
                 )
                 pricing = PLAN_PRICING[vt]
                 break
@@ -386,13 +397,12 @@ def get_upgrade_nudge(
         "feature_name": feat["name"],
         "current_variant": variant_type,
         "current_plan": PLAN_DISPLAY_NAMES.get(
-            variant_type, variant_type,
+            variant_type,
+            variant_type,
         ),
         "required_variant": required_variant,
         "required_plan": (
-            PLAN_DISPLAY_NAMES[required_variant]
-            if required_variant
-            else None
+            PLAN_DISPLAY_NAMES[required_variant] if required_variant else None
         ),
         "upgrade_available": upgrade_available,
         "upgrade_suggestion": upgrade_suggestion,
@@ -443,7 +453,10 @@ def batch_check_entitlements(
 
     for fid in feature_ids:
         result = check_entitlement(
-            db, company_id, fid, variant_type,
+            db,
+            company_id,
+            fid,
+            variant_type,
             instance_id=instance_id,
         )
         results[fid] = {
@@ -451,9 +464,7 @@ def batch_check_entitlements(
             "feature_id": result.feature_id,
             "variant_type": result.variant_type,
             "reason": result.reason,
-            "upgrade_suggestion": (
-                result.upgrade_suggestion
-            ),
+            "upgrade_suggestion": (result.upgrade_suggestion),
         }
 
         if result.is_entitled:
@@ -503,19 +514,22 @@ def create_instance_override(
 
     if not feature_id or not feature_id.strip():
         raise ParwaBaseError(
-            message=(
-                "feature_id is required and cannot be empty"
-            ),
+            message=("feature_id is required and cannot be empty"),
             error_code="INVALID_FEATURE_ID",
             status_code=400,
         )
 
     # Verify instance belongs to this company (BC-001)
     from database.models.variant_engine import VariantInstance
-    instance = db.query(VariantInstance).filter(
-        VariantInstance.id == instance_id,
-        VariantInstance.company_id == company_id,
-    ).first()
+
+    instance = (
+        db.query(VariantInstance)
+        .filter(
+            VariantInstance.id == instance_id,
+            VariantInstance.company_id == company_id,
+        )
+        .first()
+    )
     if not instance:
         raise ParwaBaseError(
             status_code=404,
@@ -524,12 +538,16 @@ def create_instance_override(
         )
 
     # Check if override already exists
-    existing = db.query(VariantAICapability).filter_by(
-        company_id=company_id,
-        feature_id=feature_id,
-        variant_type=variant_type,
-        instance_id=instance_id,
-    ).first()
+    existing = (
+        db.query(VariantAICapability)
+        .filter_by(
+            company_id=company_id,
+            feature_id=feature_id,
+            variant_type=variant_type,
+            instance_id=instance_id,
+        )
+        .first()
+    )
 
     if existing is not None:
         # Update existing override
@@ -544,30 +562,26 @@ def create_instance_override(
     # Look up the feature info from the base variant record
     # or from the registry
     feat = FEATURE_REGISTRY.get(feature_id)
-    feat_name = (
-        feat["name"] if feat else feature_id
-    )
-    feat_category = (
-        feat["category"] if feat else None
-    )
-    technique_tier = (
-        feat.get("technique_tier") if feat else None
-    )
+    feat_name = feat["name"] if feat else feature_id
+    feat_category = feat["category"] if feat else None
+    technique_tier = feat.get("technique_tier") if feat else None
 
     # Get config from base variant record if available
-    base_cap = db.query(VariantAICapability).filter_by(
-        company_id=company_id,
-        feature_id=feature_id,
-        variant_type=variant_type,
-        instance_id=None,
-    ).first()
+    base_cap = (
+        db.query(VariantAICapability)
+        .filter_by(
+            company_id=company_id,
+            feature_id=feature_id,
+            variant_type=variant_type,
+            instance_id=None,
+        )
+        .first()
+    )
 
     if config_json is None and base_cap is not None:
         config = base_cap.config_json
     else:
-        config = json.dumps(
-            config_json if config_json else {}
-        )
+        config = json.dumps(config_json if config_json else {})
 
     override = VariantAICapability(
         company_id=company_id,
@@ -615,10 +629,15 @@ def remove_instance_override(
 
     # Verify instance belongs to this company (BC-001)
     from database.models.variant_engine import VariantInstance
-    instance = db.query(VariantInstance).filter(
-        VariantInstance.id == instance_id,
-        VariantInstance.company_id == company_id,
-    ).first()
+
+    instance = (
+        db.query(VariantInstance)
+        .filter(
+            VariantInstance.id == instance_id,
+            VariantInstance.company_id == company_id,
+        )
+        .first()
+    )
     if not instance:
         raise ParwaBaseError(
             status_code=404,
@@ -626,12 +645,16 @@ def remove_instance_override(
             detail="Instance not found",
         )
 
-    override = db.query(VariantAICapability).filter_by(
-        company_id=company_id,
-        feature_id=feature_id,
-        variant_type=variant_type,
-        instance_id=instance_id,
-    ).first()
+    override = (
+        db.query(VariantAICapability)
+        .filter_by(
+            company_id=company_id,
+            feature_id=feature_id,
+            variant_type=variant_type,
+            instance_id=instance_id,
+        )
+        .first()
+    )
 
     if override is None:
         return False

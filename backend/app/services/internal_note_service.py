@@ -80,11 +80,15 @@ class InternalNoteService:
 
         # Check pinned limit
         if is_pinned:
-            pinned_count = self.db.query(TicketInternalNote).filter(
-                TicketInternalNote.ticket_id == ticket_id,
-                TicketInternalNote.company_id == self.company_id,
-                TicketInternalNote.is_pinned,
-            ).count()
+            pinned_count = (
+                self.db.query(TicketInternalNote)
+                .filter(
+                    TicketInternalNote.ticket_id == ticket_id,
+                    TicketInternalNote.company_id == self.company_id,
+                    TicketInternalNote.is_pinned,
+                )
+                .count()
+            )
 
             if pinned_count >= self.MAX_PINNED_NOTES:
                 raise ValidationError(
@@ -127,11 +131,15 @@ class InternalNoteService:
         Raises:
             NotFoundError: If note not found
         """
-        note = self.db.query(TicketInternalNote).filter(
-            TicketInternalNote.id == note_id,
-            TicketInternalNote.ticket_id == ticket_id,
-            TicketInternalNote.company_id == self.company_id,
-        ).first()
+        note = (
+            self.db.query(TicketInternalNote)
+            .filter(
+                TicketInternalNote.id == note_id,
+                TicketInternalNote.ticket_id == ticket_id,
+                TicketInternalNote.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not note:
             raise NotFoundError(f"Note {note_id} not found")
@@ -173,13 +181,11 @@ class InternalNoteService:
         # Sort (pinned first, then by created_at)
         if order == "asc":
             query = query.order_by(
-                TicketInternalNote.is_pinned.desc(),
-                TicketInternalNote.created_at
+                TicketInternalNote.is_pinned.desc(), TicketInternalNote.created_at
             )
         else:
             query = query.order_by(
-                TicketInternalNote.is_pinned.desc(),
-                desc(TicketInternalNote.created_at)
+                TicketInternalNote.is_pinned.desc(), desc(TicketInternalNote.created_at)
             )
 
         # Paginate
@@ -307,11 +313,15 @@ class InternalNoteService:
             return note  # Already pinned
 
         # Check pinned limit
-        pinned_count = self.db.query(TicketInternalNote).filter(
-            TicketInternalNote.ticket_id == ticket_id,
-            TicketInternalNote.company_id == self.company_id,
-            TicketInternalNote.is_pinned,
-        ).count()
+        pinned_count = (
+            self.db.query(TicketInternalNote)
+            .filter(
+                TicketInternalNote.ticket_id == ticket_id,
+                TicketInternalNote.company_id == self.company_id,
+                TicketInternalNote.is_pinned,
+            )
+            .count()
+        )
 
         if pinned_count >= self.MAX_PINNED_NOTES:
             raise ValidationError(
@@ -393,10 +403,14 @@ class InternalNoteService:
         Raises:
             NotFoundError: If ticket not found
         """
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")
@@ -417,11 +431,16 @@ class InternalNoteService:
         Returns:
             List of pinned TicketInternalNote objects
         """
-        return self.db.query(TicketInternalNote).filter(
-            TicketInternalNote.ticket_id == ticket_id,
-            TicketInternalNote.company_id == self.company_id,
-            TicketInternalNote.is_pinned,
-        ).order_by(TicketInternalNote.created_at).all()
+        return (
+            self.db.query(TicketInternalNote)
+            .filter(
+                TicketInternalNote.ticket_id == ticket_id,
+                TicketInternalNote.company_id == self.company_id,
+                TicketInternalNote.is_pinned,
+            )
+            .order_by(TicketInternalNote.created_at)
+            .all()
+        )
 
     def clear_all_pins(
         self,
@@ -435,11 +454,15 @@ class InternalNoteService:
         Returns:
             Number of notes unpinned
         """
-        result = self.db.query(TicketInternalNote).filter(
-            TicketInternalNote.ticket_id == ticket_id,
-            TicketInternalNote.company_id == self.company_id,
-            TicketInternalNote.is_pinned,
-        ).update({"is_pinned": False})
+        result = (
+            self.db.query(TicketInternalNote)
+            .filter(
+                TicketInternalNote.ticket_id == ticket_id,
+                TicketInternalNote.company_id == self.company_id,
+                TicketInternalNote.is_pinned,
+            )
+            .update({"is_pinned": False})
+        )
 
         self.db.commit()
 

@@ -20,7 +20,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # V1: CompanyVariant Model Tests
 # ═══════════════════════════════════════════════════════════════════════
@@ -32,6 +31,7 @@ class TestCompanyVariantModel:
     def test_company_variant_model_exists(self):
         """V1: CompanyVariant model should exist in billing_extended."""
         from database.models.billing_extended import CompanyVariant
+
         assert CompanyVariant is not None
 
     def test_company_variant_has_required_columns(self):
@@ -39,10 +39,19 @@ class TestCompanyVariantModel:
         from database.models.billing_extended import CompanyVariant
 
         required_cols = [
-            "id", "company_id", "variant_id", "display_name", "status",
-            "price_per_month", "tickets_added", "kb_docs_added",
-            "activated_at", "deactivated_at", "paddle_subscription_item_id",
-            "metadata_json", "created_at",
+            "id",
+            "company_id",
+            "variant_id",
+            "display_name",
+            "status",
+            "price_per_month",
+            "tickets_added",
+            "kb_docs_added",
+            "activated_at",
+            "deactivated_at",
+            "paddle_subscription_item_id",
+            "metadata_json",
+            "created_at",
         ]
         for col in required_cols:
             assert hasattr(CompanyVariant, col), f"Missing column: {col}"
@@ -50,6 +59,7 @@ class TestCompanyVariantModel:
     def test_company_variant_tablename(self):
         """V1: CompanyVariant table name should be company_variants."""
         from database.models.billing_extended import CompanyVariant
+
         assert CompanyVariant.__tablename__ == "company_variants"
 
     def test_company_variant_default_status(self):
@@ -122,9 +132,9 @@ class TestDay3Schemas:
         }
         for variant_id, expected_price in expected.items():
             actual = INDUSTRY_ADD_ONS[variant_id]["price_monthly"]
-            assert actual == expected_price, (
-                f"{variant_id}: expected ${expected_price}, got ${actual}"
-            )
+            assert (
+                actual == expected_price
+            ), f"{variant_id}: expected ${expected_price}, got ${actual}"
 
     def test_industry_add_on_tickets_match_roadmap(self):
         """V1: Add-on ticket allocations should match roadmap."""
@@ -138,9 +148,9 @@ class TestDay3Schemas:
         }
         for variant_id, expected in expected_tickets.items():
             actual = INDUSTRY_ADD_ONS[variant_id]["tickets_added"]
-            assert actual == expected, (
-                f"{variant_id}: expected {expected} tickets, got {actual}"
-            )
+            assert (
+                actual == expected
+            ), f"{variant_id}: expected {expected} tickets, got {actual}"
 
     def test_industry_add_on_status_enum(self):
         """V1: IndustryAddOnStatus should have 3 values."""
@@ -192,7 +202,11 @@ class TestDay3Schemas:
 
     def test_company_variant_list_schema(self):
         """V4: CompanyVariantList schema should work."""
-        from app.schemas.billing import CompanyVariantList, CompanyVariantInfo, IndustryAddOnStatus
+        from app.schemas.billing import (
+            CompanyVariantList,
+            CompanyVariantInfo,
+            IndustryAddOnStatus,
+        )
 
         info = CompanyVariantInfo(
             id=uuid.uuid4(),
@@ -253,12 +267,15 @@ class TestAddVariant:
 
         service = VariantAddonService()
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = None  # No subscription
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            None  # No subscription
+        )
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             with pytest.raises(VariantAddonError) as exc_info:
                 service.add_variant(uuid.uuid4(), "ecommerce")
 
@@ -276,21 +293,23 @@ class TestAddVariant:
         mock_sub = MagicMock()
         mock_sub.billing_frequency = "monthly"
         mock_sub.days_in_period = 30
-        mock_sub.current_period_end = (
-            datetime.now(timezone.utc) + timedelta(days=15)
-        )
+        mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=15)
 
         mock_existing = MagicMock()  # Already exists
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
-        mock_db.query.return_value.filter.return_value \
-            .first.return_value = mock_existing
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
+        mock_db.query.return_value.filter.return_value.first.return_value = (
+            mock_existing
+        )
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             with pytest.raises(VariantAddonError) as exc_info:
                 service.add_variant(uuid.uuid4(), "ecommerce")
 
@@ -397,14 +416,16 @@ class TestRemoveVariant:
         mock_sub.current_period_end = period_end
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .first.return_value = mock_variant
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.first.return_value = mock_variant
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             result = service.remove_variant(uuid.uuid4(), "ecommerce")
 
         assert mock_variant.status == "inactive"
@@ -424,12 +445,13 @@ class TestRemoveVariant:
         mock_variant.status = "inactive"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .first.return_value = mock_variant
+        mock_db.query.return_value.filter.return_value.first.return_value = mock_variant
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             with pytest.raises(VariantAddonError) as exc_info:
                 service.remove_variant(uuid.uuid4(), "ecommerce")
 
@@ -448,12 +470,13 @@ class TestRemoveVariant:
         mock_variant.status = "archived"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .first.return_value = mock_variant
+        mock_db.query.return_value.filter.return_value.first.return_value = mock_variant
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             with pytest.raises(VariantAddonError) as exc_info:
                 service.remove_variant(uuid.uuid4(), "ecommerce")
 
@@ -469,12 +492,13 @@ class TestRemoveVariant:
         service = VariantAddonService()
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .first.return_value = None
+        mock_db.query.return_value.filter.return_value.first.return_value = None
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             with pytest.raises(VariantAddonError) as exc_info:
                 service.remove_variant(uuid.uuid4(), "ecommerce")
 
@@ -496,14 +520,16 @@ class TestRemoveVariant:
         mock_sub.current_period_end = period_end
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .first.return_value = mock_variant
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.first.return_value = mock_variant
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             result = service.remove_variant(uuid.uuid4(), "saas")
 
         assert result["deactivated_at"] == period_end
@@ -552,12 +578,16 @@ class TestListVariants:
         mock_v2.created_at = datetime.now(timezone.utc)
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .all.return_value = [mock_v1, mock_v2]
+        mock_db.query.return_value.filter.return_value.all.return_value = [
+            mock_v1,
+            mock_v2,
+        ]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             result = service.list_variants(uuid.uuid4())
 
         assert len(result) == 2
@@ -569,12 +599,13 @@ class TestListVariants:
         service = VariantAddonService()
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .all.return_value = []
+        mock_db.query.return_value.filter.return_value.all.return_value = []
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             result = service.list_variants(uuid.uuid4())
 
         assert len(result) == 0
@@ -612,14 +643,19 @@ class TestEffectiveLimits:
         mock_v1.variant_id = "ecommerce"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
-        mock_db.query.return_value.filter.return_value \
-            .all.return_value = [mock_v1, mock_v2]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
+        mock_db.query.return_value.filter.return_value.all.return_value = [
+            mock_v1,
+            mock_v2,
+        ]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             limits = service.get_effective_limits(uuid.uuid4())
 
         # 5000 (growth) + 500 (ecommerce) + 300 (saas) = 5800
@@ -644,14 +680,16 @@ class TestEffectiveLimits:
         mock_v1.variant_id = "ecommerce"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
-        mock_db.query.return_value.filter.return_value \
-            .all.return_value = [mock_v1]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
+        mock_db.query.return_value.filter.return_value.all.return_value = [mock_v1]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             limits = service.get_effective_limits(uuid.uuid4())
 
         # 500 (growth) + 50 (ecommerce) = 550
@@ -675,14 +713,16 @@ class TestEffectiveLimits:
         mock_v1.variant_id = "ecommerce"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
-        mock_db.query.return_value.filter.return_value \
-            .all.return_value = [mock_v1]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
+        mock_db.query.return_value.filter.return_value.all.return_value = [mock_v1]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             limits = service.get_effective_limits(uuid.uuid4())
 
         assert limits.effective_ai_agents == 3  # Growth base only
@@ -705,14 +745,16 @@ class TestEffectiveLimits:
         mock_v1.variant_id = "ecommerce"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
-        mock_db.query.return_value.filter.return_value \
-            .all.return_value = [mock_v1]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
+        mock_db.query.return_value.filter.return_value.all.return_value = [mock_v1]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             limits = service.get_effective_limits(uuid.uuid4())
 
         assert limits.effective_team_members == 10  # Growth base only
@@ -735,14 +777,16 @@ class TestEffectiveLimits:
         mock_v1.variant_id = "ecommerce"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
-        mock_db.query.return_value.filter.return_value \
-            .all.return_value = [mock_v1]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
+        mock_db.query.return_value.filter.return_value.all.return_value = [mock_v1]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             limits = service.get_effective_limits(uuid.uuid4())
 
         assert limits.effective_voice_slots == 2  # Growth base only
@@ -771,16 +815,18 @@ class TestEffectiveLimits:
         mock_v2.variant_id = "saas"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         # Only return active (not archived) since the query filters
         # status.in_(active, inactive)
-        mock_db.query.return_value.filter.return_value \
-            .all.return_value = [mock_v1]
+        mock_db.query.return_value.filter.return_value.all.return_value = [mock_v1]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             limits = service.get_effective_limits(uuid.uuid4())
 
         # Only ecommerce (500), NOT saas (300) since it's archived
@@ -804,14 +850,16 @@ class TestEffectiveLimits:
         mock_v1.variant_id = "ecommerce"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
-        mock_db.query.return_value.filter.return_value \
-            .all.return_value = [mock_v1]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
+        mock_db.query.return_value.filter.return_value.all.return_value = [mock_v1]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             limits = service.get_effective_limits(uuid.uuid4())
 
         # Inactive variant still counts for current period
@@ -830,14 +878,16 @@ class TestEffectiveLimits:
         mock_sub.billing_frequency = "monthly"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
-        mock_db.query.return_value.filter.return_value \
-            .all.return_value = []
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
+        mock_db.query.return_value.filter.return_value.all.return_value = []
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             limits = service.get_effective_limits(uuid.uuid4())
 
         assert limits.effective_monthly_tickets == 2000
@@ -863,14 +913,16 @@ class TestEffectiveLimits:
         mock_v1.variant_id = "ecommerce"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
-        mock_db.query.return_value.filter.return_value \
-            .all.return_value = [mock_v1]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
+        mock_db.query.return_value.filter.return_value.all.return_value = [mock_v1]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             limits = service.get_effective_limits(uuid.uuid4())
 
         assert limits.effective_monthly_tickets == 2500
@@ -900,12 +952,13 @@ class TestPeriodEndVariantArchival:
         mock_v1.id = "v1"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .all.return_value = [mock_v1]
+        mock_db.query.return_value.filter.return_value.all.return_value = [mock_v1]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             result = service.process_variant_period_end()
 
         assert mock_v1.status == "archived"
@@ -926,12 +979,13 @@ class TestPeriodEndVariantArchival:
         mock_db = MagicMock()
         # Query filters deactivated_at <= now, so future-deactivated variant is
         # excluded
-        mock_db.query.return_value.filter.return_value \
-            .all.return_value = []
+        mock_db.query.return_value.filter.return_value.all.return_value = []
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             result = service.process_variant_period_end()
 
         assert result["archived_count"] == 0
@@ -957,14 +1011,16 @@ class TestPeriodEndVariantArchival:
         mock_paddle = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .all.return_value = [mock_v1]
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.all.return_value = [mock_v1]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             with patch.object(service, "_get_paddle_client", return_value=mock_paddle):
                 result = service.process_variant_period_end()
 
@@ -992,15 +1048,17 @@ class TestVariantLimitServiceStacking:
 
         mock_db = MagicMock()
         # First call: _get_company_variant
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         # Second call (for addon_tickets): scalar returns 500
-        mock_db.query.return_value.filter.return_value \
-            .scalar.return_value = 500
+        mock_db.query.return_value.filter.return_value.scalar.return_value = 500
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_limit_service.SessionLocal", return_value=mock_db
+        ):
             result = service.check_ticket_limit(company_id, current_count=100)
 
         # 5000 base + 500 addon = 5500 limit
@@ -1021,15 +1079,17 @@ class TestVariantLimitServiceStacking:
         mock_sub.tier = "mini_parwa"  # 2000 base
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         # No addon tickets
-        mock_db.query.return_value.filter.return_value \
-            .scalar.return_value = None
+        mock_db.query.return_value.filter.return_value.scalar.return_value = None
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_limit_service.SessionLocal", return_value=mock_db
+        ):
             result = service.check_ticket_limit(company_id, current_count=500)
 
         assert result["limit"] == 2000
@@ -1046,15 +1106,17 @@ class TestVariantLimitServiceStacking:
         mock_sub.tier = "parwa"  # 500 base KB docs
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         # _get_addon_kb_docs returns 50
-        mock_db.query.return_value.filter.return_value \
-            .scalar.return_value = 50
+        mock_db.query.return_value.filter.return_value.scalar.return_value = 50
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_limit_service.SessionLocal", return_value=mock_db
+        ):
             result = service.check_kb_doc_limit(company_id, current_count=300)
 
         # 500 base + 50 addon = 550 limit
@@ -1072,14 +1134,16 @@ class TestVariantLimitServiceStacking:
         mock_sub.tier = "mini_parwa"  # 100 base KB docs
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
-        mock_db.query.return_value.filter.return_value \
-            .scalar.return_value = None
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
+        mock_db.query.return_value.filter.return_value.scalar.return_value = None
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_limit_service.SessionLocal", return_value=mock_db
+        ):
             result = service.check_kb_doc_limit(company_id, current_count=50)
 
         assert result["limit"] == 100
@@ -1096,12 +1160,15 @@ class TestVariantLimitServiceStacking:
         mock_sub.tier = "parwa"  # 3 agents base
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_limit_service.SessionLocal", return_value=mock_db
+        ):
             result = service.check_ai_agent_limit(company_id, current_count=2)
 
         assert result["limit"] == 3  # Base only, no addon
@@ -1118,14 +1185,16 @@ class TestVariantLimitServiceStacking:
         mock_sub.tier = "parwa"  # 10 team base
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
-            result = service.check_team_member_limit(
-                company_id, current_count=8)
+        with patch(
+            "app.services.variant_limit_service.SessionLocal", return_value=mock_db
+        ):
+            result = service.check_team_member_limit(company_id, current_count=8)
 
         assert result["limit"] == 10  # Base only, no addon
         assert result["addon_amount"] == 0
@@ -1141,14 +1210,16 @@ class TestVariantLimitServiceStacking:
         mock_sub.tier = "parwa"  # 2 voice base
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
-            result = service.check_voice_slot_limit(
-                company_id, current_count=1)
+        with patch(
+            "app.services.variant_limit_service.SessionLocal", return_value=mock_db
+        ):
+            result = service.check_voice_slot_limit(company_id, current_count=1)
 
         assert result["limit"] == 2  # Base only, no addon
         assert result["addon_amount"] == 0
@@ -1173,17 +1244,19 @@ class TestVariantRestore:
         mock_sub.billing_frequency = "monthly"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .first.return_value = mock_v
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.first.return_value = mock_v
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
         mock_paddle = MagicMock()
         mock_paddle.update_subscription.return_value = {"id": "new_item_123"}
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             with patch.object(service, "_get_paddle_client", return_value=mock_paddle):
                 result = service.restore_variant(uuid.uuid4(), "ecommerce")
 
@@ -1205,12 +1278,13 @@ class TestVariantRestore:
         mock_v.status = "active"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .first.return_value = mock_v
+        mock_db.query.return_value.filter.return_value.first.return_value = mock_v
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             with pytest.raises(VariantAddonError) as exc_info:
                 service.restore_variant(uuid.uuid4(), "ecommerce")
 
@@ -1231,14 +1305,16 @@ class TestVariantRestore:
         mock_sub.paddle_subscription_id = None
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .first.return_value = mock_v
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value.first.return_value = mock_v
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             with patch.object(service, "_get_paddle_client", return_value=MagicMock()):
                 result = service.restore_variant(uuid.uuid4(), "ecommerce")
 
@@ -1264,8 +1340,10 @@ class TestPeriodEndCronIntegration:
         service = SubscriptionService()
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .all.side_effect = [[], []]  # No downgrades, no cancellations
+        mock_db.query.return_value.filter.return_value.all.side_effect = [
+            [],
+            [],
+        ]  # No downgrades, no cancellations
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
@@ -1276,7 +1354,9 @@ class TestPeriodEndCronIntegration:
             "processed_at": datetime.now(timezone.utc).isoformat(),
         }
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             with patch(
                 "app.services.variant_addon_service.get_variant_addon_service",
                 return_value=mock_addon_service,
@@ -1294,8 +1374,7 @@ class TestPeriodEndCronIntegration:
         service = SubscriptionService()
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .all.side_effect = [[], []]
+        mock_db.query.return_value.filter.return_value.all.side_effect = [[], []]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
@@ -1306,7 +1385,9 @@ class TestPeriodEndCronIntegration:
             "processed_at": datetime.now(timezone.utc).isoformat(),
         }
 
-        with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.subscription_service.SessionLocal", return_value=mock_db
+        ):
             with patch(
                 "app.services.variant_addon_service.get_variant_addon_service",
                 return_value=mock_addon_service,
@@ -1413,25 +1494,24 @@ class TestVariantInvoiceIntegration:
         mock_sub = MagicMock()
         mock_sub.billing_frequency = "monthly"
         mock_sub.days_in_period = 30
-        mock_sub.current_period_end = (
-            datetime.now(timezone.utc) + timedelta(days=15)
-        )
+        mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=15)
         mock_sub.paddle_subscription_id = "sub_123"
 
         # No existing variant
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
-        mock_db.query.return_value.filter.return_value \
-            .first.return_value = None
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
+        mock_db.query.return_value.filter.return_value.first.return_value = None
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
         mock_paddle = MagicMock()
-        mock_paddle.update_subscription.return_value = {
-            "id": "paddle_item_456"}
+        mock_paddle.update_subscription.return_value = {"id": "paddle_item_456"}
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             with patch.object(service, "_get_paddle_client", return_value=mock_paddle):
                 service.add_variant(uuid.uuid4(), "ecommerce")
 
@@ -1522,14 +1602,16 @@ class TestStackingRules:
             variants.append(v)
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
-        mock_db.query.return_value.filter.return_value \
-            .all.return_value = variants
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
+        mock_db.query.return_value.filter.return_value.all.return_value = variants
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             limits = service.get_effective_limits(uuid.uuid4())
 
         # 5000 + 500 + 300 + 400 + 200 = 6400
@@ -1552,14 +1634,16 @@ class TestStackingRules:
         mock_sub.billing_frequency = "monthly"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.first.return_value = mock_sub
-        mock_db.query.return_value.filter.return_value \
-            .all.return_value = []
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_sub
+        )
+        mock_db.query.return_value.filter.return_value.all.return_value = []
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
-        with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
+        with patch(
+            "app.services.variant_addon_service.SessionLocal", return_value=mock_db
+        ):
             limits = service.get_effective_limits(uuid.uuid4())
 
         # Starter is the minimum plan

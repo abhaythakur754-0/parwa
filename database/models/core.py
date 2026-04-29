@@ -13,7 +13,14 @@ from datetime import datetime
 import uuid
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Integer, Numeric, String, Text, ForeignKey
+    Boolean,
+    Column,
+    DateTime,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    ForeignKey,
 )
 from sqlalchemy.orm import relationship
 
@@ -25,6 +32,7 @@ def _uuid() -> str:
 
 
 # ── Companies (root tenant — no company_id) ────────────────────────
+
 
 class Company(Base):
     __tablename__ = "companies"
@@ -60,66 +68,81 @@ class Company(Base):
     shadow_actions_remaining = Column(Integer, default=10)
 
     users = relationship(
-        "User", back_populates="company",
+        "User",
+        back_populates="company",
         cascade="all, delete-orphan",
     )
     api_keys = relationship(
-        "APIKey", back_populates="company",
+        "APIKey",
+        back_populates="company",
         cascade="all, delete-orphan",
     )
     # Billing extended relationships (Week 5)
     client_refunds = relationship(
-        "ClientRefund", back_populates="company",
+        "ClientRefund",
+        back_populates="company",
         cascade="all, delete-orphan",
     )
     payment_methods = relationship(
-        "PaymentMethod", back_populates="company",
+        "PaymentMethod",
+        back_populates="company",
         cascade="all, delete-orphan",
     )
     usage_records = relationship(
-        "UsageRecord", back_populates="company",
+        "UsageRecord",
+        back_populates="company",
         cascade="all, delete-orphan",
     )
     proration_audits = relationship(
-        "ProrationAudit", back_populates="company",
+        "ProrationAudit",
+        back_populates="company",
         cascade="all, delete-orphan",
     )
     payment_failures = relationship(
-        "PaymentFailure", back_populates="company",
+        "PaymentFailure",
+        back_populates="company",
         cascade="all, delete-orphan",
     )
     # Day 5: Chargeback, CreditBalance, SpendingCap, RefundAudit
     chargebacks = relationship(
-        "Chargeback", back_populates="company",
+        "Chargeback",
+        back_populates="company",
         cascade="all, delete-orphan",
     )
     credit_balances = relationship(
-        "CreditBalance", back_populates="company",
+        "CreditBalance",
+        back_populates="company",
         cascade="all, delete-orphan",
     )
     spending_caps = relationship(
-        "SpendingCap", back_populates="company",
+        "SpendingCap",
+        back_populates="company",
         cascade="all, delete-orphan",
     )
     refund_audits = relationship(
-        "RefundAudit", back_populates="company",
+        "RefundAudit",
+        back_populates="company",
         cascade="all, delete-orphan",
     )
     data_exports = relationship(
-        "DataExport", back_populates="company",
+        "DataExport",
+        back_populates="company",
         cascade="all, delete-orphan",
     )
 
 
 # ── Users ──────────────────────────────────────────────────────────
 
+
 class User(Base):
     __tablename__ = "users"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     email = Column(String(255), nullable=False, unique=True)
     password_hash = Column(String(255), nullable=False)
@@ -140,11 +163,13 @@ class User(Base):
 
     company = relationship("Company", back_populates="users")
     refresh_tokens = relationship(
-        "RefreshToken", back_populates="user",
+        "RefreshToken",
+        back_populates="user",
         cascade="all, delete-orphan",
     )
     backup_codes = relationship(
-        "BackupCode", back_populates="user",
+        "BackupCode",
+        back_populates="user",
         cascade="all, delete-orphan",
     )
     oauth_accounts = relationship(
@@ -156,17 +181,22 @@ class User(Base):
 
 # ── Refresh Tokens (BC-011: max 5 sessions) ────────────────────────
 
+
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     user_id = Column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     token_hash = Column(String(255), nullable=False, unique=True)
     device_info = Column(String(255))
@@ -179,17 +209,22 @@ class RefreshToken(Base):
 
 # ── MFA Secrets ────────────────────────────────────────────────────
 
+
 class MFASecret(Base):
     __tablename__ = "mfa_secrets"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     user_id = Column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False, unique=True,
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     secret_key = Column(String(255), nullable=False)
     is_verified = Column(Boolean, default=False)
@@ -198,17 +233,22 @@ class MFASecret(Base):
 
 # ── Backup Codes ───────────────────────────────────────────────────
 
+
 class BackupCode(Base):
     __tablename__ = "backup_codes"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     user_id = Column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     code_hash = Column(String(255), nullable=False)
     is_used = Column(Boolean, default=False)
@@ -220,13 +260,16 @@ class BackupCode(Base):
 
 # ── API Keys (BC-011: scopes read/write/admin/approval) ────────────
 
+
 class APIKey(Base):
     __tablename__ = "api_keys"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name = Column(String(255), nullable=False)
     key_hash = Column(String(255), nullable=False, unique=True)
@@ -237,16 +280,21 @@ class APIKey(Base):
     revoked = Column(Boolean, default=False)
     revoked_at = Column(DateTime, nullable=True)
     rotated_from_id = Column(
-        String(36), ForeignKey("api_keys.id"), nullable=True,
+        String(36),
+        ForeignKey("api_keys.id"),
+        nullable=True,
     )
     grace_ends_at = Column(DateTime, nullable=True)
     created_by = Column(
-        String(36), ForeignKey("users.id"), nullable=True,
+        String(36),
+        ForeignKey("users.id"),
+        nullable=True,
     )
     last_used_at = Column(DateTime)
     expires_at = Column(DateTime)
     created_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime,
+        default=lambda: datetime.utcnow(),
     )
 
     company = relationship("Company", back_populates="api_keys")
@@ -261,13 +309,16 @@ from database.models.agent import Agent  # noqa: F401, E402
 
 # ── Emergency States (pause controls) ──────────────────────────────
 
+
 class EmergencyState(Base):
     __tablename__ = "emergency_states"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     is_paused = Column(Boolean, default=False)
     paused_channels = Column(Text, default="")
@@ -279,17 +330,22 @@ class EmergencyState(Base):
 
 # ── User Notification Preferences ──────────────────────────────────
 
+
 class UserNotificationPreference(Base):
     __tablename__ = "user_notification_preferences"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     user_id = Column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     channel = Column(String(50), nullable=False)
     event_type = Column(String(100), nullable=False)
@@ -299,17 +355,22 @@ class UserNotificationPreference(Base):
 
 # ── Verification Tokens (F-012: email verification) ──────────────
 
+
 class VerificationToken(Base):
     __tablename__ = "verification_tokens"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     user_id = Column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     token_hash = Column(String(255), nullable=False, index=True)
     purpose = Column(String(50), default="email_verification")
@@ -320,17 +381,22 @@ class VerificationToken(Base):
 
 # ── Password Reset Tokens (F-014) ───────────────────────────────
 
+
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     user_id = Column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     token_hash = Column(String(255), nullable=False, index=True)
     is_used = Column(Boolean, default=False)
@@ -340,17 +406,22 @@ class PasswordResetToken(Base):
 
 # ── OAuth Accounts (F-011: Google OAuth) ────────────────────────
 
+
 class OAuthAccount(Base):
     __tablename__ = "oauth_accounts"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     user_id = Column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     provider = Column(String(50), nullable=False)
     provider_account_id = Column(String(255), nullable=False)
@@ -366,13 +437,17 @@ class OAuthAccount(Base):
 
 # ── Company Settings (used by ticket lifecycle, AI pipeline) ────────
 
+
 class CompanySetting(Base):
     __tablename__ = "company_settings"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, unique=True, index=True,
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
     )
     # OOO detection (F-122)
     ooo_status = Column(String(20), default="inactive")

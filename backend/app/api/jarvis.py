@@ -107,7 +107,11 @@ def get_history(
 ):
     """Get paginated chat history for a session."""
     messages, total = jarvis_service.get_history(
-        db, session_id, user.id, limit, offset,
+        db,
+        session_id,
+        user.id,
+        limit,
+        offset,
     )
     return JarvisHistoryResponse(
         messages=[_message_to_response(m) for m in messages],
@@ -350,7 +354,9 @@ async def payment_webhook(
             "error": {
                 "code": "INVALID_PAYLOAD",
                 "message": "Invalid webhook payload",
-                "details": None}}
+                "details": None,
+            }
+        }
 
     # Pass request headers for Paddle signature verification in the service
     # layer
@@ -566,7 +572,8 @@ def update_ticket_status(
 
 
 def _session_to_response(
-    db: Session, session: object,
+    db: Session,
+    session: object,
 ) -> JarvisSessionResponse:
     """Convert JarvisSession ORM model to response schema."""
     from app.services.jarvis_service import check_message_limit
@@ -586,20 +593,14 @@ def _session_to_response(
         total_message_count=session.total_message_count,
         remaining_today=remaining,
         pack_type=session.pack_type,
-        pack_expiry=(
-            session.pack_expiry.isoformat() if session.pack_expiry else None
-        ),
+        pack_expiry=(session.pack_expiry.isoformat() if session.pack_expiry else None),
         demo_call_used=session.demo_call_used,
         is_active=session.is_active,
         payment_status=session.payment_status,
         handoff_completed=session.handoff_completed,
         detected_stage=ctx.get("detected_stage", "welcome"),
-        created_at=(
-            session.created_at.isoformat() if session.created_at else None
-        ),
-        updated_at=(
-            session.updated_at.isoformat() if session.updated_at else None
-        ),
+        created_at=(session.created_at.isoformat() if session.created_at else None),
+        updated_at=(session.updated_at.isoformat() if session.updated_at else None),
     )
 
 
@@ -619,9 +620,7 @@ def _message_to_response(msg: object) -> JarvisMessageResponse:
         content=msg.content,
         message_type=msg.message_type,
         metadata=metadata,
-        timestamp=(
-            msg.created_at.isoformat() if msg.created_at else None
-        ),
+        timestamp=(msg.created_at.isoformat() if msg.created_at else None),
     )
 
 
@@ -638,9 +637,7 @@ def _ticket_to_response(
 
     metadata = {}
     try:
-        metadata = (
-            json.loads(ticket.metadata_json) if ticket.metadata_json else {}
-        )
+        metadata = json.loads(ticket.metadata_json) if ticket.metadata_json else {}
     except (json.JSONDecodeError, TypeError):
         pass
 
@@ -651,13 +648,7 @@ def _ticket_to_response(
         status=ticket.status,
         result=result,
         metadata=metadata,
-        created_at=(
-            ticket.created_at.isoformat() if ticket.created_at else None
-        ),
-        updated_at=(
-            ticket.updated_at.isoformat() if ticket.updated_at else None
-        ),
-        completed_at=(
-            ticket.completed_at.isoformat() if ticket.completed_at else None
-        ),
+        created_at=(ticket.created_at.isoformat() if ticket.created_at else None),
+        updated_at=(ticket.updated_at.isoformat() if ticket.updated_at else None),
+        completed_at=(ticket.completed_at.isoformat() if ticket.completed_at else None),
     )

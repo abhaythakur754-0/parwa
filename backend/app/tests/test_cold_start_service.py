@@ -25,7 +25,6 @@ from app.core.cold_start_service import (
     _utcnow,
 )
 
-
 # ── Fixtures ─────────────────────────────────────────────────────
 
 
@@ -40,6 +39,7 @@ def mock_warmup():
 
     def _mock_warmup(self, company_id, combo, timeout_ms=None):
         from app.core.cold_start_service import ModelWarmupState, WarmupStatus
+
         return ModelWarmupState(
             provider=combo.provider,
             model_id=combo.model_id,
@@ -51,6 +51,7 @@ def mock_warmup():
             probe_query=combo.probe_query,
             probe_response="Mock response",
         )
+
     return _mock_warmup
 
 
@@ -62,12 +63,15 @@ COMPANY_ID = "test-company-789"
 
 class TestWarmupTenant:
     @patch.object(ColdStartService, "_warmup_single_model")
-    def test_creates_state_for_mini_parwa(
-            self, mock_method, service: ColdStartService):
+    def test_creates_state_for_mini_parwa(self, mock_method, service: ColdStartService):
         from app.core.cold_start_service import ModelWarmupState, WarmupStatus
+
         mock_method.return_value = ModelWarmupState(
-            provider="cerebras", model_id="llama-3.1-8b", tier="light",
-            status=WarmupStatus.warm, warmup_success=True,
+            provider="cerebras",
+            model_id="llama-3.1-8b",
+            tier="light",
+            status=WarmupStatus.warm,
+            warmup_success=True,
         )
         state = service.warmup_tenant(COMPANY_ID, "mini_parwa")
         assert state.company_id == COMPANY_ID
@@ -76,12 +80,15 @@ class TestWarmupTenant:
         assert len(state.models_warmed) > 0
 
     @patch.object(ColdStartService, "_warmup_single_model")
-    def test_creates_state_for_parwa(
-            self, mock_method, service: ColdStartService):
+    def test_creates_state_for_parwa(self, mock_method, service: ColdStartService):
         from app.core.cold_start_service import ModelWarmupState, WarmupStatus
+
         mock_method.return_value = ModelWarmupState(
-            provider="google", model_id="gemini-2.0-flash-lite", tier="medium",
-            status=WarmupStatus.warm, warmup_success=True,
+            provider="google",
+            model_id="gemini-2.0-flash-lite",
+            tier="medium",
+            status=WarmupStatus.warm,
+            warmup_success=True,
         )
         state = service.warmup_tenant(COMPANY_ID, "parwa")
         assert state.variant_type == "parwa"
@@ -90,11 +97,16 @@ class TestWarmupTenant:
 
     @patch.object(ColdStartService, "_warmup_single_model")
     def test_unknown_variant_defaults_to_mini_parwa(
-            self, mock_method, service: ColdStartService):
+        self, mock_method, service: ColdStartService
+    ):
         from app.core.cold_start_service import ModelWarmupState, WarmupStatus
+
         mock_method.return_value = ModelWarmupState(
-            provider="cerebras", model_id="llama-3.1-8b", tier="light",
-            status=WarmupStatus.warm, warmup_success=True,
+            provider="cerebras",
+            model_id="llama-3.1-8b",
+            tier="light",
+            status=WarmupStatus.warm,
+            warmup_success=True,
         )
         state = service.warmup_tenant(COMPANY_ID, "unknown_xyz")
         assert state.variant_type == "mini_parwa"
@@ -146,10 +158,12 @@ class TestColdFallbackModel:
         assert "model_id" in result
         assert "tier" in result
 
-    @pytest.mark.parametrize("variant",
-                             ["mini_parwa", "parwa", "high_parwa", "unknown"])
+    @pytest.mark.parametrize(
+        "variant", ["mini_parwa", "parwa", "high_parwa", "unknown"]
+    )
     def test_returns_model_for_any_variant(
-            self, service: ColdStartService, variant: str):
+        self, service: ColdStartService, variant: str
+    ):
         result = service.get_cold_fallback_model(COMPANY_ID, variant)
         assert result is not None
         assert "provider" in result
@@ -183,23 +197,30 @@ class TestHeavyTimeout:
 
     @patch.object(ColdStartService, "_warmup_single_model")
     def test_heavy_warmup_uses_capped_timeout(
-            self, mock_method, service: ColdStartService):
+        self, mock_method, service: ColdStartService
+    ):
         from app.core.cold_start_service import ModelWarmupState, WarmupStatus
+
         mock_method.return_value = ModelWarmupState(
-            provider="groq", model_id="gpt-oss-120b", tier="heavy",
-            status=WarmupStatus.warm, warmup_success=True,
+            provider="groq",
+            model_id="gpt-oss-120b",
+            tier="heavy",
+            status=WarmupStatus.warm,
+            warmup_success=True,
         )
         service.warmup_tenant(COMPANY_ID, "high_parwa")
         # Check that _warmup_single_model was called with timeout_ms for heavy
         heavy_calls = [
-            call for call in mock_method.call_args_list if len(
-                call.args) >= 2 and hasattr(
-                call.args[1],
-                'tier') and call.args[1].tier == "heavy"]
+            call
+            for call in mock_method.call_args_list
+            if len(call.args) >= 2
+            and hasattr(call.args[1], "tier")
+            and call.args[1].tier == "heavy"
+        ]
         for call in heavy_calls:
             kwargs = call.kwargs
-            if 'timeout_ms' in kwargs:
-                assert kwargs['timeout_ms'] <= HEAVY_WARMUP_TIMEOUT_MS
+            if "timeout_ms" in kwargs:
+                assert kwargs["timeout_ms"] <= HEAVY_WARMUP_TIMEOUT_MS
 
 
 # ── 7. Tenant state cleanup ──────────────────────────────────────
@@ -211,9 +232,13 @@ class TestTenantStateCleanup:
         # Trigger the trim by calling warmup_tenant which checks after insert
         with patch.object(ColdStartService, "_warmup_single_model") as mock:
             from app.core.cold_start_service import ModelWarmupState, WarmupStatus
+
             mock.return_value = ModelWarmupState(
-                provider="cerebras", model_id="llama-3.1-8b", tier="light",
-                status=WarmupStatus.warm, warmup_success=True,
+                provider="cerebras",
+                model_id="llama-3.1-8b",
+                tier="light",
+                status=WarmupStatus.warm,
+                warmup_success=True,
             )
             # Add 4 states first, then warmup the 5th and 6th which should
             # trigger trim
@@ -232,19 +257,23 @@ class TestTenantStateCleanup:
 class TestPrewarmAllProviders:
     @patch.object(ColdStartService, "_warmup_single_model")
     def test_returns_results_for_all_light(
-            self, mock_method, service: ColdStartService):
+        self, mock_method, service: ColdStartService
+    ):
         from app.core.cold_start_service import ModelWarmupState, WarmupStatus
+
         mock_method.return_value = ModelWarmupState(
-            provider="cerebras", model_id="llama-3.1-8b", tier="light",
-            status=WarmupStatus.warm, warmup_success=True,
+            provider="cerebras",
+            model_id="llama-3.1-8b",
+            tier="light",
+            status=WarmupStatus.warm,
+            warmup_success=True,
         )
         results = service.prewarm_all_providers()
         assert isinstance(results, dict)
         assert len(results) > 0
 
     @patch.object(ColdStartService, "_warmup_single_model")
-    def test_handles_failure_gracefully(
-            self, mock_method, service: ColdStartService):
+    def test_handles_failure_gracefully(self, mock_method, service: ColdStartService):
         mock_method.side_effect = RuntimeError("API error")
         results = service.prewarm_all_providers()
         # Should not crash, returns error entries

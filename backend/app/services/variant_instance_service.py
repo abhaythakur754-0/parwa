@@ -29,8 +29,12 @@ VALID_VARIANT_TYPES = {"mini_parwa", "parwa", "high_parwa"}
 VALID_STATUSES = {"active", "inactive", "warming", "suspended"}
 
 VALID_CHANNELS = {
-    "email", "chat", "sms", "voice",
-    "slack", "webchat",
+    "email",
+    "chat",
+    "sms",
+    "voice",
+    "slack",
+    "webchat",
 }
 
 VARIANT_PRIORITY = {
@@ -43,6 +47,7 @@ VARIANT_PRIORITY = {
 # ══════════════════════════════════════════════════════════════════
 # VALIDATION HELPERS
 # ══════════════════════════════════════════════════════════════════
+
 
 def _validate_company_id(company_id: str) -> None:
     """BC-001: company_id is required."""
@@ -162,15 +167,20 @@ def _get_instance_count(
     variant_type: str,
 ) -> int:
     """Count existing instances of this type for tenant."""
-    return db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        variant_type=variant_type,
-    ).count()
+    return (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+            variant_type=variant_type,
+        )
+        .count()
+    )
 
 
 # ══════════════════════════════════════════════════════════════════
 # SERVICE FUNCTIONS
 # ══════════════════════════════════════════════════════════════════
+
 
 def register_instance(
     db: SessionLocal,
@@ -204,10 +214,14 @@ def register_instance(
     next_num = count + 1
 
     celery_ns = _generate_celery_namespace(
-        company_id, variant_type, next_num,
+        company_id,
+        variant_type,
+        next_num,
     )
     redis_key = _generate_redis_partition_key(
-        company_id, variant_type, next_num,
+        company_id,
+        variant_type,
+        next_num,
     )
 
     channels_json = json.dumps(safe_channels)
@@ -240,17 +254,20 @@ def deactivate_instance(
     """Set instance status to 'inactive'."""
     _validate_company_id(company_id)
 
-    inst = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        id=instance_id,
-    ).first()
+    inst = (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+            id=instance_id,
+        )
+        .first()
+    )
 
     if inst is None:
         raise ParwaBaseError(
             error_code="INSTANCE_NOT_FOUND",
             message=(
-                f"Instance '{instance_id}' not found "
-                f"for company '{company_id}'"
+                f"Instance '{instance_id}' not found " f"for company '{company_id}'"
             ),
             status_code=404,
         )
@@ -269,17 +286,20 @@ def activate_instance(
     """Set instance status to 'active'."""
     _validate_company_id(company_id)
 
-    inst = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        id=instance_id,
-    ).first()
+    inst = (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+            id=instance_id,
+        )
+        .first()
+    )
 
     if inst is None:
         raise ParwaBaseError(
             error_code="INSTANCE_NOT_FOUND",
             message=(
-                f"Instance '{instance_id}' not found "
-                f"for company '{company_id}'"
+                f"Instance '{instance_id}' not found " f"for company '{company_id}'"
             ),
             status_code=404,
         )
@@ -299,17 +319,20 @@ def suspend_instance(
     """Set instance status to 'suspended'."""
     _validate_company_id(company_id)
 
-    inst = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        id=instance_id,
-    ).first()
+    inst = (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+            id=instance_id,
+        )
+        .first()
+    )
 
     if inst is None:
         raise ParwaBaseError(
             error_code="INSTANCE_NOT_FOUND",
             message=(
-                f"Instance '{instance_id}' not found "
-                f"for company '{company_id}'"
+                f"Instance '{instance_id}' not found " f"for company '{company_id}'"
             ),
             status_code=404,
         )
@@ -354,10 +377,14 @@ def get_instance(
     """Get single instance by ID."""
     _validate_company_id(company_id)
 
-    return db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        id=instance_id,
-    ).first()
+    return (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+            id=instance_id,
+        )
+        .first()
+    )
 
 
 def get_highest_active_variant(
@@ -373,12 +400,17 @@ def get_highest_active_variant(
     """
     _validate_company_id(company_id)
 
-    active = db.query(
-        VariantInstance.variant_type,
-    ).filter_by(
-        company_id=company_id,
-        status="active",
-    ).distinct().all()
+    active = (
+        db.query(
+            VariantInstance.variant_type,
+        )
+        .filter_by(
+            company_id=company_id,
+            status="active",
+        )
+        .distinct()
+        .all()
+    )
 
     if not active:
         return None
@@ -406,10 +438,14 @@ def get_total_capacity(
     """
     _validate_company_id(company_id)
 
-    instances = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        status="active",
-    ).all()
+    instances = (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+            status="active",
+        )
+        .all()
+    )
 
     total_max = 0
     total_active = 0
@@ -421,7 +457,8 @@ def get_total_capacity(
         except (json.JSONDecodeError, TypeError):
             cap = {}
         max_conc = cap.get(
-            "max_concurrent_tickets", 50,
+            "max_concurrent_tickets",
+            50,
         )
 
         total_max += max_conc
@@ -434,12 +471,8 @@ def get_total_capacity(
                 "active_tickets": 0,
             }
         by_type[inst.variant_type]["instances"] += 1
-        by_type[inst.variant_type][
-            "max_concurrent"
-        ] += max_conc
-        by_type[inst.variant_type][
-            "active_tickets"
-        ] += inst.active_tickets_count
+        by_type[inst.variant_type]["max_concurrent"] += max_conc
+        by_type[inst.variant_type]["active_tickets"] += inst.active_tickets_count
 
     return {
         "total_active_instances": len(instances),
@@ -498,17 +531,20 @@ def update_channel_assignment(
     # Gap 2: Validate JSON serializability (BC-008)
     _validate_json_serializable(channels, "channel_assignment")
 
-    inst = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        id=instance_id,
-    ).first()
+    inst = (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+            id=instance_id,
+        )
+        .first()
+    )
 
     if inst is None:
         raise ParwaBaseError(
             error_code="INSTANCE_NOT_FOUND",
             message=(
-                f"Instance '{instance_id}' not found "
-                f"for company '{company_id}'"
+                f"Instance '{instance_id}' not found " f"for company '{company_id}'"
             ),
             status_code=404,
         )
@@ -541,17 +577,20 @@ def update_capacity_config(
     # Gap 2: Validate JSON serializability before DB write
     _validate_json_serializable(config, "capacity_config")
 
-    inst = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        id=instance_id,
-    ).first()
+    inst = (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+            id=instance_id,
+        )
+        .first()
+    )
 
     if inst is None:
         raise ParwaBaseError(
             error_code="INSTANCE_NOT_FOUND",
             message=(
-                f"Instance '{instance_id}' not found "
-                f"for company '{company_id}'"
+                f"Instance '{instance_id}' not found " f"for company '{company_id}'"
             ),
             status_code=404,
         )
@@ -578,17 +617,20 @@ def increment_active_tickets(
     """
     _validate_company_id(company_id)
 
-    inst = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        id=instance_id,
-    ).first()
+    inst = (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+            id=instance_id,
+        )
+        .first()
+    )
 
     if inst is None:
         raise ParwaBaseError(
             error_code="INSTANCE_NOT_FOUND",
             message=(
-                f"Instance '{instance_id}' not found "
-                f"for company '{company_id}'"
+                f"Instance '{instance_id}' not found " f"for company '{company_id}'"
             ),
             status_code=404,
         )
@@ -614,8 +656,7 @@ def increment_active_tickets(
         raise ParwaBaseError(
             error_code="CAPACITY_EXCEEDED",
             message=(
-                f"Instance '{instance_id}' has reached "
-                f"max capacity ({max_conc})"
+                f"Instance '{instance_id}' has reached " f"max capacity ({max_conc})"
             ),
             status_code=429,
         )
@@ -625,6 +666,7 @@ def increment_active_tickets(
     # we never exceed max capacity at the DB level.
     import sqlalchemy as sa
     from datetime import datetime, timezone
+
     result = db.execute(
         sa.text(
             "UPDATE variant_instances SET "
@@ -677,17 +719,20 @@ def decrement_active_tickets(
     """
     _validate_company_id(company_id)
 
-    inst = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        id=instance_id,
-    ).first()
+    inst = (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+            id=instance_id,
+        )
+        .first()
+    )
 
     if inst is None:
         raise ParwaBaseError(
             error_code="INSTANCE_NOT_FOUND",
             message=(
-                f"Instance '{instance_id}' not found "
-                f"for company '{company_id}'"
+                f"Instance '{instance_id}' not found " f"for company '{company_id}'"
             ),
             status_code=404,
         )
@@ -696,6 +741,7 @@ def decrement_active_tickets(
     # counter underflow (DB CheckConstraint is the safety net)
     import sqlalchemy as sa
     from datetime import datetime, timezone
+
     db.execute(
         sa.text(
             "UPDATE variant_instances SET "
@@ -729,17 +775,20 @@ def set_instance_status(
     _validate_company_id(company_id)
     _validate_status(status)
 
-    inst = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        id=instance_id,
-    ).first()
+    inst = (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+            id=instance_id,
+        )
+        .first()
+    )
 
     if inst is None:
         raise ParwaBaseError(
             error_code="INSTANCE_NOT_FOUND",
             message=(
-                f"Instance '{instance_id}' not found "
-                f"for company '{company_id}'"
+                f"Instance '{instance_id}' not found " f"for company '{company_id}'"
             ),
             status_code=404,
         )
@@ -788,10 +837,14 @@ def get_instance_for_channel(
     if not channel:
         return None
 
-    instances = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        status="active",
-    ).all()
+    instances = (
+        db.query(VariantInstance)
+        .filter_by(
+            company_id=company_id,
+            status="active",
+        )
+        .all()
+    )
 
     for inst in instances:
         try:

@@ -40,6 +40,7 @@ logger = get_logger("capacity_monitor")
 @dataclass(order=True)
 class QueueItem:
     """An item waiting in the capacity queue."""
+
     priority: int
     enqueued_at: float = field(default_factory=time.time)
     ticket_id: str = ""
@@ -51,21 +52,21 @@ class QueueItem:
 @dataclass
 class CapacityAlert:
     """A capacity threshold alert."""
+
     level: str  # warning, critical, full
     company_id: str
     variant: str
     message: str
     percentage: float
     timestamp: str = field(
-        default_factory=lambda: datetime.now(
-            timezone.utc
-        ).isoformat()
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
 
 
 @dataclass
 class UtilizationSnapshot:
     """A single utilization data point."""
+
     timestamp: float
     used: int
     total: int
@@ -118,21 +119,21 @@ class CapacityMonitor:
     def __init__(self) -> None:
         self._lock = threading.RLock()
         # Active slots: {company_id: {variant: {ticket_id: metadata}}}
-        self._active_slots: Dict[
-            str, Dict[str, Dict[str, Any]]
-        ] = defaultdict(lambda: defaultdict(dict))
+        self._active_slots: Dict[str, Dict[str, Dict[str, Any]]] = defaultdict(
+            lambda: defaultdict(dict)
+        )
         # Company-specific limits: {company_id: {variant: max}}
         self._limits: Dict[str, Dict[str, int]] = {}
         # Queues: {company_id: {variant: deque[QueueItem]}}
-        self._queues: Dict[
-            str, Dict[str, deque]
-        ] = defaultdict(lambda: defaultdict(deque))
+        self._queues: Dict[str, Dict[str, deque]] = defaultdict(
+            lambda: defaultdict(deque)
+        )
         # Active alerts
         self._alerts: Dict[str, List[CapacityAlert]] = defaultdict(list)
         # Utilization history
-        self._utilization: Dict[
-            str, Dict[str, deque]
-        ] = defaultdict(lambda: defaultdict(deque))
+        self._utilization: Dict[str, Dict[str, deque]] = defaultdict(
+            lambda: defaultdict(deque)
+        )
         self._utilization_max_points = 1000
 
     # ── Capacity Limits ────────────────────────────────────────
@@ -161,18 +162,14 @@ class CapacityMonitor:
             max_concurrent: Maximum concurrent executions.
         """
         if max_concurrent < 1:
-            raise ValueError(
-                f"max_concurrent must be >= 1, got {max_concurrent}"
-            )
+            raise ValueError(f"max_concurrent must be >= 1, got {max_concurrent}")
         with self._lock:
             if company_id not in self._limits:
                 self._limits[company_id] = {}
             self._limits[company_id][variant] = max_concurrent
 
             # BUG FIX: Warn if active slots already exceed new limit
-            active_count = len(
-                self._active_slots[company_id][variant]
-            )
+            active_count = len(self._active_slots[company_id][variant])
             if active_count > max_concurrent:
                 alert = CapacityAlert(
                     level="critical",
@@ -183,9 +180,7 @@ class CapacityMonitor:
                         f"but {active_count} slots are already active "
                         f"for {variant}. Active workflows exceed new limit."
                     ),
-                    percentage=round(
-                        active_count / max_concurrent * 100, 2
-                    ),
+                    percentage=round(active_count / max_concurrent * 100, 2),
                 )
                 self._alerts[company_id].append(alert)
                 logger.warning(
@@ -240,12 +235,8 @@ class CapacityMonitor:
 
             if current_used < max_c:
                 active[ticket_id] = metadata or {}
-                self._record_utilization(
-                    company_id, variant, current_used + 1, max_c
-                )
-                self._check_thresholds(
-                    company_id, variant, current_used + 1, max_c
-                )
+                self._record_utilization(company_id, variant, current_used + 1, max_c)
+                self._check_thresholds(company_id, variant, current_used + 1, max_c)
                 logger.info(
                     "slot_acquired",
                     company_id=company_id,
@@ -276,17 +267,13 @@ class CapacityMonitor:
                     metadata=metadata or {},
                 )
                 q.append(item)
-                self._check_thresholds(
-                    company_id, variant, current_used, max_c
-                )
+                self._check_thresholds(company_id, variant, current_used, max_c)
                 logger.info(
                     "slot_queued",
                     company_id=company_id,
                     variant=variant,
                     ticket_id=ticket_id,
-                    queue_size=len(
-                        self._queues[company_id][variant]
-                    ),
+                    queue_size=len(self._queues[company_id][variant]),
                 )
                 return False
 
@@ -318,9 +305,7 @@ class CapacityMonitor:
             del active[ticket_id]
             max_c = self._get_max(company_id, variant)
             current_used = len(active)
-            self._record_utilization(
-                company_id, variant, current_used, max_c
-            )
+            self._record_utilization(company_id, variant, current_used, max_c)
             self._clear_alerts_for_variant(company_id, variant)
 
             logger.info(
@@ -354,9 +339,7 @@ class CapacityMonitor:
         """
         with self._lock:
             max_c = self._get_max(company_id, variant)
-            used = len(
-                self._active_slots[company_id][variant]
-            )
+            used = len(self._active_slots[company_id][variant])
             available = max(0, max_c - used)
             pct = (used / max_c * 100) if max_c > 0 else 0
             return {
@@ -453,12 +436,8 @@ class CapacityMonitor:
             active[item.ticket_id] = item.metadata
 
             activated.append(item.ticket_id)
-            self._record_utilization(
-                company_id, variant, len(active), max_c
-            )
-            self._check_thresholds(
-                company_id, variant, len(active), max_c
-            )
+            self._record_utilization(company_id, variant, len(active), max_c)
+            self._check_thresholds(company_id, variant, len(active), max_c)
             logger.info(
                 "queue_item_activated",
                 company_id=company_id,
@@ -524,7 +503,8 @@ class CapacityMonitor:
         if alert:
             # Deduplicate: don't add if same level+variant exists
             existing = [
-                a for a in self._alerts[company_id]
+                a
+                for a in self._alerts[company_id]
                 if a.variant == variant and a.level == alert.level
             ]
             if not existing:
@@ -544,8 +524,7 @@ class CapacityMonitor:
     ) -> None:
         """Clear alerts for a variant when utilization drops."""
         self._alerts[company_id] = [
-            a for a in self._alerts.get(company_id, [])
-            if a.variant != variant
+            a for a in self._alerts.get(company_id, []) if a.variant != variant
         ]
 
     def get_alerts(self, company_id: str) -> List[Dict[str, Any]]:
@@ -611,11 +590,7 @@ class CapacityMonitor:
         """
         with self._lock:
             buf = self._utilization[company_id][variant]
-            cutoff = (
-                time.time() - window_seconds
-                if window_seconds
-                else 0
-            )
+            cutoff = time.time() - window_seconds if window_seconds else 0
             return [
                 {
                     "timestamp": s.timestamp,
@@ -647,14 +622,11 @@ class CapacityMonitor:
 
             for variant in ALL_VARIANTS:
                 cap = self.get_capacity(company_id, variant)
-                queue_size = self.get_queue_size(
-                    company_id, variant
-                )
+                queue_size = self.get_queue_size(company_id, variant)
                 total_queued += queue_size
 
                 is_overflow = (
-                    cap["percentage"] >= THRESHOLD_WARNING * 100
-                    or queue_size > 0
+                    cap["percentage"] >= THRESHOLD_WARNING * 100 or queue_size > 0
                 )
                 if is_overflow:
                     has_overflow = True
@@ -670,9 +642,9 @@ class CapacityMonitor:
             scaling_suggestion = None
             if has_overflow:
                 high_util_variants = [
-                    v for v, s in variants_status.items()
-                    if s["utilization_percentage"]
-                    >= THRESHOLD_CRITICAL * 100
+                    v
+                    for v, s in variants_status.items()
+                    if s["utilization_percentage"] >= THRESHOLD_CRITICAL * 100
                 ]
                 if high_util_variants:
                     scaling_suggestion = {

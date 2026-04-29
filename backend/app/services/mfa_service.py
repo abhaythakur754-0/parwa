@@ -57,9 +57,7 @@ def _generate_backup_codes() -> list[str]:
     for _ in range(BACKUP_CODE_COUNT):
         chunks = []
         for _ in range(BACKUP_CODE_CHUNKS):
-            chunk = "".join(
-                secrets.choice(chars) for _ in range(3)
-            )
+            chunk = "".join(secrets.choice(chars) for _ in range(3))
             chunks.append(chunk)
         codes.append("-".join(chunks))
     return codes
@@ -67,14 +65,10 @@ def _generate_backup_codes() -> list[str]:
 
 def _hash_backup_code(code: str) -> str:
     """Hash a backup code for DB storage (SHA-256)."""
-    return hashlib.sha256(
-        code.strip().upper().encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256(code.strip().upper().encode("utf-8")).hexdigest()
 
 
-def _generate_qr_code_data_url(
-    secret: str, email: str
-) -> str:
+def _generate_qr_code_data_url(secret: str, email: str) -> str:
     """Generate a QR code data URL for TOTP setup.
 
     Args:
@@ -85,10 +79,7 @@ def _generate_qr_code_data_url(
         Data URL string (data:image/png;base64,...).
     """
     totp = pyotp.TOTP(secret)
-    uri = totp.provisioning_uri(
-        name=email,
-        issuer_name="PARWA"
-    )
+    uri = totp.provisioning_uri(name=email, issuer_name="PARWA")
     img = qrcode.make(uri)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
@@ -97,9 +88,7 @@ def _generate_qr_code_data_url(
     return f"data:image/png;base64,{b64}"
 
 
-def initiate_mfa_setup(
-    db: Session, user: User
-) -> dict:
+def initiate_mfa_setup(db: Session, user: User) -> dict:
     """Initiate MFA setup — generate TOTP secret + backup codes.
 
     F-015: Returns QR code, secret, and 10 backup codes.
@@ -134,9 +123,7 @@ def initiate_mfa_setup(
     plain_codes = _generate_backup_codes()
 
     # Generate QR code
-    qr_data_url = _generate_qr_code_data_url(
-        secret, user.email
-    )
+    qr_data_url = _generate_qr_code_data_url(secret, user.email)
 
     # Store backup codes as hashes
     for code in plain_codes:
@@ -173,15 +160,11 @@ def initiate_mfa_setup(
         "qr_code_data_url": qr_data_url,
         "secret_key": secret,
         "backup_codes": plain_codes,
-        "message": (
-            "Scan QR code with your authenticator app"
-        ),
+        "message": ("Scan QR code with your authenticator app"),
     }
 
 
-def verify_mfa_setup(
-    db: Session, user: User, code: str, temp_secret: str
-) -> dict:
+def verify_mfa_setup(db: Session, user: User, code: str, temp_secret: str) -> dict:
     """Verify MFA setup with TOTP code.
 
     F-015: Validates code, enables MFA, stores permanent secret.
@@ -202,23 +185,23 @@ def verify_mfa_setup(
     totp = pyotp.TOTP(temp_secret)
 
     # Check current, previous, and next window (clock drift)
-    valid = (
-        totp.verify(code, valid_window=1)
-    )
+    valid = totp.verify(code, valid_window=1)
 
     if not valid:
-        raise AuthenticationError(
-            message="Invalid MFA code. Please try again."
-        )
+        raise AuthenticationError(message="Invalid MFA code. Please try again.")
 
     # Update user's MFA status
     user.mfa_enabled = True
 
     # Mark MFASecret as verified
-    mfa_record = db.query(MFASecret).filter(
-        MFASecret.user_id == user.id,
-        MFASecret.is_verified is False,  # noqa: E712
-    ).first()
+    mfa_record = (
+        db.query(MFASecret)
+        .filter(
+            MFASecret.user_id == user.id,
+            MFASecret.is_verified is False,  # noqa: E712
+        )
+        .first()
+    )
 
     if mfa_record:
         mfa_record.secret_key = temp_secret
@@ -247,9 +230,7 @@ def verify_mfa_setup(
     }
 
 
-def verify_mfa_login(
-    db: Session, user: User, code: str
-) -> dict:
+def verify_mfa_login(db: Session, user: User, code: str) -> dict:
     """Verify MFA during login.
 
     BC-011: Progressive lockout (5 fails → 15min lock).
@@ -271,18 +252,14 @@ def verify_mfa_login(
         locked_until = user.locked_until
         if locked_until.tzinfo is None:
             from datetime import timezone as tz
+
             locked_until = locked_until.replace(tzinfo=tz.utc)
-        now = __import__("datetime").datetime.now(
-            __import__("datetime").timezone.utc
-        )
+        now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
         if locked_until > now:
-            remaining = int(
-                (locked_until - now).total_seconds()
-            )
+            remaining = int((locked_until - now).total_seconds())
             raise AuthenticationError(
                 message=(
-                    "Account temporarily locked. "
-                    f"Try again in {remaining} seconds."
+                    "Account temporarily locked. " f"Try again in {remaining} seconds."
                 ),
                 details={"locked_until": remaining},
             )
@@ -291,15 +268,17 @@ def verify_mfa_login(
         user.locked_until = None
 
     # Get verified MFA secret
-    mfa_record = db.query(MFASecret).filter(
-        MFASecret.user_id == user.id,
-        MFASecret.is_verified is True,  # noqa: E712
-    ).first()
+    mfa_record = (
+        db.query(MFASecret)
+        .filter(
+            MFASecret.user_id == user.id,
+            MFASecret.is_verified is True,  # noqa: E712
+        )
+        .first()
+    )
 
     if not mfa_record:
-        raise AuthenticationError(
-            message="MFA not configured"
-        )
+        raise AuthenticationError(message="MFA not configured")
 
     totp = pyotp.TOTP(mfa_record.secret_key)
     valid = totp.verify(code, valid_window=1)
@@ -308,16 +287,14 @@ def verify_mfa_login(
         # Increment failure count
         count = (user.failed_login_count or 0) + 1
         user.failed_login_count = count
-        user.last_failed_login_at = (
-            __import__("datetime").datetime.now(timezone.utc)
-        )
+        user.last_failed_login_at = __import__("datetime").datetime.now(timezone.utc)
 
         if count >= _MFA_MAX_FAILURES:
             from datetime import timedelta
-            user.locked_until = (
-                __import__("datetime").datetime.now(timezone.utc)
-                + timedelta(minutes=_MFA_LOCKOUT_MINUTES)
-            )
+
+            user.locked_until = __import__("datetime").datetime.now(
+                timezone.utc
+            ) + timedelta(minutes=_MFA_LOCKOUT_MINUTES)
             db.commit()
             raise AuthenticationError(
                 message=(
@@ -334,9 +311,7 @@ def verify_mfa_login(
             time.sleep(_MFA_DELAYS[attempt])
 
         db.commit()
-        raise AuthenticationError(
-            message="Invalid MFA code. Please try again."
-        )
+        raise AuthenticationError(message="Invalid MFA code. Please try again.")
 
     # Success — reset failure count
     user.failed_login_count = 0
@@ -350,9 +325,7 @@ def verify_mfa_login(
     }
 
 
-def use_backup_code(
-    db: Session, user: User, code: str
-) -> dict:
+def use_backup_code(db: Session, user: User, code: str) -> dict:
     """Use a backup code for authentication.
 
     F-016: Single-use, SHA-256 hashed in DB.
@@ -371,22 +344,22 @@ def use_backup_code(
     """
     # L29: Check MFA is enabled
     if not user.mfa_enabled:
-        raise AuthenticationError(
-            message="MFA is not enabled on this account"
-        )
+        raise AuthenticationError(message="MFA is not enabled on this account")
 
     code_hash = _hash_backup_code(code)
 
-    bc = db.query(BackupCode).filter(
-        BackupCode.user_id == user.id,
-        BackupCode.code_hash == code_hash,
-        BackupCode.is_used is False,  # noqa: E712
-    ).first()
+    bc = (
+        db.query(BackupCode)
+        .filter(
+            BackupCode.user_id == user.id,
+            BackupCode.code_hash == code_hash,
+            BackupCode.is_used is False,  # noqa: E712
+        )
+        .first()
+    )
 
     if not bc:
-        raise AuthenticationError(
-            message="Invalid backup code"
-        )
+        raise AuthenticationError(message="Invalid backup code")
 
     # Mark as used
     bc.is_used = True
@@ -394,10 +367,14 @@ def use_backup_code(
     db.flush()
 
     # Count remaining
-    remaining = db.query(BackupCode).filter(
-        BackupCode.user_id == user.id,
-        BackupCode.is_used is False,  # noqa: E712
-    ).count()
+    remaining = (
+        db.query(BackupCode)
+        .filter(
+            BackupCode.user_id == user.id,
+            BackupCode.is_used is False,  # noqa: E712
+        )
+        .count()
+    )
 
     # Reset MFA failure count on successful backup use
     user.failed_login_count = 0
@@ -418,9 +395,7 @@ def use_backup_code(
     }
 
 
-def regenerate_backup_codes(
-    db: Session, user: User, mfa_code: str
-) -> dict:
+def regenerate_backup_codes(db: Session, user: User, mfa_code: str) -> dict:
     """Regenerate backup codes (requires valid TOTP code).
 
     F-016: Invalidates ALL existing codes, generates 10 new ones.
@@ -438,31 +413,27 @@ def regenerate_backup_codes(
         ValidationError: If MFA is not enabled.
     """
     if not user.mfa_enabled:
-        raise ValidationError(
-            message="MFA must be enabled to regenerate codes"
-        )
+        raise ValidationError(message="MFA must be enabled to regenerate codes")
 
     # Verify MFA code first
-    mfa_record = db.query(MFASecret).filter(
-        MFASecret.user_id == user.id,
-        MFASecret.is_verified is True,  # noqa: E712
-    ).first()
+    mfa_record = (
+        db.query(MFASecret)
+        .filter(
+            MFASecret.user_id == user.id,
+            MFASecret.is_verified is True,  # noqa: E712
+        )
+        .first()
+    )
 
     if not mfa_record:
-        raise AuthenticationError(
-            message="MFA not configured"
-        )
+        raise AuthenticationError(message="MFA not configured")
 
     totp = pyotp.TOTP(mfa_record.secret_key)
     if not totp.verify(mfa_code, valid_window=1):
-        raise AuthenticationError(
-            message="Invalid MFA code"
-        )
+        raise AuthenticationError(message="Invalid MFA code")
 
     # Invalidate ALL existing backup codes
-    db.query(BackupCode).filter(
-        BackupCode.user_id == user.id
-    ).delete()
+    db.query(BackupCode).filter(BackupCode.user_id == user.id).delete()
 
     # Generate new codes
     new_codes = _generate_backup_codes()
@@ -484,18 +455,17 @@ def regenerate_backup_codes(
 
     return {
         "backup_codes": new_codes,
-        "message": (
-            "New backup codes generated. "
-            "Store them securely."
-        ),
+        "message": ("New backup codes generated. " "Store them securely."),
     }
 
 
-def get_remaining_backup_codes(
-    db: Session, user: User
-) -> int:
+def get_remaining_backup_codes(db: Session, user: User) -> int:
     """Get count of remaining unused backup codes."""
-    return db.query(BackupCode).filter(
-        BackupCode.user_id == user.id,
-        BackupCode.is_used is False,  # noqa: E712
-    ).count()
+    return (
+        db.query(BackupCode)
+        .filter(
+            BackupCode.user_id == user.id,
+            BackupCode.is_used is False,  # noqa: E712
+        )
+        .count()
+    )

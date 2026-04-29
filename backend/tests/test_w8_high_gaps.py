@@ -92,31 +92,31 @@ class TestProviderFailoverRace:
         mgr = FailoverManager(recovery_threshold=3)
         for _ in range(3):
             mgr.report_failure(
-                "google", "gemini-2.0-flash-lite",
-                FailoverReason.TIMEOUT, "Connection timeout",
+                "google",
+                "gemini-2.0-flash-lite",
+                FailoverReason.TIMEOUT,
+                "Connection timeout",
             )
         state = mgr.get_provider_state("google", "gemini-2.0-flash-lite")
         assert state == ProviderState.CIRCUIT_OPEN
 
     def test_failover_chain_skips_open_circuits(self):
         """get_failover_chain skips providers with open circuits."""
-        mgr = FailoverManager(
-            recovery_threshold=2,
-            recovery_timeout_seconds=9999)
+        mgr = FailoverManager(recovery_threshold=2, recovery_timeout_seconds=9999)
         # Trip the first provider in medium chain
         chain = FAILOVER_CHAINS["medium"]
         first_prov, first_model = chain[0]
         for _ in range(3):
             mgr.report_failure(
-                first_prov, first_model,
-                FailoverReason.SERVER_ERROR, "500",
+                first_prov,
+                first_model,
+                FailoverReason.SERVER_ERROR,
+                "500",
             )
         available = mgr.get_failover_chain("medium")
         assert len(available) < len(chain)
         # First provider must NOT be in available chain
-        assert not any(
-            p == first_prov and m == first_model for p,
-            m in available)
+        assert not any(p == first_prov and m == first_model for p, m in available)
 
     def test_concurrent_failures_race_safe(self):
         """Multiple threads reporting failures don't corrupt state."""
@@ -127,8 +127,10 @@ class TestProviderFailoverRace:
             try:
                 for _ in range(count):
                     mgr.report_failure(
-                        provider, "model-x",
-                        FailoverReason.TIMEOUT, "timeout",
+                        provider,
+                        "model-x",
+                        FailoverReason.TIMEOUT,
+                        "timeout",
                     )
             except Exception as exc:
                 errors.append(exc)
@@ -146,26 +148,24 @@ class TestProviderFailoverRace:
         assert not errors, "No thread should raise"
         # At least one provider should be DEGRADED
         states = [
-            mgr.get_provider_state(p, "model-x")
-            for p in ("google", "cerebras", "groq")
+            mgr.get_provider_state(p, "model-x") for p in ("google", "cerebras", "groq")
         ]
         assert any(s == ProviderState.DEGRADED for s in states)
 
     def test_executor_falls_through_to_backup_provider(self):
         """Execute_with_failover tries backup when primary fails."""
-        mgr = FailoverManager(
-            recovery_threshold=1,
-            recovery_timeout_seconds=9999)
+        mgr = FailoverManager(recovery_threshold=1, recovery_timeout_seconds=9999)
         executor = FailoverChainExecutor(mgr)
 
-        call_fn = MagicMock(side_effect=[
-            ConnectionError("provider down"),
-            {"content": "fallback response works", "latency_ms": 200},
-        ])
+        call_fn = MagicMock(
+            side_effect=[
+                ConnectionError("provider down"),
+                {"content": "fallback response works", "latency_ms": 200},
+            ]
+        )
 
         chain = [("provider_a", "model_a"), ("provider_b", "model_b")]
-        result = executor.execute_with_failover(
-            "co1", chain, call_fn, max_retries=1)
+        result = executor.execute_with_failover("co1", chain, call_fn, max_retries=1)
         assert result.get("content") == "fallback response works"
         assert result.get("_failover_used") is True
 
@@ -177,8 +177,7 @@ class TestProviderFailoverRace:
         call_fn = MagicMock(side_effect=ConnectionError("down"))
         chain = [("p1", "m1"), ("p2", "m2"), ("p3", "m3")]
 
-        result = executor.execute_with_failover(
-            "co1", chain, call_fn, max_retries=1)
+        result = executor.execute_with_failover("co1", chain, call_fn, max_retries=1)
         assert result.get("_all_providers_failed") is True
         assert result.get("_graceful_degradation") is True
         assert "content" in result  # never None
@@ -200,13 +199,15 @@ class TestABTestContamination:
 
         # create_ab_test needs real template names; use built-in defaults
         test_a = svc.create_ab_test(
-            "company_a", "test1",
+            "company_a",
+            "test1",
             template_a_name="response_simple",
             template_b_name="response_moderate",
             traffic_split=0.5,
         )
         test_b = svc.create_ab_test(
-            "company_b", "test1",
+            "company_b",
+            "test1",
             template_a_name="response_simple",
             template_b_name="response_moderate",
             traffic_split=0.3,
@@ -230,7 +231,8 @@ class TestABTestContamination:
         svc.__class__._ab_tests.clear()
 
         test = svc.create_ab_test(
-            "co1", "test_det",
+            "co1",
+            "test_det",
             template_a_name="response_simple",
             template_b_name="response_moderate",
             traffic_split=0.5,
@@ -253,7 +255,8 @@ class TestABTestContamination:
         """PromptTemplateManager renders variables correctly."""
         mgr = PromptTemplateManager()
         rendered = mgr.render_template(
-            "refund", {
+            "refund",
+            {
                 "company_name": "Acme",
                 "customer_name": "Alice",
                 "order_id": "ORD-42",
@@ -269,6 +272,7 @@ class TestABTestContamination:
     def test_traffic_split_bounds_enforced(self):
         """Traffic split outside 0-1 raises error."""
         from app.services.prompt_template_service import _validate_traffic_split
+
         with pytest.raises(ParwaBaseError):
             _validate_traffic_split(1.5)
         with pytest.raises(ParwaBaseError):
@@ -409,13 +413,17 @@ class TestCacheTenantIsolation:
         mock_db = MagicMock()
         mock_entry = MagicMock()
         mock_entry.cached_result = json.dumps({"answer": "secret data"})
-        mock_entry.ttl_expires_at = datetime.now(
-            timezone.utc) + timedelta(hours=1)
+        mock_entry.ttl_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
         mock_entry.hit_count = 0
-        mock_db.query.return_value.filter_by.return_value.first.return_value = mock_entry
+        mock_db.query.return_value.filter_by.return_value.first.return_value = (
+            mock_entry
+        )
 
         result = tcs_get_cached_result(
-            mock_db, "company_a", "technique_1", "hash_xyz",
+            mock_db,
+            "company_a",
+            "technique_1",
+            "hash_xyz",
         )
         assert result is not None
         # Verify filter_by was called with company_id
@@ -427,7 +435,10 @@ class TestCacheTenantIsolation:
         mock_db = MagicMock()
         with pytest.raises(ParwaBaseError):
             tcs_set_cached_result(
-                mock_db, "", "technique_1", "hash_xyz",
+                mock_db,
+                "",
+                "technique_1",
+                "hash_xyz",
                 cached_result={"data": "test"},
             )
         mock_db.add.assert_not_called()
@@ -509,8 +520,10 @@ class TestSelfHealingCooldownBypass:
         state = engine._get_or_create_variant_state("co1", "parwa")
         pkey = "google:gemini-2.0-flash-lite"
         state.provider_states[pkey] = SHProviderState(
-            provider="google", model_id="gemini-2.0-flash-lite",
-            tier="medium", status="disabled",
+            provider="google",
+            model_id="gemini-2.0-flash-lite",
+            tier="medium",
+            status="disabled",
             consecutive_failures=5,
             last_recovery_attempt=datetime.now(timezone.utc).isoformat(),
         )
@@ -528,7 +541,8 @@ class TestSelfHealingCooldownBypass:
             engine.record_query_result(
                 company_id="co1",
                 variant_type="parwa",
-                provider="google", model_id="gemini",
+                provider="google",
+                model_id="gemini",
                 tier="medium",
                 confidence_score=50.0,  # below 85 default
                 latency_ms=100.0,
@@ -544,7 +558,8 @@ class TestSelfHealingCooldownBypass:
             engine.record_query_result(
                 company_id="co1",
                 variant_type="parwa",
-                provider="google", model_id="gemini",
+                provider="google",
+                model_id="gemini",
                 tier="medium",
                 confidence_score=95.0,  # above 85 default
                 latency_ms=100.0,
@@ -562,7 +577,8 @@ class TestSelfHealingCooldownBypass:
             engine.record_query_result(
                 company_id="co_a",
                 variant_type="parwa",
-                provider="google", model_id="gemini",
+                provider="google",
+                model_id="gemini",
                 tier="medium",
                 confidence_score=50.0,
                 latency_ms=100.0,
@@ -607,13 +623,10 @@ class TestAlertFalsePositives:
         )
 
         alerts = svc.get_alert_conditions("co1")
-        error_alerts = [
-            a for a in alerts
-            if a.condition_id.startswith("error_rate")
-        ]
-        assert len(error_alerts) == 0, (
-            f"5% error rate should not trigger alerts, got: {error_alerts}"
-        )
+        error_alerts = [a for a in alerts if a.condition_id.startswith("error_rate")]
+        assert (
+            len(error_alerts) == 0
+        ), f"5% error rate should not trigger alerts, got: {error_alerts}"
 
     def test_normal_latency_no_alert(self):
         """Normal latency (200ms) doesn't trigger latency spike alert."""
@@ -631,8 +644,7 @@ class TestAlertFalsePositives:
 
         alerts = svc.get_alert_conditions("co1")
         latency_alerts = [
-            a for a in alerts
-            if a.condition_id == "latency_spike_warning"
+            a for a in alerts if a.condition_id == "latency_spike_warning"
         ]
         assert len(latency_alerts) == 0
 
@@ -647,15 +659,14 @@ class TestAlertFalsePositives:
                 variant_type="parwa",
                 query="test query about refund",
                 response="Your refund for order #12345 has been processed "
-                         "and will appear within 5-7 business days.",
+                "and will appear within 5-7 business days.",
                 confidence_result={"overall_score": 90.0, "passed": True},
                 latency_ms=150.0,
             )
 
         alerts = svc.get_alert_conditions("co1")
         confidence_alerts = [
-            a for a in alerts
-            if a.condition_id == "confidence_drop_warning"
+            a for a in alerts if a.condition_id == "confidence_drop_warning"
         ]
         assert len(confidence_alerts) == 0
 
@@ -696,13 +707,10 @@ class TestAlertFalsePositives:
             )
 
         alerts = svc.get_alert_conditions("co1")
-        unhealthy_alerts = [
-            a for a in alerts
-            if "provider_unhealthy" in a.condition_id
-        ]
-        assert len(unhealthy_alerts) == 0, (
-            "33% error rate should not trigger unhealthy alert (threshold 50%)"
-        )
+        unhealthy_alerts = [a for a in alerts if "provider_unhealthy" in a.condition_id]
+        assert (
+            len(unhealthy_alerts) == 0
+        ), "33% error rate should not trigger unhealthy alert (threshold 50%)"
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -719,8 +727,7 @@ class TestCrossCuttingEdgeCases:
         assert is_deg is True
         assert "empty" in reason
 
-        is_deg2, reason2 = detector.is_degraded(
-            "Internal server error occurred")
+        is_deg2, reason2 = detector.is_degraded("Internal server error occurred")
         assert is_deg2 is True
 
         good = "This is a perfectly normal response with enough length."

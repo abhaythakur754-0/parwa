@@ -24,7 +24,6 @@ from app.core.model_failover import (
     FAILOVER_CHAINS,
 )
 
-
 # ── Fixtures ─────────────────────────────────────────────────────
 
 
@@ -56,34 +55,24 @@ class TestCircuitBreaker:
 
     def test_single_failure_degrades(self, manager: FailoverManager):
         manager.report_failure(
-            "cerebras",
-            "llama-3.1-8b",
-            FailoverReason.TIMEOUT,
-            "timeout")
+            "cerebras", "llama-3.1-8b", FailoverReason.TIMEOUT, "timeout"
+        )
         state = manager.get_provider_state("cerebras", "llama-3.1-8b")
         assert state == ProviderState.DEGRADED
 
     def test_threshold_opens_circuit(self, manager: FailoverManager):
         for i in range(3):
             manager.report_failure(
-                "cerebras",
-                "llama-3.1-8b",
-                FailoverReason.TIMEOUT,
-                f"fail-{i}")
+                "cerebras", "llama-3.1-8b", FailoverReason.TIMEOUT, f"fail-{i}"
+            )
         state = manager.get_provider_state("cerebras", "llama-3.1-8b")
         assert state == ProviderState.CIRCUIT_OPEN
 
     def test_success_resets_degraded(self, manager: FailoverManager):
         manager.report_failure(
-            "cerebras",
-            "llama-3.1-8b",
-            FailoverReason.TIMEOUT,
-            "fail")
-        manager.report_success(
-            "cerebras",
-            "llama-3.1-8b",
-            latency_ms=100,
-            response={})
+            "cerebras", "llama-3.1-8b", FailoverReason.TIMEOUT, "fail"
+        )
+        manager.report_success("cerebras", "llama-3.1-8b", latency_ms=100, response={})
         state = manager.get_provider_state("cerebras", "llama-3.1-8b")
         assert state == ProviderState.HEALTHY
 
@@ -91,10 +80,8 @@ class TestCircuitBreaker:
         assert manager.is_available("cerebras", "llama-3.1-8b") is True
         for _ in range(3):
             manager.report_failure(
-                "cerebras",
-                "llama-3.1-8b",
-                FailoverReason.TIMEOUT,
-                "fail")
+                "cerebras", "llama-3.1-8b", FailoverReason.TIMEOUT, "fail"
+            )
         assert manager.is_available("cerebras", "llama-3.1-8b") is False
 
 
@@ -103,24 +90,14 @@ class TestCircuitBreaker:
 
 class TestCircuitRecovery:
     def test_recovers_after_timeout(self):
-        mgr = FailoverManager(
-            recovery_threshold=2,
-            recovery_timeout_seconds=0.1)
-        mgr.report_failure(
-            "groq",
-            "llama-3.1-8b",
-            FailoverReason.SERVER_ERROR,
-            "fail1")
-        mgr.report_failure(
-            "groq",
-            "llama-3.1-8b",
-            FailoverReason.SERVER_ERROR,
-            "fail2")
-        assert mgr.get_provider_state(
-            "groq", "llama-3.1-8b") == ProviderState.CIRCUIT_OPEN
+        mgr = FailoverManager(recovery_threshold=2, recovery_timeout_seconds=0.1)
+        mgr.report_failure("groq", "llama-3.1-8b", FailoverReason.SERVER_ERROR, "fail1")
+        mgr.report_failure("groq", "llama-3.1-8b", FailoverReason.SERVER_ERROR, "fail2")
+        assert (
+            mgr.get_provider_state("groq", "llama-3.1-8b") == ProviderState.CIRCUIT_OPEN
+        )
         time.sleep(0.15)
-        assert mgr.get_provider_state(
-            "groq", "llama-3.1-8b") == ProviderState.HEALTHY
+        assert mgr.get_provider_state("groq", "llama-3.1-8b") == ProviderState.HEALTHY
 
 
 # ── 3. Failover chain ────────────────────────────────────────────
@@ -137,10 +114,8 @@ class TestGetFailoverChain:
     def test_skips_circuit_open(self, manager: FailoverManager):
         for _ in range(3):
             manager.report_failure(
-                "cerebras",
-                "llama-3.1-8b",
-                FailoverReason.TIMEOUT,
-                "fail")
+                "cerebras", "llama-3.1-8b", FailoverReason.TIMEOUT, "fail"
+            )
         chain = manager.get_failover_chain("light")
         for provider, model_id in chain:
             assert not (provider == "cerebras" and model_id == "llama-3.1-8b")
@@ -162,22 +137,24 @@ class TestDegradedResponseDetector:
 
     def test_error_pattern(self, detector: DegradedResponseDetector):
         is_bad, _ = detector.is_degraded(
-            "Internal server error occurred while processing")
+            "Internal server error occurred while processing"
+        )
         assert is_bad is True
 
     def test_refusal_pattern(self, detector: DegradedResponseDetector):
-        is_bad, _ = detector.is_degraded(
-            "I cannot answer this question as I am an AI")
+        is_bad, _ = detector.is_degraded("I cannot answer this question as I am an AI")
         assert is_bad is True
 
     def test_repetitive_text(self, detector: DegradedResponseDetector):
         is_bad, _ = detector.is_degraded(
-            "Hello world. Hello world. Hello world. " * 5, expected_min_length=20)
+            "Hello world. Hello world. Hello world. " * 5, expected_min_length=20
+        )
         assert is_bad is True
 
     def test_gibberish(self, detector: DegradedResponseDetector):
         is_bad, _ = detector.is_degraded(
-            "zzzzxxxcccbbbvvvnnnmmm" * 10, expected_min_length=20)
+            "zzzzxxxcccbbbvvvnnnmmm" * 10, expected_min_length=20
+        )
         assert is_bad is True
 
     def test_good_response(self, detector: DegradedResponseDetector):
@@ -187,7 +164,8 @@ class TestDegradedResponseDetector:
 
     def test_quality_score(self, detector: DegradedResponseDetector):
         is_good, score, reason = detector.check_response_quality(
-            {"content": "Good response here"})
+            {"content": "Good response here"}
+        )
         assert isinstance(score, float)
         assert 0.0 <= score <= 1.0
 
@@ -232,8 +210,6 @@ class TestEventsTrimming:
         manager._max_events = 100
         for i in range(200):
             manager.report_failure(
-                "groq",
-                "llama-3.1-8b",
-                FailoverReason.TIMEOUT,
-                f"fail-{i}")
+                "groq", "llama-3.1-8b", FailoverReason.TIMEOUT, f"fail-{i}"
+            )
         assert len(manager._events) <= 100

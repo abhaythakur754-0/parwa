@@ -135,7 +135,7 @@ def send_email(
             },
         )
         # G-10: Exponential backoff — 60s * 2^retries = 60, 120, 240
-        backoff = 60 * (2 ** self.request.retries)
+        backoff = 60 * (2**self.request.retries)
         raise self.retry(exc=exc, countdown=backoff)
 
 
@@ -221,9 +221,11 @@ def send_bulk_notification(
 
         # Build rate-limit cache from database (G-06)
         from database.session import get_db_session  # noqa: F811
+
         db = get_db_session()
         try:
             from database.models.outbound_email import OutboundEmail
+
             one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
             # Get recent sends per recipient
             recent_sends = (
@@ -250,11 +252,13 @@ def send_bulk_notification(
                 pass
 
         for i in range(0, len(recipients), BATCH_SIZE):
-            batch = recipients[i:i + BATCH_SIZE]
+            batch = recipients[i : i + BATCH_SIZE]
             for recipient in batch:
-                email = recipient.get(
-                    "email", "") if isinstance(
-                    recipient, dict) else str(recipient)
+                email = (
+                    recipient.get("email", "")
+                    if isinstance(recipient, dict)
+                    else str(recipient)
+                )
                 if not email:
                     failed_count += 1
                     continue
@@ -393,7 +397,7 @@ def send_outbound_reply(
             },
         )
         # G-10: Exponential backoff — 60s, 120s, 240s
-        backoff = 60 * (2 ** self.request.retries)
+        backoff = 60 * (2**self.request.retries)
         raise self.retry(exc=exc, countdown=backoff)
 
 

@@ -79,22 +79,29 @@ class TicketMergeService:
             Tuple of (TicketMerge record, updated primary ticket)
         """
         # Validate primary ticket exists and belongs to company
-        primary_ticket = self.db.query(Ticket).filter(
-            Ticket.id == primary_ticket_id,
-            Ticket.company_id == company_id,
-        ).first()
+        primary_ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == primary_ticket_id,
+                Ticket.company_id == company_id,
+            )
+            .first()
+        )
 
         if not primary_ticket:
-            raise TicketNotFoundError(
-                f"Primary ticket {primary_ticket_id} not found")
+            raise TicketNotFoundError(f"Primary ticket {primary_ticket_id} not found")
 
         # Validate all merged tickets
         tickets_to_merge = []
         for ticket_id in merged_ticket_ids:
-            ticket = self.db.query(Ticket).filter(
-                Ticket.id == ticket_id,
-                Ticket.company_id == company_id,
-            ).first()
+            ticket = (
+                self.db.query(Ticket)
+                .filter(
+                    Ticket.id == ticket_id,
+                    Ticket.company_id == company_id,
+                )
+                .first()
+            )
 
             if not ticket:
                 raise TicketNotFoundError(f"Ticket {ticket_id} not found")
@@ -105,21 +112,27 @@ class TicketMergeService:
                 )
 
             # Check if already merged
-            existing_merge = self.db.query(TicketMerge).filter(
-                TicketMerge.primary_ticket_id == ticket.id,
-                TicketMerge.undone is False,  # noqa: E712
-            ).first()
+            existing_merge = (
+                self.db.query(TicketMerge)
+                .filter(
+                    TicketMerge.primary_ticket_id == ticket.id,
+                    TicketMerge.undone is False,  # noqa: E712
+                )
+                .first()
+            )
 
             if existing_merge:
-                raise TicketAlreadyMergedError(
-                    f"Ticket {ticket_id} is already merged"
-                )
+                raise TicketAlreadyMergedError(f"Ticket {ticket_id} is already merged")
 
             # Check if this ticket is a primary of another merge
-            as_primary_merge = self.db.query(TicketMerge).filter(
-                TicketMerge.primary_ticket_id == ticket.id,
-                TicketMerge.undone is False,  # noqa: E712
-            ).first()
+            as_primary_merge = (
+                self.db.query(TicketMerge)
+                .filter(
+                    TicketMerge.primary_ticket_id == ticket.id,
+                    TicketMerge.undone is False,  # noqa: E712
+                )
+                .first()
+            )
 
             if as_primary_merge:
                 raise TicketAlreadyMergedError(
@@ -168,9 +181,13 @@ class TicketMergeService:
         merged_ticket: Ticket,
     ) -> None:
         """Transfer messages from merged ticket to primary ticket."""
-        messages = self.db.query(TicketMessage).filter(
-            TicketMessage.ticket_id == merged_ticket.id,
-        ).all()
+        messages = (
+            self.db.query(TicketMessage)
+            .filter(
+                TicketMessage.ticket_id == merged_ticket.id,
+            )
+            .all()
+        )
 
         for message in messages:
             # Create a copy of the message linked to primary ticket
@@ -181,11 +198,13 @@ class TicketMergeService:
                 role=message.role,
                 content=message.content,
                 channel=message.channel,
-                metadata_json=json.dumps({
-                    "original_ticket_id": merged_ticket.id,
-                    "original_message_id": message.id,
-                    "merged_at": datetime.now(timezone.utc).isoformat(),
-                }),
+                metadata_json=json.dumps(
+                    {
+                        "original_ticket_id": merged_ticket.id,
+                        "original_message_id": message.id,
+                        "merged_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                ),
                 is_internal=message.is_internal,
                 is_redacted=message.is_redacted,
                 ai_confidence=message.ai_confidence,
@@ -200,9 +219,13 @@ class TicketMergeService:
         merged_ticket: Ticket,
     ) -> None:
         """Transfer attachments from merged ticket to primary ticket."""
-        attachments = self.db.query(TicketAttachment).filter(
-            TicketAttachment.ticket_id == merged_ticket.id,
-        ).all()
+        attachments = (
+            self.db.query(TicketAttachment)
+            .filter(
+                TicketAttachment.ticket_id == merged_ticket.id,
+            )
+            .all()
+        )
 
         for attachment in attachments:
             # Create reference to attachment from primary ticket
@@ -224,9 +247,13 @@ class TicketMergeService:
         merged_ticket: Ticket,
     ) -> None:
         """Transfer internal notes from merged ticket to primary ticket."""
-        notes = self.db.query(TicketInternalNote).filter(
-            TicketInternalNote.ticket_id == merged_ticket.id,
-        ).all()
+        notes = (
+            self.db.query(TicketInternalNote)
+            .filter(
+                TicketInternalNote.ticket_id == merged_ticket.id,
+            )
+            .all()
+        )
 
         for note in notes:
             new_note = TicketInternalNote(
@@ -256,10 +283,14 @@ class TicketMergeService:
         Returns:
             Tuple of (updated merge record, list of restored tickets)
         """
-        merge_record = self.db.query(TicketMerge).filter(
-            TicketMerge.id == merge_id,
-            TicketMerge.company_id == company_id,
-        ).first()
+        merge_record = (
+            self.db.query(TicketMerge)
+            .filter(
+                TicketMerge.id == merge_id,
+                TicketMerge.company_id == company_id,
+            )
+            .first()
+        )
 
         if not merge_record:
             raise TicketNotFoundError(f"Merge record {merge_id} not found")
@@ -273,10 +304,14 @@ class TicketMergeService:
         # Restore merged tickets
         restored_tickets = []
         for ticket_id in merged_ticket_ids:
-            ticket = self.db.query(Ticket).filter(
-                Ticket.id == ticket_id,
-                Ticket.company_id == company_id,
-            ).first()
+            ticket = (
+                self.db.query(Ticket)
+                .filter(
+                    Ticket.id == ticket_id,
+                    Ticket.company_id == company_id,
+                )
+                .first()
+            )
 
             if ticket:
                 # Reopen the ticket
@@ -303,17 +338,25 @@ class TicketMergeService:
         Returns both merges where ticket is primary and where it was merged.
         """
         # Merges where this ticket is the primary
-        as_primary = self.db.query(TicketMerge).filter(
-            TicketMerge.primary_ticket_id == ticket_id,
-            TicketMerge.company_id == company_id,
-        ).all()
+        as_primary = (
+            self.db.query(TicketMerge)
+            .filter(
+                TicketMerge.primary_ticket_id == ticket_id,
+                TicketMerge.company_id == company_id,
+            )
+            .all()
+        )
 
         # Merges where this ticket was merged (need to search JSON)
         # This is a simplified approach - in production, use a proper JSON
         # query
-        all_merges = self.db.query(TicketMerge).filter(
-            TicketMerge.company_id == company_id,
-        ).all()
+        all_merges = (
+            self.db.query(TicketMerge)
+            .filter(
+                TicketMerge.company_id == company_id,
+            )
+            .all()
+        )
 
         as_merged = []
         for merge in all_merges:
@@ -329,10 +372,14 @@ class TicketMergeService:
         undo_token: str,
     ) -> Optional[TicketMerge]:
         """Get a merge record by undo token."""
-        return self.db.query(TicketMerge).filter(
-            TicketMerge.company_id == company_id,
-            TicketMerge.undo_token == undo_token,
-        ).first()
+        return (
+            self.db.query(TicketMerge)
+            .filter(
+                TicketMerge.company_id == company_id,
+                TicketMerge.undo_token == undo_token,
+            )
+            .first()
+        )
 
     def get_merge_by_id(
         self,
@@ -340,10 +387,14 @@ class TicketMergeService:
         merge_id: str,
     ) -> Optional[TicketMerge]:
         """Get a merge record by ID."""
-        return self.db.query(TicketMerge).filter(
-            TicketMerge.id == merge_id,
-            TicketMerge.company_id == company_id,
-        ).first()
+        return (
+            self.db.query(TicketMerge)
+            .filter(
+                TicketMerge.id == merge_id,
+                TicketMerge.company_id == company_id,
+            )
+            .first()
+        )
 
     def can_merge_tickets(
         self,
@@ -360,23 +411,30 @@ class TicketMergeService:
 
         # Check all tickets exist and belong to company
         for ticket_id in ticket_ids:
-            ticket = self.db.query(Ticket).filter(
-                Ticket.id == ticket_id,
-                Ticket.company_id == company_id,
-            ).first()
+            ticket = (
+                self.db.query(Ticket)
+                .filter(
+                    Ticket.id == ticket_id,
+                    Ticket.company_id == company_id,
+                )
+                .first()
+            )
 
             if not ticket:
                 reasons.append(f"Ticket {ticket_id} not found")
                 continue
 
             # Check if already merged
-            existing_merge = self.db.query(TicketMerge).filter(
-                TicketMerge.merged_ticket_ids.contains(f'"{ticket_id}"'),
-                TicketMerge.undone is False,  # noqa: E712
-            ).first()
+            existing_merge = (
+                self.db.query(TicketMerge)
+                .filter(
+                    TicketMerge.merged_ticket_ids.contains(f'"{ticket_id}"'),
+                    TicketMerge.undone is False,  # noqa: E712
+                )
+                .first()
+            )
 
             if existing_merge:
-                reasons.append(
-                    f"Ticket {ticket_id} is already part of a merge")
+                reasons.append(f"Ticket {ticket_id} is already part of a merge")
 
         return len(reasons) == 0, reasons

@@ -98,9 +98,7 @@ class Settings(BaseSettings):
     def validate_encryption_key(cls, v: str) -> str:
         """BC-011: DATA_ENCRYPTION_KEY must be exactly 32 characters."""
         if len(v) != 32:
-            raise ValueError(
-                f"DATA_ENCRYPTION_KEY must be 32 characters, got {len(v)}"
-            )
+            raise ValueError(f"DATA_ENCRYPTION_KEY must be 32 characters, got {len(v)}")
         return v
 
     @model_validator(mode="after")

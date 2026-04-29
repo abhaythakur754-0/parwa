@@ -36,7 +36,11 @@ from app.exceptions import ValidationError
 from app.logger import get_logger
 from app.services.user_details_service import check_ai_activation_prerequisites
 from app.tasks.knowledge_tasks import process_knowledge_document
-from database.models.onboarding import OnboardingSession, KnowledgeDocument, ConsentRecord
+from database.models.onboarding import (
+    OnboardingSession,
+    KnowledgeDocument,
+    ConsentRecord,
+)
 from database.models.user_details import UserDetails
 from database.models.core import User, Company
 
@@ -44,6 +48,7 @@ logger = get_logger("onboarding_service")
 
 
 # ── Integration Imports ────────────────────────────────────────────────
+
 
 def _send_welcome_email(user_email: str, user_name: str, ai_name: str) -> bool:
     """Send welcome email after onboarding completion.
@@ -53,6 +58,7 @@ def _send_welcome_email(user_email: str, user_name: str, ai_name: str) -> bool:
     """
     try:
         from app.services.email_service import send_welcome_email as _do_send_welcome
+
         dashboard_url = "https://app.parwa.ai/dashboard"
         return _do_send_welcome(user_email, user_name, dashboard_url)
     except Exception as e:
@@ -69,6 +75,7 @@ def _send_onboarding_sms(phone: str, company_name: str, ai_name: str) -> bool:
     try:
         # SMS is optional - requires company to have SMS config
         import os
+
         twilio_phone = os.environ.get("TWILIO_PHONE_NUMBER", "")
         if not twilio_phone or not phone:
             return False
@@ -84,8 +91,7 @@ def _send_onboarding_sms(phone: str, company_name: str, ai_name: str) -> bool:
             return False
 
         url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
-        auth = base64.b64encode(
-            f"{account_sid}:{auth_token}".encode()).decode()
+        auth = base64.b64encode(f"{account_sid}:{auth_token}".encode()).decode()
 
         body = f"Welcome to {company_name}! Your AI assistant {ai_name} is now ready. Login at app.parwa.ai"
 
@@ -101,10 +107,7 @@ def _send_onboarding_sms(phone: str, company_name: str, ai_name: str) -> bool:
         return False
 
 
-def _generate_ai_greeting(
-        ai_name: str,
-        ai_tone: str,
-        company_name: str) -> str:
+def _generate_ai_greeting(ai_name: str, ai_tone: str, company_name: str) -> str:
     """Generate personalized AI greeting using z-ai-web-dev-sdk.
 
     Falls back to default greeting if AI generation fails.
@@ -121,7 +124,10 @@ Example: "Hi! I'm Jarvis, your AI assistant. How can I help you today?"
 
         # Use CLI tool for quick AI generation
         result = subprocess.run(
-            ["node", "-e", """
+            [
+                "node",
+                "-e",
+                """
 const ZAI = require('z-ai-web-dev-sdk').default;
 (async () => {{
     const zai = await ZAI.create();
@@ -133,11 +139,12 @@ const ZAI = require('z-ai-web-dev-sdk').default;
     }});
     console.log(completion.choices[0].message.content);
 }})().catch(e => console.error(e.message));
-"""],
+""",
+            ],
             capture_output=True,
             text=True,
             timeout=30,
-            cwd="/home/z/my-project/parwa"
+            cwd="/home/z/my-project/parwa",
         )
 
         if result.returncode == 0 and result.stdout.strip():
@@ -340,17 +347,21 @@ def complete_step(
     expected_step = session.current_step
     if step != expected_step and step in _OPTIONAL_STEPS:
         # Check that all required steps before this optional step are done
-        required_before = [
-            s for s in range(
-                1, step) if s not in _OPTIONAL_STEPS]
+        required_before = [s for s in range(1, step) if s not in _OPTIONAL_STEPS]
         if all(s in completed for s in required_before):
             # Allow skipping this optional step
             pass
         else:
             raise ValidationError(
-                message=f"Cannot skip to step {step}. Complete required steps first.", details={
-                    "expected_step": expected_step, "actual_step": step, "missing_required": [
-                        s for s in required_before if s not in completed], }, )
+                message=f"Cannot skip to step {step}. Complete required steps first.",
+                details={
+                    "expected_step": expected_step,
+                    "actual_step": step,
+                    "missing_required": [
+                        s for s in required_before if s not in completed
+                    ],
+                },
+            )
     elif step != expected_step:
         raise ValidationError(
             message=f"Invalid step transition. Expected step {expected_step}, got {step}.",
@@ -609,14 +620,18 @@ def get_knowledge_documents(
 
     documents = query.all()
 
-    return [{"id": doc.id,
-             "filename": doc.filename,
-             "file_type": doc.file_type,
-             "file_size": doc.file_size,
-             "status": doc.status,
-             "chunk_count": doc.chunk_count,
-             "created_at": doc.created_at.isoformat() if doc.created_at else None,
-             } for doc in documents]
+    return [
+        {
+            "id": doc.id,
+            "filename": doc.filename,
+            "file_type": doc.file_type,
+            "file_size": doc.file_size,
+            "status": doc.status,
+            "chunk_count": doc.chunk_count,
+            "created_at": doc.created_at.isoformat() if doc.created_at else None,
+        }
+        for doc in documents
+    ]
 
 
 def remove_failed_document(
@@ -641,10 +656,14 @@ def remove_failed_document(
     Raises:
         ValidationError: If document not found or not in failed state.
     """
-    doc = db.query(KnowledgeDocument).filter(
-        KnowledgeDocument.id == document_id,
-        KnowledgeDocument.company_id == company_id,
-    ).first()
+    doc = (
+        db.query(KnowledgeDocument)
+        .filter(
+            KnowledgeDocument.id == document_id,
+            KnowledgeDocument.company_id == company_id,
+        )
+        .first()
+    )
 
     if not doc:
         raise ValidationError(
@@ -694,10 +713,14 @@ def retry_document_processing(
     Raises:
         ValidationError: If document not found, not failed, or max retries exceeded.
     """
-    doc = db.query(KnowledgeDocument).filter(
-        KnowledgeDocument.id == document_id,
-        KnowledgeDocument.company_id == company_id,
-    ).first()
+    doc = (
+        db.query(KnowledgeDocument)
+        .filter(
+            KnowledgeDocument.id == document_id,
+            KnowledgeDocument.company_id == company_id,
+        )
+        .first()
+    )
 
     if not doc:
         raise ValidationError(
@@ -822,8 +845,7 @@ def activate_ai(
     # create AI assistants with the same name — this causes confusion
     # in customer-facing widgets and admin dashboards.
     existing_ai = db.execute(
-        select(OnboardingSession)
-        .where(
+        select(OnboardingSession).where(
             and_(
                 OnboardingSession.company_id == company_id,
                 OnboardingSession.ai_name == ai_name[:50],
@@ -835,10 +857,7 @@ def activate_ai(
     if existing_ai:
         raise ValidationError(
             message=f"AI assistant name '{ai_name}' is already in use within your organization. Please choose a different name.",
-            details={
-                "ai_name": ai_name,
-                "existing_session_id": str(
-                    existing_ai.id)},
+            details={"ai_name": ai_name, "existing_session_id": str(existing_ai.id)},
         )
 
     # P4 FIX: Idempotency — if already activated, return existing config.
@@ -862,8 +881,11 @@ def activate_ai(
     user = db.query(User).filter(User.id == user_id).first()
     company = db.query(Company).filter(Company.id == company_id).first()
     user_email = user.email if user else None
-    user_name = user.full_name if user and user.full_name else user.email.split(
-        "@")[0] if user_email else "User"
+    user_name = (
+        user.full_name
+        if user and user.full_name
+        else user.email.split("@")[0] if user_email else "User"
+    )
     company_name = company.name if company else "Your Company"
     user_phone = user.phone if user else None
 
@@ -872,16 +894,22 @@ def activate_ai(
     if not final_greeting:
         final_greeting = _generate_ai_greeting(
             ai_name[:50] if ai_name else "Jarvis",
-            ai_tone if ai_tone in ["professional", "friendly", "casual"] else "professional",
-            company_name
+            (
+                ai_tone
+                if ai_tone in ["professional", "friendly", "casual"]
+                else "professional"
+            ),
+            company_name,
         )
 
     # Update AI config
     session.ai_name = ai_name[:50] if ai_name else "Jarvis"
-    session.ai_tone = ai_tone if ai_tone in [
-        "professional", "friendly", "casual"] else "professional"
-    session.ai_response_style = ai_response_style if ai_response_style in [
-        "concise", "detailed"] else "concise"
+    session.ai_tone = (
+        ai_tone if ai_tone in ["professional", "friendly", "casual"] else "professional"
+    )
+    session.ai_response_style = (
+        ai_response_style if ai_response_style in ["concise", "detailed"] else "concise"
+    )
     session.ai_greeting = final_greeting[:500] if final_greeting else None
     session.status = "completed"
     session.completed_at = datetime.now(timezone.utc)
@@ -905,13 +933,12 @@ def activate_ai(
         try:
             # Send welcome email via Brevo
             if user_email:
-                email_sent = _send_welcome_email(
-                    user_email, user_name, session.ai_name)
+                email_sent = _send_welcome_email(user_email, user_name, session.ai_name)
                 logger.info(
                     "welcome_email_sent",
                     user_id=user_id,
                     email=user_email,
-                    success=email_sent
+                    success=email_sent,
                 )
         except Exception as e:
             logger.warning("welcome_email_thread_failed", error=str(e)[:100])
@@ -920,12 +947,13 @@ def activate_ai(
             # Send welcome SMS via Twilio (optional)
             if user_phone:
                 sms_sent = _send_onboarding_sms(
-                    user_phone, company_name, session.ai_name)
+                    user_phone, company_name, session.ai_name
+                )
                 logger.info(
                     "welcome_sms_sent",
                     user_id=user_id,
                     phone=user_phone[:4] + "****",
-                    success=sms_sent
+                    success=sms_sent,
                 )
         except Exception as e:
             logger.warning("welcome_sms_thread_failed", error=str(e)[:100])
@@ -948,9 +976,14 @@ def activate_ai(
     def _background_warmup(cid: str, uid: str) -> None:
         try:
             from app.core.cold_start_service import get_cold_start_service
-            details = db.query(UserDetails).filter(
-                UserDetails.company_id == cid,
-            ).first()
+
+            details = (
+                db.query(UserDetails)
+                .filter(
+                    UserDetails.company_id == cid,
+                )
+                .first()
+            )
             # P16 FIX: Default to mini_parwa for unknown/null company_size
             # to avoid over-provisioning free trial users with parwa tier.
             variant_type = "mini_parwa"
@@ -963,8 +996,7 @@ def activate_ai(
                     "501_1000": "high_parwa",
                     "1000_plus": "high_parwa",
                 }
-                variant_type = size_to_variant.get(
-                    details.company_size, "mini_parwa")
+                variant_type = size_to_variant.get(details.company_size, "mini_parwa")
 
             cold_start = get_cold_start_service()
             warmup_result = cold_start.warmup_tenant(cid, variant_type)
@@ -1018,10 +1050,14 @@ def get_first_victory_status(
     Returns:
         Dict with first victory status.
     """
-    session = db.query(OnboardingSession).filter(
-        OnboardingSession.user_id == user_id,
-        OnboardingSession.company_id == company_id,
-    ).first()
+    session = (
+        db.query(OnboardingSession)
+        .filter(
+            OnboardingSession.user_id == user_id,
+            OnboardingSession.company_id == company_id,
+        )
+        .first()
+    )
 
     if not session:
         return {
@@ -1052,10 +1088,14 @@ def complete_first_victory(
     Returns:
         Dict with completion status.
     """
-    session = db.query(OnboardingSession).filter(
-        OnboardingSession.user_id == user_id,
-        OnboardingSession.company_id == company_id,
-    ).first()
+    session = (
+        db.query(OnboardingSession)
+        .filter(
+            OnboardingSession.user_id == user_id,
+            OnboardingSession.company_id == company_id,
+        )
+        .first()
+    )
 
     if not session:
         raise ValidationError(

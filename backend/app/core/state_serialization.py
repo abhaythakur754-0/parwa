@@ -80,6 +80,7 @@ class StateSerializationError(ParwaBaseError):
 
 class SnapshotType(str, Enum):
     """Type of state snapshot being saved."""
+
     AUTO = "auto"
     MANUAL = "manual"
     ERROR = "error"
@@ -88,6 +89,7 @@ class SnapshotType(str, Enum):
 
 class StorageBackend(str, Enum):
     """Which backend was used for the operation."""
+
     REDIS = "redis"
     POSTGRESQL = "postgresql"
     FILE = "file"
@@ -167,6 +169,7 @@ class StateDiff:
 @dataclass
 class CheckpointMeta:
     """Metadata about a saved checkpoint."""
+
     checkpoint_name: str
     ticket_id: str
     company_id: str
@@ -196,6 +199,7 @@ class CheckpointMeta:
 @dataclass
 class StateHistoryEntry:
     """A single entry in the state change history."""
+
     snapshot_id: str
     created_at: str
     snapshot_type: str
@@ -225,6 +229,7 @@ class StateHistoryEntry:
 @dataclass
 class SaveResult:
     """Result of a save_state operation."""
+
     success: bool
     snapshot_id: str
     backend: StorageBackend
@@ -362,8 +367,7 @@ def _json_default(obj: Any) -> Any:
         return obj.isoformat()
     if isinstance(obj, Enum):
         return obj.value
-    raise TypeError(
-        f"Object of type {
+    raise TypeError(f"Object of type {
             type(obj).__name__} is not JSON serializable")
 
 
@@ -429,6 +433,7 @@ class _SafeJson:
 
     Provides a module-like interface for JSON operations used by tests.
     """
+
     loads = staticmethod(_safe_json_loads)
 
 
@@ -475,7 +480,9 @@ class StateSerializer:
         # type: ignore[method-assign]
         self._load_checkpoint_from_redis = self._load_checkpoint_from_redis_impl
         # type: ignore[method-assign]
-        self._load_checkpoint_from_postgresql = self._load_checkpoint_from_postgresql_impl
+        self._load_checkpoint_from_postgresql = (
+            self._load_checkpoint_from_postgresql_impl
+        )
 
         # File-based tertiary persistence (BC-008: graceful degradation).
         # Reads STATE_SERIALIZATION_PATH and STATE_SERIALIZATION_ENABLED from
@@ -523,7 +530,8 @@ class StateSerializer:
     # ── Serialization / Deserialization ─────────────────────────
 
     def serialize_state(
-        self, conversation_state: ConversationState,
+        self,
+        conversation_state: ConversationState,
     ) -> Dict[str, Any]:
         """Serialize a ConversationState to a JSON-safe dictionary.
 
@@ -554,8 +562,7 @@ class StateSerializer:
             # GAP 1 FIX: Serialize signals with explicit handling
             signals_dict = None
             if conversation_state.signals is not None:
-                signals_dict = _serialize_enum(
-                    asdict(conversation_state.signals))
+                signals_dict = _serialize_enum(asdict(conversation_state.signals))
 
             # GAP 1 FIX: Serialize gsd_history with explicit handling
             gsd_history_list = []
@@ -570,19 +577,27 @@ class StateSerializer:
             technique_results_dict = {}
             if conversation_state.technique_results is not None:
                 technique_results_dict = _serialize_enum(
-                    conversation_state.technique_results)
+                    conversation_state.technique_results
+                )
 
             # GAP 1 FIX: Serialize reflexion_trace with explicit handling
             reflexion_trace_dict = None
             if conversation_state.reflexion_trace is not None:
                 reflexion_trace_dict = _serialize_enum(
-                    conversation_state.reflexion_trace)
+                    conversation_state.reflexion_trace
+                )
 
             # GAP 1 FIX: Deep copy lists to prevent reference issues
-            response_parts_list = list(
-                conversation_state.response_parts) if conversation_state.response_parts else []
-            reasoning_thread_list = list(
-                conversation_state.reasoning_thread) if conversation_state.reasoning_thread else []
+            response_parts_list = (
+                list(conversation_state.response_parts)
+                if conversation_state.response_parts
+                else []
+            )
+            reasoning_thread_list = (
+                list(conversation_state.reasoning_thread)
+                if conversation_state.reasoning_thread
+                else []
+            )
 
             state_dict: Dict[str, Any] = {
                 "query": conversation_state.query,
@@ -595,9 +610,7 @@ class StateSerializer:
                 "gsd_history": gsd_history_list,
                 "technique_results": technique_results_dict,
                 "token_usage": conversation_state.token_usage,
-                "technique_token_budget": (
-                    conversation_state.technique_token_budget
-                ),
+                "technique_token_budget": (conversation_state.technique_token_budget),
                 "response_parts": response_parts_list,
                 "final_response": conversation_state.final_response or "",
                 "ticket_id": conversation_state.ticket_id,
@@ -634,7 +647,8 @@ class StateSerializer:
             ) from exc
 
     def deserialize_state(
-        self, data: Dict[str, Any],
+        self,
+        data: Dict[str, Any],
     ) -> ConversationState:
         """Deserialize a dictionary back into a ConversationState.
 
@@ -666,12 +680,11 @@ class StateSerializer:
             meta = data.get("_meta", {})
             if meta:
                 expected_gsd_history_count = meta.get("gsd_history_count")
-                expected_response_parts_count = meta.get(
-                    "response_parts_count")
-                expected_reasoning_thread_count = meta.get(
-                    "reasoning_thread_count")
+                expected_response_parts_count = meta.get("response_parts_count")
+                expected_reasoning_thread_count = meta.get("reasoning_thread_count")
                 expected_technique_results_keys = set(
-                    meta.get("technique_results_keys", []))
+                    meta.get("technique_results_keys", [])
+                )
 
                 gsd_history_raw = data.get("gsd_history", [])
                 response_parts_raw = data.get("response_parts", [])
@@ -680,8 +693,9 @@ class StateSerializer:
 
                 # Validate counts match
                 if expected_gsd_history_count is not None:
-                    actual_count = len(gsd_history_raw) if isinstance(
-                        gsd_history_raw, list) else 0
+                    actual_count = (
+                        len(gsd_history_raw) if isinstance(gsd_history_raw, list) else 0
+                    )
                     if actual_count != expected_gsd_history_count:
                         logger.warning(
                             "deserialize_checksum_mismatch_gsd_history",
@@ -692,8 +706,11 @@ class StateSerializer:
                         )
 
                 if expected_response_parts_count is not None:
-                    actual_count = len(response_parts_raw) if isinstance(
-                        response_parts_raw, list) else 0
+                    actual_count = (
+                        len(response_parts_raw)
+                        if isinstance(response_parts_raw, list)
+                        else 0
+                    )
                     if actual_count != expected_response_parts_count:
                         logger.warning(
                             "deserialize_checksum_mismatch_response_parts",
@@ -704,8 +721,11 @@ class StateSerializer:
                         )
 
                 if expected_reasoning_thread_count is not None:
-                    actual_count = len(reasoning_thread_raw) if isinstance(
-                        reasoning_thread_raw, list) else 0
+                    actual_count = (
+                        len(reasoning_thread_raw)
+                        if isinstance(reasoning_thread_raw, list)
+                        else 0
+                    )
                     if actual_count != expected_reasoning_thread_count:
                         logger.warning(
                             "deserialize_checksum_mismatch_reasoning_thread",
@@ -717,9 +737,11 @@ class StateSerializer:
 
                 # Validate technique_results keys match
                 if expected_technique_results_keys:
-                    actual_keys = set(
-                        technique_results_raw.keys()) if isinstance(
-                        technique_results_raw, dict) else set()
+                    actual_keys = (
+                        set(technique_results_raw.keys())
+                        if isinstance(technique_results_raw, dict)
+                        else set()
+                    )
                     missing_keys = expected_technique_results_keys - actual_keys
                     if missing_keys:
                         logger.warning(
@@ -774,10 +796,13 @@ class StateSerializer:
             signals_raw = data.get("signals")
             if isinstance(signals_raw, dict):
                 try:
-                    signals = QuerySignals(**{
-                        k: v for k, v in signals_raw.items()
-                        if k in QuerySignals.__dataclass_fields__
-                    })
+                    signals = QuerySignals(
+                        **{
+                            k: v
+                            for k, v in signals_raw.items()
+                            if k in QuerySignals.__dataclass_fields__
+                        }
+                    )
                 except (TypeError, ValueError) as exc:
                     logger.warning(
                         "deserialize_signals_fallback",
@@ -788,21 +813,24 @@ class StateSerializer:
                 signals = QuerySignals()
 
             # Deserialize technique_results
-            technique_results = technique_results_raw if isinstance(
-                technique_results_raw, dict) else {}
+            technique_results = (
+                technique_results_raw if isinstance(technique_results_raw, dict) else {}
+            )
 
             # Deserialize reflexion_trace
             reflexion_trace = data.get("reflexion_trace")
-            if not isinstance(
-                    reflexion_trace,
-                    dict) and reflexion_trace is not None:
+            if not isinstance(reflexion_trace, dict) and reflexion_trace is not None:
                 reflexion_trace = None
 
             # GAP 1 FIX: Ensure lists are properly copied
-            response_parts = list(response_parts_raw) if isinstance(
-                response_parts_raw, list) else []
-            reasoning_thread = list(reasoning_thread_raw) if isinstance(
-                reasoning_thread_raw, list) else []
+            response_parts = (
+                list(response_parts_raw) if isinstance(response_parts_raw, list) else []
+            )
+            reasoning_thread = (
+                list(reasoning_thread_raw)
+                if isinstance(reasoning_thread_raw, list)
+                else []
+            )
 
             return ConversationState(
                 query=data.get("query", ""),
@@ -812,7 +840,8 @@ class StateSerializer:
                 technique_results=technique_results,
                 token_usage=data.get("token_usage", 0),
                 technique_token_budget=data.get(
-                    "technique_token_budget", 1500,
+                    "technique_token_budget",
+                    1500,
                 ),
                 response_parts=response_parts,
                 final_response=data.get("final_response", ""),
@@ -878,9 +907,8 @@ class StateSerializer:
         # 2. Simulate JSON round-trip (same as Redis/PG storage)
         try:
             state_json = json.dumps(
-                state_data,
-                default=_json_default,
-                ensure_ascii=False)
+                state_data, default=_json_default, ensure_ascii=False
+            )
         except (TypeError, ValueError) as exc:
             return {
                 "success": False,
@@ -913,10 +941,19 @@ class StateSerializer:
 
         # 4. Compare all critical top-level fields
         critical_fields = [
-            "query", "gsd_state", "gsd_history", "technique_results",
-            "token_usage", "technique_token_budget", "response_parts",
-            "final_response", "ticket_id", "conversation_id",
-            "company_id", "reasoning_thread", "reflexion_trace",
+            "query",
+            "gsd_state",
+            "gsd_history",
+            "technique_results",
+            "token_usage",
+            "technique_token_budget",
+            "response_parts",
+            "final_response",
+            "ticket_id",
+            "conversation_id",
+            "company_id",
+            "reasoning_thread",
+            "reflexion_trace",
         ]
 
         for field_name in critical_fields:
@@ -1316,8 +1353,7 @@ class StateSerializer:
         safe_name = checkpoint_name.strip().lower().replace(" ", "_")
         if not safe_name.isidentifier():
             safe_name = "".join(
-                c if c.isalnum() or c == "_" else "_"
-                for c in safe_name
+                c if c.isalnum() or c == "_" else "_" for c in safe_name
             )
 
         # Serialize the state
@@ -1338,9 +1374,11 @@ class StateSerializer:
             state_json=state_json,
             snapshot_id=snapshot_id,
             current_node=kwargs.get("current_node", "unknown"),
-            gsd_state=conversation_state.gsd_state.value
-            if isinstance(conversation_state.gsd_state, Enum)
-            else str(conversation_state.gsd_state),
+            gsd_state=(
+                conversation_state.gsd_state.value
+                if isinstance(conversation_state.gsd_state, Enum)
+                else str(conversation_state.gsd_state)
+            ),
             token_count=conversation_state.token_usage,
         )
 
@@ -1419,14 +1457,15 @@ class StateSerializer:
         safe_name = checkpoint_name.strip().lower().replace(" ", "_")
         if not safe_name.isidentifier():
             safe_name = "".join(
-                c if c.isalnum() or c == "_" else "_"
-                for c in safe_name
+                c if c.isalnum() or c == "_" else "_" for c in safe_name
             )
 
         # 1. Try Redis (attribute lookup allows test patching)
-        _redis_loader = getattr(self, '_load_checkpoint_from_redis')
+        _redis_loader = getattr(self, "_load_checkpoint_from_redis")
         state = await _redis_loader(
-            ticket_id, company_id, safe_name,
+            ticket_id,
+            company_id,
+            safe_name,
         )
         if state is not None:
             logger.info(
@@ -1448,9 +1487,11 @@ class StateSerializer:
                 "checkpoint_name": checkpoint_name,
             },
         )
-        _pg_loader = getattr(self, '_load_checkpoint_from_postgresql')
+        _pg_loader = getattr(self, "_load_checkpoint_from_postgresql")
         state = await _pg_loader(
-            ticket_id, company_id, checkpoint_name,
+            ticket_id,
+            company_id,
+            checkpoint_name,
         )
         if state is not None:
             return state
@@ -1488,14 +1529,16 @@ class StateSerializer:
 
         # 1. Try Redis checkpoint index
         redis_checkpoints = await self._list_checkpoints_from_redis(
-            ticket_id, company_id,
+            ticket_id,
+            company_id,
         )
         if redis_checkpoints is not None:
             checkpoints = redis_checkpoints
         else:
             # 2. Fallback to PostgreSQL
             checkpoints = await self._list_checkpoints_from_postgresql(
-                ticket_id, company_id,
+                ticket_id,
+                company_id,
             )
 
         logger.debug(
@@ -1530,10 +1573,12 @@ class StateSerializer:
             whether cleanup succeeded for each backend.
         """
         redis_deleted = await self._delete_state_from_redis(
-            ticket_id, company_id,
+            ticket_id,
+            company_id,
         )
         postgresql_deleted = await self._delete_state_from_postgresql(
-            ticket_id, company_id,
+            ticket_id,
+            company_id,
         )
 
         logger.info(
@@ -1580,7 +1625,9 @@ class StateSerializer:
             limit = 200
 
         history = await self._get_history_from_postgresql(
-            ticket_id, company_id, limit,
+            ticket_id,
+            company_id,
+            limit,
         )
 
         logger.debug(
@@ -1617,7 +1664,9 @@ class StateSerializer:
             Returns None for corrupted data (logs error, never raises).
         """
         state = await self._replay_from_postgresql(
-            ticket_id, company_id, snapshot_id,
+            ticket_id,
+            company_id,
+            snapshot_id,
         )
 
         if state is not None:
@@ -1669,8 +1718,11 @@ class StateSerializer:
         if old_state is None:
             # First state — everything is "new"
             diff.changed_fields = [
-                "gsd_state", "token_count", "technique_results",
-                "query", "final_response",
+                "gsd_state",
+                "token_count",
+                "technique_results",
+                "query",
+                "final_response",
             ]
             if new_state is not None:
                 diff.gsd_state = {
@@ -1687,9 +1739,7 @@ class StateSerializer:
                 }
                 diff.technique_stack = {
                     "old": [],
-                    "new": list(
-                        (new_state.technique_results or {}).keys()
-                    ),
+                    "new": list((new_state.technique_results or {}).keys()),
                 }
             return diff
 
@@ -1738,12 +1788,8 @@ class StateSerializer:
             diff.unchanged_fields.append("token_count")
 
         # Compare technique stack (from technique_results keys)
-        old_techniques = sorted(
-            (old_state.technique_results or {}).keys()
-        )
-        new_techniques = sorted(
-            (new_state.technique_results or {}).keys()
-        )
+        old_techniques = sorted((old_state.technique_results or {}).keys())
+        new_techniques = sorted((new_state.technique_results or {}).keys())
         if old_techniques != new_techniques:
             diff.technique_stack = {
                 "old": old_techniques,
@@ -1859,9 +1905,8 @@ class StateSerializer:
                 return None
             # Find the most recent snapshot file.
             json_files = sorted(
-                dir_path.glob("*.json"),
-                key=lambda f: f.stat().st_mtime,
-                reverse=True)
+                dir_path.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True
+            )
             if not json_files:
                 return None
             latest = json_files[0]
@@ -2011,26 +2056,33 @@ class StateSerializer:
 
             redis_client = await get_redis()
             checkpoint_key = _build_checkpoint_key(
-                company_id, ticket_id, checkpoint_name,
+                company_id,
+                ticket_id,
+                checkpoint_name,
             )
             index_key = _build_checkpoint_index_key(company_id, ticket_id)
 
-            metadata_json = json.dumps({
-                "checkpoint_name": checkpoint_name,
-                "snapshot_id": snapshot_id,
-                "created_at": _utcnow(),
-                "current_node": current_node,
-                "gsd_state": gsd_state,
-                "token_count": token_count,
-            })
+            metadata_json = json.dumps(
+                {
+                    "checkpoint_name": checkpoint_name,
+                    "snapshot_id": snapshot_id,
+                    "created_at": _utcnow(),
+                    "current_node": current_node,
+                    "gsd_state": gsd_state,
+                    "token_count": token_count,
+                }
+            )
 
             if self._config.use_redis_pipeline:
                 async with redis_client.pipeline(transaction=True) as pipe:
-                    pipe.hset(checkpoint_key, mapping={
-                        "state_data": state_json,
-                        "metadata": metadata_json,
-                        "snapshot_id": snapshot_id,
-                    })
+                    pipe.hset(
+                        checkpoint_key,
+                        mapping={
+                            "state_data": state_json,
+                            "metadata": metadata_json,
+                            "snapshot_id": snapshot_id,
+                        },
+                    )
                     pipe.expire(
                         checkpoint_key,
                         self._config.checkpoint_ttl_seconds,
@@ -2042,11 +2094,14 @@ class StateSerializer:
                     )
                     await pipe.execute()
             else:
-                await redis_client.hset(checkpoint_key, mapping={
-                    "state_data": state_json,
-                    "metadata": metadata_json,
-                    "snapshot_id": snapshot_id,
-                })
+                await redis_client.hset(
+                    checkpoint_key,
+                    mapping={
+                        "state_data": state_json,
+                        "metadata": metadata_json,
+                        "snapshot_id": snapshot_id,
+                    },
+                )
                 await redis_client.expire(
                     checkpoint_key,
                     self._config.checkpoint_ttl_seconds,
@@ -2092,7 +2147,9 @@ class StateSerializer:
 
             redis_client = await get_redis()
             checkpoint_key = _build_checkpoint_key(
-                company_id, ticket_id, checkpoint_name,
+                company_id,
+                ticket_id,
+                checkpoint_name,
             )
 
             checkpoint_hash = await redis_client.hgetall(checkpoint_key)
@@ -2157,7 +2214,9 @@ class StateSerializer:
 
             for name in checkpoint_names:
                 checkpoint_key = _build_checkpoint_key(
-                    company_id, ticket_id, name,
+                    company_id,
+                    ticket_id,
+                    name,
                 )
                 checkpoint_hash = await redis_client.hgetall(checkpoint_key)
                 if not checkpoint_hash:
@@ -2171,18 +2230,21 @@ class StateSerializer:
                         metadata["company_id"] = company_id
                         checkpoints.append(metadata)
                     except (json.JSONDecodeError, TypeError):
-                        checkpoints.append({
-                            "checkpoint_name": name,
-                            "ticket_id": ticket_id,
-                            "company_id": company_id,
-                            "snapshot_id": checkpoint_hash.get(
-                                "snapshot_id", "",
-                            ),
-                            "created_at": "unknown",
-                            "gsd_state": "unknown",
-                            "token_count": 0,
-                            "current_node": "unknown",
-                        })
+                        checkpoints.append(
+                            {
+                                "checkpoint_name": name,
+                                "ticket_id": ticket_id,
+                                "company_id": company_id,
+                                "snapshot_id": checkpoint_hash.get(
+                                    "snapshot_id",
+                                    "",
+                                ),
+                                "created_at": "unknown",
+                                "gsd_state": "unknown",
+                                "token_count": 0,
+                                "current_node": "unknown",
+                            }
+                        )
 
             # Sort by created_at descending
             checkpoints.sort(
@@ -2591,8 +2653,7 @@ class StateSerializer:
                             return self.deserialize_state(state_dict)
 
                         # Also check if checkpoint_name is in state_data
-                        if state_dict.get(
-                                "_checkpoint_name") == checkpoint_name:
+                        if state_dict.get("_checkpoint_name") == checkpoint_name:
                             return self.deserialize_state(state_dict)
 
                     except (json.JSONDecodeError, TypeError):
@@ -2657,20 +2718,22 @@ class StateSerializer:
                     except (json.JSONDecodeError, TypeError):
                         pass
 
-                    checkpoints.append({
-                        "checkpoint_name": snapshot.id,
-                        "ticket_id": ticket_id,
-                        "company_id": company_id,
-                        "snapshot_id": snapshot.id,
-                        "created_at": (
-                            snapshot.created_at.isoformat()
-                            if snapshot.created_at
-                            else "unknown"
-                        ),
-                        "gsd_state": gsd_state,
-                        "token_count": snapshot.token_count or 0,
-                        "current_node": snapshot.current_node or "unknown",
-                    })
+                    checkpoints.append(
+                        {
+                            "checkpoint_name": snapshot.id,
+                            "ticket_id": ticket_id,
+                            "company_id": company_id,
+                            "snapshot_id": snapshot.id,
+                            "created_at": (
+                                snapshot.created_at.isoformat()
+                                if snapshot.created_at
+                                else "unknown"
+                            ),
+                            "gsd_state": gsd_state,
+                            "token_count": snapshot.token_count or 0,
+                            "current_node": snapshot.current_node or "unknown",
+                        }
+                    )
 
                 return checkpoints
 
@@ -2959,7 +3022,9 @@ class StateSerializer:
 
                 # Try to set the lock
                 set_ok = await self._redis_set(
-                    lock_key, lock_token, ttl=ttl,
+                    lock_key,
+                    lock_token,
+                    ttl=ttl,
                 )
                 if set_ok:
                     # In mocked/test environments, _redis_get may not reflect
@@ -2970,10 +3035,13 @@ class StateSerializer:
                             "ticket_id": ticket_id,
                             "attempt": attempt,
                             "elapsed_ms": int(
-                                (time.monotonic()
-                                 - deadline
-                                 + self._config.lock_timeout_seconds)
-                                * 1000),
+                                (
+                                    time.monotonic()
+                                    - deadline
+                                    + self._config.lock_timeout_seconds
+                                )
+                                * 1000
+                            ),
                         },
                     )
                     return lock_token

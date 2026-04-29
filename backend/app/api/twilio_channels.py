@@ -55,9 +55,11 @@ def _get_db(request: Request):
     """Get DB session from request state."""
     try:
         from database.base import get_db
+
         return next(get_db())
     except Exception:
         from database.base import SessionLocal
+
         return SessionLocal()
 
 
@@ -76,15 +78,20 @@ def _get_company_by_twilio_sid(db, account_sid: str) -> Optional[str]:
     try:
         from database.models.sms_channel import SMSChannelConfig
 
-        config = db.query(SMSChannelConfig).filter(
-            SMSChannelConfig.twilio_account_sid == account_sid,
-        ).first()
+        config = (
+            db.query(SMSChannelConfig)
+            .filter(
+                SMSChannelConfig.twilio_account_sid == account_sid,
+            )
+            .first()
+        )
 
         if config:
             return config.company_id
 
         # Fall back to environment variable for default company
         import os
+
         default_company = os.environ.get("PARWA_DEFAULT_COMPANY_ID")
         if default_company:
             return default_company
@@ -106,6 +113,7 @@ async def _verify_twilio_signature(request: Request, form_data: dict) -> bool:
         if not signature:
             # In development, allow unsigned requests
             import os
+
             if os.environ.get("PARWA_DEV_MODE") == "true":
                 logger.warning("twilio_signature_missing_dev_mode")
                 return True
@@ -115,6 +123,7 @@ async def _verify_twilio_signature(request: Request, form_data: dict) -> bool:
 
         # Get the Twilio auth token
         from app.core.channels.twilio_client import TwilioClient
+
         client = TwilioClient()
 
         return client.verify_webhook(
@@ -134,6 +143,7 @@ async def _verify_twilio_signature(request: Request, form_data: dict) -> bool:
 # ═══════════════════════════════════════════════════════════════════
 # SMS Webhook Endpoints
 # ═══════════════════════════════════════════════════════════════════
+
 
 @router.post("/sms/inbound")
 async def sms_inbound(request: Request):
@@ -249,6 +259,7 @@ async def sms_inbound(request: Request):
 # ═══════════════════════════════════════════════════════════════════
 # Voice Webhook Endpoints
 # ═══════════════════════════════════════════════════════════════════
+
 
 @router.post("/voice/inbound")
 async def voice_inbound(request: Request):

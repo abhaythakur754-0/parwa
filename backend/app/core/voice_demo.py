@@ -66,6 +66,7 @@ def _now_utc() -> datetime:
 
 # ── Enums ────────────────────────────────────────────────────────────────
 
+
 class SessionStatus(str, Enum):
     CREATED = "created"
     PAID = "paid"
@@ -84,6 +85,7 @@ class PaymentStatus(str, Enum):
 
 # ── Data Classes ─────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class VoiceDemoConfig:
     """Immutable configuration for the voice demo system."""
@@ -99,8 +101,8 @@ class VoiceDemoConfig:
 
     def __post_init__(self) -> None:
         object.__setattr__(
-            self, "price_usd", _safe_decimal(
-                self.price_usd) or Decimal("1.00"))
+            self, "price_usd", _safe_decimal(self.price_usd) or Decimal("1.00")
+        )
         if self.max_duration_seconds < 1:
             raise ValueError("max_duration_seconds must be >= 1")
         if self.max_concurrent_sessions < 1:
@@ -187,6 +189,7 @@ class DemoSummary:
 
 # ── Voice Demo Payment ───────────────────────────────────────────────────
 
+
 class VoiceDemoPayment:
     """Handles the $1 demo paywall via token-based verification.
 
@@ -208,9 +211,7 @@ class VoiceDemoPayment:
 
     # -- public API -------------------------------------------------------
 
-    def create_payment_intent(
-        self, email: str, phone: str
-    ) -> PaymentIntent:
+    def create_payment_intent(self, email: str, phone: str) -> PaymentIntent:
         """Create a payment intent for the voice demo.
 
         Returns a ``PaymentIntent`` with a deterministic session id and
@@ -235,16 +236,15 @@ class VoiceDemoPayment:
         if not session_id or not payment_token:
             return False
         expected = self._make_token(session_id, self.amount)
-        return hashlib.sha256(
-            expected.encode()
-        ).hexdigest() == hashlib.sha256(
-            payment_token.encode()
-        ).hexdigest() or expected == payment_token
+        return (
+            hashlib.sha256(expected.encode()).hexdigest()
+            == hashlib.sha256(payment_token.encode()).hexdigest()
+            or expected == payment_token
+        )
 
     def refund_if_needed(
-            self,
-            session_id: str,
-            amount_paid: Decimal = Decimal("0.00")) -> RefundResult:
+        self, session_id: str, amount_paid: Decimal = Decimal("0.00")
+    ) -> RefundResult:
         """Attempt a refund (placeholder — always succeeds in demo mode).
 
         In production this would call ``PaddleClient``.
@@ -284,6 +284,7 @@ class VoiceDemoPayment:
 
 
 # ── Voice Demo Engine ────────────────────────────────────────────────────
+
 
 class VoiceDemoEngine:
     """Core voice demo pipeline — session lifecycle, voice I/O, paywall.
@@ -334,10 +335,7 @@ class VoiceDemoEngine:
         )
         return session
 
-    def activate_session(
-            self,
-            session_id: str,
-            payment_token: str) -> VoiceDemoSession:
+    def activate_session(self, session_id: str, payment_token: str) -> VoiceDemoSession:
         """Activate a session after payment verification."""
         with self._lock:
             session = self._get_session_locked(session_id)
@@ -347,7 +345,8 @@ class VoiceDemoEngine:
             if session.status not in (SessionStatus.CREATED,):
                 raise ValueError(
                     f"Session {session_id} is not in CREATED state (current: {
-                        session.status.value})")
+                        session.status.value})"
+                )
 
             if not self._payment.verify_payment(session_id, payment_token):
                 session.status = SessionStatus.FAILED
@@ -396,14 +395,12 @@ class VoiceDemoEngine:
                 raise KeyError(f"Session not found: {session_id}")
 
             if session.status != SessionStatus.ACTIVE:
-                raise ValueError(
-                    f"Session {session_id} is not active (current: {
+                raise ValueError(f"Session {session_id} is not active (current: {
                         session.status.value})")
 
             now = _now_utc()
             if session.started_at:
-                session.duration_seconds = (
-                    now - session.started_at).total_seconds()
+                session.duration_seconds = (now - session.started_at).total_seconds()
             session.ended_at = now
             session.status = SessionStatus.ENDED
             self._active_count = max(0, self._active_count - 1)
@@ -440,9 +437,8 @@ class VoiceDemoEngine:
     # -- public API: voice pipeline ----------------------------------------
 
     def process_voice_input(
-            self,
-            session_id: str,
-            audio_base64: Any) -> VoiceDemoResult:
+        self, session_id: str, audio_base64: Any
+    ) -> VoiceDemoResult:
         """Full voice input pipeline: STT → AI → response."""
         session = self.get_session(session_id)
         if session is None or session.status != SessionStatus.ACTIVE:
@@ -475,9 +471,7 @@ class VoiceDemoEngine:
             return transcribed
 
         # 2. AI processing
-        ai_result = self._process_through_ai(
-            transcribed.text, session.company_context
-        )
+        ai_result = self._process_through_ai(transcribed.text, session.company_context)
         if not ai_result.success:
             return ai_result
 
@@ -490,10 +484,7 @@ class VoiceDemoEngine:
             latency_ms=latency,
         )
 
-    def generate_voice_response(
-            self,
-            session_id: str,
-            text: str) -> VoiceDemoResult:
+    def generate_voice_response(self, session_id: str, text: str) -> VoiceDemoResult:
         """Generate TTS audio for a text response."""
         session = self.get_session(session_id)
         if session is None or session.status != SessionStatus.ACTIVE:
@@ -525,10 +516,7 @@ class VoiceDemoEngine:
             confidence=0.95,
         )
 
-    def _process_through_ai(
-            self,
-            text: str,
-            company_context: str) -> VoiceDemoResult:
+    def _process_through_ai(self, text: str, company_context: str) -> VoiceDemoResult:
         """AI pipeline placeholder — simulates intent + response generation."""
         if not text or not isinstance(text, str):
             return VoiceDemoResult(success=False, error="No text to process")
@@ -547,8 +535,7 @@ class VoiceDemoEngine:
     def _synthesize_speech(self, text: str) -> VoiceDemoResult:
         """TTS placeholder — simulates speech synthesis."""
         if not text or not isinstance(text, str):
-            return VoiceDemoResult(
-                success=False, error="No text to synthesize")
+            return VoiceDemoResult(success=False, error="No text to synthesize")
 
         # In production this would call ElevenLabs / OpenAI TTS
         fake_audio = "UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="
@@ -561,14 +548,13 @@ class VoiceDemoEngine:
 
     # -- internal helpers --------------------------------------------------
 
-    def _get_session_locked(
-            self,
-            session_id: str) -> Optional[VoiceDemoSession]:
+    def _get_session_locked(self, session_id: str) -> Optional[VoiceDemoSession]:
         """Must be called while holding ``self._lock``."""
         return self._sessions.get(session_id)
 
 
 # ── Utility ──────────────────────────────────────────────────────────────
+
 
 def _generate_session_id(email: str) -> str:
     """Deterministic-ish session id derived from email + timestamp."""

@@ -39,15 +39,16 @@ router = APIRouter(prefix="/api/integrations", tags=["Integrations"])
 class CreateIntegrationRequest(BaseModel):
     """Request to create a new integration."""
 
-    integration_type: str = Field(...,
-                                  description="Type: zendesk, shopify, slack, gmail")
-    name: str = Field(..., min_length=1, max_length=100,
-                      description="Display name")
+    integration_type: str = Field(
+        ..., description="Type: zendesk, shopify, slack, gmail"
+    )
+    name: str = Field(..., min_length=1, max_length=100, description="Display name")
     config: Dict[str, Any] = Field(
-        default_factory=dict, description="Integration config with credentials")
+        default_factory=dict, description="Integration config with credentials"
+    )
     validate: bool = Field(
-        default=True,
-        description="Whether to validate credentials before saving")
+        default=True, description="Whether to validate credentials before saving"
+    )
 
 
 class IntegrationResponse(BaseModel):
@@ -97,11 +98,13 @@ def list_available_integrations() -> List[Dict[str, Any]]:
     """
     result = []
     for int_type, int_config in INTEGRATION_TYPES.items():
-        result.append({
-            "type": int_type,
-            "required_fields": int_config["required_fields"],
-            "test_url_template": int_config["test_url"],
-        })
+        result.append(
+            {
+                "type": int_type,
+                "required_fields": int_config["required_fields"],
+                "test_url_template": int_config["test_url"],
+            }
+        )
     return result
 
 
@@ -109,10 +112,11 @@ class TestCredentialsRequest(BaseModel):
     """Request to test credentials without saving."""
 
     integration_type: str = Field(
-        ..., description="Type: zendesk, shopify, slack, gmail, freshdesk, intercom")
-    config: Dict[str,
-                 Any] = Field(...,
-                              description="Integration config with credentials")
+        ..., description="Type: zendesk, shopify, slack, gmail, freshdesk, intercom"
+    )
+    config: Dict[str, Any] = Field(
+        ..., description="Integration config with credentials"
+    )
 
 
 @router.post(

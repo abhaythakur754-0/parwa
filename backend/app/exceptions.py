@@ -51,45 +51,57 @@ class NotFoundError(ParwaBaseError):
 
 class ValidationError(ParwaBaseError):
     def __init__(
-        self, message: str = "Validation failed",
+        self,
+        message: str = "Validation failed",
         details: Optional[Any] = None,
     ) -> None:
         super().__init__(
-            message=message, error_code="VALIDATION_ERROR",
-            status_code=422, details=details,
+            message=message,
+            error_code="VALIDATION_ERROR",
+            status_code=422,
+            details=details,
         )
 
 
 class AuthenticationError(ParwaBaseError):
     def __init__(
-        self, message: str = "Authentication required",
+        self,
+        message: str = "Authentication required",
         details: Optional[Any] = None,
     ) -> None:
         super().__init__(
-            message=message, error_code="AUTHENTICATION_ERROR",
-            status_code=401, details=details,
+            message=message,
+            error_code="AUTHENTICATION_ERROR",
+            status_code=401,
+            details=details,
         )
 
 
 class AuthorizationError(ParwaBaseError):
     def __init__(
-        self, message: str = "Permission denied",
+        self,
+        message: str = "Permission denied",
         details: Optional[Any] = None,
     ) -> None:
         super().__init__(
-            message=message, error_code="AUTHORIZATION_ERROR",
-            status_code=403, details=details,
+            message=message,
+            error_code="AUTHORIZATION_ERROR",
+            status_code=403,
+            details=details,
         )
 
 
 class RateLimitError(ParwaBaseError):
     def __init__(
-        self, message: str = "Rate limit exceeded",
+        self,
+        message: str = "Rate limit exceeded",
         details: Optional[Any] = None,
     ) -> None:
         super().__init__(
-            message=message, error_code="RATE_LIMIT_EXCEEDED",
-            status_code=429, details=details,
+            message=message,
+            error_code="RATE_LIMIT_EXCEEDED",
+            status_code=429,
+            details=details,
         )
 
 
@@ -102,17 +114,22 @@ class ConflictError(ParwaBaseError):
         details: Optional[Any] = None,
     ) -> None:
         super().__init__(
-            message=message, error_code="CONFLICT",
-            status_code=409, details=details,
+            message=message,
+            error_code="CONFLICT",
+            status_code=409,
+            details=details,
         )
 
 
 class InternalError(ParwaBaseError):
     def __init__(
-        self, message: str = "An internal error occurred",
+        self,
+        message: str = "An internal error occurred",
         details: Optional[Any] = None,
     ) -> None:
         super().__init__(
-            message=message, error_code="INTERNAL_ERROR",
-            status_code=500, details=details,
+            message=message,
+            error_code="INTERNAL_ERROR",
+            status_code=500,
+            details=details,
         )

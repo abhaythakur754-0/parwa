@@ -55,8 +55,7 @@ EXTENSION_TO_CONTENT_TYPE: dict = {
 }
 
 """Mapping from MIME type to canonical extension."""
-CONTENT_TYPE_TO_EXTENSION: dict = {
-    v: k for k, v in EXTENSION_TO_CONTENT_TYPE.items()}
+CONTENT_TYPE_TO_EXTENSION: dict = {v: k for k, v in EXTENSION_TO_CONTENT_TYPE.items()}
 
 """Default maximum file size: 50 MB."""
 MAX_FILE_SIZE: int = 50 * 1024 * 1024
@@ -79,6 +78,7 @@ UPLOAD_SUBDIR: str = "uploads"
 
 
 # ── FileMetadata Model ──────────────────────────────────────────────
+
 
 class FileMetadata(BaseModel):
     """Metadata returned for every stored file.
@@ -109,6 +109,7 @@ class FileMetadata(BaseModel):
 
 
 # ── Storage Backend ABC ─────────────────────────────────────────────
+
 
 class StorageBackend(ABC):
     """Abstract base class for file storage backends.
@@ -273,6 +274,7 @@ class StorageBackend(ABC):
 
 # ── Path Validation Helpers ─────────────────────────────────────────
 
+
 def _validate_company_id(company_id: str) -> None:
     """Validate company_id to prevent directory traversal (BC-001).
 
@@ -283,8 +285,7 @@ def _validate_company_id(company_id: str) -> None:
         ValueError: If company_id contains traversal characters.
     """
     if not company_id or not isinstance(company_id, str):
-        raise ValueError(
-            "company_id is required and must be a non-empty string")
+        raise ValueError("company_id is required and must be a non-empty string")
     if ".." in company_id:
         raise ValueError("company_id must not contain '..'")
     if "/" in company_id:
@@ -292,8 +293,7 @@ def _validate_company_id(company_id: str) -> None:
     if "\\" in company_id:
         raise ValueError("company_id must not contain backslash")
     if company_id.strip() != company_id:
-        raise ValueError(
-            "company_id must not have leading/trailing whitespace")
+        raise ValueError("company_id must not have leading/trailing whitespace")
 
 
 def _validate_file_path(file_path: str) -> None:
@@ -306,14 +306,11 @@ def _validate_file_path(file_path: str) -> None:
         ValueError: If file_path is dangerous or malformed.
     """
     if not file_path or not isinstance(file_path, str):
-        raise ValueError(
-            "file_path is required and must be a non-empty string")
+        raise ValueError("file_path is required and must be a non-empty string")
     if file_path.startswith("/"):
-        raise ValueError(
-            "file_path must not start with '/' (use relative paths)")
+        raise ValueError("file_path must not start with '/' (use relative paths)")
     if ".." in file_path:
-        raise ValueError(
-            "file_path must not contain '..' (directory traversal)")
+        raise ValueError("file_path must not contain '..' (directory traversal)")
     if "\\" in file_path:
         raise ValueError("file_path must not contain backslash")
     # Null bytes are a known attack vector
@@ -322,6 +319,7 @@ def _validate_file_path(file_path: str) -> None:
 
 
 # ── Local Storage Backend ───────────────────────────────────────────
+
 
 class LocalStorageBackend(StorageBackend):
     """Local filesystem storage backend.
@@ -392,7 +390,10 @@ class LocalStorageBackend(StorageBackend):
             logger.warning(
                 "Path traversal or cross-company symlink attempt: "
                 "company_id=%s, file_path=%s, resolved=%s, company_base=%s",
-                company_id, file_path, resolved, company_base,
+                company_id,
+                file_path,
+                resolved,
+                company_base,
             )
             raise ValueError(
                 "Resolved path escapes company directory — "
@@ -444,9 +445,11 @@ class LocalStorageBackend(StorageBackend):
         file_name = Path(file_path).name
 
         logger.info(
-            "File uploaded: company_id=%s, path=%s, size=%d bytes, "
-            "checksum=%s",
-            company_id, file_path, len(content), checksum,
+            "File uploaded: company_id=%s, path=%s, size=%d bytes, " "checksum=%s",
+            company_id,
+            file_path,
+            len(content),
+            checksum,
         )
 
         return FileMetadata(
@@ -482,7 +485,8 @@ class LocalStorageBackend(StorageBackend):
         if not resolved_path.exists():
             logger.warning(
                 "File not found: company_id=%s, path=%s",
-                company_id, file_path,
+                company_id,
+                file_path,
             )
             raise FileNotFoundError(
                 f"File not found: {file_path} for company {company_id}"
@@ -495,7 +499,9 @@ class LocalStorageBackend(StorageBackend):
 
         logger.info(
             "File downloaded: company_id=%s, path=%s, size=%d bytes",
-            company_id, file_path, len(content),
+            company_id,
+            file_path,
+            len(content),
         )
 
         return content, content_type
@@ -519,14 +525,16 @@ class LocalStorageBackend(StorageBackend):
         if not resolved_path.exists():
             logger.info(
                 "File not found for deletion (no-op): company_id=%s, path=%s",
-                company_id, file_path,
+                company_id,
+                file_path,
             )
             return False
 
         resolved_path.unlink()
         logger.info(
             "File deleted: company_id=%s, path=%s",
-            company_id, file_path,
+            company_id,
+            file_path,
         )
         return True
 
@@ -580,24 +588,28 @@ class LocalStorageBackend(StorageBackend):
             content = file_entry.read_bytes()
             checksum = hashlib.md5(content).hexdigest()
 
-            results.append(FileMetadata(
-                company_id=company_id,
-                file_path=rel_str,
-                file_name=file_entry.name,
-                content_type=EXTENSION_TO_CONTENT_TYPE.get(
-                    file_entry.suffix.lower(), "application/octet-stream"
-                ),
-                size_bytes=file_entry.stat().st_size,
-                checksum_md5=checksum,
-                uploaded_at=datetime.fromtimestamp(
-                    file_entry.stat().st_mtime, tz=timezone.utc
-                ),
-                metadata={},
-            ))
+            results.append(
+                FileMetadata(
+                    company_id=company_id,
+                    file_path=rel_str,
+                    file_name=file_entry.name,
+                    content_type=EXTENSION_TO_CONTENT_TYPE.get(
+                        file_entry.suffix.lower(), "application/octet-stream"
+                    ),
+                    size_bytes=file_entry.stat().st_size,
+                    checksum_md5=checksum,
+                    uploaded_at=datetime.fromtimestamp(
+                        file_entry.stat().st_mtime, tz=timezone.utc
+                    ),
+                    metadata={},
+                )
+            )
 
         logger.info(
             "Listed %d files for company_id=%s, prefix=%s",
-            len(results), company_id, prefix,
+            len(results),
+            company_id,
+            prefix,
         )
         return results
 
@@ -634,7 +646,8 @@ class LocalStorageBackend(StorageBackend):
             "get_signed_url called on local backend — this returns a local "
             "filesystem path which is NOT secure for production. "
             "company_id=%s, path=%s",
-            company_id, file_path,
+            company_id,
+            file_path,
         )
 
         return str(resolved_path)
@@ -685,6 +698,7 @@ class LocalStorageBackend(StorageBackend):
 
 # ── GCP Storage Backend (Stub) ──────────────────────────────────────
 
+
 class GCPStorageBackend(StorageBackend):
     """Google Cloud Storage backend with local filesystem fallback.
 
@@ -717,12 +731,8 @@ class GCPStorageBackend(StorageBackend):
         """
         settings = get_settings()
 
-        self.bucket_name = bucket_name or getattr(
-            settings, "GCP_STORAGE_BUCKET", ""
-        )
-        self.project_id = project_id or getattr(
-            settings, "GCP_PROJECT_ID", ""
-        )
+        self.bucket_name = bucket_name or getattr(settings, "GCP_STORAGE_BUCKET", "")
+        self.project_id = project_id or getattr(settings, "GCP_PROJECT_ID", "")
 
         # H5 fix: initialise local fallback directory so that every
         # method can degrade gracefully when GCP is unavailable.
@@ -735,6 +745,7 @@ class GCPStorageBackend(StorageBackend):
         if self.bucket_name:
             try:
                 from google.cloud import storage as _gcs  # noqa: F401
+
                 self._gcp_available = True
             except ImportError:
                 pass
@@ -742,8 +753,10 @@ class GCPStorageBackend(StorageBackend):
         logger.info(
             "GCPStorageBackend initialized: bucket=%s, project=%s, "
             "gcp_available=%s, local_fallback=%s",
-            self.bucket_name, self.project_id,
-            self._gcp_available, self._local_base,
+            self.bucket_name,
+            self.project_id,
+            self._gcp_available,
+            self._local_base,
         )
 
     # ── Internal helpers ─────────────────────────────────────────────
@@ -775,14 +788,23 @@ class GCPStorageBackend(StorageBackend):
         """
         if self._gcp_available:
             return self._upload_gcp(
-                company_id, file_path, content, content_type, metadata,
+                company_id,
+                file_path,
+                content,
+                content_type,
+                metadata,
             )
         logger.debug(
             "GCP upload falling back to local: company_id=%s path=%s",
-            company_id, file_path,
+            company_id,
+            file_path,
         )
         return self._upload_local(
-            company_id, file_path, content, content_type, metadata,
+            company_id,
+            file_path,
+            content,
+            content_type,
+            metadata,
         )
 
     def _upload_local(
@@ -867,14 +889,18 @@ class GCPStorageBackend(StorageBackend):
                     raise
                 logger.warning(
                     "gcp_upload_retry attempt=%d error=%s",
-                    attempt + 1, str(e),
+                    attempt + 1,
+                    str(e),
                 )
                 time.sleep(retry_delay * (attempt + 1))
 
         checksum = hashlib.md5(content).hexdigest()
         logger.info(
             "gcp_upload_success company=%s path=%s size=%d checksum=%s",
-            company_id, file_path, file_size, checksum,
+            company_id,
+            file_path,
+            file_size,
+            checksum,
         )
 
         return FileMetadata(
@@ -911,7 +937,9 @@ class GCPStorageBackend(StorageBackend):
         return content, content_type
 
     def _download_gcp(
-        self, company_id: str, file_path: str,
+        self,
+        company_id: str,
+        file_path: str,
     ) -> Tuple[bytes, str]:
         """Download from Google Cloud Storage."""
         from google.cloud import storage
@@ -935,7 +963,9 @@ class GCPStorageBackend(StorageBackend):
 
         logger.info(
             "gcp_download_success company=%s path=%s size=%d",
-            company_id, file_path, len(content),
+            company_id,
+            file_path,
+            len(content),
         )
 
         return content, content_type
@@ -977,7 +1007,8 @@ class GCPStorageBackend(StorageBackend):
 
         logger.info(
             "gcp_delete_success company=%s path=%s",
-            company_id, file_path,
+            company_id,
+            file_path,
         )
 
         return True
@@ -1000,19 +1031,21 @@ class GCPStorageBackend(StorageBackend):
             if prefix and not rel.startswith(prefix):
                 continue
             content = entry.read_bytes()
-            results.append(FileMetadata(
-                company_id=company_id,
-                file_path=rel,
-                file_name=entry.name,
-                content_type=EXTENSION_TO_CONTENT_TYPE.get(
-                    entry.suffix.lower(), "application/octet-stream"
-                ),
-                size_bytes=entry.stat().st_size,
-                checksum_md5=hashlib.md5(content).hexdigest(),
-                uploaded_at=datetime.fromtimestamp(
-                    entry.stat().st_mtime, tz=timezone.utc
-                ),
-            ))
+            results.append(
+                FileMetadata(
+                    company_id=company_id,
+                    file_path=rel,
+                    file_name=entry.name,
+                    content_type=EXTENSION_TO_CONTENT_TYPE.get(
+                        entry.suffix.lower(), "application/octet-stream"
+                    ),
+                    size_bytes=entry.stat().st_size,
+                    checksum_md5=hashlib.md5(content).hexdigest(),
+                    uploaded_at=datetime.fromtimestamp(
+                        entry.stat().st_mtime, tz=timezone.utc
+                    ),
+                )
+            )
         return results
 
     def get_signed_url(
@@ -1025,12 +1058,12 @@ class GCPStorageBackend(StorageBackend):
         if self._gcp_available:
             try:
                 return self._get_signed_url_gcp(
-                    company_id, file_path, expires_in,
+                    company_id,
+                    file_path,
+                    expires_in,
                 )
             except Exception:
-                logger.warning(
-                    "GCP signed URL failed, falling back to local"
-                )
+                logger.warning("GCP signed URL failed, falling back to local")
         resolved = self._local_path(company_id, file_path)
         if not resolved.exists():
             raise FileNotFoundError(
@@ -1042,7 +1075,10 @@ class GCPStorageBackend(StorageBackend):
         return str(resolved)
 
     def _get_signed_url_gcp(
-        self, company_id: str, file_path: str, expires_in: int = 3600,
+        self,
+        company_id: str,
+        file_path: str,
+        expires_in: int = 3600,
     ) -> str:
         """Generate GCS signed URL for direct file access."""
         from google.cloud import storage
@@ -1070,7 +1106,9 @@ class GCPStorageBackend(StorageBackend):
 
         logger.info(
             "gcp_signed_url_generated company=%s path=%s expires_in=%ds",
-            company_id, file_path, expires_in,
+            company_id,
+            file_path,
+            expires_in,
         )
 
         return signed_url
@@ -1085,9 +1123,7 @@ class GCPStorageBackend(StorageBackend):
             try:
                 return self._exists_gcp(company_id, file_path)
             except Exception:
-                logger.warning(
-                    "GCP exists check failed, falling back to local"
-                )
+                logger.warning("GCP exists check failed, falling back to local")
         return self._local_path(company_id, file_path).exists()
 
     def _exists_gcp(self, company_id: str, file_path: str) -> bool:
@@ -1115,9 +1151,7 @@ class GCPStorageBackend(StorageBackend):
             try:
                 return self._get_file_size_gcp(company_id, file_path)
             except Exception:
-                logger.warning(
-                    "GCP get_file_size failed, falling back to local"
-                )
+                logger.warning("GCP get_file_size failed, falling back to local")
         resolved = self._local_path(company_id, file_path)
         if not resolved.exists():
             raise FileNotFoundError(
@@ -1197,7 +1231,8 @@ def get_storage_backend() -> StorageBackend:
         )
 
     logger.info(
-        "Storage backend initialized: type=%s", backend_type,
+        "Storage backend initialized: type=%s",
+        backend_type,
     )
     return _storage_backend_instance
 
@@ -1259,9 +1294,7 @@ def sanitize_filename(filename: str) -> str:
     sanitized_name = sanitized_name[:200]
 
     if not sanitized_name:
-        raise ValueError(
-            f"Filename '{filename}' is empty after sanitization"
-        )
+        raise ValueError(f"Filename '{filename}' is empty after sanitization")
 
     # Reconstruct with extension
     if ext_part and ext_part in ALLOWED_EXTENSIONS:

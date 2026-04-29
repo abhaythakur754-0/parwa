@@ -127,11 +127,7 @@ def process_all_overages(self, target_date: str = None) -> dict:
         if target_date:
             process_date = date.fromisoformat(target_date)
         else:
-            process_date = (
-                datetime.now(
-                    timezone.utc)
-                - timedelta(
-                    days=1)).date()
+            process_date = (datetime.now(timezone.utc) - timedelta(days=1)).date()
 
         results = {
             "date": process_date.isoformat(),
@@ -146,12 +142,17 @@ def process_all_overages(self, target_date: str = None) -> dict:
 
         with SessionLocal() as db:
             # Get all active companies with subscriptions
-            active_companies = db.query(Company).join(
-                Subscription,
-                Company.id == Subscription.company_id,
-            ).filter(
-                Subscription.status == "active",
-            ).all()
+            active_companies = (
+                db.query(Company)
+                .join(
+                    Subscription,
+                    Company.id == Subscription.company_id,
+                )
+                .filter(
+                    Subscription.status == "active",
+                )
+                .all()
+            )
 
             results["total_companies"] = len(active_companies)
 
@@ -163,10 +164,12 @@ def process_all_overages(self, target_date: str = None) -> dict:
 
                 except Exception as e:
                     results["failed"] += 1
-                    results["errors"].append({
-                        "company_id": str(company.id),
-                        "error": str(e)[:100],
-                    })
+                    results["errors"].append(
+                        {
+                            "company_id": str(company.id),
+                            "error": str(e)[:100],
+                        }
+                    )
 
         logger.info(
             "process_all_overages_completed",
@@ -226,9 +229,7 @@ def invoice_sync(self, company_id: str) -> dict:
         import asyncio
 
         with SessionLocal() as db:
-            company = db.query(Company).filter(
-                Company.id == company_id
-            ).first()
+            company = db.query(Company).filter(Company.id == company_id).first()
 
             if not company or not company.paddle_customer_id:
                 return {
@@ -246,8 +247,8 @@ def invoice_sync(self, company_id: str) -> dict:
             asyncio.set_event_loop(loop)
             try:
                 invoices = loop.run_until_complete(
-                    paddle.list_invoices(
-                        customer_id=company.paddle_customer_id))
+                    paddle.list_invoices(customer_id=company.paddle_customer_id)
+                )
             finally:
                 loop.close()
 
@@ -260,9 +261,13 @@ def invoice_sync(self, company_id: str) -> dict:
                     continue
 
                 # Check if invoice exists
-                existing = db.query(Invoice).filter(
-                    Invoice.paddle_invoice_id == paddle_invoice_id,
-                ).first()
+                existing = (
+                    db.query(Invoice)
+                    .filter(
+                        Invoice.paddle_invoice_id == paddle_invoice_id,
+                    )
+                    .first()
+                )
 
                 if existing:
                     # Update existing
@@ -275,16 +280,21 @@ def invoice_sync(self, company_id: str) -> dict:
                 else:
                     # Create new
                     invoice = Invoice(
-                        company_id=company_id, paddle_invoice_id=paddle_invoice_id, amount=Decimal(
-                            str(
+                        company_id=company_id,
+                        paddle_invoice_id=paddle_invoice_id,
+                        amount=Decimal(str(inv_data.get("total", 0))),
+                        currency=inv_data.get("currency", "USD"),
+                        status=inv_data.get("status", "draft"),
+                        invoice_date=(
+                            datetime.fromisoformat(
                                 inv_data.get(
-                                    "total", 0))), currency=inv_data.get(
-                            "currency", "USD"), status=inv_data.get(
-                            "status", "draft"), invoice_date=datetime.fromisoformat(
-                            inv_data.get(
-                                "created_at", datetime.now(
-                                    timezone.utc).isoformat()).replace(
-                                        "Z", "+00:00")) if inv_data.get("created_at") else None, )
+                                    "created_at", datetime.now(timezone.utc).isoformat()
+                                ).replace("Z", "+00:00")
+                            )
+                            if inv_data.get("created_at")
+                            else None
+                        ),
+                    )
                     db.add(invoice)
                     new_invoices += 1
 
@@ -349,9 +359,14 @@ def subscription_check(self, company_id: str) -> dict:
         import asyncio
 
         with SessionLocal() as db:
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == company_id,
-            ).order_by(Subscription.created_at.desc()).first()
+            subscription = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.company_id == company_id,
+                )
+                .order_by(Subscription.created_at.desc())
+                .first()
+            )
 
             if not subscription:
                 return {
@@ -369,8 +384,8 @@ def subscription_check(self, company_id: str) -> dict:
                 asyncio.set_event_loop(loop)
                 try:
                     paddle_sub = loop.run_until_complete(
-                        paddle.get_subscription(
-                            subscription.paddle_subscription_id))
+                        paddle.get_subscription(subscription.paddle_subscription_id)
+                    )
                 finally:
                     loop.close()
 
@@ -395,7 +410,11 @@ def subscription_check(self, company_id: str) -> dict:
             "status": subscription.status if subscription else "none",
             "company_id": company_id,
             "plan": subscription.tier if subscription else "free",
-            "valid_until": subscription.current_period_end.isoformat() if subscription and subscription.current_period_end else None,
+            "valid_until": (
+                subscription.current_period_end.isoformat()
+                if subscription and subscription.current_period_end
+                else None
+            ),
         }
 
     except Exception as exc:
@@ -470,7 +489,8 @@ def send_usage_warning(self, company_id: str, threshold: float = 80.0) -> dict:
                             "tickets_remaining": check_result["tickets_remaining"],
                             "threshold": threshold,
                         },
-                    ))
+                    )
+                )
             finally:
                 loop.close()
 
@@ -533,12 +553,17 @@ def check_all_usage_warnings(self, threshold: float = 80.0) -> dict:
         }
 
         with SessionLocal() as db:
-            active_companies = db.query(Company).join(
-                Subscription,
-                Company.id == Subscription.company_id,
-            ).filter(
-                Subscription.status == "active",
-            ).all()
+            active_companies = (
+                db.query(Company)
+                .join(
+                    Subscription,
+                    Company.id == Subscription.company_id,
+                )
+                .filter(
+                    Subscription.status == "active",
+                )
+                .all()
+            )
 
             for company in active_companies:
                 results["total_checked"] += 1
@@ -598,6 +623,7 @@ def period_end_transitions(self) -> dict:
     """
     try:
         from app.services.subscription_service import get_subscription_service
+
         service = get_subscription_service()
         result = service.process_period_end_transitions()
 
@@ -645,6 +671,7 @@ def pre_downgrade_warnings(self) -> dict:
     """
     try:
         from app.services.subscription_service import get_subscription_service
+
         service = get_subscription_service()
         result = service.check_pre_downgrade_warnings()
 
@@ -693,6 +720,7 @@ def process_renewals(self) -> dict:
     """
     try:
         from app.services.subscription_service import get_subscription_service
+
         service = get_subscription_service()
         result = service.process_renewals()
 
@@ -748,6 +776,7 @@ def process_retention_cron(self) -> dict:
     """
     try:
         from app.services.data_retention_service import DataRetentionService
+
         service = DataRetentionService()
         result = service.process_retention_cron()
 
@@ -795,6 +824,7 @@ def process_payment_failure_timeout(self) -> dict:
     """
     try:
         from app.services.subscription_service import get_subscription_service
+
         service = get_subscription_service()
         result = service.process_payment_failure_timeouts()
 
@@ -842,6 +872,7 @@ def auto_retry_payments(self) -> dict:
     """
     try:
         from app.services.subscription_service import get_subscription_service
+
         service = get_subscription_service()
         result = service.process_auto_retry_payments()
 
@@ -878,23 +909,21 @@ def send_trial_reminders(self):
     """MF1: Send trial expiration reminders."""
     try:
         from app.services.trial_service import get_trial_service
+
         service = get_trial_service()
         result = service.send_trial_reminders()
         logger.info(
             "trial_reminders_completed",
             extra={
                 "task": self.name,
-                "reminders_sent": result.get(
-                    "reminders_sent",
-                    0)})
+                "reminders_sent": result.get("reminders_sent", 0),
+            },
+        )
         return result
     except Exception as exc:
         logger.error(
-            "trial_reminders_failed",
-            extra={
-                "task": self.name,
-                "error": str(exc)[
-                    :200]})
+            "trial_reminders_failed", extra={"task": self.name, "error": str(exc)[:200]}
+        )
         raise
 
 
@@ -903,23 +932,18 @@ def process_expired_trials(self):
     """MF1: Auto-expire trials past trial_ends_at."""
     try:
         from app.services.trial_service import get_trial_service
+
         service = get_trial_service()
         result = service.process_expired_trials()
         logger.info(
             "expired_trials_processed",
-            extra={
-                "task": self.name,
-                "expired_count": result.get(
-                    "expired_count",
-                    0)})
+            extra={"task": self.name, "expired_count": result.get("expired_count", 0)},
+        )
         return result
     except Exception as exc:
         logger.error(
-            "expired_trials_failed",
-            extra={
-                "task": self.name,
-                "error": str(exc)[
-                    :200]})
+            "expired_trials_failed", extra={"task": self.name, "error": str(exc)[:200]}
+        )
         raise
 
 
@@ -928,23 +952,19 @@ def process_max_pause_exceeded(self):
     """MF2: Auto-resume subscriptions that exceeded max pause duration (30 days)."""
     try:
         from app.services.pause_service import get_pause_service
+
         service = get_pause_service()
         result = service.process_max_pause_exceeded()
         logger.info(
             "max_pause_exceeded_processed",
-            extra={
-                "task": self.name,
-                "auto_resumed": result.get(
-                    "auto_resumed",
-                    0)})
+            extra={"task": self.name, "auto_resumed": result.get("auto_resumed", 0)},
+        )
         return result
     except Exception as exc:
         logger.error(
             "max_pause_exceeded_failed",
-            extra={
-                "task": self.name,
-                "error": str(exc)[
-                    :200]})
+            extra={"task": self.name, "error": str(exc)[:200]},
+        )
         raise
 
 
@@ -976,6 +996,7 @@ def sync_redis_usage_to_postgres(self, company_id: str) -> dict:
         Dict with sync status
     """
     import asyncio
+
     try:
         from app.services.usage_tracking_service import get_usage_tracking_service
 
@@ -1041,26 +1062,32 @@ def sync_all_redis_usage(self) -> dict:
 
         with SessionLocal() as db:
             # Get all active companies
-            active_companies = db.query(Company).join(
-                Subscription,
-                Company.id == Subscription.company_id,
-            ).filter(
-                Subscription.status == "active",
-            ).all()
+            active_companies = (
+                db.query(Company)
+                .join(
+                    Subscription,
+                    Company.id == Subscription.company_id,
+                )
+                .filter(
+                    Subscription.status == "active",
+                )
+                .all()
+            )
 
             results["total_companies"] = len(active_companies)
 
             for company in active_companies:
                 try:
-                    sync_redis_usage_to_postgres.delay(
-                        company_id=str(company.id))
+                    sync_redis_usage_to_postgres.delay(company_id=str(company.id))
                     results["synced"] += 1
                 except Exception as e:
                     results["failed"] += 1
-                    results["errors"].append({
-                        "company_id": str(company.id),
-                        "error": str(e)[:100],
-                    })
+                    results["errors"].append(
+                        {
+                            "company_id": str(company.id),
+                            "error": str(e)[:100],
+                        }
+                    )
 
         logger.info(
             "sync_all_redis_usage_completed",

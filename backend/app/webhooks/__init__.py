@@ -86,6 +86,7 @@ def register_handler(provider: str):
         def handle_paddle(event: dict) -> dict:
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         if provider in _HANDLER_REGISTRY:
             logger.warning(
@@ -94,6 +95,7 @@ def register_handler(provider: str):
             )
         _HANDLER_REGISTRY[provider] = func
         return func
+
     return decorator
 
 
@@ -124,14 +126,13 @@ def dispatch_event(provider: str, event: dict) -> dict:
     """
     handler = get_handler(provider)
     if not handler:
-        raise ValueError(
-            f"No handler registered for provider: {provider}"
-        )
+        raise ValueError(f"No handler registered for provider: {provider}")
     return handler(event)
 
 
 def validate_event_type(
-    provider: str, event_type: str,
+    provider: str,
+    event_type: str,
 ) -> bool:
     """Check if an event type is supported for a provider.
 

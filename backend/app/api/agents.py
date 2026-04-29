@@ -106,9 +106,15 @@ async def create_agent(
 
     # Validate specialty
     valid_specialties = [
-        "billing_specialist", "returns_specialist", "technical_support",
-        "general_support", "sales_assistant", "onboarding_guide",
-        "vip_concierge", "feedback_collector", "custom",
+        "billing_specialist",
+        "returns_specialist",
+        "technical_support",
+        "general_support",
+        "sales_assistant",
+        "onboarding_guide",
+        "vip_concierge",
+        "feedback_collector",
+        "custom",
     ]
     if specialty not in valid_specialties:
         raise ValidationError(
@@ -125,9 +131,7 @@ async def create_agent(
     if permission_level not in valid_levels:
         raise ValidationError(
             message=f"Invalid permission level: {permission_level}",
-            details={
-                "field": "permission_level",
-                "valid_levels": list(valid_levels)},
+            details={"field": "permission_level", "valid_levels": list(valid_levels)},
         )
 
     # Validate channels
@@ -194,11 +198,14 @@ async def list_agents(
         description="Filter by status (initializing, training, active, paused, deprovisioned, error)",
     ),
     limit: int = Query(
-        20, ge=1, le=100,
+        20,
+        ge=1,
+        le=100,
         description="Pagination limit",
     ),
     offset: int = Query(
-        0, ge=0,
+        0,
+        ge=0,
         description="Pagination offset",
     ),
     company_id: str = Depends(get_company_id),
@@ -271,6 +278,7 @@ async def get_agent_detail(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, NotFoundError):
             raise
         logger.error(
@@ -335,6 +343,7 @@ async def complete_agent_setup(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, (ValidationError, NotFoundError)):
             raise
         logger.error(
@@ -382,6 +391,7 @@ async def get_agent_setup_status(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, NotFoundError):
             raise
         logger.error(
@@ -409,11 +419,14 @@ async def list_instruction_sets(
         description="Filter by status (draft, active, archived)",
     ),
     limit: int = Query(
-        20, ge=1, le=100,
+        20,
+        ge=1,
+        le=100,
         description="Pagination limit",
     ),
     offset: int = Query(
-        0, ge=0,
+        0,
+        ge=0,
         description="Pagination offset",
     ),
     company_id: str = Depends(get_company_id),
@@ -482,18 +495,22 @@ async def create_instruction_set(
                         "behavioral_rules": ["string array"],
                         "tone_guidelines": {
                             "formality": "string",
-                            "empathy_level": "string"},
+                            "empathy_level": "string",
+                        },
                         "escalation_triggers": ["string array"],
                         "response_templates": {
                             "greeting": "string",
-                            "closing": "string"},
+                            "closing": "string",
+                        },
                         "prohibited_actions": ["string array"],
                         "confidence_thresholds": {
                             "auto_approve": 90,
-                            "require_review": 70},
+                            "require_review": 70,
+                        },
                     },
                     "is_default": "boolean (optional, default: false)",
-                }},
+                }
+            },
         )
 
     name = body.get("name", "").strip()
@@ -540,6 +557,7 @@ async def create_instruction_set(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, (ValidationError, NotFoundError)):
             raise
         logger.error(
@@ -610,6 +628,7 @@ async def update_instruction_set(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, (ValidationError, NotFoundError)):
             raise
         logger.error(
@@ -668,6 +687,7 @@ async def publish_instruction_set(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, (ValidationError, NotFoundError)):
             raise
         logger.error(
@@ -719,6 +739,7 @@ async def archive_instruction_set(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, (ValidationError, NotFoundError)):
             raise
         logger.error(
@@ -767,6 +788,7 @@ async def get_version_history(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, (ValidationError, NotFoundError)):
             raise
         logger.error(
@@ -813,7 +835,8 @@ async def create_ab_test(
                     "traffic_split": "integer 0-100 (optional, default: 50)",
                     "success_metric": "string (optional: csat, resolution_rate, both)",
                     "duration_days": "integer 1-90 (optional, default: 14)",
-                }},
+                }
+            },
         )
 
     agent_id = body.get("agent_id", "").strip()
@@ -838,8 +861,7 @@ async def create_ab_test(
         )
 
     traffic_split = body.get("traffic_split", 50)
-    if not isinstance(traffic_split, int) or \
-       traffic_split < 0 or traffic_split > 100:
+    if not isinstance(traffic_split, int) or traffic_split < 0 or traffic_split > 100:
         raise ValidationError(
             message="traffic_split must be an integer between 0 and 100",
             details={"field": "traffic_split"},
@@ -847,8 +869,7 @@ async def create_ab_test(
 
     success_metric = body.get("success_metric", "csat")
     duration_days = body.get("duration_days", 14)
-    if not isinstance(duration_days, int) or \
-       duration_days < 1 or duration_days > 90:
+    if not isinstance(duration_days, int) or duration_days < 1 or duration_days > 90:
         raise ValidationError(
             message="duration_days must be an integer between 1 and 90",
             details={"field": "duration_days"},
@@ -883,6 +904,7 @@ async def create_ab_test(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, (ValidationError, NotFoundError)):
             raise
         logger.error(
@@ -904,11 +926,14 @@ async def list_ab_tests(
         description="Filter by status (running, completed, cancelled)",
     ),
     limit: int = Query(
-        20, ge=1, le=100,
+        20,
+        ge=1,
+        le=100,
         description="Pagination limit",
     ),
     offset: int = Query(
-        0, ge=0,
+        0,
+        ge=0,
         description="Pagination offset",
     ),
     company_id: str = Depends(get_company_id),
@@ -981,6 +1006,7 @@ async def get_ab_test_detail(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, (ValidationError, NotFoundError)):
             raise
         logger.error(
@@ -1047,6 +1073,7 @@ async def stop_ab_test(
 
     except (ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
+
         if isinstance(exc, (ValidationError, NotFoundError)):
             raise
         logger.error(

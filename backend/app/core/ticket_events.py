@@ -78,14 +78,16 @@ def register_ticket_events(registry: Optional[EventRegistry] = None) -> None:
         if reg.get(event_type) is not None:
             continue
 
-        reg.register(EventType(
-            type_str=event_type,
-            category=EventCategory.TICKET,
-            payload_schema=TicketEventPayload,
-            description=description,
-            rate_limit_per_sec=100,
-            max_payload_bytes=10240,
-        ))
+        reg.register(
+            EventType(
+                type_str=event_type,
+                category=EventCategory.TICKET,
+                payload_schema=TicketEventPayload,
+                description=description,
+                rate_limit_per_sec=100,
+                max_payload_bytes=10240,
+            )
+        )
 
     logger.info(
         "ticket_events_registered",
@@ -94,6 +96,7 @@ def register_ticket_events(registry: Optional[EventRegistry] = None) -> None:
 
 
 # ── Event Emission Functions ─────────────────────────────────────────────────
+
 
 async def emit_ticket_created(
     company_id: str,
@@ -126,9 +129,8 @@ async def emit_ticket_created(
             "subject": ticket_data.get("subject"),
             "actor_id": actor_id,
             "created_at": ticket_data.get(
-                "created_at",
-                datetime.now(
-                    timezone.utc).isoformat()),
+                "created_at", datetime.now(timezone.utc).isoformat()
+            ),
         },
     }
 
@@ -568,11 +570,8 @@ async def emit_sla_breach(
         "company_id": company_id,
         "extra": {
             "breach_type": breach_type,
-            "minutes_overdue": round(
-                minutes_overdue,
-                1) if minutes_overdue else None,
-            "breached_at": datetime.now(
-                timezone.utc).isoformat(),
+            "minutes_overdue": round(minutes_overdue, 1) if minutes_overdue else None,
+            "breached_at": datetime.now(timezone.utc).isoformat(),
         },
     }
 

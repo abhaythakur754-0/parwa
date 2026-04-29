@@ -32,7 +32,7 @@ class TemplateService:
     MAX_TEMPLATES_PER_COMPANY = 100
 
     # Valid variable pattern: {{variable_name}}
-    VARIABLE_PATTERN = re.compile(r'\{\{(\w+)\}\}')
+    VARIABLE_PATTERN = re.compile(r"\{\{(\w+)\}\}")
 
     def __init__(self, db: Session, company_id: str):
         self.db = db
@@ -66,14 +66,17 @@ class TemplateService:
             ValidationError: If validation fails or limit exceeded
         """
         # Check limit
-        current_count = self.db.query(ResponseTemplate).filter(
-            ResponseTemplate.company_id == self.company_id,
-            ResponseTemplate.is_active,
-        ).count()
+        current_count = (
+            self.db.query(ResponseTemplate)
+            .filter(
+                ResponseTemplate.company_id == self.company_id,
+                ResponseTemplate.is_active,
+            )
+            .count()
+        )
 
         if current_count >= self.MAX_TEMPLATES_PER_COMPANY:
-            raise ValidationError(
-                f"Maximum {
+            raise ValidationError(f"Maximum {
                     self.MAX_TEMPLATES_PER_COMPANY} templates per company")
 
         # Validate name
@@ -81,15 +84,18 @@ class TemplateService:
             raise ValidationError("Template name is required")
 
         # Check for duplicate name
-        existing = self.db.query(ResponseTemplate).filter(
-            ResponseTemplate.company_id == self.company_id,
-            ResponseTemplate.name == name.strip(),
-            ResponseTemplate.is_active,
-        ).first()
+        existing = (
+            self.db.query(ResponseTemplate)
+            .filter(
+                ResponseTemplate.company_id == self.company_id,
+                ResponseTemplate.name == name.strip(),
+                ResponseTemplate.is_active,
+            )
+            .first()
+        )
 
         if existing:
-            raise ValidationError(
-                f"Template with name '{name}' already exists")
+            raise ValidationError(f"Template with name '{name}' already exists")
 
         # Extract variables from template if not provided
         if variables is None:
@@ -100,9 +106,9 @@ class TemplateService:
         for var in variables:
             # Must start with letter or single underscore, contain only alphanumeric/underscore
             # Must not be a dunder (double underscore) pattern
-            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', var):
+            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", var):
                 raise ValidationError(f"Invalid variable name: {var}")
-            if var.startswith('__') or '__' in var:
+            if var.startswith("__") or "__" in var:
                 raise ValidationError(f"Invalid variable name: {var}")
 
         template = ResponseTemplate(
@@ -138,10 +144,14 @@ class TemplateService:
         Raises:
             NotFoundError: If template not found
         """
-        template = self.db.query(ResponseTemplate).filter(
-            ResponseTemplate.id == template_id,
-            ResponseTemplate.company_id == self.company_id,
-        ).first()
+        template = (
+            self.db.query(ResponseTemplate)
+            .filter(
+                ResponseTemplate.id == template_id,
+                ResponseTemplate.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not template:
             raise NotFoundError(f"Template {template_id} not found")
@@ -233,24 +243,26 @@ class TemplateService:
 
         # Check for duplicate name if changing
         if name and name.strip() != template.name:
-            existing = self.db.query(ResponseTemplate).filter(
-                ResponseTemplate.company_id == self.company_id,
-                ResponseTemplate.name == name.strip(),
-                ResponseTemplate.id != template_id,
-                ResponseTemplate.is_active,
-            ).first()
+            existing = (
+                self.db.query(ResponseTemplate)
+                .filter(
+                    ResponseTemplate.company_id == self.company_id,
+                    ResponseTemplate.name == name.strip(),
+                    ResponseTemplate.id != template_id,
+                    ResponseTemplate.is_active,
+                )
+                .first()
+            )
 
             if existing:
-                raise ValidationError(
-                    f"Template with name '{name}' already exists")
+                raise ValidationError(f"Template with name '{name}' already exists")
 
             template.name = name.strip()
 
         if template_text is not None:
             # Extract variables if not provided
             if variables is None:
-                variables = list(
-                    set(self.VARIABLE_PATTERN.findall(template_text)))
+                variables = list(set(self.VARIABLE_PATTERN.findall(template_text)))
 
             # Validate variables
             for var in variables:
@@ -354,8 +366,7 @@ class TemplateService:
         template = self.get_template(template_id)
         return json.loads(template.variables or "[]")
 
-    def get_templates_by_intent(
-            self, intent_type: str) -> List[ResponseTemplate]:
+    def get_templates_by_intent(self, intent_type: str) -> List[ResponseTemplate]:
         """Get all active templates for an intent type.
 
         Args:
@@ -364,8 +375,13 @@ class TemplateService:
         Returns:
             List of ResponseTemplate objects
         """
-        return self.db.query(ResponseTemplate).filter(
-            ResponseTemplate.company_id == self.company_id,
-            ResponseTemplate.intent_type == intent_type,
-            ResponseTemplate.is_active,
-        ).order_by(ResponseTemplate.name).all()
+        return (
+            self.db.query(ResponseTemplate)
+            .filter(
+                ResponseTemplate.company_id == self.company_id,
+                ResponseTemplate.intent_type == intent_type,
+                ResponseTemplate.is_active,
+            )
+            .order_by(ResponseTemplate.name)
+            .all()
+        )

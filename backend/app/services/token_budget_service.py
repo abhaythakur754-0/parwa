@@ -112,9 +112,11 @@ return new_val
 # DATA CLASSES
 # ═══════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class TokenBudget:
     """Full budget state for a conversation."""
+
     conversation_id: str
     company_id: str
     variant_type: str
@@ -129,6 +131,7 @@ class TokenBudget:
 @dataclass
 class ReserveResult:
     """Result of an atomic token reservation attempt."""
+
     success: bool
     reserved_amount: int
     remaining_after_reserve: int
@@ -138,6 +141,7 @@ class ReserveResult:
 @dataclass
 class TokenBudgetStatus:
     """Current budget status with warning levels."""
+
     conversation_id: str
     max_tokens: int
     used_tokens: int
@@ -150,6 +154,7 @@ class TokenBudgetStatus:
 @dataclass
 class OverflowCheck:
     """Result of checking if estimated tokens would overflow."""
+
     can_fit: bool
     remaining_tokens: int
     overflow_amount: int
@@ -160,6 +165,7 @@ class OverflowCheck:
 @dataclass
 class ContextStrategy:
     """Recommended strategy for managing context window."""
+
     strategy: str  # keep_all, truncate_old, summarize_old, sliding_window
     reason: str
     tokens_to_remove: int
@@ -170,6 +176,7 @@ class ContextStrategy:
 @dataclass
 class TokenEntry:
     """Per-message token usage record."""
+
     message_id: str
     role: str  # user, assistant, system
     tokens: int
@@ -179,6 +186,7 @@ class TokenEntry:
 # ═══════════════════════════════════════════════════════════════════
 # TOKEN BUDGET SERVICE
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TokenBudgetService:
     """
@@ -325,8 +333,7 @@ class TokenBudgetService:
             if not result:
                 return []
             return [
-                item.decode() if isinstance(item, bytes) else item
-                for item in result
+                item.decode() if isinstance(item, bytes) else item for item in result
             ]
         except Exception as exc:
             logger.warning(
@@ -351,11 +358,7 @@ class TokenBudgetService:
         bucket = self._in_memory.get(conversation_id, {})
         return int(bucket.get(field_name, 0))
 
-    def _mem_set(
-            self,
-            conversation_id: str,
-            field_name: str,
-            value: int) -> None:
+    def _mem_set(self, conversation_id: str, field_name: str, value: int) -> None:
         if conversation_id not in self._in_memory:
             self._in_memory[conversation_id] = {}
         self._in_memory[conversation_id][field_name] = value
@@ -364,8 +367,7 @@ class TokenBudgetService:
         bucket = self._in_memory.get(conversation_id, {})
         return bucket.get("info", {})
 
-    def _mem_set_info(self, conversation_id: str,
-                      info: dict[str, str]) -> None:
+    def _mem_set_info(self, conversation_id: str, info: dict[str, str]) -> None:
         if conversation_id not in self._in_memory:
             self._in_memory[conversation_id] = {}
         self._in_memory[conversation_id]["info"] = info
@@ -374,8 +376,7 @@ class TokenBudgetService:
         bucket = self._in_memory.get(conversation_id, {})
         return list(bucket.get("messages", []))
 
-    def _mem_add_message(self, conversation_id: str,
-                         entry: dict[str, Any]) -> None:
+    def _mem_add_message(self, conversation_id: str, entry: dict[str, Any]) -> None:
         if conversation_id not in self._in_memory:
             self._in_memory[conversation_id] = {}
         if "messages" not in self._in_memory[conversation_id]:
@@ -390,7 +391,8 @@ class TokenBudgetService:
     def _get_variant_config(self, variant_type: str) -> dict[str, Any]:
         """Get budget config for a variant type, defaulting to 'parwa'."""
         return VARIANT_TOKEN_BUDGETS.get(
-            variant_type, VARIANT_TOKEN_BUDGETS[DEFAULT_VARIANT_TYPE])
+            variant_type, VARIANT_TOKEN_BUDGETS[DEFAULT_VARIANT_TYPE]
+        )
 
     def _effective_max_tokens(self, variant_type: str) -> int:
         """Return max tokens minus safety margin."""
@@ -439,24 +441,30 @@ class TokenBudgetService:
                 await self._redis_set(max_key, effective_max)
 
                 # Store metadata
-                await self._redis_hset(info_key, {
-                    "company_id": company_id,
-                    "variant_type": variant_type,
-                    "created_at": now_iso,
-                    "updated_at": now_iso,
-                })
+                await self._redis_hset(
+                    info_key,
+                    {
+                        "company_id": company_id,
+                        "variant_type": variant_type,
+                        "created_at": now_iso,
+                        "updated_at": now_iso,
+                    },
+                )
             else:
                 # In-memory fallback (thread-safe)
                 with self._lock:
                     self._mem_set(conversation_id, "used", 0)
                     self._mem_set(conversation_id, "reserved", 0)
                     self._mem_set(conversation_id, "max", effective_max)
-                    self._mem_set_info(conversation_id, {
-                        "company_id": company_id,
-                        "variant_type": variant_type,
-                        "created_at": now_iso,
-                        "updated_at": now_iso,
-                    })
+                    self._mem_set_info(
+                        conversation_id,
+                        {
+                            "company_id": company_id,
+                            "variant_type": variant_type,
+                            "created_at": now_iso,
+                            "updated_at": now_iso,
+                        },
+                    )
 
             budget = TokenBudget(
                 conversation_id=conversation_id,
@@ -577,9 +585,7 @@ class TokenBudgetService:
                 error="Budget not initialized (max_tokens is 0)",
             )
 
-        result = self._reserve_script(
-            keys=[used_key], args=[
-                tokens, max_tokens])
+        result = self._reserve_script(keys=[used_key], args=[tokens, max_tokens])
 
         if result == -1:
             # Overflow: reservation denied
@@ -740,8 +746,7 @@ class TokenBudgetService:
 
     # ── Public API: Budget Status ─────────────────────────────────
 
-    async def get_budget_status(
-            self, conversation_id: str) -> TokenBudgetStatus:
+    async def get_budget_status(self, conversation_id: str) -> TokenBudgetStatus:
         """
         Get current budget status for a conversation.
 
@@ -876,8 +881,7 @@ class TokenBudgetService:
             if status.available_tokens >= estimated_tokens:
                 return OverflowCheck(
                     can_fit=True,
-                    remaining_tokens=status.available_tokens
-                    - estimated_tokens,
+                    remaining_tokens=status.available_tokens - estimated_tokens,
                     overflow_amount=0,
                     truncation_needed=False,
                     suggested_truncation_tokens=0,
@@ -902,7 +906,8 @@ class TokenBudgetService:
                 extra={
                     "conversation_id": conversation_id,
                     "estimated_tokens": estimated_tokens,
-                    "error": str(exc)},
+                    "error": str(exc),
+                },
             )
             # BC-008: Assume can fit on error
             return OverflowCheck(
@@ -1031,8 +1036,7 @@ class TokenBudgetService:
     ) -> ContextStrategy:
         """Compute a truncation strategy removing oldest non-system messages."""
         tokens_needed = max(0, estimated_new_tokens - status.available_tokens)
-        tokens_to_remove = tokens_needed + \
-            int(tokens_needed * 0.15)  # 15% buffer
+        tokens_to_remove = tokens_needed + int(tokens_needed * 0.15)  # 15% buffer
 
         # Identify removable messages (oldest first, keep system messages)
         non_system = [m for m in messages if m.role != "system"]
@@ -1076,8 +1080,7 @@ class TokenBudgetService:
     ) -> ContextStrategy:
         """Compute a summarization strategy for older messages."""
         tokens_needed = max(0, estimated_new_tokens - status.available_tokens)
-        tokens_to_remove = tokens_needed + \
-            int(tokens_needed * 0.2)  # 20% buffer
+        tokens_to_remove = tokens_needed + int(tokens_needed * 0.2)  # 20% buffer
 
         non_system = [m for m in messages if m.role != "system"]
         system_ids = [m.message_id for m in messages if m.role == "system"]
@@ -1133,13 +1136,13 @@ class TokenBudgetService:
 
         total_non_system = len(non_system)
         messages_to_remove = max(0, total_non_system - kept_count)
-        tokens_to_remove = sum(
-            m.tokens for m in non_system[:messages_to_remove])
+        tokens_to_remove = sum(m.tokens for m in non_system[:messages_to_remove])
 
         priority = list(system_ids)
         # Keep the messages that fit in the window
-        recent_kept = [
-            m.message_id for m in non_system[-kept_count:]] if kept_count > 0 else []
+        recent_kept = (
+            [m.message_id for m in non_system[-kept_count:]] if kept_count > 0 else []
+        )
         priority.extend(recent_kept)
         priority = list(dict.fromkeys(priority))
 
@@ -1339,8 +1342,7 @@ class TokenBudgetService:
         entries = await self.get_conversation_history_tokens(conversation_id)
         role_totals: dict[str, int] = {}
         for entry in entries:
-            role_totals[entry.role] = role_totals.get(
-                entry.role, 0) + entry.tokens
+            role_totals[entry.role] = role_totals.get(entry.role, 0) + entry.tokens
         return role_totals
 
 

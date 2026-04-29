@@ -43,6 +43,7 @@ config = context.config
 # This supports deploying from different directory structures (Docker,
 # CI, bare metal) without modifying alembic.ini.
 import os
+
 _migrations_dir = os.environ.get("ALEMBIC_MIGRATIONS_DIR", "")
 if _migrations_dir:
     config.set_main_option("script_location", _migrations_dir)

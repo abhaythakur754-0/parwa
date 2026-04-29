@@ -40,6 +40,7 @@ class DeploymentStatus(str, Enum):
     FAILED = "failed"
     PAUSED = "paused"
 
+
 # Deployment strategies
 
 
@@ -47,6 +48,7 @@ class DeploymentStrategy(str, Enum):
     CANARY = "canary"  # Gradual rollout with monitoring
     BLUE_GREEN = "blue_green"  # Instant switch with rollback capability
     ROLLING = "rolling"  # Gradual replacement
+
 
 # Rollback triggers
 
@@ -192,10 +194,7 @@ class ModelDeploymentService:
     # Canary Deployment
     # ══════════════════════════════════════════════════════════════════════════
 
-    def _start_canary_phase(
-            self,
-            deployment: Dict,
-            canary_percentage: int) -> Dict:
+    def _start_canary_phase(self, deployment: Dict, canary_percentage: int) -> Dict:
         """Start canary phase of deployment.
 
         Args:
@@ -208,8 +207,7 @@ class ModelDeploymentService:
         deployment["status"] = DeploymentStatus.CANARY.value
         deployment["canary_percentage"] = canary_percentage
         deployment["current_percentage"] = canary_percentage
-        deployment["canary_started_at"] = datetime.now(
-            timezone.utc).isoformat()
+        deployment["canary_started_at"] = datetime.now(timezone.utc).isoformat()
         deployment["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         logger.info(
@@ -246,39 +244,43 @@ class ModelDeploymentService:
 
         # Check error rate
         error_rate = metrics.get("error_rate", 0)
-        if error_rate > thresholds.get(
-                "error_rate", DEFAULT_ERROR_RATE_THRESHOLD):
+        if error_rate > thresholds.get("error_rate", DEFAULT_ERROR_RATE_THRESHOLD):
             health_status["healthy"] = False
-            health_status["triggers"].append({
-                "type": RollbackTrigger.ERROR_RATE.value,
-                "actual": error_rate,
-                "threshold": thresholds.get("error_rate"),
-            })
+            health_status["triggers"].append(
+                {
+                    "type": RollbackTrigger.ERROR_RATE.value,
+                    "actual": error_rate,
+                    "threshold": thresholds.get("error_rate"),
+                }
+            )
 
         # Check latency
         latency_p95 = metrics.get("latency_p95_ms", 0)
-        if latency_p95 > thresholds.get(
-            "latency_p95_ms",
-                DEFAULT_LATENCY_THRESHOLD_MS):
+        if latency_p95 > thresholds.get("latency_p95_ms", DEFAULT_LATENCY_THRESHOLD_MS):
             health_status["healthy"] = False
-            health_status["triggers"].append({
-                "type": RollbackTrigger.LATENCY.value,
-                "actual": latency_p95,
-                "threshold": thresholds.get("latency_p95_ms"),
-            })
+            health_status["triggers"].append(
+                {
+                    "type": RollbackTrigger.LATENCY.value,
+                    "actual": latency_p95,
+                    "threshold": thresholds.get("latency_p95_ms"),
+                }
+            )
 
         # Check accuracy (if available)
         if "accuracy" in metrics:
             baseline_accuracy = deployment.get("baseline_accuracy", 0.85)
             accuracy_drop = baseline_accuracy - metrics["accuracy"]
             if accuracy_drop > thresholds.get(
-                    "accuracy_drop", DEFAULT_ACCURACY_DROP_THRESHOLD):
+                "accuracy_drop", DEFAULT_ACCURACY_DROP_THRESHOLD
+            ):
                 health_status["healthy"] = False
-                health_status["triggers"].append({
-                    "type": RollbackTrigger.ACCURACY_DROP.value,
-                    "actual": accuracy_drop,
-                    "threshold": thresholds.get("accuracy_drop"),
-                })
+                health_status["triggers"].append(
+                    {
+                        "type": RollbackTrigger.ACCURACY_DROP.value,
+                        "actual": accuracy_drop,
+                        "threshold": thresholds.get("accuracy_drop"),
+                    }
+                )
 
         logger.info(
             "canary_health_check",
@@ -435,8 +437,7 @@ class ModelDeploymentService:
         deployment["status"] = DeploymentStatus.ROLLING_BACK.value
         deployment["rollback_reason"] = reason
         deployment["rollback_trigger"] = trigger_type
-        deployment["rollback_started_at"] = datetime.now(
-            timezone.utc).isoformat()
+        deployment["rollback_started_at"] = datetime.now(timezone.utc).isoformat()
         deployment["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         logger.warning(
@@ -455,8 +456,7 @@ class ModelDeploymentService:
             deployment["current_percentage"] = 100  # Back to baseline
 
         deployment["status"] = DeploymentStatus.ROLLED_BACK.value
-        deployment["rollback_completed_at"] = datetime.now(
-            timezone.utc).isoformat()
+        deployment["rollback_completed_at"] = datetime.now(timezone.utc).isoformat()
         deployment["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         logger.info(
@@ -495,7 +495,9 @@ class ModelDeploymentService:
             updated_deployment = self.trigger_rollback(
                 deployment=deployment,
                 reason=f"Auto-rollback: {primary_trigger.get('type', 'unknown')}",
-                trigger_type=primary_trigger.get("type", RollbackTrigger.ERROR_RATE.value),
+                trigger_type=primary_trigger.get(
+                    "type", RollbackTrigger.ERROR_RATE.value
+                ),
             )
 
             return {
@@ -632,9 +634,8 @@ class ModelDeploymentService:
         return deployment
 
     def cancel_deployment(
-            self,
-            deployment: Dict,
-            reason: str = "Cancelled by user") -> Dict:
+        self, deployment: Dict, reason: str = "Cancelled by user"
+    ) -> Dict:
         """Cancel a deployment.
 
         Args:

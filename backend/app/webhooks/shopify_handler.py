@@ -33,9 +33,7 @@ def _sanitize_field(value: str, max_length: int = 255) -> str:
     """
     if not value:
         return ""
-    cleaned = "".join(
-        c for c in str(value) if ord(c) >= 32 or c in "\n\r\t"
-    )
+    cleaned = "".join(c for c in str(value) if ord(c) >= 32 or c in "\n\r\t")
     if len(cleaned) > max_length:
         cleaned = cleaned[:max_length]
     return cleaned.strip()
@@ -57,26 +55,36 @@ def _extract_order_data(payload: dict) -> dict:
     for item in line_items[:100]:  # Max 100 line items
         if not isinstance(item, dict):
             continue
-        items.append({
-            "title": _sanitize_field(item.get("title", ""), 500),
-            "quantity": int(item.get("quantity", 1)),
-            "price": str(item.get("price", "0")),
-        })
+        items.append(
+            {
+                "title": _sanitize_field(item.get("title", ""), 500),
+                "quantity": int(item.get("quantity", 1)),
+                "price": str(item.get("price", "0")),
+            }
+        )
 
     return {
         "order_id": str(order.get("id") or order.get("order_number", "")),
         "order_number": str(order.get("order_number", "")),
-        "email": _sanitize_field(order.get("email", "") or customer.get("email", ""), 254),
+        "email": _sanitize_field(
+            order.get("email", "") or customer.get("email", ""), 254
+        ),
         "total_price": str(order.get("total_price", "0")),
         "currency": _sanitize_field(order.get("currency", "USD"), 10),
         "financial_status": _sanitize_field(order.get("financial_status", ""), 30),
         "fulfillment_status": _sanitize_field(order.get("fulfillment_status", ""), 30),
         "customer_id": str(customer.get("id", "")),
         "customer_name": _sanitize_field(
-            " ".join(filter(None, [
-                customer.get("first_name", ""),
-                customer.get("last_name", ""),
-            ])), 200,
+            " ".join(
+                filter(
+                    None,
+                    [
+                        customer.get("first_name", ""),
+                        customer.get("last_name", ""),
+                    ],
+                )
+            ),
+            200,
         ),
         "line_items": items,
         "created_at": order.get("created_at"),
@@ -104,7 +112,8 @@ def _extract_customer_data(payload: dict) -> dict:
 
 
 def _validate_required_fields(
-    event_type: str, data: dict,
+    event_type: str,
+    data: dict,
 ) -> Optional[str]:
     """Validate that required fields exist in extracted data.
 

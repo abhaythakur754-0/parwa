@@ -31,7 +31,6 @@ from app.services.ticket_merge_service import (
     CrossTenantMergeError,
 )
 
-
 router = APIRouter(
     prefix="/tickets/merge",
     tags=["ticket-merge"],

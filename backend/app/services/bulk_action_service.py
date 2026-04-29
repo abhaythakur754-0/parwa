@@ -78,8 +78,7 @@ class BulkActionService:
         """
         # Validate ticket count
         if len(ticket_ids) > self.MAX_TICKETS_PER_ACTION:
-            raise BulkActionError(
-                f"Maximum {
+            raise BulkActionError(f"Maximum {
                     self.MAX_TICKETS_PER_ACTION} tickets per bulk action")
 
         # Remove duplicates
@@ -106,17 +105,23 @@ class BulkActionService:
         # Execute action on each ticket
         for ticket_id in ticket_ids:
             try:
-                ticket = self.db.query(Ticket).filter(
-                    Ticket.id == ticket_id,
-                    Ticket.company_id == company_id,
-                ).first()
+                ticket = (
+                    self.db.query(Ticket)
+                    .filter(
+                        Ticket.id == ticket_id,
+                        Ticket.company_id == company_id,
+                    )
+                    .first()
+                )
 
                 if not ticket:
-                    failures.append({
-                        "ticket_id": ticket_id,
-                        "error": "Ticket not found",
-                        "reason": "not_found",
-                    })
+                    failures.append(
+                        {
+                            "ticket_id": ticket_id,
+                            "error": "Ticket not found",
+                            "reason": "not_found",
+                        }
+                    )
                     continue
 
                 # Store original state for undo
@@ -128,11 +133,13 @@ class BulkActionService:
                 success_count += 1
 
             except Exception as e:
-                failures.append({
-                    "ticket_id": ticket_id,
-                    "error": str(e),
-                    "reason": "execution_error",
-                })
+                failures.append(
+                    {
+                        "ticket_id": ticket_id,
+                        "error": str(e),
+                        "reason": "execution_error",
+                    }
+                )
 
         # Record failures
         for failure in failures:
@@ -146,11 +153,13 @@ class BulkActionService:
             self.db.add(failure_record)
 
         # Update result summary
-        bulk_action.result_summary = json.dumps({
-            "success_count": success_count,
-            "failure_count": len(failures),
-            "failures": failures[:50],  # Store first 50 failures
-        })
+        bulk_action.result_summary = json.dumps(
+            {
+                "success_count": success_count,
+                "failure_count": len(failures),
+                "failures": failures[:50],  # Store first 50 failures
+            }
+        )
 
         self.db.commit()
 
@@ -177,10 +186,14 @@ class BulkActionService:
             BulkActionUndoExpiredError: If undo window expired
         """
         # Find the bulk action
-        bulk_action = self.db.query(BulkActionLog).filter(
-            BulkActionLog.company_id == company_id,
-            BulkActionLog.undo_token == undo_token,
-        ).first()
+        bulk_action = (
+            self.db.query(BulkActionLog)
+            .filter(
+                BulkActionLog.company_id == company_id,
+                BulkActionLog.undo_token == undo_token,
+            )
+            .first()
+        )
 
         if not bulk_action:
             raise BulkActionNotFoundError("Bulk action not found")
@@ -189,8 +202,7 @@ class BulkActionService:
             raise BulkActionAlreadyUndoneError("Bulk action already undone")
 
         # Check undo window
-        undo_deadline = bulk_action.created_at + \
-            timedelta(hours=self.UNDO_WINDOW_HOURS)
+        undo_deadline = bulk_action.created_at + timedelta(hours=self.UNDO_WINDOW_HOURS)
         if datetime.now(timezone.utc) > undo_deadline:
             raise BulkActionUndoExpiredError(
                 f"Undo window expired ({self.UNDO_WINDOW_HOURS} hours)"
@@ -345,9 +357,13 @@ class BulkActionService:
         # For close actions, reopen tickets
         if action_type == "close":
             for ticket_id in ticket_ids:
-                ticket = self.db.query(Ticket).filter(
-                    Ticket.id == ticket_id,
-                ).first()
+                ticket = (
+                    self.db.query(Ticket)
+                    .filter(
+                        Ticket.id == ticket_id,
+                    )
+                    .first()
+                )
                 if ticket and ticket.status == TicketStatus.closed.value:
                     ticket.status = TicketStatus.reopened.value
                     ticket.closed_at = None
@@ -360,10 +376,14 @@ class BulkActionService:
         bulk_action_id: str,
     ) -> Optional[BulkActionLog]:
         """Get a bulk action by ID."""
-        return self.db.query(BulkActionLog).filter(
-            BulkActionLog.id == bulk_action_id,
-            BulkActionLog.company_id == company_id,
-        ).first()
+        return (
+            self.db.query(BulkActionLog)
+            .filter(
+                BulkActionLog.id == bulk_action_id,
+                BulkActionLog.company_id == company_id,
+            )
+            .first()
+        )
 
     def list_bulk_actions(
         self,
@@ -391,9 +411,12 @@ class BulkActionService:
 
         total = query.count()
 
-        bulk_actions = query.order_by(
-            BulkActionLog.created_at.desc()
-        ).offset(offset).limit(limit).all()
+        bulk_actions = (
+            query.order_by(BulkActionLog.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
 
         return bulk_actions, total
 
@@ -403,10 +426,15 @@ class BulkActionService:
         bulk_action_id: str,
     ) -> List[BulkActionFailure]:
         """Get all failures for a bulk action."""
-        return self.db.query(BulkActionFailure).join(
-            BulkActionLog,
-            BulkActionFailure.bulk_action_id == BulkActionLog.id,
-        ).filter(
-            BulkActionLog.id == bulk_action_id,
-            BulkActionLog.company_id == company_id,
-        ).all()
+        return (
+            self.db.query(BulkActionFailure)
+            .join(
+                BulkActionLog,
+                BulkActionFailure.bulk_action_id == BulkActionLog.id,
+            )
+            .filter(
+                BulkActionLog.id == bulk_action_id,
+                BulkActionLog.company_id == company_id,
+            )
+            .all()
+        )

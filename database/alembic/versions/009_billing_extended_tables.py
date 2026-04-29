@@ -36,15 +36,26 @@ def upgrade() -> None:
             nullable=False,
             index=True,
         ),
-        sa.Column("ticket_id", sa.String(36), sa.ForeignKey("tickets.id"), nullable=True),
+        sa.Column(
+            "ticket_id", sa.String(36), sa.ForeignKey("tickets.id"), nullable=True
+        ),
         sa.Column("amount", sa.Numeric(10, 2), nullable=False),  # BC-002
         sa.Column("currency", sa.String(3), default="USD"),
         sa.Column("reason", sa.Text, nullable=True),
-        sa.Column("status", sa.String(20), default="pending"),  # pending/processed/failed
-        sa.Column("external_ref", sa.String(255), nullable=True),  # Client's payment system ref
+        sa.Column(
+            "status", sa.String(20), default="pending"
+        ),  # pending/processed/failed
+        sa.Column(
+            "external_ref", sa.String(255), nullable=True
+        ),  # Client's payment system ref
         sa.Column("processed_at", sa.DateTime, nullable=True),
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime,
+            server_default=sa.func.now(),
+            onupdate=sa.func.now(),
+        ),
     )
     op.create_index("idx_client_refunds_company", "client_refunds", ["company_id"])
     op.create_index("idx_client_refunds_status", "client_refunds", ["status"])
@@ -61,14 +72,21 @@ def upgrade() -> None:
             index=True,
         ),
         sa.Column("paddle_payment_method_id", sa.String(255), nullable=False),
-        sa.Column("method_type", sa.String(20)),  # card/paypal/wire/apple_pay/google_pay
+        sa.Column(
+            "method_type", sa.String(20)
+        ),  # card/paypal/wire/apple_pay/google_pay
         sa.Column("last_four", sa.String(4)),
         sa.Column("expiry_month", sa.Integer),
         sa.Column("expiry_year", sa.Integer),
         sa.Column("card_brand", sa.String(20)),  # visa/mastercard/amex/etc
         sa.Column("is_default", sa.Boolean, default=False),
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime,
+            server_default=sa.func.now(),
+            onupdate=sa.func.now(),
+        ),
     )
     op.create_index("idx_payment_methods_company", "payment_methods", ["company_id"])
     op.create_index(
@@ -98,7 +116,9 @@ def upgrade() -> None:
         sa.Column("overage_charges", sa.Numeric(10, 2), default=0),  # BC-002
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
         # Unique constraint: one record per company per day
-        sa.UniqueConstraint("company_id", "record_date", name="uq_usage_records_company_date"),
+        sa.UniqueConstraint(
+            "company_id", "record_date", name="uq_usage_records_company_date"
+        ),
     )
     op.create_index("idx_usage_records_company", "usage_records", ["company_id"])
     op.create_index("idx_usage_records_month", "usage_records", ["record_month"])
@@ -107,7 +127,9 @@ def upgrade() -> None:
     op.create_table(
         "variant_limits",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("variant_name", sa.String(50), unique=True, nullable=False),  # starter/growth/high
+        sa.Column(
+            "variant_name", sa.String(50), unique=True, nullable=False
+        ),  # starter/growth/high
         sa.Column("monthly_tickets", sa.Integer, nullable=False),
         sa.Column("ai_agents", sa.Integer, nullable=False),
         sa.Column("team_members", sa.Integer, nullable=False),
@@ -115,7 +137,12 @@ def upgrade() -> None:
         sa.Column("kb_docs", sa.Integer, nullable=False),
         sa.Column("price_monthly", sa.Numeric(10, 2), nullable=False),  # BC-002
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime,
+            server_default=sa.func.now(),
+            onupdate=sa.func.now(),
+        ),
     )
 
     # Insert default variant limits
@@ -131,9 +158,13 @@ def upgrade() -> None:
     op.create_table(
         "idempotency_keys",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("company_id", sa.String(36), sa.ForeignKey("companies.id"), nullable=True),
+        sa.Column(
+            "company_id", sa.String(36), sa.ForeignKey("companies.id"), nullable=True
+        ),
         sa.Column("idempotency_key", sa.String(255), unique=True, nullable=False),
-        sa.Column("resource_type", sa.String(50), nullable=False),  # paddle_webhook, stripe_webhook, etc
+        sa.Column(
+            "resource_type", sa.String(50), nullable=False
+        ),  # paddle_webhook, stripe_webhook, etc
         sa.Column("resource_id", sa.String(255), nullable=True),
         sa.Column("request_body_hash", sa.String(64), nullable=True),  # SHA-256 hash
         sa.Column("response_status", sa.Integer, nullable=True),
@@ -148,19 +179,27 @@ def upgrade() -> None:
     op.create_table(
         "webhook_sequences",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("company_id", sa.String(36), sa.ForeignKey("companies.id"), nullable=True),
+        sa.Column(
+            "company_id", sa.String(36), sa.ForeignKey("companies.id"), nullable=True
+        ),
         sa.Column("paddle_event_id", sa.String(255), unique=True, nullable=False),
         sa.Column("event_type", sa.String(100), nullable=False),
         sa.Column("occurred_at", sa.DateTime, nullable=False),
         sa.Column("processed_at", sa.DateTime, nullable=True),
         sa.Column("processing_order", sa.Integer, nullable=True),
-        sa.Column("status", sa.String(20), default="pending"),  # pending/processing/processed/failed
+        sa.Column(
+            "status", sa.String(20), default="pending"
+        ),  # pending/processing/processed/failed
         sa.Column("error_message", sa.Text, nullable=True),
         sa.Column("retry_count", sa.Integer, default=0),
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
     )
-    op.create_index("idx_webhook_sequences_company", "webhook_sequences", ["company_id"])
-    op.create_index("idx_webhook_sequences_event", "webhook_sequences", ["paddle_event_id"])
+    op.create_index(
+        "idx_webhook_sequences_company", "webhook_sequences", ["company_id"]
+    )
+    op.create_index(
+        "idx_webhook_sequences_event", "webhook_sequences", ["paddle_event_id"]
+    )
     op.create_index("idx_webhook_sequences_status", "webhook_sequences", ["status"])
 
     # 7. proration_audits - Proration calculation audit trail
@@ -215,7 +254,11 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
     )
     op.create_index("idx_payment_failures_company", "payment_failures", ["company_id"])
-    op.create_index("idx_payment_failures_subscription", "payment_failures", ["paddle_subscription_id"])
+    op.create_index(
+        "idx_payment_failures_subscription",
+        "payment_failures",
+        ["paddle_subscription_id"],
+    )
 
 
 def downgrade() -> None:

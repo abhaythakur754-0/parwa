@@ -31,7 +31,8 @@ _ROLE_HIERARCHY = {"owner": 4, "admin": 3, "agent": 2, "viewer": 1}
 
 
 def get_company_profile(
-    company_id: str, db: Session,
+    company_id: str,
+    db: Session,
 ) -> Company:
     """Get company profile by ID.
 
@@ -47,9 +48,13 @@ def get_company_profile(
     Raises:
         NotFoundError: If company not found.
     """
-    company = db.query(Company).filter(
-        Company.id == company_id,
-    ).first()
+    company = (
+        db.query(Company)
+        .filter(
+            Company.id == company_id,
+        )
+        .first()
+    )
     if not company:
         raise NotFoundError(
             message="Company not found",
@@ -80,9 +85,13 @@ def update_company_profile(
     Raises:
         NotFoundError: If company not found.
     """
-    company = db.query(Company).filter(
-        Company.id == company_id,
-    ).first()
+    company = (
+        db.query(Company)
+        .filter(
+            Company.id == company_id,
+        )
+        .first()
+    )
     if not company:
         raise NotFoundError(
             message="Company not found",
@@ -107,7 +116,8 @@ def update_company_profile(
 
 
 def get_company_settings(
-    company_id: str, db: Session,
+    company_id: str,
+    db: Session,
 ) -> CompanySetting:
     """Get company settings, auto-creating with defaults if needed.
 
@@ -120,9 +130,13 @@ def get_company_settings(
     Returns:
         CompanySetting object.
     """
-    settings = db.query(CompanySetting).filter(
-        CompanySetting.company_id == company_id,
-    ).first()
+    settings = (
+        db.query(CompanySetting)
+        .filter(
+            CompanySetting.company_id == company_id,
+        )
+        .first()
+    )
 
     if not settings:
         # Use merge to handle race condition: if two concurrent
@@ -139,9 +153,13 @@ def get_company_settings(
             )
         except Exception:
             db.rollback()
-            settings = db.query(CompanySetting).filter(
-                CompanySetting.company_id == company_id,
-            ).first()
+            settings = (
+                db.query(CompanySetting)
+                .filter(
+                    CompanySetting.company_id == company_id,
+                )
+                .first()
+            )
 
     return settings
 
@@ -172,18 +190,26 @@ def update_company_settings(
     Raises:
         NotFoundError: If company not found.
     """
-    company = db.query(Company).filter(
-        Company.id == company_id,
-    ).first()
+    company = (
+        db.query(Company)
+        .filter(
+            Company.id == company_id,
+        )
+        .first()
+    )
     if not company:
         raise NotFoundError(
             message="Company not found",
             details={"company_id": company_id},
         )
 
-    settings = db.query(CompanySetting).filter(
-        CompanySetting.company_id == company_id,
-    ).first()
+    settings = (
+        db.query(CompanySetting)
+        .filter(
+            CompanySetting.company_id == company_id,
+        )
+        .first()
+    )
 
     if not settings:
         settings = CompanySetting(company_id=company_id)
@@ -192,13 +218,21 @@ def update_company_settings(
             db.flush()
         except Exception:
             db.rollback()
-            settings = db.query(CompanySetting).filter(
-                CompanySetting.company_id == company_id,
-            ).first()
+            settings = (
+                db.query(CompanySetting)
+                .filter(
+                    CompanySetting.company_id == company_id,
+                )
+                .first()
+            )
 
     _JSON_LIST_FIELDS = [
-        "prohibited_phrases", "pii_patterns", "custom_regex",
-        "intent_labels", "custom_rules", "assignment_rules",
+        "prohibited_phrases",
+        "pii_patterns",
+        "custom_regex",
+        "intent_labels",
+        "custom_rules",
+        "assignment_rules",
     ]
     _JSON_DICT_FIELDS = ["confidence_thresholds"]
 
@@ -213,7 +247,7 @@ def update_company_settings(
         elif field in _JSON_DICT_FIELDS and isinstance(value, dict):
             setattr(settings, field, json.dumps(value))
         elif field == "ooo_status":
-            if hasattr(value, 'value'):
+            if hasattr(value, "value"):
                 setattr(settings, field, value.value)
             else:
                 setattr(settings, field, str(value))
@@ -299,9 +333,14 @@ def get_team_members(
     )
 
     total = query.count()
-    users = query.order_by(User.created_at.asc()).offset(
-        offset,
-    ).limit(per_page).all()
+    users = (
+        query.order_by(User.created_at.asc())
+        .offset(
+            offset,
+        )
+        .limit(per_page)
+        .all()
+    )
 
     return users, total
 
@@ -335,10 +374,14 @@ def update_team_member(
         AuthorizationError: If actor lacks permissions.
         ValidationError: If business rules violated.
     """
-    target = db.query(User).filter(
-        User.id == user_id,
-        User.company_id == company_id,
-    ).first()
+    target = (
+        db.query(User)
+        .filter(
+            User.id == user_id,
+            User.company_id == company_id,
+        )
+        .first()
+    )
 
     if not target:
         raise NotFoundError(
@@ -350,8 +393,7 @@ def update_team_member(
     actor_level = _ROLE_HIERARCHY.get(actor.role, 0)
     if actor_level < _ROLE_HIERARCHY.get("admin", 3):
         raise AuthorizationError(
-            message="Only owners and admins can manage "
-                    "team members",
+            message="Only owners and admins can manage " "team members",
             details={
                 "required_role": "owner or admin",
                 "user_role": actor.role,
@@ -377,16 +419,19 @@ def update_team_member(
 
         # Check if target is owner and we'd be demoting
         if target.role == "owner" and new_role_val != "owner":
-            owner_count = db.query(User).filter(
-                User.company_id == company_id,
-                User.role == "owner",
-                User.is_active is True,  # noqa: E712
-            ).count()
+            owner_count = (
+                db.query(User)
+                .filter(
+                    User.company_id == company_id,
+                    User.role == "owner",
+                    User.is_active is True,  # noqa: E712
+                )
+                .count()
+            )
 
             if owner_count <= 1:
                 raise ValidationError(
-                    message="Company must have at least one "
-                            "owner",
+                    message="Company must have at least one " "owner",
                     details={"field": "role"},
                 )
 
@@ -394,8 +439,7 @@ def update_team_member(
         target_level = _ROLE_HIERARCHY.get(new_role_val, 0)
         if target_level > actor_level:
             raise AuthorizationError(
-                message="Cannot assign a role higher than "
-                        "your own",
+                message="Cannot assign a role higher than " "your own",
                 details={
                     "target_role": new_role_val,
                     "actor_role": actor.role,
@@ -409,17 +453,19 @@ def update_team_member(
         new_active = data["is_active"]
 
         if not new_active and target.role == "owner":
-            owner_count = db.query(User).filter(
-                User.company_id == company_id,
-                User.role == "owner",
-                User.is_active is True,  # noqa: E712
-            ).count()
+            owner_count = (
+                db.query(User)
+                .filter(
+                    User.company_id == company_id,
+                    User.role == "owner",
+                    User.is_active is True,  # noqa: E712
+                )
+                .count()
+            )
 
             if owner_count <= 1:
                 raise ValidationError(
-                    message=(
-                        "Cannot deactivate the last owner"
-                    ),
+                    message=("Cannot deactivate the last owner"),
                     details={"field": "is_active"},
                 )
 
@@ -463,10 +509,14 @@ def remove_team_member(
         AuthorizationError: If actor lacks permissions.
         ValidationError: If business rules violated.
     """
-    target = db.query(User).filter(
-        User.id == user_id,
-        User.company_id == company_id,
-    ).first()
+    target = (
+        db.query(User)
+        .filter(
+            User.id == user_id,
+            User.company_id == company_id,
+        )
+        .first()
+    )
 
     if not target:
         raise NotFoundError(
@@ -478,8 +528,7 @@ def remove_team_member(
     actor_level = _ROLE_HIERARCHY.get(actor.role, 0)
     if actor_level < _ROLE_HIERARCHY.get("admin", 3):
         raise AuthorizationError(
-            message="Only owners and admins can remove "
-                    "team members",
+            message="Only owners and admins can remove " "team members",
             details={
                 "required_role": "owner or admin",
                 "user_role": actor.role,
@@ -494,11 +543,15 @@ def remove_team_member(
 
     # Cannot remove last owner
     if target.role == "owner":
-        owner_count = db.query(User).filter(
-            User.company_id == company_id,
-            User.role == "owner",
-            User.is_active is True,  # noqa: E712
-        ).count()
+        owner_count = (
+            db.query(User)
+            .filter(
+                User.company_id == company_id,
+                User.role == "owner",
+                User.is_active is True,  # noqa: E712
+            )
+            .count()
+        )
 
         if owner_count <= 1:
             raise ValidationError(

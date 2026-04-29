@@ -226,6 +226,7 @@ def get_custom_integration(
 
     if not integration:
         from app.exceptions import NotFoundError
+
         raise NotFoundError(
             message="Custom integration not found",
             details={"integration_id": integration_id},

@@ -11,7 +11,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # Module-level stubs
 CHAIN_TIMEOUT_SECONDS = None  # type: ignore[assignment,misc]
 CONFIDENCE_THRESHOLD = None  # type: ignore[assignment,misc]
@@ -52,6 +51,7 @@ _detect_script = None  # type: ignore[assignment,misc]
 # Fixtures — import source modules with mocked logger
 # ═══════════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture(autouse=True)
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
@@ -90,46 +90,50 @@ def _mock_logger():
             VARIANT_HANDLER_WHITELIST,
             _detect_script,
         )
-        globals().update({
-            "CHAIN_TIMEOUT_SECONDS": CHAIN_TIMEOUT_SECONDS,
-            "CONFIDENCE_THRESHOLD": CONFIDENCE_THRESHOLD,
-            "CONTEXT_EXPIRY_MINUTES": CONTEXT_EXPIRY_MINUTES,
-            "DEFAULT_COMPETITORS": DEFAULT_COMPETITORS,
-            "DUPLICATE_SIMILARITY_THRESHOLD": DUPLICATE_SIMILARITY_THRESHOLD,
-            "EdgeCaseAction": EdgeCaseAction,
-            "EdgeCaseHandler": EdgeCaseHandler,
-            "EdgeCaseProcessingResult": EdgeCaseProcessingResult,
-            "EdgeCaseRegistry": EdgeCaseRegistry,
-            "EdgeCaseResult": EdgeCaseResult,
-            "EdgeCaseSeverity": EdgeCaseSeverity,
-            "EmptyQueryHandler": EmptyQueryHandler,
-            "EmojisOnlyHandler": EmojisOnlyHandler,
-            "BelowConfidenceHandler": BelowConfidenceHandler,
-            "BlockedUserHandler": BlockedUserHandler,
-            "CodeBlocksHandler": CodeBlocksHandler,
-            "CompetitorMentionHandler": CompetitorMentionHandler,
-            "DuplicateQueryHandler": DuplicateQueryHandler,
-            "EmbeddedImagesHandler": EmbeddedImagesHandler,
-            "ExpiredContextHandler": ExpiredContextHandler,
-            "FAQMatchHandler": FAQMatchHandler,
-            "LegalTerminologyHandler": LegalTerminologyHandler,
-            "MaintenanceModeHandler": MaintenanceModeHandler,
-            "MaliciousHTMLHandler": MaliciousHTMLHandler,
-            "MultiQuestionHandler": MultiQuestionHandler,
-            "NonExistentTicketHandler": NonExistentTicketHandler,
-            "PricingRequestHandler": PricingRequestHandler,
-            "SystemCommandsHandler": SystemCommandsHandler,
-            "TimeoutHandler": TimeoutHandler,
-            "TooLongQueryHandler": TooLongQueryHandler,
-            "UnsupportedLanguageHandler": UnsupportedLanguageHandler,
-            "VARIANT_HANDLER_WHITELIST": VARIANT_HANDLER_WHITELIST,
-            "_detect_script": _detect_script,
-        })
+
+        globals().update(
+            {
+                "CHAIN_TIMEOUT_SECONDS": CHAIN_TIMEOUT_SECONDS,
+                "CONFIDENCE_THRESHOLD": CONFIDENCE_THRESHOLD,
+                "CONTEXT_EXPIRY_MINUTES": CONTEXT_EXPIRY_MINUTES,
+                "DEFAULT_COMPETITORS": DEFAULT_COMPETITORS,
+                "DUPLICATE_SIMILARITY_THRESHOLD": DUPLICATE_SIMILARITY_THRESHOLD,
+                "EdgeCaseAction": EdgeCaseAction,
+                "EdgeCaseHandler": EdgeCaseHandler,
+                "EdgeCaseProcessingResult": EdgeCaseProcessingResult,
+                "EdgeCaseRegistry": EdgeCaseRegistry,
+                "EdgeCaseResult": EdgeCaseResult,
+                "EdgeCaseSeverity": EdgeCaseSeverity,
+                "EmptyQueryHandler": EmptyQueryHandler,
+                "EmojisOnlyHandler": EmojisOnlyHandler,
+                "BelowConfidenceHandler": BelowConfidenceHandler,
+                "BlockedUserHandler": BlockedUserHandler,
+                "CodeBlocksHandler": CodeBlocksHandler,
+                "CompetitorMentionHandler": CompetitorMentionHandler,
+                "DuplicateQueryHandler": DuplicateQueryHandler,
+                "EmbeddedImagesHandler": EmbeddedImagesHandler,
+                "ExpiredContextHandler": ExpiredContextHandler,
+                "FAQMatchHandler": FAQMatchHandler,
+                "LegalTerminologyHandler": LegalTerminologyHandler,
+                "MaintenanceModeHandler": MaintenanceModeHandler,
+                "MaliciousHTMLHandler": MaliciousHTMLHandler,
+                "MultiQuestionHandler": MultiQuestionHandler,
+                "NonExistentTicketHandler": NonExistentTicketHandler,
+                "PricingRequestHandler": PricingRequestHandler,
+                "SystemCommandsHandler": SystemCommandsHandler,
+                "TimeoutHandler": TimeoutHandler,
+                "TooLongQueryHandler": TooLongQueryHandler,
+                "UnsupportedLanguageHandler": UnsupportedLanguageHandler,
+                "VARIANT_HANDLER_WHITELIST": VARIANT_HANDLER_WHITELIST,
+                "_detect_script": _detect_script,
+            }
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # 1. EmptyQueryHandler (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestEmptyQueryHandler:
     def setup_method(self):
@@ -164,6 +168,7 @@ class TestEmptyQueryHandler:
 # ═══════════════════════════════════════════════════════════════════════
 # 2. TooLongQueryHandler (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestTooLongQueryHandler:
     def setup_method(self):
@@ -204,6 +209,7 @@ class TestTooLongQueryHandler:
 # 3. UnsupportedLanguageHandler (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestUnsupportedLanguageHandler:
     def setup_method(self):
         self.handler = UnsupportedLanguageHandler()
@@ -243,6 +249,7 @@ class TestUnsupportedLanguageHandler:
 # 4. EmojisOnlyHandler (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestEmojisOnlyHandler:
     def setup_method(self):
         self.handler = EmojisOnlyHandler()
@@ -280,6 +287,7 @@ class TestEmojisOnlyHandler:
 # 5. CodeBlocksHandler (4 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestCodeBlocksHandler:
     def setup_method(self):
         self.handler = CodeBlocksHandler()
@@ -312,14 +320,14 @@ class TestCodeBlocksHandler:
 # 6. DuplicateQueryHandler (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestDuplicateQueryHandler:
     def setup_method(self):
         self.handler = DuplicateQueryHandler()
 
     def test_no_recent_queries_not_handled(self):
         assert self.handler.can_handle("Hello", {}) is False
-        assert self.handler.can_handle(
-            "Hello", {"recent_queries": []}) is False
+        assert self.handler.can_handle("Hello", {"recent_queries": []}) is False
 
     def test_different_query_not_handled(self):
         ctx = {"recent_queries": ["How do I reset my password?"]}
@@ -358,6 +366,7 @@ class TestDuplicateQueryHandler:
 # 7. MultiQuestionHandler (4 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestMultiQuestionHandler:
     def setup_method(self):
         self.handler = MultiQuestionHandler()
@@ -391,13 +400,13 @@ class TestMultiQuestionHandler:
 # 8. MaliciousHTMLHandler (6 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestMaliciousHTMLHandler:
     def setup_method(self):
         self.handler = MaliciousHTMLHandler()
 
     def test_normal_text_not_handled(self):
-        assert self.handler.can_handle(
-            "I need help with my account", {}) is False
+        assert self.handler.can_handle("I need help with my account", {}) is False
 
     def test_script_tag_blocks(self):
         query = "<script>alert(1)</script>"
@@ -435,6 +444,7 @@ class TestMaliciousHTMLHandler:
 # ═══════════════════════════════════════════════════════════════════════
 # 9. FAQMatchHandler (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestFAQMatchHandler:
     def setup_method(self):
@@ -485,6 +495,7 @@ class TestFAQMatchHandler:
 # 10. BlockedUserHandler (4 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestBlockedUserHandler:
     def setup_method(self):
         self.handler = BlockedUserHandler()
@@ -520,6 +531,7 @@ class TestBlockedUserHandler:
 # ═══════════════════════════════════════════════════════════════════════
 # 11. MaintenanceModeHandler (4 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestMaintenanceModeHandler:
     def setup_method(self):
@@ -562,13 +574,13 @@ class TestMaintenanceModeHandler:
 # 12. SystemCommandsHandler (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestSystemCommandsHandler:
     def setup_method(self):
         self.handler = SystemCommandsHandler()
 
     def test_normal_text_not_handled(self):
-        assert self.handler.can_handle(
-            "How do I use the dashboard?", {}) is False
+        assert self.handler.can_handle("How do I use the dashboard?", {}) is False
 
     def test_admin_command_blocks(self):
         query = "/admin dashboard"
@@ -606,6 +618,7 @@ class TestSystemCommandsHandler:
 # 13. PricingRequestHandler (4 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestPricingRequestHandler:
     def setup_method(self):
         self.handler = PricingRequestHandler()
@@ -639,6 +652,7 @@ class TestPricingRequestHandler:
 # ═══════════════════════════════════════════════════════════════════════
 # 14. LegalTerminologyHandler (4 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestLegalTerminologyHandler:
     def setup_method(self):
@@ -679,6 +693,7 @@ class TestLegalTerminologyHandler:
 # ═══════════════════════════════════════════════════════════════════════
 # 15. CompetitorMentionHandler (4 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestCompetitorMentionHandler:
     def setup_method(self):
@@ -722,6 +737,7 @@ class TestCompetitorMentionHandler:
 # ═══════════════════════════════════════════════════════════════════════
 # 16. EdgeCaseRegistry (10 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestEdgeCaseRegistry:
     def test_registry_has_twenty_handlers(self):
@@ -814,14 +830,14 @@ class TestEdgeCaseRegistry:
     def test_legal_escalation_in_registry(self):
         """Legal terminology produces ESCALATE action."""
         registry = EdgeCaseRegistry(variant="parwa")
-        result = registry.process(
-            "I need to consult an attorney about a lawsuit")
+        result = registry.process("I need to consult an attorney about a lawsuit")
         assert result.final_action == EdgeCaseAction.ESCALATE
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # 17. VariantCustomization (4 tests) — GAP-023
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestVariantCustomization:
     def test_mini_parwa_fewer_handlers(self):
@@ -861,6 +877,7 @@ class TestVariantCustomization:
 # ═══════════════════════════════════════════════════════════════════════
 # 18. TimeoutHandling (3 tests) — GAP-022 / BC-008
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestTimeoutHandling:
     def test_handler_exception_skipped(self):
@@ -944,6 +961,7 @@ class TestTimeoutHandling:
 # 19. Helper Utilities (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestHelperUtilities:
     def test_detect_script_latin_none(self):
         assert _detect_script("Hello world") is None
@@ -968,6 +986,7 @@ class TestHelperUtilities:
 # ═══════════════════════════════════════════════════════════════════════
 # 20. Data Classes (6 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestDataClasses:
     def test_edge_case_result_defaults(self):
@@ -1031,6 +1050,7 @@ class TestDataClasses:
 # ═══════════════════════════════════════════════════════════════════════
 # 21. Additional Handler Edge Cases (9 tests)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestAdditionalHandlerEdgeCases:
     def test_embedded_images_handler_proceeds(self):
@@ -1099,6 +1119,7 @@ class TestAdditionalHandlerEdgeCases:
 # 22. Registry Advanced Features (5 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestRegistryAdvanced:
     def test_get_handler_returns_registered(self):
         registry = EdgeCaseRegistry(variant="parwa")
@@ -1112,6 +1133,7 @@ class TestRegistryAdvanced:
 
     def test_extra_handlers_registration(self):
         """Custom handlers can be added via extra_handlers."""
+
         class CustomHandler(EdgeCaseHandler):
             @property
             def handler_type(self):
@@ -1182,13 +1204,16 @@ class TestRegistryAdvanced:
 # 23. Constants & Configuration (4 tests)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestConstants:
     def test_max_query_length(self):
         from app.core.edge_case_handlers import MAX_QUERY_LENGTH
+
         assert MAX_QUERY_LENGTH == 10000
 
     def test_handler_timeout(self):
         from app.core.edge_case_handlers import HANDLER_TIMEOUT_SECONDS
+
         assert HANDLER_TIMEOUT_SECONDS == 2.0
 
     def test_chain_timeout(self):

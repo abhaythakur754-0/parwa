@@ -79,7 +79,8 @@ class CustomerService:
         if existing:
             raise ValidationError(
                 f"Customer already exists with matching identifier (ID: {
-                    existing.id})")
+                    existing.id})"
+            )
 
         customer = Customer(
             id=str(uuid.uuid4()),
@@ -129,10 +130,14 @@ class CustomerService:
         Raises:
             NotFoundError: If customer not found
         """
-        customer = self.db.query(Customer).filter(
-            Customer.id == customer_id,
-            Customer.company_id == self.company_id,
-        ).first()
+        customer = (
+            self.db.query(Customer)
+            .filter(
+                Customer.id == customer_id,
+                Customer.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not customer:
             raise NotFoundError(f"Customer {customer_id} not found")
@@ -148,10 +153,14 @@ class CustomerService:
         Returns:
             Customer object or None
         """
-        return self.db.query(Customer).filter(
-            Customer.company_id == self.company_id,
-            func.lower(Customer.email) == email.strip().lower(),
-        ).first()
+        return (
+            self.db.query(Customer)
+            .filter(
+                Customer.company_id == self.company_id,
+                func.lower(Customer.email) == email.strip().lower(),
+            )
+            .first()
+        )
 
     def get_customer_by_phone(self, phone: str) -> Optional[Customer]:
         """Get a customer by phone.
@@ -164,10 +173,14 @@ class CustomerService:
         """
         # Normalize phone for comparison
         normalized = self._normalize_phone(phone)
-        return self.db.query(Customer).filter(
-            Customer.company_id == self.company_id,
-            Customer.phone == normalized,
-        ).first()
+        return (
+            self.db.query(Customer)
+            .filter(
+                Customer.company_id == self.company_id,
+                Customer.phone == normalized,
+            )
+            .first()
+        )
 
     def list_customers(
         self,
@@ -197,15 +210,11 @@ class CustomerService:
         Returns:
             Tuple of (customers list, total count)
         """
-        query = self.db.query(Customer).filter(
-            Customer.company_id == self.company_id
-        )
+        query = self.db.query(Customer).filter(Customer.company_id == self.company_id)
 
         # Apply filters
         if email:
-            query = query.filter(
-                func.lower(Customer.email) == email.strip().lower()
-            )
+            query = query.filter(func.lower(Customer.email) == email.strip().lower())
 
         if phone:
             normalized = self._normalize_phone(phone)
@@ -226,16 +235,22 @@ class CustomerService:
 
         if has_open_tickets is not None:
             # Subquery for customers with open tickets
-            open_ticket_customers = self.db.query(Ticket.customer_id).filter(
-                Ticket.company_id == self.company_id,
-                Ticket.status.in_([
-                    TicketStatus.open.value,
-                    TicketStatus.assigned.value,
-                    TicketStatus.in_progress.value,
-                    TicketStatus.awaiting_client.value,
-                    TicketStatus.awaiting_human.value,
-                ]),
-            ).distinct()
+            open_ticket_customers = (
+                self.db.query(Ticket.customer_id)
+                .filter(
+                    Ticket.company_id == self.company_id,
+                    Ticket.status.in_(
+                        [
+                            TicketStatus.open.value,
+                            TicketStatus.assigned.value,
+                            TicketStatus.in_progress.value,
+                            TicketStatus.awaiting_client.value,
+                            TicketStatus.awaiting_human.value,
+                        ]
+                    ),
+                )
+                .distinct()
+            )
 
             if has_open_tickets:
                 query = query.filter(Customer.id.in_(open_ticket_customers))
@@ -290,14 +305,12 @@ class CustomerService:
         if email is not None and email != customer.email:
             existing = self.get_customer_by_email(email)
             if existing and existing.id != customer_id:
-                raise ValidationError(
-                    "Email already in use by another customer")
+                raise ValidationError("Email already in use by another customer")
 
         if phone is not None and phone != customer.phone:
             existing = self.get_customer_by_phone(phone)
             if existing and existing.id != customer_id:
-                raise ValidationError(
-                    "Phone already in use by another customer")
+                raise ValidationError("Phone already in use by another customer")
 
         # Update fields
         if email is not None:
@@ -338,15 +351,21 @@ class CustomerService:
         customer = self.get_customer(customer_id)
 
         # Check for open tickets
-        open_tickets = self.db.query(Ticket).filter(
-            Ticket.customer_id == customer_id,
-            Ticket.company_id == self.company_id,
-            Ticket.status.in_([
-                TicketStatus.open.value,
-                TicketStatus.assigned.value,
-                TicketStatus.in_progress.value,
-            ]),
-        ).count()
+        open_tickets = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.customer_id == customer_id,
+                Ticket.company_id == self.company_id,
+                Ticket.status.in_(
+                    [
+                        TicketStatus.open.value,
+                        TicketStatus.assigned.value,
+                        TicketStatus.in_progress.value,
+                    ]
+                ),
+            )
+            .count()
+        )
 
         if open_tickets > 0:
             raise ValidationError(
@@ -391,11 +410,15 @@ class CustomerService:
         customer = self.get_customer(customer_id)
 
         # Check if already linked
-        existing = self.db.query(CustomerChannel).filter(
-            CustomerChannel.company_id == self.company_id,
-            CustomerChannel.channel_type == channel_type.value,
-            CustomerChannel.external_id == external_id,
-        ).first()
+        existing = (
+            self.db.query(CustomerChannel)
+            .filter(
+                CustomerChannel.company_id == self.company_id,
+                CustomerChannel.channel_type == channel_type.value,
+                CustomerChannel.external_id == external_id,
+            )
+            .first()
+        )
 
         if existing:
             raise ValidationError(
@@ -436,11 +459,15 @@ class CustomerService:
         Raises:
             NotFoundError: If channel not found
         """
-        channel = self.db.query(CustomerChannel).filter(
-            CustomerChannel.id == channel_id,
-            CustomerChannel.customer_id == customer_id,
-            CustomerChannel.company_id == self.company_id,
-        ).first()
+        channel = (
+            self.db.query(CustomerChannel)
+            .filter(
+                CustomerChannel.id == channel_id,
+                CustomerChannel.customer_id == customer_id,
+                CustomerChannel.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not channel:
             raise NotFoundError(f"Channel {channel_id} not found")
@@ -459,10 +486,14 @@ class CustomerService:
         Returns:
             List of CustomerChannel objects
         """
-        return self.db.query(CustomerChannel).filter(
-            CustomerChannel.customer_id == customer_id,
-            CustomerChannel.company_id == self.company_id,
-        ).all()
+        return (
+            self.db.query(CustomerChannel)
+            .filter(
+                CustomerChannel.customer_id == customer_id,
+                CustomerChannel.company_id == self.company_id,
+            )
+            .all()
+        )
 
     def verify_channel(
         self,
@@ -478,11 +509,15 @@ class CustomerService:
         Returns:
             Updated CustomerChannel object
         """
-        channel = self.db.query(CustomerChannel).filter(
-            CustomerChannel.id == channel_id,
-            CustomerChannel.customer_id == customer_id,
-            CustomerChannel.company_id == self.company_id,
-        ).first()
+        channel = (
+            self.db.query(CustomerChannel)
+            .filter(
+                CustomerChannel.id == channel_id,
+                CustomerChannel.customer_id == customer_id,
+                CustomerChannel.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not channel:
             raise NotFoundError(f"Channel {channel_id} not found")
@@ -524,9 +559,12 @@ class CustomerService:
             query = query.filter(Ticket.status.in_(status))
 
         total = query.count()
-        tickets = query.order_by(desc(Ticket.created_at)).offset(
-            (page - 1) * page_size
-        ).limit(page_size).all()
+        tickets = (
+            query.order_by(desc(Ticket.created_at))
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+            .all()
+        )
 
         return tickets, total
 
@@ -572,14 +610,19 @@ class CustomerService:
         # Collect all data to merge
         merged_emails = [c.email for c in merged_customers if c.email]
         merged_phones = [c.phone for c in merged_customers if c.phone]
-        merged_metadata = [json.loads(c.metadata_json or "{}")
-                           for c in merged_customers]
+        merged_metadata = [
+            json.loads(c.metadata_json or "{}") for c in merged_customers
+        ]
 
         # Update primary with merged data
         primary_metadata = json.loads(primary.metadata_json or "{}")
         primary_metadata["merged"] = {
-            "emails": list(set(merged_emails + ([primary.email] if primary.email else []))),
-            "phones": list(set(merged_phones + ([primary.phone] if primary.phone else []))),
+            "emails": list(
+                set(merged_emails + ([primary.email] if primary.email else []))
+            ),
+            "phones": list(
+                set(merged_phones + ([primary.phone] if primary.phone else []))
+            ),
             "merged_at": datetime.now(timezone.utc).isoformat(),
             "merged_customer_ids": merged_customer_ids,
         }
@@ -604,10 +647,12 @@ class CustomerService:
             customer.email = None
             customer.phone = None
             customer.name = f"[MERGED INTO {primary_customer_id}]"
-            customer.metadata_json = json.dumps({
-                "merged_into": primary_customer_id,
-                "merged_at": datetime.now(timezone.utc).isoformat(),
-            })
+            customer.metadata_json = json.dumps(
+                {
+                    "merged_into": primary_customer_id,
+                    "merged_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
 
         # Create audit record
         audit = CustomerMergeAudit(
@@ -666,4 +711,5 @@ class CustomerService:
         """
         # Remove common formatting characters
         import re
+
         return re.sub(r"[\s\-\(\)]", "", phone.strip())

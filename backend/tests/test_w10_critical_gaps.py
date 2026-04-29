@@ -36,7 +36,6 @@ from app.core.techniques.base import (
 )
 from app.core.technique_router import QuerySignals
 
-
 # ════════════════════════════════════════════════════════════════════
 # HELPERS
 # ════════════════════════════════════════════════════════════════════
@@ -59,7 +58,8 @@ def _make_conversation_state(
     """Create a ConversationState with sensible defaults."""
     return ConversationState(
         query=query,
-        signals=signals or QuerySignals(
+        signals=signals
+        or QuerySignals(
             query_complexity=0.5,
             confidence_score=0.9,
             sentiment_score=0.7,
@@ -118,8 +118,7 @@ class TestConcurrentWorkflowStatePersistence:
         assert results[0].workflow_id != results[1].workflow_id
 
     @pytest.mark.asyncio
-    async def test_concurrent_executions_with_different_variants_isolated(
-            self):
+    async def test_concurrent_executions_with_different_variants_isolated(self):
         """Concurrent executions on different variant types don't interfere."""
         engine_parwa = LangGraphWorkflow(
             config=WorkflowConfig(company_id="co1", variant_type="parwa"),
@@ -151,20 +150,13 @@ class TestConcurrentWorkflowStatePersistence:
         engine.build_graph()
 
         num_concurrent = 5
-        queries = [
-            f"concurrent query number {i}" for i in range(num_concurrent)]
-        results = await asyncio.gather(*[
-            engine.execute("co1", q) for q in queries
-        ])
+        queries = [f"concurrent query number {i}" for i in range(num_concurrent)]
+        results = await asyncio.gather(*[engine.execute("co1", q) for q in queries])
 
         for i, result in enumerate(results):
-            assert result.status == "success", (
-                f"Execution {i} failed: {result.status}"
-            )
+            assert result.status == "success", f"Execution {i} failed: {result.status}"
             assert result.workflow_id, f"Execution {i} missing workflow_id"
-            assert len(result.steps_completed) > 0, (
-                f"Execution {i} completed no steps"
-            )
+            assert len(result.steps_completed) > 0, f"Execution {i} completed no steps"
             # Verify the query context was captured in the generate step
             gen_step = result.step_results.get("generate")
             if gen_step and gen_step.output:
@@ -189,9 +181,9 @@ class TestConcurrentWorkflowStatePersistence:
         response_texts = [r.final_response for r in results]
         # Each response should contain a snippet of its own query
         for marker, response in zip(unique_markers, response_texts):
-            assert marker in response, (
-                f"Marker '{marker}' not found in response: '{response}'"
-            )
+            assert (
+                marker in response
+            ), f"Marker '{marker}' not found in response: '{response}'"
 
     @pytest.mark.asyncio
     async def test_concurrent_executions_with_parwa_high_variant(self):
@@ -205,22 +197,22 @@ class TestConcurrentWorkflowStatePersistence:
         engine.build_graph()
 
         num_concurrent = 3
-        results = await asyncio.gather(*[
-            engine.execute("co1", f"high-tier query {i}")
-            for i in range(num_concurrent)
-        ])
+        results = await asyncio.gather(
+            *[
+                engine.execute("co1", f"high-tier query {i}")
+                for i in range(num_concurrent)
+            ]
+        )
 
         # All should complete with all 9 steps
         for i, result in enumerate(results):
-            assert result.status == "success", (
-                f"Execution {i} status: {result.status}"
-            )
+            assert result.status == "success", f"Execution {i} status: {result.status}"
             # parwa_high has 9 steps: classify, extract_signals,
             # technique_select, context_compress, generate, quality_gate,
             # context_health, dedup, format
-            assert len(result.steps_completed) == 9, (
-                f"Execution {i}: expected 9 steps, got {len(result.steps_completed)}"
-            )
+            assert (
+                len(result.steps_completed) == 9
+            ), f"Execution {i}: expected 9 steps, got {len(result.steps_completed)}"
             assert result.context_compression_applied is True
             assert result.context_health_score > 0
 
@@ -240,8 +232,7 @@ class TestConcurrentWorkflowStatePersistence:
         def patched_preprocessing(step_id, query, context, step_results):
             if "FAIL_TRIGGER" in query and step_id == "extract_signals":
                 raise RuntimeError("Simulated step failure")
-            return original_preprocessing(
-                step_id, query, context, step_results)
+            return original_preprocessing(step_id, query, context, step_results)
 
         engine._simulate_preprocessing = patched_preprocessing
 
@@ -309,8 +300,7 @@ class TestCompressionCriticalThresholds:
         # Each chunk is ~chunk_token_size tokens. Using 4 chars per token.
         chars_per_chunk = chunk_token_size * 4
         return [
-            f"chunk-{i:04d} " + "x" * (chars_per_chunk - 10)
-            for i in range(num_chunks)
+            f"chunk-{i:04d} " + "x" * (chars_per_chunk - 10) for i in range(num_chunks)
         ]
 
     @pytest.mark.asyncio
@@ -450,9 +440,9 @@ class TestCompressionCriticalThresholds:
         assert result.original_token_count > 0
         assert result.compressed_token_count <= result.original_token_count
         # AGGRESSIVE should reduce to ~50% target
-        assert result.compression_ratio <= 0.75, (
-            f"Expected aggressive ratio ≤ 0.75, got {result.compression_ratio}"
-        )
+        assert (
+            result.compression_ratio <= 0.75
+        ), f"Expected aggressive ratio ≤ 0.75, got {result.compression_ratio}"
 
     @pytest.mark.asyncio
     async def test_extractive_preserves_high_priority_at_threshold(self):
@@ -543,7 +533,8 @@ class TestStateSerializationRoundTrip:
     """
 
     def _round_trip(
-        self, state: ConversationState,
+        self,
+        state: ConversationState,
     ) -> ConversationState:
         """Helper: serialize then deserialize a ConversationState."""
         serializer = StateSerializer()
@@ -626,9 +617,9 @@ class TestStateSerializationRoundTrip:
             state = _make_conversation_state(gsd_state=gsd_val)
             data = serializer.serialize_state(state)
             restored = serializer.deserialize_state(data)
-            assert restored.gsd_state == gsd_val, (
-                f"Round-trip failed for GSDState.{gsd_val.name}"
-            )
+            assert (
+                restored.gsd_state == gsd_val
+            ), f"Round-trip failed for GSDState.{gsd_val.name}"
 
     # -- GSD History --
 
@@ -703,8 +694,13 @@ class TestStateSerializationRoundTrip:
 
         # Compare the nested dicts
         assert restored.technique_results == technique_results
-        assert restored.technique_results["rag_retrieval"]["result"]["documents"][0]["id"] == "doc1"
-        assert restored.technique_results["knowledge_graph"]["status"] == "skipped_budget"
+        assert (
+            restored.technique_results["rag_retrieval"]["result"]["documents"][0]["id"]
+            == "doc1"
+        )
+        assert (
+            restored.technique_results["knowledge_graph"]["status"] == "skipped_budget"
+        )
 
     def test_round_trip_response_parts_list(self):
         """Response parts list survives round-trip."""
@@ -823,9 +819,14 @@ class TestStateSerializationRoundTrip:
         assert restored.query == state.query
         assert restored.gsd_state == GSDState.DIAGNOSIS
         assert restored.gsd_history == [
-            GSDState.NEW, GSDState.GREETING, GSDState.DIAGNOSIS,
+            GSDState.NEW,
+            GSDState.GREETING,
+            GSDState.DIAGNOSIS,
         ]
-        assert restored.technique_results["classification"]["result"]["intent"] == "cancellation"
+        assert (
+            restored.technique_results["classification"]["result"]["intent"]
+            == "cancellation"
+        )
         assert restored.token_usage == 789
         assert restored.response_parts == ["Part 1: ", "Part 2: ", "Part 3"]
         assert restored.final_response == "I can help you cancel your subscription."
@@ -869,7 +870,9 @@ class TestStateSerializationRoundTrip:
 
         assert restored.gsd_state == GSDState.ESCALATE
         assert restored.gsd_history == [
-            GSDState.NEW, GSDState.DIAGNOSIS, GSDState.ESCALATE,
+            GSDState.NEW,
+            GSDState.DIAGNOSIS,
+            GSDState.ESCALATE,
         ]
         assert restored.token_usage == 555
         assert restored.final_response == "Connecting you to a specialist."

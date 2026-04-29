@@ -19,7 +19,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ── Project root for migration checks ────────────────────────────────────────
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
@@ -35,11 +34,13 @@ class TestChargebackModels:
     def test_chargeback_model_exists(self):
         """CB1: Chargeback model should exist in billing_extended."""
         from database.models.billing_extended import Chargeback
+
         assert Chargeback is not None
 
     def test_chargeback_has_required_columns(self):
         """CB1: Chargeback should have all required columns."""
         from database.models.billing_extended import Chargeback
+
         required = [
             "id",
             "company_id",
@@ -61,6 +62,7 @@ class TestChargebackModels:
     def test_chargeback_tablename(self):
         """CB1: Chargeback table name should be chargebacks."""
         from database.models.billing_extended import Chargeback
+
         assert Chargeback.__tablename__ == "chargebacks"
 
 
@@ -73,8 +75,7 @@ class TestChargebackService:
         from app.services.chargeback_service import get_chargeback_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         company_id = str(uuid.uuid4())
@@ -97,8 +98,7 @@ class TestChargebackService:
         from app.services.chargeback_service import get_chargeback_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         company_id = str(uuid.uuid4())
@@ -110,7 +110,9 @@ class TestChargebackService:
         # Use side_effect to return sub for first query, company for second
         mock_company = MagicMock(name="Company")
         mock_db.query.return_value.filter.return_value.first.side_effect = [
-            mock_sub, mock_company]
+            mock_sub,
+            mock_company,
+        ]
         mock_db.commit = MagicMock()
 
         svc = get_chargeback_service()
@@ -124,11 +126,12 @@ class TestChargebackService:
         from app.services.chargeback_service import get_chargeback_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = (
+            []
+        )
 
         svc = get_chargeback_service()
         result = svc.list_chargebacks(str(uuid.uuid4()))
@@ -141,8 +144,7 @@ class TestChargebackService:
         from app.services.chargeback_service import get_chargeback_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_cb = MagicMock()
@@ -150,8 +152,7 @@ class TestChargebackService:
         mock_db.query.return_value.filter.return_value.first.return_value = mock_cb
 
         svc = get_chargeback_service()
-        result = svc.update_chargeback_status(
-            "cb_123", "under_review", "Investigating")
+        result = svc.update_chargeback_status("cb_123", "under_review", "Investigating")
 
         assert mock_cb.status == "under_review"
 
@@ -161,8 +162,7 @@ class TestChargebackService:
         from app.services.chargeback_service import get_chargeback_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_cb = MagicMock()
@@ -192,32 +192,38 @@ class TestRefundModels:
     def test_refund_audit_model_exists(self):
         """RF5: RefundAudit model should exist."""
         from database.models.billing_extended import RefundAudit
+
         assert RefundAudit is not None
 
     def test_refund_audit_tablename(self):
         """RF5: RefundAudit table name should be refund_audits."""
         from database.models.billing_extended import RefundAudit
+
         assert RefundAudit.__tablename__ == "refund_audits"
 
     def test_refund_audit_has_dual_approval_columns(self):
         """RF5: RefundAudit should have dual approval columns."""
         from database.models.billing_extended import RefundAudit
+
         assert hasattr(RefundAudit, "approver_id")
         assert hasattr(RefundAudit, "second_approver_id")
 
     def test_credit_balance_model_exists(self):
         """RF3: CreditBalance model should exist."""
         from database.models.billing_extended import CreditBalance
+
         assert CreditBalance is not None
 
     def test_credit_balance_tablename(self):
         """RF3: CreditBalance table name should be credit_balances."""
         from database.models.billing_extended import CreditBalance
+
         assert CreditBalance.__tablename__ == "credit_balances"
 
     def test_credit_balance_has_source_column(self):
         """RF3: CreditBalance should have source column."""
         from database.models.billing_extended import CreditBalance
+
         assert hasattr(CreditBalance, "source")
 
 
@@ -230,15 +236,11 @@ class TestRefundService:
         from app.services.refund_service import get_refund_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         added = []
-        mock_db.add = lambda o: (
-            added.append(o), setattr(
-                o, 'id', str(
-                    uuid.uuid4())))
+        mock_db.add = lambda o: (added.append(o), setattr(o, "id", str(uuid.uuid4())))
         mock_db.flush = MagicMock()
 
         svc = get_refund_service()
@@ -260,18 +262,15 @@ class TestRefundService:
         from app.services.refund_service import get_refund_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_db.query.return_value.filter.return_value.first.return_value = MagicMock(
-            name="Company")
+            name="Company"
+        )
 
         added = []
-        mock_db.add = lambda o: (
-            added.append(o), setattr(
-                o, 'id', str(
-                    uuid.uuid4())))
+        mock_db.add = lambda o: (added.append(o), setattr(o, "id", str(uuid.uuid4())))
         mock_db.flush = MagicMock()
 
         svc = get_refund_service()
@@ -292,15 +291,11 @@ class TestRefundService:
         from app.services.refund_service import get_refund_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         added = []
-        mock_db.add = lambda o: (
-            added.append(o), setattr(
-                o, 'id', str(
-                    uuid.uuid4())))
+        mock_db.add = lambda o: (added.append(o), setattr(o, "id", str(uuid.uuid4())))
         mock_db.flush = MagicMock()
 
         svc = get_refund_service()
@@ -321,11 +316,12 @@ class TestRefundService:
         from app.services.refund_service import get_refund_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = (
+            []
+        )
 
         svc = get_refund_service()
         result = svc.list_refund_audits(str(uuid.uuid4()))
@@ -338,13 +334,14 @@ class TestRefundService:
         from app.services.refund_service import get_refund_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         # The service uses SQLAlchemy expressions (.in_(), .is_(), |) that don't work
         # with mock model attributes. Mock the entire query result.
-        mock_db.query.return_value.filter.return_value.filter.return_value.filter.return_value.order_by.return_value.all.return_value = []
+        mock_db.query.return_value.filter.return_value.filter.return_value.filter.return_value.order_by.return_value.all.return_value = (
+            []
+        )
 
         svc = get_refund_service()
         result = svc.get_available_credits(str(uuid.uuid4()))
@@ -357,17 +354,14 @@ class TestRefundService:
         from app.services.refund_service import get_refund_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_sub = MagicMock()
         mock_sub.created_at = datetime.now(timezone.utc) - timedelta(hours=2)
         mock_sub.tier = "parwa"
-        mock_sub.current_period_start = datetime.now(
-            timezone.utc) - timedelta(hours=2)
-        mock_sub.current_period_end = datetime.now(
-            timezone.utc) + timedelta(days=28)
+        mock_sub.current_period_start = datetime.now(timezone.utc) - timedelta(hours=2)
+        mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=28)
         mock_sub.billing_frequency = "monthly"
         mock_sub.paddle_subscription_id = "sub_123"
         mock_sub.days_in_period = 30
@@ -376,13 +370,11 @@ class TestRefundService:
         # db.query(Subscription).filter(company_id).order_by(desc).first() —
         # only Subscription
         mock_db.query.return_value.filter.return_value.order_by.return_value.first.side_effect = [
-            mock_sub]
+            mock_sub
+        ]
 
         added = []
-        mock_db.add = lambda o: (
-            added.append(o), setattr(
-                o, 'id', str(
-                    uuid.uuid4())))
+        mock_db.add = lambda o: (added.append(o), setattr(o, "id", str(uuid.uuid4())))
         mock_db.flush = MagicMock()
 
         svc = get_refund_service()
@@ -396,26 +388,27 @@ class TestRefundService:
     @patch("app.services.refund_service.SessionLocal")
     def test_cooling_off_refund_expired_window(self, mock_session_cls):
         """RF4: Cooling-off refund after 24h should raise CoolingOffExpiredError."""
-        from app.services.refund_service import get_refund_service, CoolingOffExpiredError
+        from app.services.refund_service import (
+            get_refund_service,
+            CoolingOffExpiredError,
+        )
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_sub = MagicMock()
         mock_sub.created_at = datetime.now(timezone.utc) - timedelta(hours=48)
         mock_sub.tier = "parwa"
-        mock_sub.current_period_start = datetime.now(
-            timezone.utc) - timedelta(hours=48)
-        mock_sub.current_period_end = datetime.now(
-            timezone.utc) + timedelta(days=26)
+        mock_sub.current_period_start = datetime.now(timezone.utc) - timedelta(hours=48)
+        mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=26)
         mock_sub.billing_frequency = "monthly"
         mock_sub.paddle_subscription_id = "sub_123"
         mock_sub.days_in_period = 30
         # Service: db.query(Subscription).filter(company_id).order_by(desc).first()
         mock_db.query.return_value.filter.return_value.order_by.return_value.first.side_effect = [
-            mock_sub]
+            mock_sub
+        ]
 
         svc = get_refund_service()
         with pytest.raises(CoolingOffExpiredError):
@@ -436,21 +429,25 @@ class TestSpendingCapModels:
     def test_spending_cap_model_exists(self):
         """SC1: SpendingCap model should exist in billing_extended."""
         from database.models.billing_extended import SpendingCap
+
         assert SpendingCap is not None
 
     def test_spending_cap_tablename(self):
         """SC1: SpendingCap table name should be spending_caps."""
         from database.models.billing_extended import SpendingCap
+
         assert SpendingCap.__tablename__ == "spending_caps"
 
     def test_spending_cap_has_max_overage(self):
         """SC1: SpendingCap should have max_overage_amount column."""
         from database.models.billing_extended import SpendingCap
+
         assert hasattr(SpendingCap, "max_overage_amount")
 
     def test_spending_cap_has_alert_thresholds(self):
         """SC3: SpendingCap should have alert_thresholds column."""
         from database.models.billing_extended import SpendingCap
+
         assert hasattr(SpendingCap, "alert_thresholds")
 
 
@@ -463,8 +460,7 @@ class TestSpendingCapService:
         from app.services.spending_cap_service import get_spending_cap_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_db.query.return_value.filter.return_value.first.return_value = None
@@ -486,8 +482,7 @@ class TestSpendingCapService:
         from app.services.spending_cap_service import get_spending_cap_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_cap = MagicMock()
@@ -510,8 +505,7 @@ class TestSpendingCapService:
         from app.services.spending_cap_service import get_spending_cap_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_cap = MagicMock()
@@ -521,9 +515,12 @@ class TestSpendingCapService:
         # Mock: first() for spending cap; scalar() for current overage via
         # func.sum query
         mock_db.query.return_value.filter.return_value.first.side_effect = [
-            mock_cap, None]
+            mock_cap,
+            None,
+        ]
         mock_db.query.return_value.filter.return_value.scalar.return_value = Decimal(
-            "45.00")
+            "45.00"
+        )
 
         svc = get_spending_cap_service()
         svc._table_available = True
@@ -541,8 +538,7 @@ class TestSpendingCapService:
         from app.services.spending_cap_service import get_spending_cap_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_cap = MagicMock()
@@ -550,9 +546,12 @@ class TestSpendingCapService:
         mock_cap.is_active = True
         mock_cap.alert_thresholds = "[50, 75, 90]"
         mock_db.query.return_value.filter.return_value.first.side_effect = [
-            mock_cap, None]
+            mock_cap,
+            None,
+        ]
         mock_db.query.return_value.filter.return_value.scalar.return_value = Decimal(
-            "10.00")
+            "10.00"
+        )
 
         svc = get_spending_cap_service()
         svc._table_available = True
@@ -570,8 +569,7 @@ class TestSpendingCapService:
         from app.services.spending_cap_service import get_spending_cap_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_cap = MagicMock()
@@ -596,8 +594,7 @@ class TestSpendingCapService:
         from app.services.spending_cap_service import get_spending_cap_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_cap = MagicMock()
@@ -626,21 +623,25 @@ class TestWebhookHardeningModels:
     def test_dead_letter_webhook_model_exists(self):
         """WH3: DeadLetterWebhook model should exist."""
         from database.models.billing_extended import DeadLetterWebhook
+
         assert DeadLetterWebhook is not None
 
     def test_dead_letter_webhook_tablename(self):
         """WH3: DeadLetterWebhook table name should be dead_letter_webhooks."""
         from database.models.billing_extended import DeadLetterWebhook
+
         assert DeadLetterWebhook.__tablename__ == "dead_letter_webhooks"
 
     def test_webhook_health_stat_model_exists(self):
         """WH2: WebhookHealthStat model should exist."""
         from database.models.billing_extended import WebhookHealthStat
+
         assert WebhookHealthStat is not None
 
     def test_webhook_health_stat_tablename(self):
         """WH2: WebhookHealthStat table name should be webhook_health_stats."""
         from database.models.billing_extended import WebhookHealthStat
+
         assert WebhookHealthStat.__tablename__ == "webhook_health_stats"
 
 
@@ -653,8 +654,7 @@ class TestWebhookHealthService:
         from app.services.webhook_health_service import get_webhook_health_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         svc = get_webhook_health_service()
@@ -676,11 +676,12 @@ class TestWebhookHealthService:
         from app.services.webhook_health_service import get_webhook_health_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        mock_db.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = []
+        mock_db.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = (
+            []
+        )
 
         svc = get_webhook_health_service()
         result = svc.list_dead_letter_webhooks()
@@ -693,8 +694,7 @@ class TestWebhookHealthService:
         from app.services.webhook_health_service import get_webhook_health_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_db.query.return_value.filter.return_value.first.return_value = None
@@ -716,14 +716,15 @@ class TestWebhookHealthService:
         from app.services.webhook_health_service import get_webhook_health_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_unprocessed = MagicMock()
         mock_unprocessed.event_id = "evt_older"
         # Service: db.query(WebhookSequence).filter(company_id, status.in_([...]), occurred_at < dt).order_by(...).first()
-        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = mock_unprocessed
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            mock_unprocessed
+        )
 
         svc = get_webhook_health_service()
         result = svc.ensure_webhook_ordering(
@@ -740,8 +741,7 @@ class TestWebhookHealthService:
         from app.services.webhook_health_service import get_webhook_health_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         # Mock all query chains: last_sync, idempotency keys, existing events
@@ -808,8 +808,7 @@ class TestFinancialSafetyService:
         from app.services.financial_safety_service import get_financial_safety_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         svc = get_financial_safety_service()
@@ -818,7 +817,8 @@ class TestFinancialSafetyService:
         yesterday_mock = type("UR", (), {"tickets_used": 200})
 
         mock_db.query.return_value.filter.return_value.first.side_effect = [
-            today_mock, yesterday_mock
+            today_mock,
+            yesterday_mock,
         ]
 
         result = svc.check_anomaly(company_id=str(uuid.uuid4()))
@@ -832,8 +832,7 @@ class TestFinancialSafetyService:
         from app.services.financial_safety_service import get_financial_safety_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         svc = get_financial_safety_service()
@@ -842,7 +841,8 @@ class TestFinancialSafetyService:
         yesterday_mock = type("UR", (), {"tickets_used": 30})
 
         mock_db.query.return_value.filter.return_value.first.side_effect = [
-            today_mock, yesterday_mock
+            today_mock,
+            yesterday_mock,
         ]
 
         result = svc.check_anomaly(company_id=str(uuid.uuid4()))
@@ -855,8 +855,7 @@ class TestFinancialSafetyService:
         from app.services.financial_safety_service import get_financial_safety_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         svc = get_financial_safety_service()
@@ -865,7 +864,8 @@ class TestFinancialSafetyService:
         yesterday_mock = type("UR", (), {"tickets_used": 450})
 
         mock_db.query.return_value.filter.return_value.first.side_effect = [
-            today_mock, yesterday_mock
+            today_mock,
+            yesterday_mock,
         ]
 
         result = svc.check_anomaly(company_id=str(uuid.uuid4()))
@@ -878,8 +878,7 @@ class TestFinancialSafetyService:
         from app.services.financial_safety_service import get_financial_safety_service
 
         mock_db = MagicMock()
-        mock_session_cls.return_value.__enter__ = MagicMock(
-            return_value=mock_db)
+        mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_db.query.return_value.filter.return_value.all.return_value = []
@@ -887,7 +886,11 @@ class TestFinancialSafetyService:
         svc = get_financial_safety_service()
         result = svc.audit_invoices(company_id=str(uuid.uuid4()))
 
-        assert "matched" in result or "missing_local" in result or "missing_paddle" in result
+        assert (
+            "matched" in result
+            or "missing_local" in result
+            or "missing_paddle" in result
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -901,6 +904,7 @@ class TestChargebackWebhookHandler:
     def test_chargeback_handler_registered(self):
         """CB1: payment.chargeback.created handler should be registered."""
         from app.webhooks.paddle_handler import _PADDLE_HANDLERS
+
         assert "payment.chargeback.created" in _PADDLE_HANDLERS
 
     def test_chargeback_handler_processes_event(self):
@@ -932,6 +936,7 @@ class TestChargebackWebhookHandler:
     def test_chargeback_backward_compat_alias(self):
         """CB1: subscription.chargeback.created should also be registered."""
         from app.webhooks.paddle_handler import _PADDLE_HANDLERS
+
         assert "subscription.chargeback.created" in _PADDLE_HANDLERS
 
 
@@ -945,29 +950,47 @@ class TestDay5Migration:
 
     def test_migration_file_exists(self):
         """Day 5 migration file should exist."""
-        migration_path = _PROJECT_ROOT / "database" / "alembic" / \
-            "versions" / "024_day5_billing_protection.py"
-        assert migration_path.exists(
-        ), f"Migration file not found at {migration_path}"
+        migration_path = (
+            _PROJECT_ROOT
+            / "database"
+            / "alembic"
+            / "versions"
+            / "024_day5_billing_protection.py"
+        )
+        assert migration_path.exists(), f"Migration file not found at {migration_path}"
 
     def test_migration_creates_all_tables(self):
         """Migration should create all 6 Day 5 tables."""
-        migration_path = _PROJECT_ROOT / "database" / "alembic" / \
-            "versions" / "024_day5_billing_protection.py"
+        migration_path = (
+            _PROJECT_ROOT
+            / "database"
+            / "alembic"
+            / "versions"
+            / "024_day5_billing_protection.py"
+        )
         with open(migration_path) as f:
             content = f.read()
 
         expected_tables = [
-            "chargebacks", "credit_balances", "spending_caps",
-            "dead_letter_webhooks", "webhook_health_stats", "refund_audits",
+            "chargebacks",
+            "credit_balances",
+            "spending_caps",
+            "dead_letter_webhooks",
+            "webhook_health_stats",
+            "refund_audits",
         ]
         for table in expected_tables:
             assert table in content, f"Missing table {table} in migration"
 
     def test_migration_revision_chain(self):
         """Migration should reference 023_training_runs as down_revision."""
-        migration_path = _PROJECT_ROOT / "database" / "alembic" / \
-            "versions" / "024_day5_billing_protection.py"
+        migration_path = (
+            _PROJECT_ROOT
+            / "database"
+            / "alembic"
+            / "versions"
+            / "024_day5_billing_protection.py"
+        )
         with open(migration_path) as f:
             content = f.read()
         assert "023_training_runs" in content

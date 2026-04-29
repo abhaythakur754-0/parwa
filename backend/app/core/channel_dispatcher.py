@@ -102,9 +102,7 @@ class ChannelDispatcher:
                 "dispatch_ticket_not_found",
                 extra={"company_id": company_id, "ticket_id": ticket_id},
             )
-            return {
-                "status": "error",
-                "error": f"Ticket {ticket_id} not found"}
+            return {"status": "error", "error": f"Ticket {ticket_id} not found"}
 
         channel = ticket.channel or "email"
 
@@ -142,9 +140,7 @@ class ChannelDispatcher:
                 return self._dispatch_voice(
                     company_id=company_id,
                     ticket=ticket,
-                    ai_response_text=(
-                        ai_response_text or strip_html(ai_response_html)
-                    ),
+                    ai_response_text=(ai_response_text or strip_html(ai_response_html)),
                     role=role,
                     model_used=model_used,
                 )
@@ -217,6 +213,7 @@ class ChannelDispatcher:
                 extra={"error": str(exc)[:200]},
             )
             from app.services.outbound_email_service import OutboundEmailService
+
             service = OutboundEmailService(self.db)
             return service.send_email_reply(
                 company_id=company_id,
@@ -250,10 +247,12 @@ class ChannelDispatcher:
                 role=role,
                 channel="chat",
                 content=ai_response_text or strip_html(ai_response_html),
-                metadata_json=json.dumps({
-                    "source": "ai_response",
-                    "model_used": model_used,
-                }),
+                metadata_json=json.dumps(
+                    {
+                        "source": "ai_response",
+                        "model_used": model_used,
+                    }
+                ),
             )
             self.db.add(message)
 
@@ -266,6 +265,7 @@ class ChannelDispatcher:
             # Emit via Socket.io using run_async_coro (G-02 fix)
             try:
                 from app.core.event_emitter import emit_ticket_event
+
                 run_async_coro(
                     emit_ticket_event(
                         company_id=company_id,
@@ -301,11 +301,7 @@ class ChannelDispatcher:
                     "error": str(exc)[:200],
                 },
             )
-            return {
-                "status": "error",
-                "channel": "chat",
-                "error": str(exc)[
-                    :200]}
+            return {"status": "error", "channel": "chat", "error": str(exc)[:200]}
 
     def _dispatch_sms(
         self,
@@ -340,12 +336,14 @@ class ChannelDispatcher:
                 role=role,
                 channel="sms",
                 content=(ai_response_text or "")[:1600],
-                metadata_json=json.dumps({
-                    "source": "ai_response",
-                    "model_used": model_used,
-                    "dispatch_status": "failed",
-                    "error": "No customer phone number found on ticket",
-                }),
+                metadata_json=json.dumps(
+                    {
+                        "source": "ai_response",
+                        "model_used": model_used,
+                        "dispatch_status": "failed",
+                        "error": "No customer phone number found on ticket",
+                    }
+                ),
             )
             self.db.add(message)
             self.db.commit()
@@ -367,13 +365,15 @@ class ChannelDispatcher:
             role=role,
             channel="sms",
             content=sms_body[:200],  # Preview for ticket view
-            metadata_json=json.dumps({
-                "source": "ai_response",
-                "model_used": model_used,
-                "dispatch_status": "dispatching",
-                "to_number": to_number,
-                "body_length": len(sms_body),
-            }),
+            metadata_json=json.dumps(
+                {
+                    "source": "ai_response",
+                    "model_used": model_used,
+                    "dispatch_status": "dispatching",
+                    "to_number": to_number,
+                    "body_length": len(sms_body),
+                }
+            ),
         )
         self.db.add(message)
 
@@ -552,9 +552,11 @@ class ChannelDispatcher:
         # 1 & 2: Check ticket metadata (populated by SMS inbound pipeline)
         if ticket.metadata_json:
             try:
-                meta = (json.loads(ticket.metadata_json)
-                        if isinstance(ticket.metadata_json, str)
-                        else ticket.metadata_json)
+                meta = (
+                    json.loads(ticket.metadata_json)
+                    if isinstance(ticket.metadata_json, str)
+                    else ticket.metadata_json
+                )
                 phone = meta.get("customer_number") or meta.get("from_number")
                 if phone:
                     return str(phone)
@@ -565,13 +567,19 @@ class ChannelDispatcher:
         if hasattr(ticket, "customer_id") and ticket.customer_id:
             try:
                 from database.models.customers import Customer
-                customer = self.db.query(Customer).filter(
-                    Customer.id == ticket.customer_id,
-                    Customer.company_id == ticket.company_id,
-                ).first()
+
+                customer = (
+                    self.db.query(Customer)
+                    .filter(
+                        Customer.id == ticket.customer_id,
+                        Customer.company_id == ticket.company_id,
+                    )
+                    .first()
+                )
                 if customer:
-                    phone = (getattr(customer, "phone", None)
-                             or getattr(customer, "phone_number", None))
+                    phone = getattr(customer, "phone", None) or getattr(
+                        customer, "phone_number", None
+                    )
                     if phone:
                         return str(phone)
             except Exception as exc:
@@ -602,16 +610,21 @@ class ChannelDispatcher:
         after fire-and-forget async execution).
         """
         try:
-            message = self.db.query(TicketMessage).filter(
-                TicketMessage.id == message_id,
-            ).first()
+            message = (
+                self.db.query(TicketMessage)
+                .filter(
+                    TicketMessage.id == message_id,
+                )
+                .first()
+            )
             if not message:
                 return
 
             # Parse existing metadata and merge
             try:
-                meta = (json.loads(message.metadata_json)
-                        if message.metadata_json else {})
+                meta = (
+                    json.loads(message.metadata_json) if message.metadata_json else {}
+                )
             except (json.JSONDecodeError, TypeError):
                 meta = {}
 
@@ -663,12 +676,14 @@ class ChannelDispatcher:
             role=role,
             channel="voice",
             content=ai_response_text,
-            metadata_json=json.dumps({
-                "source": "ai_response",
-                "model_used": model_used,
-                "dispatch_status": "stored",
-                "note": "Voice delivery requires TTS pipeline integration",
-            }),
+            metadata_json=json.dumps(
+                {
+                    "source": "ai_response",
+                    "model_used": model_used,
+                    "dispatch_status": "stored",
+                    "note": "Voice delivery requires TTS pipeline integration",
+                }
+            ),
         )
         self.db.add(message)
 
@@ -719,11 +734,13 @@ class ChannelDispatcher:
             role=role,
             channel=ticket.channel or "internal",
             content=ai_response_text or strip_html(ai_response_html),
-            metadata_json=json.dumps({
-                "source": "ai_response",
-                "model_used": model_used,
-                "confidence": confidence,
-            }),
+            metadata_json=json.dumps(
+                {
+                    "source": "ai_response",
+                    "model_used": model_used,
+                    "confidence": confidence,
+                }
+            ),
         )
         self.db.add(message)
 

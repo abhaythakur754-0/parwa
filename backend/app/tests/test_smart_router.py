@@ -26,7 +26,6 @@ from app.core.smart_router import (
     MODEL_REGISTRY,
 )
 
-
 # ── Fixtures ─────────────────────────────────────────────────────
 
 
@@ -44,31 +43,23 @@ COMPANY_ID = "test-company-123"
 class TestRouteReturnsDecision:
     def test_light_step_returns_light_model(self, router: SmartRouter):
         decision = router.route(
-            COMPANY_ID,
-            "parwa",
-            AtomicStepType.INTENT_CLASSIFICATION)
+            COMPANY_ID, "parwa", AtomicStepType.INTENT_CLASSIFICATION
+        )
         assert isinstance(decision, RoutingDecision)
         assert decision.tier == ModelTier.LIGHT
 
     def test_medium_step_returns_medium_model(self, router: SmartRouter):
-        decision = router.route(
-            COMPANY_ID,
-            "parwa",
-            AtomicStepType.MAD_ATOM_REASONING)
+        decision = router.route(COMPANY_ID, "parwa", AtomicStepType.MAD_ATOM_REASONING)
         assert isinstance(decision, RoutingDecision)
         assert decision.tier == ModelTier.MEDIUM
 
     def test_guardrail_step_returns_guardrail(self, router: SmartRouter):
-        decision = router.route(
-            COMPANY_ID,
-            "parwa",
-            AtomicStepType.GUARDRAIL_CHECK)
+        decision = router.route(COMPANY_ID, "parwa", AtomicStepType.GUARDRAIL_CHECK)
         assert isinstance(decision, RoutingDecision)
         assert decision.tier == ModelTier.GUARDRAIL
 
     def test_decision_has_required_fields(self, router: SmartRouter):
-        decision = router.route(
-            COMPANY_ID, "parwa", AtomicStepType.FAKE_VOTING)
+        decision = router.route(COMPANY_ID, "parwa", AtomicStepType.FAKE_VOTING)
         assert decision.atomic_step_type == AtomicStepType.FAKE_VOTING
         assert decision.model_config is not None
         assert decision.provider in list(ModelProvider)
@@ -85,24 +76,19 @@ class TestVariantGating:
         # MAD_ATOM_REASONING is mapped to MEDIUM, but mini_parwa only gets
         # LIGHT
         decision = router.route(
-            COMPANY_ID,
-            "mini_parwa",
-            AtomicStepType.MAD_ATOM_REASONING)
+            COMPANY_ID, "mini_parwa", AtomicStepType.MAD_ATOM_REASONING
+        )
         assert decision.tier in (ModelTier.LIGHT, ModelTier.GUARDRAIL)
 
     def test_parwa_gets_medium(self, router: SmartRouter):
-        decision = router.route(
-            COMPANY_ID,
-            "parwa",
-            AtomicStepType.MAD_ATOM_REASONING)
+        decision = router.route(COMPANY_ID, "parwa", AtomicStepType.MAD_ATOM_REASONING)
         assert decision.tier == ModelTier.MEDIUM
 
     def test_high_parwa_gets_heavy(self, router: SmartRouter):
         # DRAFT_RESPONSE_COMPLEX mapped to MEDIUM, but high_parwa should get it
         decision = router.route(
-            COMPANY_ID,
-            "high_parwa",
-            AtomicStepType.DRAFT_RESPONSE_COMPLEX)
+            COMPANY_ID, "high_parwa", AtomicStepType.DRAFT_RESPONSE_COMPLEX
+        )
         # This step is mapped to MEDIUM, high_parwa should allow MEDIUM
         assert decision.tier in (ModelTier.MEDIUM, ModelTier.LIGHT)
 
@@ -117,16 +103,14 @@ class TestVariantGating:
 class TestUnknownVariant:
     def test_defaults_to_mini_parwa(self, router: SmartRouter):
         decision = router.route(
-            COMPANY_ID,
-            "unknown_variant_xyz",
-            AtomicStepType.INTENT_CLASSIFICATION)
+            COMPANY_ID, "unknown_variant_xyz", AtomicStepType.INTENT_CLASSIFICATION
+        )
         # mini_parwa only allows LIGHT, so a MEDIUM step should degrade to
         # LIGHT
         assert decision.tier in (ModelTier.LIGHT, ModelTier.GUARDRAIL)
 
     def test_empty_variant_defaults_to_mini_parwa(self, router: SmartRouter):
-        decision = router.route(
-            COMPANY_ID, "", AtomicStepType.INTENT_CLASSIFICATION)
+        decision = router.route(COMPANY_ID, "", AtomicStepType.INTENT_CLASSIFICATION)
         assert decision.tier == ModelTier.LIGHT
 
 
@@ -136,24 +120,27 @@ class TestUnknownVariant:
 class TestBC008NeverCrashes:
     @pytest.mark.parametrize("step", list(AtomicStepType))
     def test_route_never_crashes_for_any_step(
-            self, router: SmartRouter, step: AtomicStepType):
+        self, router: SmartRouter, step: AtomicStepType
+    ):
         decision = router.route(COMPANY_ID, "parwa", step)
         assert isinstance(decision, RoutingDecision)
 
     def test_route_with_none_variant(self, router: SmartRouter):
         decision = router.route(
-            COMPANY_ID,
-            None,
-            AtomicStepType.INTENT_CLASSIFICATION)  # type: ignore
+            COMPANY_ID, None, AtomicStepType.INTENT_CLASSIFICATION
+        )  # type: ignore
         assert isinstance(decision, RoutingDecision)
 
     def test_route_batch_never_crashes(self, router: SmartRouter):
-        decisions = router.route_batch(COMPANY_ID,
-                                       "parwa",
-                                       [AtomicStepType.INTENT_CLASSIFICATION,
-                                        AtomicStepType.FAKE_VOTING,
-                                        AtomicStepType.GUARDRAIL_CHECK],
-                                       )
+        decisions = router.route_batch(
+            COMPANY_ID,
+            "parwa",
+            [
+                AtomicStepType.INTENT_CLASSIFICATION,
+                AtomicStepType.FAKE_VOTING,
+                AtomicStepType.GUARDRAIL_CHECK,
+            ],
+        )
         assert len(decisions) == 3
         for d in decisions:
             assert isinstance(d, RoutingDecision)
@@ -237,23 +224,21 @@ class TestSharedHealthState:
 
 class TestModelRegistry:
     def test_has_light_models(self):
-        light = [m for m in MODEL_REGISTRY.values() if m.tier
-                 == ModelTier.LIGHT]
+        light = [m for m in MODEL_REGISTRY.values() if m.tier == ModelTier.LIGHT]
         assert len(light) >= 2
 
     def test_has_medium_models(self):
-        medium = [m for m in MODEL_REGISTRY.values() if m.tier
-                  == ModelTier.MEDIUM]
+        medium = [m for m in MODEL_REGISTRY.values() if m.tier == ModelTier.MEDIUM]
         assert len(medium) >= 2
 
     def test_has_heavy_models(self):
-        heavy = [m for m in MODEL_REGISTRY.values() if m.tier
-                 == ModelTier.HEAVY]
+        heavy = [m for m in MODEL_REGISTRY.values() if m.tier == ModelTier.HEAVY]
         assert len(heavy) >= 2
 
     def test_has_guardrail_model(self):
-        guardrail = [m for m in MODEL_REGISTRY.values() if m.tier
-                     == ModelTier.GUARDRAIL]
+        guardrail = [
+            m for m in MODEL_REGISTRY.values() if m.tier == ModelTier.GUARDRAIL
+        ]
         assert len(guardrail) >= 1
 
 
@@ -262,17 +247,19 @@ class TestModelRegistry:
 
 class TestTechniqueBoosted:
     def test_cot_reasoning_is_technique_boosted(self):
-        assert SmartRouter._is_technique_boosted(
-            AtomicStepType.COT_REASONING) is True
+        assert SmartRouter._is_technique_boosted(AtomicStepType.COT_REASONING) is True
 
     def test_fake_voting_is_technique_boosted(self):
-        assert SmartRouter._is_technique_boosted(
-            AtomicStepType.FAKE_VOTING) is True
+        assert SmartRouter._is_technique_boosted(AtomicStepType.FAKE_VOTING) is True
 
     def test_mad_atom_reasoning_is_not_technique_boosted(self):
-        assert SmartRouter._is_technique_boosted(
-            AtomicStepType.MAD_ATOM_REASONING) is False
+        assert (
+            SmartRouter._is_technique_boosted(AtomicStepType.MAD_ATOM_REASONING)
+            is False
+        )
 
     def test_draft_response_complex_is_not_technique_boosted(self):
-        assert SmartRouter._is_technique_boosted(
-            AtomicStepType.DRAFT_RESPONSE_COMPLEX) is False
+        assert (
+            SmartRouter._is_technique_boosted(AtomicStepType.DRAFT_RESPONSE_COMPLEX)
+            is False
+        )

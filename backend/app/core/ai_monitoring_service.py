@@ -58,6 +58,7 @@ _WINDOW_SECONDS: Dict[str, int] = {
 @dataclass
 class MetricPoint:
     """Single data point with timestamp and labels."""
+
     timestamp: str
     value: float
     labels: Dict[str, str] = field(default_factory=dict)
@@ -66,6 +67,7 @@ class MetricPoint:
 @dataclass
 class LatencyStats:
     """Aggregated latency statistics."""
+
     avg: float
     p50: float
     p90: float
@@ -78,10 +80,16 @@ class LatencyStats:
 @dataclass
 class ConfidenceDistribution:
     """Confidence score distribution across buckets."""
-    buckets: Dict[str, int] = field(default_factory=lambda: {
-        "0-20": 0, "20-40": 0, "40-60": 0,
-        "60-80": 0, "80-100": 0,
-    })
+
+    buckets: Dict[str, int] = field(
+        default_factory=lambda: {
+            "0-20": 0,
+            "20-40": 0,
+            "40-60": 0,
+            "60-80": 0,
+            "80-100": 0,
+        }
+    )
     avg_score: float = 50.0
     pass_rate: float = 1.0
     total_count: int = 0
@@ -90,6 +98,7 @@ class ConfidenceDistribution:
 @dataclass
 class GuardrailLayerBreakdown:
     """Per-layer guardrail statistics."""
+
     layer: str
     passed: int = 0
     blocked: int = 0
@@ -99,6 +108,7 @@ class GuardrailLayerBreakdown:
 @dataclass
 class GuardrailStats:
     """Aggregated guardrail statistics."""
+
     pass_rate: float = 1.0
     block_rate: float = 0.0
     flagged_rate: float = 0.0
@@ -109,6 +119,7 @@ class GuardrailStats:
 @dataclass
 class ProviderComparison:
     """Side-by-side provider comparison."""
+
     provider: str
     latency: Optional[LatencyStats] = None
     error_rate: float = 0.0
@@ -119,6 +130,7 @@ class ProviderComparison:
 @dataclass
 class BlockedResponseMetrics:
     """Blocked response queue metrics."""
+
     total_blocked: int = 0
     pending_review: int = 0
     approved: int = 0
@@ -130,6 +142,7 @@ class BlockedResponseMetrics:
 @dataclass
 class TokenUsageMetrics:
     """Token usage metrics (estimated from text length)."""
+
     total_input_tokens: int = 0
     total_output_tokens: int = 0
     avg_input_per_request: float = 0.0
@@ -140,6 +153,7 @@ class TokenUsageMetrics:
 @dataclass
 class ErrorMetrics:
     """Error tracking metrics."""
+
     total_errors: int = 0
     error_rate: float = 0.0
     error_by_type: Dict[str, int] = field(default_factory=dict)
@@ -149,6 +163,7 @@ class ErrorMetrics:
 @dataclass
 class AlertCondition:
     """An anomalous condition detected by the monitoring service."""
+
     condition_id: str
     level: str
     message: str
@@ -162,12 +177,13 @@ class AlertCondition:
 @dataclass
 class DashboardSnapshot:
     """Complete dashboard data for one company."""
+
     latency: Dict[str, LatencyStats] = field(default_factory=dict)
-    confidence: ConfidenceDistribution = field(
-        default_factory=ConfidenceDistribution)
+    confidence: ConfidenceDistribution = field(default_factory=ConfidenceDistribution)
     guardrails: GuardrailStats = field(default_factory=GuardrailStats)
     blocked_responses: BlockedResponseMetrics = field(
-        default_factory=BlockedResponseMetrics)
+        default_factory=BlockedResponseMetrics
+    )
     token_usage: TokenUsageMetrics = field(default_factory=TokenUsageMetrics)
     errors: ErrorMetrics = field(default_factory=ErrorMetrics)
     alerts: List[AlertCondition] = field(default_factory=list)
@@ -322,27 +338,19 @@ class AIMonitoringService:
                 "model_id": (routing_decision or {}).get("model_id", "unknown"),
                 "tier": (routing_decision or {}).get("tier", "unknown"),
                 "step": (routing_decision or {}).get("step", "unknown"),
-                "confidence_score": (confidence_result or {}).get(
-                    "overall_score", 0.0
-                ),
-                "confidence_passed": (confidence_result or {}).get(
-                    "passed", True
-                ),
+                "confidence_score": (confidence_result or {}).get("overall_score", 0.0),
+                "confidence_passed": (confidence_result or {}).get("passed", True),
                 "confidence_threshold": (confidence_result or {}).get(
                     "threshold", 85.0
                 ),
-                "guardrails_passed": (guardrails_report or {}).get(
-                    "passed", True
-                ),
+                "guardrails_passed": (guardrails_report or {}).get("passed", True),
                 "guardrails_blocked_count": (guardrails_report or {}).get(
                     "blocked_count", 0
                 ),
                 "guardrails_flagged_count": (guardrails_report or {}).get(
                     "flagged_count", 0
                 ),
-                "guardrail_layers": (guardrails_report or {}).get(
-                    "results", []
-                ),
+                "guardrail_layers": (guardrails_report or {}).get("results", []),
                 "error": error,
                 "has_error": error is not None,
             }
@@ -358,7 +366,8 @@ class AIMonitoringService:
 
         except Exception:
             logger.exception(
-                "monitoring_record_query_failed company_id=%s", company_id,
+                "monitoring_record_query_failed company_id=%s",
+                company_id,
             )
             return {}
 
@@ -374,12 +383,21 @@ class AIMonitoringService:
         """Get latency statistics for a given scope and time window."""
         try:
             values = self._get_filtered_field(
-                company_id, "latency_ms", provider, model_id, window,
+                company_id,
+                "latency_ms",
+                provider,
+                model_id,
+                window,
             )
             if not values:
                 return LatencyStats(
-                    avg=0.0, p50=0.0, p90=0.0, p99=0.0,
-                    min_val=0.0, max_val=0.0, count=0,
+                    avg=0.0,
+                    p50=0.0,
+                    p90=0.0,
+                    p99=0.0,
+                    min_val=0.0,
+                    max_val=0.0,
+                    count=0,
                 )
             sorted_vals = sorted(values)
             return LatencyStats(
@@ -397,8 +415,13 @@ class AIMonitoringService:
                 company_id,
             )
             return LatencyStats(
-                avg=0.0, p50=0.0, p90=0.0, p99=0.0,
-                min_val=0.0, max_val=0.0, count=0,
+                avg=0.0,
+                p50=0.0,
+                p90=0.0,
+                p99=0.0,
+                min_val=0.0,
+                max_val=0.0,
+                count=0,
             )
 
     # ── Confidence Metrics ─────────────────────────────────────
@@ -411,14 +434,20 @@ class AIMonitoringService:
         """Get confidence score distribution for a time window."""
         try:
             records = self._get_filtered_records(
-                company_id, None, None, window,
+                company_id,
+                None,
+                None,
+                window,
             )
             if not records:
                 return ConfidenceDistribution()
 
             buckets: Dict[str, int] = {
-                "0-20": 0, "20-40": 0, "40-60": 0,
-                "60-80": 0, "80-100": 0,
+                "0-20": 0,
+                "20-40": 0,
+                "40-60": 0,
+                "60-80": 0,
+                "80-100": 0,
             }
             scores: List[float] = []
             passed_count = 0
@@ -458,7 +487,10 @@ class AIMonitoringService:
         """Get guardrail pass/block/flag statistics."""
         try:
             records = self._get_filtered_records(
-                company_id, None, None, window,
+                company_id,
+                None,
+                None,
+                window,
             )
             if not records:
                 return GuardrailStats()
@@ -523,7 +555,10 @@ class AIMonitoringService:
         """Get blocked response queue metrics."""
         try:
             records = self._get_filtered_records(
-                company_id, None, None, window,
+                company_id,
+                None,
+                None,
+                window,
             )
             metrics = BlockedResponseMetrics()
             for r in records:
@@ -535,7 +570,8 @@ class AIMonitoringService:
             return metrics
         except Exception:
             logger.exception(
-                "monitoring_get_blocked_failed company_id=%s", company_id,
+                "monitoring_get_blocked_failed company_id=%s",
+                company_id,
             )
             return BlockedResponseMetrics()
 
@@ -549,7 +585,10 @@ class AIMonitoringService:
         """Get estimated token usage statistics."""
         try:
             records = self._get_filtered_records(
-                company_id, None, None, window,
+                company_id,
+                None,
+                None,
+                window,
             )
             if not records:
                 return TokenUsageMetrics()
@@ -561,12 +600,12 @@ class AIMonitoringService:
             return TokenUsageMetrics(
                 total_input_tokens=total_input,
                 total_output_tokens=total_output,
-                avg_input_per_request=round(
-                    total_input / total, 1
-                ) if total > 0 else 0.0,
-                avg_output_per_request=round(
-                    total_output / total, 1
-                ) if total > 0 else 0.0,
+                avg_input_per_request=(
+                    round(total_input / total, 1) if total > 0 else 0.0
+                ),
+                avg_output_per_request=(
+                    round(total_output / total, 1) if total > 0 else 0.0
+                ),
                 total_requests=total,
             )
         except Exception:
@@ -586,7 +625,10 @@ class AIMonitoringService:
         """Get error tracking metrics."""
         try:
             records = self._get_filtered_records(
-                company_id, None, None, window,
+                company_id,
+                None,
+                None,
+                window,
             )
             if not records:
                 return ErrorMetrics()
@@ -630,50 +672,57 @@ class AIMonitoringService:
 
             for provider in all_providers:
                 provider_records = self._get_filtered_records(
-                    company_id, provider, None, window,
+                    company_id,
+                    provider,
+                    None,
+                    window,
                 )
 
                 if not provider_records:
-                    comparisons.append(ProviderComparison(
-                        provider=provider, requests_count=0,
-                    ))
+                    comparisons.append(
+                        ProviderComparison(
+                            provider=provider,
+                            requests_count=0,
+                        )
+                    )
                     continue
 
                 latencies = [
-                    r["latency_ms"] for r in provider_records
+                    r["latency_ms"]
+                    for r in provider_records
                     if r.get("latency_ms", 0) > 0
                 ]
-                errors = [
-                    r for r in provider_records if r.get("has_error", False)
-                ]
+                errors = [r for r in provider_records if r.get("has_error", False)]
                 scores = [
-                    r["confidence_score"] for r in provider_records
+                    r["confidence_score"]
+                    for r in provider_records
                     if r.get("confidence_score", 0) > 0
                 ]
 
                 sorted_lat = sorted(latencies) if latencies else []
-                comparisons.append(ProviderComparison(
-                    provider=provider,
-                    latency=LatencyStats(
-                        avg=round(sum(latencies) / len(latencies), 2)
-                        if latencies else 0.0,
-                        p50=round(_percentile(sorted_lat, 50), 2),
-                        p90=round(_percentile(sorted_lat, 90), 2),
-                        p99=round(_percentile(sorted_lat, 99), 2),
-                        min_val=round(min(latencies), 2)
-                        if latencies else 0.0,
-                        max_val=round(max(latencies), 2)
-                        if latencies else 0.0,
-                        count=len(latencies),
-                    ),
-                    error_rate=round(
-                        len(errors) / len(provider_records), 4
-                    ),
-                    confidence_avg=round(
-                        sum(scores) / len(scores), 2
-                    ) if scores else 0.0,
-                    requests_count=len(provider_records),
-                ))
+                comparisons.append(
+                    ProviderComparison(
+                        provider=provider,
+                        latency=LatencyStats(
+                            avg=(
+                                round(sum(latencies) / len(latencies), 2)
+                                if latencies
+                                else 0.0
+                            ),
+                            p50=round(_percentile(sorted_lat, 50), 2),
+                            p90=round(_percentile(sorted_lat, 90), 2),
+                            p99=round(_percentile(sorted_lat, 99), 2),
+                            min_val=round(min(latencies), 2) if latencies else 0.0,
+                            max_val=round(max(latencies), 2) if latencies else 0.0,
+                            count=len(latencies),
+                        ),
+                        error_rate=round(len(errors) / len(provider_records), 4),
+                        confidence_avg=(
+                            round(sum(scores) / len(scores), 2) if scores else 0.0
+                        ),
+                        requests_count=len(provider_records),
+                    )
+                )
 
             return comparisons
         except Exception:
@@ -693,7 +742,10 @@ class AIMonitoringService:
         """Get metrics broken down by variant type."""
         try:
             records = self._get_filtered_records(
-                company_id, None, None, window,
+                company_id,
+                None,
+                None,
+                window,
             )
             by_variant: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
             for r in records:
@@ -704,37 +756,28 @@ class AIMonitoringService:
             for variant, v_records in by_variant.items():
                 total = len(v_records)
                 latencies = [
-                    r["latency_ms"] for r in v_records
-                    if r.get("latency_ms", 0) > 0
+                    r["latency_ms"] for r in v_records if r.get("latency_ms", 0) > 0
                 ]
                 scores = [
-                    r["confidence_score"] for r in v_records
+                    r["confidence_score"]
+                    for r in v_records
                     if r.get("confidence_score", 0) > 0
                 ]
-                errors = [
-                    r for r in v_records if r.get("has_error", False)
-                ]
-                blocked = [
-                    r for r in v_records
-                    if not r.get("guardrails_passed", True)
-                ]
+                errors = [r for r in v_records if r.get("has_error", False)]
+                blocked = [r for r in v_records if not r.get("guardrails_passed", True)]
 
                 result[variant] = {
                     "total_requests": total,
-                    "avg_latency": round(
-                        sum(latencies) / len(latencies), 2
-                    ) if latencies else 0.0,
-                    "avg_confidence": round(
-                        sum(scores) / len(scores), 2
-                    ) if scores else 0.0,
+                    "avg_latency": (
+                        round(sum(latencies) / len(latencies), 2) if latencies else 0.0
+                    ),
+                    "avg_confidence": (
+                        round(sum(scores) / len(scores), 2) if scores else 0.0
+                    ),
                     "error_count": len(errors),
-                    "error_rate": round(
-                        len(errors) / total, 4
-                    ) if total > 0 else 0.0,
+                    "error_rate": round(len(errors) / total, 4) if total > 0 else 0.0,
                     "blocked_count": len(blocked),
-                    "block_rate": round(
-                        len(blocked) / total, 4
-                    ) if total > 0 else 0.0,
+                    "block_rate": round(len(blocked) / total, 4) if total > 0 else 0.0,
                 }
 
             return result
@@ -767,79 +810,86 @@ class AIMonitoringService:
             # 1. Error rate checks
             error_metrics = self.get_error_metrics(company_id, "1h")
             if error_metrics.error_rate > 0.25:
-                alerts.append(AlertCondition(
-                    condition_id="error_rate_critical",
-                    level=AlertLevel.CRITICAL.value,
-                    message=(
-                        "Critical error rate: "
-                        f"{error_metrics.error_rate * 100:.1f}% "
-                        f"({error_metrics.total_errors} errors)"
-                    ),
-                    metric_value=error_metrics.error_rate * 100,
-                    threshold=25.0,
-                    timestamp=_now_utc(),
-                ))
+                alerts.append(
+                    AlertCondition(
+                        condition_id="error_rate_critical",
+                        level=AlertLevel.CRITICAL.value,
+                        message=(
+                            "Critical error rate: "
+                            f"{error_metrics.error_rate * 100:.1f}% "
+                            f"({error_metrics.total_errors} errors)"
+                        ),
+                        metric_value=error_metrics.error_rate * 100,
+                        threshold=25.0,
+                        timestamp=_now_utc(),
+                    )
+                )
             elif error_metrics.error_rate > 0.10:
-                alerts.append(AlertCondition(
-                    condition_id="error_rate_warning",
-                    level=AlertLevel.WARNING.value,
-                    message=(
-                        "Elevated error rate: "
-                        f"{error_metrics.error_rate * 100:.1f}%"
-                    ),
-                    metric_value=error_metrics.error_rate * 100,
-                    threshold=10.0,
-                    timestamp=_now_utc(),
-                ))
+                alerts.append(
+                    AlertCondition(
+                        condition_id="error_rate_warning",
+                        level=AlertLevel.WARNING.value,
+                        message=(
+                            "Elevated error rate: "
+                            f"{error_metrics.error_rate * 100:.1f}%"
+                        ),
+                        metric_value=error_metrics.error_rate * 100,
+                        threshold=10.0,
+                        timestamp=_now_utc(),
+                    )
+                )
 
             # 2. Confidence drop check
             conf_dist = self.get_confidence_distribution(company_id, "1h")
-            if (conf_dist.total_count > 0
-                    and conf_dist.avg_score < 60.0):
-                alerts.append(AlertCondition(
-                    condition_id="confidence_drop_warning",
-                    level=AlertLevel.WARNING.value,
-                    message=(
-                        "Low average confidence: "
-                        f"{conf_dist.avg_score:.1f}%"
-                    ),
-                    metric_value=conf_dist.avg_score,
-                    threshold=60.0,
-                    timestamp=_now_utc(),
-                ))
+            if conf_dist.total_count > 0 and conf_dist.avg_score < 60.0:
+                alerts.append(
+                    AlertCondition(
+                        condition_id="confidence_drop_warning",
+                        level=AlertLevel.WARNING.value,
+                        message=(
+                            "Low average confidence: " f"{conf_dist.avg_score:.1f}%"
+                        ),
+                        metric_value=conf_dist.avg_score,
+                        threshold=60.0,
+                        timestamp=_now_utc(),
+                    )
+                )
 
             # 3. Latency spike check
             latency = self.get_latency_stats(company_id, window=window)
             if latency.p90 > 5000.0 and latency.count > 0:
-                alerts.append(AlertCondition(
-                    condition_id="latency_spike_warning",
-                    level=AlertLevel.WARNING.value,
-                    message=(
-                        f"High P90 latency: {latency.p90:.0f}ms "
-                        "(threshold: 5000ms)"
-                    ),
-                    metric_value=latency.p90,
-                    threshold=5000.0,
-                    timestamp=_now_utc(),
-                ))
+                alerts.append(
+                    AlertCondition(
+                        condition_id="latency_spike_warning",
+                        level=AlertLevel.WARNING.value,
+                        message=(
+                            f"High P90 latency: {latency.p90:.0f}ms "
+                            "(threshold: 5000ms)"
+                        ),
+                        metric_value=latency.p90,
+                        threshold=5000.0,
+                        timestamp=_now_utc(),
+                    )
+                )
 
             # 4. Provider health check
             comparisons = self.get_provider_comparison(company_id, window)
             for comp in comparisons:
-                if (comp.requests_count > 0
-                        and comp.error_rate > 0.50):
-                    alerts.append(AlertCondition(
-                        condition_id=f"provider_unhealthy_{comp.provider}",
-                        level=AlertLevel.CRITICAL.value,
-                        message=(
-                            f"Provider {comp.provider} is unhealthy: "
-                            f"{comp.error_rate * 100:.1f}% error rate"
-                        ),
-                        metric_value=comp.error_rate * 100,
-                        threshold=50.0,
-                        timestamp=_now_utc(),
-                        provider=comp.provider,
-                    ))
+                if comp.requests_count > 0 and comp.error_rate > 0.50:
+                    alerts.append(
+                        AlertCondition(
+                            condition_id=f"provider_unhealthy_{comp.provider}",
+                            level=AlertLevel.CRITICAL.value,
+                            message=(
+                                f"Provider {comp.provider} is unhealthy: "
+                                f"{comp.error_rate * 100:.1f}% error rate"
+                            ),
+                            metric_value=comp.error_rate * 100,
+                            threshold=50.0,
+                            timestamp=_now_utc(),
+                            provider=comp.provider,
+                        )
+                    )
 
             # Store alerts
             with self._lock:
@@ -872,11 +922,15 @@ class AIMonitoringService:
 
             # Overall latency (all providers combined)
             overall_latency = self.get_latency_stats(
-                company_id, window=window,
+                company_id,
+                window=window,
             )
 
             all_records = self._get_filtered_records(
-                company_id, None, None, window,
+                company_id,
+                None,
+                None,
+                window,
             )
 
             snapshot = DashboardSnapshot(
@@ -885,18 +939,21 @@ class AIMonitoringService:
                     **latency_by_provider,
                 },
                 confidence=self.get_confidence_distribution(
-                    company_id, window,
+                    company_id,
+                    window,
                 ),
                 guardrails=self.get_guardrail_stats(company_id, window),
                 blocked_responses=self.get_blocked_metrics(
-                    company_id, window,
+                    company_id,
+                    window,
                 ),
                 token_usage=self.get_token_usage(company_id, window),
                 errors=self.get_error_metrics(company_id, window),
                 alerts=self.get_alert_conditions(company_id, window),
                 providers=comparisons,
                 variant_metrics=self.get_variant_metrics(
-                    company_id, window,
+                    company_id,
+                    window,
                 ),
                 snapshot_at=_now_utc(),
                 total_requests=len(all_records),
@@ -906,7 +963,8 @@ class AIMonitoringService:
 
         except Exception:
             logger.exception(
-                "monitoring_dashboard_failed company_id=%s", company_id,
+                "monitoring_dashboard_failed company_id=%s",
+                company_id,
             )
             return DashboardSnapshot(snapshot_at=_now_utc())
 
@@ -967,7 +1025,10 @@ class AIMonitoringService:
     ) -> List[float]:
         """Get a list of numeric field values from filtered records."""
         records = self._get_filtered_records(
-            company_id, provider, model_id, window,
+            company_id,
+            provider,
+            model_id,
+            window,
         )
         values = []
         for r in records:
@@ -983,7 +1044,10 @@ class AIMonitoringService:
     ) -> List[str]:
         """Get unique providers seen in a time window."""
         records = self._get_filtered_records(
-            company_id, None, None, window,
+            company_id,
+            None,
+            None,
+            window,
         )
         providers = set()
         for r in records:

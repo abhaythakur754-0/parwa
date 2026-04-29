@@ -620,55 +620,65 @@ _JAILBREAK_RULES: List[Dict[str, Any]] = [
 ]
 
 # ── Category 6: Encoding Tricks ──
-_ENCODING_TRICK_RULES: List[Dict[str,
-                                 Any]] = [{"pattern": re.compile(r"(?:^|\s)[A-Za-z0-9+/]{20,}={0,2}(?:\s|$)",
-                                                                 ),
-                                           "rule_id": "ENC-001",
-                                           "severity": "high",
-                                           "confidence": 0.85,
-                                           "description": "Suspicious Base64-encoded content (20+ chars)",
-                                           },
-                                          {"pattern": re.compile(r"[\u0400-\u04ff]",
-                                                                 ),
-                                           "rule_id": "ENC-002",
-                                           "severity": "medium",
-                                           "confidence": 0.70,
-                                           "description": "Cyrillic characters — possible Unicode homoglyph attack",
-                                           },
-                                          {"pattern": re.compile(r"[\u200b\u200c\u200d\u200e\u200f\ufeff\u2060\u2061\u2062"
-                                                                 r"\u2063\u2064]",
-                                                                 ),
-                                           "rule_id": "ENC-003",
-                                           "severity": "medium",
-                                           "confidence": 0.80,
-                                           "description": "Zero-width / invisible Unicode characters detected",
-                                           },
-                                          {"pattern": re.compile(r"(.)\1{10,}",
-                                                                 ),
-                                           "rule_id": "ENC-004",
-                                           "severity": "low",
-                                           "confidence": 0.60,
-                                           "description": "Excessive repeated characters (11+ same in a row)",
-                                           },
-                                          {"pattern": re.compile(r"[\u202a\u202b\u202c\u202d\u202e]"),
-                                           "rule_id": "ENC-005",
-                                           "severity": "high",
-                                           "confidence": 0.85,
-                                           "description": "Bidirectional text override characters (RTL/LTR) detected",
-                                           },
-                                          {"pattern": re.compile(r"%[0-9a-fA-F]{2}(?:[^%]*%[0-9a-fA-F]{2}){2,}"),
-                                           "rule_id": "ENC-006",
-                                           "severity": "high",
-                                           "confidence": 0.80,
-                                           "description": "URL-encoded payload detected (3+ percent-encoded bytes in query)",
-                                           },
-                                          {"pattern": re.compile(r"(?:^|\s)(?:\\x[0-9a-fA-F]{2}){3,}"),
-                                           "rule_id": "ENC-007",
-                                           "severity": "high",
-                                           "confidence": 0.80,
-                                           "description": "Hex-escaped payload detected (3+ consecutive \\xNN sequences)",
-                                           },
-                                          ]
+_ENCODING_TRICK_RULES: List[Dict[str, Any]] = [
+    {
+        "pattern": re.compile(
+            r"(?:^|\s)[A-Za-z0-9+/]{20,}={0,2}(?:\s|$)",
+        ),
+        "rule_id": "ENC-001",
+        "severity": "high",
+        "confidence": 0.85,
+        "description": "Suspicious Base64-encoded content (20+ chars)",
+    },
+    {
+        "pattern": re.compile(
+            r"[\u0400-\u04ff]",
+        ),
+        "rule_id": "ENC-002",
+        "severity": "medium",
+        "confidence": 0.70,
+        "description": "Cyrillic characters — possible Unicode homoglyph attack",
+    },
+    {
+        "pattern": re.compile(
+            r"[\u200b\u200c\u200d\u200e\u200f\ufeff\u2060\u2061\u2062" r"\u2063\u2064]",
+        ),
+        "rule_id": "ENC-003",
+        "severity": "medium",
+        "confidence": 0.80,
+        "description": "Zero-width / invisible Unicode characters detected",
+    },
+    {
+        "pattern": re.compile(
+            r"(.)\1{10,}",
+        ),
+        "rule_id": "ENC-004",
+        "severity": "low",
+        "confidence": 0.60,
+        "description": "Excessive repeated characters (11+ same in a row)",
+    },
+    {
+        "pattern": re.compile(r"[\u202a\u202b\u202c\u202d\u202e]"),
+        "rule_id": "ENC-005",
+        "severity": "high",
+        "confidence": 0.85,
+        "description": "Bidirectional text override characters (RTL/LTR) detected",
+    },
+    {
+        "pattern": re.compile(r"%[0-9a-fA-F]{2}(?:[^%]*%[0-9a-fA-F]{2}){2,}"),
+        "rule_id": "ENC-006",
+        "severity": "high",
+        "confidence": 0.80,
+        "description": "URL-encoded payload detected (3+ percent-encoded bytes in query)",
+    },
+    {
+        "pattern": re.compile(r"(?:^|\s)(?:\\x[0-9a-fA-F]{2}){3,}"),
+        "rule_id": "ENC-007",
+        "severity": "high",
+        "confidence": 0.80,
+        "description": "Hex-escaped payload detected (3+ consecutive \\xNN sequences)",
+    },
+]
 
 # ── Category 7: Social Engineering ──
 _SOCIAL_ENGINEERING_RULES: List[Dict[str, Any]] = [
@@ -870,45 +880,55 @@ _XSS_RULES: List[Dict[str, Any]] = [
 ]
 
 # ── Category 10: Token Smuggling (Day 4 additions) ──
-_TOKEN_SMUGGLING_RULES: List[Dict[str,
-                                  Any]] = [{"pattern": re.compile(r"\bROT13\b|\brot13\b",
-                                                                  re.IGNORECASE,
-                                                                  ),
-                                            "rule_id": "TSM-001",
-                                            "severity": "high",
-                                            "confidence": 0.85,
-                                            "description": "ROT13 encoding reference — possible token smuggling",
-                                            },
-                                           {"pattern": re.compile(r"(?:\\u[0-9a-fA-F]{4}){3,}",
-                                                                  ),
-                                            "rule_id": "TSM-002",
-                                            "severity": "high",
-                                            "confidence": 0.88,
-                                            "description": "Unicode escape sequences (3+ consecutive \\uXXXX) — possible token smuggling",
-                                            },
-                                           {"pattern": re.compile(r"&#x?[0-9a-fA-F]{2,4};(?:&#x?[0-9a-fA-F]{2,4};){2,}",
-                                                                  ),
-                                            "rule_id": "TSM-003",
-                                            "severity": "high",
-                                            "confidence": 0.85,
-                                            "description": "HTML numeric character references (3+ consecutive) — possible token smuggling",
-                                            },
-                                           {"pattern": re.compile(r"\b(?:base64|b64|decode|encode)\s+(?:decode|encode|it|this|the)\b",
-                                                                  re.IGNORECASE,
-                                                                  ),
-                                            "rule_id": "TSM-004",
-                                            "severity": "high",
-                                            "confidence": 0.82,
-                                            "description": "Explicit base64 decode/encode instruction — likely smuggling attempt",
-                                            },
-                                           {"pattern": re.compile(r"\\U[0-9a-fA-F]{8}",
-                                                                  ),
-                                            "rule_id": "TSM-005",
-                                            "severity": "high",
-                                            "confidence": 0.85,
-                                            "description": "Extended Unicode escape (\\UXXXXXXXX) — possible token smuggling",
-                                            },
-                                           ]
+_TOKEN_SMUGGLING_RULES: List[Dict[str, Any]] = [
+    {
+        "pattern": re.compile(
+            r"\bROT13\b|\brot13\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "TSM-001",
+        "severity": "high",
+        "confidence": 0.85,
+        "description": "ROT13 encoding reference — possible token smuggling",
+    },
+    {
+        "pattern": re.compile(
+            r"(?:\\u[0-9a-fA-F]{4}){3,}",
+        ),
+        "rule_id": "TSM-002",
+        "severity": "high",
+        "confidence": 0.88,
+        "description": "Unicode escape sequences (3+ consecutive \\uXXXX) — possible token smuggling",
+    },
+    {
+        "pattern": re.compile(
+            r"&#x?[0-9a-fA-F]{2,4};(?:&#x?[0-9a-fA-F]{2,4};){2,}",
+        ),
+        "rule_id": "TSM-003",
+        "severity": "high",
+        "confidence": 0.85,
+        "description": "HTML numeric character references (3+ consecutive) — possible token smuggling",
+    },
+    {
+        "pattern": re.compile(
+            r"\b(?:base64|b64|decode|encode)\s+(?:decode|encode|it|this|the)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "TSM-004",
+        "severity": "high",
+        "confidence": 0.82,
+        "description": "Explicit base64 decode/encode instruction — likely smuggling attempt",
+    },
+    {
+        "pattern": re.compile(
+            r"\\U[0-9a-fA-F]{8}",
+        ),
+        "rule_id": "TSM-005",
+        "severity": "high",
+        "confidence": 0.85,
+        "description": "Extended Unicode escape (\\UXXXXXXXX) — possible token smuggling",
+    },
+]
 
 # ── Category 11: Role-Play Attack Expansions (Day 4 additions) ──
 _ROLEPLAY_ADVANCED_RULES: List[Dict[str, Any]] = [
@@ -1381,7 +1401,9 @@ class PromptInjectionDetector:
         # Layer 3: Rate limiting (uses pre-fetched data)
         if rate_limit_count is not None:
             rate_match = self._check_rate_limit(
-                rate_limit_count, company_id, user_id,
+                rate_limit_count,
+                company_id,
+                user_id,
             )
             if rate_match is not None:
                 all_matches.append(rate_match)
@@ -1389,7 +1411,9 @@ class PromptInjectionDetector:
         # Layer 4: Tenant blocklist (uses pre-fetched data)
         if tenant_blocklist_patterns is not None:
             blocklist_match = self._check_tenant_blocklist(
-                query, company_id, tenant_blocklist_patterns,
+                query,
+                company_id,
+                tenant_blocklist_patterns,
             )
             if blocklist_match is not None:
                 all_matches.append(blocklist_match)
@@ -1440,7 +1464,9 @@ class PromptInjectionDetector:
         return matches
 
     def _detect_anomaly(
-        self, query: str, company_id: str,
+        self,
+        query: str,
+        company_id: str,
     ) -> Optional[InjectionMatch]:
         """Layer 2: Detect unusual query characteristics.
 
@@ -1499,8 +1525,7 @@ class PromptInjectionDetector:
         entropy = _shannon_entropy(query)
         if entropy > _ANOMALY_ENTROPY_THRESHOLD:
             anomalies.append(
-                f"entropy={entropy:.2f} "
-                f"(threshold={_ANOMALY_ENTROPY_THRESHOLD})"
+                f"entropy={entropy:.2f} " f"(threshold={_ANOMALY_ENTROPY_THRESHOLD})"
             )
             anomaly_score += 2.0
 
@@ -1612,9 +1637,7 @@ class PromptInjectionDetector:
                         confidence=0.95,
                         matched_text=matched_text,
                         rule_id=f"TBLK-{idx + 1:03d}",
-                        description=(
-                            f"Matched tenant blocklist pattern #{idx + 1}"
-                        ),
+                        description=(f"Matched tenant blocklist pattern #{idx + 1}"),
                     )
             except re.error:
                 # Invalid regex in blocklist — skip and log
@@ -1630,7 +1653,8 @@ class PromptInjectionDetector:
         return None
 
     def _determine_action(
-        self, matches: List[InjectionMatch],
+        self,
+        matches: List[InjectionMatch],
     ) -> tuple[str, str]:
         """Determine the action based on all detected matches.
 
@@ -1668,14 +1692,11 @@ class PromptInjectionDetector:
 
         # Calculate weighted score
         total_score = sum(
-            severity_weights.get(m.severity, 1.0) * m.confidence
-            for m in matches
+            severity_weights.get(m.severity, 1.0) * m.confidence for m in matches
         )
 
         if total_score >= 5.0:
-            return "blocked", (
-                f"weighted_score={total_score:.2f} exceeds threshold"
-            )
+            return "blocked", (f"weighted_score={total_score:.2f} exceeds threshold")
         elif total_score >= 2.0:
             return "logged", (
                 f"weighted_score={total_score:.2f} — logged for monitoring"
@@ -1770,7 +1791,8 @@ class InjectionDefenseService:
         """Internal safe scan with Redis + DB integration."""
         # Pre-fetch Redis data for rate limiting and blocklist
         rate_limit_count, tenant_blocklist = await self._fetch_redis_data(
-            company_id, user_id,
+            company_id,
+            user_id,
         )
 
         # Run sync detection with pre-fetched data
@@ -1825,7 +1847,9 @@ class InjectionDefenseService:
             # Fetch rate limit count
             user_key = user_id or "anon"
             rate_key = make_key(
-                company_id, "injection_rate", user_key,
+                company_id,
+                "injection_rate",
+                user_key,
             )
             raw_count = await redis_client.get(rate_key)
             if raw_count is not None:
@@ -1890,12 +1914,8 @@ class InjectionDefenseService:
         try:
             self.log_attempt(
                 company_id=company_id,
-                pattern_type=(
-                    best_match.pattern_type if best_match else "unknown"
-                ),
-                severity=(
-                    best_match.severity if best_match else "medium"
-                ),
+                pattern_type=(best_match.pattern_type if best_match else "unknown"),
+                severity=(best_match.severity if best_match else "medium"),
                 query_hash=result.query_hash,
                 query_preview=_truncate_preview(query),
                 detection_method=detection_method,
@@ -2063,9 +2083,7 @@ class InjectionDefenseService:
                     "action_taken": a.action_taken,
                     "user_id": a.user_id,
                     "ip_address": a.ip_address,
-                    "created_at": (
-                        a.created_at.isoformat() if a.created_at else None
-                    ),
+                    "created_at": (a.created_at.isoformat() if a.created_at else None),
                 }
                 for a in attempts
             ]
@@ -2237,11 +2255,13 @@ class InjectionDefenseService:
                     return True
 
             # Add new pattern
-            existing.append({
-                "pattern": pattern,
-                "description": description,
-                "added_at": datetime.now(timezone.utc).isoformat(),
-            })
+            existing.append(
+                {
+                    "pattern": pattern,
+                    "description": description,
+                    "added_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
 
             await redis_client.set(
                 blocklist_key,
@@ -2304,10 +2324,7 @@ class InjectionDefenseService:
             existing: List[Dict[str, str]] = json.loads(raw)
             original_len = len(existing)
 
-            existing = [
-                entry for entry in existing
-                if entry.get("pattern") != pattern
-            ]
+            existing = [entry for entry in existing if entry.get("pattern") != pattern]
 
             if len(existing) == original_len:
                 return False
@@ -2394,8 +2411,7 @@ class InjectionDefenseService:
 
         db = SessionLocal()
         try:
-            cutoff = datetime.now(timezone.utc) - \
-                timedelta(days=older_than_days)
+            cutoff = datetime.now(timezone.utc) - timedelta(days=older_than_days)
             deleted = (
                 db.query(PromptInjectionAttempt)
                 .filter(

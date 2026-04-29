@@ -22,7 +22,6 @@ from app.api.deps import get_current_user, get_db, require_roles
 from app.services.assignment_service import AssignmentService
 from app.exceptions import NotFoundError, ValidationError
 
-
 router = APIRouter(
     prefix="/tickets",
     tags=["ticket-assignment"],
@@ -39,8 +38,10 @@ rules_router = APIRouter(
 
 # ── SCHEMAS ────────────────────────────────────────────────────────────────
 
+
 class AssignmentScoreResult(BaseModel):
     """Assignment score result."""
+
     user_id: str
     name: str
     score: float
@@ -49,6 +50,7 @@ class AssignmentScoreResult(BaseModel):
 
 class AssignmentScoresResponse(BaseModel):
     """Assignment scores response."""
+
     ticket_id: str
     candidates: List[AssignmentScoreResult]
     recommended_assignee: Optional[AssignmentScoreResult]
@@ -57,6 +59,7 @@ class AssignmentScoresResponse(BaseModel):
 
 class AutoAssignResponse(BaseModel):
     """Auto-assign response."""
+
     ticket_id: str
     assigned: bool
     assignee_id: Optional[str]
@@ -68,12 +71,14 @@ class AutoAssignResponse(BaseModel):
 
 class ManualAssignRequest(BaseModel):
     """Manual assignment request."""
+
     assignee_id: str = Field(..., description="User ID to assign to")
     reason: Optional[str] = Field(None, description="Reason for assignment")
 
 
 class ManualAssignResponse(BaseModel):
     """Manual assignment response."""
+
     ticket_id: str
     previous_assignee: Optional[str]
     new_assignee: str
@@ -82,6 +87,7 @@ class ManualAssignResponse(BaseModel):
 
 class UnassignResponse(BaseModel):
     """Unassign response."""
+
     ticket_id: str
     previous_assignee: Optional[str]
     unassigned: bool
@@ -89,6 +95,7 @@ class UnassignResponse(BaseModel):
 
 class AssignmentHistoryItem(BaseModel):
     """Assignment history item."""
+
     id: str
     assignee_type: str
     assignee_id: Optional[str]
@@ -99,12 +106,14 @@ class AssignmentHistoryItem(BaseModel):
 
 class AssignmentHistoryResponse(BaseModel):
     """Assignment history response."""
+
     ticket_id: str
     history: List[AssignmentHistoryItem]
 
 
 class RuleCondition(BaseModel):
     """Rule condition schema."""
+
     priority: Optional[List[str]] = None
     category: Optional[List[str]] = None
     channel: Optional[List[str]] = None
@@ -113,6 +122,7 @@ class RuleCondition(BaseModel):
 
 class RuleAction(BaseModel):
     """Rule action schema."""
+
     assign_to_user: Optional[str] = None
     assign_to_pool: Optional[str] = None
     assignee_type: str = "human"
@@ -120,6 +130,7 @@ class RuleAction(BaseModel):
 
 class CreateRuleRequest(BaseModel):
     """Create rule request."""
+
     name: str = Field(..., min_length=1, max_length=255)
     conditions: Optional[Dict[str, Any]] = Field(default_factory=dict)
     action: Dict[str, Any]
@@ -129,6 +140,7 @@ class CreateRuleRequest(BaseModel):
 
 class UpdateRuleRequest(BaseModel):
     """Update rule request."""
+
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     conditions: Optional[Dict[str, Any]] = None
     action: Optional[Dict[str, Any]] = None
@@ -138,6 +150,7 @@ class UpdateRuleRequest(BaseModel):
 
 class RuleResponse(BaseModel):
     """Rule response."""
+
     id: str
     name: str
     conditions: Dict[str, Any]
@@ -150,11 +163,13 @@ class RuleResponse(BaseModel):
 
 class RuleListResponse(BaseModel):
     """Rule list response."""
+
     items: List[RuleResponse]
     total: int
 
 
 # ── TICKET ASSIGNMENT ENDPOINTS ────────────────────────────────────────────
+
 
 @router.post(
     "/{ticket_id}/assign/score",
@@ -180,12 +195,11 @@ async def get_assignment_scores(
 
         return AssignmentScoresResponse(
             ticket_id=result["ticket_id"],
-            candidates=[
-                AssignmentScoreResult(**c) for c in result["candidates"]
-            ],
+            candidates=[AssignmentScoreResult(**c) for c in result["candidates"]],
             recommended_assignee=(
                 AssignmentScoreResult(**result["recommended_assignee"])
-                if result["recommended_assignee"] else None
+                if result["recommended_assignee"]
+                else None
             ),
             scoring_method=result["scoring_method"],
         )
@@ -339,6 +353,7 @@ async def get_assignment_history(
 
 # ── ASSIGNMENT RULES ENDPOINTS ─────────────────────────────────────────────
 
+
 @rules_router.get(
     "",
     response_model=RuleListResponse,
@@ -403,9 +418,7 @@ async def create_assignment_rule(
                 else eval(rule.conditions)
             ),
             action=(
-                rule.action
-                if isinstance(rule.action, dict)
-                else eval(rule.action)
+                rule.action if isinstance(rule.action, dict) else eval(rule.action)
             ),
             priority_order=rule.priority_order,
             is_active=rule.is_active,
@@ -454,9 +467,7 @@ async def update_assignment_rule(
                 else eval(rule.conditions)
             ),
             action=(
-                rule.action
-                if isinstance(rule.action, dict)
-                else eval(rule.action)
+                rule.action if isinstance(rule.action, dict) else eval(rule.action)
             ),
             priority_order=rule.priority_order,
             is_active=rule.is_active,

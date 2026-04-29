@@ -58,33 +58,25 @@ class TicketLifecycleService:
         Checks variant capabilities and tags if beyond scope.
         """
         # Get company plan
-        company = self.db.query(Company).filter(
-            Company.id == self.company_id,
-        ).first()
+        company = (
+            self.db.query(Company)
+            .filter(
+                Company.id == self.company_id,
+            )
+            .first()
+        )
 
         if not company:
             return {"in_scope": True, "reason": None}
 
         # Check plan capabilities (simplified)
-        plan_tier = getattr(company, 'plan_tier', 'mini_parwa')
+        plan_tier = getattr(company, "plan_tier", "mini_parwa")
 
         # Define scope limits by plan
         scope_limits = {
-            "mini_parwa": {
-                "ai_responses": 10,
-                "channels": ["email"]},
-            "parwa": {
-                "ai_responses": 50,
-                "channels": [
-                    "email",
-                    "chat"]},
-            "high": {
-                "ai_responses": -1,
-                "channels": [
-                    "email",
-                    "chat",
-                    "sms",
-                    "voice"]},
+            "mini_parwa": {"ai_responses": 10, "channels": ["email"]},
+            "parwa": {"ai_responses": 50, "channels": ["email", "chat"]},
+            "high": {"ai_responses": -1, "channels": ["email", "chat", "sms", "voice"]},
         }
 
         limits = scope_limits.get(plan_tier, scope_limits["mini_parwa"])
@@ -220,7 +212,10 @@ class TicketLifecycleService:
         """
         ticket = self._get_ticket(ticket_id)
 
-        from app.services.ticket_state_machine import TicketStateMachine, TransitionValidator
+        from app.services.ticket_state_machine import (
+            TicketStateMachine,
+            TransitionValidator,
+        )
 
         state_machine = TicketStateMachine(self.db, self.company_id)
 
@@ -270,32 +265,43 @@ class TicketLifecycleService:
         # Look for similar tickets in last 7 days
         since = datetime.now(timezone.utc) - timedelta(days=7)
 
-        recent_tickets = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.customer_id == customer_id,
-            Ticket.status.in_([
-                TicketStatus.open.value,
-                TicketStatus.assigned.value,
-                TicketStatus.in_progress.value,
-            ]),
-            Ticket.created_at >= since,
-        ).all()
+        recent_tickets = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.customer_id == customer_id,
+                Ticket.status.in_(
+                    [
+                        TicketStatus.open.value,
+                        TicketStatus.assigned.value,
+                        TicketStatus.in_progress.value,
+                    ]
+                ),
+                Ticket.created_at >= since,
+            )
+            .all()
+        )
 
         duplicates = []
 
         for existing in recent_tickets:
             similarity = self._calculate_similarity(
-                subject, content,
-                existing.subject or "", ""
+                subject, content, existing.subject or "", ""
             )
 
             if similarity > 0.85:  # 85% similarity threshold
-                duplicates.append({
-                    "ticket_id": existing.id,
-                    "subject": existing.subject,
-                    "similarity": similarity,
-                    "created_at": existing.created_at.isoformat() if existing.created_at else None,
-                })
+                duplicates.append(
+                    {
+                        "ticket_id": existing.id,
+                        "subject": existing.subject,
+                        "similarity": similarity,
+                        "created_at": (
+                            existing.created_at.isoformat()
+                            if existing.created_at
+                            else None
+                        ),
+                    }
+                )
 
         return {
             "is_duplicate": len(duplicates) > 0,
@@ -325,10 +331,14 @@ class TicketLifecycleService:
             TicketStatus.awaiting_human.value,
         ]
 
-        tickets = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.status.in_(open_statuses),
-        ).all()
+        tickets = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.status.in_(open_statuses),
+            )
+            .all()
+        )
 
         frozen_count = 0
 
@@ -360,10 +370,14 @@ class TicketLifecycleService:
 
         state_machine = TicketStateMachine(self.db, self.company_id)
 
-        frozen_tickets = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.status == TicketStatus.frozen.value,
-        ).all()
+        frozen_tickets = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.status == TicketStatus.frozen.value,
+            )
+            .all()
+        )
 
         thawed_count = 0
 
@@ -395,11 +409,15 @@ class TicketLifecycleService:
 
         cutoff = datetime.now(timezone.utc) - timedelta(days=days_frozen)
 
-        frozen_tickets = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.status == TicketStatus.frozen.value,
-            Ticket.frozen_at < cutoff,
-        ).all()
+        frozen_tickets = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.status == TicketStatus.frozen.value,
+                Ticket.frozen_at < cutoff,
+            )
+            .all()
+        )
 
         closed_count = 0
 
@@ -442,14 +460,13 @@ class TicketLifecycleService:
 
         notification_service.send_notification(
             event_type="ticket_updated",
-            recipient_ids=[
-                ticket.customer_id],
+            recipient_ids=[ticket.customer_id],
             data={
                 "ticket_id": ticket.id,
                 "ticket_subject": ticket.subject,
                 "message": messages.get(
-                    reminder_type,
-                    "Reminder: Please respond to your ticket."),
+                    reminder_type, "Reminder: Please respond to your ticket."
+                ),
                 "reminder_type": reminder_type,
             },
             channels=["email"],
@@ -474,10 +491,14 @@ class TicketLifecycleService:
         tickets_7d = []
         tickets_14d = []
 
-        awaiting_tickets = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.status == TicketStatus.awaiting_client.value,
-        ).all()
+        awaiting_tickets = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.status == TicketStatus.awaiting_client.value,
+            )
+            .all()
+        )
 
         for ticket in awaiting_tickets:
             last_activity = ticket.updated_at or ticket.created_at
@@ -512,15 +533,21 @@ class TicketLifecycleService:
         Queue tickets assigned to variant, retry when back.
         """
         # Find tickets assigned to this variant
-        variant_tickets = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.assigned_to == variant_id,
-            Ticket.status.in_([
-                TicketStatus.open.value,
-                TicketStatus.assigned.value,
-                TicketStatus.in_progress.value,
-            ]),
-        ).all()
+        variant_tickets = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.assigned_to == variant_id,
+                Ticket.status.in_(
+                    [
+                        TicketStatus.open.value,
+                        TicketStatus.assigned.value,
+                        TicketStatus.in_progress.value,
+                    ]
+                ),
+            )
+            .all()
+        )
 
         from app.services.ticket_state_machine import TicketStateMachine
 
@@ -556,10 +583,14 @@ class TicketLifecycleService:
 
         Resume queued tickets.
         """
-        queued_tickets = self.db.query(Ticket).filter(
-            Ticket.company_id == self.company_id,
-            Ticket.status == TicketStatus.queued.value,
-        ).all()
+        queued_tickets = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.status == TicketStatus.queued.value,
+            )
+            .all()
+        )
 
         from app.services.ticket_state_machine import TicketStateMachine
 
@@ -595,10 +626,14 @@ class TicketLifecycleService:
         ticket_id: str,
     ) -> Ticket:
         """Get ticket by ID."""
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")

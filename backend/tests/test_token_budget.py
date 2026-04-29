@@ -33,10 +33,10 @@ from app.services.token_budget_service import (
     ADD_TOKENS_LUA,
 )
 
-
 # ═══════════════════════════════════════════════════════════════════
 # Helpers
 # ═══════════════════════════════════════════════════════════════════
+
 
 def _effective_max(raw: int) -> int:
     # Matches source: raw - int(raw * SAFETY_MARGIN_PERCENT)
@@ -46,8 +46,9 @@ def _effective_max(raw: int) -> int:
 
 # Precompute: raw - int(raw * 0.10)
 # 4096 - 409 = 3687, 8192 - 819 = 7373, 16384 - 1638 = 14746
-EFFECTIVE = {v: _effective_max(c["max_tokens"])
-             for v, c in VARIANT_TOKEN_BUDGETS.items()}
+EFFECTIVE = {
+    v: _effective_max(c["max_tokens"]) for v, c in VARIANT_TOKEN_BUDGETS.items()
+}
 
 
 def _make_service(redis=None):
@@ -73,12 +74,16 @@ def _make_mock_redis():
 # Constants & Config Tests
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestConstantsAndConfig:
     """Tests for module-level constants and variant configuration."""
 
     def test_variant_budgets_has_three_variants(self):
         assert set(VARIANT_TOKEN_BUDGETS.keys()) == {
-            "mini_parwa", "parwa", "parwa_high"}
+            "mini_parwa",
+            "parwa",
+            "parwa_high",
+        }
 
     def test_mini_parwa_max_tokens(self):
         assert VARIANT_TOKEN_BUDGETS["mini_parwa"]["max_tokens"] == 4096
@@ -123,13 +128,13 @@ class TestConstantsAndConfig:
 # Effective Max Tokens Tests
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestEffectiveMaxTokens:
     """Tests for _effective_max_tokens (safety margin)."""
 
     def test_mini_parwa_effective_max(self):
         svc = _make_service()
-        assert svc._effective_max_tokens(
-            "mini_parwa") == EFFECTIVE["mini_parwa"]
+        assert svc._effective_max_tokens("mini_parwa") == EFFECTIVE["mini_parwa"]
 
     def test_parwa_effective_max(self):
         svc = _make_service()
@@ -137,22 +142,25 @@ class TestEffectiveMaxTokens:
 
     def test_parwa_high_effective_max(self):
         svc = _make_service()
-        assert svc._effective_max_tokens(
-            "parwa_high") == EFFECTIVE["parwa_high"]
+        assert svc._effective_max_tokens("parwa_high") == EFFECTIVE["parwa_high"]
 
     def test_unknown_variant_falls_back_to_parwa(self):
         svc = _make_service()
-        assert svc._effective_max_tokens(
-            "unknown_variant") == EFFECTIVE["parwa"]
+        assert svc._effective_max_tokens("unknown_variant") == EFFECTIVE["parwa"]
 
     def test_effective_max_matches_source_formula(self):
         # Source formula: raw - int(raw * SAFETY_MARGIN_PERCENT)
         for variant, raw in [
-                ("mini_parwa", 4096), ("parwa", 8192), ("parwa_high", 16384)]:
+            ("mini_parwa", 4096),
+            ("parwa", 8192),
+            ("parwa_high", 16384),
+        ]:
             svc = _make_service()
             effective = svc._effective_max_tokens(variant)
             expected = raw - int(raw * SAFETY_MARGIN_PERCENT)
-            assert effective == expected, f"{variant}: expected {expected}, got {effective}"
+            assert (
+                effective == expected
+            ), f"{variant}: expected {expected}, got {effective}"
             assert effective < raw, f"{variant}: effective must be less than raw"
 
     def test_variant_config_returns_dict(self):
@@ -166,37 +174,41 @@ class TestEffectiveMaxTokens:
 # Redis Key Helpers Tests
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestRedisKeyHelpers:
     """Tests for static Redis key generation methods."""
 
     def test_key_used(self):
-        assert TokenBudgetService._key_used(
-            "conv123") == "token_budget:conv123:used"
+        assert TokenBudgetService._key_used("conv123") == "token_budget:conv123:used"
 
     def test_key_reserved(self):
-        assert TokenBudgetService._key_reserved(
-            "conv123") == "token_budget:conv123:reserved"
+        assert (
+            TokenBudgetService._key_reserved("conv123")
+            == "token_budget:conv123:reserved"
+        )
 
     def test_key_max(self):
-        assert TokenBudgetService._key_max(
-            "conv123") == "token_budget:conv123:max"
+        assert TokenBudgetService._key_max("conv123") == "token_budget:conv123:max"
 
     def test_key_info(self):
-        assert TokenBudgetService._key_info(
-            "conv123") == "token_budget:conv123:info"
+        assert TokenBudgetService._key_info("conv123") == "token_budget:conv123:info"
 
     def test_key_messages(self):
-        assert TokenBudgetService._key_messages(
-            "conv123") == "token_budget:conv123:messages"
+        assert (
+            TokenBudgetService._key_messages("conv123")
+            == "token_budget:conv123:messages"
+        )
 
     def test_key_used_different_conversation(self):
-        assert TokenBudgetService._key_used(
-            "abc") != TokenBudgetService._key_used("xyz")
+        assert TokenBudgetService._key_used("abc") != TokenBudgetService._key_used(
+            "xyz"
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════
 # Service Initialization Tests
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestServiceInit:
     """Tests for TokenBudgetService initialization."""
@@ -226,25 +238,30 @@ class TestServiceInit:
 # Data Classes Tests
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestDataClasses:
     """Tests for all dataclasses."""
 
     def test_token_budget_creation(self):
         now = datetime.now(timezone.utc)
         tb = TokenBudget(
-            conversation_id="c1", company_id="co1", variant_type="parwa",
-            max_tokens=7372, reserved_tokens=0, used_tokens=0,
-            available_tokens=7372, created_at=now, updated_at=now,
+            conversation_id="c1",
+            company_id="co1",
+            variant_type="parwa",
+            max_tokens=7372,
+            reserved_tokens=0,
+            used_tokens=0,
+            available_tokens=7372,
+            created_at=now,
+            updated_at=now,
         )
         assert tb.max_tokens == 7372
         assert tb.available_tokens == 7372
 
     def test_reserve_result_success(self):
         r = ReserveResult(
-            success=True,
-            reserved_amount=100,
-            remaining_after_reserve=7272,
-            error=None)
+            success=True, reserved_amount=100, remaining_after_reserve=7272, error=None
+        )
         assert r.success is True
         assert r.error is None
 
@@ -253,15 +270,20 @@ class TestDataClasses:
             success=False,
             reserved_amount=0,
             remaining_after_reserve=0,
-            error="overflow")
+            error="overflow",
+        )
         assert r.success is False
         assert "overflow" in r.error
 
     def test_token_budget_status(self):
         s = TokenBudgetStatus(
-            conversation_id="c1", max_tokens=7372, used_tokens=100,
-            reserved_tokens=0, available_tokens=7272,
-            percentage_used=1.36, warning_level="normal",
+            conversation_id="c1",
+            max_tokens=7372,
+            used_tokens=100,
+            reserved_tokens=0,
+            available_tokens=7272,
+            percentage_used=1.36,
+            warning_level="normal",
         )
         assert s.warning_level == "normal"
 
@@ -271,7 +293,8 @@ class TestDataClasses:
             remaining_tokens=7000,
             overflow_amount=0,
             truncation_needed=False,
-            suggested_truncation_tokens=0)
+            suggested_truncation_tokens=0,
+        )
         assert o.can_fit is True
 
     def test_overflow_check_no_fit(self):
@@ -280,7 +303,8 @@ class TestDataClasses:
             remaining_tokens=100,
             overflow_amount=500,
             truncation_needed=True,
-            suggested_truncation_tokens=550)
+            suggested_truncation_tokens=550,
+        )
         assert o.can_fit is False
         assert o.truncation_needed is True
 
@@ -290,12 +314,17 @@ class TestDataClasses:
             reason="plenty of room",
             tokens_to_remove=0,
             messages_to_remove=0,
-            priority_messages=[])
+            priority_messages=[],
+        )
         assert c.strategy == "keep_all"
 
     def test_token_entry(self):
-        t = TokenEntry(message_id="m1", role="user", tokens=50,
-                       timestamp=datetime.now(timezone.utc))
+        t = TokenEntry(
+            message_id="m1",
+            role="user",
+            tokens=50,
+            timestamp=datetime.now(timezone.utc),
+        )
         assert t.role == "user"
         assert t.tokens == 50
 
@@ -303,6 +332,7 @@ class TestDataClasses:
 # ═══════════════════════════════════════════════════════════════════
 # In-Memory Fallback Tests
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestInMemoryFallback:
     """Tests for in-memory fallback operations."""
@@ -367,6 +397,7 @@ class TestInMemoryFallback:
 # Initialize Budget — In-Memory Tests
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestInitializeBudgetInMemory:
     """Tests for initialize_budget using in-memory fallback."""
 
@@ -428,6 +459,7 @@ class TestInitializeBudgetInMemory:
 # Initialize Budget — Redis Tests
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestInitializeBudgetRedis:
     """Tests for initialize_budget using Redis."""
 
@@ -475,6 +507,7 @@ class TestInitializeBudgetRedis:
 # ═══════════════════════════════════════════════════════════════════
 # Reserve Tokens — In-Memory Tests
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestReserveTokensInMemory:
     """Tests for reserve_tokens using in-memory fallback."""
@@ -568,6 +601,7 @@ class TestReserveTokensInMemory:
 # Reserve Tokens — Redis Tests
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestReserveTokensRedis:
     """Tests for reserve_tokens using Redis."""
 
@@ -581,6 +615,7 @@ class TestReserveTokensRedis:
             if ":max" in str(key):
                 return str(EFFECTIVE["parwa"])
             return "0"
+
         redis.get = MagicMock(side_effect=mock_get)
         svc = _make_service(redis)
         await svc.initialize_budget("c1", "co1", "parwa")
@@ -601,6 +636,7 @@ class TestReserveTokensRedis:
             if ":used" in str(key):
                 return str(EFFECTIVE["parwa"])
             return "0"
+
         redis.get = MagicMock(side_effect=mock_get)
         svc = _make_service(redis)
         await svc.initialize_budget("c1", "co1", "parwa")
@@ -623,6 +659,7 @@ class TestReserveTokensRedis:
 # ═══════════════════════════════════════════════════════════════════
 # Finalize Tokens — In-Memory Tests
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestFinalizeTokensInMemory:
     """Tests for finalize_tokens using in-memory fallback."""
@@ -700,6 +737,7 @@ class TestFinalizeTokensInMemory:
 # Finalize Tokens — Redis Tests
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestFinalizeTokensRedis:
     """Tests for finalize_tokens using Redis."""
 
@@ -728,6 +766,7 @@ class TestFinalizeTokensRedis:
 # ═══════════════════════════════════════════════════════════════════
 # Budget Status Tests
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestBudgetStatus:
     """Tests for get_budget_status."""
@@ -816,6 +855,7 @@ class TestBudgetStatus:
 # Warning Level Computation Tests
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestWarningLevelComputation:
     """Tests for _compute_warning_level."""
 
@@ -865,6 +905,7 @@ class TestWarningLevelComputation:
 # ═══════════════════════════════════════════════════════════════════
 # Overflow Check Tests
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestOverflowCheck:
     """Tests for check_overflow."""
@@ -931,6 +972,7 @@ class TestOverflowCheck:
 # Context Management Strategy Tests
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestContextManagementStrategy:
     """Tests for get_context_management_strategy."""
 
@@ -983,6 +1025,7 @@ class TestContextManagementStrategy:
 # Conversation History Tests
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestConversationHistory:
     """Tests for conversation history tracking."""
 
@@ -991,8 +1034,10 @@ class TestConversationHistory:
         svc = _make_service()
         await svc.initialize_budget("c1", "co1", "parwa")
         entry = TokenEntry(
-            message_id="m1", role="user", tokens=50,
-            timestamp=datetime.now(timezone.utc)
+            message_id="m1",
+            role="user",
+            tokens=50,
+            timestamp=datetime.now(timezone.utc),
         )
         await svc.add_message_tokens("c1", entry.message_id, entry.role, entry.tokens)
         history = await svc.get_conversation_history_tokens("c1")
@@ -1005,10 +1050,14 @@ class TestConversationHistory:
         await svc.initialize_budget("c1", "co1", "parwa")
         for i in range(5):
             entry = TokenEntry(
-                message_id=f"m{i}", role="user", tokens=10 * (i + 1),
-                timestamp=datetime.now(timezone.utc)
+                message_id=f"m{i}",
+                role="user",
+                tokens=10 * (i + 1),
+                timestamp=datetime.now(timezone.utc),
             )
-            await svc.add_message_tokens("c1", entry.message_id, entry.role, entry.tokens)
+            await svc.add_message_tokens(
+                "c1", entry.message_id, entry.role, entry.tokens
+            )
         history = await svc.get_conversation_history_tokens("c1")
         assert len(history) == 5
         assert history[0].message_id == "m0"
@@ -1027,10 +1076,14 @@ class TestConversationHistory:
         await svc.initialize_budget("c1", "co1", "parwa")
         for i in range(3):
             entry = TokenEntry(
-                message_id=f"m{i}", role="user", tokens=100,
-                timestamp=datetime.now(timezone.utc)
+                message_id=f"m{i}",
+                role="user",
+                tokens=100,
+                timestamp=datetime.now(timezone.utc),
             )
-            await svc.add_message_tokens("c1", entry.message_id, entry.role, entry.tokens)
+            await svc.add_message_tokens(
+                "c1", entry.message_id, entry.role, entry.tokens
+            )
         history = await svc.get_conversation_history_tokens("c1")
         total = sum(m.tokens for m in history)
         assert total == 300
@@ -1039,6 +1092,7 @@ class TestConversationHistory:
 # ═══════════════════════════════════════════════════════════════════
 # Budget Reset Tests
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestBudgetReset:
     """Tests for budget reset functionality."""
@@ -1064,6 +1118,7 @@ class TestBudgetReset:
 # BC-008 Graceful Degradation Tests
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestGracefulDegradation:
     """Tests for BC-008 graceful degradation (never crash)."""
 
@@ -1071,7 +1126,7 @@ class TestGracefulDegradation:
     async def test_status_on_error_returns_safe_default(self):
         svc = _make_service()
         # Force an error in _status_memory by corrupting internal state
-        with patch.object(svc, '_status_memory', side_effect=Exception("test error")):
+        with patch.object(svc, "_status_memory", side_effect=Exception("test error")):
             status = await svc.get_budget_status("c1")
             assert status.max_tokens == 0
             assert status.warning_level == "normal"
@@ -1080,21 +1135,21 @@ class TestGracefulDegradation:
     @pytest.mark.asyncio
     async def test_overflow_check_on_error_returns_can_fit(self):
         svc = _make_service()
-        with patch.object(svc, 'get_budget_status', side_effect=Exception("test")):
+        with patch.object(svc, "get_budget_status", side_effect=Exception("test")):
             result = await svc.check_overflow("c1", 1000)
             assert result.can_fit is True
 
     @pytest.mark.asyncio
     async def test_context_strategy_on_error_returns_keep_all(self):
         svc = _make_service()
-        with patch.object(svc, 'get_budget_status', side_effect=Exception("test")):
+        with patch.object(svc, "get_budget_status", side_effect=Exception("test")):
             strategy = await svc.get_context_management_strategy("c1", 1000)
             assert strategy.strategy == "keep_all"
 
     @pytest.mark.asyncio
     async def test_reserve_on_error_fails_open(self):
         svc = _make_service()
-        with patch.object(svc, '_reserve_tokens_memory', side_effect=Exception("fail")):
+        with patch.object(svc, "_reserve_tokens_memory", side_effect=Exception("fail")):
             result = await svc.reserve_tokens("c1", 100)
             # BC-008: fail open
             assert result.success is True
@@ -1130,6 +1185,7 @@ class TestGracefulDegradation:
 # ═══════════════════════════════════════════════════════════════════
 # Edge Cases Tests
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
@@ -1200,6 +1256,7 @@ class TestEdgeCases:
 # ═══════════════════════════════════════════════════════════════════
 # Redis Helper Method Tests
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestRedisHelpers:
     """Tests for Redis helper methods."""
@@ -1310,6 +1367,7 @@ class TestRedisHelpers:
 # ═══════════════════════════════════════════════════════════════════
 # Full Pipeline Integration Tests
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestFullPipeline:
     """End-to-end pipeline tests."""

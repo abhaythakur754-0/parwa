@@ -155,8 +155,15 @@ class CLARAQualityGate:
         try:
             # GAP-002: Wrap entire pipeline in timeout
             await asyncio.wait_for(
-                self._run_all_stages(stage_funcs, stages, response, query,
-                                     customer_sentiment, context, company_id),
+                self._run_all_stages(
+                    stage_funcs,
+                    stages,
+                    response,
+                    query,
+                    customer_sentiment,
+                    context,
+                    company_id,
+                ),
                 timeout=self.pipeline_timeout,
             )
         except asyncio.TimeoutError:
@@ -170,28 +177,26 @@ class CLARAQualityGate:
             completed_stages = {s.stage for s in stages}
             for stage_enum, _ in stage_funcs:
                 if stage_enum not in completed_stages:
-                    stages.append(StageOutput(
-                        stage=stage_enum,
-                        result=StageResult.TIMEOUT_PASS,
-                        score=0.5,
-                        issues=[f"{stage_enum.value} timed out (pipeline)"],
-                        suggestions=[],
-                        processing_time_ms=self.pipeline_timeout * 1000,
-                        metadata={"timeout": True},
-                    ))
+                    stages.append(
+                        StageOutput(
+                            stage=stage_enum,
+                            result=StageResult.TIMEOUT_PASS,
+                            score=0.5,
+                            issues=[f"{stage_enum.value} timed out (pipeline)"],
+                            suggestions=[],
+                            processing_time_ms=self.pipeline_timeout * 1000,
+                            metadata={"timeout": True},
+                        )
+                    )
 
         # Calculate overall score and pass/fail
         scored_stages = [
-            s for s in stages
-            if s.result in (StageResult.PASS, StageResult.FAIL)
+            s for s in stages if s.result in (StageResult.PASS, StageResult.FAIL)
         ]
-        timeout_stages = [
-            s for s in stages if s.result == StageResult.TIMEOUT_PASS
-        ]
+        timeout_stages = [s for s in stages if s.result == StageResult.TIMEOUT_PASS]
 
         if scored_stages:
-            overall_score = sum(
-                s.score for s in scored_stages) / len(scored_stages)
+            overall_score = sum(s.score for s in scored_stages) / len(scored_stages)
         elif timeout_stages:
             overall_score = 0.5
         else:
@@ -228,7 +233,8 @@ class CLARAQualityGate:
         """Run all stages sequentially with per-stage timeout."""
         for stage_enum, stage_func in stage_funcs:
             output = await self._run_stage(
-                stage_enum, stage_func,
+                stage_enum,
+                stage_func,
                 response=response,
                 query=query,
                 customer_sentiment=customer_sentiment,
@@ -251,7 +257,8 @@ class CLARAQualityGate:
                 timeout=self.stage_timeout,
             )
             output.processing_time_ms = round(
-                (time.monotonic() - start) * 1000, 2,
+                (time.monotonic() - start) * 1000,
+                2,
             )
             return output
         except asyncio.TimeoutError:
@@ -288,7 +295,10 @@ class CLARAQualityGate:
     # ── Stage 1: Structure Check ─────────────────────────────────────
 
     async def _structure_check(
-        self, response: str, query: str, **kwargs,
+        self,
+        response: str,
+        query: str,
+        **kwargs,
     ) -> StageOutput:
         """Validate response structure."""
         issues: List[str] = []
@@ -321,7 +331,7 @@ class CLARAQualityGate:
             score = 0.9
 
         # Check for repeated phrases
-        sentences = re.split(r'[.!?]+', stripped)
+        sentences = re.split(r"[.!?]+", stripped)
         seen_sentences: Dict[str, int] = {}
         for sentence in sentences:
             s_norm = sentence.strip().lower()
@@ -334,7 +344,7 @@ class CLARAQualityGate:
             score -= 0.2
 
         # Check for excessive whitespace
-        if len(re.findall(r'\n\n\n+', stripped)):
+        if len(re.findall(r"\n\n\n+", stripped)):
             issues.append("Excessive blank lines")
             score -= 0.1
 
@@ -353,7 +363,10 @@ class CLARAQualityGate:
     # ── Stage 2: Logic Check ────────────────────────────────────────
 
     async def _logic_check(
-        self, response: str, query: str, **kwargs,
+        self,
+        response: str,
+        query: str,
+        **kwargs,
     ) -> StageOutput:
         """Validate logical consistency.
 
@@ -364,11 +377,11 @@ class CLARAQualityGate:
         suggestions: List[str] = []
         response_lower = response.lower()
         query_lower = query.lower()
-        context = kwargs.get('context') or {}
+        context = kwargs.get("context") or {}
 
         # Check query relevance: keyword overlap
-        query_words = set(re.findall(r'\b\w{3,}\b', query_lower))
-        response_words = set(re.findall(r'\b\w{3,}\b', response_lower))
+        query_words = set(re.findall(r"\b\w{3,}\b", query_lower))
+        response_words = set(re.findall(r"\b\w{3,}\b", response_lower))
 
         if query_words and response_words:
             overlap = len(query_words & response_words)
@@ -389,11 +402,11 @@ class CLARAQualityGate:
                     continue
                 ctx_val_lower = ctx_val.lower()
                 # If context has order_id, ticket_id, etc., check they appear
-                if ctx_key in ('order_id', 'ticket_id', 'customer_name'):
-                    if ctx_val_lower not in response_lower and len(
-                            ctx_val) > 3:
+                if ctx_key in ("order_id", "ticket_id", "customer_name"):
+                    if ctx_val_lower not in response_lower and len(ctx_val) > 3:
                         issues.append(
-                            f"Context key '{ctx_key}' value not referenced in response")
+                            f"Context key '{ctx_key}' value not referenced in response"
+                        )
                         score -= 0.05
 
         # Check for contradictions
@@ -409,13 +422,12 @@ class CLARAQualityGate:
                 score -= 0.2
 
         # Check "I don't know" followed by detailed answer
-        if re.search(
-            r"(?:i don'?t know|i'?m not sure|uncertain)",
-                response_lower):
+        if re.search(r"(?:i don'?t know|i'?m not sure|uncertain)", response_lower):
             # If response is long after "I don't know", that's odd
             after_unknown = re.split(
                 r"i don'?t know|i'?m not sure|uncertain",
-                response_lower, maxsplit=1,
+                response_lower,
+                maxsplit=1,
             )
             if len(after_unknown) > 1 and len(after_unknown[1].split()) > 20:
                 issues.append('"I don\'t know" followed by detailed answer')
@@ -436,7 +448,9 @@ class CLARAQualityGate:
     # ── Stage 3: Brand Check (GAP-018) ──────────────────────────────
 
     async def _brand_check(
-        self, response: str, **kwargs,
+        self,
+        response: str,
+        **kwargs,
     ) -> StageOutput:
         """Validate brand voice compliance.
 
@@ -465,8 +479,8 @@ class CLARAQualityGate:
         for word in self.brand_voice.prohibited_words:
             word_lower = word.lower()
             # Normalize: remove non-alphanumeric for comparison
-            response_normalized = re.sub(r'[^a-z0-9\s]', '', response_lower)
-            word_normalized = re.sub(r'[^a-z0-9\s]', '', word_lower)
+            response_normalized = re.sub(r"[^a-z0-9\s]", "", response_lower)
+            word_normalized = re.sub(r"[^a-z0-9\s]", "", word_lower)
             if word_normalized in response_normalized:
                 issues.append(f"Prohibited word used: '{word}'")
                 score -= 0.3  # significant deduction
@@ -478,15 +492,21 @@ class CLARAQualityGate:
                 "Response exceeds max length "
                 f"({word_count}/{self.brand_voice.max_length} words)"
             )
-            suggestions.append(
-                f"Shorten response to under {
+            suggestions.append(f"Shorten response to under {
                     self.brand_voice.max_length} words")
             score -= 0.25
 
         # Check required sign-off
         if self.brand_voice.required_sign_off:
-            sign_offs = ["best regards", "sincerely", "thanks", "thank you",
-                         "regards", "cheers", "warmly"]
+            sign_offs = [
+                "best regards",
+                "sincerely",
+                "thanks",
+                "thank you",
+                "regards",
+                "cheers",
+                "warmly",
+            ]
             if not any(so in response_lower for so in sign_offs):
                 issues.append("Missing required sign-off")
                 suggestions.append("Add a sign-off to the response")
@@ -494,14 +514,24 @@ class CLARAQualityGate:
 
         # Check formality level
         formality = self.brand_voice.formality.lower()
-        casual_words = [r"\bhey\b", r"\byo\b", r"\bsup\b", r"\bgonna\b",
-                        r"\bwanna\b", r"\blol\b", r"\bbtw\b", r"\bbrb\b"]
+        casual_words = [
+            r"\bhey\b",
+            r"\byo\b",
+            r"\bsup\b",
+            r"\bgonna\b",
+            r"\bwanna\b",
+            r"\blol\b",
+            r"\bbtw\b",
+            r"\bbrb\b",
+        ]
         if formality in ("medium", "high"):
-            found_casual = [w.strip(r"\b") for w in casual_words
-                            if re.search(w, response_lower)]
+            found_casual = [
+                w.strip(r"\b") for w in casual_words if re.search(w, response_lower)
+            ]
             if found_casual:
                 issues.append(
-                    f"Informal language for {formality} formality: {found_casual}")
+                    f"Informal language for {formality} formality: {found_casual}"
+                )
                 score -= 0.3
 
         score = max(0.0, min(1.0, score))
@@ -534,17 +564,18 @@ class CLARAQualityGate:
         # Angry customer (sentiment < 0.3) → need empathetic tone
         if customer_sentiment < 0.3:
             empathy_words = [
-                "sorry", "apologize", "understand", "frustrating",
-                "inconvenience", "unfortunate", "appreciate your patience",
+                "sorry",
+                "apologize",
+                "understand",
+                "frustrating",
+                "inconvenience",
+                "unfortunate",
+                "appreciate your patience",
             ]
             has_empathy = any(w in response_lower for w in empathy_words)
             if not has_empathy:
-                issues.append(
-                    "Customer is frustrated but response lacks empathy"
-                )
-                suggestions.append(
-                    "Add empathetic language for frustrated customer"
-                )
+                issues.append("Customer is frustrated but response lacks empathy")
+                suggestions.append("Add empathetic language for frustrated customer")
                 score -= 0.35
             else:
                 score = 0.95
@@ -554,20 +585,12 @@ class CLARAQualityGate:
             positive_words = ["great", "glad", "happy", "pleased", "wonderful"]
             has_positive = any(w in response_lower for w in positive_words)
             if not has_positive:
-                issues.append(
-                    "Customer is happy but response is cold/formal"
-                )
-                suggestions.append(
-                    "Add warm, positive language to match customer mood"
-                )
+                issues.append("Customer is happy but response is cold/formal")
+                suggestions.append("Add warm, positive language to match customer mood")
                 score -= 0.35
 
         # Check for aggressive language (never OK) — per-word deduction
-        aggressive_words = [
-            "calm down",
-            "obviously",
-            "clearly",
-            "you should know"]
+        aggressive_words = ["calm down", "obviously", "clearly", "you should know"]
         found_aggressive = [w for w in aggressive_words if w in response_lower]
         if found_aggressive:
             issues.append(f"Aggressive language detected: {found_aggressive}")
@@ -596,7 +619,7 @@ class CLARAQualityGate:
         issues: List[str] = []
         suggestions: List[str] = []
         score = 1.0
-        context = kwargs.get('context') or {}
+        context = kwargs.get("context") or {}
 
         if not response or not response.strip():
             return StageOutput(
@@ -610,11 +633,11 @@ class CLARAQualityGate:
 
         # PII Detection
         pii_patterns = [
-            (r'[\w.+-]+@[\w-]+\.[\w.-]+', "email address"),
+            (r"[\w.+-]+@[\w-]+\.[\w.-]+", "email address"),
             # D6-GAP-03: Use context-aware phone detection
-            (r'\d{3}[-.]?\d{3}[-.]?\d{4}', "phone number"),
-            (r'\d{3}-\d{2}-\d{4}', "SSN"),
-            (r'\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}', "credit card"),
+            (r"\d{3}[-.]?\d{3}[-.]?\d{4}", "phone number"),
+            (r"\d{3}-\d{2}-\d{4}", "SSN"),
+            (r"\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}", "credit card"),
         ]
         for pattern, pii_type in pii_patterns:
             matches = re.findall(pattern, response)
@@ -623,7 +646,8 @@ class CLARAQualityGate:
             # D6-GAP-03: Context-aware filtering for phone numbers
             if pii_type == "phone number":
                 filtered_matches = self._filter_phone_false_positives(
-                    matches, response, context)
+                    matches, response, context
+                )
                 if filtered_matches:
                     issues.append(f"PII detected: {pii_type}")
                     suggestions.append(f"Remove {pii_type} from response")
@@ -634,27 +658,29 @@ class CLARAQualityGate:
                 score -= 0.25
 
         # Broken markdown links
-        broken_links = re.findall(r'\[[^\]]*\]\(\s*\)', response)
+        broken_links = re.findall(r"\[[^\]]*\]\(\s*\)", response)
         if broken_links:
             issues.append(f"Broken markdown links: {len(broken_links)}")
             score -= 0.3
 
         # Excessive emojis (more than 3 per paragraph)
-        paragraphs = response.split('\n\n')
+        paragraphs = response.split("\n\n")
         for i, para in enumerate(paragraphs):
             if not para.strip():
                 continue
             emoji_count = len(
                 re.findall(
-                    r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF'
-                    r'\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF'
-                    r'\U00002702-\U000027B0\U0000FE00-\U0000FE0F'
-                    r'\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F'
-                    r'\U0001FA70-\U0001FAFF\U00002600-\U000026FF'
-                    r'\U00002700-\U000027BF]', para))
+                    r"[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF"
+                    r"\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF"
+                    r"\U00002702-\U000027B0\U0000FE00-\U0000FE0F"
+                    r"\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F"
+                    r"\U0001FA70-\U0001FAFF\U00002600-\U000026FF"
+                    r"\U00002700-\U000027BF]",
+                    para,
+                )
+            )
             if emoji_count > 3:
-                issues.append(
-                    f"Excessive emojis in paragraph {
+                issues.append(f"Excessive emojis in paragraph {
                         i + 1}: {emoji_count}")
                 score -= 0.3
 
@@ -684,31 +710,35 @@ class CLARAQualityGate:
         filtered = []
         response_lower = response.lower()
         tracking_indicators = [
-            "tracking", "order", "invoice", "receipt", "confirmation",
-            "reference", "ticket", "case", "shipment", "parcel",
+            "tracking",
+            "order",
+            "invoice",
+            "receipt",
+            "confirmation",
+            "reference",
+            "ticket",
+            "case",
+            "shipment",
+            "parcel",
         ]
         for match in matches:
             # Check if the match appears near a tracking/order indicator
             match_pos = response_lower.find(match)
             if match_pos > 0:
-                preceding = response_lower[max(0, match_pos - 30):match_pos]
-                following = response_lower[match_pos
-                                           + len(match):match_pos + len(match) + 30]
+                preceding = response_lower[max(0, match_pos - 30) : match_pos]
+                following = response_lower[
+                    match_pos + len(match) : match_pos + len(match) + 30
+                ]
                 surrounding = preceding + " " + following
-                if any(
-                        indicator in surrounding for indicator in tracking_indicators):
+                if any(indicator in surrounding for indicator in tracking_indicators):
                     continue  # Likely an order/tracking number, not a phone
             # Check if context explicitly marks this as a tracking/order number
-            if context.get("has_tracking_number") or context.get(
-                    "has_order_id"):
+            if context.get("has_tracking_number") or context.get("has_order_id"):
                 continue
             filtered.append(match)
         return filtered
 
-    def _apply_suggestions(
-            self,
-            response: str,
-            stages: List[StageOutput]) -> str:
+    def _apply_suggestions(self, response: str, stages: List[StageOutput]) -> str:
         """Apply basic fixes based on stage suggestions."""
         if not response:
             return response
@@ -718,7 +748,7 @@ class CLARAQualityGate:
             if stage.result == StageResult.FAIL:
                 # Clean up whitespace issues from structure check
                 if stage.stage == CLARAStage.STRUCTURE_CHECK:
-                    result = re.sub(r'\n\n\n+', '\n\n', result)
+                    result = re.sub(r"\n\n\n+", "\n\n", result)
                     result = result.strip()
 
         return result

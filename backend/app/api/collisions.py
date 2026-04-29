@@ -15,7 +15,6 @@ from app.exceptions import NotFoundError
 from app.services.collision_service import CollisionService
 from database.models.core import User
 
-
 router = APIRouter(prefix="/tickets", tags=["Collisions"])
 
 

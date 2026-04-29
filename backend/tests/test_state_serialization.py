@@ -37,7 +37,6 @@ from app.core.techniques.base import (
     GSDState,
 )
 
-
 # ── Helpers ─────────────────────────────────────────────────────
 
 
@@ -51,6 +50,7 @@ def _make_signals(
     turn_count=2,
 ):
     from app.core.technique_router import QuerySignals
+
     return QuerySignals(
         intent_type=intent_type,
         sentiment_score=sentiment_score,
@@ -125,6 +125,7 @@ class TestStateSerializationError:
 
     def test_inheritance(self):
         from app.exceptions import ParwaBaseError
+
         err = StateSerializationError()
         assert isinstance(err, ParwaBaseError)
         assert isinstance(err, Exception)
@@ -336,9 +337,14 @@ class TestCheckpointMeta:
 
     def test_to_dict(self):
         meta = CheckpointMeta(
-            checkpoint_name="cp1", ticket_id="t1", company_id="c1",
-            snapshot_id="s1", created_at="now", gsd_state="new",
-            token_count=0, current_node="start",
+            checkpoint_name="cp1",
+            ticket_id="t1",
+            company_id="c1",
+            snapshot_id="s1",
+            created_at="now",
+            gsd_state="new",
+            token_count=0,
+            current_node="start",
         )
         d = meta.to_dict()
         assert d["checkpoint_name"] == "cp1"
@@ -376,17 +382,27 @@ class TestStateHistoryEntry:
 
     def test_model_used_none(self):
         entry = StateHistoryEntry(
-            snapshot_id="s1", created_at="", snapshot_type="auto",
-            current_node="n", gsd_state="new", token_count=0,
-            model_used=None, technique_stack=[],
+            snapshot_id="s1",
+            created_at="",
+            snapshot_type="auto",
+            current_node="n",
+            gsd_state="new",
+            token_count=0,
+            model_used=None,
+            technique_stack=[],
         )
         assert entry.model_used is None
 
     def test_to_dict(self):
         entry = StateHistoryEntry(
-            snapshot_id="s1", created_at="2025-01-01", snapshot_type="manual",
-            current_node="respond", gsd_state="resolution", token_count=200,
-            model_used="google", technique_stack=["clara"],
+            snapshot_id="s1",
+            created_at="2025-01-01",
+            snapshot_type="manual",
+            current_node="respond",
+            gsd_state="resolution",
+            token_count=200,
+            model_used="google",
+            technique_stack=["clara"],
         )
         d = entry.to_dict()
         assert d["snapshot_id"] == "s1"
@@ -396,14 +412,24 @@ class TestStateHistoryEntry:
 
     def test_list_factory_independence(self):
         a = StateHistoryEntry(
-            snapshot_id="", created_at="", snapshot_type="",
-            current_node="", gsd_state="", token_count=0,
-            model_used=None, technique_stack=[],
+            snapshot_id="",
+            created_at="",
+            snapshot_type="",
+            current_node="",
+            gsd_state="",
+            token_count=0,
+            model_used=None,
+            technique_stack=[],
         )
         b = StateHistoryEntry(
-            snapshot_id="", created_at="", snapshot_type="",
-            current_node="", gsd_state="", token_count=0,
-            model_used=None, technique_stack=[],
+            snapshot_id="",
+            created_at="",
+            snapshot_type="",
+            current_node="",
+            gsd_state="",
+            token_count=0,
+            model_used=None,
+            technique_stack=[],
         )
         a.technique_stack.append("x")
         assert "x" not in b.technique_stack
@@ -417,9 +443,11 @@ class TestStateHistoryEntry:
 class TestSaveResult:
     def test_success(self):
         r = SaveResult(
-            success=True, snapshot_id="s1",
+            success=True,
+            snapshot_id="s1",
             backend=StorageBackend.REDIS,
-            redis_success=True, postgresql_success=True,
+            redis_success=True,
+            postgresql_success=True,
         )
         assert r.success is True
         assert r.snapshot_id == "s1"
@@ -431,9 +459,11 @@ class TestSaveResult:
 
     def test_partial_failure(self):
         r = SaveResult(
-            success=True, snapshot_id="s1",
+            success=True,
+            snapshot_id="s1",
             backend=StorageBackend.POSTGRESQL,
-            redis_success=False, postgresql_success=True,
+            redis_success=False,
+            postgresql_success=True,
             error_message="Redis down",
         )
         assert r.backend == StorageBackend.POSTGRESQL
@@ -442,18 +472,22 @@ class TestSaveResult:
 
     def test_with_latency(self):
         r = SaveResult(
-            success=True, snapshot_id="s1",
+            success=True,
+            snapshot_id="s1",
             backend=StorageBackend.REDIS,
-            redis_success=True, postgresql_success=True,
+            redis_success=True,
+            postgresql_success=True,
             latency_ms=42,
         )
         assert r.latency_ms == 42
 
     def test_to_dict(self):
         r = SaveResult(
-            success=True, snapshot_id="s1",
+            success=True,
+            snapshot_id="s1",
             backend=StorageBackend.REDIS,
-            redis_success=True, postgresql_success=False,
+            redis_success=True,
+            postgresql_success=False,
         )
         d = r.to_dict()
         assert d["success"] is True
@@ -563,9 +597,10 @@ class TestNewUuid:
 
     def test_is_uuid4_format(self):
         import re
+
         result = _new_uuid()
         assert re.match(
-            r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+            r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             result,
         )
 
@@ -656,6 +691,7 @@ class TestSafeJsonDumps:
     def test_non_serializable_raises(self):
         class BadObj:
             pass
+
         with pytest.raises(StateSerializationError) as exc_info:
             _safe_json_dumps({"obj": BadObj()})
         assert "JSON_ERROR" in exc_info.value.error_code
@@ -676,7 +712,7 @@ class TestSafeJsonLoads:
         assert result == {"a": 1}
 
     def test_valid_list(self):
-        result = _safe_json.loads('[1, 2, 3]')
+        result = _safe_json.loads("[1, 2, 3]")
         assert result == [1, 2, 3]
 
     def test_empty_string_raises(self):
@@ -723,9 +759,13 @@ class TestSerializeState:
         assert result["gsd_state"] == "diagnosis"
 
     def test_gsd_history_serialized(self):
-        state = _make_state(gsd_history=[
-            GSDState.NEW, GSDState.GREETING, GSDState.DIAGNOSIS,
-        ])
+        state = _make_state(
+            gsd_history=[
+                GSDState.NEW,
+                GSDState.GREETING,
+                GSDState.DIAGNOSIS,
+            ]
+        )
         result = self.serializer.serialize_state(state)
         assert result["gsd_history"] == ["new", "greeting", "diagnosis"]
 
@@ -828,7 +868,9 @@ class TestDeserializeState:
         state = self.serializer.deserialize_state(data)
         assert len(state.gsd_history) == 3
         assert state.gsd_history == [
-            GSDState.NEW, GSDState.GREETING, GSDState.DIAGNOSIS,
+            GSDState.NEW,
+            GSDState.GREETING,
+            GSDState.DIAGNOSIS,
         ]
 
     def test_invalid_gsd_history_entries_skipped(self):
@@ -929,18 +971,24 @@ class TestRoundTrip:
         assert restored.ticket_id == original.ticket_id
 
     def test_with_history(self):
-        original = _make_state(gsd_history=[
-            GSDState.NEW, GSDState.GREETING, GSDState.DIAGNOSIS,
-        ])
+        original = _make_state(
+            gsd_history=[
+                GSDState.NEW,
+                GSDState.GREETING,
+                GSDState.DIAGNOSIS,
+            ]
+        )
         serialized = self.serializer.serialize_state(original)
         restored = self.serializer.deserialize_state(serialized)
         assert restored.gsd_history == original.gsd_history
 
     def test_with_technique_results(self):
-        original = _make_state(technique_results={
-            "cot": {"output": "result1"},
-            "react": {"output": "result2"},
-        })
+        original = _make_state(
+            technique_results={
+                "cot": {"output": "result1"},
+                "react": {"output": "result2"},
+            }
+        )
         serialized = self.serializer.serialize_state(original)
         restored = self.serializer.deserialize_state(serialized)
         assert restored.technique_results == original.technique_results
@@ -1005,7 +1053,10 @@ class TestSaveState:
         self.serializer._save_to_postgresql = AsyncMock(return_value=True)
         state = _make_state()
         result = await self.serializer.save_state(
-            "t1", "co_1", state, snapshot_type="invalid_type",
+            "t1",
+            "co_1",
+            state,
+            snapshot_type="invalid_type",
         )
         assert result.success is True
         self.serializer._save_to_redis.assert_called_once()
@@ -1018,7 +1069,10 @@ class TestSaveState:
         self.serializer._save_to_postgresql = AsyncMock(return_value=True)
         state = _make_state()
         result = await self.serializer.save_state(
-            "t1", "co_1", state, snapshot_type="manual",
+            "t1",
+            "co_1",
+            state,
+            snapshot_type="manual",
         )
         assert result.success is True
 
@@ -1028,7 +1082,10 @@ class TestSaveState:
         self.serializer._save_to_postgresql = AsyncMock(return_value=True)
         state = _make_state()
         result = await self.serializer.save_state(
-            "t1", "co_1", state, snapshot_type="error",
+            "t1",
+            "co_1",
+            state,
+            snapshot_type="error",
         )
         assert result.success is True
 
@@ -1038,7 +1095,9 @@ class TestSaveState:
         self.serializer._save_to_postgresql = AsyncMock(return_value=True)
         state = _make_state()
         await self.serializer.save_state(
-            "t1", "co_1", state,
+            "t1",
+            "co_1",
+            state,
             instance_id="inst_1",
             model_used="groq-llama",
             current_node="classify",
@@ -1107,8 +1166,7 @@ class TestLoadState:
         self.serializer._load_from_redis = AsyncMock(return_value=None)
         self.serializer._load_from_postgresql = AsyncMock(return_value=state)
         self.serializer._redis_set = AsyncMock(return_value=True)
-        self.serializer.serialize_state = MagicMock(
-            return_value={"test": "data"})
+        self.serializer.serialize_state = MagicMock(return_value={"test": "data"})
         result = await self.serializer.load_state("t1", "co_1")
         assert result is not None
         self.serializer._redis_set.assert_called_once()
@@ -1118,10 +1176,8 @@ class TestLoadState:
         state = _make_state()
         self.serializer._load_from_redis = AsyncMock(return_value=None)
         self.serializer._load_from_postgresql = AsyncMock(return_value=state)
-        self.serializer._redis_set = AsyncMock(
-            side_effect=Exception("Redis down"))
-        self.serializer.serialize_state = MagicMock(
-            return_value={"test": "data"})
+        self.serializer._redis_set = AsyncMock(side_effect=Exception("Redis down"))
+        self.serializer.serialize_state = MagicMock(return_value={"test": "data"})
         result = await self.serializer.load_state("t1", "co_1")
         assert result is not None
 
@@ -1137,12 +1193,14 @@ class TestSaveCheckpoint:
 
     @pytest.mark.asyncio
     async def test_basic_save(self):
-        self.serializer._save_checkpoint_to_redis = AsyncMock(
-            return_value=True)
+        self.serializer._save_checkpoint_to_redis = AsyncMock(return_value=True)
         self.serializer._save_to_postgresql = AsyncMock(return_value=True)
         state = _make_state()
         result = await self.serializer.save_checkpoint(
-            "t1", "co_1", state, "pre_resolution",
+            "t1",
+            "co_1",
+            state,
+            "pre_resolution",
         )
         assert result.success is True
         assert result.backend == StorageBackend.REDIS
@@ -1152,7 +1210,10 @@ class TestSaveCheckpoint:
         state = _make_state()
         with pytest.raises(StateSerializationError) as exc_info:
             await self.serializer.save_checkpoint(
-                "t1", "co_1", state, "",
+                "t1",
+                "co_1",
+                state,
+                "",
             )
         assert "INVALID_NAME" in exc_info.value.error_code
 
@@ -1161,7 +1222,10 @@ class TestSaveCheckpoint:
         state = _make_state()
         with pytest.raises(StateSerializationError):
             await self.serializer.save_checkpoint(
-                "t1", "co_1", state, None,
+                "t1",
+                "co_1",
+                state,
+                None,
             )
 
     @pytest.mark.asyncio
@@ -1169,29 +1233,36 @@ class TestSaveCheckpoint:
         state = _make_state()
         with pytest.raises(StateSerializationError):
             await self.serializer.save_checkpoint(
-                "t1", "co_1", state, 123,
+                "t1",
+                "co_1",
+                state,
+                123,
             )
 
     @pytest.mark.asyncio
     async def test_name_with_spaces_sanitized(self):
-        self.serializer._save_checkpoint_to_redis = AsyncMock(
-            return_value=True)
+        self.serializer._save_checkpoint_to_redis = AsyncMock(return_value=True)
         self.serializer._save_to_postgresql = AsyncMock(return_value=True)
         state = _make_state()
         await self.serializer.save_checkpoint(
-            "t1", "co_1", state, "before resolution",
+            "t1",
+            "co_1",
+            state,
+            "before resolution",
         )
         call_kwargs = self.serializer._save_checkpoint_to_redis.call_args
         assert call_kwargs[1]["checkpoint_name"] == "before_resolution"
 
     @pytest.mark.asyncio
     async def test_name_with_special_chars_sanitized(self):
-        self.serializer._save_checkpoint_to_redis = AsyncMock(
-            return_value=True)
+        self.serializer._save_checkpoint_to_redis = AsyncMock(return_value=True)
         self.serializer._save_to_postgresql = AsyncMock(return_value=True)
         state = _make_state()
         await self.serializer.save_checkpoint(
-            "t1", "co_1", state, "pre-resolution@v2",
+            "t1",
+            "co_1",
+            state,
+            "pre-resolution@v2",
         )
         call_kwargs = self.serializer._save_checkpoint_to_redis.call_args
         name = call_kwargs[1]["checkpoint_name"]
@@ -1200,23 +1271,27 @@ class TestSaveCheckpoint:
 
     @pytest.mark.asyncio
     async def test_both_fail_raises(self):
-        self.serializer._save_checkpoint_to_redis = AsyncMock(
-            return_value=False)
+        self.serializer._save_checkpoint_to_redis = AsyncMock(return_value=False)
         self.serializer._save_to_postgresql = AsyncMock(return_value=False)
         state = _make_state()
         with pytest.raises(StateSerializationError):
             await self.serializer.save_checkpoint(
-                "t1", "co_1", state, "cp1",
+                "t1",
+                "co_1",
+                state,
+                "cp1",
             )
 
     @pytest.mark.asyncio
     async def test_redis_fails_pg_succeeds(self):
-        self.serializer._save_checkpoint_to_redis = AsyncMock(
-            return_value=False)
+        self.serializer._save_checkpoint_to_redis = AsyncMock(return_value=False)
         self.serializer._save_to_postgresql = AsyncMock(return_value=True)
         state = _make_state()
         result = await self.serializer.save_checkpoint(
-            "t1", "co_1", state, "cp1",
+            "t1",
+            "co_1",
+            state,
+            "cp1",
         )
         assert result.success is True
         assert result.backend == StorageBackend.POSTGRESQL
@@ -1241,7 +1316,9 @@ class TestLoadCheckpoint:
             return_value=None,
         )
         result = await self.serializer.load_checkpoint(
-            "t1", "co_1", "pre_resolution",
+            "t1",
+            "co_1",
+            "pre_resolution",
         )
         assert result is not None
         self.serializer._load_checkpoint_from_postgresql.assert_not_called()
@@ -1256,7 +1333,9 @@ class TestLoadCheckpoint:
             return_value=state,
         )
         result = await self.serializer.load_checkpoint(
-            "t1", "co_1", "pre_resolution",
+            "t1",
+            "co_1",
+            "pre_resolution",
         )
         assert result is not None
 
@@ -1269,7 +1348,9 @@ class TestLoadCheckpoint:
             return_value=None,
         )
         result = await self.serializer.load_checkpoint(
-            "t1", "co_1", "nonexistent",
+            "t1",
+            "co_1",
+            "nonexistent",
         )
         assert result is None
 
@@ -1282,7 +1363,9 @@ class TestLoadCheckpoint:
             return_value=None,
         )
         await self.serializer.load_checkpoint(
-            "t1", "co_1", "Before Resolution",
+            "t1",
+            "co_1",
+            "Before Resolution",
         )
         call_kwargs = self.serializer._load_checkpoint_from_redis.call_args
         assert call_kwargs[0][2] == "before_resolution"
@@ -1353,34 +1436,28 @@ class TestDeleteState:
     @pytest.mark.asyncio
     async def test_both_succeed(self):
         self.serializer._delete_state_from_redis = AsyncMock(return_value=True)
-        self.serializer._delete_state_from_postgresql = AsyncMock(
-            return_value=True)
+        self.serializer._delete_state_from_postgresql = AsyncMock(return_value=True)
         result = await self.serializer.delete_state("t1", "co_1")
         assert result == {"redis": True, "postgresql": True}
 
     @pytest.mark.asyncio
     async def test_redis_fails(self):
-        self.serializer._delete_state_from_redis = AsyncMock(
-            return_value=False)
-        self.serializer._delete_state_from_postgresql = AsyncMock(
-            return_value=True)
+        self.serializer._delete_state_from_redis = AsyncMock(return_value=False)
+        self.serializer._delete_state_from_postgresql = AsyncMock(return_value=True)
         result = await self.serializer.delete_state("t1", "co_1")
         assert result == {"redis": False, "postgresql": True}
 
     @pytest.mark.asyncio
     async def test_pg_fails(self):
         self.serializer._delete_state_from_redis = AsyncMock(return_value=True)
-        self.serializer._delete_state_from_postgresql = AsyncMock(
-            return_value=False)
+        self.serializer._delete_state_from_postgresql = AsyncMock(return_value=False)
         result = await self.serializer.delete_state("t1", "co_1")
         assert result == {"redis": True, "postgresql": False}
 
     @pytest.mark.asyncio
     async def test_both_fail(self):
-        self.serializer._delete_state_from_redis = AsyncMock(
-            return_value=False)
-        self.serializer._delete_state_from_postgresql = AsyncMock(
-            return_value=False)
+        self.serializer._delete_state_from_redis = AsyncMock(return_value=False)
+        self.serializer._delete_state_from_postgresql = AsyncMock(return_value=False)
         result = await self.serializer.delete_state("t1", "co_1")
         assert result == {"redis": False, "postgresql": False}
 
@@ -1404,36 +1481,38 @@ class TestGetStateHistory:
 
     @pytest.mark.asyncio
     async def test_empty_history(self):
-        self.serializer._get_history_from_postgresql = AsyncMock(
-            return_value=[])
+        self.serializer._get_history_from_postgresql = AsyncMock(return_value=[])
         result = await self.serializer.get_state_history("t1", "co_1")
         assert result == []
 
     @pytest.mark.asyncio
     async def test_custom_limit(self):
-        self.serializer._get_history_from_postgresql = AsyncMock(
-            return_value=[])
+        self.serializer._get_history_from_postgresql = AsyncMock(return_value=[])
         await self.serializer.get_state_history("t1", "co_1", limit=10)
         self.serializer._get_history_from_postgresql.assert_called_once_with(
-            "t1", "co_1", 10,
+            "t1",
+            "co_1",
+            10,
         )
 
     @pytest.mark.asyncio
     async def test_limit_zero_clamped(self):
-        self.serializer._get_history_from_postgresql = AsyncMock(
-            return_value=[])
+        self.serializer._get_history_from_postgresql = AsyncMock(return_value=[])
         await self.serializer.get_state_history("t1", "co_1", limit=0)
         self.serializer._get_history_from_postgresql.assert_called_once_with(
-            "t1", "co_1", 1,
+            "t1",
+            "co_1",
+            1,
         )
 
     @pytest.mark.asyncio
     async def test_limit_over_200_clamped(self):
-        self.serializer._get_history_from_postgresql = AsyncMock(
-            return_value=[])
+        self.serializer._get_history_from_postgresql = AsyncMock(return_value=[])
         await self.serializer.get_state_history("t1", "co_1", limit=500)
         self.serializer._get_history_from_postgresql.assert_called_once_with(
-            "t1", "co_1", 200,
+            "t1",
+            "co_1",
+            200,
         )
 
 
@@ -1513,8 +1592,7 @@ class TestComputeDiff:
         new = _make_state(technique_results={"cot": {}, "react": {}})
         diff = self.serializer.compute_diff(old, new)
         assert "technique_stack" in diff.changed_fields
-        assert diff.technique_stack == {
-            "old": ["cot"], "new": ["cot", "react"]}
+        assert diff.technique_stack == {"old": ["cot"], "new": ["cot", "react"]}
 
     def test_query_changed(self):
         old = _make_state(query="refund")
@@ -1542,13 +1620,15 @@ class TestComputeDiff:
 
     def test_timestamp_present(self):
         diff = self.serializer.compute_diff(
-            _make_state(), _make_state(gsd_state=GSDState.DIAGNOSIS),
+            _make_state(),
+            _make_state(gsd_state=GSDState.DIAGNOSIS),
         )
         assert diff.timestamp != ""
 
     def test_to_dict(self):
         diff = self.serializer.compute_diff(
-            _make_state(), _make_state(gsd_state=GSDState.DIAGNOSIS),
+            _make_state(),
+            _make_state(gsd_state=GSDState.DIAGNOSIS),
         )
         d = diff.to_dict()
         assert "changed_fields" in d
@@ -1686,16 +1766,27 @@ class TestRedisOperations:
     async def test_save_to_redis_success(self):
         self.serializer._redis_set = AsyncMock(return_value=True)
         result = await self.serializer._save_to_redis(
-            "t1", "co_1", '{"test": 1}', "snap_1", "auto", "classify", [],
+            "t1",
+            "co_1",
+            '{"test": 1}',
+            "snap_1",
+            "auto",
+            "classify",
+            [],
         )
         assert result is True
 
     @pytest.mark.asyncio
     async def test_save_to_redis_failure(self):
-        self.serializer._redis_set = AsyncMock(
-            side_effect=Exception("Redis down"))
+        self.serializer._redis_set = AsyncMock(side_effect=Exception("Redis down"))
         result = await self.serializer._save_to_redis(
-            "t1", "co_1", '{"test": 1}', "snap_1", "auto", "classify", [],
+            "t1",
+            "co_1",
+            '{"test": 1}',
+            "snap_1",
+            "auto",
+            "classify",
+            [],
         )
         assert result is False
 
@@ -1704,7 +1795,8 @@ class TestRedisOperations:
         state = _make_state()
         serialized = self.serializer.serialize_state(state)
         self.serializer._redis_get = AsyncMock(
-            return_value=json.dumps(serialized, default=str))
+            return_value=json.dumps(serialized, default=str)
+        )
         result = await self.serializer._load_from_redis("t1", "co_1")
         assert result is not None
 

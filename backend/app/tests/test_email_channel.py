@@ -84,6 +84,7 @@ COMPANY_ID_2 = "test-company-456"
 
 # ── Helper: Create mock DB session ─────────────────────────────
 
+
 class MockDB:
     """Mock database session for testing without real DB."""
 
@@ -152,12 +153,14 @@ class MockQuery:
 
 # ── Test: Import checks ────────────────────────────────────────
 
+
 class TestImports:
     """Verify all modules can be imported."""
 
     def test_import_email_channel_models(self):
         """Email channel models should be importable."""
         from database.models.email_channel import InboundEmail, EmailThread
+
         assert InboundEmail is not None
         assert EmailThread is not None
 
@@ -171,16 +174,22 @@ class TestImports:
             AutoReplyDetection,
             EmailProcessResult,
         )
-        assert all([InboundEmailCreate,
-                    InboundEmailResponse,
-                    EmailThreadResponse,
-                    EmailLoopDetection,
-                    AutoReplyDetection,
-                    EmailProcessResult])
+
+        assert all(
+            [
+                InboundEmailCreate,
+                InboundEmailResponse,
+                EmailThreadResponse,
+                EmailLoopDetection,
+                AutoReplyDetection,
+                EmailProcessResult,
+            ]
+        )
 
     def test_import_email_channel_service(self):
         """Email channel service should be importable."""
         from app.services.email_channel_service import EmailChannelService
+
         assert EmailChannelService is not None
 
     def test_import_email_channel_tasks(self):
@@ -190,16 +199,24 @@ class TestImports:
             process_bounce_event_task,
             process_complaint_event_task,
         )
-        assert all([process_inbound_email_task, process_bounce_event_task,
-                    process_complaint_event_task])
+
+        assert all(
+            [
+                process_inbound_email_task,
+                process_bounce_event_task,
+                process_complaint_event_task,
+            ]
+        )
 
     def test_import_brevo_handler(self):
         """Brevo handler should be importable with all event types."""
         from app.webhooks.brevo_handler import handle_brevo_event
+
         assert handle_brevo_event is not None
 
 
 # ── Test: InboundEmail Model ───────────────────────────────────
+
 
 class TestInboundEmailModel:
     """Tests for the InboundEmail database model."""
@@ -210,12 +227,25 @@ class TestInboundEmailModel:
 
         # Check that all expected columns exist
         expected_fields = [
-            "id", "company_id", "message_id", "in_reply_to",
-            "references", "sender_email", "sender_name",
-            "recipient_email", "subject", "body_html", "body_text",
-            "headers_json", "is_auto_reply", "is_loop",
-            "is_processed", "ticket_id", "processing_error",
-            "raw_size_bytes", "created_at",
+            "id",
+            "company_id",
+            "message_id",
+            "in_reply_to",
+            "references",
+            "sender_email",
+            "sender_name",
+            "recipient_email",
+            "subject",
+            "body_html",
+            "body_text",
+            "headers_json",
+            "is_auto_reply",
+            "is_loop",
+            "is_processed",
+            "ticket_id",
+            "processing_error",
+            "raw_size_bytes",
+            "created_at",
         ]
         for field in expected_fields:
             assert hasattr(InboundEmail, field), f"Missing field: {field}"
@@ -243,6 +273,7 @@ class TestInboundEmailModel:
 
 # ── Test: EmailThread Model ────────────────────────────────────
 
+
 class TestEmailThreadModel:
     """Tests for the EmailThread database model."""
 
@@ -251,9 +282,15 @@ class TestEmailThreadModel:
         from database.models.email_channel import EmailThread
 
         expected_fields = [
-            "id", "company_id", "ticket_id", "thread_message_id",
-            "latest_message_id", "message_count", "participants_json",
-            "created_at", "updated_at",
+            "id",
+            "company_id",
+            "ticket_id",
+            "thread_message_id",
+            "latest_message_id",
+            "message_count",
+            "participants_json",
+            "created_at",
+            "updated_at",
         ]
         for field in expected_fields:
             assert hasattr(EmailThread, field), f"Missing field: {field}"
@@ -279,6 +316,7 @@ class TestEmailThreadModel:
 
 # ── Test: Auto-Reply Detection ─────────────────────────────────
 
+
 class TestAutoReplyDetection:
     """Tests for auto-reply / OOO detection logic."""
 
@@ -290,7 +328,8 @@ class TestAutoReplyDetection:
         service = self._get_service()
         email_data = {
             **SAMPLE_INBOUND_EMAIL,
-            "headers_json": '{"Auto-Submitted": "auto-replied"}'}
+            "headers_json": '{"Auto-Submitted": "auto-replied"}',
+        }
         result = service.detect_auto_reply(email_data)
         assert result.is_auto_reply is True
         assert result.detection_source == "header"
@@ -298,8 +337,10 @@ class TestAutoReplyDetection:
     def test_detect_ooo_by_precedence_header(self):
         """Should detect OOO via Precedence: auto_reply header."""
         service = self._get_service()
-        email_data = {**SAMPLE_INBOUND_EMAIL,
-                      "headers_json": '{"Precedence": "auto_reply"}'}
+        email_data = {
+            **SAMPLE_INBOUND_EMAIL,
+            "headers_json": '{"Precedence": "auto_reply"}',
+        }
         result = service.detect_auto_reply(email_data)
         assert result.is_auto_reply is True
         assert result.detection_source == "header"
@@ -309,7 +350,8 @@ class TestAutoReplyDetection:
         service = self._get_service()
         email_data = {
             **SAMPLE_INBOUND_EMAIL,
-            "body_text": "I am out of the office until next Monday"}
+            "body_text": "I am out of the office until next Monday",
+        }
         result = service.detect_auto_reply(email_data)
         assert result.is_auto_reply is True
         assert result.detection_source == "body"
@@ -317,8 +359,10 @@ class TestAutoReplyDetection:
     def test_detect_ooo_by_body_pattern_autoreply(self):
         """Should detect OOO via 'autoreply' body pattern."""
         service = self._get_service()
-        email_data = {**SAMPLE_INBOUND_EMAIL,
-                      "body_text": "This is an autoreply message"}
+        email_data = {
+            **SAMPLE_INBOUND_EMAIL,
+            "body_text": "This is an autoreply message",
+        }
         result = service.detect_auto_reply(email_data)
         assert result.is_auto_reply is True
         assert result.detection_source == "body"
@@ -328,15 +372,18 @@ class TestAutoReplyDetection:
         service = self._get_service()
         email_data = {
             **SAMPLE_INBOUND_EMAIL,
-            "body_text": "Vacation notice: I will be back next week"}
+            "body_text": "Vacation notice: I will be back next week",
+        }
         result = service.detect_auto_reply(email_data)
         assert result.is_auto_reply is True
 
     def test_detect_ooo_by_body_pattern_away(self):
         """Should detect OOO via 'I am away' body pattern."""
         service = self._get_service()
-        email_data = {**SAMPLE_INBOUND_EMAIL,
-                      "body_text": "I am currently away on leave"}
+        email_data = {
+            **SAMPLE_INBOUND_EMAIL,
+            "body_text": "I am currently away on leave",
+        }
         result = service.detect_auto_reply(email_data)
         assert result.is_auto_reply is True
 
@@ -349,8 +396,10 @@ class TestAutoReplyDetection:
     def test_no_ooo_with_auto_submitted_no(self):
         """Should NOT detect OOO when Auto-Submitted = no."""
         service = self._get_service()
-        email_data = {**SAMPLE_INBOUND_EMAIL,
-                      "headers_json": '{"Auto-Submitted": "no"}'}
+        email_data = {
+            **SAMPLE_INBOUND_EMAIL,
+            "headers_json": '{"Auto-Submitted": "no"}',
+        }
         result = service.detect_auto_reply(email_data)
         assert result.is_auto_reply is False
 
@@ -368,6 +417,7 @@ class TestAutoReplyDetection:
 
 # ── Test: Loop Detection ────────────────────────────────────────
 
+
 class TestLoopDetection:
     """Tests for email loop detection logic."""
 
@@ -384,9 +434,7 @@ class TestLoopDetection:
     def test_detect_self_sent_getparwa_domain(self):
         """Should detect loop from getparwa.com domain."""
         service = self._get_service()
-        email_data = {
-            **SAMPLE_SELF_SENT_EMAIL,
-            "sender_email": "system@getparwa.com"}
+        email_data = {**SAMPLE_SELF_SENT_EMAIL, "sender_email": "system@getparwa.com"}
         result = service.detect_email_loop(COMPANY_ID, email_data)
         assert result.is_loop is True
 
@@ -399,8 +447,10 @@ class TestLoopDetection:
     def test_no_loop_normal_sender_company_domain(self):
         """Should NOT detect loop for customer company domain."""
         service = self._get_service()
-        email_data = {**SAMPLE_INBOUND_EMAIL,
-                      "sender_email": "user@customercompany.com"}
+        email_data = {
+            **SAMPLE_INBOUND_EMAIL,
+            "sender_email": "user@customercompany.com",
+        }
         result = service.detect_email_loop(COMPANY_ID, email_data)
         assert result.is_loop is False
 
@@ -415,6 +465,7 @@ class TestLoopDetection:
 
 # ── Test: References Parsing ───────────────────────────────────
 
+
 class TestReferencesParsing:
     """Tests for parsing the References email header."""
 
@@ -426,10 +477,7 @@ class TestReferencesParsing:
         service = self._get_service()
         refs = "<msg1@example.com> <msg2@example.com> <msg3@example.com>"
         result = service._parse_references(refs)
-        assert result == [
-            "msg1@example.com",
-            "msg2@example.com",
-            "msg3@example.com"]
+        assert result == ["msg1@example.com", "msg2@example.com", "msg3@example.com"]
 
     def test_parse_empty_references(self):
         """Should return empty list for empty references."""
@@ -440,8 +488,9 @@ class TestReferencesParsing:
     def test_parse_single_reference(self):
         """Should parse a single Message-ID."""
         service = self._get_service()
-        assert service._parse_references(
-            "<only-one@example.com>") == ["only-one@example.com"]
+        assert service._parse_references("<only-one@example.com>") == [
+            "only-one@example.com"
+        ]
 
     def test_parse_whitespace_references_fallback(self):
         """Should fallback to whitespace split if no angle brackets."""
@@ -451,6 +500,7 @@ class TestReferencesParsing:
 
 
 # ── Test: Brevo Handler ─────────────────────────────────────────
+
 
 class TestBrevoHandler:
     """Tests for the Brevo webhook handler."""
@@ -473,7 +523,9 @@ class TestBrevoHandler:
             "event_id": "evt-123",
         }
 
-        with patch("app.webhooks.brevo_handler.process_inbound_email_task") as mock_task:
+        with patch(
+            "app.webhooks.brevo_handler.process_inbound_email_task"
+        ) as mock_task:
             result = handle_inbound_email(event)
             mock_task.delay.assert_called_once()
             call_args = mock_task.delay.call_args
@@ -554,7 +606,9 @@ class TestBrevoHandler:
             "company_id": COMPANY_ID,
         }
 
-        with patch("app.webhooks.brevo_handler.process_complaint_event_task") as mock_task:
+        with patch(
+            "app.webhooks.brevo_handler.process_complaint_event_task"
+        ) as mock_task:
             result = handle_complaint(event)
             mock_task.delay.assert_called_once()
             assert result["status"] == "dispatched"
@@ -565,9 +619,7 @@ class TestBrevoHandler:
 
         event = {
             "event_type": "delivered",
-            "payload": {
-                "email": "delivered@example.com",
-                "message_id": "<msg1>"},
+            "payload": {"email": "delivered@example.com", "message_id": "<msg1>"},
             "company_id": COMPANY_ID,
         }
 
@@ -590,6 +642,7 @@ class TestBrevoHandler:
 
 
 # ── Test: Schemas ──────────────────────────────────────────────
+
 
 class TestSchemas:
     """Tests for Pydantic schemas."""
@@ -654,6 +707,7 @@ class TestSchemas:
 
 # ── Test: List Inbound Emails ──────────────────────────────────
 
+
 class TestListInboundEmails:
     """Tests for listing inbound emails with pagination."""
 
@@ -678,19 +732,23 @@ class TestListInboundEmails:
 
 # ── Test: Migration File ───────────────────────────────────────
 
+
 class TestMigrationFile:
     """Verify migration file exists and is valid."""
 
     def test_migration_file_exists(self):
         """Migration 016_email_channel_tables.py should exist."""
         import os
+
         path = "/home/z/my-project/parwa/database/alembic/versions/016_email_channel_tables.py"
         assert os.path.exists(path), f"Migration file not found: {path}"
 
     def test_migration_creates_correct_tables(self):
         """Migration should create inbound_emails and email_threads."""
         # Read migration file content
-        with open("/home/z/my-project/parwa/database/alembic/versions/016_email_channel_tables.py") as f:
+        with open(
+            "/home/z/my-project/parwa/database/alembic/versions/016_email_channel_tables.py"
+        ) as f:
             content = f.read()
 
         assert "inbound_emails" in content

@@ -83,10 +83,18 @@ INDUSTRY_TEMPLATES = {
             "cancellation": "I can help with order cancellation. If the order hasn't been processed yet, we can cancel it immediately. Let me check the status for you.",
         },
         "knowledge_topics": [
-            "order_tracking", "returns_policy", "shipping_options",
-            "payment_methods", "product_information", "account_management"
+            "order_tracking",
+            "returns_policy",
+            "shipping_options",
+            "payment_methods",
+            "product_information",
+            "account_management",
         ],
-        "escalation_triggers": ["fraud_suspected", "legal_inquiry", "high_value_dispute"],
+        "escalation_triggers": [
+            "fraud_suspected",
+            "legal_inquiry",
+            "high_value_dispute",
+        ],
     },
     INDUSTRY_SAAS: {
         "name": "SaaS / Software",
@@ -111,8 +119,12 @@ INDUSTRY_TEMPLATES = {
             "cancellation": "I can help with subscription management. Before canceling, I'd like to understand if there's anything we can do to improve your experience.",
         },
         "knowledge_topics": [
-            "getting_started", "feature_guides", "api_documentation",
-            "billing_management", "integrations", "troubleshooting"
+            "getting_started",
+            "feature_guides",
+            "api_documentation",
+            "billing_management",
+            "integrations",
+            "troubleshooting",
         ],
         "escalation_triggers": ["data_breach", "service_outage", "enterprise_inquiry"],
     },
@@ -136,10 +148,18 @@ INDUSTRY_TEMPLATES = {
             "transactions": "I can help with money transfers. You can transfer between your accounts, to other users, or to external accounts through our online banking.",
         },
         "knowledge_topics": [
-            "account_services", "card_management", "transfers_payments",
-            "security_fraud", "loans_credit", "investment_services"
+            "account_services",
+            "card_management",
+            "transfers_payments",
+            "security_fraud",
+            "loans_credit",
+            "investment_services",
         ],
-        "escalation_triggers": ["fraud_report", "large_transaction_dispute", "regulatory_complaint"],
+        "escalation_triggers": [
+            "fraud_report",
+            "large_transaction_dispute",
+            "regulatory_complaint",
+        ],
         "compliance_note": "All responses must comply with financial regulations. Never provide specific financial advice.",
     },
     INDUSTRY_EDUCATION: {
@@ -162,10 +182,18 @@ INDUSTRY_TEMPLATES = {
             "resources": "We offer various student resources including tutoring, library access, career services, and mental health support. What type of assistance are you looking for?",
         },
         "knowledge_topics": [
-            "course_catalog", "enrollment_process", "academic_calendar",
-            "student_resources", "technical_support", "graduation_requirements"
+            "course_catalog",
+            "enrollment_process",
+            "academic_calendar",
+            "student_resources",
+            "technical_support",
+            "graduation_requirements",
         ],
-        "escalation_triggers": ["academic_integrity", "accessibility_needs", "harassment_report"],
+        "escalation_triggers": [
+            "academic_integrity",
+            "accessibility_needs",
+            "harassment_report",
+        ],
     },
     INDUSTRY_TRAVEL: {
         "name": "Travel / Hospitality",
@@ -187,8 +215,12 @@ INDUSTRY_TEMPLATES = {
             "loyalty": "I can help with our loyalty program. You earn points on every booking, and status members enjoy benefits like priority boarding and lounge access.",
         },
         "knowledge_topics": [
-            "booking_process", "cancellation_policy", "loyalty_program",
-            "travel_requirements", "special_assistance", "destination_info"
+            "booking_process",
+            "cancellation_policy",
+            "loyalty_program",
+            "travel_requirements",
+            "special_assistance",
+            "destination_info",
         ],
         "escalation_triggers": ["safety_concern", "group_booking", "vip_customer"],
     },
@@ -212,8 +244,12 @@ INDUSTRY_TEMPLATES = {
             "loyalty": "I can help with your rewards! Points can be redeemed at checkout. Let me check your current balance and available rewards.",
         },
         "knowledge_topics": [
-            "store_locator", "return_policy", "rewards_program",
-            "price_matching", "product_catalog", "store_services"
+            "store_locator",
+            "return_policy",
+            "rewards_program",
+            "price_matching",
+            "product_catalog",
+            "store_services",
         ],
         "escalation_triggers": ["theft_report", "customer_complaint", "safety_issue"],
     },
@@ -237,10 +273,18 @@ INDUSTRY_TEMPLATES = {
             "billing": "I can help with your billing. You can pay online, set up auto-pay, or I can review your bill for any questions about charges.",
         },
         "knowledge_topics": [
-            "service_troubleshooting", "plan_options", "equipment_setup",
-            "billing_support", "coverage_maps", "service_status"
+            "service_troubleshooting",
+            "plan_options",
+            "equipment_setup",
+            "billing_support",
+            "coverage_maps",
+            "service_status",
         ],
-        "escalation_triggers": ["service_complaint", "billing_dispute", "infrastructure_issue"],
+        "escalation_triggers": [
+            "service_complaint",
+            "billing_dispute",
+            "infrastructure_issue",
+        ],
     },
     INDUSTRY_GENERIC: {
         "name": "General Purpose",
@@ -262,8 +306,12 @@ INDUSTRY_TEMPLATES = {
             "feedback": "Thank you for wanting to share your feedback with us. We value all customer input. Please tell me more about your experience.",
         },
         "knowledge_topics": [
-            "general_info", "contact_methods", "account_management",
-            "services_overview", "faq", "feedback_process"
+            "general_info",
+            "contact_methods",
+            "account_management",
+            "services_overview",
+            "faq",
+            "feedback_process",
         ],
         "escalation_triggers": ["urgent_request", "formal_complaint", "legal_inquiry"],
     },
@@ -357,13 +405,11 @@ class ColdStartService:
         needs_cold_start = completed_runs == 0 and active_run is None
 
         # Get assigned industry
-        industry = getattr(
-            agent,
-            "industry",
-            None) or getattr(
-            agent,
-            "specialty",
-            None) or INDUSTRY_GENERIC
+        industry = (
+            getattr(agent, "industry", None)
+            or getattr(agent, "specialty", None)
+            or INDUSTRY_GENERIC
+        )
 
         return {
             "agent_id": agent_id,
@@ -404,13 +450,17 @@ class ColdStartService:
         for agent in agents:
             status = self.get_cold_start_status(company_id, str(agent.id))
             if status.get("needs_cold_start"):
-                agents_needing_cold_start.append({
-                    "agent_id": str(agent.id),
-                    "agent_name": agent.name,
-                    "status": agent.status,
-                    "created_at": agent.created_at.isoformat() if agent.created_at else None,
-                    "suggested_industry": status.get("suggested_industry"),
-                })
+                agents_needing_cold_start.append(
+                    {
+                        "agent_id": str(agent.id),
+                        "agent_name": agent.name,
+                        "status": agent.status,
+                        "created_at": (
+                            agent.created_at.isoformat() if agent.created_at else None
+                        ),
+                        "suggested_industry": status.get("suggested_industry"),
+                    }
+                )
 
         return agents_needing_cold_start
 
@@ -428,7 +478,8 @@ class ColdStartService:
             Dict with industry template data.
         """
         template = INDUSTRY_TEMPLATES.get(
-            industry, INDUSTRY_TEMPLATES[INDUSTRY_GENERIC])
+            industry, INDUSTRY_TEMPLATES[INDUSTRY_GENERIC]
+        )
         return {
             "industry": industry,
             "template": template,
@@ -442,14 +493,18 @@ class ColdStartService:
         """
         templates = []
         for industry_key, template in INDUSTRY_TEMPLATES.items():
-            templates.append({
-                "industry_key": industry_key,
-                "name": template.get("name"),
-                "description": template.get("description"),
-                "query_categories": list(set(q["category"] for q in template.get("common_queries", []))),
-                "knowledge_topics": template.get("knowledge_topics", []),
-                "sample_count": len(template.get("common_queries", [])),
-            })
+            templates.append(
+                {
+                    "industry_key": industry_key,
+                    "name": template.get("name"),
+                    "description": template.get("description"),
+                    "query_categories": list(
+                        set(q["category"] for q in template.get("common_queries", []))
+                    ),
+                    "knowledge_topics": template.get("knowledge_topics", []),
+                    "sample_count": len(template.get("common_queries", [])),
+                }
+            )
         return templates
 
     def get_template_training_data(
@@ -467,7 +522,8 @@ class ColdStartService:
             List of training samples.
         """
         template = INDUSTRY_TEMPLATES.get(
-            industry, INDUSTRY_TEMPLATES[INDUSTRY_GENERIC])
+            industry, INDUSTRY_TEMPLATES[INDUSTRY_GENERIC]
+        )
 
         training_samples = []
 
@@ -479,26 +535,31 @@ class ColdStartService:
             responses = template.get("responses", {})
             response = responses.get(
                 category,
-                f"I'll help you with your {category} concern. Let me look into this for you.")
+                f"I'll help you with your {category} concern. Let me look into this for you.",
+            )
 
-            training_samples.append({
-                "input": query,
-                "expected_output": response,
-                "category": category,
-                "industry": industry,
-                "source": "template",
-            })
+            training_samples.append(
+                {
+                    "input": query,
+                    "expected_output": response,
+                    "category": category,
+                    "industry": industry,
+                    "source": "template",
+                }
+            )
 
             # Add variations
             variations = self._generate_query_variations(query, category)
             for var in variations:
-                training_samples.append({
-                    "input": var,
-                    "expected_output": response,
-                    "category": category,
-                    "industry": industry,
-                    "source": "template_variation",
-                })
+                training_samples.append(
+                    {
+                        "input": var,
+                        "expected_output": response,
+                        "category": category,
+                        "industry": industry,
+                        "source": "template_variation",
+                    }
+                )
 
         # Add knowledge topic samples
         for topic in template.get("knowledge_topics", []):
@@ -511,14 +572,13 @@ class ColdStartService:
             training_samples.sort(
                 key=lambda x: (
                     0 if x.get("category") in priority_categories else 1,
-                    x.get("category")))
+                    x.get("category"),
+                )
+            )
 
         return training_samples
 
-    def _generate_query_variations(
-            self,
-            query: str,
-            category: str) -> List[str]:
+    def _generate_query_variations(self, query: str, category: str) -> List[str]:
         """Generate variations of a query for training diversity."""
         variations = []
 
@@ -535,8 +595,7 @@ class ColdStartService:
 
         return variations[:3]  # Limit variations
 
-    def _generate_knowledge_samples(
-            self, topic: str, industry: str) -> List[Dict]:
+    def _generate_knowledge_samples(self, topic: str, industry: str) -> List[Dict]:
         """Generate training samples for a knowledge topic."""
         # Simple knowledge samples
         return [
@@ -572,7 +631,12 @@ class ColdStartService:
         """Get priority categories for a specialty."""
         specialty_mapping = {
             SPECIALTY_BILLING: ["billing", "payment", "refunds", "invoices"],
-            SPECIALTY_TECHNICAL: ["technical", "integration", "troubleshooting", "setup"],
+            SPECIALTY_TECHNICAL: [
+                "technical",
+                "integration",
+                "troubleshooting",
+                "setup",
+            ],
             SPECIALTY_SALES: ["sales", "pricing", "products", "features"],
             SPECIALTY_RETENTION: ["cancellation", "feedback", "complaint", "retention"],
             SPECIALTY_GENERAL: [],
@@ -633,18 +697,22 @@ class ColdStartService:
 
         try:
             # Generate training data from template
-            training_data = self.get_template_training_data(
-                industry, specialty)
+            training_data = self.get_template_training_data(industry, specialty)
 
             if len(training_data) < MIN_TEMPLATE_SAMPLES:
                 # Supplement with generic data
                 generic_data = self.get_template_training_data(
-                    INDUSTRY_GENERIC, specialty)
+                    INDUSTRY_GENERIC, specialty
+                )
                 training_data.extend(
-                    generic_data[:MIN_TEMPLATE_SAMPLES - len(training_data)])
+                    generic_data[: MIN_TEMPLATE_SAMPLES - len(training_data)]
+                )
 
             # Create dataset
-            from app.services.dataset_preparation_service import DatasetPreparationService
+            from app.services.dataset_preparation_service import (
+                DatasetPreparationService,
+            )
+
             dataset_service = DatasetPreparationService(self.db)
 
             dataset_result = dataset_service.create_dataset_from_samples(
@@ -840,8 +908,7 @@ class ColdStartService:
             .all()
         )
 
-        completed = len(
-            [r for r in cold_start_runs if r.status == "completed"])
+        completed = len([r for r in cold_start_runs if r.status == "completed"])
         failed = len([r for r in cold_start_runs if r.status == "failed"])
         total_cost = sum(float(r.cost_usd or 0) for r in cold_start_runs)
 

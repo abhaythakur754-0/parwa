@@ -25,10 +25,10 @@ from shared.utils.security import constant_time_compare
 class APIKeyScope(str, enum.Enum):
     """API key permission scopes (BC-011)."""
 
-    READ = "read"           # Read-only access to data
-    WRITE = "write"         # Read + create/update data
-    ADMIN = "admin"         # Full access including delete/settings
-    APPROVAL = "approval"   # Approve/reject actions only
+    READ = "read"  # Read-only access to data
+    WRITE = "write"  # Read + create/update data
+    ADMIN = "admin"  # Full access including delete/settings
+    APPROVAL = "approval"  # Approve/reject actions only
 
 
 # Scope hierarchy: higher scope includes lower scopes
@@ -48,9 +48,9 @@ class APIKeyStatus(str, enum.Enum):
     """API key lifecycle status."""
 
     ACTIVE = "active"
-    ROTATED = "rotated"       # Old key after rotation
-    REVOKED = "revoked"       # Permanently disabled
-    EXPIRED = "expired"       # Past expiration date
+    ROTATED = "rotated"  # Old key after rotation
+    REVOKED = "revoked"  # Permanently disabled
+    EXPIRED = "expired"  # Past expiration date
 
 
 class APIKey:
@@ -149,15 +149,13 @@ def generate_raw_key() -> str:
     BC-011: Secure random, not predictable.
     """
     raw = secrets.token_bytes(32)
-    return (
-        "pk_"
-        + base64_urlsafe_encode(raw)
-    )
+    return "pk_" + base64_urlsafe_encode(raw)
 
 
 def base64_urlsafe_encode(data: bytes) -> str:
     """Encode bytes as URL-safe base64 without padding."""
     import base64
+
     return base64.urlsafe_b64encode(data).decode("utf-8").rstrip("=")
 
 
@@ -202,9 +200,7 @@ def verify_api_key(raw_key: str, key_hash: str) -> bool:
     return constant_time_compare(computed_hash, key_hash)
 
 
-def validate_scopes(
-    granted_scopes: list, required_scope: str
-) -> bool:
+def validate_scopes(granted_scopes: list, required_scope: str) -> bool:
     """Check if granted scopes include the required scope.
 
     BC-011: Scope isolation — read can't write, write can't admin.

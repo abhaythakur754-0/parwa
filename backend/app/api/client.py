@@ -52,45 +52,45 @@ def _serialize_settings(settings) -> dict:
         "company_id": settings.company_id,
         "ooo_status": settings.ooo_status or "inactive",
         "ooo_message": settings.ooo_message,
-        "ooo_until": (
-            settings.ooo_until.isoformat()
-            if settings.ooo_until else None
-        ),
+        "ooo_until": (settings.ooo_until.isoformat() if settings.ooo_until else None),
         "brand_voice": settings.brand_voice,
         "tone_guidelines": settings.tone_guidelines,
         "prohibited_phrases": _parse_json(
-            settings.prohibited_phrases, [],
+            settings.prohibited_phrases,
+            [],
         ),
         "pii_patterns": _parse_json(
-            settings.pii_patterns, [],
+            settings.pii_patterns,
+            [],
         ),
         "custom_regex": _parse_json(
-            settings.custom_regex, [],
+            settings.custom_regex,
+            [],
         ),
         "top_k": settings.top_k or 5,
-        "similarity_threshold": float(
-            settings.similarity_threshold or 0.70
-        ),
+        "similarity_threshold": float(settings.similarity_threshold or 0.70),
         "rerank_model": settings.rerank_model,
         "confidence_thresholds": _parse_json(
-            settings.confidence_thresholds, {},
+            settings.confidence_thresholds,
+            {},
         ),
         "intent_labels": _parse_json(
-            settings.intent_labels, [],
+            settings.intent_labels,
+            [],
         ),
         "custom_rules": _parse_json(
-            settings.custom_rules, [],
+            settings.custom_rules,
+            [],
         ),
         "assignment_rules": _parse_json(
-            settings.assignment_rules, [],
+            settings.assignment_rules,
+            [],
         ),
         "created_at": (
-            settings.created_at.isoformat()
-            if settings.created_at else None
+            settings.created_at.isoformat() if settings.created_at else None
         ),
         "updated_at": (
-            settings.updated_at.isoformat()
-            if settings.updated_at else None
+            settings.updated_at.isoformat() if settings.updated_at else None
         ),
     }
 
@@ -105,17 +105,9 @@ def _serialize_company(company) -> dict:
         "subscription_status": company.subscription_status,
         "mode": company.mode,
         "paddle_customer_id": company.paddle_customer_id,
-        "paddle_subscription_id": (
-            company.paddle_subscription_id
-        ),
-        "created_at": (
-            company.created_at.isoformat()
-            if company.created_at else None
-        ),
-        "updated_at": (
-            company.updated_at.isoformat()
-            if company.updated_at else None
-        ),
+        "paddle_subscription_id": (company.paddle_subscription_id),
+        "created_at": (company.created_at.isoformat() if company.created_at else None),
+        "updated_at": (company.updated_at.isoformat() if company.updated_at else None),
     }
 
 
@@ -131,10 +123,7 @@ def _serialize_user(user: User) -> dict:
         "is_active": user.is_active,
         "is_verified": user.is_verified,
         "mfa_enabled": user.mfa_enabled,
-        "created_at": (
-            user.created_at.isoformat()
-            if user.created_at else None
-        ),
+        "created_at": (user.created_at.isoformat() if user.created_at else None),
     }
 
 
@@ -334,10 +323,14 @@ def update_team_member(
     """
     data = body.model_dump(exclude_none=True)
     if not data:
-        target = db.query(User).filter(
-            User.id == user_id,
-            User.company_id == company.id,
-        ).first()
+        target = (
+            db.query(User)
+            .filter(
+                User.id == user_id,
+                User.company_id == company.id,
+            )
+            .first()
+        )
         if not target:
             raise NotFoundError(
                 message="Team member not found",
@@ -397,6 +390,4 @@ def remove_team_member(
         db=db,
     )
 
-    return MessageResponse(
-        message="Team member removed successfully"
-    )
+    return MessageResponse(message="Team member removed successfully")

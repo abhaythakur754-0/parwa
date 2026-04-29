@@ -107,7 +107,9 @@ def evaluate_sms_shadow(
             )
             logger.info(
                 "sms_auto_executed company_id=%s log_id=%s risk=%.2f",
-                company_id, shadow_log_id, risk_score,
+                company_id,
+                shadow_log_id,
+                risk_score,
             )
 
         return SMSShadowResult(
@@ -126,7 +128,9 @@ def evaluate_sms_shadow(
     except Exception as e:
         logger.error(
             "sms_shadow_evaluation_failed company_id=%s error=%s",
-            company_id, str(e), exc_info=True,
+            company_id,
+            str(e),
+            exc_info=True,
         )
         # Safe fallback: always require approval
         return SMSShadowResult(
@@ -171,7 +175,9 @@ def _execute_sms_action(
 
         logger.info(
             "sms_executed company_id=%s to=%s shadow_id=%s",
-            company_id, sms_payload.get("to_number"), shadow_log_id,
+            company_id,
+            sms_payload.get("to_number"),
+            shadow_log_id,
         )
 
         return {
@@ -183,7 +189,10 @@ def _execute_sms_action(
     except Exception as e:
         logger.error(
             "sms_execution_failed company_id=%s shadow_id=%s error=%s",
-            company_id, shadow_log_id, str(e), exc_info=True,
+            company_id,
+            shadow_log_id,
+            str(e),
+            exc_info=True,
         )
         return {
             "status": "error",
@@ -216,10 +225,14 @@ def process_sms_after_approval(
 
         with SessionLocal() as db:
             # Get the shadow log entry
-            shadow_entry = db.query(ShadowLog).filter(
-                ShadowLog.id == shadow_log_id,
-                ShadowLog.company_id == company_id,
-            ).first()
+            shadow_entry = (
+                db.query(ShadowLog)
+                .filter(
+                    ShadowLog.id == shadow_log_id,
+                    ShadowLog.company_id == company_id,
+                )
+                .first()
+            )
 
             if not shadow_entry:
                 return {
@@ -233,7 +246,8 @@ def process_sms_after_approval(
             # For now, we return the payload for the caller to process
             logger.info(
                 "sms_shadow_approved shadow_id=%s company_id=%s",
-                shadow_log_id, company_id,
+                shadow_log_id,
+                company_id,
             )
 
             return {
@@ -246,7 +260,9 @@ def process_sms_after_approval(
     except Exception as e:
         logger.error(
             "sms_shadow_approval_processing_failed shadow_id=%s error=%s",
-            shadow_log_id, str(e), exc_info=True,
+            shadow_log_id,
+            str(e),
+            exc_info=True,
         )
         return {
             "status": "error",

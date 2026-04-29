@@ -45,12 +45,20 @@ MAX_SMS_BODY_LENGTH = 1600
 
 # Default opt-out keywords (BC-010)
 DEFAULT_OPT_OUT_KEYWORDS = [
-    "stop", "stopall", "unsubscribe", "cancel", "quit", "end",
+    "stop",
+    "stopall",
+    "unsubscribe",
+    "cancel",
+    "quit",
+    "end",
 ]
 
 # Default opt-in keywords (BC-010)
 DEFAULT_OPT_IN_KEYWORDS = [
-    "start", "yes", "unstop", "continue",
+    "start",
+    "yes",
+    "unstop",
+    "continue",
 ]
 
 # Rate limit window (BC-006)
@@ -148,7 +156,9 @@ class SMSChannelService:
                 self.db.commit()
                 # Send opt-in confirmation
                 self._send_opt_in_confirmation(
-                    company_id, config, conversation,
+                    company_id,
+                    config,
+                    conversation,
                 )
                 return {
                     "status": "opted_in",
@@ -222,7 +232,9 @@ class SMSChannelService:
 
         # Step 6: Rate limit check for inbound
         rate_error = self._check_inbound_rate_limit(
-            company_id, from_number, config,
+            company_id,
+            from_number,
+            config,
         )
         if rate_error:
             logger.warning(
@@ -243,7 +255,7 @@ class SMSChannelService:
 
         # Truncate body if exceeds char limit
         if char_count > config.char_limit:
-            body = body[:config.char_limit]
+            body = body[: config.char_limit]
             char_count = config.char_limit
 
         message = SMSMessage(
@@ -268,7 +280,10 @@ class SMSChannelService:
 
         # Step 8: Link to ticket or create new one
         ticket_id = self._link_to_ticket(
-            company_id, conversation, sms_data, config,
+            company_id,
+            conversation,
+            sms_data,
+            config,
         )
         message.ticket_id = ticket_id
 
@@ -289,7 +304,10 @@ class SMSChannelService:
         # Step 9: Schedule auto-reply if configured
         if config.auto_reply_enabled and not ticket_id:
             self._schedule_auto_reply(
-                company_id, config, conversation, from_number,
+                company_id,
+                config,
+                conversation,
+                from_number,
             )
 
         return {
@@ -341,9 +359,7 @@ class SMSChannelService:
         # Normalize phone
         to_normalized = self._normalize_phone(to_number)
         if not to_normalized:
-            return {
-                "status": "error",
-                "error": "Invalid recipient phone number"}
+            return {"status": "error", "error": "Invalid recipient phone number"}
 
         # Check opt-out status (BC-010)
         conv = None
@@ -351,7 +367,9 @@ class SMSChannelService:
             conv = self.get_conversation(conversation_id, company_id)
         else:
             conv = self._get_conversation_by_numbers(
-                company_id, to_normalized, config.twilio_phone_number,
+                company_id,
+                to_normalized,
+                config.twilio_phone_number,
             )
 
         if conv and conv.is_opted_out:
@@ -362,14 +380,16 @@ class SMSChannelService:
 
         # BC-006: Rate limit check
         rate_error = self._check_outbound_rate_limit(
-            company_id, to_normalized, config,
+            company_id,
+            to_normalized,
+            config,
         )
         if rate_error:
             return {"status": "error", "error": rate_error}
 
         # Truncate body
         if len(body) > config.char_limit:
-            body = body[:config.char_limit]
+            body = body[: config.char_limit]
 
         # Send via Twilio
         twilio_result = self._send_sms_via_twilio(
@@ -674,10 +694,12 @@ class SMSChannelService:
             max_outbound_per_hour=data.get("max_outbound_per_hour", 5),
             max_outbound_per_day=data.get("max_outbound_per_day", 50),
             opt_out_keywords=data.get(
-                "opt_out_keywords", "STOP,STOPALL,UNSUBSCRIBE,CANCEL,QUIT,END",
+                "opt_out_keywords",
+                "STOP,STOPALL,UNSUBSCRIBE,CANCEL,QUIT,END",
             ),
             opt_in_keywords=data.get(
-                "opt_in_keywords", "START,YES,UNSTOP,CONTINUE",
+                "opt_in_keywords",
+                "START,YES,UNSTOP,CONTINUE",
             ),
             opt_out_response=data.get(
                 "opt_out_response",
@@ -719,12 +741,20 @@ class SMSChannelService:
             return {"status": "error", "error": "SMS config not found"}
 
         allowed_fields = [
-            "is_enabled", "auto_create_ticket", "char_limit",
-            "max_outbound_per_hour", "max_outbound_per_day",
-            "opt_out_keywords", "opt_in_keywords", "opt_out_response",
-            "auto_reply_enabled", "auto_reply_message",
-            "auto_reply_delay_seconds", "after_hours_message",
-            "business_hours_json", "twilio_phone_number",
+            "is_enabled",
+            "auto_create_ticket",
+            "char_limit",
+            "max_outbound_per_hour",
+            "max_outbound_per_day",
+            "opt_out_keywords",
+            "opt_in_keywords",
+            "opt_out_response",
+            "auto_reply_enabled",
+            "auto_reply_message",
+            "auto_reply_delay_seconds",
+            "after_hours_message",
+            "business_hours_json",
+            "twilio_phone_number",
         ]
 
         for field in allowed_fields:
@@ -733,8 +763,8 @@ class SMSChannelService:
 
         # Encrypt auth token if provided (BC-011)
         if "twilio_auth_token" in updates and updates["twilio_auth_token"]:
-            config.twilio_auth_token_encrypted = (
-                self._encrypt_credential(updates["twilio_auth_token"])
+            config.twilio_auth_token_encrypted = self._encrypt_credential(
+                updates["twilio_auth_token"]
             )
 
         self.db.commit()
@@ -905,9 +935,8 @@ class SMSChannelService:
         any_opted_out = any(c.is_opted_out for c in conversations)
         latest_opt_out = None
         for c in sorted(
-                conversations,
-                key=lambda x: x.opt_out_at or datetime.min,
-                reverse=True):
+            conversations, key=lambda x: x.opt_out_at or datetime.min, reverse=True
+        ):
             if c.opt_out_at:
                 latest_opt_out = {
                     "keyword": c.opt_out_keyword,
@@ -961,8 +990,7 @@ class SMSChannelService:
         """
         if not keywords_str:
             return []
-        return [k.strip().lower()
-                for k in keywords_str.split(",") if k.strip()]
+        return [k.strip().lower() for k in keywords_str.split(",") if k.strip()]
 
     def _get_or_create_conversation(
         self,
@@ -1142,10 +1170,7 @@ class SMSChannelService:
 
         # 100 inbound per hour is a reasonable flood limit
         if count >= 100:
-            return (
-                "BC-006: Inbound rate limit exceeded "
-                f"({count}/100 per hour)"
-            )
+            return "BC-006: Inbound rate limit exceeded " f"({count}/100 per hour)"
 
         return None
 
@@ -1174,7 +1199,9 @@ class SMSChannelService:
             # Add message to existing ticket
             try:
                 self._add_message_to_ticket(
-                    company_id, conversation, sms_data,
+                    company_id,
+                    conversation,
+                    sms_data,
                 )
             except Exception as exc:
                 logger.warning(
@@ -1192,7 +1219,8 @@ class SMSChannelService:
 
             # Find or create customer by phone
             customer_id = self._find_customer_by_phone(
-                company_id, sms_data.get("from_number", ""),
+                company_id,
+                sms_data.get("from_number", ""),
             )
 
             body = sms_data.get("body", "")
@@ -1202,11 +1230,13 @@ class SMSChannelService:
                 channel="sms",
                 subject=body[:100] if body else "SMS Conversation",
                 status="open",
-                metadata_json=json.dumps({
-                    "sms_conversation_id": conversation.id,
-                    "sms_from": sms_data.get("from_number", ""),
-                    "source": "inbound_sms",
-                }),
+                metadata_json=json.dumps(
+                    {
+                        "sms_conversation_id": conversation.id,
+                        "sms_from": sms_data.get("from_number", ""),
+                        "source": "inbound_sms",
+                    }
+                ),
             )
             self.db.add(ticket)
             self.db.flush()
@@ -1218,11 +1248,13 @@ class SMSChannelService:
                 role="customer",
                 content=body,
                 channel="sms",
-                metadata_json=json.dumps({
-                    "sms_message_sid": sms_data.get("message_sid", ""),
-                    "sms_from": sms_data.get("from_number", ""),
-                    "sms_to": sms_data.get("to_number", ""),
-                }),
+                metadata_json=json.dumps(
+                    {
+                        "sms_message_sid": sms_data.get("message_sid", ""),
+                        "sms_from": sms_data.get("from_number", ""),
+                        "sms_to": sms_data.get("to_number", ""),
+                    }
+                ),
             )
             self.db.add(ticket_msg)
 
@@ -1283,11 +1315,13 @@ class SMSChannelService:
             role="customer",
             content=sms_data.get("body", ""),
             channel="sms",
-            metadata_json=json.dumps({
-                "sms_message_sid": sms_data.get("message_sid", ""),
-                "sms_from": sms_data.get("from_number", ""),
-                "sms_to": sms_data.get("to_number", ""),
-            }),
+            metadata_json=json.dumps(
+                {
+                    "sms_message_sid": sms_data.get("message_sid", ""),
+                    "sms_from": sms_data.get("from_number", ""),
+                    "sms_to": sms_data.get("to_number", ""),
+                }
+            ),
         )
         self.db.add(message)
         self.db.flush()
@@ -1389,7 +1423,8 @@ class SMSChannelService:
             error_str = str(exc)
             logger.error(
                 "twilio_send_failed to=%s error=%s",
-                to_number, error_str[:200],
+                to_number,
+                error_str[:200],
             )
             return {
                 "success": False,
@@ -1443,7 +1478,9 @@ class SMSChannelService:
             config: SMS channel config.
             conversation: SMS conversation.
         """
-        confirmation = "You have been opted in to receive messages. Reply STOP to opt out."
+        confirmation = (
+            "You have been opted in to receive messages. Reply STOP to opt out."
+        )
         self._send_sms_via_twilio(
             config=config,
             to_number=conversation.customer_number,
@@ -1466,6 +1503,7 @@ class SMSChannelService:
 
         try:
             from app.config import get_settings
+
             settings = get_settings()
             if settings.is_test:
                 # In test env, just base64 encode
@@ -1478,9 +1516,7 @@ class SMSChannelService:
             nonce = os.urandom(12)
             # Simple XOR-based encryption (replace with proper AES in prod)
             padded = value.encode("utf-8").ljust(32, b"\0")
-            encrypted = bytes(
-                [a ^ b for a, b in zip(padded, key)]
-            )
+            encrypted = bytes([a ^ b for a, b in zip(padded, key)])
             return base64.b64encode(nonce + encrypted).decode()
         except Exception:
             return base64.b64encode(value.encode()).decode()
@@ -1498,6 +1534,7 @@ class SMSChannelService:
 
         try:
             from app.config import get_settings
+
             settings = get_settings()
             if settings.is_test:
                 return base64.b64decode(encrypted.encode()).decode()
@@ -1506,9 +1543,7 @@ class SMSChannelService:
             decoded = base64.b64decode(encrypted.encode())
             nonce = decoded[:12]
             encrypted_data = decoded[12:44]
-            decrypted = bytes(
-                [a ^ b for a, b in zip(encrypted_data, key)]
-            )
+            decrypted = bytes([a ^ b for a, b in zip(encrypted_data, key)])
             return decrypted.rstrip(b"\0").decode("utf-8")
         except Exception:
             return base64.b64decode(encrypted.encode()).decode()

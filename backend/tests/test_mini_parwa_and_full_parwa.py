@@ -13,9 +13,7 @@ Features Tested:
 - Universal provider system
 """
 
-from app.config.variant_features import (
-    VARIANT_LIMITS
-)
+from app.config.variant_features import VARIANT_LIMITS
 import sys
 import os
 from datetime import datetime
@@ -23,16 +21,18 @@ from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 
 # Add backend to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 # ============================================================
 # FAKE CUSTOMER REQUESTS
 # ============================================================
 
+
 @dataclass
 class CustomerRequest:
     """Represents a customer support request"""
+
     id: str
     customer_name: str
     customer_email: str
@@ -58,9 +58,11 @@ class CustomerRequest:
 # COMPANY CONFIGURATION
 # ============================================================
 
+
 @dataclass
 class CompanyConfig:
     """Company using both Mini PARWA and Full PARWA"""
+
     id: str = "techcorp_001"
     name: str = "TechCorp Solutions"
     industry: str = "Technology"
@@ -69,49 +71,51 @@ class CompanyConfig:
     support_phone: str = "+919876543210"
 
     # Company FAQs
-    faqs: List[Dict] = field(default_factory=lambda: [{"id": "faq_001",
-                                                       "question": "What are your business hours?",
-                                                       "answer": "We are available Monday to Friday, 9 AM to 6 PM IST. For urgent issues, our full PARWA support is available 24/7.",
-                                                       "keywords": ["hours",
-                                                                    "timing",
-                                                                    "open",
-                                                                    "available"],
-                                                       "language": "en"},
-                                                      {"id": "faq_002",
-                                                       "question": "How do I reset my password?",
-                                                       "answer": "Go to Settings > Security > Reset Password. You'll receive an email with reset instructions valid for 24 hours.",
-                                                       "keywords": ["password",
-                                                                    "reset",
-                                                                    "forgot",
-                                                                    "login"],
-                                                       "language": "en"},
-                                                      {"id": "faq_003",
-                                                       "question": "What is your refund policy?",
-                                                       "answer": "We offer a 30-day money-back guarantee on all plans. Contact support for refund requests.",
-                                                       "keywords": ["refund",
-                                                                    "money back",
-                                                                    "guarantee"],
-                                                       "language": "en"},
-                                                      {"id": "faq_004",
-                                                       "question": "आपके काम के घंटे क्या हैं?",
-                                                       "answer": "हम सोमवार से शुक्रवार, सुबह 9 बजे से शाम 6 बजे तक उपलब्ध हैं। आपातकालीन समस्याओं के लिए, हमारी फुल PARWA सपोर्ट 24/7 उपलब्ध है।",
-                                                       "keywords": ["घंटे",
-                                                                    "समय",
-                                                                    "उपलब्ध"],
-                                                       "language": "hi"},
-                                                      {"id": "faq_005",
-                                                       "question": "Do you offer API access?",
-                                                       "answer": "Yes! Full PARWA plans include read-write API access. Mini PARWA has read-only API access.",
-                                                       "keywords": ["api",
-                                                                    "integration",
-                                                                    "developer"],
-                                                       "language": "en"},
-                                                      ])
+    faqs: List[Dict] = field(
+        default_factory=lambda: [
+            {
+                "id": "faq_001",
+                "question": "What are your business hours?",
+                "answer": "We are available Monday to Friday, 9 AM to 6 PM IST. For urgent issues, our full PARWA support is available 24/7.",
+                "keywords": ["hours", "timing", "open", "available"],
+                "language": "en",
+            },
+            {
+                "id": "faq_002",
+                "question": "How do I reset my password?",
+                "answer": "Go to Settings > Security > Reset Password. You'll receive an email with reset instructions valid for 24 hours.",
+                "keywords": ["password", "reset", "forgot", "login"],
+                "language": "en",
+            },
+            {
+                "id": "faq_003",
+                "question": "What is your refund policy?",
+                "answer": "We offer a 30-day money-back guarantee on all plans. Contact support for refund requests.",
+                "keywords": ["refund", "money back", "guarantee"],
+                "language": "en",
+            },
+            {
+                "id": "faq_004",
+                "question": "आपके काम के घंटे क्या हैं?",
+                "answer": "हम सोमवार से शुक्रवार, सुबह 9 बजे से शाम 6 बजे तक उपलब्ध हैं। आपातकालीन समस्याओं के लिए, हमारी फुल PARWA सपोर्ट 24/7 उपलब्ध है।",
+                "keywords": ["घंटे", "समय", "उपलब्ध"],
+                "language": "hi",
+            },
+            {
+                "id": "faq_005",
+                "question": "Do you offer API access?",
+                "answer": "Yes! Full PARWA plans include read-write API access. Mini PARWA has read-only API access.",
+                "keywords": ["api", "integration", "developer"],
+                "language": "en",
+            },
+        ]
+    )
 
 
 # ============================================================
 # MINI PARWA INSTANCE SIMULATOR
 # ============================================================
+
 
 class MiniParwaSimulator:
     """Simulates a Mini PARWA instance"""
@@ -134,7 +138,7 @@ class MiniParwaSimulator:
             "sentiment_analysis_basic",
             "auto_categorization",
             "basic_ner",
-            "keyword_extraction"
+            "keyword_extraction",
         ]
 
         self.blocked_techniques = [
@@ -142,7 +146,7 @@ class MiniParwaSimulator:
             "intent_detection_advanced",
             "multi_turn_reasoning",
             "emotion_detection",
-            "predictive_analytics"
+            "predictive_analytics",
         ]
 
     def get_limits(self) -> Dict:
@@ -183,14 +187,13 @@ class MiniParwaSimulator:
             "matched_faq": None,
             "techniques_used": [],
             "blocked_features": [],
-            "error": None
+            "error": None,
         }
 
         # Check if can handle
         if not self.can_handle_request(request):
             result["error"] = "CANNOT_HANDLE"
-            result["blocked_features"].append(
-                "channel_or_priority_restriction")
+            result["blocked_features"].append("channel_or_priority_restriction")
             return result
 
         # Process the request
@@ -262,6 +265,7 @@ class MiniParwaSimulator:
 # FULL PARWA INSTANCE SIMULATOR
 # ============================================================
 
+
 class FullParwaSimulator:
     """Simulates a Full PARWA instance"""
 
@@ -293,7 +297,7 @@ class FullParwaSimulator:
             "multi_turn_reasoning",
             "tree_of_thoughts",
             "step_back_reasoning",
-            "rag_reranking"
+            "rag_reranking",
         ]
 
         # API credentials (from environment)
@@ -331,7 +335,7 @@ class FullParwaSimulator:
             "channel_used": request.channel,
             "sms_sent": False,
             "voice_initiated": False,
-            "error": None
+            "error": None,
         }
 
         if not self.can_handle_request(request):
@@ -355,7 +359,8 @@ class FullParwaSimulator:
             # Use advanced techniques (Tier 2)
             result["ai_response"] = self._generate_advanced_response(request)
             result["techniques_used"].extend(
-                ["multi_turn_reasoning", "step_back_reasoning"])
+                ["multi_turn_reasoning", "step_back_reasoning"]
+            )
 
         # Advanced sentiment (Tier 2)
         result["sentiment"] = self._advanced_sentiment(request.message)
@@ -364,7 +369,8 @@ class FullParwaSimulator:
         # Auto-categorize with intent detection
         result["category"] = self._categorize_advanced(request)
         result["techniques_used"].extend(
-            ["auto_categorization", "intent_detection_advanced"])
+            ["auto_categorization", "intent_detection_advanced"]
+        )
 
         self.ai_responses += 1
 
@@ -398,14 +404,7 @@ class FullParwaSimulator:
             request.category} priority. Our team is here to help you 24/7. Is there anything specific you'd like me to clarify?"
 
     def _advanced_sentiment(self, text: str) -> Dict:
-        positive = [
-            "thank",
-            "great",
-            "helpful",
-            "good",
-            "awesome",
-            "love",
-            "excellent"]
+        positive = ["thank", "great", "helpful", "good", "awesome", "love", "excellent"]
         negative = [
             "angry",
             "frustrated",
@@ -413,18 +412,17 @@ class FullParwaSimulator:
             "terrible",
             "hate",
             "worst",
-            "disappointed"]
+            "disappointed",
+        ]
         text_lower = text.lower()
 
         pos_count = sum(1 for w in positive if w in text_lower)
         neg_count = sum(1 for w in negative if w in text_lower)
 
         if pos_count > neg_count:
-            return {"label": "positive",
-                    "confidence": 0.85 + (pos_count * 0.05)}
+            return {"label": "positive", "confidence": 0.85 + (pos_count * 0.05)}
         elif neg_count > pos_count:
-            return {"label": "negative",
-                    "confidence": 0.80 + (neg_count * 0.05)}
+            return {"label": "negative", "confidence": 0.80 + (neg_count * 0.05)}
         return {"label": "neutral", "confidence": 0.75}
 
     def _categorize_advanced(self, request: CustomerRequest) -> str:
@@ -442,23 +440,22 @@ class FullParwaSimulator:
                 return cat
         return "general"
 
-    def initiate_voice_call(
-            self,
-            phone_number: str,
-            message_hindi: str) -> Dict:
+    def initiate_voice_call(self, phone_number: str, message_hindi: str) -> Dict:
         """Initiate a voice call using Twilio (simulated for testing)"""
         result = {
             "success": False,
             "call_sid": None,
             "phone_number": phone_number,
             "message": message_hindi,
-            "error": None
+            "error": None,
         }
 
         # Check if Twilio credentials are available
         if not self.twilio_sid or not self.twilio_token:
             result["error"] = "TWILIO_CREDENTIALS_NOT_SET"
-            result["note"] = "Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN environment variables"
+            result["note"] = (
+                "Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN environment variables"
+            )
             return result
 
         # Simulate Twilio call (in production, this would use actual Twilio
@@ -479,7 +476,7 @@ class FullParwaSimulator:
             "message_sid": None,
             "phone_number": phone_number,
             "message": message,
-            "error": None
+            "error": None,
         }
 
         if not self.twilio_sid or not self.twilio_token:
@@ -499,6 +496,7 @@ class FullParwaSimulator:
 # ============================================================
 # TEST CLASS
 # ============================================================
+
 
 class TestMiniParwaAndFullParwa:
     """Complete test suite for Mini PARWA + Full PARWA working together"""
@@ -575,7 +573,7 @@ class TestMiniParwaAndFullParwa:
                 message="I forgot my password and need to reset it urgently.",
                 language="en",
                 channel="email",
-                priority="normal"
+                priority="normal",
             ),
             CustomerRequest(
                 id="REQ_EMAIL_002",
@@ -586,7 +584,7 @@ class TestMiniParwaAndFullParwa:
                 message="I want a refund for my subscription. The service is not as expected.",
                 language="en",
                 channel="email",
-                priority="high"  # High priority -> Full PARWA
+                priority="high",  # High priority -> Full PARWA
             ),
             CustomerRequest(
                 id="REQ_EMAIL_003",
@@ -597,7 +595,7 @@ class TestMiniParwaAndFullParwa:
                 message="What are your business hours? I need to call support.",
                 language="en",
                 channel="email",
-                priority="low"
+                priority="low",
             ),
         ]
 
@@ -618,16 +616,19 @@ class TestMiniParwaAndFullParwa:
 
             print(f"  AI Response: {result['ai_response'][:80]}...")
             print(f"  Techniques: {result['techniques_used']}")
-            print(
-                f"  Status: {
+            print(f"  Status: {
                     '✅ Resolved' if result['processed'] else '❌ Failed'}")
 
         print("\n--- Summary ---")
         print(f"Mini PARWA processed: {self.mini_parwa.tickets_processed}")
         print(f"Full PARWA processed: {self.full_parwa.tickets_processed}")
 
-        assert self.mini_parwa.tickets_processed > 0, "Mini PARWA should process requests"
-        assert self.full_parwa.tickets_processed > 0, "Full PARWA should process escalated requests"
+        assert (
+            self.mini_parwa.tickets_processed > 0
+        ), "Mini PARWA should process requests"
+        assert (
+            self.full_parwa.tickets_processed > 0
+        ), "Full PARWA should process escalated requests"
 
         print("\n✅ PASSED: Email requests handled correctly by both instances")
 
@@ -650,7 +651,7 @@ class TestMiniParwaAndFullParwa:
             message="Where is my order #12345?",
             language="en",
             channel="sms",
-            priority="normal"
+            priority="normal",
         )
 
         print(f"\nSMS Request: {sms_request.id}")
@@ -659,11 +660,11 @@ class TestMiniParwaAndFullParwa:
         print(f"  Message: {sms_request.message}")
 
         # Mini PARWA cannot handle SMS
-        print(
-            f"\n  Mini PARWA can handle: {
+        print(f"\n  Mini PARWA can handle: {
                 self.mini_parwa.can_handle_request(sms_request)}")
-        assert self.mini_parwa.can_handle_request(
-            sms_request) is False, "Mini PARWA cannot handle SMS"
+        assert (
+            self.mini_parwa.can_handle_request(sms_request) is False
+        ), "Mini PARWA cannot handle SMS"
 
         # Full PARWA handles SMS
         result = self.full_parwa.process_request(sms_request)
@@ -694,7 +695,7 @@ class TestMiniParwaAndFullParwa:
             message="Customer called about urgent account issue",
             language="hi",
             channel="voice",
-            priority="urgent"
+            priority="urgent",
         )
 
         print(f"\nVoice Request: {voice_request.id}")
@@ -703,8 +704,9 @@ class TestMiniParwaAndFullParwa:
         print("  Language: Hindi")
 
         # Mini PARWA cannot handle Voice
-        assert self.mini_parwa.can_handle_request(
-            voice_request) is False, "Mini PARWA cannot handle Voice"
+        assert (
+            self.mini_parwa.can_handle_request(voice_request) is False
+        ), "Mini PARWA cannot handle Voice"
 
         # Full PARWA handles Voice
         result = self.full_parwa.process_request(voice_request)
@@ -734,7 +736,7 @@ class TestMiniParwaAndFullParwa:
             message="आपके काम के घंटे क्या हैं? मुझे सपोर्ट से बात करनी है।",
             language="hi",
             channel="email",
-            priority="normal"
+            priority="normal",
         )
 
         print(f"\nHindi Request: {hindi_request.id}")
@@ -744,16 +746,14 @@ class TestMiniParwaAndFullParwa:
         # Process through Mini PARWA
         result = self.mini_parwa.process_request(hindi_request)
         print(f"\n  Processed: {result['processed']}")
-        print(
-            f"  Matched FAQ: {
+        print(f"  Matched FAQ: {
                 result['matched_faq']['id'] if result['matched_faq'] else 'None'}")
 
-        if result['matched_faq']:
-            print(
-                f"  FAQ Answer (Hindi): {result['matched_faq']['answer'][:100]}...")
+        if result["matched_faq"]:
+            print(f"  FAQ Answer (Hindi): {result['matched_faq']['answer'][:100]}...")
 
         assert result["processed"], "Should process Hindi request"
-        assert result['matched_faq'] is not None, "Should match Hindi FAQ"
+        assert result["matched_faq"] is not None, "Should match Hindi FAQ"
 
         print("\n✅ PASSED: Hindi language support working")
 
@@ -827,7 +827,7 @@ class TestMiniParwaAndFullParwa:
             subject="Test",
             message="Testing limit",
             channel="email",
-            priority="normal"
+            priority="normal",
         )
 
         # Should allow 1 more ticket
@@ -865,7 +865,7 @@ class TestMiniParwaAndFullParwa:
             subject="CRITICAL: Service Down",
             message="Our entire service is down! This is urgent!",
             channel="email",
-            priority="urgent"
+            priority="urgent",
         )
 
         print(f"\nUrgent Request: {urgent_request.id}")
@@ -917,19 +917,18 @@ class TestMiniParwaAndFullParwa:
 
         # Test voice call initiation
         result = self.full_parwa.initiate_voice_call(
-            phone_number="+919876543210",
-            message_hindi=hindi_message
+            phone_number="+919876543210", message_hindi=hindi_message
         )
 
         print("\nVoice Call Result:")
         print(f"  Success: {result['success']}")
         print(f"  Phone: {result['phone_number']}")
 
-        if result.get('call_sid'):
+        if result.get("call_sid"):
             print(f"  Call SID: {result['call_sid']}")
             print(f"  Status: {result['status']}")
 
-        if result.get('error'):
+        if result.get("error"):
             print(f"  Error: {result['error']}")
             print(f"  Note: {result.get('note', '')}")
 
@@ -949,8 +948,7 @@ class TestMiniParwaAndFullParwa:
         sms_message = "Hello! Your ticket #TKT12345 has been resolved. Thank you for contacting TechCorp Support!"
 
         result = self.full_parwa.send_sms(
-            phone_number="+919876543210",
-            message=sms_message
+            phone_number="+919876543210", message=sms_message
         )
 
         print("\nSMS Result:")
@@ -958,11 +956,11 @@ class TestMiniParwaAndFullParwa:
         print(f"  Phone: {result['phone_number']}")
         print(f"  Message: {result['message'][:50]}...")
 
-        if result.get('message_sid'):
+        if result.get("message_sid"):
             print(f"  Message SID: {result['message_sid']}")
             print(f"  Status: {result['status']}")
 
-        if result.get('error'):
+        if result.get("error"):
             print(f"  Error: {result['error']}")
 
         print("\n✅ PASSED: SMS notification tested")
@@ -995,7 +993,7 @@ class TestMiniParwaAndFullParwa:
                 subject=f"Request {i}",
                 message=f"This is test request number {i}",
                 channel=channel,
-                priority=priority
+                priority=priority,
             )
             requests.append(req)
 
@@ -1077,6 +1075,7 @@ class TestMiniParwaAndFullParwa:
 # RUN ALL TESTS
 # ============================================================
 
+
 def run_all_tests():
     """Run all tests and generate report"""
     import traceback
@@ -1090,17 +1089,47 @@ def run_all_tests():
     test_instance = TestMiniParwaAndFullParwa()
 
     tests = [
-        ("SCENARIO 1: Instance Initialization", test_instance.test_scenario_01_instance_initialization),
-        ("SCENARIO 2: Email Request Handling", test_instance.test_scenario_02_email_request_handling),
-        ("SCENARIO 3: SMS Request Handling", test_instance.test_scenario_03_sms_request_handling),
-        ("SCENARIO 4: Voice Request Handling", test_instance.test_scenario_04_voice_request_handling),
-        ("SCENARIO 5: Hindi Language Support", test_instance.test_scenario_05_hindi_language_support),
-        ("SCENARIO 6: Technique Comparison", test_instance.test_scenario_06_technique_comparison),
-        ("SCENARIO 7: Ticket Limit Testing", test_instance.test_scenario_07_ticket_limits),
+        (
+            "SCENARIO 1: Instance Initialization",
+            test_instance.test_scenario_01_instance_initialization,
+        ),
+        (
+            "SCENARIO 2: Email Request Handling",
+            test_instance.test_scenario_02_email_request_handling,
+        ),
+        (
+            "SCENARIO 3: SMS Request Handling",
+            test_instance.test_scenario_03_sms_request_handling,
+        ),
+        (
+            "SCENARIO 4: Voice Request Handling",
+            test_instance.test_scenario_04_voice_request_handling,
+        ),
+        (
+            "SCENARIO 5: Hindi Language Support",
+            test_instance.test_scenario_05_hindi_language_support,
+        ),
+        (
+            "SCENARIO 6: Technique Comparison",
+            test_instance.test_scenario_06_technique_comparison,
+        ),
+        (
+            "SCENARIO 7: Ticket Limit Testing",
+            test_instance.test_scenario_07_ticket_limits,
+        ),
         ("SCENARIO 8: Escalation Flow", test_instance.test_scenario_08_escalation_flow),
-        ("SCENARIO 9: Voice Call Simulation", test_instance.test_scenario_09_voice_call_simulation),
-        ("SCENARIO 10: SMS Notification", test_instance.test_scenario_10_sms_notification),
-        ("SCENARIO 11: Concurrent Requests", test_instance.test_scenario_11_concurrent_requests),
+        (
+            "SCENARIO 9: Voice Call Simulation",
+            test_instance.test_scenario_09_voice_call_simulation,
+        ),
+        (
+            "SCENARIO 10: SMS Notification",
+            test_instance.test_scenario_10_sms_notification,
+        ),
+        (
+            "SCENARIO 11: Concurrent Requests",
+            test_instance.test_scenario_11_concurrent_requests,
+        ),
         ("SCENARIO 12: Final Summary", test_instance.test_scenario_12_final_summary),
     ]
 

@@ -81,12 +81,16 @@ class OutgoingWebhookService:
                 # Find all active webhook_out integrations for this company
                 # that subscribe to this trigger event
                 integrations = (
-                    db.query(CustomIntegration) .filter(
+                    db.query(CustomIntegration)
+                    .filter(
                         and_(
                             CustomIntegration.company_id == company_id,
                             CustomIntegration.integration_type == "webhook_out",
                             CustomIntegration.status == "active",
-                        )) .all())
+                        )
+                    )
+                    .all()
+                )
 
                 for integration in integrations:
                     try:
@@ -105,12 +109,14 @@ class OutgoingWebhookService:
                             company_id=company_id,
                             error=str(e),
                         )
-                        results.append({
-                            "integration_id": integration.id,
-                            "name": integration.name,
-                            "success": False,
-                            "error": "Internal dispatch error",
-                        })
+                        results.append(
+                            {
+                                "integration_id": integration.id,
+                                "name": integration.name,
+                                "success": False,
+                                "error": "Internal dispatch error",
+                            }
+                        )
 
         except Exception as e:
             logger.error(
@@ -183,8 +189,7 @@ class OutgoingWebhookService:
                 "error": "Internal dispatch error",
             }
 
-    def retry_delivery(self, delivery_log_id: str,
-                       company_id: str) -> Dict[str, Any]:
+    def retry_delivery(self, delivery_log_id: str, company_id: str) -> Dict[str, Any]:
         """Retry a failed webhook delivery.
 
         Args:
@@ -214,11 +219,15 @@ class OutgoingWebhookService:
                     }
 
                 integration = (
-                    db.query(CustomIntegration) .filter(
+                    db.query(CustomIntegration)
+                    .filter(
                         and_(
                             CustomIntegration.id == log_entry.custom_integration_id,
                             CustomIntegration.company_id == company_id,
-                        )) .first())
+                        )
+                    )
+                    .first()
+                )
 
                 if not integration:
                     return {
@@ -280,14 +289,17 @@ class OutgoingWebhookService:
 
                 if integration_id:
                     query = query.filter(
-                        WebhookDeliveryLog.custom_integration_id == integration_id)
+                        WebhookDeliveryLog.custom_integration_id == integration_id
+                    )
 
                 if status:
                     query = query.filter(WebhookDeliveryLog.status == status)
 
-                entries = query.order_by(
-                    WebhookDeliveryLog.created_at.desc()
-                ).limit(limit).all()
+                entries = (
+                    query.order_by(WebhookDeliveryLog.created_at.desc())
+                    .limit(limit)
+                    .all()
+                )
 
                 logs = [self._log_to_dict(entry) for entry in entries]
 
@@ -358,8 +370,7 @@ class OutgoingWebhookService:
         if webhook_secret:
             timestamp = str(int(time.time()))
             payload_bytes = json.dumps(final_payload, sort_keys=True).encode()
-            signature = self._sign_payload(
-                payload_bytes, webhook_secret, timestamp)
+            signature = self._sign_payload(payload_bytes, webhook_secret, timestamp)
             headers[SIGNATURE_HEADER] = signature
             headers[TIMESTAMP_HEADER] = timestamp
 
@@ -395,13 +406,17 @@ class OutgoingWebhookService:
                 # Make the HTTP request
                 if method == "GET":
                     resp = httpx.get(
-                        url, params=final_payload,
-                        headers=headers, timeout=REQUEST_TIMEOUT_SECONDS,
+                        url,
+                        params=final_payload,
+                        headers=headers,
+                        timeout=REQUEST_TIMEOUT_SECONDS,
                     )
                 else:
                     resp = httpx.request(
-                        method=method, url=url,
-                        json=final_payload, headers=headers,
+                        method=method,
+                        url=url,
+                        json=final_payload,
+                        headers=headers,
                         timeout=REQUEST_TIMEOUT_SECONDS,
                     )
 
@@ -419,8 +434,7 @@ class OutgoingWebhookService:
 
                     # Record success on the integration
                     service = CustomIntegrationService(db)
-                    service.record_success(
-                        integration.id, integration.company_id)
+                    service.record_success(integration.id, integration.company_id)
 
                     db.flush()
                     break
@@ -453,7 +467,8 @@ class OutgoingWebhookService:
         if not success:
             service = CustomIntegrationService(db)
             auto_disabled = service.record_failure(
-                integration.id, integration.company_id,
+                integration.id,
+                integration.company_id,
                 last_error or "All retry attempts failed",
             )
 
@@ -485,8 +500,8 @@ class OutgoingWebhookService:
             result = result.replace("{{event}}", trigger_event)
             result = result.replace("{{payload}}", json.dumps(payload))
             result = result.replace(
-                "{{timestamp}}", datetime.now(
-                    timezone.utc).isoformat())
+                "{{timestamp}}", datetime.now(timezone.utc).isoformat()
+            )
             return json.loads(result)
         except Exception:
             return payload
@@ -526,18 +541,12 @@ class OutgoingWebhookService:
             "response_body": log_entry.response_body,
             "error_message": log_entry.error_message,
             "scheduled_at": (
-                log_entry.scheduled_at.isoformat()
-                if log_entry.scheduled_at
-                else None
+                log_entry.scheduled_at.isoformat() if log_entry.scheduled_at else None
             ),
             "delivered_at": (
-                log_entry.delivered_at.isoformat()
-                if log_entry.delivered_at
-                else None
+                log_entry.delivered_at.isoformat() if log_entry.delivered_at else None
             ),
             "created_at": (
-                log_entry.created_at.isoformat()
-                if log_entry.created_at
-                else None
+                log_entry.created_at.isoformat() if log_entry.created_at else None
             ),
         }

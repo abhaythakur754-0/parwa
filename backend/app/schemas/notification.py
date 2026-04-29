@@ -97,9 +97,7 @@ class NotificationTemplateUpdate(BaseModel):
         if v is not None:
             v = v.strip().lower()
             if "." not in v:
-                raise ValueError(
-                    "event_type should be in format 'entity.action'"
-                )
+                raise ValueError("event_type should be in format 'entity.action'")
         return v
 
 

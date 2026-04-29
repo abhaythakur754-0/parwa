@@ -51,6 +51,7 @@ class LifecycleStage(str, Enum):
     AI agent pipeline. Not all stages are used in every variant
     (e.g. mini_parwa skips rag_retrieval and context_compression).
     """
+
     INITIALIZED = "initialized"
     SIGNAL_EXTRACTION = "signal_extraction"
     INTENT_CLASSIFICATION = "intent_classification"
@@ -70,6 +71,7 @@ class LifecycleEvent(str, Enum):
     Events are dispatched to registered listeners for monitoring,
     alerting, and observability integration.
     """
+
     STAGE_STARTED = "stage_started"
     STAGE_COMPLETED = "stage_completed"
     STAGE_FAILED = "stage_failed"
@@ -89,6 +91,7 @@ class LifecycleStatus(str, Enum):
     through to its terminal state (completed, failed, cancelled,
     or timed_out).
     """
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -121,6 +124,7 @@ class StageExecution:
         retry_count:  Number of retries attempted for this stage.
         metadata:     Arbitrary key-value data attached by the stage.
     """
+
     stage: str
     status: str  # started, completed, failed, skipped
     started_at: str  # ISO UTC
@@ -152,6 +156,7 @@ class LifecycleConfig:
                                  retries — "degrade", "fail_fast", or
                                  "retry_all".
     """
+
     company_id: str = ""
     variant: str = "parwa"
     timeout_seconds: float = 300.0  # 5 min default
@@ -186,6 +191,7 @@ class LifecycleSnapshot:
         total_duration_ms: Total wall-clock time in milliseconds.
         metadata:          Arbitrary metadata attached to the lifecycle.
     """
+
     lifecycle_id: str
     ticket_id: str
     company_id: str
@@ -303,8 +309,12 @@ def _duration_ms(started_at: str, completed_at: Optional[str]) -> int:
         either timestamp cannot be parsed.
     """
     start = _parse_iso(started_at)
-    end = _parse_iso(completed_at) if completed_at else datetime.now(
-        timezone.utc,
+    end = (
+        _parse_iso(completed_at)
+        if completed_at
+        else datetime.now(
+            timezone.utc,
+        )
     )
     if start is None or end is None:
         return 0
@@ -696,7 +706,8 @@ class CallLifecycleManager:
                 stage_exec.status = "completed"
                 stage_exec.completed_at = now
                 stage_exec.duration_ms = _duration_ms(
-                    stage_exec.started_at, now,
+                    stage_exec.started_at,
+                    now,
                 )
                 if metadata:
                     stage_exec.metadata.update(metadata)
@@ -777,7 +788,8 @@ class CallLifecycleManager:
                 stage_exec.status = "failed"
                 stage_exec.completed_at = now
                 stage_exec.duration_ms = _duration_ms(
-                    stage_exec.started_at, now,
+                    stage_exec.started_at,
+                    now,
                 )
                 stage_exec.error = error
                 stage_exec.retry_count = retry_count
@@ -1272,10 +1284,7 @@ class CallLifecycleManager:
             with self._lock:
                 history = self._history.get(company_id, [])
                 if ticket_id:
-                    filtered = [
-                        s for s in history
-                        if s.get("ticket_id") == ticket_id
-                    ]
+                    filtered = [s for s in history if s.get("ticket_id") == ticket_id]
                 else:
                     filtered = list(history)
 
@@ -1360,7 +1369,8 @@ class CallLifecycleManager:
 
             with self._lock:
                 return _duration_ms(
-                    lc["started_at"], lc["completed_at"],
+                    lc["started_at"],
+                    lc["completed_at"],
                 )
 
         except Exception:
@@ -1499,7 +1509,8 @@ class CallLifecycleManager:
 
             with self._lock:
                 total_ms = _duration_ms(
-                    lc["started_at"], lc["completed_at"],
+                    lc["started_at"],
+                    lc["completed_at"],
                 )
                 completed = []
                 failed = []
@@ -1610,23 +1621,28 @@ class CallLifecycleManager:
 
                 total = len(all_snapshots)
                 completed = sum(
-                    1 for s in all_snapshots
+                    1
+                    for s in all_snapshots
                     if s.get("status") == LifecycleStatus.COMPLETED.value
                 )
                 failed = sum(
-                    1 for s in all_snapshots
+                    1
+                    for s in all_snapshots
                     if s.get("status") == LifecycleStatus.FAILED.value
                 )
                 cancelled = sum(
-                    1 for s in all_snapshots
+                    1
+                    for s in all_snapshots
                     if s.get("status") == LifecycleStatus.CANCELLED.value
                 )
                 active = sum(
-                    1 for s in all_snapshots
+                    1
+                    for s in all_snapshots
                     if s.get("status") == LifecycleStatus.RUNNING.value
                 )
                 timed_out = sum(
-                    1 for s in all_snapshots
+                    1
+                    for s in all_snapshots
                     if s.get("status") == LifecycleStatus.TIMED_OUT.value
                 )
 
@@ -1664,9 +1680,7 @@ class CallLifecycleManager:
                 failure_rates: Dict[str, float] = {}
                 for stage_name, total_count in stage_totals.items():
                     if total_count > 0:
-                        rate = (
-                            stage_failures[stage_name] / total_count
-                        ) * 100
+                        rate = (stage_failures[stage_name] / total_count) * 100
                         failure_rates[stage_name] = round(rate, 2)
 
                 # Variant distribution
@@ -1674,9 +1688,7 @@ class CallLifecycleManager:
                 for s in all_snapshots:
                     variant_dist[s.get("variant", "parwa")] += 1
 
-                success_rate = (
-                    (completed / total) * 100 if total > 0 else 0.0
-                )
+                success_rate = (completed / total) * 100 if total > 0 else 0.0
 
                 return {
                     "company_id": company_id,
@@ -1765,7 +1777,8 @@ class CallLifecycleManager:
             with self._lock:
                 # Remove active lifecycles belonging to this company
                 to_remove = [
-                    lid for lid, lc in self._lifecycles.items()
+                    lid
+                    for lid, lc in self._lifecycles.items()
                     if lc.get("company_id") == company_id
                 ]
                 for lid in to_remove:
@@ -1921,7 +1934,8 @@ class CallLifecycleManager:
         )
 
     def _snapshot_to_dict(
-        self, snapshot: LifecycleSnapshot,
+        self,
+        snapshot: LifecycleSnapshot,
     ) -> Dict[str, Any]:
         """Serialize a LifecycleSnapshot to a plain dictionary.
 
@@ -1965,7 +1979,7 @@ class CallLifecycleManager:
         history = self._history[company_id]
         history.append(snapshot_dict)
         if len(history) > self._max_history:
-            self._history[company_id] = history[-self._max_history:]
+            self._history[company_id] = history[-self._max_history :]
 
     def _check_timeout_inner(
         self,
@@ -2019,8 +2033,10 @@ class CallLifecycleManager:
         # Sort by completed_at (oldest first)
         terminal_ids.sort(
             key=lambda lid: self._lifecycles[lid].get(
-                "completed_at", "",
-            ) or "",
+                "completed_at",
+                "",
+            )
+            or "",
         )
 
         # Evict up to 25% of max capacity

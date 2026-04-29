@@ -27,11 +27,10 @@ from sqlalchemy.pool import StaticPool
 def _get_db_url() -> str:
     env = os.environ.get("ENVIRONMENT", "")
     if env == "test":
-        return os.environ.get(
-            "DATABASE_URL", "sqlite:///:memory:"
-        )
+        return os.environ.get("DATABASE_URL", "sqlite:///:memory:")
     try:
         from backend.app.config import get_settings  # noqa: E402
+
         settings = get_settings()
         return settings.DATABASE_URL
     except Exception:
@@ -51,11 +50,13 @@ if _db_url.startswith("sqlite"):
     # Use JSON for SQLite compatibility (JSONB is PostgreSQL-only)
     JSONType = JSON
 else:
-    _engine_kwargs.update({
-        "pool_pre_ping": True,
-        "pool_size": 10,
-        "max_overflow": 20,
-    })
+    _engine_kwargs.update(
+        {
+            "pool_pre_ping": True,
+            "pool_size": 10,
+            "max_overflow": 20,
+        }
+    )
     # Use JSONB for PostgreSQL (better performance)
     from sqlalchemy.dialects.postgresql import JSONB as JSONType  # type: ignore[misc]
 
@@ -138,6 +139,7 @@ def get_tenant_db():
 
 # ── Tenant Auto-Injection Event ──────────────────────────────────
 
+
 def _auto_inject_company_id(session: Session, context: Any, instances: Any) -> None:
     """SQLAlchemy before_flush event: auto-inject company_id on new objects.
 
@@ -197,6 +199,7 @@ def _auto_inject_company_id(session: Session, context: Any, instances: Any) -> N
 
 # ── TenantSession Class ──────────────────────────────────────────
 
+
 class TenantSession(Session):
     """SQLAlchemy Session with automatic company_id injection.
 
@@ -247,6 +250,7 @@ class TenantSession(Session):
 
 
 # ── bypass_tenant Decorator ──────────────────────────────────────
+
 
 def bypass_tenant(func: Callable = None, *, reason: str = "") -> Any:
     """Decorator or context manager that skips tenant auto-injection.

@@ -238,7 +238,7 @@ def _safe_truncate(text: str, max_length: int) -> str:
         return text
     if len(text) <= max_length:
         return text
-    return text[:max_length - 1] + "\u2026"
+    return text[: max_length - 1] + "\u2026"
 
 
 def _parse_iso(ts: str) -> Optional[datetime]:
@@ -405,7 +405,8 @@ class BlockedResponseManager:
             # Truncate defensively to prevent unbounded storage growth.
             safe_query = _safe_truncate(str(query or ""), _MAX_QUERY_LENGTH)
             safe_response = _safe_truncate(
-                str(response or ""), _MAX_RESPONSE_LENGTH,
+                str(response or ""),
+                _MAX_RESPONSE_LENGTH,
             )
 
             # Validate block_reason against the enum; fall back gracefully.
@@ -423,12 +424,16 @@ class BlockedResponseManager:
 
             # Determine priority.
             priority = _determine_priority(
-                confidence_score, block_reason, guardrail_report,
+                confidence_score,
+                block_reason,
+                guardrail_report,
             )
 
             # Compute auto-reject deadline.
             auto_reject_at = _compute_auto_reject_at(
-                priority, guardrail_report, now,
+                priority,
+                guardrail_report,
+                now,
             )
 
             blocked = BlockedResponse(
@@ -530,7 +535,7 @@ class BlockedResponseManager:
             )
 
             # Paginate.
-            return results[offset: offset + limit]
+            return results[offset : offset + limit]
 
         except Exception:
             logger.error(
@@ -590,7 +595,8 @@ class BlockedResponseManager:
             # Compute average wait time for pending items.
             if pending_wait_minutes:
                 stats.avg_wait_time_minutes = round(
-                    sum(pending_wait_minutes) / len(pending_wait_minutes), 2,
+                    sum(pending_wait_minutes) / len(pending_wait_minutes),
+                    2,
                 )
 
             return stats
@@ -705,7 +711,8 @@ class BlockedResponseManager:
             item.reviewer_id = reviewer_id
             item.reviewer_action = action
             item.review_notes = _safe_truncate(
-                str(notes or ""), _MAX_NOTES_LENGTH,
+                str(notes or ""),
+                _MAX_NOTES_LENGTH,
             )
             item.reviewed_at = now
             item.status = status_map.get(action, item.status)
@@ -714,7 +721,8 @@ class BlockedResponseManager:
             # Store edited response when action is approved_edited.
             if action == ReviewAction.APPROVED_EDITED.value and edited_response:
                 item.edited_response = _safe_truncate(
-                    str(edited_response), _MAX_RESPONSE_LENGTH,
+                    str(edited_response),
+                    _MAX_RESPONSE_LENGTH,
                 )
 
             # Clear the auto-reject deadline for finalised items.
@@ -849,10 +857,7 @@ class BlockedResponseManager:
             company_items = self._queue.get(company_id, {})
             live_counts: Dict[str, int] = {}
             for item in company_items.values():
-                if (
-                    item.status == QueueStatus.IN_REVIEW.value
-                    and item.reviewer_id
-                ):
+                if item.status == QueueStatus.IN_REVIEW.value and item.reviewer_id:
                     live_counts[item.reviewer_id] = (
                         live_counts.get(item.reviewer_id, 0) + 1
                     )
@@ -864,7 +869,8 @@ class BlockedResponseManager:
                     reviewer_id=reviewer_id,
                     reviewer_name=assignment.reviewer_name,
                     assigned_count=live_counts.get(
-                        reviewer_id, assignment.assigned_count,
+                        reviewer_id,
+                        assignment.assigned_count,
                     ),
                     last_assigned_at=assignment.last_assigned_at,
                 )
@@ -926,7 +932,8 @@ class BlockedResponseManager:
             now = _now_utc()
             item.reviewer_action = ReviewAction.ESCALATED.value
             item.review_notes = _safe_truncate(
-                str(reason or ""), _MAX_NOTES_LENGTH,
+                str(reason or ""),
+                _MAX_NOTES_LENGTH,
             )
             item.status = QueueStatus.IN_REVIEW.value
             item.updated_at = now
@@ -939,9 +946,12 @@ class BlockedResponseManager:
             ]
             if item.priority in priority_order:
                 current_idx = priority_order.index(item.priority)
-                item.priority = priority_order[min(
-                    current_idx + 1, len(priority_order) - 1,
-                )]
+                item.priority = priority_order[
+                    min(
+                        current_idx + 1,
+                        len(priority_order) - 1,
+                    )
+                ]
 
             logger.info(
                 "Response escalated",

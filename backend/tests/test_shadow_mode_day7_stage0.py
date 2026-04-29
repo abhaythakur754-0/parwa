@@ -19,10 +19,10 @@ from app.services.shadow_mode_service import ShadowModeService
 from database.models.shadow_mode import ShadowLog
 from database.models.core import Company
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def shadow_service():
@@ -60,17 +60,19 @@ def graduated_company():
 # Stage 0 Enforcement Tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestStage0Enforcement:
     """Tests for Stage 0 shadow enforcement."""
 
     def test_stage0_forces_shadow_mode(self, shadow_service, new_company):
         """Test that Stage 0 companies always get shadow mode."""
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
             mock_db = MagicMock()
-            mock_session.return_value.__enter__ = MagicMock(
-                return_value=mock_db)
+            mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_session.return_value.__exit__ = MagicMock(return_value=False)
-            mock_db.query.return_value.filter.return_value.first.return_value = new_company
+            mock_db.query.return_value.filter.return_value.first.return_value = (
+                new_company
+            )
 
             result = shadow_service.evaluate_action_risk(
                 company_id=new_company.id,
@@ -83,15 +85,15 @@ class TestStage0Enforcement:
             assert result.get("stage_0") is True
             assert result.get("shadow_actions_remaining") == 10
 
-    def test_stage0_applies_to_low_risk_actions(
-            self, shadow_service, new_company):
+    def test_stage0_applies_to_low_risk_actions(self, shadow_service, new_company):
         """Test that even low-risk actions are shadowed in Stage 0."""
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
             mock_db = MagicMock()
-            mock_session.return_value.__enter__ = MagicMock(
-                return_value=mock_db)
+            mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_session.return_value.__exit__ = MagicMock(return_value=False)
-            mock_db.query.return_value.filter.return_value.first.return_value = new_company
+            mock_db.query.return_value.filter.return_value.first.return_value = (
+                new_company
+            )
 
             # Even a simple thank you SMS
             result = shadow_service.evaluate_action_risk(
@@ -103,8 +105,7 @@ class TestStage0Enforcement:
             assert result["mode"] == "shadow"
             assert result["requires_approval"] is True
 
-    def test_stage0_applies_to_all_action_types(
-            self, shadow_service, new_company):
+    def test_stage0_applies_to_all_action_types(self, shadow_service, new_company):
         """Test that Stage 0 applies to all action types."""
         action_types = [
             "sms_reply",
@@ -114,12 +115,13 @@ class TestStage0Enforcement:
             "chat_message",
         ]
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
             mock_db = MagicMock()
-            mock_session.return_value.__enter__ = MagicMock(
-                return_value=mock_db)
+            mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_session.return_value.__exit__ = MagicMock(return_value=False)
-            mock_db.query.return_value.filter.return_value.first.return_value = new_company
+            mock_db.query.return_value.filter.return_value.first.return_value = (
+                new_company
+            )
 
             for action_type in action_types:
                 result = shadow_service.evaluate_action_risk(
@@ -131,16 +133,16 @@ class TestStage0Enforcement:
                 assert result["mode"] == "shadow", f"Failed for {action_type}"
                 assert result["requires_approval"] is True
 
-    def test_graduated_company_not_in_stage0(
-            self, shadow_service, graduated_company):
+    def test_graduated_company_not_in_stage0(self, shadow_service, graduated_company):
         """Test that graduated companies don't have Stage 0 restrictions."""
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
             mock_db = MagicMock()
-            mock_session.return_value.__enter__ = MagicMock(
-                return_value=mock_db)
+            mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_session.return_value.__exit__ = MagicMock(return_value=False)
-            mock_db.query.return_value.filter.return_value.first.return_value = graduated_company
-            with patch.object(shadow_service, '_get_avg_risk_score', return_value=None):
+            mock_db.query.return_value.filter.return_value.first.return_value = (
+                graduated_company
+            )
+            with patch.object(shadow_service, "_get_avg_risk_score", return_value=None):
                 result = shadow_service.evaluate_action_risk(
                     company_id=graduated_company.id,
                     action_type="sms_reply",
@@ -155,6 +157,7 @@ class TestStage0Enforcement:
 # Counter Decrement Tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestStage0Counter:
     """Tests for Stage 0 action counter."""
 
@@ -167,15 +170,14 @@ class TestStage0Counter:
         mock_shadow_log.company_id = new_company.id
         mock_shadow_log.manager_decision = None
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
             mock_db = MagicMock()
-            mock_session.return_value.__enter__ = MagicMock(
-                return_value=mock_db)
+            mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_session.return_value.__exit__ = MagicMock(return_value=False)
 
             mock_db.query.return_value.filter.return_value.first.side_effect = [
                 mock_shadow_log,  # First query for shadow log
-                new_company,      # Second query for company
+                new_company,  # Second query for company
             ]
 
             result = shadow_service.approve_shadow_action(
@@ -187,8 +189,7 @@ class TestStage0Counter:
             # Counter should be decremented
             assert new_company.shadow_actions_remaining == 9
 
-    def test_counter_does_not_decrement_on_reject(
-            self, shadow_service, new_company):
+    def test_counter_does_not_decrement_on_reject(self, shadow_service, new_company):
         """Test that counter does NOT decrement on rejection."""
         new_company.shadow_actions_remaining = 10
 
@@ -197,14 +198,15 @@ class TestStage0Counter:
         mock_shadow_log.company_id = new_company.id
         mock_shadow_log.manager_decision = None
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
             mock_db = MagicMock()
-            mock_session.return_value.__enter__ = MagicMock(
-                return_value=mock_db)
+            mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_session.return_value.__exit__ = MagicMock(return_value=False)
 
             mock_db.query.return_value.filter.return_value.first.side_effect = [
-                mock_shadow_log, new_company, ]
+                mock_shadow_log,
+                new_company,
+            ]
 
             result = shadow_service.reject_shadow_action(
                 shadow_log_id=mock_shadow_log.id,
@@ -220,6 +222,7 @@ class TestStage0Counter:
 # Graduation Tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestStage0Graduation:
     """Tests for Stage 0 graduation logic."""
 
@@ -232,14 +235,15 @@ class TestStage0Graduation:
         mock_shadow_log.company_id = new_company.id
         mock_shadow_log.manager_decision = None
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
             mock_db = MagicMock()
-            mock_session.return_value.__enter__ = MagicMock(
-                return_value=mock_db)
+            mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_session.return_value.__exit__ = MagicMock(return_value=False)
 
             mock_db.query.return_value.filter.return_value.first.side_effect = [
-                mock_shadow_log, new_company, ]
+                mock_shadow_log,
+                new_company,
+            ]
 
             result = shadow_service.approve_shadow_action(
                 shadow_log_id=mock_shadow_log.id,
@@ -260,14 +264,15 @@ class TestStage0Graduation:
         mock_shadow_log.company_id = new_company.id
         mock_shadow_log.manager_decision = None
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
             mock_db = MagicMock()
-            mock_session.return_value.__enter__ = MagicMock(
-                return_value=mock_db)
+            mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_session.return_value.__exit__ = MagicMock(return_value=False)
 
             mock_db.query.return_value.filter.return_value.first.side_effect = [
-                mock_shadow_log, new_company, ]
+                mock_shadow_log,
+                new_company,
+            ]
 
             result = shadow_service.approve_shadow_action(
                 shadow_log_id=mock_shadow_log.id,
@@ -276,27 +281,30 @@ class TestStage0Graduation:
             )
 
             assert result.get("graduated") is True
-            assert "graduated" in result.get(
-                "message", "").lower() or result.get("new_mode") == "supervised"
+            assert (
+                "graduated" in result.get("message", "").lower()
+                or result.get("new_mode") == "supervised"
+            )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Safety Floor Display Tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestSafetyFloorIndicators:
     """Tests for safety floor UI indicators."""
 
-    def test_safety_floor_flag_in_response(
-            self, shadow_service, graduated_company):
+    def test_safety_floor_flag_in_response(self, shadow_service, graduated_company):
         """Test that safety floor is flagged in evaluation response."""
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
             mock_db = MagicMock()
-            mock_session.return_value.__enter__ = MagicMock(
-                return_value=mock_db)
+            mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_session.return_value.__exit__ = MagicMock(return_value=False)
-            mock_db.query.return_value.filter.return_value.first.return_value = graduated_company
-            with patch.object(shadow_service, '_get_avg_risk_score', return_value=None):
+            mock_db.query.return_value.filter.return_value.first.return_value = (
+                graduated_company
+            )
+            with patch.object(shadow_service, "_get_avg_risk_score", return_value=None):
                 result = shadow_service.evaluate_action_risk(
                     company_id=graduated_company.id,
                     action_type="account_delete",
@@ -304,22 +312,25 @@ class TestSafetyFloorIndicators:
                 )
 
                 # Safety floor should be triggered
-                assert result.get(
-                    "layers",
-                    {}).get(
-                    "layer4_safety_floor",
-                    {}).get("hard_safety") is True
+                assert (
+                    result.get("layers", {})
+                    .get("layer4_safety_floor", {})
+                    .get("hard_safety")
+                    is True
+                )
 
     def test_safety_floor_for_high_value_refund(
-            self, shadow_service, graduated_company):
+        self, shadow_service, graduated_company
+    ):
         """Test safety floor for high-value refunds."""
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
             mock_db = MagicMock()
-            mock_session.return_value.__enter__ = MagicMock(
-                return_value=mock_db)
+            mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_session.return_value.__exit__ = MagicMock(return_value=False)
-            mock_db.query.return_value.filter.return_value.first.return_value = graduated_company
-            with patch.object(shadow_service, '_get_avg_risk_score', return_value=None):
+            mock_db.query.return_value.filter.return_value.first.return_value = (
+                graduated_company
+            )
+            with patch.object(shadow_service, "_get_avg_risk_score", return_value=None):
                 result = shadow_service.evaluate_action_risk(
                     company_id=graduated_company.id,
                     action_type="refund",
@@ -333,6 +344,7 @@ class TestSafetyFloorIndicators:
 # ─────────────────────────────────────────────────────────────────────────────
 # Onboarding Integration Tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestOnboardingIntegration:
     """Tests for onboarding flow integration."""
@@ -355,12 +367,13 @@ class TestOnboardingIntegration:
         """Test that remaining actions count is displayed correctly."""
         new_company.shadow_actions_remaining = 5
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
             mock_db = MagicMock()
-            mock_session.return_value.__enter__ = MagicMock(
-                return_value=mock_db)
+            mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_session.return_value.__exit__ = MagicMock(return_value=False)
-            mock_db.query.return_value.filter.return_value.first.return_value = new_company
+            mock_db.query.return_value.filter.return_value.first.return_value = (
+                new_company
+            )
 
             result = shadow_service.evaluate_action_risk(
                 company_id=new_company.id,
@@ -375,6 +388,7 @@ class TestOnboardingIntegration:
 # Edge Case Tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestStage0EdgeCases:
     """Tests for Stage 0 edge cases."""
 
@@ -387,14 +401,15 @@ class TestStage0EdgeCases:
         mock_shadow_log.company_id = new_company.id
         mock_shadow_log.manager_decision = None
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
             mock_db = MagicMock()
-            mock_session.return_value.__enter__ = MagicMock(
-                return_value=mock_db)
+            mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_session.return_value.__exit__ = MagicMock(return_value=False)
 
             mock_db.query.return_value.filter.return_value.first.side_effect = [
-                mock_shadow_log, new_company, ]
+                mock_shadow_log,
+                new_company,
+            ]
 
             result = shadow_service.approve_shadow_action(
                 shadow_log_id=mock_shadow_log.id,
@@ -414,13 +429,12 @@ class TestStage0EdgeCases:
         company.risk_threshold_shadow = 0.7
         company.risk_threshold_auto = 0.3
 
-        with patch('app.services.shadow_mode_service.SessionLocal') as mock_session:
+        with patch("app.services.shadow_mode_service.SessionLocal") as mock_session:
             mock_db = MagicMock()
-            mock_session.return_value.__enter__ = MagicMock(
-                return_value=mock_db)
+            mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_session.return_value.__exit__ = MagicMock(return_value=False)
             mock_db.query.return_value.filter.return_value.first.return_value = company
-            with patch.object(shadow_service, '_get_avg_risk_score', return_value=None):
+            with patch.object(shadow_service, "_get_avg_risk_score", return_value=None):
                 result = shadow_service.evaluate_action_risk(
                     company_id=company.id,
                     action_type="sms_reply",
@@ -430,8 +444,7 @@ class TestStage0EdgeCases:
                 # Should not be in Stage 0
                 assert result.get("stage_0") is not True
 
-    def test_concurrent_approval_race_condition(
-            self, shadow_service, new_company):
+    def test_concurrent_approval_race_condition(self, shadow_service, new_company):
         """Test that concurrent approvals don't cause race conditions."""
         new_company.shadow_actions_remaining = 5
 

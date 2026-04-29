@@ -16,7 +16,6 @@ from app.exceptions import NotFoundError, ValidationError
 from app.services.trigger_service import TriggerService
 from database.models.core import User
 
-
 router = APIRouter(
     prefix="/triggers",
     tags=["Triggers"],
@@ -97,7 +96,9 @@ def create_trigger(
         is_active=trigger.is_active,
         priority_order=trigger.priority_order,
         execution_count=trigger.execution_count or 0,
-        last_executed_at=trigger.last_executed_at.isoformat() if trigger.last_executed_at else None,
+        last_executed_at=(
+            trigger.last_executed_at.isoformat() if trigger.last_executed_at else None
+        ),
         created_at=trigger.created_at.isoformat(),
         updated_at=trigger.updated_at.isoformat(),
     )
@@ -133,7 +134,9 @@ def list_triggers(
                 is_active=t.is_active,
                 priority_order=t.priority_order,
                 execution_count=t.execution_count or 0,
-                last_executed_at=t.last_executed_at.isoformat() if t.last_executed_at else None,
+                last_executed_at=(
+                    t.last_executed_at.isoformat() if t.last_executed_at else None
+                ),
                 created_at=t.created_at.isoformat(),
                 updated_at=t.updated_at.isoformat(),
             )
@@ -168,7 +171,9 @@ def get_trigger(
         is_active=trigger.is_active,
         priority_order=trigger.priority_order,
         execution_count=trigger.execution_count or 0,
-        last_executed_at=trigger.last_executed_at.isoformat() if trigger.last_executed_at else None,
+        last_executed_at=(
+            trigger.last_executed_at.isoformat() if trigger.last_executed_at else None
+        ),
         created_at=trigger.created_at.isoformat(),
         updated_at=trigger.updated_at.isoformat(),
     )
@@ -207,7 +212,9 @@ def update_trigger(
         is_active=trigger.is_active,
         priority_order=trigger.priority_order,
         execution_count=trigger.execution_count or 0,
-        last_executed_at=trigger.last_executed_at.isoformat() if trigger.last_executed_at else None,
+        last_executed_at=(
+            trigger.last_executed_at.isoformat() if trigger.last_executed_at else None
+        ),
         created_at=trigger.created_at.isoformat(),
         updated_at=trigger.updated_at.isoformat(),
     )
@@ -254,7 +261,9 @@ def toggle_trigger(
         is_active=trigger.is_active,
         priority_order=trigger.priority_order,
         execution_count=trigger.execution_count or 0,
-        last_executed_at=trigger.last_executed_at.isoformat() if trigger.last_executed_at else None,
+        last_executed_at=(
+            trigger.last_executed_at.isoformat() if trigger.last_executed_at else None
+        ),
         created_at=trigger.created_at.isoformat(),
         updated_at=trigger.updated_at.isoformat(),
     )

@@ -44,9 +44,7 @@ os.environ.setdefault("SECRET_KEY", "test_secret")
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET_KEY", "test_jwt")
-os.environ.setdefault(
-    "DATA_ENCRYPTION_KEY",
-    "12345678901234567890123456789012")
+os.environ.setdefault("DATA_ENCRYPTION_KEY", "12345678901234567890123456789012")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -114,7 +112,10 @@ class _StubTool(BaseReactTool):
         )
 
     async def _do_execute(
-        self, action: str, company_id: str, **params: Any,
+        self,
+        action: str,
+        company_id: str,
+        **params: Any,
     ) -> ToolResult:
         self.call_log.append((action, company_id, params))
         self._action_count += 1
@@ -171,12 +172,15 @@ class _SlowTool(BaseReactTool):
         )
 
     async def _do_execute(
-        self, action: str, company_id: str, **params: Any,
+        self,
+        action: str,
+        company_id: str,
+        **params: Any,
     ) -> ToolResult:
         await asyncio.sleep(self._delay)
         return ToolResult(
-            success=True, error=None, data={
-                "ok": True}, execution_time_ms=0)
+            success=True, error=None, data={"ok": True}, execution_time_ms=0
+        )
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -473,7 +477,9 @@ class TestOrderTool:
     async def test_list_orders_with_status_filter(self, order):
         """list_orders with status filter works."""
         result = await order.execute(
-            "list_orders", COMPANY_ID, status="shipped",
+            "list_orders",
+            COMPANY_ID,
+            status="shipped",
         )
         assert result.success is True
         for o in result.data["orders"]:
@@ -494,7 +500,10 @@ class TestOrderTool:
         # Store it as pending
         order._store["ORD-CAN"]["status"] = "pending"
         result = await order.execute(
-            "cancel_order", COMPANY_ID, order_id="ORD-CAN", reason="Test cancel",
+            "cancel_order",
+            COMPANY_ID,
+            order_id="ORD-CAN",
+            reason="Test cancel",
         )
         assert result.success is True
         assert result.data["status"] == "cancelled"
@@ -509,7 +518,9 @@ class TestOrderTool:
             "status": "delivered",
         }
         result = await order.execute(
-            "cancel_order", COMPANY_ID, order_id="ORD-DEL",
+            "cancel_order",
+            COMPANY_ID,
+            order_id="ORD-DEL",
         )
         assert result.success is False
         assert "Cannot cancel" in result.error
@@ -518,7 +529,9 @@ class TestOrderTool:
     async def test_get_order_status_success(self, order):
         """get_order_status returns status for multiple orders."""
         result = await order.execute(
-            "get_order_status", COMPANY_ID, order_ids="ORD-A,ORD-B",
+            "get_order_status",
+            COMPANY_ID,
+            order_ids="ORD-A,ORD-B",
         )
         assert result.success is True
         assert "statuses" in result.data
@@ -528,7 +541,9 @@ class TestOrderTool:
     async def test_get_order_status_empty(self, order):
         """get_order_status with empty string returns error."""
         result = await order.execute(
-            "get_order_status", COMPANY_ID, order_ids="",
+            "get_order_status",
+            COMPANY_ID,
+            order_ids="",
         )
         assert result.success is False
         assert "No order IDs" in result.error
@@ -563,7 +578,10 @@ class TestOrderTool:
             "status": "delivered",
         }
         result = await order.execute(
-            "update_shipping", COMPANY_ID, order_id="ORD-DEL2", carrier="UPS",
+            "update_shipping",
+            COMPANY_ID,
+            order_id="ORD-DEL2",
+            carrier="UPS",
         )
         assert result.success is False
         assert "Cannot update shipping" in result.error
@@ -577,7 +595,9 @@ class TestOrderTool:
             "status": "processing",
         }
         result = await order.execute(
-            "update_shipping", COMPANY_ID, order_id="ORD-NOUPD",
+            "update_shipping",
+            COMPANY_ID,
+            order_id="ORD-NOUPD",
         )
         assert result.success is False
 
@@ -592,7 +612,10 @@ class TestOrderTool:
             "currency": "USD",
         }
         result = await order.execute(
-            "refund_order", COMPANY_ID, order_id="ORD-REF", reason="Defective",
+            "refund_order",
+            COMPANY_ID,
+            order_id="ORD-REF",
+            reason="Defective",
         )
         assert result.success is True
         assert result.data["status"] == "processed"
@@ -610,7 +633,10 @@ class TestOrderTool:
             "currency": "USD",
         }
         result = await order.execute(
-            "refund_order", COMPANY_ID, order_id="ORD-PART", amount=200.00,
+            "refund_order",
+            COMPANY_ID,
+            order_id="ORD-PART",
+            amount=200.00,
         )
         assert result.success is True
         assert result.data["amount"] == 50.00
@@ -629,7 +655,9 @@ class TestOrderTool:
             "currency": "USD",
         }
         result = await order.execute(
-            "refund_order", COMPANY_ID, order_id="ORD-DBLREF",
+            "refund_order",
+            COMPANY_ID,
+            order_id="ORD-DBLREF",
         )
         assert result.success is False
         assert "refunded" in result.error
@@ -672,7 +700,9 @@ class TestBillingTool:
     async def test_get_invoice_success(self, billing):
         """get_invoice returns an invoice."""
         result = await billing.execute(
-            "get_invoice", COMPANY_ID, invoice_id="INV-001",
+            "get_invoice",
+            COMPANY_ID,
+            invoice_id="INV-001",
         )
         assert result.success is True
         assert result.data["invoice_id"] == "INV-001"
@@ -682,10 +712,14 @@ class TestBillingTool:
     async def test_get_invoice_cached(self, billing):
         """get_invoice returns cached invoice on second call."""
         r1 = await billing.execute(
-            "get_invoice", COMPANY_ID, invoice_id="INV-CACHE",
+            "get_invoice",
+            COMPANY_ID,
+            invoice_id="INV-CACHE",
         )
         r2 = await billing.execute(
-            "get_invoice", COMPANY_ID, invoice_id="INV-CACHE",
+            "get_invoice",
+            COMPANY_ID,
+            invoice_id="INV-CACHE",
         )
         assert r1.data["invoice_id"] == r2.data["invoice_id"]
 
@@ -693,10 +727,14 @@ class TestBillingTool:
     async def test_get_invoice_wrong_company(self, billing):
         """get_invoice for other company returns error."""
         await billing.execute(
-            "get_invoice", COMPANY_ID, invoice_id="INV-SCOPE",
+            "get_invoice",
+            COMPANY_ID,
+            invoice_id="INV-SCOPE",
         )
         result = await billing.execute(
-            "get_invoice", OTHER_COMPANY, invoice_id="INV-SCOPE",
+            "get_invoice",
+            OTHER_COMPANY,
+            invoice_id="INV-SCOPE",
         )
         assert result.success is False
 
@@ -712,7 +750,9 @@ class TestBillingTool:
     async def test_list_invoices_status_filter(self, billing):
         """list_invoices with status filter."""
         result = await billing.execute(
-            "list_invoices", COMPANY_ID, status="paid",
+            "list_invoices",
+            COMPANY_ID,
+            status="paid",
         )
         assert result.success is True
         for inv in result.data["invoices"]:
@@ -758,7 +798,9 @@ class TestBillingTool:
     async def test_process_payment_no_method_fails(self, billing):
         """process_payment without payment_method fails."""
         result = await billing.execute(
-            "process_payment", COMPANY_ID, amount=50,
+            "process_payment",
+            COMPANY_ID,
+            amount=50,
         )
         assert result.success is False
         assert "required" in result.error.lower()
@@ -799,7 +841,8 @@ class TestBillingTool:
     async def test_get_subscription_status(self, billing):
         """get_subscription_status returns subscription info."""
         result = await billing.execute(
-            "get_subscription_status", COMPANY_ID,
+            "get_subscription_status",
+            COMPANY_ID,
         )
         assert result.success is True
         assert "plan_name" in result.data
@@ -810,7 +853,8 @@ class TestBillingTool:
         """Subscription status includes credit balance."""
         billing._credits[COMPANY_ID] = 15.00
         result = await billing.execute(
-            "get_subscription_status", COMPANY_ID,
+            "get_subscription_status",
+            COMPANY_ID,
         )
         assert result.data["credit_balance"] == 15.00
 
@@ -832,10 +876,16 @@ class TestBillingTool:
     async def test_apply_credit_accumulates(self, billing):
         """Multiple credits accumulate."""
         await billing.execute(
-            "apply_credit", COMPANY_ID, amount=10, reason="R1",
+            "apply_credit",
+            COMPANY_ID,
+            amount=10,
+            reason="R1",
         )
         result = await billing.execute(
-            "apply_credit", COMPANY_ID, amount=20, reason="R2",
+            "apply_credit",
+            COMPANY_ID,
+            amount=20,
+            reason="R2",
         )
         assert result.data["previous_balance"] == 10.00
         assert result.data["new_balance"] == 30.00
@@ -844,7 +894,10 @@ class TestBillingTool:
     async def test_apply_credit_zero_fails(self, billing):
         """apply_credit with zero amount fails."""
         result = await billing.execute(
-            "apply_credit", COMPANY_ID, amount=0, reason="Test",
+            "apply_credit",
+            COMPANY_ID,
+            amount=0,
+            reason="Test",
         )
         assert result.success is False
 
@@ -852,7 +905,9 @@ class TestBillingTool:
     async def test_apply_credit_no_reason_fails(self, billing):
         """apply_credit without reason fails."""
         result = await billing.execute(
-            "apply_credit", COMPANY_ID, amount=10,
+            "apply_credit",
+            COMPANY_ID,
+            amount=10,
         )
         assert result.success is False
         assert "Reason" in result.error
@@ -861,7 +916,8 @@ class TestBillingTool:
     async def test_get_payment_history(self, billing):
         """get_payment_history returns payment records."""
         result = await billing.execute(
-            "get_payment_history", COMPANY_ID,
+            "get_payment_history",
+            COMPANY_ID,
         )
         assert result.success is True
         assert "payments" in result.data
@@ -871,7 +927,9 @@ class TestBillingTool:
     async def test_get_payment_history_status_filter(self, billing):
         """Payment history can be filtered by status."""
         result = await billing.execute(
-            "get_payment_history", COMPANY_ID, status="succeeded",
+            "get_payment_history",
+            COMPANY_ID,
+            status="succeeded",
         )
         assert result.success is True
         for p in result.data["payments"]:
@@ -906,7 +964,9 @@ class TestCRMTool:
     async def test_get_customer_success(self, crm):
         """get_customer returns a customer profile."""
         result = await crm.execute(
-            "get_customer", COMPANY_ID, customer_id="CUST-001",
+            "get_customer",
+            COMPANY_ID,
+            customer_id="CUST-001",
         )
         assert result.success is True
         assert result.data["customer_id"] == "CUST-001"
@@ -916,10 +976,14 @@ class TestCRMTool:
     async def test_get_customer_cached(self, crm):
         """get_customer returns cached customer."""
         r1 = await crm.execute(
-            "get_customer", COMPANY_ID, customer_id="CUST-CACHE",
+            "get_customer",
+            COMPANY_ID,
+            customer_id="CUST-CACHE",
         )
         r2 = await crm.execute(
-            "get_customer", COMPANY_ID, customer_id="CUST-CACHE",
+            "get_customer",
+            COMPANY_ID,
+            customer_id="CUST-CACHE",
         )
         assert r1.data["customer_id"] == r2.data["customer_id"]
 
@@ -927,10 +991,14 @@ class TestCRMTool:
     async def test_get_customer_wrong_company(self, crm):
         """get_customer for wrong company returns error."""
         await crm.execute(
-            "get_customer", COMPANY_ID, customer_id="CUST-SCOPE",
+            "get_customer",
+            COMPANY_ID,
+            customer_id="CUST-SCOPE",
         )
         result = await crm.execute(
-            "get_customer", OTHER_COMPANY, customer_id="CUST-SCOPE",
+            "get_customer",
+            OTHER_COMPANY,
+            customer_id="CUST-SCOPE",
         )
         assert result.success is False
 
@@ -938,7 +1006,9 @@ class TestCRMTool:
     async def test_search_customers_success(self, crm):
         """search_customers returns results."""
         result = await crm.execute(
-            "search_customers", COMPANY_ID, query="Alice",
+            "search_customers",
+            COMPANY_ID,
+            query="Alice",
         )
         assert result.success is True
         assert "customers" in result.data
@@ -947,7 +1017,9 @@ class TestCRMTool:
     async def test_search_customers_with_tier(self, crm):
         """search_customers with tier filter."""
         result = await crm.execute(
-            "search_customers", COMPANY_ID, tier="enterprise",
+            "search_customers",
+            COMPANY_ID,
+            tier="enterprise",
         )
         assert result.success is True
 
@@ -955,7 +1027,9 @@ class TestCRMTool:
     async def test_update_customer_name(self, crm):
         """update_customer updates name."""
         await crm.execute(
-            "get_customer", COMPANY_ID, customer_id="CUST-UPD",
+            "get_customer",
+            COMPANY_ID,
+            customer_id="CUST-UPD",
         )
         result = await crm.execute(
             "update_customer",
@@ -971,7 +1045,9 @@ class TestCRMTool:
     async def test_update_customer_splits_name(self, crm):
         """Updating name splits first/last name."""
         await crm.execute(
-            "get_customer", COMPANY_ID, customer_id="CUST-SPLIT",
+            "get_customer",
+            COMPANY_ID,
+            customer_id="CUST-SPLIT",
         )
         await crm.execute(
             "update_customer",
@@ -986,7 +1062,9 @@ class TestCRMTool:
     async def test_update_customer_email(self, crm):
         """update_customer updates email."""
         await crm.execute(
-            "get_customer", COMPANY_ID, customer_id="CUST-EMAIL",
+            "get_customer",
+            COMPANY_ID,
+            customer_id="CUST-EMAIL",
         )
         result = await crm.execute(
             "update_customer",
@@ -1001,7 +1079,9 @@ class TestCRMTool:
     async def test_update_customer_invalid_tier(self, crm):
         """update_customer with invalid tier returns error."""
         await crm.execute(
-            "get_customer", COMPANY_ID, customer_id="CUST-TIER",
+            "get_customer",
+            COMPANY_ID,
+            customer_id="CUST-TIER",
         )
         result = await crm.execute(
             "update_customer",
@@ -1016,10 +1096,14 @@ class TestCRMTool:
     async def test_update_customer_no_fields(self, crm):
         """update_customer with no fields to update returns error."""
         await crm.execute(
-            "get_customer", COMPANY_ID, customer_id="CUST-NOUPD",
+            "get_customer",
+            COMPANY_ID,
+            customer_id="CUST-NOUPD",
         )
         result = await crm.execute(
-            "update_customer", COMPANY_ID, customer_id="CUST-NOUPD",
+            "update_customer",
+            COMPANY_ID,
+            customer_id="CUST-NOUPD",
         )
         assert result.success is False
         assert "No fields" in result.error
@@ -1132,7 +1216,9 @@ class TestTicketTool:
     async def test_get_ticket_success(self, ticket):
         """get_ticket returns a ticket."""
         result = await ticket.execute(
-            "get_ticket", COMPANY_ID, ticket_id="TKT-001",
+            "get_ticket",
+            COMPANY_ID,
+            ticket_id="TKT-001",
         )
         assert result.success is True
         assert result.data["ticket_id"] == "TKT-001"
@@ -1149,7 +1235,9 @@ class TestTicketTool:
             content="Test comment",
         )
         result = await ticket.execute(
-            "get_ticket", COMPANY_ID, ticket_id="TKT-CMT",
+            "get_ticket",
+            COMPANY_ID,
+            ticket_id="TKT-CMT",
         )
         assert result.data.get("comment_count", 0) >= 1
 
@@ -1157,10 +1245,14 @@ class TestTicketTool:
     async def test_get_ticket_wrong_company(self, ticket):
         """get_ticket for wrong company returns error."""
         await ticket.execute(
-            "get_ticket", COMPANY_ID, ticket_id="TKT-SCOPE",
+            "get_ticket",
+            COMPANY_ID,
+            ticket_id="TKT-SCOPE",
         )
         result = await ticket.execute(
-            "get_ticket", OTHER_COMPANY, ticket_id="TKT-SCOPE",
+            "get_ticket",
+            OTHER_COMPANY,
+            ticket_id="TKT-SCOPE",
         )
         assert result.success is False
 
@@ -1249,7 +1341,9 @@ class TestTicketTool:
     async def test_update_ticket_status(self, ticket):
         """update_ticket changes status."""
         await ticket.execute(
-            "get_ticket", COMPANY_ID, ticket_id="TKT-UPD",
+            "get_ticket",
+            COMPANY_ID,
+            ticket_id="TKT-UPD",
         )
         result = await ticket.execute(
             "update_ticket",
@@ -1265,7 +1359,9 @@ class TestTicketTool:
     async def test_update_ticket_assignee(self, ticket):
         """update_ticket sets assignee."""
         await ticket.execute(
-            "get_ticket", COMPANY_ID, ticket_id="TKT-ASN",
+            "get_ticket",
+            COMPANY_ID,
+            ticket_id="TKT-ASN",
         )
         result = await ticket.execute(
             "update_ticket",
@@ -1280,7 +1376,9 @@ class TestTicketTool:
     async def test_update_ticket_resolved_sets_resolved_at(self, ticket):
         """Updating to resolved sets resolved_at timestamp."""
         await ticket.execute(
-            "get_ticket", COMPANY_ID, ticket_id="TKT-RES",
+            "get_ticket",
+            COMPANY_ID,
+            ticket_id="TKT-RES",
         )
         result = await ticket.execute(
             "update_ticket",
@@ -1295,7 +1393,9 @@ class TestTicketTool:
     async def test_update_ticket_invalid_status(self, ticket):
         """update_ticket with invalid status fails."""
         await ticket.execute(
-            "get_ticket", COMPANY_ID, ticket_id="TKT-INV",
+            "get_ticket",
+            COMPANY_ID,
+            ticket_id="TKT-INV",
         )
         result = await ticket.execute(
             "update_ticket",
@@ -1309,10 +1409,14 @@ class TestTicketTool:
     async def test_update_ticket_no_fields(self, ticket):
         """update_ticket with no fields to update fails."""
         await ticket.execute(
-            "get_ticket", COMPANY_ID, ticket_id="TKT-NOUPD",
+            "get_ticket",
+            COMPANY_ID,
+            ticket_id="TKT-NOUPD",
         )
         result = await ticket.execute(
-            "update_ticket", COMPANY_ID, ticket_id="TKT-NOUPD",
+            "update_ticket",
+            COMPANY_ID,
+            ticket_id="TKT-NOUPD",
         )
         assert result.success is False
         assert "No fields" in result.error
@@ -1383,7 +1487,9 @@ class TestTicketTool:
     async def test_list_tickets_status_filter(self, ticket):
         """list_tickets with status filter."""
         result = await ticket.execute(
-            "list_tickets", COMPANY_ID, status="open",
+            "list_tickets",
+            COMPANY_ID,
+            status="open",
         )
         assert result.success is True
         for t in result.data["tickets"]:
@@ -1393,7 +1499,9 @@ class TestTicketTool:
     async def test_list_tickets_priority_filter(self, ticket):
         """list_tickets with priority filter."""
         result = await ticket.execute(
-            "list_tickets", COMPANY_ID, priority="urgent",
+            "list_tickets",
+            COMPANY_ID,
+            priority="urgent",
         )
         assert result.success is True
         for t in result.data["tickets"]:
@@ -1415,7 +1523,9 @@ class TestTicketTool:
     async def test_get_ticket_history_after_update(self, ticket):
         """Ticket history includes update events."""
         await ticket.execute(
-            "get_ticket", COMPANY_ID, ticket_id="TKT-HUPD",
+            "get_ticket",
+            COMPANY_ID,
+            ticket_id="TKT-HUPD",
         )
         await ticket.execute(
             "update_ticket",
@@ -1429,8 +1539,7 @@ class TestTicketTool:
             ticket_id="TKT-HUPD",
         )
         field_changes = [
-            e for e in result.data["history_entries"]
-            if e.get("field") == "status"
+            e for e in result.data["history_entries"] if e.get("field") == "status"
         ]
         assert len(field_changes) >= 1
 
@@ -1527,7 +1636,9 @@ class TestReActToolRegistry:
     async def test_execute_tool_unknown_tool(self, registry):
         """execute_tool with unknown tool returns error."""
         result = await registry.execute_tool(
-            "nonexistent_tool", "action", COMPANY_ID,
+            "nonexistent_tool",
+            "action",
+            COMPANY_ID,
         )
         assert result.success is False
         assert "Unknown tool" in result.error
@@ -1536,7 +1647,9 @@ class TestReActToolRegistry:
     async def test_execute_tool_unknown_action(self, registry):
         """execute_tool with unknown action returns error."""
         result = await registry.execute_tool(
-            "order_management", "nonexistent_action", COMPANY_ID,
+            "order_management",
+            "nonexistent_action",
+            COMPANY_ID,
         )
         assert result.success is False
         assert "Unknown action" in result.error
@@ -1650,11 +1763,17 @@ class TestReActToolRegistry:
         """Registry passes company_id for scoping."""
         # Register an order under COMPANY_ID
         await registry.execute_tool(
-            "order_management", "get_order", COMPANY_ID, order_id="ORD-REG-SCOPE",
+            "order_management",
+            "get_order",
+            COMPANY_ID,
+            order_id="ORD-REG-SCOPE",
         )
         # Try from OTHER_COMPANY
         result = await registry.execute_tool(
-            "order_management", "get_order", OTHER_COMPANY, order_id="ORD-REG-SCOPE",
+            "order_management",
+            "get_order",
+            OTHER_COMPANY,
+            order_id="ORD-REG-SCOPE",
         )
         assert result.success is False
 
@@ -1662,10 +1781,16 @@ class TestReActToolRegistry:
     async def test_registry_company_scoping_crm(self, registry):
         """Registry CRM company scoping works."""
         await registry.execute_tool(
-            "crm_integration", "get_customer", COMPANY_ID, customer_id="CUST-REG-SCOPE",
+            "crm_integration",
+            "get_customer",
+            COMPANY_ID,
+            customer_id="CUST-REG-SCOPE",
         )
         result = await registry.execute_tool(
-            "crm_integration", "get_customer", OTHER_COMPANY, customer_id="CUST-REG-SCOPE",
+            "crm_integration",
+            "get_customer",
+            OTHER_COMPANY,
+            customer_id="CUST-REG-SCOPE",
         )
         assert result.success is False
 
@@ -1673,10 +1798,16 @@ class TestReActToolRegistry:
     async def test_registry_company_scoping_ticket(self, registry):
         """Registry ticket company scoping works."""
         await registry.execute_tool(
-            "ticket_system", "get_ticket", COMPANY_ID, ticket_id="TKT-REG-SCOPE",
+            "ticket_system",
+            "get_ticket",
+            COMPANY_ID,
+            ticket_id="TKT-REG-SCOPE",
         )
         result = await registry.execute_tool(
-            "ticket_system", "get_ticket", OTHER_COMPANY, ticket_id="TKT-REG-SCOPE",
+            "ticket_system",
+            "get_ticket",
+            OTHER_COMPANY,
+            ticket_id="TKT-REG-SCOPE",
         )
         assert result.success is False
 
@@ -1684,9 +1815,15 @@ class TestReActToolRegistry:
     async def test_registry_company_scoping_billing(self, registry):
         """Registry billing company scoping works."""
         await registry.execute_tool(
-            "billing_system", "get_invoice", COMPANY_ID, invoice_id="INV-REG-SCOPE",
+            "billing_system",
+            "get_invoice",
+            COMPANY_ID,
+            invoice_id="INV-REG-SCOPE",
         )
         result = await registry.execute_tool(
-            "billing_system", "get_invoice", OTHER_COMPANY, invoice_id="INV-REG-SCOPE",
+            "billing_system",
+            "get_invoice",
+            OTHER_COMPANY,
+            invoice_id="INV-REG-SCOPE",
         )
         assert result.success is False

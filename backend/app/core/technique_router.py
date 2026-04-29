@@ -24,7 +24,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set
 
-
 # ── Enums ──────────────────────────────────────────────────────────
 
 
@@ -104,8 +103,8 @@ class TokenBudget:
         # tier2 gets up to 50% of remaining, tier3 gets the rest
         remaining = self.total - self.tier1_reserve
         t2 = min(remaining, int(remaining * 0.5))
-        object.__setattr__(self, 'tier2_pool', t2)
-        object.__setattr__(self, 'tier3_pool', remaining - t2)
+        object.__setattr__(self, "tier2_pool", t2)
+        object.__setattr__(self, "tier3_pool", remaining - t2)
 
 
 # Pre-defined budgets per model tier
@@ -121,13 +120,15 @@ TOKEN_BUDGETS = {
 FALLBACK_MAP: Dict[TechniqueID, List[TechniqueID]] = {
     TechniqueID.GST: [TechniqueID.CHAIN_OF_THOUGHT],
     TechniqueID.UNIVERSE_OF_THOUGHTS: [
-        TechniqueID.CHAIN_OF_THOUGHT, TechniqueID.STEP_BACK,
+        TechniqueID.CHAIN_OF_THOUGHT,
+        TechniqueID.STEP_BACK,
     ],
     TechniqueID.TREE_OF_THOUGHTS: [TechniqueID.CHAIN_OF_THOUGHT],
     TechniqueID.SELF_CONSISTENCY: [TechniqueID.CHAIN_OF_THOUGHT],
     TechniqueID.REFLEXION: [TechniqueID.STEP_BACK],
     TechniqueID.LEAST_TO_MOST: [
-        TechniqueID.CHAIN_OF_THOUGHT, TechniqueID.THREAD_OF_THOUGHT,
+        TechniqueID.CHAIN_OF_THOUGHT,
+        TechniqueID.THREAD_OF_THOUGHT,
     ],
 }
 
@@ -147,75 +148,103 @@ class TechniqueInfo:
 TECHNIQUE_REGISTRY: Dict[TechniqueID, TechniqueInfo] = {
     # Tier 1
     TechniqueID.CLARA: TechniqueInfo(
-        id=TechniqueID.CLARA, tier=TechniqueTier.TIER_1,
-        estimated_tokens=50, time_budget_ms=100,
+        id=TechniqueID.CLARA,
+        tier=TechniqueTier.TIER_1,
+        estimated_tokens=50,
+        time_budget_ms=100,
         description="Concise Logical Adaptive Response Architecture — quality gate",
     ),
     TechniqueID.CRP: TechniqueInfo(
-        id=TechniqueID.CRP, tier=TechniqueTier.TIER_1,
-        estimated_tokens=30, time_budget_ms=50,
+        id=TechniqueID.CRP,
+        tier=TechniqueTier.TIER_1,
+        estimated_tokens=30,
+        time_budget_ms=50,
         description="Concise Response Protocol — token waste elimination",
     ),
     TechniqueID.GSD: TechniqueInfo(
-        id=TechniqueID.GSD, tier=TechniqueTier.TIER_1,
-        estimated_tokens=20, time_budget_ms=30,
+        id=TechniqueID.GSD,
+        tier=TechniqueTier.TIER_1,
+        estimated_tokens=20,
+        time_budget_ms=30,
         description="Guided Support Dialogue — state machine",
     ),
     # Tier 2
     TechniqueID.CHAIN_OF_THOUGHT: TechniqueInfo(
-        id=TechniqueID.CHAIN_OF_THOUGHT, tier=TechniqueTier.TIER_2,
-        estimated_tokens=350, time_budget_ms=3000,
+        id=TechniqueID.CHAIN_OF_THOUGHT,
+        tier=TechniqueTier.TIER_2,
+        estimated_tokens=350,
+        time_budget_ms=3000,
         description="Chain of Thought — step-by-step reasoning",
     ),
     TechniqueID.REVERSE_THINKING: TechniqueInfo(
-        id=TechniqueID.REVERSE_THINKING, tier=TechniqueTier.TIER_2,
-        estimated_tokens=300, time_budget_ms=2000,
+        id=TechniqueID.REVERSE_THINKING,
+        tier=TechniqueTier.TIER_2,
+        estimated_tokens=300,
+        time_budget_ms=2000,
         description="Reverse Thinking — inversion-based reasoning",
     ),
     TechniqueID.REACT: TechniqueInfo(
-        id=TechniqueID.REACT, tier=TechniqueTier.TIER_2,
-        estimated_tokens=300, time_budget_ms=5000,
+        id=TechniqueID.REACT,
+        tier=TechniqueTier.TIER_2,
+        estimated_tokens=300,
+        time_budget_ms=5000,
         description="ReAct — reasoning + acting with tool calls",
     ),
     TechniqueID.STEP_BACK: TechniqueInfo(
-        id=TechniqueID.STEP_BACK, tier=TechniqueTier.TIER_2,
-        estimated_tokens=300, time_budget_ms=1000,
+        id=TechniqueID.STEP_BACK,
+        tier=TechniqueTier.TIER_2,
+        estimated_tokens=300,
+        time_budget_ms=1000,
         description="Step-Back Prompting — broader context seeking",
     ),
     TechniqueID.THREAD_OF_THOUGHT: TechniqueInfo(
-        id=TechniqueID.THREAD_OF_THOUGHT, tier=TechniqueTier.TIER_2,
-        estimated_tokens=150, time_budget_ms=500,
+        id=TechniqueID.THREAD_OF_THOUGHT,
+        tier=TechniqueTier.TIER_2,
+        estimated_tokens=150,
+        time_budget_ms=500,
         description="Thread of Thought — multi-turn continuity",
     ),
     # Tier 3
     TechniqueID.GST: TechniqueInfo(
-        id=TechniqueID.GST, tier=TechniqueTier.TIER_3,
-        estimated_tokens=1100, time_budget_ms=8000,
+        id=TechniqueID.GST,
+        tier=TechniqueTier.TIER_3,
+        estimated_tokens=1100,
+        time_budget_ms=8000,
         description="GST — Guided Sequential Thinking with checkpoints",
     ),
     TechniqueID.UNIVERSE_OF_THOUGHTS: TechniqueInfo(
-        id=TechniqueID.UNIVERSE_OF_THOUGHTS, tier=TechniqueTier.TIER_3,
-        estimated_tokens=1400, time_budget_ms=10000,
+        id=TechniqueID.UNIVERSE_OF_THOUGHTS,
+        tier=TechniqueTier.TIER_3,
+        estimated_tokens=1400,
+        time_budget_ms=10000,
         description="UoT — multi-solution generation with evaluation matrix",
     ),
     TechniqueID.TREE_OF_THOUGHTS: TechniqueInfo(
-        id=TechniqueID.TREE_OF_THOUGHTS, tier=TechniqueTier.TIER_3,
-        estimated_tokens=1150, time_budget_ms=8000,
+        id=TechniqueID.TREE_OF_THOUGHTS,
+        tier=TechniqueTier.TIER_3,
+        estimated_tokens=1150,
+        time_budget_ms=8000,
         description="ToT — branching decision tree with pruning",
     ),
     TechniqueID.SELF_CONSISTENCY: TechniqueInfo(
-        id=TechniqueID.SELF_CONSISTENCY, tier=TechniqueTier.TIER_3,
-        estimated_tokens=950, time_budget_ms=7000,
+        id=TechniqueID.SELF_CONSISTENCY,
+        tier=TechniqueTier.TIER_3,
+        estimated_tokens=950,
+        time_budget_ms=7000,
         description="Self-Consistency — multi-answer verification",
     ),
     TechniqueID.REFLEXION: TechniqueInfo(
-        id=TechniqueID.REFLEXION, tier=TechniqueTier.TIER_3,
-        estimated_tokens=400, time_budget_ms=3000,
+        id=TechniqueID.REFLEXION,
+        tier=TechniqueTier.TIER_3,
+        estimated_tokens=400,
+        time_budget_ms=3000,
         description="Reflexion — self-correction engine",
     ),
     TechniqueID.LEAST_TO_MOST: TechniqueInfo(
-        id=TechniqueID.LEAST_TO_MOST, tier=TechniqueTier.TIER_3,
-        estimated_tokens=1050, time_budget_ms=8000,
+        id=TechniqueID.LEAST_TO_MOST,
+        tier=TechniqueTier.TIER_3,
+        estimated_tokens=1050,
+        time_budget_ms=8000,
         description="Least-to-Most — complex query decomposition",
     ),
 }
@@ -228,17 +257,17 @@ TECHNIQUE_REGISTRY: Dict[TechniqueID, TechniqueInfo] = {
 class QuerySignals:
     """Input signals extracted for the Technique Router decision."""
 
-    query_complexity: float = 0.0          # F-062, range 0.0-1.0
-    confidence_score: float = 1.0          # F-059, range 0.0-1.0
-    sentiment_score: float = 0.7           # F-063, range 0.0-1.0
-    frustration_score: float = 0.0         # Frustration level, range 0.0-100.0
-    customer_tier: str = "free"            # Free/Pro/Enterprise/VIP
-    monetary_value: float = 0.0            # $0.00+
-    turn_count: int = 0                    # 0+
-    intent_type: str = "general"           # billing/technical/general/etc.
+    query_complexity: float = 0.0  # F-062, range 0.0-1.0
+    confidence_score: float = 1.0  # F-059, range 0.0-1.0
+    sentiment_score: float = 0.7  # F-063, range 0.0-1.0
+    frustration_score: float = 0.0  # Frustration level, range 0.0-100.0
+    customer_tier: str = "free"  # Free/Pro/Enterprise/VIP
+    monetary_value: float = 0.0  # $0.00+
+    turn_count: int = 0  # 0+
+    intent_type: str = "general"  # billing/technical/general/etc.
     previous_response_status: str = "none"  # accepted/rejected/corrected/none
     reasoning_loop_detected: bool = False
-    resolution_path_count: int = 1         # 1+
+    resolution_path_count: int = 1  # 1+
     external_data_required: bool = False
     is_strategic_decision: bool = False
 
@@ -271,7 +300,8 @@ TRIGGER_RULES: List[TriggerRule] = [
         rule_id=TriggerRuleID.R3_CUSTOMER_VIP,
         evaluate=lambda s: s.customer_tier == "vip",
         activates=[
-            TechniqueID.UNIVERSE_OF_THOUGHTS, TechniqueID.REFLEXION,
+            TechniqueID.UNIVERSE_OF_THOUGHTS,
+            TechniqueID.REFLEXION,
         ],
         tier=TechniqueTier.TIER_3,
     ),
@@ -279,7 +309,8 @@ TRIGGER_RULES: List[TriggerRule] = [
         rule_id=TriggerRuleID.R4_SENTIMENT_LT_03,
         evaluate=lambda s: s.sentiment_score < 0.3,
         activates=[
-            TechniqueID.UNIVERSE_OF_THOUGHTS, TechniqueID.STEP_BACK,
+            TechniqueID.UNIVERSE_OF_THOUGHTS,
+            TechniqueID.STEP_BACK,
         ],
         tier=TechniqueTier.TIER_3,
     ),
@@ -360,8 +391,7 @@ class TechniqueActivation:
 class RouterResult:
     """Output of the Technique Router for a single query."""
 
-    activated_techniques: List[TechniqueActivation] = field(
-        default_factory=list)
+    activated_techniques: List[TechniqueActivation] = field(default_factory=list)
     skipped_techniques: List[Dict[str, Any]] = field(default_factory=list)
     trigger_rules_evaluated: int = 0
     trigger_rules_matched: int = 0
@@ -406,7 +436,9 @@ class TechniqueRouter:
 
         # 1. Always activate Tier 1 techniques
         t1_techniques = [
-            TechniqueID.CLARA, TechniqueID.CRP, TechniqueID.GSD,
+            TechniqueID.CLARA,
+            TechniqueID.CRP,
+            TechniqueID.GSD,
         ]
         for tid in t1_techniques:
             result.activated_techniques.append(
@@ -434,11 +466,16 @@ class TechniqueRouter:
             info = TECHNIQUE_REGISTRY.get(tid)
             if info is None:
                 continue
-            if self.enabled_techniques is not None and tid not in self.enabled_techniques:
-                result.skipped_techniques.append({
-                    "technique_id": tid.value,
-                    "reason": "disabled_by_tenant_config",
-                })
+            if (
+                self.enabled_techniques is not None
+                and tid not in self.enabled_techniques
+            ):
+                result.skipped_techniques.append(
+                    {
+                        "technique_id": tid.value,
+                        "reason": "disabled_by_tenant_config",
+                    }
+                )
                 continue
             result.activated_techniques.append(
                 TechniqueActivation(
@@ -473,11 +510,14 @@ class TechniqueRouter:
         for activation in result.activated_techniques:
             if activation.tier == TechniqueTier.TIER_3:
                 fallbacks = FALLBACK_MAP.get(activation.technique_id, [])
-                original_tokens = TECHNIQUE_REGISTRY[activation.technique_id].estimated_tokens
+                original_tokens = TECHNIQUE_REGISTRY[
+                    activation.technique_id
+                ].estimated_tokens
 
                 # Check if adding fallbacks would fit
                 fallback_tokens = sum(
-                    TECHNIQUE_REGISTRY[f].estimated_tokens for f in fallbacks
+                    TECHNIQUE_REGISTRY[f].estimated_tokens
+                    for f in fallbacks
                     if f in TECHNIQUE_REGISTRY
                 )
 
@@ -489,22 +529,26 @@ class TechniqueRouter:
                             new_activations.append(
                                 TechniqueActivation(
                                     technique_id=fb_tid,
-                                    triggered_by=[
-                                        f"fallback_from_{
+                                    triggered_by=[f"fallback_from_{
                                             activation.technique_id.value}"],
                                     tier=TechniqueTier.TIER_2,
-                                ))
-                    new_skipped.append({
-                        "technique_id": activation.technique_id.value,
-                        "reason": "token_budget_exceeded",
-                        "fallback_to": [f.value for f in fallbacks],
-                    })
+                                )
+                            )
+                    new_skipped.append(
+                        {
+                            "technique_id": activation.technique_id.value,
+                            "reason": "token_budget_exceeded",
+                            "fallback_to": [f.value for f in fallbacks],
+                        }
+                    )
                 else:
                     # Can't even fit fallback — skip entirely
-                    new_skipped.append({
-                        "technique_id": activation.technique_id.value,
-                        "reason": "token_budget_exceeded_no_fallback",
-                    })
+                    new_skipped.append(
+                        {
+                            "technique_id": activation.technique_id.value,
+                            "reason": "token_budget_exceeded_no_fallback",
+                        }
+                    )
                     savings += original_tokens
             else:
                 new_activations.append(activation)
@@ -529,14 +573,19 @@ class TechniqueRouter:
         """Return available techniques based on tenant plan."""
         tier_1 = {TechniqueID.CLARA, TechniqueID.CRP, TechniqueID.GSD}
         tier_2 = {
-            TechniqueID.CHAIN_OF_THOUGHT, TechniqueID.REVERSE_THINKING,
-            TechniqueID.REACT, TechniqueID.STEP_BACK,
+            TechniqueID.CHAIN_OF_THOUGHT,
+            TechniqueID.REVERSE_THINKING,
+            TechniqueID.REACT,
+            TechniqueID.STEP_BACK,
             TechniqueID.THREAD_OF_THOUGHT,
         }
         tier_3 = {
-            TechniqueID.GST, TechniqueID.UNIVERSE_OF_THOUGHTS,
-            TechniqueID.TREE_OF_THOUGHTS, TechniqueID.SELF_CONSISTENCY,
-            TechniqueID.REFLEXION, TechniqueID.LEAST_TO_MOST,
+            TechniqueID.GST,
+            TechniqueID.UNIVERSE_OF_THOUGHTS,
+            TechniqueID.TREE_OF_THOUGHTS,
+            TechniqueID.SELF_CONSISTENCY,
+            TechniqueID.REFLEXION,
+            TechniqueID.LEAST_TO_MOST,
         }
 
         if plan in ("enterprise", "vip"):

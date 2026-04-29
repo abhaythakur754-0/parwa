@@ -32,8 +32,7 @@ logger = logging.getLogger("parwa.tasks.shadow")
     default_retry_delay=60,
     acks_late=True,
 )
-def process_approved_email(self, shadow_log_id: str,
-                           company_id: str) -> Dict[str, Any]:
+def process_approved_email(self, shadow_log_id: str, company_id: str) -> Dict[str, Any]:
     """
     Process an approved email action from the shadow queue.
 
@@ -52,20 +51,20 @@ def process_approved_email(self, shadow_log_id: str,
         from database.models.shadow_mode import ShadowLog
 
         with SessionLocal() as db:
-            entry = db.query(ShadowLog).filter(
-                ShadowLog.id == shadow_log_id,
-                ShadowLog.company_id == company_id,
-            ).first()
+            entry = (
+                db.query(ShadowLog)
+                .filter(
+                    ShadowLog.id == shadow_log_id,
+                    ShadowLog.company_id == company_id,
+                )
+                .first()
+            )
 
             if not entry:
-                return {
-                    "status": "error",
-                    "error": "Shadow log entry not found"}
+                return {"status": "error", "error": "Shadow log entry not found"}
 
             if entry.manager_decision != "approved":
-                return {
-                    "status": "skipped",
-                    "reason": f"Entry is {
+                return {"status": "skipped", "reason": f"Entry is {
                         entry.manager_decision}"}
 
             payload = entry.action_payload or {}
@@ -90,7 +89,9 @@ def process_approved_email(self, shadow_log_id: str,
     except Exception as e:
         logger.error(
             "shadow_email_process_failed shadow_id=%s error=%s",
-            shadow_log_id, str(e), exc_info=True,
+            shadow_log_id,
+            str(e),
+            exc_info=True,
         )
         raise self.retry(exc=e, countdown=60 * (self.request.retries + 1))
 
@@ -105,8 +106,7 @@ def process_approved_email(self, shadow_log_id: str,
     default_retry_delay=60,
     acks_late=True,
 )
-def process_approved_sms(self, shadow_log_id: str,
-                         company_id: str) -> Dict[str, Any]:
+def process_approved_sms(self, shadow_log_id: str, company_id: str) -> Dict[str, Any]:
     """
     Process an approved SMS action from the shadow queue.
 
@@ -122,20 +122,20 @@ def process_approved_sms(self, shadow_log_id: str,
         from database.models.shadow_mode import ShadowLog
 
         with SessionLocal() as db:
-            entry = db.query(ShadowLog).filter(
-                ShadowLog.id == shadow_log_id,
-                ShadowLog.company_id == company_id,
-            ).first()
+            entry = (
+                db.query(ShadowLog)
+                .filter(
+                    ShadowLog.id == shadow_log_id,
+                    ShadowLog.company_id == company_id,
+                )
+                .first()
+            )
 
             if not entry:
-                return {
-                    "status": "error",
-                    "error": "Shadow log entry not found"}
+                return {"status": "error", "error": "Shadow log entry not found"}
 
             if entry.manager_decision != "approved":
-                return {
-                    "status": "skipped",
-                    "reason": f"Entry is {
+                return {"status": "skipped", "reason": f"Entry is {
                         entry.manager_decision}"}
 
             payload = entry.action_payload or {}
@@ -159,7 +159,9 @@ def process_approved_sms(self, shadow_log_id: str,
     except Exception as e:
         logger.error(
             "shadow_sms_process_failed shadow_id=%s error=%s",
-            shadow_log_id, str(e), exc_info=True,
+            shadow_log_id,
+            str(e),
+            exc_info=True,
         )
         raise self.retry(exc=e, countdown=60 * (self.request.retries + 1))
 
@@ -174,8 +176,7 @@ def process_approved_sms(self, shadow_log_id: str,
     default_retry_delay=30,
     acks_late=True,
 )
-def process_approved_voice(self, shadow_log_id: str,
-                           company_id: str) -> Dict[str, Any]:
+def process_approved_voice(self, shadow_log_id: str, company_id: str) -> Dict[str, Any]:
     """
     Process an approved voice/TTS action from the shadow queue.
 
@@ -191,20 +192,20 @@ def process_approved_voice(self, shadow_log_id: str,
         from database.models.shadow_mode import ShadowLog
 
         with SessionLocal() as db:
-            entry = db.query(ShadowLog).filter(
-                ShadowLog.id == shadow_log_id,
-                ShadowLog.company_id == company_id,
-            ).first()
+            entry = (
+                db.query(ShadowLog)
+                .filter(
+                    ShadowLog.id == shadow_log_id,
+                    ShadowLog.company_id == company_id,
+                )
+                .first()
+            )
 
             if not entry:
-                return {
-                    "status": "error",
-                    "error": "Shadow log entry not found"}
+                return {"status": "error", "error": "Shadow log entry not found"}
 
             if entry.manager_decision != "approved":
-                return {
-                    "status": "skipped",
-                    "reason": f"Entry is {
+                return {"status": "skipped", "reason": f"Entry is {
                         entry.manager_decision}"}
 
             payload = entry.action_payload or {}
@@ -228,7 +229,9 @@ def process_approved_voice(self, shadow_log_id: str,
     except Exception as e:
         logger.error(
             "shadow_voice_process_failed shadow_id=%s error=%s",
-            shadow_log_id, str(e), exc_info=True,
+            shadow_log_id,
+            str(e),
+            exc_info=True,
         )
         raise self.retry(exc=e, countdown=30 * (self.request.retries + 1))
 
@@ -244,7 +247,8 @@ def process_approved_voice(self, shadow_log_id: str,
     acks_late=True,
 )
 def dispatch_approved_action(
-        self, shadow_log_id: str, company_id: str) -> Dict[str, Any]:
+    self, shadow_log_id: str, company_id: str
+) -> Dict[str, Any]:
     """
     Dispatch an approved shadow action to the appropriate channel processor.
 
@@ -263,15 +267,17 @@ def dispatch_approved_action(
         from database.models.shadow_mode import ShadowLog
 
         with SessionLocal() as db:
-            entry = db.query(ShadowLog).filter(
-                ShadowLog.id == shadow_log_id,
-                ShadowLog.company_id == company_id,
-            ).first()
+            entry = (
+                db.query(ShadowLog)
+                .filter(
+                    ShadowLog.id == shadow_log_id,
+                    ShadowLog.company_id == company_id,
+                )
+                .first()
+            )
 
             if not entry:
-                return {
-                    "status": "error",
-                    "error": "Shadow log entry not found"}
+                return {"status": "error", "error": "Shadow log entry not found"}
 
             action_type = entry.action_type
 
@@ -294,7 +300,8 @@ def dispatch_approved_action(
             else:
                 logger.warning(
                     "shadow_dispatch_unknown_action_type shadow_id=%s type=%s",
-                    shadow_log_id, action_type,
+                    shadow_log_id,
+                    action_type,
                 )
                 return {
                     "status": "skipped",
@@ -305,7 +312,9 @@ def dispatch_approved_action(
     except Exception as e:
         logger.error(
             "shadow_dispatch_failed shadow_id=%s error=%s",
-            shadow_log_id, str(e), exc_info=True,
+            shadow_log_id,
+            str(e),
+            exc_info=True,
         )
         raise self.retry(exc=e, countdown=30 * (self.request.retries + 1))
 
@@ -321,7 +330,8 @@ def dispatch_approved_action(
     acks_late=True,
 )
 def process_chat_queue_batch(
-        self, company_id: str, queue_ids: List[str]) -> Dict[str, Any]:
+    self, company_id: str, queue_ids: List[str]
+) -> Dict[str, Any]:
     """
     Process a batch of approved chat messages from the shadow queue.
 
@@ -349,11 +359,15 @@ def process_chat_queue_batch(
                 from database.models.shadow_mode import ChatShadowQueue
 
                 with SessionLocal() as db:
-                    entry = db.query(ChatShadowQueue).filter(
-                        ChatShadowQueue.id == queue_id,
-                        ChatShadowQueue.company_id == company_id,
-                        ChatShadowQueue.status == "approved",
-                    ).first()
+                    entry = (
+                        db.query(ChatShadowQueue)
+                        .filter(
+                            ChatShadowQueue.id == queue_id,
+                            ChatShadowQueue.company_id == company_id,
+                            ChatShadowQueue.status == "approved",
+                        )
+                        .first()
+                    )
 
                     if not entry:
                         results["skipped"] += 1
@@ -372,17 +386,21 @@ def process_chat_queue_batch(
                     results["processed"] += 1
                 else:
                     results["failed"] += 1
-                    results["errors"].append({
-                        "queue_id": queue_id,
-                        "error": approve_result.get("error"),
-                    })
+                    results["errors"].append(
+                        {
+                            "queue_id": queue_id,
+                            "error": approve_result.get("error"),
+                        }
+                    )
 
             except Exception as e:
                 results["failed"] += 1
-                results["errors"].append({
-                    "queue_id": queue_id,
-                    "error": str(e),
-                })
+                results["errors"].append(
+                    {
+                        "queue_id": queue_id,
+                        "error": str(e),
+                    }
+                )
 
         logger.info(
             "shadow_chat_batch_processed company_id=%s processed=%d failed=%d skipped=%d",
@@ -397,7 +415,9 @@ def process_chat_queue_batch(
     except Exception as e:
         logger.error(
             "shadow_chat_batch_failed company_id=%s error=%s",
-            company_id, str(e), exc_info=True,
+            company_id,
+            str(e),
+            exc_info=True,
         )
         raise self.retry(exc=e, countdown=60)
 
@@ -429,20 +449,26 @@ def cleanup_expired_shadow_queue() -> Dict[str, Any]:
         now = datetime.utcnow()
 
         with SessionLocal() as db:
-            companies = db.query(Company).filter(
-                Company.system_mode.in_(["shadow", "supervised"])
-            ).all()
+            companies = (
+                db.query(Company)
+                .filter(Company.system_mode.in_(["shadow", "supervised"]))
+                .all()
+            )
 
             for company in companies:
                 undo_window = company.undo_window_minutes or 30
                 expiry_threshold = now - timedelta(minutes=undo_window)
 
                 # Find expired pending entries
-                expired = db.query(ShadowLog).filter(
-                    ShadowLog.company_id == company.id,
-                    ShadowLog.manager_decision.is_(None),
-                    ShadowLog.created_at < expiry_threshold,
-                ).all()
+                expired = (
+                    db.query(ShadowLog)
+                    .filter(
+                        ShadowLog.company_id == company.id,
+                        ShadowLog.manager_decision.is_(None),
+                        ShadowLog.created_at < expiry_threshold,
+                    )
+                    .all()
+                )
 
                 if expired:
                     results["flagged"] += len(expired)
@@ -450,14 +476,21 @@ def cleanup_expired_shadow_queue() -> Dict[str, Any]:
                     # Emit notification event for each expired entry
                     for entry in expired:
                         try:
-                            from app.services.shadow_mode_service import _emit_shadow_event_sync
+                            from app.services.shadow_mode_service import (
+                                _emit_shadow_event_sync,
+                            )
+
                             _emit_shadow_event_sync(
                                 entry.company_id,
                                 "shadow:action_expired",
                                 {
                                     "shadow_log_id": entry.id,
                                     "action_type": entry.action_type,
-                                    "created_at": entry.created_at.isoformat() if entry.created_at else None,
+                                    "created_at": (
+                                        entry.created_at.isoformat()
+                                        if entry.created_at
+                                        else None
+                                    ),
                                     "expired_at": now.isoformat(),
                                 },
                             )
@@ -503,9 +536,7 @@ def aggregate_shadow_stats() -> Dict[str, Any]:
         from app.services.shadow_mode_service import ShadowModeService
 
         with SessionLocal() as db:
-            companies = db.query(Company).filter(
-                Company.system_mode.isnot(None)
-            ).all()
+            companies = db.query(Company).filter(Company.system_mode.isnot(None)).all()
 
             service = ShadowModeService()
 
@@ -517,6 +548,7 @@ def aggregate_shadow_stats() -> Dict[str, Any]:
                     try:
                         import redis
                         from app.config import get_settings
+
                         settings = get_settings()
                         redis_client = redis.from_url(settings.REDIS_URL)
                         redis_client.setex(
@@ -533,14 +565,12 @@ def aggregate_shadow_stats() -> Dict[str, Any]:
 
         logger.info(
             "shadow_stats_aggregated processed=%d errors=%d",
-            results["companies_processed"], results["errors"],
+            results["companies_processed"],
+            results["errors"],
         )
 
         return results
 
     except Exception as e:
-        logger.error(
-            "shadow_stats_aggregation_failed: %s",
-            str(e),
-            exc_info=True)
+        logger.error("shadow_stats_aggregation_failed: %s", str(e), exc_info=True)
         return {"status": "error", "error": str(e)}

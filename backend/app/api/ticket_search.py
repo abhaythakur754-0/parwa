@@ -21,7 +21,6 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db, require_roles
 from app.services.ticket_search_service import TicketSearchService
 
-
 router = APIRouter(
     prefix="/tickets",
     tags=["ticket-search"],
@@ -31,8 +30,10 @@ router = APIRouter(
 
 # ── SCHEMAS ────────────────────────────────────────────────────────────────
 
+
 class SearchRequest(BaseModel):
     """Search request body."""
+
     query: Optional[str] = Field(None, min_length=2, max_length=200)
     status: Optional[List[str]] = None
     priority: Optional[List[str]] = None
@@ -55,6 +56,7 @@ class SearchRequest(BaseModel):
 
 class SearchResult(BaseModel):
     """Single search result."""
+
     id: str
     company_id: str
     customer_id: Optional[str]
@@ -74,6 +76,7 @@ class SearchResult(BaseModel):
 
 class SearchResponse(BaseModel):
     """Search response."""
+
     items: List[SearchResult]
     total: int
     page: int
@@ -84,22 +87,26 @@ class SearchResponse(BaseModel):
 
 class SuggestionResponse(BaseModel):
     """Auto-complete suggestions response."""
+
     suggestions: List[str]
     partial: str
 
 
 class RecentSearchItem(BaseModel):
     """Recent search item."""
+
     query: str
     timestamp: str
 
 
 class RecentSearchesResponse(BaseModel):
     """Recent searches response."""
+
     searches: List[RecentSearchItem]
 
 
 # ── ENDPOINTS ──────────────────────────────────────────────────────────────
+
 
 @router.get(
     "/search",

@@ -113,9 +113,7 @@ class RateLimitResult:
     def to_headers(self) -> dict:
         headers = {
             "X-RateLimit-Limit": str(self.limit),
-            "X-RateLimit-Remaining": str(
-                max(self.remaining, 0)
-            ),
+            "X-RateLimit-Remaining": str(max(self.remaining, 0)),
             "X-RateLimit-Reset": str(int(self.reset_at)),
         }
         if self.retry_after is not None:
@@ -151,10 +149,14 @@ class RateLimitService:
             return "auth_phone_send"
         if path == "/api/auth/phone/verify" and method == "POST":
             return "auth_phone_verify"
-        if path in (
-            "/api/auth/forgot-password",
-            "/api/auth/reset-password",
-        ) and method == "POST":
+        if (
+            path
+            in (
+                "/api/auth/forgot-password",
+                "/api/auth/reset-password",
+            )
+            and method == "POST"
+        ):
             return "auth_reset"
         if path.startswith("/api/billing/"):
             return "financial"
@@ -172,18 +174,16 @@ class RateLimitService:
 
     def _make_key(self, category: str, identifier: str) -> str:
         raw = f"{category}\x00{identifier}"
-        hash_part = hashlib.sha256(
-            raw.encode("utf-8")
-        ).hexdigest()[:16]
+        hash_part = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
         return f"parwa:rl:{hash_part}"
 
     def _make_failure_key(
-        self, category: str, identifier: str,
+        self,
+        category: str,
+        identifier: str,
     ) -> str:
         raw = f"{category}\x00{identifier}"
-        hash_part = hashlib.sha256(
-            raw.encode("utf-8")
-        ).hexdigest()[:16]
+        hash_part = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
         return f"parwa:rl:fail:{hash_part}"
 
     async def sync_redis_time(self) -> None:
@@ -197,10 +197,7 @@ class RateLimitService:
             return
         try:
             redis_time_tuple = self._redis.time()
-            redis_ts = float(
-                redis_time_tuple[0]
-                + redis_time_tuple[1] / 1_000_000
-            )
+            redis_ts = float(redis_time_tuple[0] + redis_time_tuple[1] / 1_000_000)
             self._redis_time_offset = redis_ts - time.time()
         except Exception:
             logger.debug("redis_time_sync_failed")
@@ -222,9 +219,7 @@ class RateLimitService:
 
         # Check lockout first
         if self.is_locked_out(category, identifier):
-            fail_info = self._get_failure_info(
-                category, identifier
-            )
+            fail_info = self._get_failure_info(category, identifier)
             lockout_dur = config["lockout_duration"]
             retry_after = max(
                 int(lockout_dur - (now - fail_info.get("locked_at", now))), 1
@@ -245,17 +240,17 @@ class RateLimitService:
                 "rate_limit_redis_fail",
                 category=category,
             )
-            return self._check_in_memory(
-                key, limit, window, now
-            )
+            return self._check_in_memory(key, limit, window, now)
 
     def _check_redis(
-        self, key: str, limit: int, window: int, now: float,
+        self,
+        key: str,
+        limit: int,
+        window: int,
+        now: float,
     ) -> RateLimitResult:
         if not self._redis:
-            return self._check_in_memory(
-                key, limit, window, now
-            )
+            return self._check_in_memory(key, limit, window, now)
         pipe = self._redis.pipeline()
         window_key = f"{key}:win"
         pipe.zremrangebyscore(window_key, 0, now - window)
@@ -266,9 +261,7 @@ class RateLimitService:
         count = results[1]
         window_start = now - window
         pipe2 = self._redis.pipeline()
-        pipe2.zrangebyscore(
-            window_key, window_start, now
-        )
+        pipe2.zrangebyscore(window_key, window_start, now)
         min_results = pipe2.execute()
         if min_results:
             oldest = float(min_results[0])
@@ -293,15 +286,16 @@ class RateLimitService:
         )
 
     def _check_in_memory(
-        self, key: str, limit: int, window: int, now: float,
+        self,
+        key: str,
+        limit: int,
+        window: int,
+        now: float,
     ) -> RateLimitResult:
         if key not in self._in_memory:
             self._in_memory[key] = []
         window_start = now - window
-        self._in_memory[key] = [
-            ts for ts in self._in_memory[key]
-            if ts > window_start
-        ]
+        self._in_memory[key] = [ts for ts in self._in_memory[key] if ts > window_start]
         count = len(self._in_memory[key])
         if self._in_memory[key]:
             oldest = min(self._in_memory[key])
@@ -327,7 +321,9 @@ class RateLimitService:
         )
 
     def record_failure(
-        self, category: str, identifier: str,
+        self,
+        category: str,
+        identifier: str,
     ) -> Optional[int]:
         """Record a failure and return backoff seconds.
 
@@ -335,9 +331,7 @@ class RateLimitService:
         """
         config = self.get_category_config(category)
         backoffs = config["backoff_seconds"]
-        fail_key = self._make_failure_key(
-            category, identifier
-        )
+        fail_key = self._make_failure_key(category, identifier)
         now = self._now()
         info = self._get_failure_info(category, identifier)
         count = info.get("count", 0)
@@ -358,24 +352,24 @@ class RateLimitService:
         return lockout_dur
 
     def _get_failure_info(
-        self, category: str, identifier: str,
+        self,
+        category: str,
+        identifier: str,
     ) -> dict:
-        fail_key = self._make_failure_key(
-            category, identifier
-        )
+        fail_key = self._make_failure_key(category, identifier)
         return self._failures.get(fail_key, {})
 
     def is_locked_out(
-        self, category: str, identifier: str,
+        self,
+        category: str,
+        identifier: str,
     ) -> bool:
         """Check if identifier is currently locked out.
 
         G01: Uses Redis time offset when available.
         """
         config = self.get_category_config(category)
-        fail_key = self._make_failure_key(
-            category, identifier
-        )
+        fail_key = self._make_failure_key(category, identifier)
         info = self._failures.get(fail_key)
         if not info or info.get("locked_at") is None:
             return False
@@ -389,9 +383,7 @@ class RateLimitService:
 
     def reset(self, category: str, identifier: str) -> None:
         """Reset lockout and failure count."""
-        fail_key = self._make_failure_key(
-            category, identifier
-        )
+        fail_key = self._make_failure_key(category, identifier)
         rl_key = self._make_key(category, identifier)
         self._failures.pop(fail_key, None)
         self._in_memory.pop(rl_key, None)
@@ -410,9 +402,7 @@ class RateLimitService:
             return self._extract_ip(request)
         if scope == "ip_hash":
             ip = self._extract_ip(request)
-            return hashlib.sha256(
-                ip.encode("utf-8")
-            ).hexdigest()[:16]
+            return hashlib.sha256(ip.encode("utf-8")).hexdigest()[:16]
         if scope == "api_key":
             return self._extract_api_key_id(request)
         if scope == "user":
@@ -445,17 +435,13 @@ class RateLimitService:
         return "unknown"
 
     def _extract_api_key_id(self, request) -> str:
-        api_key = getattr(
-            request.state, "api_key", None
-        )
+        api_key = getattr(request.state, "api_key", None)
         if api_key and "id" in api_key:
             return api_key["id"]
         return "unknown"
 
     def _extract_user_id(self, request) -> str:
-        user = getattr(
-            request.state, "user", None
-        )
+        user = getattr(request.state, "user", None)
         if user and hasattr(user, "id"):
             return user.id
         return "unknown"

@@ -158,8 +158,7 @@ class WorkerHealthHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         logger.debug("%s - %s", self.address_string(), format % args)
 
-    def _send_json_response(
-            self, data: Dict[str, Any], status: int = 200) -> None:
+    def _send_json_response(self, data: Dict[str, Any], status: int = 200) -> None:
         """Send JSON response."""
         response = json.dumps(data)
         self.send_response(status)
@@ -191,10 +190,12 @@ class WorkerHealthHandler(BaseHTTPRequestHandler):
 
         elif self.path == "/":
             # Root endpoint
-            self._send_json_response({
-                "service": "parwa-worker-health",
-                "endpoints": ["/health", "/ready", "/metrics"],
-            })
+            self._send_json_response(
+                {
+                    "service": "parwa-worker-health",
+                    "endpoints": ["/health", "/ready", "/metrics"],
+                }
+            )
 
         else:
             self._send_json_response({"error": "Not found"}, 404)
@@ -251,8 +252,7 @@ class WorkerHealthServer:
     Runs in a background thread within the worker process.
     """
 
-    def __init__(self, port: int = WORKER_HEALTH_PORT,
-                 host: str = WORKER_HEALTH_HOST):
+    def __init__(self, port: int = WORKER_HEALTH_PORT, host: str = WORKER_HEALTH_HOST):
         """Initialize health server."""
         self._port = port
         self._host = host
@@ -266,22 +266,22 @@ class WorkerHealthServer:
             return
 
         try:
-            self._server = HTTPServer(
-                (self._host, self._port), WorkerHealthHandler)
-            self._thread = threading.Thread(
-                target=self._run_server, daemon=True)
+            self._server = HTTPServer((self._host, self._port), WorkerHealthHandler)
+            self._thread = threading.Thread(target=self._run_server, daemon=True)
             self._thread.start()
             self._running = True
 
             logger.info(
                 "Worker health server started on http://%s:%d",
-                self._host, self._port,
+                self._host,
+                self._port,
             )
 
         except OSError as e:
             logger.warning(
                 "Failed to start health server on port %d: %s",
-                self._port, e,
+                self._port,
+                e,
             )
 
     def _run_server(self) -> None:

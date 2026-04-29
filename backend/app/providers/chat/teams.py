@@ -105,8 +105,7 @@ class TeamsChatProvider(ChatProvider):
             return self._access_token
 
         token_url = (
-            f"https://login.microsoftonline.com/{self.tenant_id}"
-            "/oauth2/v2.0/token"
+            f"https://login.microsoftonline.com/{self.tenant_id}" "/oauth2/v2.0/token"
         )
 
         try:
@@ -166,10 +165,12 @@ class TeamsChatProvider(ChatProvider):
             # Send an empty summary card as a ping
             payload = {
                 "summary": "PARWA Connection Test",
-                "sections": [{
-                    "activityTitle": "PARWA Provider Test",
-                    "activitySubtitle": "Teams webhook connectivity check",
-                }],
+                "sections": [
+                    {
+                        "activityTitle": "PARWA Provider Test",
+                        "activitySubtitle": "Teams webhook connectivity check",
+                    }
+                ],
             }
             response = httpx.post(
                 self.webhook_url,
@@ -329,9 +330,7 @@ class TeamsChatProvider(ChatProvider):
             )
 
             if response.status_code == 200:
-                logger.debug(
-                    "Teams webhook message sent to %s", message.channel_id
-                )
+                logger.debug("Teams webhook message sent to %s", message.channel_id)
                 return ProviderResult(
                     success=True,
                     provider_name=self.provider_name,
@@ -463,7 +462,7 @@ class TeamsChatProvider(ChatProvider):
         if not self._has_graph_credentials():
             return {
                 "error": "Graph API credentials required for channel info. "
-                         "Provide tenant_id, client_id, and client_secret.",
+                "Provide tenant_id, client_id, and client_secret.",
                 "provider": self.provider_name,
             }
 
@@ -477,10 +476,7 @@ class TeamsChatProvider(ChatProvider):
         # Determine endpoint
         if "/" in channel_id:
             parts = channel_id.split("/", 1)
-            api_url = (
-                f"{self.GRAPH_BASE_URL}/teams/{parts[0]}"
-                f"/channels/{parts[1]}"
-            )
+            api_url = f"{self.GRAPH_BASE_URL}/teams/{parts[0]}" f"/channels/{parts[1]}"
         else:
             api_url = f"{self.GRAPH_BASE_URL}/chats/{channel_id}"
 

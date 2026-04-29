@@ -92,8 +92,7 @@ class TestIdentityResolutionService:
         # No exact match
         mock_db.query.return_value.filter.return_value.first.return_value = None
         # Return customers for fuzzy matching
-        mock_db.query.return_value.filter.return_value.all.return_value = [
-            customer]
+        mock_db.query.return_value.filter.return_value.all.return_value = [customer]
 
         # Similar email (typo)
         result = service._match_by_email("test-uer@example.com")
@@ -163,7 +162,7 @@ class TestIdentityResolutionService:
 
         # Mock log creation
         log_entry = Mock(spec=IdentityMatchLog)
-        with patch.object(service, '_log_resolution_attempt', return_value=log_entry):
+        with patch.object(service, "_log_resolution_attempt", return_value=log_entry):
             result = service.resolve_identity(email="test@example.com")
 
         assert result["matched_customer_id"] == "customer-1"
@@ -176,15 +175,16 @@ class TestIdentityResolutionService:
 
         # Mock log creation
         log_entry = Mock(spec=IdentityMatchLog)
-        with patch.object(service, '_log_resolution_attempt', return_value=log_entry):
-            with patch.object(service.customer_service, 'create_customer') as mock_create:
+        with patch.object(service, "_log_resolution_attempt", return_value=log_entry):
+            with patch.object(
+                service.customer_service, "create_customer"
+            ) as mock_create:
                 new_customer = Mock(spec=Customer)
                 new_customer.id = "new-customer-1"
                 mock_create.return_value = new_customer
 
                 result = service.resolve_identity(
-                    email="new@example.com",
-                    auto_create=True
+                    email="new@example.com", auto_create=True
                 )
 
         assert result["action_taken"] == "created"
@@ -197,10 +197,9 @@ class TestIdentityResolutionService:
 
         # Mock log creation
         log_entry = Mock(spec=IdentityMatchLog)
-        with patch.object(service, '_log_resolution_attempt', return_value=log_entry):
+        with patch.object(service, "_log_resolution_attempt", return_value=log_entry):
             result = service.resolve_identity(
-                email="new@example.com",
-                auto_create=False
+                email="new@example.com", auto_create=False
             )
 
         assert result["action_taken"] == "none"
@@ -231,10 +230,9 @@ class TestIdentityResolutionService:
 
         # Log mock
         log_entry = Mock(spec=IdentityMatchLog)
-        with patch.object(service, '_log_resolution_attempt', return_value=log_entry):
+        with patch.object(service, "_log_resolution_attempt", return_value=log_entry):
             result = service.resolve_identity(
-                email="test@example.com",
-                phone="+1234567890"
+                email="test@example.com", phone="+1234567890"
             )
 
         # Email match should win (higher confidence)
@@ -256,12 +254,10 @@ class TestIdentityResolutionService:
         c2.phone = None
         c2.name = "Test User 2"
 
-        with patch.object(service.customer_service, 'get_customer', return_value=c1):
-            mock_db.query.return_value.filter.return_value.all.return_value = [
-                c1, c2]
+        with patch.object(service.customer_service, "get_customer", return_value=c1):
+            mock_db.query.return_value.filter.return_value.all.return_value = [c1, c2]
 
-            duplicates = service.find_potential_duplicates(
-                customer_id="customer-1")
+            duplicates = service.find_potential_duplicates(customer_id="customer-1")
 
         assert len(duplicates) > 0
         assert duplicates[0]["match_method"] == "email_exact"
@@ -280,12 +276,10 @@ class TestIdentityResolutionService:
         c2.phone = "1234567890"  # Same phone, different format
         c2.name = "Test User 2"
 
-        with patch.object(service.customer_service, 'get_customer', return_value=c1):
-            mock_db.query.return_value.filter.return_value.all.return_value = [
-                c1, c2]
+        with patch.object(service.customer_service, "get_customer", return_value=c1):
+            mock_db.query.return_value.filter.return_value.all.return_value = [c1, c2]
 
-            duplicates = service.find_potential_duplicates(
-                customer_id="customer-1")
+            duplicates = service.find_potential_duplicates(customer_id="customer-1")
 
         assert len(duplicates) > 0
 
@@ -303,14 +297,12 @@ class TestIdentityResolutionService:
         c2.phone = None
         c2.name = "Completely Different"
 
-        with patch.object(service.customer_service, 'get_customer', return_value=c1):
-            mock_db.query.return_value.filter.return_value.all.return_value = [
-                c1, c2]
+        with patch.object(service.customer_service, "get_customer", return_value=c1):
+            mock_db.query.return_value.filter.return_value.all.return_value = [c1, c2]
 
             # High threshold should filter out low-confidence matches
             duplicates = service.find_potential_duplicates(
-                customer_id="customer-1",
-                min_confidence=0.9
+                customer_id="customer-1", min_confidence=0.9
             )
 
         # Low confidence matches should be filtered
@@ -362,12 +354,12 @@ class TestCustomerService:
         secondary.name = "Secondary User"
         secondary.metadata_json = "{}"
 
-        with patch.object(service, 'get_customer', side_effect=[primary, secondary]):
+        with patch.object(service, "get_customer", side_effect=[primary, secondary]):
             result = service.merge_customers(
                 primary_customer_id="primary-1",
                 merged_customer_ids=["secondary-1"],
                 reason="Duplicate accounts",
-                user_id="admin-1"
+                user_id="admin-1",
             )
 
         # Check primary was returned
@@ -399,15 +391,18 @@ class TestCustomerService:
         customer = Mock(spec=Customer)
         customer.id = "customer-1"
 
-        with patch.object(service, 'get_customer', return_value=customer):
-            mock_db.query.return_value.filter.return_value.first.return_value = None  # No existing
+        with patch.object(service, "get_customer", return_value=customer):
+            mock_db.query.return_value.filter.return_value.first.return_value = (
+                None  # No existing
+            )
 
             from app.schemas.customer import ChannelType
+
             channel = service.link_channel(
                 customer_id="customer-1",
                 channel_type=ChannelType.EMAIL,
                 external_id="test@example.com",
-                is_verified=False
+                is_verified=False,
             )
 
         assert channel is not None
@@ -421,8 +416,10 @@ class TestCustomerService:
         existing_channel = Mock(spec=CustomerChannel)
         existing_channel.id = "existing-1"
 
-        with patch.object(service, 'get_customer', return_value=customer):
-            mock_db.query.return_value.filter.return_value.first.return_value = existing_channel
+        with patch.object(service, "get_customer", return_value=customer):
+            mock_db.query.return_value.filter.return_value.first.return_value = (
+                existing_channel
+            )
 
             from app.schemas.customer import ChannelType
             from app.exceptions import ValidationError
@@ -431,7 +428,7 @@ class TestCustomerService:
                 service.link_channel(
                     customer_id="customer-1",
                     channel_type=ChannelType.EMAIL,
-                    external_id="test@example.com"
+                    external_id="test@example.com",
                 )
 
     def test_get_customer_channels(self, service, mock_db):
@@ -440,11 +437,9 @@ class TestCustomerService:
             Mock(
                 spec=CustomerChannel,
                 channel_type="email",
-                external_id="test@example.com"),
-            Mock(
-                spec=CustomerChannel,
-                channel_type="phone",
-                external_id="+1234567890"),
+                external_id="test@example.com",
+            ),
+            Mock(spec=CustomerChannel, channel_type="phone", external_id="+1234567890"),
         ]
 
         mock_db.query.return_value.filter.return_value.all.return_value = channels
@@ -470,7 +465,7 @@ class TestIdentityMatchLog:
         log_entry = service._log_resolution_attempt(
             email="test@example.com",
             phone="+1234567890",
-            matches=[{"customer_id": "c1", "method": "email", "confidence": 0.9}]
+            matches=[{"customer_id": "c1", "method": "email", "confidence": 0.9}],
         )
 
         assert log_entry is not None
@@ -483,7 +478,9 @@ class TestIdentityMatchLog:
         logs = [Mock(spec=IdentityMatchLog) for _ in range(5)]
 
         mock_db.query.return_value.filter.return_value.count.return_value = 25
-        mock_db.query.return_value.filter.return_value.order_by.return_value.offset.return_value.limit.return_value.all.return_value = logs
+        mock_db.query.return_value.filter.return_value.order_by.return_value.offset.return_value.limit.return_value.all.return_value = (
+            logs
+        )
 
         result, total = service.get_match_logs(page=2, page_size=5)
 

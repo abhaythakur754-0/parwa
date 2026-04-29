@@ -22,7 +22,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-
 # ══════════════════════════════════════════════════════════════════
 # F-036: DASHBOARD HOME — Unified Widget Data
 # ══════════════════════════════════════════════════════════════════
@@ -30,6 +29,7 @@ from pydantic import BaseModel, Field
 
 class WidgetConfig(BaseModel):
     """Configuration for a single dashboard widget."""
+
     widget_id: str
     widget_type: str  # kpi, chart, feed, counter, table
     title: str
@@ -45,6 +45,7 @@ class WidgetConfig(BaseModel):
 
 class DashboardLayoutResponse(BaseModel):
     """Dashboard layout configuration."""
+
     layout_id: str
     widgets: List[WidgetConfig]
     is_default: bool = True
@@ -56,6 +57,7 @@ class DashboardHomeResponse(BaseModel):
     Aggregates data from multiple subsystems into one payload
     so the frontend can render the entire dashboard in one round-trip.
     """
+
     summary: Dict[str, Any] = Field(
         default_factory=dict,
         description="Ticket summary counts (F-038)",
@@ -107,6 +109,7 @@ class DashboardHomeResponse(BaseModel):
 
 class ActivityEvent(BaseModel):
     """A single activity event in the global feed."""
+
     event_id: str
     event_type: str  # ticket_created, status_changed, assigned, resolved, etc.
     actor_id: Optional[str] = None
@@ -121,6 +124,7 @@ class ActivityEvent(BaseModel):
 
 class ActivityFeedResponse(BaseModel):
     """Paginated activity feed response."""
+
     events: List[ActivityEvent]
     total: int
     page: int
@@ -135,6 +139,7 @@ class ActivityFeedResponse(BaseModel):
 
 class KPIData(BaseModel):
     """A single KPI metric card."""
+
     key: str
     label: str
     value: Any
@@ -148,6 +153,7 @@ class KPIData(BaseModel):
 
 class MetricsResponse(BaseModel):
     """Key metrics aggregation response."""
+
     kpis: List[KPIData]
     period: str  # last_7d, last_30d, last_90d
     generated_at: str
@@ -160,6 +166,7 @@ class MetricsResponse(BaseModel):
 
 class AdaptationDayData(BaseModel):
     """Single day's adaptation data point."""
+
     date: str
     ai_accuracy: float
     human_accuracy: float
@@ -171,6 +178,7 @@ class AdaptationDayData(BaseModel):
 
 class AdaptationTrackerResponse(BaseModel):
     """30-day AI learning progress."""
+
     daily_data: List[AdaptationDayData]
     overall_improvement_pct: float
     current_accuracy: float
@@ -188,6 +196,7 @@ class AdaptationTrackerResponse(BaseModel):
 
 class SavingsSnapshot(BaseModel):
     """Single savings data point."""
+
     period: str
     date: str
     tickets_ai: int
@@ -200,6 +209,7 @@ class SavingsSnapshot(BaseModel):
 
 class SavingsCounterResponse(BaseModel):
     """Running savings counter response."""
+
     current_month: SavingsSnapshot
     previous_month: SavingsSnapshot
     all_time_savings: float
@@ -218,6 +228,7 @@ class SavingsCounterResponse(BaseModel):
 
 class WorkforceSplit(BaseModel):
     """AI vs human ticket distribution for a period."""
+
     period: str
     date: str
     ai_tickets: int
@@ -229,6 +240,7 @@ class WorkforceSplit(BaseModel):
 
 class WorkforceAllocationResponse(BaseModel):
     """Workforce allocation response."""
+
     current_split: WorkforceSplit
     daily_trend: List[WorkforceSplit]
     by_channel: Dict[str, WorkforceSplit] = Field(
@@ -250,6 +262,7 @@ class WorkforceAllocationResponse(BaseModel):
 
 class GrowthNudge(BaseModel):
     """A single growth nudge alert."""
+
     nudge_id: str
     nudge_type: str  # underutilized, scaling, upgrade, feature_discovery
     severity: str  # info, suggestion, recommendation, urgent
@@ -264,6 +277,7 @@ class GrowthNudge(BaseModel):
 
 class GrowthNudgeResponse(BaseModel):
     """Growth nudge alerts response."""
+
     nudges: List[GrowthNudge]
     total: int
     dismissed_count: int
@@ -276,6 +290,7 @@ class GrowthNudgeResponse(BaseModel):
 
 class ForecastPoint(BaseModel):
     """Single forecast data point."""
+
     date: str
     predicted: float
     lower_bound: Optional[float] = None
@@ -285,6 +300,7 @@ class ForecastPoint(BaseModel):
 
 class ForecastResponse(BaseModel):
     """Ticket volume forecast response."""
+
     historical: List[ForecastPoint]
     forecast: List[ForecastPoint]
     model_type: str  # moving_average, linear_regression, etc.
@@ -301,6 +317,7 @@ class ForecastResponse(BaseModel):
 
 class CSATDayData(BaseModel):
     """Single day's CSAT data."""
+
     date: str
     avg_rating: float
     total_ratings: int
@@ -312,6 +329,7 @@ class CSATDayData(BaseModel):
 
 class CSATByDimension(BaseModel):
     """CSAT broken down by a dimension (agent, category, channel)."""
+
     dimension_name: str
     avg_rating: float
     total_ratings: int
@@ -320,6 +338,7 @@ class CSATByDimension(BaseModel):
 
 class CSATResponse(BaseModel):
     """CSAT trend analytics response."""
+
     daily_trend: List[CSATDayData]
     overall_avg: float
     overall_total: int
@@ -337,6 +356,7 @@ class CSATResponse(BaseModel):
 
 class ExportRequest(BaseModel):
     """Report export request."""
+
     report_type: str  # summary, tickets, agents, sla, csat, forecast, full
     format: str  # csv, pdf
     date_range_start: Optional[str] = None
@@ -346,6 +366,7 @@ class ExportRequest(BaseModel):
 
 class ExportJobResponse(BaseModel):
     """Export job status."""
+
     job_id: str
     report_type: str
     format: str

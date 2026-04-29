@@ -8,10 +8,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # Runtime-injected by _mock_logger fixture — satisfies flake8 F821
 # type: ignore[assignment,misc]
-ContextHealthMeter = HealthConfig = HealthMetrics = HealthReport = HealthAlert = HealthStatus = HealthAlertType = ContextHealthError = _HEALTH_WEIGHTS = _VARIANT_HEALTH_CONFIGS = None
+ContextHealthMeter = HealthConfig = HealthMetrics = HealthReport = HealthAlert = (
+    HealthStatus
+) = HealthAlertType = ContextHealthError = _HEALTH_WEIGHTS = _VARIANT_HEALTH_CONFIGS = (
+    None
+)
 
 
 @pytest.fixture(autouse=True)
@@ -29,18 +32,21 @@ def _mock_logger():
             _HEALTH_WEIGHTS,
             _VARIANT_HEALTH_CONFIGS,
         )
-        globals().update({
-            "ContextHealthMeter": ContextHealthMeter,
-            "HealthConfig": HealthConfig,
-            "HealthMetrics": HealthMetrics,
-            "HealthReport": HealthReport,
-            "HealthAlert": HealthAlert,
-            "HealthStatus": HealthStatus,
-            "HealthAlertType": HealthAlertType,
-            "ContextHealthError": ContextHealthError,
-            "_HEALTH_WEIGHTS": _HEALTH_WEIGHTS,
-            "_VARIANT_HEALTH_CONFIGS": _VARIANT_HEALTH_CONFIGS,
-        })
+
+        globals().update(
+            {
+                "ContextHealthMeter": ContextHealthMeter,
+                "HealthConfig": HealthConfig,
+                "HealthMetrics": HealthMetrics,
+                "HealthReport": HealthReport,
+                "HealthAlert": HealthAlert,
+                "HealthStatus": HealthStatus,
+                "HealthAlertType": HealthAlertType,
+                "ContextHealthError": ContextHealthError,
+                "_HEALTH_WEIGHTS": _HEALTH_WEIGHTS,
+                "_VARIANT_HEALTH_CONFIGS": _VARIANT_HEALTH_CONFIGS,
+            }
+        )
 
 
 def _make_healthy_metrics():
@@ -172,9 +178,12 @@ class TestHealthMetrics:
     def test_all_floats(self):
         m = _make_healthy_metrics()
         for attr in [
-            "token_usage_ratio", "compression_ratio",
-            "relevance_score", "freshness_score",
-            "signal_preservation", "context_coherence",
+            "token_usage_ratio",
+            "compression_ratio",
+            "relevance_score",
+            "freshness_score",
+            "signal_preservation",
+            "context_coherence",
         ]:
             assert isinstance(getattr(m, attr), float)
 
@@ -436,7 +445,10 @@ class TestCheckHealth:
     async def test_healthy_scenario(self):
         meter = ContextHealthMeter()
         report = await meter.check_health(
-            "c1", "conv1", _make_healthy_metrics(), turn_number=1,
+            "c1",
+            "conv1",
+            _make_healthy_metrics(),
+            turn_number=1,
         )
         assert isinstance(report, HealthReport)
         assert report.company_id == "c1"
@@ -448,10 +460,14 @@ class TestCheckHealth:
     async def test_degrading_scenario(self):
         meter = ContextHealthMeter()
         report = await meter.check_health(
-            "c1", "conv2", _make_degrading_metrics(), turn_number=3,
+            "c1",
+            "conv2",
+            _make_degrading_metrics(),
+            turn_number=3,
         )
         assert report.status in (
-            HealthStatus.DEGRADING, HealthStatus.HEALTHY,
+            HealthStatus.DEGRADING,
+            HealthStatus.HEALTHY,
             HealthStatus.CRITICAL,
         )
         assert report.turn_number == 3
@@ -460,10 +476,14 @@ class TestCheckHealth:
     async def test_critical_scenario(self):
         meter = ContextHealthMeter()
         report = await meter.check_health(
-            "c1", "conv3", _make_critical_metrics(), turn_number=5,
+            "c1",
+            "conv3",
+            _make_critical_metrics(),
+            turn_number=5,
         )
         assert report.status in (
-            HealthStatus.CRITICAL, HealthStatus.EXHAUSTED,
+            HealthStatus.CRITICAL,
+            HealthStatus.EXHAUSTED,
         )
         assert report.turn_number == 5
 
@@ -471,7 +491,9 @@ class TestCheckHealth:
     async def test_alerts_generated_for_critical(self):
         meter = ContextHealthMeter()
         report = await meter.check_health(
-            "c1", "conv4", _make_critical_metrics(),
+            "c1",
+            "conv4",
+            _make_critical_metrics(),
         )
         # Critical metrics should generate at least one alert
         assert len(report.alerts) >= 1
@@ -480,7 +502,9 @@ class TestCheckHealth:
     async def test_recommendations_populated(self):
         meter = ContextHealthMeter()
         report = await meter.check_health(
-            "c1", "conv5", _make_critical_metrics(),
+            "c1",
+            "conv5",
+            _make_critical_metrics(),
         )
         assert len(report.recommendations) >= 1
 
@@ -590,7 +614,8 @@ class TestAlertGeneration:
         report2 = await meter.check_health("c1", "conv-a6", m)
         # Second check should be within cooldown — no duplicate alert
         token_alerts_2 = [
-            a for a in report2.alerts
+            a
+            for a in report2.alerts
             if a.alert_type == HealthAlertType.TOKEN_BUDGET_LOW
         ]
         assert len(token_alerts_2) == 0
@@ -618,7 +643,8 @@ class TestHistory:
         latest = meter.get_latest_report("c1", "conv-h2")
         assert latest is not None
         assert latest.status in (
-            HealthStatus.CRITICAL, HealthStatus.EXHAUSTED,
+            HealthStatus.CRITICAL,
+            HealthStatus.EXHAUSTED,
         )
 
     @pytest.mark.asyncio
@@ -632,7 +658,10 @@ class TestHistory:
         meter = ContextHealthMeter()
         for i in range(5):
             await meter.check_health(
-                "c1", "conv-h3", _make_healthy_metrics(), turn_number=i,
+                "c1",
+                "conv-h3",
+                _make_healthy_metrics(),
+                turn_number=i,
             )
         history = meter.get_history("c1", "conv-h3")
         assert len(history) == 5
@@ -748,17 +777,20 @@ class TestRecommendations:
     async def test_healthy_no_action(self):
         meter = ContextHealthMeter()
         report = await meter.check_health(
-            "c1", "conv-rec1", _make_healthy_metrics(),
+            "c1",
+            "conv-rec1",
+            _make_healthy_metrics(),
         )
         assert len(report.recommendations) >= 1
-        assert any("no action needed" in r.lower()
-                   for r in report.recommendations)
+        assert any("no action needed" in r.lower() for r in report.recommendations)
 
     @pytest.mark.asyncio
     async def test_critical_has_recommendations(self):
         meter = ContextHealthMeter()
         report = await meter.check_health(
-            "c1", "conv-rec2", _make_critical_metrics(),
+            "c1",
+            "conv-rec2",
+            _make_critical_metrics(),
         )
         assert len(report.recommendations) >= 1
 
@@ -814,7 +846,9 @@ class TestTimestampAndMetadata:
     async def test_report_has_timestamp(self):
         meter = ContextHealthMeter()
         report = await meter.check_health(
-            "c1", "conv-ts1", _make_healthy_metrics(),
+            "c1",
+            "conv-ts1",
+            _make_healthy_metrics(),
         )
         assert report.timestamp != ""
         assert "T" in report.timestamp or "+" in report.timestamp

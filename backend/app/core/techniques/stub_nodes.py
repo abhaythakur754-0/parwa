@@ -45,6 +45,7 @@ class CRPNode(BaseTechniqueNode):
 
     async def execute(self, state: ConversationState) -> ConversationState:
         from app.core.techniques.crp import CRPProcessor, CRPResult
+
         try:
             processor = CRPProcessor()
             result: CRPResult = await processor.process(
@@ -76,10 +77,12 @@ class ReverseThinkingNodePlaceholder(BaseTechniqueNode):
 
     async def should_activate(self, state: ConversationState) -> bool:
         from app.core.techniques.reverse_thinking import ReverseThinkingNode
+
         return await ReverseThinkingNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
         from app.core.techniques.reverse_thinking import ReverseThinkingNode
+
         return await ReverseThinkingNode().execute(state)
 
 
@@ -92,10 +95,12 @@ class StepBackNodePlaceholder(BaseTechniqueNode):
 
     async def should_activate(self, state: ConversationState) -> bool:
         from app.core.techniques.step_back import StepBackNode
+
         return await StepBackNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
         from app.core.techniques.step_back import StepBackNode
+
         return await StepBackNode().execute(state)
 
 
@@ -108,10 +113,12 @@ class ChainOfThoughtNodePlaceholder(BaseTechniqueNode):
 
     async def should_activate(self, state: ConversationState) -> bool:
         from app.core.techniques.chain_of_thought import ChainOfThoughtNode
+
         return await ChainOfThoughtNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
         from app.core.techniques.chain_of_thought import ChainOfThoughtNode
+
         return await ChainOfThoughtNode().execute(state)
 
 
@@ -124,10 +131,12 @@ class ReActNodePlaceholder(BaseTechniqueNode):
 
     async def should_activate(self, state: ConversationState) -> bool:
         from app.core.techniques.react import ReActNode
+
         return await ReActNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
         from app.core.techniques.react import ReActNode
+
         return await ReActNode().execute(state)
 
 
@@ -140,10 +149,12 @@ class ThreadOfThoughtNodePlaceholder(BaseTechniqueNode):
 
     async def should_activate(self, state: ConversationState) -> bool:
         from app.core.techniques.thread_of_thought import ThreadOfThoughtNode
+
         return await ThreadOfThoughtNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
         from app.core.techniques.thread_of_thought import ThreadOfThoughtNode
+
         return await ThreadOfThoughtNode().execute(state)
 
 
@@ -156,10 +167,12 @@ class GSTNodePlaceholder(BaseTechniqueNode):
 
     async def should_activate(self, state: ConversationState) -> bool:
         from app.core.techniques.gst import GSTNode
+
         return await GSTNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
         from app.core.techniques.gst import GSTNode
+
         return await GSTNode().execute(state)
 
 
@@ -172,10 +185,12 @@ class UniverseOfThoughtsNodePlaceholder(BaseTechniqueNode):
 
     async def should_activate(self, state: ConversationState) -> bool:
         from app.core.techniques.universe_of_thoughts import UniverseOfThoughtsNode
+
         return await UniverseOfThoughtsNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
         from app.core.techniques.universe_of_thoughts import UniverseOfThoughtsNode
+
         return await UniverseOfThoughtsNode().execute(state)
 
 
@@ -188,10 +203,12 @@ class TreeOfThoughtsNodePlaceholder(BaseTechniqueNode):
 
     async def should_activate(self, state: ConversationState) -> bool:
         from app.core.techniques.tree_of_thoughts import TreeOfThoughtsNode
+
         return await TreeOfThoughtsNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
         from app.core.techniques.tree_of_thoughts import TreeOfThoughtsNode
+
         return await TreeOfThoughtsNode().execute(state)
 
 
@@ -204,10 +221,12 @@ class SelfConsistencyNodePlaceholder(BaseTechniqueNode):
 
     async def should_activate(self, state: ConversationState) -> bool:
         from app.core.techniques.self_consistency import SelfConsistencyNode
+
         return await SelfConsistencyNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
         from app.core.techniques.self_consistency import SelfConsistencyNode
+
         return await SelfConsistencyNode().execute(state)
 
 
@@ -220,10 +239,12 @@ class ReflexionNodePlaceholder(BaseTechniqueNode):
 
     async def should_activate(self, state: ConversationState) -> bool:
         from app.core.techniques.reflexion import ReflexionNode
+
         return await ReflexionNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
         from app.core.techniques.reflexion import ReflexionNode
+
         return await ReflexionNode().execute(state)
 
 
@@ -236,10 +257,12 @@ class LeastToMostNodePlaceholder(BaseTechniqueNode):
 
     async def should_activate(self, state: ConversationState) -> bool:
         from app.core.techniques.least_to_most import LeastToMostNode
+
         return await LeastToMostNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
         from app.core.techniques.least_to_most import LeastToMostNode
+
         return await LeastToMostNode().execute(state)
 
 
@@ -247,17 +270,19 @@ class LeastToMostNodePlaceholder(BaseTechniqueNode):
 # All implementations are real (no stubs remaining).
 # Day 19: UoT, ToT, Self-Consistency, Reflexion, Least-to-Most.
 
-TECHNIQUE_NODES.update({
-    TechniqueID.CRP: CRPNode(),
-    TechniqueID.REVERSE_THINKING: ReverseThinkingNodePlaceholder(),
-    TechniqueID.STEP_BACK: StepBackNodePlaceholder(),
-    TechniqueID.CHAIN_OF_THOUGHT: ChainOfThoughtNodePlaceholder(),
-    TechniqueID.REACT: ReActNodePlaceholder(),
-    TechniqueID.THREAD_OF_THOUGHT: ThreadOfThoughtNodePlaceholder(),
-    TechniqueID.GST: GSTNodePlaceholder(),
-    TechniqueID.UNIVERSE_OF_THOUGHTS: UniverseOfThoughtsNodePlaceholder(),
-    TechniqueID.TREE_OF_THOUGHTS: TreeOfThoughtsNodePlaceholder(),
-    TechniqueID.SELF_CONSISTENCY: SelfConsistencyNodePlaceholder(),
-    TechniqueID.REFLEXION: ReflexionNodePlaceholder(),
-    TechniqueID.LEAST_TO_MOST: LeastToMostNodePlaceholder(),
-})
+TECHNIQUE_NODES.update(
+    {
+        TechniqueID.CRP: CRPNode(),
+        TechniqueID.REVERSE_THINKING: ReverseThinkingNodePlaceholder(),
+        TechniqueID.STEP_BACK: StepBackNodePlaceholder(),
+        TechniqueID.CHAIN_OF_THOUGHT: ChainOfThoughtNodePlaceholder(),
+        TechniqueID.REACT: ReActNodePlaceholder(),
+        TechniqueID.THREAD_OF_THOUGHT: ThreadOfThoughtNodePlaceholder(),
+        TechniqueID.GST: GSTNodePlaceholder(),
+        TechniqueID.UNIVERSE_OF_THOUGHTS: UniverseOfThoughtsNodePlaceholder(),
+        TechniqueID.TREE_OF_THOUGHTS: TreeOfThoughtsNodePlaceholder(),
+        TechniqueID.SELF_CONSISTENCY: SelfConsistencyNodePlaceholder(),
+        TechniqueID.REFLEXION: ReflexionNodePlaceholder(),
+        TechniqueID.LEAST_TO_MOST: LeastToMostNodePlaceholder(),
+    }
+)

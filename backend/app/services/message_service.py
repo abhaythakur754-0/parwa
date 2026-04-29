@@ -88,8 +88,7 @@ class MessageService:
 
         # Validate role
         if role not in self.VALID_ROLES:
-            raise ValidationError(
-                f"Invalid role: {role}. Must be one of {
+            raise ValidationError(f"Invalid role: {role}. Must be one of {
                     self.VALID_ROLES}")
 
         # Validate content length
@@ -162,11 +161,15 @@ class MessageService:
         Raises:
             NotFoundError: If message not found
         """
-        message = self.db.query(TicketMessage).filter(
-            TicketMessage.id == message_id,
-            TicketMessage.ticket_id == ticket_id,
-            TicketMessage.company_id == self.company_id,
-        ).first()
+        message = (
+            self.db.query(TicketMessage)
+            .filter(
+                TicketMessage.id == message_id,
+                TicketMessage.ticket_id == ticket_id,
+                TicketMessage.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not message:
             raise NotFoundError(f"Message {message_id} not found")
@@ -262,8 +265,7 @@ class MessageService:
                 minutes=self.EDIT_WINDOW_MINUTES
             )
             if datetime.now(timezone.utc) > edit_deadline:
-                raise ValidationError(
-                    f"Message can only be edited within {
+                raise ValidationError(f"Message can only be edited within {
                         self.EDIT_WINDOW_MINUTES} minutes")
 
         # Validate content length
@@ -385,10 +387,15 @@ class MessageService:
         Returns:
             List of TicketAttachment objects
         """
-        return self.db.query(TicketAttachment).filter(
-            TicketAttachment.ticket_id == ticket_id,
-            TicketAttachment.company_id == self.company_id,
-        ).order_by(TicketAttachment.created_at).all()
+        return (
+            self.db.query(TicketAttachment)
+            .filter(
+                TicketAttachment.ticket_id == ticket_id,
+                TicketAttachment.company_id == self.company_id,
+            )
+            .order_by(TicketAttachment.created_at)
+            .all()
+        )
 
     # ── PRIVATE HELPERS ────────────────────────────────────────────────────
 
@@ -404,10 +411,14 @@ class MessageService:
         Raises:
             NotFoundError: If ticket not found
         """
-        ticket = self.db.query(Ticket).filter(
-            Ticket.id == ticket_id,
-            Ticket.company_id == self.company_id,
-        ).first()
+        ticket = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            )
+            .first()
+        )
 
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")

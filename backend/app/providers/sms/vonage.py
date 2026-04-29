@@ -152,12 +152,8 @@ class VonageSMSProvider(SMSProvider):
                         success=False,
                         provider_name=self.provider_name,
                         operation="send_sms",
-                        error_code=msg.get(
-                            "status",
-                            "unknown"),
-                        error_message=msg.get(
-                            "error-text",
-                            "Unknown Vonage error"),
+                        error_code=msg.get("status", "unknown"),
+                        error_message=msg.get("error-text", "Unknown Vonage error"),
                     )
             else:
                 return ProviderResult(

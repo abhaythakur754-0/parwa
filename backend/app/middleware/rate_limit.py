@@ -67,7 +67,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Extract identifier based on category
         identifier = await svc.extract_identifier(
-            category, request,
+            category,
+            request,
         )
 
         # Fallback: use IP if identifier extraction failed
@@ -82,7 +83,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             # F-018: Sync Redis time for consistent timestamps
             await svc.sync_redis_time()
             result = svc.check_rate_limit(
-                category, identifier,
+                category,
+                identifier,
             )
         except Exception:
             # BC-011: Fail-open on rate limiter failure
@@ -96,14 +98,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         if not result.allowed:
-            correlation_id = getattr(
-                request.state, "correlation_id", None
-            )
+            correlation_id = getattr(request.state, "correlation_id", None)
             resp = build_error_response(
                 status_code=429,
                 error_code="RATE_LIMIT_EXCEEDED",
-                message="Too many requests. "
-                "Please retry later.",
+                message="Too many requests. " "Please retry later.",
                 correlation_id=correlation_id,
             )
             for hdr, val in result.to_headers().items():

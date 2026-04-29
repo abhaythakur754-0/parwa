@@ -215,7 +215,8 @@ class DraftRequest:
         """Set default draft options if not provided."""
         if self.draft_options is None:
             max_drafts = _VARIANT_MAX_DRAFTS.get(
-                self.variant_type, 1,
+                self.variant_type,
+                1,
             )
             self.draft_options = DraftOptions(max_drafts=max_drafts)
 
@@ -270,7 +271,8 @@ class DraftComposerResponse:
             "drafts": [d.to_dict() for d in self.drafts],
             "best_draft_index": self.best_draft_index,
             "total_generation_time_ms": round(
-                self.total_generation_time_ms, 2,
+                self.total_generation_time_ms,
+                2,
             ),
             "variant_type": self.variant_type,
             "cached": self.cached,
@@ -321,9 +323,7 @@ class DraftComposer:
 
         self.smart_router = smart_router or SmartRouter()
         self.clara_gate = clara_gate or CLARAQualityGate()
-        self.brand_voice_service = (
-            brand_voice_service or BrandVoiceService()
-        )
+        self.brand_voice_service = brand_voice_service or BrandVoiceService()
 
         logger.info("draft_composer_initialized")
 
@@ -357,8 +357,11 @@ class DraftComposer:
             ``DraftComposerResponse`` with ranked drafts.
         """
         compose_start = time.monotonic()
-        request_id = hashlib.uuid4_hex() if hasattr(
-            hashlib, 'uuid4_hex') else self._generate_uuid()
+        request_id = (
+            hashlib.uuid4_hex()
+            if hasattr(hashlib, "uuid4_hex")
+            else self._generate_uuid()
+        )
 
         # ── Validate request ──────────────────────────────────────
         if not request.query or not request.query.strip():
@@ -382,7 +385,8 @@ class DraftComposer:
         )
 
         cached_response = await self._check_cache(
-            request.company_id, cache_key,
+            request.company_id,
+            cache_key,
         )
         if cached_response is not None:
             logger.info(
@@ -452,11 +456,13 @@ class DraftComposer:
 
         # ── Step 6: Generate drafts ───────────────────────────────
         max_drafts = _VARIANT_MAX_DRAFTS.get(
-            request.variant_type, 1,
+            request.variant_type,
+            1,
         )
         if request.draft_options:
             max_drafts = min(
-                request.draft_options.max_drafts, max_drafts,
+                request.draft_options.max_drafts,
+                max_drafts,
             )
 
         drafts: List[DraftResult] = []
@@ -476,7 +482,8 @@ class DraftComposer:
         # Generate all drafts concurrently with per-draft timeout
         try:
             draft_results = await asyncio.gather(
-                *draft_tasks, return_exceptions=True,
+                *draft_tasks,
+                return_exceptions=True,
             )
             for result in draft_results:
                 if isinstance(result, DraftResult):
@@ -520,12 +527,14 @@ class DraftComposer:
 
         # ── Step 9: Rank by quality score ─────────────────────────
         unique_drafts.sort(
-            key=lambda d: d.quality_score, reverse=True,
+            key=lambda d: d.quality_score,
+            reverse=True,
         )
 
         # ── Step 10: Build response ───────────────────────────────
         total_time = round(
-            (time.monotonic() - compose_start) * 1000, 2,
+            (time.monotonic() - compose_start) * 1000,
+            2,
         )
         best_index = 0  # First after sort is best
 
@@ -540,7 +549,9 @@ class DraftComposer:
 
         # ── Step 11: Store in cache ───────────────────────────────
         await self._store_cache(
-            request.company_id, cache_key, response,
+            request.company_id,
+            cache_key,
+            response,
         )
 
         # ── Step 12: Store draft history ──────────────────────────
@@ -553,7 +564,8 @@ class DraftComposer:
 
         # ── Step 13: Emit via Socket.io ───────────────────────────
         await self._emit_to_agent(
-            request=request, response=response,
+            request=request,
+            response=response,
         )
 
         logger.info(
@@ -562,8 +574,7 @@ class DraftComposer:
             variant_type=request.variant_type,
             drafts_generated=len(drafts),
             drafts_after_dedup=len(unique_drafts),
-            best_score=unique_drafts[0].quality_score
-            if unique_drafts else 0.0,
+            best_score=unique_drafts[0].quality_score if unique_drafts else 0.0,
             total_time_ms=total_time,
         )
 
@@ -574,7 +585,8 @@ class DraftComposer:
     # ──────────────────────────────────────────────────────────────
 
     async def _extract_signals(
-        self, request: DraftRequest,
+        self,
+        request: DraftRequest,
     ) -> Dict[str, Any]:
         """Extract signals from the query using SignalExtractor.
 
@@ -617,7 +629,8 @@ class DraftComposer:
     # ──────────────────────────────────────────────────────────────
 
     async def _classify_intent(
-        self, request: DraftRequest,
+        self,
+        request: DraftRequest,
     ) -> Dict[str, Any]:
         """Classify the intent of the query.
 
@@ -661,7 +674,8 @@ class DraftComposer:
     # ──────────────────────────────────────────────────────────────
 
     async def _get_brand_voice(
-        self, request: DraftRequest,
+        self,
+        request: DraftRequest,
     ) -> Dict[str, Any]:
         """Retrieve brand voice configuration for the company.
 
@@ -675,30 +689,46 @@ class DraftComposer:
             return {
                 "tone": getattr(config, "tone", "professional"),
                 "formality_level": getattr(
-                    config, "formality_level", 0.5,
+                    config,
+                    "formality_level",
+                    0.5,
                 ),
                 "brand_name": getattr(config, "brand_name", "our company"),
                 "prohibited_words": getattr(
-                    config, "prohibited_words", [],
+                    config,
+                    "prohibited_words",
+                    [],
                 ),
                 "response_length_preference": getattr(
-                    config, "response_length_preference", "standard",
+                    config,
+                    "response_length_preference",
+                    "standard",
                 ),
                 "max_response_sentences": getattr(
-                    config, "max_response_sentences", 6,
+                    config,
+                    "max_response_sentences",
+                    6,
                 ),
                 "min_response_sentences": getattr(
-                    config, "min_response_sentences", 2,
+                    config,
+                    "min_response_sentences",
+                    2,
                 ),
                 "greeting_template": getattr(
-                    config, "greeting_template", "",
+                    config,
+                    "greeting_template",
+                    "",
                 ),
                 "closing_template": getattr(
-                    config, "closing_template", "",
+                    config,
+                    "closing_template",
+                    "",
                 ),
                 "emoji_usage": getattr(config, "emoji_usage", "minimal"),
                 "custom_instructions": getattr(
-                    config, "custom_instructions", "",
+                    config,
+                    "custom_instructions",
+                    "",
                 ),
             }
         except Exception as exc:
@@ -748,7 +778,8 @@ class DraftComposer:
             "brand_voice": brand_voice,
             "intent": classification.get("primary_intent", "general"),
             "sentiment": signals.get(
-                "sentiment", 0.5,
+                "sentiment",
+                0.5,
             ),
             "complexity": signals.get("complexity", 0.5),
             "customer_tier": signals.get("customer_tier", "free"),
@@ -793,11 +824,11 @@ class DraftComposer:
             sentiment_bucket = "default"
 
         # Look up technique from map
-        intent_techniques = _TECHNIQUE_MAP.get(
-            intent, _TECHNIQUE_MAP["general"])
+        intent_techniques = _TECHNIQUE_MAP.get(intent, _TECHNIQUE_MAP["general"])
         technique = intent_techniques.get(
-            sentiment_bucket, intent_techniques.get(
-                "default", "standard_response"), )
+            sentiment_bucket,
+            intent_techniques.get("default", "standard_response"),
+        )
 
         # mini_parwa always uses simpler techniques
         if variant_type == "mini_parwa":
@@ -861,7 +892,8 @@ class DraftComposer:
                 timeout=_DRAFT_GENERATION_TIMEOUT_SECONDS,
             )
             generation_time = round(
-                (time.monotonic() - draft_start) * 1000, 2,
+                (time.monotonic() - draft_start) * 1000,
+                2,
             )
             return DraftResult(
                 draft_id=draft_id,
@@ -882,7 +914,8 @@ class DraftComposer:
                 company_id=company_id,
             )
             generation_time = round(
-                (time.monotonic() - draft_start) * 1000, 2,
+                (time.monotonic() - draft_start) * 1000,
+                2,
             )
             return DraftResult(
                 draft_id=draft_id,
@@ -927,13 +960,17 @@ class DraftComposer:
         if history and isinstance(history, list):
             for msg in history[-6:]:  # Last 6 messages
                 if isinstance(msg, str) and msg.strip():
-                    messages.append({
-                        "role": "user", "content": msg,
-                    })
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": msg,
+                        }
+                    )
 
         # Add the current query
         query = context.get("signals", {}).get(
-            "query", "",
+            "query",
+            "",
         )
         messages.append({"role": "user", "content": query})
 
@@ -974,10 +1011,11 @@ class DraftComposer:
 
         # Truncate to max_length
         if options.max_length and len(content) > options.max_length:
-            content = content[:options.max_length].rsplit(" ", 1)[0]
+            content = content[: options.max_length].rsplit(" ", 1)[0]
 
         generation_time = round(
-            (time.monotonic() - draft_start) * 1000, 2,
+            (time.monotonic() - draft_start) * 1000,
+            2,
         )
 
         technique = context.get("technique", "standard_response")
@@ -1096,20 +1134,18 @@ class DraftComposer:
         # ── Brand-specific rules ──────────────────────────────────
         prohibited = brand.get("prohibited_words", [])
         if prohibited:
-            parts.append(
-                f"\nNEVER use these words: {', '.join(prohibited[:10])}"
-            )
+            parts.append(f"\nNEVER use these words: {', '.join(prohibited[:10])}")
 
         max_sent = brand.get("max_response_sentences", 6)
         min_sent = brand.get("min_response_sentences", 2)
         parts.append(
-            f"\nKeep the response between {min_sent} and "
-            f"{max_sent} sentences."
+            f"\nKeep the response between {min_sent} and " f"{max_sent} sentences."
         )
 
         # ── Custom instructions ───────────────────────────────────
         custom = options.custom_instructions or brand.get(
-            "custom_instructions", "",
+            "custom_instructions",
+            "",
         )
         if custom:
             parts.append(f"\nAdditional instructions: {custom}")
@@ -1131,15 +1167,11 @@ class DraftComposer:
 
         # ── Citations ─────────────────────────────────────────────
         if options.include_citations:
-            parts.append(
-                "\nInclude [citation:N] references where applicable."
-            )
+            parts.append("\nInclude [citation:N] references where applicable.")
 
         # ── Length constraint ─────────────────────────────────────
         if options.max_length:
-            parts.append(
-                f"\nMaximum response length: {options.max_length} characters."
-            )
+            parts.append(f"\nMaximum response length: {options.max_length} characters.")
 
         return "\n".join(parts)
 
@@ -1177,8 +1209,7 @@ class DraftComposer:
                 "then clearly explain the charges."
             ),
             "clear_summary": (
-                "Provide a clear, organized summary of the billing "
-                "details."
+                "Provide a clear, organized summary of the billing " "details."
             ),
             "informative_breakdown": (
                 "Break down the billing information in an organized, "
@@ -1218,16 +1249,14 @@ class DraftComposer:
                 "context. Reassure the customer."
             ),
             "escalation_acknowledgment": (
-                "Acknowledge the escalation request and explain "
-                "the next steps."
+                "Acknowledge the escalation request and explain " "the next steps."
             ),
             "proactive_tracking": (
                 "Proactively provide tracking information and "
                 "set expectations for delivery."
             ),
             "delivery_update": (
-                "Provide a clear delivery update with tracking "
-                "details."
+                "Provide a clear delivery update with tracking " "details."
             ),
             "logistics_response": (
                 "Address the shipping/logistics question clearly "
@@ -1237,12 +1266,8 @@ class DraftComposer:
                 "Reassure the customer about security. Provide "
                 "clear steps for account recovery."
             ),
-            "quick_fix": (
-                "Provide a quick, easy fix for the account issue."
-            ),
-            "account_assistance": (
-                "Assist with the account request step by step."
-            ),
+            "quick_fix": ("Provide a quick, easy fix for the account issue."),
+            "account_assistance": ("Assist with the account request step by step."),
             "encouraging_acknowledgment": (
                 "Thank the customer for their feature suggestion "
                 "and encourage continued feedback."
@@ -1259,9 +1284,7 @@ class DraftComposer:
                 "Provide a detailed, thorough explanation to address "
                 "the inquiry fully."
             ),
-            "concise_answer": (
-                "Provide a concise, direct answer to the inquiry."
-            ),
+            "concise_answer": ("Provide a concise, direct answer to the inquiry."),
             "informative_response": (
                 "Provide an informative, helpful response that "
                 "addresses the inquiry."
@@ -1270,9 +1293,7 @@ class DraftComposer:
                 "Express genuine gratitude for the feedback "
                 "and address any concerns."
             ),
-            "celebration": (
-                "Celebrate the positive feedback enthusiastically!"
-            ),
+            "celebration": ("Celebrate the positive feedback enthusiastically!"),
             "thank_you_response": (
                 "Thank the customer sincerely for their feedback "
                 "and offer further assistance."
@@ -1326,8 +1347,7 @@ class DraftComposer:
 
             try:
                 brand = {}
-                if draft.metadata.get(
-                        "tone") or draft.metadata.get("brand_name"):
+                if draft.metadata.get("tone") or draft.metadata.get("brand_name"):
                     brand = {
                         "brand_name": draft.metadata.get("brand_name", ""),
                     }
@@ -1349,7 +1369,8 @@ class DraftComposer:
                     stage_name = stage.stage.value
                     if stage_name == "brand_check":
                         brand_passed = stage.result.value in (
-                            "pass", "timeout_pass",
+                            "pass",
+                            "timeout_pass",
                         )
                     if stage_name == "tone_check":
                         tone_score = stage.score
@@ -1358,12 +1379,11 @@ class DraftComposer:
                 draft.metadata["tone_match"] = round(tone_score, 4)
                 draft.metadata["clara_passed"] = clara_result.overall_pass
                 draft.metadata["clara_score"] = round(
-                    clara_result.overall_score, 4,
+                    clara_result.overall_score,
+                    4,
                 )
                 draft.metadata["clara_issues"] = [
-                    issue
-                    for stage in clara_result.stages
-                    for issue in stage.issues
+                    issue for stage in clara_result.stages for issue in stage.issues
                 ][:5]
 
                 # Use CLARA's improved response if available
@@ -1420,7 +1440,9 @@ class DraftComposer:
             is_duplicate = False
             for existing in seen_content:
                 similarity = SequenceMatcher(
-                    None, draft.content.lower(), existing.lower(),
+                    None,
+                    draft.content.lower(),
+                    existing.lower(),
                 ).ratio()
                 if similarity >= _DEDUP_SIMILARITY_THRESHOLD:
                     is_duplicate = True
@@ -1513,7 +1535,8 @@ class DraftComposer:
                 content = ""
 
             generation_time = round(
-                (time.monotonic() - draft_start) * 1000, 2,
+                (time.monotonic() - draft_start) * 1000,
+                2,
             )
 
             return DraftResult(
@@ -1538,7 +1561,8 @@ class DraftComposer:
                 company_id=company_id,
             )
             generation_time = round(
-                (time.monotonic() - draft_start) * 1000, 2,
+                (time.monotonic() - draft_start) * 1000,
+                2,
             )
             return DraftResult(
                 draft_id=new_draft_id,
@@ -1559,7 +1583,8 @@ class DraftComposer:
                 company_id=company_id,
             )
             generation_time = round(
-                (time.monotonic() - draft_start) * 1000, 2,
+                (time.monotonic() - draft_start) * 1000,
+                2,
             )
             return DraftResult(
                 draft_id=new_draft_id,
@@ -1607,7 +1632,8 @@ class DraftComposer:
                 ticket_id=ticket_id,
             )
             history = await cache_get(
-                company_id, f"draft_history:{ticket_id}",
+                company_id,
+                f"draft_history:{ticket_id}",
             )
             if history is not None and isinstance(history, list):
                 return history
@@ -1650,8 +1676,7 @@ class DraftComposer:
                 ).isoformat(),
                 "draft_count": len(response.drafts),
                 "best_score": (
-                    response.drafts[0].quality_score
-                    if response.drafts else 0.0
+                    response.drafts[0].quality_score if response.drafts else 0.0
                 ),
                 "total_time_ms": response.total_generation_time_ms,
                 "variant_type": response.variant_type,
@@ -1664,7 +1689,9 @@ class DraftComposer:
 
             # Store back
             await cache_set(
-                company_id, history_key, existing,
+                company_id,
+                history_key,
+                existing,
                 ttl_seconds=_HISTORY_TTL_SECONDS,
             )
 
@@ -1710,7 +1737,9 @@ class DraftComposer:
             }
             key = f"draft_feedback:{draft_id}"
             await cache_set(
-                company_id, key, feedback_data,
+                company_id,
+                key,
+                feedback_data,
                 ttl_seconds=_FEEDBACK_TTL_SECONDS,
             )
 
@@ -1783,24 +1812,29 @@ class DraftComposer:
             if cached is not None and isinstance(cached, dict):
                 drafts = []
                 for d in cached.get("drafts", []):
-                    drafts.append(DraftResult(
-                        draft_id=d.get("draft_id", ""),
-                        content=d.get("content", ""),
-                        quality_score=d.get("quality_score", 0.0),
-                        generation_time_ms=d.get(
-                            "generation_time_ms", 0.0,
-                        ),
-                        technique_used=d.get("technique_used", ""),
-                        metadata=d.get("metadata", {}),
-                    ))
+                    drafts.append(
+                        DraftResult(
+                            draft_id=d.get("draft_id", ""),
+                            content=d.get("content", ""),
+                            quality_score=d.get("quality_score", 0.0),
+                            generation_time_ms=d.get(
+                                "generation_time_ms",
+                                0.0,
+                            ),
+                            technique_used=d.get("technique_used", ""),
+                            metadata=d.get("metadata", {}),
+                        )
+                    )
                 return DraftComposerResponse(
                     request_id=cached.get("request_id", ""),
                     drafts=drafts,
                     best_draft_index=cached.get(
-                        "best_draft_index", 0,
+                        "best_draft_index",
+                        0,
                     ),
                     total_generation_time_ms=cached.get(
-                        "total_generation_time_ms", 0.0,
+                        "total_generation_time_ms",
+                        0.0,
                     ),
                     variant_type=cached.get("variant_type", ""),
                     cached=True,
@@ -1832,7 +1866,9 @@ class DraftComposer:
             from app.core.redis import cache_set
 
             await cache_set(
-                company_id, cache_key, response.to_dict(),
+                company_id,
+                cache_key,
+                response.to_dict(),
                 ttl_seconds=_CACHE_TTL_SECONDS,
             )
         except Exception as exc:
@@ -1911,6 +1947,7 @@ class DraftComposer:
     def _generate_uuid() -> str:
         """Generate a unique identifier (UUID4 hex)."""
         import uuid
+
         return uuid.uuid4().hex
 
     @staticmethod
@@ -1949,7 +1986,8 @@ class DraftComposer:
             ``DraftComposerResponse`` with no drafts.
         """
         total_time = round(
-            (time.monotonic() - compose_start) * 1000, 2,
+            (time.monotonic() - compose_start) * 1000,
+            2,
         )
         logger.info(
             "draft_composer_empty_response",

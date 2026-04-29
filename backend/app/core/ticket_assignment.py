@@ -43,8 +43,10 @@ logger = logging.getLogger(__name__)
 # Enums
 # ---------------------------------------------------------------------------
 
+
 class AssignmentStrategy(Enum):
     """Supported assignment routing strategies."""
+
     SCORE_BASED = "score_based"
     RULE_BASED = "rule_based"
     HYBRID = "hybrid"
@@ -52,6 +54,7 @@ class AssignmentStrategy(Enum):
 
 class AgentStatus(Enum):
     """Agent availability states."""
+
     ONLINE = "online"
     OFFLINE = "offline"
     AWAY = "away"
@@ -60,6 +63,7 @@ class AgentStatus(Enum):
 
 class TicketPriority(Enum):
     """Canonical priority levels — lower ordinal ⇒ higher priority."""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -68,6 +72,7 @@ class TicketPriority(Enum):
 
 class ChannelType(Enum):
     """Supported inbound channels."""
+
     EMAIL = "email"
     CHAT = "chat"
     PHONE = "phone"
@@ -79,6 +84,7 @@ class ChannelType(Enum):
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class AgentProfile:
@@ -100,8 +106,8 @@ class AgentProfile:
     seniority_years: float = 0.0
     languages: List[str] = field(default_factory=lambda: ["en"])
     customer_tier_access: List[str] = field(
-        default_factory=lambda: [
-            "standard", "premium", "enterprise"])
+        default_factory=lambda: ["standard", "premium", "enterprise"]
+    )
     shift_start: Optional[str] = None  # HH:MM in agent timezone
     shift_end: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -139,11 +145,11 @@ class AgentProfile:
             "accuracy_score": self.accuracy_score,
             "avg_response_time": self.avg_response_time,
             "assigned_count": self.assigned_count,
-            "last_assigned": self.last_assigned.isoformat() if self.last_assigned else None,
+            "last_assigned": (
+                self.last_assigned.isoformat() if self.last_assigned else None
+            ),
             "available_capacity": self.available_capacity,
-            "utilization_ratio": round(
-                self.utilization_ratio,
-                4),
+            "utilization_ratio": round(self.utilization_ratio, 4),
         }
 
 
@@ -260,6 +266,7 @@ class AssignmentResult:
 # Abstract Base
 # ---------------------------------------------------------------------------
 
+
 class BaseAssigner(ABC):
     """Abstract base for all ticket assignment strategies.
 
@@ -293,6 +300,7 @@ class BaseAssigner(ABC):
 # Rule-Based Assigner (round-robin + priority escalation)
 # ---------------------------------------------------------------------------
 
+
 class RuleBasedAssigner(BaseAssigner):
     """Deterministic round-robin assignment with priority-aware escalation.
 
@@ -317,21 +325,15 @@ class RuleBasedAssigner(BaseAssigner):
         self, agents: List[AgentProfile], ticket: TicketContext
     ) -> List[AgentProfile]:
         """Filter and sort agents for rule-based eligibility."""
-        available = [
-            a for a in agents
-            if a.is_online and a.available_capacity > 0
-        ]
+        available = [a for a in agents if a.is_online and a.available_capacity > 0]
         # Prefer agents with matching language
         if ticket.language:
-            lang_match = [
-                a for a in available if ticket.language in a.languages]
+            lang_match = [a for a in available if ticket.language in a.languages]
             if lang_match:
                 available = lang_match
         return available
 
-    def _least_loaded(
-            self,
-            agents: List[AgentProfile]) -> Optional[AgentProfile]:
+    def _least_loaded(self, agents: List[AgentProfile]) -> Optional[AgentProfile]:
         """Return the agent with the lowest current_load (ties broken by last_assigned)."""
         if not agents:
             return None
@@ -339,8 +341,8 @@ class RuleBasedAssigner(BaseAssigner):
             agents,
             key=lambda a: (
                 a.current_load,
-                a.last_assigned or datetime.min.replace(
-                    tzinfo=timezone.utc)),
+                a.last_assigned or datetime.min.replace(tzinfo=timezone.utc),
+            ),
         )
 
     # -- public API --
@@ -355,8 +357,14 @@ class RuleBasedAssigner(BaseAssigner):
 
         # Follow-up routing: reuse previous agent if available
         if ticket.previous_agent_id:
-            prev = next((a for a in agents if a.agent_id
-                         == ticket.previous_agent_id and a.can_accept), None, )
+            prev = next(
+                (
+                    a
+                    for a in agents
+                    if a.agent_id == ticket.previous_agent_id and a.can_accept
+                ),
+                None,
+            )
             if prev is not None:
                 elapsed_ms = (time.monotonic() - start) * 1000
                 result = AssignmentResult(
@@ -371,9 +379,7 @@ class RuleBasedAssigner(BaseAssigner):
                 return result
 
         # Priority escalation: critical/high tickets go to least-loaded
-        if ticket.priority_enum in (
-                TicketPriority.CRITICAL,
-                TicketPriority.HIGH):
+        if ticket.priority_enum in (TicketPriority.CRITICAL, TicketPriority.HIGH):
             pool = self._available_agents(agents, ticket)
             if not pool:
                 pool = agents
@@ -448,6 +454,7 @@ class RuleBasedAssigner(BaseAssigner):
 # Score-Based Assigner (ML-style weighted scoring)
 # ---------------------------------------------------------------------------
 
+
 class ScoreBasedAssigner(BaseAssigner):
     """ML-score based assignment.
 
@@ -479,9 +486,7 @@ class ScoreBasedAssigner(BaseAssigner):
 
     # -- scoring components --
 
-    def _specialty_score(
-        self, agent: AgentProfile, ticket: TicketContext
-    ) -> float:
+    def _specialty_score(self, agent: AgentProfile, ticket: TicketContext) -> float:
         """0..1 — higher when the agent's specialties match the ticket."""
         if not agent.specialties:
             return 0.30  # baseline for generalists
@@ -512,19 +517,13 @@ class ScoreBasedAssigner(BaseAssigner):
         """0..jitter_range — random noise for tie-breaking."""
         return random.uniform(0.0, self.jitter_range)
 
-    def _seniority_bonus(
-            self,
-            agent: AgentProfile,
-            ticket: TicketContext) -> float:
+    def _seniority_bonus(self, agent: AgentProfile, ticket: TicketContext) -> float:
         """Small bonus (0..0.05) for senior agents on complex tickets."""
         if ticket.estimated_complexity < 0.5:
             return 0.0
         return min(0.05, agent.seniority_years * 0.01)
 
-    def _language_bonus(
-            self,
-            agent: AgentProfile,
-            ticket: TicketContext) -> float:
+    def _language_bonus(self, agent: AgentProfile, ticket: TicketContext) -> float:
         """0..0.10 bonus when the agent speaks the ticket's language."""
         if not ticket.language or ticket.language == "en":
             return 0.0
@@ -532,10 +531,7 @@ class ScoreBasedAssigner(BaseAssigner):
             return 0.10
         return 0.0
 
-    def _tier_access_score(
-            self,
-            agent: AgentProfile,
-            ticket: TicketContext) -> float:
+    def _tier_access_score(self, agent: AgentProfile, ticket: TicketContext) -> float:
         """1.0 if the agent is authorised for the customer tier, 0.2 otherwise."""
         if ticket.customer_tier in agent.customer_tier_access:
             return 1.0
@@ -650,6 +646,7 @@ class ScoreBasedAssigner(BaseAssigner):
 # Hybrid Assigner
 # ---------------------------------------------------------------------------
 
+
 class HybridAssigner(BaseAssigner):
     """Score-based first; falls back to rule-based when the best score
     drops below a configurable threshold.
@@ -721,6 +718,7 @@ class HybridAssigner(BaseAssigner):
 # Capacity Manager
 # ---------------------------------------------------------------------------
 
+
 class CapacityManager:
     """Tracks real-time agent capacity and enforces limits.
 
@@ -728,8 +726,7 @@ class CapacityManager:
     agent load and to expose dashboard-ready capacity snapshots.
     """
 
-    def __init__(self, redis_client: Any = None,
-                 ttl_seconds: int = 300) -> None:
+    def __init__(self, redis_client: Any = None, ttl_seconds: int = 300) -> None:
         self.redis = redis_client
         self.ttl = ttl_seconds
         self._load: Dict[str, int] = {}
@@ -753,8 +750,7 @@ class CapacityManager:
                         f"capacity:{agent_id}", self._load[agent_id], ex=self.ttl
                     )
                 except Exception:
-                    logger.warning(
-                        "Redis SET failed for capacity:%s", agent_id)
+                    logger.warning("Redis SET failed for capacity:%s", agent_id)
             return True
 
     async def release_slot(self, agent_id: str) -> None:
@@ -768,8 +764,7 @@ class CapacityManager:
                         f"capacity:{agent_id}", self._load[agent_id], ex=self.ttl
                     )
                 except Exception:
-                    logger.warning(
-                        "Redis SET failed for capacity:%s", agent_id)
+                    logger.warning("Redis SET failed for capacity:%s", agent_id)
 
     def get_load(self, agent_id: str) -> int:
         return self._load.get(agent_id, 0)
@@ -779,14 +774,16 @@ class CapacityManager:
         out: List[Dict[str, Any]] = []
         for agent in agents:
             current = self._load.get(agent.agent_id, agent.current_load)
-            out.append({
-                "agent_id": agent.agent_id,
-                "name": agent.name,
-                "current_load": current,
-                "max_concurrent": agent.max_concurrent,
-                "available": max(0, agent.max_concurrent - current),
-                "utilization": round(current / max(1, agent.max_concurrent), 4),
-            })
+            out.append(
+                {
+                    "agent_id": agent.agent_id,
+                    "name": agent.name,
+                    "current_load": current,
+                    "max_concurrent": agent.max_concurrent,
+                    "available": max(0, agent.max_concurrent - current),
+                    "utilization": round(current / max(1, agent.max_concurrent), 4),
+                }
+            )
         return out
 
     def reset(self) -> None:
@@ -796,6 +793,7 @@ class CapacityManager:
 # ---------------------------------------------------------------------------
 # Assignment Event Bus (lightweight in-process pub/sub)
 # ---------------------------------------------------------------------------
+
 
 class AssignmentEvent:
     """Immutable record of an assignment event."""
@@ -847,14 +845,12 @@ class AssignmentEventBus:
     def publish(self, event: AssignmentEvent) -> None:
         self._history.append(event)
         if len(self._history) > self._max_history:
-            self._history = self._history[-self._max_history:]
+            self._history = self._history[-self._max_history :]
         for handler in self._subscribers.get(event.event_type, []):
             try:
                 handler(event)
             except Exception:
-                logger.exception(
-                    "Event handler error for %s",
-                    event.event_type)
+                logger.exception("Event handler error for %s", event.event_type)
 
     def get_history(
         self, event_type: Optional[str] = None, limit: int = 50
@@ -872,6 +868,7 @@ class AssignmentEventBus:
 # SLA helpers
 # ---------------------------------------------------------------------------
 
+
 class SLAHelper:
     """Utility for computing SLA deadlines and checking compliance."""
 
@@ -885,25 +882,18 @@ class SLAHelper:
 
     @classmethod
     def response_target_seconds(cls, priority: str, tier: str) -> int:
-        return cls.SLA_TABLE.get(
-            priority.lower(),
-            cls.SLA_TABLE["medium"]).get(
-            tier.lower(),
-            3600)
+        return cls.SLA_TABLE.get(priority.lower(), cls.SLA_TABLE["medium"]).get(
+            tier.lower(), 3600
+        )
 
     @classmethod
     def deadline_iso(
-            cls,
-            priority: str,
-            tier: str,
-            base: Optional[datetime] = None) -> str:
+        cls, priority: str, tier: str, base: Optional[datetime] = None
+    ) -> str:
         if base is None:
             base = datetime.now(timezone.utc)
         target = cls.response_target_seconds(priority, tier)
-        return (
-            base
-            + __import__("datetime").timedelta(
-                seconds=target)).isoformat()
+        return (base + __import__("datetime").timedelta(seconds=target)).isoformat()
 
     @classmethod
     def is_within_sla(
@@ -926,10 +916,8 @@ class SLAHelper:
 # Utility: Deterministic hash-based jitter
 # ---------------------------------------------------------------------------
 
-def deterministic_jitter(
-        ticket_id: str,
-        agent_id: str,
-        max_val: float = 0.05) -> float:
+
+def deterministic_jitter(ticket_id: str, agent_id: str, max_val: float = 0.05) -> float:
     """Reproducible jitter so the same ticket+agent always gets the same noise."""
     h = hashlib.md5(f"{ticket_id}:{agent_id}".encode()).hexdigest()
     return (int(h[:8], 16) / 0xFFFFFFFF) * max_val
@@ -938,6 +926,7 @@ def deterministic_jitter(
 # ---------------------------------------------------------------------------
 # Assignment Engine (top-level orchestrator)
 # ---------------------------------------------------------------------------
+
 
 class AssignmentEngine:
     """Main engine with caching, capacity management, event bus, and metrics.
@@ -986,9 +975,7 @@ class AssignmentEngine:
         try:
             result = await assigner.assign(ticket, agents, **kwargs)
         except Exception as exc:
-            logger.exception(
-                "Assignment error for ticket %s",
-                ticket.ticket_id)
+            logger.exception("Assignment error for ticket %s", ticket.ticket_id)
             self._metrics["errors"] += 1
             result = AssignmentResult(
                 ticket_id=ticket.ticket_id,
@@ -1024,9 +1011,14 @@ class AssignmentEngine:
         # Publish event
         self._event_bus.publish(
             AssignmentEvent(
-                event_type="ticket.assigned" if not result.is_unassigned else "ticket.unassigned",
+                event_type=(
+                    "ticket.assigned"
+                    if not result.is_unassigned
+                    else "ticket.unassigned"
+                ),
                 payload=result.to_dict(),
-            ))
+            )
+        )
 
         return result
 
@@ -1050,20 +1042,18 @@ class AssignmentEngine:
     def get_metrics(self) -> Dict[str, Any]:
         m = self._metrics.copy()
         total = m["total_assigned"] + m["total_unassigned"]
-        m["avg_latency_ms"] = (
-            round(m["total_latency_ms"] / max(1, total), 2)
-        )
+        m["avg_latency_ms"] = round(m["total_latency_ms"] / max(1, total), 2)
         return m
 
     def get_recent_results(self, limit: int = 20) -> List[Dict[str, Any]]:
         return [r.to_dict() for r in self._recent_results[-limit:]]
 
-    def get_capacity_snapshot(
-            self, agents: List[AgentProfile]) -> List[Dict[str, Any]]:
+    def get_capacity_snapshot(self, agents: List[AgentProfile]) -> List[Dict[str, Any]]:
         return self._capacity.snapshot(agents)
 
     def get_event_history(
-            self, event_type: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        self, event_type: Optional[str] = None, limit: int = 50
+    ) -> List[Dict[str, Any]]:
         return self._event_bus.get_history(event_type=event_type, limit=limit)
 
     def subscribe(self, event_type: str, handler: Any) -> None:
@@ -1087,6 +1077,7 @@ class AssignmentEngine:
 # Factory helpers
 # ---------------------------------------------------------------------------
 
+
 def create_engine(
     strategy: str = "hybrid",
     redis_client: Any = None,
@@ -1099,25 +1090,35 @@ def create_engine(
 def create_agents(n: int, base_id: str = "agent") -> List[AgentProfile]:
     """Generate *n* dummy agents (handy for demos / tests)."""
     specialties_pool = [
-        "billing", "technical", "general", "onboarding",
-        "security", "integrations", "api", "premium_support",
+        "billing",
+        "technical",
+        "general",
+        "onboarding",
+        "security",
+        "integrations",
+        "api",
+        "premium_support",
     ]
     agents: List[AgentProfile] = []
     for i in range(1, n + 1):
         specs = random.sample(specialties_pool, k=min(3, random.randint(1, 3)))
-        agents.append(AgentProfile(
-            agent_id=f"{base_id}_{i:03d}",
-            name=f"Agent {i}",
-            email=f"agent{i}@parwa.io",
-            specialties=specs,
-            is_online=random.random() > 0.1,
-            max_concurrent=random.choice([3, 5, 8, 10]),
-            current_load=random.randint(0, 3),
-            accuracy_score=round(random.uniform(0.80, 1.00), 2),
-            avg_response_time=round(random.uniform(120, 600), 1),
-            seniority_years=round(random.uniform(0.0, 10.0), 1),
-            languages=random.sample(["en", "es", "fr", "de", "pt"], k=random.randint(1, 3)),
-        ))
+        agents.append(
+            AgentProfile(
+                agent_id=f"{base_id}_{i:03d}",
+                name=f"Agent {i}",
+                email=f"agent{i}@parwa.io",
+                specialties=specs,
+                is_online=random.random() > 0.1,
+                max_concurrent=random.choice([3, 5, 8, 10]),
+                current_load=random.randint(0, 3),
+                accuracy_score=round(random.uniform(0.80, 1.00), 2),
+                avg_response_time=round(random.uniform(120, 600), 1),
+                seniority_years=round(random.uniform(0.0, 10.0), 1),
+                languages=random.sample(
+                    ["en", "es", "fr", "de", "pt"], k=random.randint(1, 3)
+                ),
+            )
+        )
     return agents
 
 
@@ -1129,16 +1130,18 @@ def create_tickets(n: int, base_id: str = "tkt") -> List[TicketContext]:
     tickets: List[TicketContext] = []
     for i in range(1, n + 1):
         cat = random.choice(categories)
-        tickets.append(TicketContext(
-            ticket_id=f"{base_id}_{i:04d}",
-            subject=f"Issue with {cat} — ticket #{i}",
-            description=f"Detailed description for {cat} issue #{i}.",
-            category=cat,
-            priority=random.choice(priorities),
-            customer_tier=random.choice(tiers),
-            tags=[cat, random.choice(["urgent", "feature_request", "bug"])],
-            language=random.choice(["en", "es", "fr"]),
-            channel=random.choice(["email", "chat", "phone", "portal"]),
-            estimated_complexity=round(random.uniform(0.1, 1.0), 2),
-        ))
+        tickets.append(
+            TicketContext(
+                ticket_id=f"{base_id}_{i:04d}",
+                subject=f"Issue with {cat} — ticket #{i}",
+                description=f"Detailed description for {cat} issue #{i}.",
+                category=cat,
+                priority=random.choice(priorities),
+                customer_tier=random.choice(tiers),
+                tags=[cat, random.choice(["urgent", "feature_request", "bug"])],
+                language=random.choice(["en", "es", "fr"]),
+                channel=random.choice(["email", "chat", "phone", "portal"]),
+                estimated_complexity=round(random.uniform(0.1, 1.0), 2),
+            )
+        )
     return tickets

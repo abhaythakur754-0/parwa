@@ -57,10 +57,20 @@ except ImportError:
 
 # Harmful / PII keywords for safety metric
 _SAFETY_BLOCKLIST: List[str] = [
-    "ssn", "social security", "credit card number", "cvv",
-    "password", "secret_key", "api_key", "private_key",
-    "bank account", "routing number", "passport number",
-    "driver license", "medical record", "health insurance",
+    "ssn",
+    "social security",
+    "credit card number",
+    "cvv",
+    "password",
+    "secret_key",
+    "api_key",
+    "private_key",
+    "bank account",
+    "routing number",
+    "passport number",
+    "driver license",
+    "medical record",
+    "health insurance",
 ]
 
 # Cache directory for compiled modules
@@ -75,6 +85,7 @@ _DSPY_CACHE_DIR = Path("/tmp/dspy_cache")
 @dataclass
 class DSPyConfig:
     """Per-tenant DSPy configuration."""
+
     enabled: bool = True
     model_name: str = "gpt-4o-mini"
     max_tokens: int = 500
@@ -94,6 +105,7 @@ class DSPyConfig:
 @dataclass
 class ExecutionMetric:
     """A single DSPy execution metric."""
+
     task_type: str
     timestamp: float = field(default_factory=time.time)
     latency_ms: float = 0.0
@@ -106,6 +118,7 @@ class ExecutionMetric:
 @dataclass
 class SignatureDefinition:
     """Definition of a DSPy signature."""
+
     name: str
     inputs: List[str]
     outputs: List[str]
@@ -121,15 +134,16 @@ PREDEFINED_SIGNATURES: Dict[str, SignatureDefinition] = {
         name="ClassifyIntent",
         inputs=["customer_query", "context"],
         outputs=["intent", "confidence", "reasoning"],
-        docstring=(
-            "Classify customer intent from query and context."
-        ),
+        docstring=("Classify customer intent from query and context."),
     ),
     "respond": SignatureDefinition(
         name="GenerateResponse",
         inputs=[
-            "customer_query", "intent", "context",
-            "gsd_state", "knowledge",
+            "customer_query",
+            "intent",
+            "context",
+            "gsd_state",
+            "knowledge",
         ],
         outputs=["response", "confidence", "follow_up_needed"],
         docstring="Generate a support response.",
@@ -143,11 +157,14 @@ PREDEFINED_SIGNATURES: Dict[str, SignatureDefinition] = {
     "escalate": SignatureDefinition(
         name="EscalationDecision",
         inputs=[
-            "customer_query", "frustration_score",
-            "intent", "conversation_history",
+            "customer_query",
+            "frustration_score",
+            "intent",
+            "conversation_history",
         ],
         outputs=[
-            "should_escalate", "escalation_reason",
+            "should_escalate",
+            "escalation_reason",
             "priority",
         ],
         docstring="Decide if a ticket should be escalated.",
@@ -173,6 +190,7 @@ class StubModule:
 @dataclass
 class StubPrediction:
     """Stub prediction output."""
+
     task_type: str = "unknown"
     response: str = ""
     confidence: float = 0.0
@@ -269,9 +287,7 @@ class DSPyIntegration:
             )
 
         try:
-            sig = dspy.Signature(
-                ", ".join(inp), ", ".join(out)
-            )
+            sig = dspy.Signature(", ".join(inp), ", ".join(out))
             return sig
         except Exception as exc:
             logger.warning(
@@ -320,9 +336,7 @@ class DSPyIntegration:
 
             if "num_candidates" in cfg:
                 module = dspy.ChainOfThought(signature)
-                module.max_generated_tokens = cfg.get(
-                    "max_tokens", 500
-                )
+                module.max_generated_tokens = cfg.get("max_tokens", 500)
 
             return module
         except Exception as exc:
@@ -361,9 +375,7 @@ class DSPyIntegration:
             return module
 
         try:
-            if optimizer_name == "MIPROv2" and hasattr(
-                dspy, "MIPROv2"
-            ):
+            if optimizer_name == "MIPROv2" and hasattr(dspy, "MIPROv2"):
                 opt = dspy.MIPROv2(
                     metric=metric or self._default_metric,
                     num_threads=4,
@@ -398,12 +410,8 @@ class DSPyIntegration:
         query words appear in the response.
         """
         try:
-            q_words = set(
-                w.lower() for w in re.findall(r"\b\w+\b", query)
-            )
-            r_words = set(
-                w.lower() for w in re.findall(r"\b\w+\b", response)
-            )
+            q_words = set(w.lower() for w in re.findall(r"\b\w+\b", query))
+            r_words = set(w.lower() for w in re.findall(r"\b\w+\b", response))
             if not q_words:
                 return 1.0
             overlap = q_words & r_words
@@ -422,16 +430,15 @@ class DSPyIntegration:
             pred_dict: Dict[str, Any] = {}
             if hasattr(pred, "__dict__"):
                 pred_dict = {
-                    k: v
-                    for k, v in pred.__dict__.items()
-                    if not k.startswith("_")
+                    k: v for k, v in pred.__dict__.items() if not k.startswith("_")
                 }
             elif isinstance(pred, dict):
                 pred_dict = pred
 
             required_fields = ["response", "intent", "confidence"]
             filled = sum(
-                1 for f in required_fields
+                1
+                for f in required_fields
                 if pred_dict.get(f) not in (None, "", 0, 0.0, False)
             )
             return filled / len(required_fields)
@@ -489,9 +496,7 @@ class DSPyIntegration:
         try:
             # ── Extract text from example ───────────────────────
             if isinstance(example, dict):
-                query = example.get(
-                    "customer_query", example.get("input", "")
-                )
+                query = example.get("customer_query", example.get("input", ""))
             elif hasattr(example, "customer_query"):
                 query = example.customer_query
             elif hasattr(example, "input"):
@@ -505,9 +510,7 @@ class DSPyIntegration:
             elif hasattr(pred, "response"):
                 response = str(pred.response)
             elif hasattr(pred, "__dict__"):
-                response = str(
-                    getattr(pred, "response", "") or ""
-                )
+                response = str(getattr(pred, "response", "") or "")
             else:
                 response = str(pred)
 
@@ -566,11 +569,7 @@ class DSPyIntegration:
 
             if not _DSPY_AVAILABLE:
                 fallback_used = True
-                stub = StubModule(
-                    task_type=getattr(
-                        module,
-                        'task_type',
-                        'unknown'))
+                stub = StubModule(task_type=getattr(module, "task_type", "unknown"))
                 return self._stub_execute(stub, inputs)
 
             # DSPy execution
@@ -603,9 +602,7 @@ class DSPyIntegration:
             latency = (time.time() - start_time) * 1000
             self._record_metric(
                 ExecutionMetric(
-                    task_type=getattr(
-                        module, "task_type", "unknown"
-                    ),
+                    task_type=getattr(module, "task_type", "unknown"),
                     latency_ms=latency,
                     success=success,
                     error=error,
@@ -624,8 +621,7 @@ class DSPyIntegration:
 
         return {
             "response": (
-                "[Fallback] Processing: "
-                f"{str(query)[:100]}..."
+                "[Fallback] Processing: " f"{str(query)[:100]}..."
                 if query_len > 100
                 else f"[Fallback] Processing: {query}"
             ),
@@ -663,9 +659,7 @@ class DSPyIntegration:
 
         if "response" in dspy_output:
             updates["final_response"] = dspy_output["response"]
-            updates.setdefault("response_parts", []).append(
-                dspy_output["response"]
-            )
+            updates.setdefault("response_parts", []).append(dspy_output["response"])
 
         if "confidence" in dspy_output:
             try:
@@ -678,14 +672,10 @@ class DSPyIntegration:
             updates["signals_intent"] = dspy_output["intent"]
 
         if "follow_up_needed" in dspy_output:
-            updates["follow_up_needed"] = bool(
-                dspy_output["follow_up_needed"]
-            )
+            updates["follow_up_needed"] = bool(dspy_output["follow_up_needed"])
 
         if "should_escalate" in dspy_output:
-            updates["should_escalate"] = bool(
-                dspy_output["should_escalate"]
-            )
+            updates["should_escalate"] = bool(dspy_output["should_escalate"])
 
         if "summary" in dspy_output:
             updates["summary"] = dspy_output["summary"]
@@ -716,24 +706,14 @@ class DSPyIntegration:
         if hasattr(conversation_state, "signals"):
             sig = conversation_state.signals
             inputs["context"] = getattr(sig, "intent_type", "general")
-            inputs["frustration_score"] = getattr(
-                sig, "frustration_score", 0.0
-            )
-            inputs["sentiment_score"] = getattr(
-                sig, "sentiment_score", 0.7
-            )
-            inputs["intent"] = getattr(
-                sig, "intent_type", "general"
-            )
-            inputs["query_complexity"] = getattr(
-                sig, "query_complexity", 0.5
-            )
+            inputs["frustration_score"] = getattr(sig, "frustration_score", 0.0)
+            inputs["sentiment_score"] = getattr(sig, "sentiment_score", 0.7)
+            inputs["intent"] = getattr(sig, "intent_type", "general")
+            inputs["query_complexity"] = getattr(sig, "query_complexity", 0.5)
 
         if hasattr(conversation_state, "gsd_state"):
             gs = conversation_state.gsd_state
-            inputs["gsd_state"] = (
-                gs.value if hasattr(gs, "value") else str(gs)
-            )
+            inputs["gsd_state"] = gs.value if hasattr(gs, "value") else str(gs)
 
         if hasattr(conversation_state, "gsd_history"):
             inputs["conversation_history"] = [
@@ -741,9 +721,7 @@ class DSPyIntegration:
             ]
 
         if hasattr(conversation_state, "technique_results"):
-            inputs["knowledge"] = str(
-                conversation_state.technique_results
-            )
+            inputs["knowledge"] = str(conversation_state.technique_results)
 
         return inputs
 
@@ -753,7 +731,7 @@ class DSPyIntegration:
         """Record an execution metric."""
         self._metrics.append(metric)
         if len(self._metrics) > self._max_metrics:
-            self._metrics = self._metrics[-self._max_metrics:]
+            self._metrics = self._metrics[-self._max_metrics :]
 
     def get_metrics(self) -> Dict[str, Any]:
         """Get DSPy execution metrics summary.
@@ -773,13 +751,9 @@ class DSPyIntegration:
 
         total = len(self._metrics)
         successes = sum(1 for m in self._metrics if m.success)
-        fallbacks = sum(
-            1 for m in self._metrics if m.fallback_used
-        )
+        fallbacks = sum(1 for m in self._metrics if m.fallback_used)
         errors = sum(1 for m in self._metrics if m.error)
-        avg_latency = sum(
-            m.latency_ms for m in self._metrics
-        ) / total
+        avg_latency = sum(m.latency_ms for m in self._metrics) / total
 
         by_task: Dict[str, Dict[str, Any]] = defaultdict(
             lambda: {
@@ -795,13 +769,8 @@ class DSPyIntegration:
             task["successes"] += int(m.success)
             task["fallbacks"] += int(m.fallback_used)
             task["avg_latency_ms"] = (
-                (
-                    task["avg_latency_ms"]
-                    * (task["count"] - 1)
-                    + m.latency_ms
-                )
-                / task["count"]
-            )
+                task["avg_latency_ms"] * (task["count"] - 1) + m.latency_ms
+            ) / task["count"]
 
         return {
             "total_executions": total,
@@ -839,47 +808,36 @@ class DSPyIntegration:
             mt = config_dict["max_tokens"]
             if not isinstance(mt, int) or mt <= 0:
                 raise ValueError(
-                    "max_tokens must be a positive integer, "
-                    f"got {mt!r}"
+                    "max_tokens must be a positive integer, " f"got {mt!r}"
                 )
 
         if "temperature" in config_dict:
             temp = config_dict["temperature"]
             if not isinstance(temp, (int, float)):
-                raise ValueError(
-                    "temperature must be a number, "
-                    f"got {temp!r}"
-                )
+                raise ValueError("temperature must be a number, " f"got {temp!r}")
             if not (0.0 <= float(temp) <= 2.0):
                 raise ValueError(
-                    "temperature must be between 0.0 and 2.0, "
-                    f"got {temp}"
+                    "temperature must be between 0.0 and 2.0, " f"got {temp}"
                 )
 
         if "model_name" in config_dict:
             mn = config_dict["model_name"]
             if not isinstance(mn, str) or not mn.strip():
                 raise ValueError(
-                    "model_name must be a non-empty string, "
-                    f"got {mn!r}"
+                    "model_name must be a non-empty string, " f"got {mn!r}"
                 )
 
         if "num_threads" in config_dict:
             nt = config_dict["num_threads"]
             if not isinstance(nt, int) or nt < 1:
-                raise ValueError(
-                    "num_threads must be an integer >= 1, "
-                    f"got {nt!r}"
-                )
+                raise ValueError("num_threads must be an integer >= 1, " f"got {nt!r}")
 
         config = DSPyConfig(
             enabled=config_dict.get("enabled", True),
             model_name=config_dict.get("model_name", "gpt-4o-mini"),
             max_tokens=config_dict.get("max_tokens", 500),
             temperature=config_dict.get("temperature", 0.3),
-            optimizer=config_dict.get(
-                "optimizer", "BootstrapFewShot"
-            ),
+            optimizer=config_dict.get("optimizer", "BootstrapFewShot"),
             num_threads=config_dict.get("num_threads", 4),
             metric_weights=config_dict.get(
                 "metric_weights",
@@ -904,9 +862,7 @@ class DSPyIntegration:
         Returns:
             DSPyConfig for the tenant.
         """
-        return self._tenant_configs.get(
-            company_id, DSPyConfig()
-        )
+        return self._tenant_configs.get(company_id, DSPyConfig())
 
     def reset_metrics(self) -> None:
         """Clear all recorded metrics (for testing)."""
@@ -937,9 +893,11 @@ class DSPyIntegration:
             registry = None
             if templates_module is not None:
                 # Caller provided a module or registry directly
-                if isinstance(
-                    templates_module, PromptTemplateRegistry
-                ) if PromptTemplateRegistry else False:
+                if (
+                    isinstance(templates_module, PromptTemplateRegistry)
+                    if PromptTemplateRegistry
+                    else False
+                ):
                     registry = templates_module
                 elif hasattr(templates_module, "PromptTemplateRegistry"):
                     registry = templates_module.PromptTemplateRegistry()
@@ -962,9 +920,7 @@ class DSPyIntegration:
                 intent = meta["intent"]
                 response_type = meta["response_type"]
 
-                template = registry.get_template(
-                    intent, response_type
-                )
+                template = registry.get_template(intent, response_type)
                 if template is None:
                     continue
 
@@ -985,13 +941,17 @@ class DSPyIntegration:
 
                     if _DSPY_AVAILABLE and dspy is not None:
                         ex = dspy.Example(**example_data).with_inputs(
-                            "customer_query", "input", "intent",
+                            "customer_query",
+                            "input",
+                            "intent",
                             "context",
                         )
                         examples.append(ex)
                     else:
                         example_data["_inputs"] = [
-                            "customer_query", "input", "intent",
+                            "customer_query",
+                            "input",
+                            "intent",
                             "context",
                         ]
                         examples.append(example_data)
@@ -1072,9 +1032,7 @@ class DSPyIntegration:
             The compiled module, or ``None`` if unavailable / error.
         """
         try:
-            cache_path = (
-                _DSPY_CACHE_DIR / company_id / f"{task_type}.pkl"
-            )
+            cache_path = _DSPY_CACHE_DIR / company_id / f"{task_type}.pkl"
             if not cache_path.exists():
                 logger.debug(
                     "dspy_no_cached_module",
@@ -1145,9 +1103,7 @@ class DSPyIntegration:
                 )
 
             # 2. Try loading cached compiled module
-            compiled = self.load_compiled_module(
-                company_id, task_type
-            )
+            compiled = self.load_compiled_module(company_id, task_type)
 
             if compiled is None:
                 # 3. Build training data & optimise
@@ -1160,15 +1116,12 @@ class DSPyIntegration:
                 trainset = self.build_training_data_from_templates()
                 compiled = self.optimize(
                     module,
-                    trainset=trainset
-                    if trainset else None,
+                    trainset=trainset if trainset else None,
                     metric=self._default_metric,
                     optimizer_name=config.optimizer,
                 )
                 # Persist for next call
-                self.save_compiled_module(
-                    company_id, task_type, compiled
-                )
+                self.save_compiled_module(company_id, task_type, compiled)
 
             # 4. Execute the compiled module
             inputs: Dict[str, Any] = {
@@ -1182,9 +1135,7 @@ class DSPyIntegration:
             dspy_output = self.execute(compiled, inputs)
 
             # 5. Bridge back to PARWA format
-            result = self.bridge_to_parwa(
-                dspy_output, context
-            )
+            result = self.bridge_to_parwa(dspy_output, context)
             logger.info(
                 "dspy_optimize_response_ok",
                 company_id=company_id,
@@ -1237,14 +1188,8 @@ class DSPyIntegration:
                 try:
                     # Extract inputs from example
                     if isinstance(example, dict):
-                        inp_keys = example.get(
-                            "_inputs", ["customer_query", "input"]
-                        )
-                        inputs = {
-                            k: example[k]
-                            for k in inp_keys
-                            if k in example
-                        }
+                        inp_keys = example.get("_inputs", ["customer_query", "input"])
+                        inputs = {k: example[k] for k in inp_keys if k in example}
                     elif hasattr(example, "_inputs"):
                         inputs = {
                             k: getattr(example, k)
@@ -1253,9 +1198,7 @@ class DSPyIntegration:
                         }
                     else:
                         # Fallback: pass the whole example
-                        inputs = {
-                            "customer_query": str(example),
-                            "input": str(example)}
+                        inputs = {"customer_query": str(example), "input": str(example)}
 
                     # Execute module
                     pred = self.execute(module, inputs)
@@ -1264,9 +1207,7 @@ class DSPyIntegration:
                     composite = _metric(example, pred)
 
                     # Also compute individual sub-scores for detail
-                    query = str(
-                        inputs.get("customer_query", inputs.get("input", ""))
-                    )
+                    query = str(inputs.get("customer_query", inputs.get("input", "")))
                     response = str(
                         pred.get("response", "")
                         if isinstance(pred, dict)
@@ -1274,26 +1215,22 @@ class DSPyIntegration:
                     )
 
                     sub_scores = {
-                        "relevance": round(
-                            self._relevance_score(query, response), 4
-                        ),
-                        "accuracy": round(
-                            self._accuracy_score(pred, example), 4
-                        ),
+                        "relevance": round(self._relevance_score(query, response), 4),
+                        "accuracy": round(self._accuracy_score(pred, example), 4),
                         "conciseness": round(
                             self._conciseness_score(query, response), 4
                         ),
-                        "safety": round(
-                            self._safety_score(response), 4
-                        ),
+                        "safety": round(self._safety_score(response), 4),
                         "composite": round(composite, 4),
                     }
 
                     scores.append(composite)
-                    per_example.append({
-                        "index": idx,
-                        **sub_scores,
-                    })
+                    per_example.append(
+                        {
+                            "index": idx,
+                            **sub_scores,
+                        }
+                    )
                 except Exception as inner_exc:
                     logger.warning(
                         "dspy_eval_example_error",
@@ -1301,15 +1238,17 @@ class DSPyIntegration:
                         error=str(inner_exc),
                     )
                     scores.append(0.0)
-                    per_example.append({
-                        "index": idx,
-                        "relevance": 0.0,
-                        "accuracy": 0.0,
-                        "conciseness": 0.0,
-                        "safety": 0.0,
-                        "composite": 0.0,
-                        "error": str(inner_exc),
-                    })
+                    per_example.append(
+                        {
+                            "index": idx,
+                            "relevance": 0.0,
+                            "accuracy": 0.0,
+                            "conciseness": 0.0,
+                            "safety": 0.0,
+                            "composite": 0.0,
+                            "error": str(inner_exc),
+                        }
+                    )
 
             if not scores:
                 return {
@@ -1327,9 +1266,7 @@ class DSPyIntegration:
                 "min": round(min(scores), 4),
                 "max": round(max(scores), 4),
                 "std": round(
-                    statistics.stdev(scores)
-                    if len(scores) > 1
-                    else 0.0,
+                    statistics.stdev(scores) if len(scores) > 1 else 0.0,
                     4,
                 ),
                 "total_examples": len(scores),

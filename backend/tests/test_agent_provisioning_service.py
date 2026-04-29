@@ -33,10 +33,10 @@ from app.services.agent_provisioning_service import (
     AgentProvisioningService,
 )
 
-
 # ══════════════════════════════════════════════════════════════════
 # FIXTURES
 # ══════════════════════════════════════════════════════════════════
+
 
 @pytest.fixture
 def company_id():
@@ -101,6 +101,7 @@ def _make_company(tier="mini_parwa"):
 # CONSTANTS TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestConstants:
     def test_valid_specialties(self):
         assert "billing" in VALID_SPECIALTIES
@@ -110,13 +111,7 @@ class TestConstants:
         assert len(VALID_SPECIALTIES) == 9
 
     def test_valid_channels(self):
-        assert VALID_CHANNELS == {
-            "chat",
-            "email",
-            "sms",
-            "voice",
-            "slack",
-            "webchat"}
+        assert VALID_CHANNELS == {"chat", "email", "sms", "voice", "slack", "webchat"}
 
     def test_payment_timeout_hours(self):
         assert PAYMENT_TIMEOUT_HOURS == 24
@@ -133,6 +128,7 @@ class TestConstants:
 # ══════════════════════════════════════════════════════════════════
 # VALIDATE_SPECIALTY TESTS
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestValidateSpecialty:
     def test_valid_specialty(self, service):
@@ -160,6 +156,7 @@ class TestValidateSpecialty:
 # VALIDATE_CHANNELS TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestValidateChannels:
     def test_valid_channels(self, service):
         service._validate_channels(["chat", "email"])  # Should not raise
@@ -185,6 +182,7 @@ class TestValidateChannels:
 # ══════════════════════════════════════════════════════════════════
 # VALIDATE_AGENT_NAME TESTS
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestValidateAgentName:
     def test_valid_name(self, service):
@@ -220,6 +218,7 @@ class TestValidateAgentName:
 # GET_COMPANY_TIER TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestGetCompanyTier:
     def test_with_tier_attribute(self, service, mock_db, company_id):
         company = _make_company(tier="parwa")
@@ -249,6 +248,7 @@ class TestGetCompanyTier:
 # ══════════════════════════════════════════════════════════════════
 # CHECK_AGENT_LIMIT TESTS
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestCheckAgentLimit:
     def test_under_limit(self, service, mock_db, company_id):
@@ -280,6 +280,7 @@ class TestCheckAgentLimit:
 # ══════════════════════════════════════════════════════════════════
 # GET_AGENT_LIMIT TESTS
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestGetAgentLimit:
     def test_mini_parwa_tier(self, service, mock_db, company_id):
@@ -320,16 +321,13 @@ class TestGetAgentLimit:
 # CREATE_CHECKOUT TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestCreateCheckout:
     @patch.object(AgentProvisioningService, "_create_paddle_checkout")
     @patch.object(AgentProvisioningService, "_check_agent_limit")
     def test_valid_checkout(
-            self,
-            mock_check,
-            mock_paddle,
-            service,
-            mock_db,
-            company_id):
+        self, mock_check, mock_paddle, service, mock_db, company_id
+    ):
         mock_paddle.return_value = "https://checkout.paddle.com/agent/pending-1"
 
         result = service.create_checkout(
@@ -341,7 +339,10 @@ class TestCreateCheckout:
         )
 
         assert "pending_agent_id" in result
-        assert result["paddle_checkout_url"] == "https://checkout.paddle.com/agent/pending-1"
+        assert (
+            result["paddle_checkout_url"]
+            == "https://checkout.paddle.com/agent/pending-1"
+        )
         assert result["payment_status"] == "pending"
         mock_db.add.assert_called()
 
@@ -390,7 +391,8 @@ class TestCreateCheckout:
     @patch.object(AgentProvisioningService, "_create_paddle_checkout")
     @patch.object(AgentProvisioningService, "_check_agent_limit")
     def test_paddle_failure_raises_internal(
-            self, mock_check, mock_paddle, service, company_id):
+        self, mock_check, mock_paddle, service, company_id
+    ):
         mock_paddle.side_effect = Exception("Paddle API error")
 
         with pytest.raises(InternalError) as exc:
@@ -406,6 +408,7 @@ class TestCreateCheckout:
 # ══════════════════════════════════════════════════════════════════
 # PROCESS_WEBHOOK TESTS
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestProcessWebhook:
     def test_subscription_created(self, service, mock_db, company_id):
@@ -442,9 +445,7 @@ class TestProcessWebhook:
             result = service.process_webhook(
                 company_id=company_id,
                 event_type="transaction.completed",
-                event_data={
-                    "transaction_id": "txn-456",
-                    "subscription_id": "sub-1"},
+                event_data={"transaction_id": "txn-456", "subscription_id": "sub-1"},
                 event_id="evt-002",
             )
 
@@ -496,8 +497,7 @@ class TestProcessWebhook:
 
         assert result["action"] == "no_pending_agent_found"
 
-    def test_dispatch_failure_still_records(
-            self, service, mock_db, company_id):
+    def test_dispatch_failure_still_records(self, service, mock_db, company_id):
         pending = _make_pending_agent(payment_status="pending")
         chain = MagicMock()
         chain.filter.return_value = chain
@@ -505,7 +505,9 @@ class TestProcessWebhook:
         chain.first.side_effect = [None, pending]
         mock_db.query.return_value = chain
 
-        with patch.object(service, "_dispatch_provisioning_task", side_effect=Exception("Task error")):
+        with patch.object(
+            service, "_dispatch_provisioning_task", side_effect=Exception("Task error")
+        ):
             result = service.process_webhook(
                 company_id=company_id,
                 event_type="subscription.created",
@@ -522,12 +524,13 @@ class TestProcessWebhook:
 # PROVISION_AGENT TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestProvisionAgent:
     @patch.object(AgentProvisioningService, "_create_default_metric_threshold")
     def test_valid_flow(self, mock_threshold, service, mock_db, company_id):
         pending = _make_pending_agent(
-            payment_status="paid",
-            provisioning_status="awaiting_payment")
+            payment_status="paid", provisioning_status="awaiting_payment"
+        )
 
         mock_db.query.return_value.filter.return_value.first.return_value = pending
 
@@ -555,8 +558,8 @@ class TestProvisionAgent:
 
     def test_already_provisioned_returns(self, service, mock_db, company_id):
         pending = _make_pending_agent(
-            payment_status="paid",
-            provisioning_status="training")
+            payment_status="paid", provisioning_status="training"
+        )
         mock_db.query.return_value.filter.return_value.first.return_value = pending
 
         result = service.provision_agent("pending-1", company_id)
@@ -566,11 +569,8 @@ class TestProvisionAgent:
 
     @patch.object(AgentProvisioningService, "_create_default_metric_threshold")
     def test_db_failure_marks_failed(
-            self,
-            mock_threshold,
-            service,
-            mock_db,
-            company_id):
+        self, mock_threshold, service, mock_db, company_id
+    ):
         pending = _make_pending_agent(payment_status="paid")
         mock_db.query.return_value.filter.return_value.first.return_value = pending
         mock_db.add.side_effect = Exception("DB constraint error")
@@ -585,6 +585,7 @@ class TestProvisionAgent:
 # ══════════════════════════════════════════════════════════════════
 # GET_PROVISIONING_STATUS TESTS
 # ══════════════════════════════════════════════════════════════════
+
 
 class TestGetProvisioningStatus:
     def test_valid_status(self, service, mock_db, company_id):
@@ -623,14 +624,15 @@ class TestGetProvisioningStatus:
 # CLEANUP_STALE_PENDING TESTS
 # ══════════════════════════════════════════════════════════════════
 
+
 class TestCleanupStalePending:
     def test_expired_agents(self, service, mock_db):
-        stale1 = _make_pending_agent(
-            pending_id="old-1", payment_status="pending")
-        stale2 = _make_pending_agent(
-            pending_id="old-2", payment_status="pending")
+        stale1 = _make_pending_agent(pending_id="old-1", payment_status="pending")
+        stale2 = _make_pending_agent(pending_id="old-2", payment_status="pending")
         mock_db.query.return_value.filter.return_value.all.return_value = [
-            stale1, stale2]
+            stale1,
+            stale2,
+        ]
 
         count = service.cleanup_stale_pending()
 

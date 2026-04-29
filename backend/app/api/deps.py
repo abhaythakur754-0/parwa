@@ -40,15 +40,12 @@ def get_current_user(
         AuthenticationError: If token is missing or invalid.
     """
     if not authorization:
-        raise AuthenticationError(
-            message="Authorization header required"
-        )
+        raise AuthenticationError(message="Authorization header required")
 
     parts = authorization.split(" ", 1)
     if len(parts) != 2 or parts[0] != "Bearer":
         raise AuthenticationError(
-            message="Invalid authorization format. "
-                    "Use: Bearer <token>"
+            message="Invalid authorization format. " "Use: Bearer <token>"
         )
 
     token = parts[1]
@@ -56,20 +53,14 @@ def get_current_user(
 
     user_id = payload.get("sub")
     if not user_id:
-        raise AuthenticationError(
-            message="Invalid token payload"
-        )
+        raise AuthenticationError(message="Invalid token payload")
 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise AuthenticationError(
-            message="User not found"
-        )
+        raise AuthenticationError(message="User not found")
 
     if not user.is_active:
-        raise AuthenticationError(
-            message="Account is disabled"
-        )
+        raise AuthenticationError(message="Account is disabled")
 
     # Store user info for downstream dependencies
     user._token_payload = payload  # type: ignore[attr-defined]
@@ -95,14 +86,10 @@ def get_current_company(
     Raises:
         AuthenticationError: If company not found.
     """
-    company = db.query(Company).filter(
-        Company.id == user.company_id
-    ).first()
+    company = db.query(Company).filter(Company.id == user.company_id).first()
 
     if not company:
-        raise AuthenticationError(
-            message="Company not found for user"
-        )
+        raise AuthenticationError(message="Company not found for user")
 
     return company
 
@@ -123,6 +110,7 @@ def require_roles(*roles: str):
     Returns:
         Dependency function.
     """
+
     def checker(
         user: User = Depends(get_current_user),
     ) -> User:
@@ -156,9 +144,7 @@ def get_company_id(
         AuthenticationError: If user has no company.
     """
     if not user.company_id:
-        raise AuthenticationError(
-            message="User has no associated company"
-        )
+        raise AuthenticationError(message="User has no associated company")
     return str(user.company_id)
 
 

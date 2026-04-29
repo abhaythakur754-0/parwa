@@ -40,6 +40,7 @@ router = APIRouter(
 def _get_db(request: Request):
     """Get DB session from request state."""
     from database.session import get_db_session
+
     return get_db_session()
 
 
@@ -51,6 +52,7 @@ def _get_company_id(request: Request) -> Optional[str]:
 # ═══════════════════════════════════════════════════════════════════════════════
 # F-106: Fallback Training Endpoints
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @router.get(
     "/training/retraining/schedule",
@@ -68,7 +70,9 @@ async def get_retraining_schedule(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -88,7 +92,9 @@ async def get_retraining_schedule(
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get retraining schedule"}},
+                    "message": "Failed to get retraining schedule",
+                }
+            },
         )
 
 
@@ -97,8 +103,11 @@ async def get_retraining_schedule(
     summary="Get agents due for retraining (F-106)",
 )
 async def get_agents_due_for_retraining(
-    request: Request, include_force: bool = Query(
-        False, description="Include all agents regardless of timing"), ):
+    request: Request,
+    include_force: bool = Query(
+        False, description="Include all agents regardless of timing"
+    ),
+):
     """Get list of agents that are due for bi-weekly retraining."""
     company_id = _get_company_id(request)
     if not company_id:
@@ -107,7 +116,9 @@ async def get_agents_due_for_retraining(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -115,8 +126,7 @@ async def get_agents_due_for_retraining(
         from app.services.fallback_training_service import FallbackTrainingService
 
         service = FallbackTrainingService(db)
-        agents = service.get_agents_due_for_retraining(
-            company_id, include_force)
+        agents = service.get_agents_due_for_retraining(company_id, include_force)
 
         return {
             "company_id": company_id,
@@ -136,7 +146,9 @@ async def get_agents_due_for_retraining(
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get due agents"}},
+                    "message": "Failed to get due agents",
+                }
+            },
         )
 
 
@@ -148,7 +160,9 @@ async def schedule_retraining(
     request: Request,
     agent_id: str = Path(..., description="Agent ID"),
     force: bool = Query(False, description="Force retraining even if not due"),
-    priority: str = Query("normal", description="Training priority (low, normal, high)"),
+    priority: str = Query(
+        "normal", description="Training priority (low, normal, high)"
+    ),
 ):
     """Schedule bi-weekly retraining for a specific agent."""
     company_id = _get_company_id(request)
@@ -158,7 +172,9 @@ async def schedule_retraining(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -177,9 +193,8 @@ async def schedule_retraining(
             return JSONResponse(
                 status_code=400,
                 content={
-                    "error": {
-                        "code": "SCHEDULE_ERROR",
-                        "message": result.get("error")}},
+                    "error": {"code": "SCHEDULE_ERROR", "message": result.get("error")}
+                },
             )
 
         return result
@@ -190,15 +205,17 @@ async def schedule_retraining(
             extra={
                 "company_id": company_id,
                 "agent_id": agent_id,
-                "error": str(exc)[
-                    :200]},
+                "error": str(exc)[:200],
+            },
         )
         return JSONResponse(
             status_code=500,
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to schedule retraining"}},
+                    "message": "Failed to schedule retraining",
+                }
+            },
         )
 
 
@@ -215,7 +232,9 @@ async def schedule_all_retraining(request: Request):
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -235,7 +254,9 @@ async def schedule_all_retraining(request: Request):
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to schedule all retraining"}},
+                    "message": "Failed to schedule all retraining",
+                }
+            },
         )
 
 
@@ -256,7 +277,9 @@ async def get_training_effectiveness(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -276,7 +299,9 @@ async def get_training_effectiveness(
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get training effectiveness"}},
+                    "message": "Failed to get training effectiveness",
+                }
+            },
         )
 
 
@@ -293,7 +318,9 @@ async def get_retraining_stats(request: Request):
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -313,13 +340,16 @@ async def get_retraining_stats(request: Request):
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get retraining stats"}},
+                    "message": "Failed to get retraining stats",
+                }
+            },
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # F-107: Cold Start Endpoints
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @router.get(
     "/training/cold-start/status/{agent_id}",
@@ -337,7 +367,9 @@ async def get_cold_start_status(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -353,15 +385,17 @@ async def get_cold_start_status(
             extra={
                 "company_id": company_id,
                 "agent_id": agent_id,
-                "error": str(exc)[
-                    :200]},
+                "error": str(exc)[:200],
+            },
         )
         return JSONResponse(
             status_code=500,
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get cold start status"}},
+                    "message": "Failed to get cold start status",
+                }
+            },
         )
 
 
@@ -378,7 +412,9 @@ async def get_agents_needing_cold_start(request: Request):
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -404,7 +440,9 @@ async def get_agents_needing_cold_start(request: Request):
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get agents needing cold start"}},
+                    "message": "Failed to get agents needing cold start",
+                }
+            },
         )
 
 
@@ -427,7 +465,9 @@ async def initialize_cold_start(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -447,9 +487,8 @@ async def initialize_cold_start(
             return JSONResponse(
                 status_code=400,
                 content={
-                    "error": {
-                        "code": "INIT_ERROR",
-                        "message": result.get("error")}},
+                    "error": {"code": "INIT_ERROR", "message": result.get("error")}
+                },
             )
 
         return result
@@ -460,15 +499,17 @@ async def initialize_cold_start(
             extra={
                 "company_id": company_id,
                 "agent_id": agent_id,
-                "error": str(exc)[
-                    :200]},
+                "error": str(exc)[:200],
+            },
         )
         return JSONResponse(
             status_code=500,
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to initialize cold start"}},
+                    "message": "Failed to initialize cold start",
+                }
+            },
         )
 
 
@@ -478,9 +519,7 @@ async def initialize_cold_start(
 )
 async def initialize_all_cold_start(
     request: Request,
-    default_industry: str = Query(
-        "generic",
-        description="Default industry template"),
+    default_industry: str = Query("generic", description="Default industry template"),
 ):
     """Initialize cold start for all agents that need it."""
     company_id = _get_company_id(request)
@@ -490,7 +529,9 @@ async def initialize_all_cold_start(
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -498,8 +539,7 @@ async def initialize_all_cold_start(
         from app.services.cold_start_service import ColdStartService
 
         service = ColdStartService(db)
-        return service.initialize_all_cold_start_agents(
-            company_id, default_industry)
+        return service.initialize_all_cold_start_agents(company_id, default_industry)
 
     except Exception as exc:
         logger.error(
@@ -511,7 +551,9 @@ async def initialize_all_cold_start(
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to initialize all cold start agents"}},
+                    "message": "Failed to initialize all cold start agents",
+                }
+            },
         )
 
 
@@ -543,7 +585,9 @@ async def list_industry_templates(request: Request):
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to list industry templates"}},
+                    "message": "Failed to list industry templates",
+                }
+            },
         )
 
 
@@ -569,7 +613,9 @@ async def get_industry_template(
                 content={
                     "error": {
                         "code": "NOT_FOUND",
-                        "message": f"Industry template '{industry}' not found"}},
+                        "message": f"Industry template '{industry}' not found",
+                    }
+                },
             )
 
         return result
@@ -584,7 +630,9 @@ async def get_industry_template(
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get industry template"}},
+                    "message": "Failed to get industry template",
+                }
+            },
         )
 
 
@@ -601,7 +649,9 @@ async def get_cold_start_stats(request: Request):
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required"}},
+                    "message": "Tenant identification required",
+                }
+            },
         )
 
     try:
@@ -621,5 +671,7 @@ async def get_cold_start_stats(request: Request):
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": "Failed to get cold start stats"}},
+                    "message": "Failed to get cold start stats",
+                }
+            },
         )

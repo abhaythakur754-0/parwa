@@ -37,12 +37,14 @@ def cleanup_stale_sessions(self):
     """
     try:
         from database.base import SessionLocal
+
         db = SessionLocal()
         try:
             # FIX L40: Cutoff should be 7 days ago, NOT now()
             # Previous bug would delete ALL sessions immediately
             from datetime import timedelta
             from sqlalchemy import text
+
             cutoff = datetime.now(timezone.utc) - timedelta(
                 days=7,
             )
@@ -93,7 +95,7 @@ def purge_dead_letter_queue(self):
 
         # Clean up old task results from result backend
         backend = celery_app.backend
-        if hasattr(backend, 'cleanup'):
+        if hasattr(backend, "cleanup"):
             backend.cleanup()
             logger.info("dead_letter_queue purged")
         else:
@@ -143,10 +145,14 @@ def check_webhook_health(self):
             cutoff = datetime.now(timezone.utc) - timedelta(
                 minutes=30,
             )
-            stale_events = db.query(WebhookEvent).filter(
-                WebhookEvent.status == "pending",
-                WebhookEvent.created_at < cutoff,
-            ).count()
+            stale_events = (
+                db.query(WebhookEvent)
+                .filter(
+                    WebhookEvent.status == "pending",
+                    WebhookEvent.created_at < cutoff,
+                )
+                .count()
+            )
 
             if stale_events > 0:
                 logger.warning(
@@ -316,6 +322,7 @@ def retry_soft_bounces(self):
                 try:
                     # Re-dispatch the original outbound email via Celery
                     from app.tasks.email_tasks import send_outbound_email
+
                     if event.outbound_email_id:
                         send_outbound_email.delay(
                             outbound_email_id=str(
@@ -325,8 +332,7 @@ def retry_soft_bounces(self):
                         retried += 1
                 except Exception as retry_exc:
                     logger.warning(
-                        "retry_soft_bounce_failed event_id=%s "
-                        "error=%s",
+                        "retry_soft_bounce_failed event_id=%s " "error=%s",
                         str(event.id),
                         str(retry_exc)[:200],
                     )
@@ -365,16 +371,22 @@ def dispatch_approval_timeout_check(self):
     try:
         from database.base import SessionLocal
         from database.models.core import Company
+
         db = SessionLocal()
         try:
-            companies = db.query(Company).filter(
-                Company.subscription_status == "active",
-            ).all()
+            companies = (
+                db.query(Company)
+                .filter(
+                    Company.subscription_status == "active",
+                )
+                .all()
+            )
             dispatched = 0
             for company in companies:
                 from app.tasks.approval_tasks import (
                     approval_timeout_check,
                 )
+
                 approval_timeout_check.delay(company.id)
                 dispatched += 1
             logger.info(
@@ -386,7 +398,8 @@ def dispatch_approval_timeout_check(self):
             db.close()
     except Exception as exc:
         logger.warning(
-            "dispatch_approval_timeout failed error=%s", exc,
+            "dispatch_approval_timeout failed error=%s",
+            exc,
         )
         return {"status": "failed", "error": str(exc)[:200]}
 
@@ -403,16 +416,22 @@ def dispatch_approval_reminder(self):
     try:
         from database.base import SessionLocal
         from database.models.core import Company
+
         db = SessionLocal()
         try:
-            companies = db.query(Company).filter(
-                Company.subscription_status == "active",
-            ).all()
+            companies = (
+                db.query(Company)
+                .filter(
+                    Company.subscription_status == "active",
+                )
+                .all()
+            )
             dispatched = 0
             for company in companies:
                 from app.tasks.approval_tasks import (
                     approval_reminder,
                 )
+
                 approval_reminder.delay(company.id)
                 dispatched += 1
             logger.info(
@@ -424,7 +443,8 @@ def dispatch_approval_reminder(self):
             db.close()
     except Exception as exc:
         logger.warning(
-            "dispatch_approval_reminder failed error=%s", exc,
+            "dispatch_approval_reminder failed error=%s",
+            exc,
         )
         return {"status": "failed", "error": str(exc)[:200]}
 
@@ -441,16 +461,22 @@ def dispatch_daily_overage(self):
     try:
         from database.base import SessionLocal
         from database.models.core import Company
+
         db = SessionLocal()
         try:
-            companies = db.query(Company).filter(
-                Company.subscription_status == "active",
-            ).all()
+            companies = (
+                db.query(Company)
+                .filter(
+                    Company.subscription_status == "active",
+                )
+                .all()
+            )
             dispatched = 0
             for company in companies:
                 from app.tasks.billing_tasks import (
                     daily_overage_charge,
                 )
+
                 daily_overage_charge.delay(company.id)
                 dispatched += 1
             logger.info(
@@ -462,7 +488,8 @@ def dispatch_daily_overage(self):
             db.close()
     except Exception as exc:
         logger.warning(
-            "dispatch_daily_overage failed error=%s", exc,
+            "dispatch_daily_overage failed error=%s",
+            exc,
         )
         return {"status": "failed", "error": str(exc)[:200]}
 
@@ -479,16 +506,22 @@ def dispatch_drift_detection(self):
     try:
         from database.base import SessionLocal
         from database.models.core import Company
+
         db = SessionLocal()
         try:
-            companies = db.query(Company).filter(
-                Company.subscription_status == "active",
-            ).all()
+            companies = (
+                db.query(Company)
+                .filter(
+                    Company.subscription_status == "active",
+                )
+                .all()
+            )
             dispatched = 0
             for company in companies:
                 from app.tasks.analytics_tasks import (
                     drift_detection,
                 )
+
                 drift_detection.delay(company.id)
                 dispatched += 1
             logger.info(
@@ -500,7 +533,8 @@ def dispatch_drift_detection(self):
             db.close()
     except Exception as exc:
         logger.warning(
-            "dispatch_drift_detection failed error=%s", exc,
+            "dispatch_drift_detection failed error=%s",
+            exc,
         )
         return {"status": "failed", "error": str(exc)[:200]}
 
@@ -517,18 +551,25 @@ def dispatch_metric_aggregation(self):
     try:
         from database.base import SessionLocal
         from database.models.core import Company
+
         db = SessionLocal()
         try:
-            companies = db.query(Company).filter(
-                Company.subscription_status == "active",
-            ).all()
+            companies = (
+                db.query(Company)
+                .filter(
+                    Company.subscription_status == "active",
+                )
+                .all()
+            )
             dispatched = 0
             for company in companies:
                 from app.tasks.analytics_tasks import (
                     aggregate_metrics,
                 )
+
                 aggregate_metrics.delay(
-                    company.id, period="5min",
+                    company.id,
+                    period="5min",
                 )
                 dispatched += 1
             logger.info(
@@ -540,7 +581,8 @@ def dispatch_metric_aggregation(self):
             db.close()
     except Exception as exc:
         logger.warning(
-            "dispatch_metric_aggregation failed error=%s", exc,
+            "dispatch_metric_aggregation failed error=%s",
+            exc,
         )
         return {"status": "failed", "error": str(exc)[:200]}
 
@@ -557,21 +599,26 @@ def dispatch_training_mistake_check(self):
     try:
         from database.base import SessionLocal
         from database.models.core import Company
+
         db = SessionLocal()
         try:
-            companies = db.query(Company).filter(
-                Company.subscription_status == "active",
-            ).all()
+            companies = (
+                db.query(Company)
+                .filter(
+                    Company.subscription_status == "active",
+                )
+                .all()
+            )
             dispatched = 0
             for company in companies:
                 from app.tasks.training_tasks import (
                     check_mistake_threshold,
                 )
+
                 check_mistake_threshold.delay(company.id)
                 dispatched += 1
             logger.info(
-                "dispatch_training_mistake_check completed "
-                "dispatched=%d",
+                "dispatch_training_mistake_check completed " "dispatched=%d",
                 dispatched,
             )
             return {"status": "ok", "dispatched": dispatched}
@@ -579,7 +626,8 @@ def dispatch_training_mistake_check(self):
             db.close()
     except Exception as exc:
         logger.warning(
-            "dispatch_training_mistake_check failed error=%s", exc,
+            "dispatch_training_mistake_check failed error=%s",
+            exc,
         )
         return {"status": "failed", "error": str(exc)[:200]}
 
@@ -611,9 +659,13 @@ def rebalance_workload_all_companies(self):
         db = SessionLocal()
         try:
             # Get all active companies
-            companies = db.query(Company).filter(
-                Company.subscription_status == "active",
-            ).all()
+            companies = (
+                db.query(Company)
+                .filter(
+                    Company.subscription_status == "active",
+                )
+                .all()
+            )
 
             total_rebalanced = 0
             total_migrated = 0
@@ -650,7 +702,8 @@ def rebalance_workload_all_companies(self):
             db.close()
     except Exception as exc:
         logger.warning(
-            "rebalance_workload_all failed error=%s", exc,
+            "rebalance_workload_all failed error=%s",
+            exc,
         )
         return {"status": "failed", "error": str(exc)[:200]}
 
@@ -697,20 +750,24 @@ def reindex_all_knowledge_documents(self):
 
                     # Dispatch reindex task
                     from app.tasks.knowledge_tasks import reindex_document
+
                     reindex_document.delay(doc_id, company_id)
                     reindexed += 1
 
                 except Exception as doc_exc:
                     logger.warning(
                         "reindex_dispatch_failed doc_id=%s error=%s",
-                        doc_row[0], str(doc_exc)[:100],
+                        doc_row[0],
+                        str(doc_exc)[:100],
                     )
                     errors += 1
 
             logger.info(
                 "reindex_all_knowledge_documents completed "
                 "total=%d reindexed=%d errors=%d",
-                len(documents), reindexed, errors,
+                len(documents),
+                reindexed,
+                errors,
             )
             return {
                 "status": "ok",
@@ -722,7 +779,8 @@ def reindex_all_knowledge_documents(self):
             db.close()
     except Exception as exc:
         logger.warning(
-            "reindex_all_knowledge_documents failed error=%s", exc,
+            "reindex_all_knowledge_documents failed error=%s",
+            exc,
         )
         return {"status": "failed", "error": str(exc)[:200]}
 
@@ -762,6 +820,7 @@ def dspy_weekly_optimization(self):
         }
     except Exception as exc:
         logger.warning(
-            "dspy_weekly_optimization failed error=%s", exc,
+            "dspy_weekly_optimization failed error=%s",
+            exc,
         )
         return {"status": "failed", "error": str(exc)[:200]}

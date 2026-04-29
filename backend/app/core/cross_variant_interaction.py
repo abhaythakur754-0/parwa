@@ -48,16 +48,16 @@ logger = get_logger(__name__)
 # confidence score falls below its threshold the response is
 # escalated to the next higher tier.
 CONFIDENCE_THRESHOLDS: Dict[str, float] = {
-    "mini_parwa": 0.65,   # Tier 1 — escalate if confidence < 0.65
-    "parwa": 0.45,        # Tier 2 — escalate if confidence < 0.45
-    "high_parwa": 0.30,   # Tier 3 — escalate if confidence < 0.30 (rare)
+    "mini_parwa": 0.65,  # Tier 1 — escalate if confidence < 0.65
+    "parwa": 0.45,  # Tier 2 — escalate if confidence < 0.45
+    "high_parwa": 0.30,  # Tier 3 — escalate if confidence < 0.30 (rare)
 }
 
 # Ordered escalation chain — lowest to highest variant tier.
 ESCALATION_CHAIN: List[str] = [
-    "mini_parwa",   # Tier 1 — Starter
-    "parwa",        # Tier 2 — Growth
-    "high_parwa",   # Tier 3 — High
+    "mini_parwa",  # Tier 1 — Starter
+    "parwa",  # Tier 2 — Growth
+    "high_parwa",  # Tier 3 — High
 ]
 
 VALID_VARIANTS: set = set(ESCALATION_CHAIN)
@@ -263,8 +263,7 @@ class ConflictCheckResult:
     has_conflict: bool = False
     conflict_id: str = ""
     severity: ConflictSeverity = ConflictSeverity.LOW
-    conflicting_responses: List[RegisteredResponse] = field(
-        default_factory=list)
+    conflicting_responses: List[RegisteredResponse] = field(default_factory=list)
     customer_id: str = ""
 
 
@@ -403,8 +402,7 @@ class CrossVariantInteractionService:
         # ── Conflict resolution state ─────────────────────────
         # Per-company customer interactions: {company_id: {customer_id:
         # [RegisteredResponse]}}
-        self._customer_interactions: Dict[str,
-                                          Dict[str, List[RegisteredResponse]]] = {}
+        self._customer_interactions: Dict[str, Dict[str, List[RegisteredResponse]]] = {}
         # Detected conflicts: {conflict_id: ConflictResult}
         self._conflicts: Dict[str, ConflictResult] = {}
         # Per-customer active conflict IDs: {company_id: {customer_id:
@@ -498,8 +496,7 @@ class CrossVariantInteractionService:
             return list(history)
         except Exception:
             logger.exception(
-                "get_confidence_history failed for company_id=%s, "
-                "ticket_id=%s",
+                "get_confidence_history failed for company_id=%s, " "ticket_id=%s",
                 company_id,
                 ticket_id,
             )
@@ -889,8 +886,7 @@ class CrossVariantInteractionService:
                 context = self._handoffs.get(key)
             if context is not None:
                 logger.debug(
-                    "Handoff context retrieved for key=%s "
-                    "(acknowledged=%s)",
+                    "Handoff context retrieved for key=%s " "(acknowledged=%s)",
                     key,
                     context.acknowledged,
                 )
@@ -968,8 +964,7 @@ class CrossVariantInteractionService:
                     active_keys.remove(key)
 
             logger.info(
-                "Handoff acknowledged: ticket_id=%s → %s "
-                "(company_id=%s, key=%s)",
+                "Handoff acknowledged: ticket_id=%s → %s " "(company_id=%s, key=%s)",
                 ticket_id,
                 target_variant,
                 company_id,
@@ -1230,8 +1225,10 @@ class CrossVariantInteractionService:
                     continue
 
                 # Same variant or same channel — not a conflict
-                if (existing.variant_type == new_response.variant_type
-                        or existing.channel == new_response.channel):
+                if (
+                    existing.variant_type == new_response.variant_type
+                    or existing.channel == new_response.channel
+                ):
                     continue
 
                 # Check time window
@@ -1243,8 +1240,7 @@ class CrossVariantInteractionService:
 
         except Exception:
             logger.exception(
-                "_detect_conflicts_for_response failed for "
-                "customer_id=%s",
+                "_detect_conflicts_for_response failed for " "customer_id=%s",
                 customer_id,
             )
             return []
@@ -1279,14 +1275,11 @@ class CrossVariantInteractionService:
             conf_delta = max_conf - min_conf
 
             # Extract variant tiers
-            tiers = [
-                self._variant_tier_rank(
-                    r.variant_type) for r in responses]
+            tiers = [self._variant_tier_rank(r.variant_type) for r in responses]
             tier_delta = max(tiers) - min(tiers) if tiers else 0
 
             # Check for near-identical content (simple heuristic)
-            content_set = set(r.response_content.strip().lower()
-                              for r in responses)
+            content_set = set(r.response_content.strip().lower() for r in responses)
             content_identical = len(content_set) <= 1
 
             if content_identical:
@@ -1346,10 +1339,8 @@ class CrossVariantInteractionService:
             results: List[ConflictResult] = []
 
             with self._lock:
-                conflict_ids = (
-                    self._customer_conflicts
-                    .get(company_id, {})
-                    .get(customer_id, [])
+                conflict_ids = self._customer_conflicts.get(company_id, {}).get(
+                    customer_id, []
                 )
 
                 for cid in conflict_ids:
@@ -1358,8 +1349,7 @@ class CrossVariantInteractionService:
                         results.append(conflict)
 
             logger.debug(
-                "Active conflicts for customer_id=%s, "
-                "company_id=%s: %d",
+                "Active conflicts for customer_id=%s, " "company_id=%s: %d",
                 customer_id,
                 company_id,
                 len(results),
@@ -1368,8 +1358,7 @@ class CrossVariantInteractionService:
 
         except Exception:
             logger.exception(
-                "check_conflicts failed for company_id=%s, "
-                "customer_id=%s",
+                "check_conflicts failed for company_id=%s, " "customer_id=%s",
                 company_id,
                 customer_id,
             )
@@ -1410,8 +1399,7 @@ class CrossVariantInteractionService:
 
             if conflict is None:
                 logger.warning(
-                    "resolve_conflict: conflict_id=%s not found "
-                    "(company_id=%s)",
+                    "resolve_conflict: conflict_id=%s not found " "(company_id=%s)",
                     conflict_id,
                     company_id,
                 )
@@ -1430,9 +1418,11 @@ class CrossVariantInteractionService:
                 )
                 return ResolutionResult(
                     resolved=True,
-                    final_response=conflict.responses[0].response_content
-                    if conflict.responses
-                    else "",
+                    final_response=(
+                        conflict.responses[0].response_content
+                        if conflict.responses
+                        else ""
+                    ),
                     strategy_used=conflict.resolution_strategy,
                     conflicts_merged=1,
                     conflict_id=conflict_id,
@@ -1444,9 +1434,7 @@ class CrossVariantInteractionService:
 
             if strategy == ResolutionStrategy.NO_ACTION:
                 # Keep the first response as-is
-                final_response = (
-                    responses[0].response_content if responses else ""
-                )
+                final_response = responses[0].response_content if responses else ""
 
             elif strategy == ResolutionStrategy.MERGE_PREFER_HIGH_CONFIDENCE:
                 # Pick the highest-confidence response
@@ -1477,15 +1465,15 @@ class CrossVariantInteractionService:
 
             else:
                 # Unknown strategy — default to first response
-                final_response = (
-                    responses[0].response_content if responses else ""
-                )
+                final_response = responses[0].response_content if responses else ""
                 logger.warning(
                     "resolve_conflict: unknown strategy '%s' for "
                     "conflict_id=%s — using first response as default",
-                    strategy.value if isinstance(
-                        strategy,
-                        ResolutionStrategy) else strategy,
+                    (
+                        strategy.value
+                        if isinstance(strategy, ResolutionStrategy)
+                        else strategy
+                    ),
                     conflict_id,
                 )
 
@@ -1545,16 +1533,12 @@ class CrossVariantInteractionService:
         """
         try:
             with self._lock:
-                interactions = (
-                    self._customer_interactions
-                    .get(company_id, {})
-                    .get(customer_id, [])
+                interactions = self._customer_interactions.get(company_id, {}).get(
+                    customer_id, []
                 )
 
-                conflict_ids = (
-                    self._customer_conflicts
-                    .get(company_id, {})
-                    .get(customer_id, [])
+                conflict_ids = self._customer_conflicts.get(company_id, {}).get(
+                    customer_id, []
                 )
 
                 active_conflict_ids: List[str] = []
@@ -1565,8 +1549,7 @@ class CrossVariantInteractionService:
 
             if not interactions:
                 logger.debug(
-                    "No interactions found for customer_id=%s, "
-                    "company_id=%s",
+                    "No interactions found for customer_id=%s, " "company_id=%s",
                     customer_id,
                     company_id,
                 )

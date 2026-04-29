@@ -15,8 +15,16 @@ Based on: JARVIS_Production_Documentation.md
 from datetime import datetime
 import uuid
 from sqlalchemy import (
-    Boolean, CheckConstraint, Column, DateTime, Integer, String, 
-    Text, ForeignKey, Index, Numeric,
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    Integer,
+    String,
+    Text,
+    ForeignKey,
+    Index,
+    Numeric,
 )
 from sqlalchemy.orm import relationship
 
@@ -29,24 +37,28 @@ def _uuid() -> str:
 
 # ── Jarvis Production Session ─────────────────────────────────────
 
+
 class JarvisProductionSession(Base):
     """Active Production Jarvis session per user.
-    
+
     Created after onboarding completes. Tracks all interactions,
     memory context, and session state.
     """
+
     __tablename__ = "jarvis_production_sessions"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     user_id = Column(
         String(36),
         ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     # Session state
     is_active = Column(Boolean, nullable=False, default=True)
@@ -68,19 +80,23 @@ class JarvisProductionSession(Base):
     user = relationship("User")
     company = relationship("Company")
     activities = relationship(
-        "JarvisActivityEvent", back_populates="session",
+        "JarvisActivityEvent",
+        back_populates="session",
         cascade="all, delete-orphan",
     )
     memories = relationship(
-        "JarvisMemory", back_populates="session",
+        "JarvisMemory",
+        back_populates="session",
         cascade="all, delete-orphan",
     )
     drafts = relationship(
-        "JarvisDraft", back_populates="session",
+        "JarvisDraft",
+        back_populates="session",
         cascade="all, delete-orphan",
     )
     alerts = relationship(
-        "JarvisAlert", back_populates="session",
+        "JarvisAlert",
+        back_populates="session",
         cascade="all, delete-orphan",
     )
 
@@ -95,35 +111,46 @@ class JarvisProductionSession(Base):
 
 # ── Jarvis Activity Event (Awareness System) ──────────────────────
 
+
 class JarvisActivityEvent(Base):
     """Tracks all user and system activities for Jarvis awareness.
-    
+
     This is the core of Jarvis's awareness system. Every click,
     page visit, action, and system event is logged here.
     """
+
     __tablename__ = "jarvis_activity_events"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     session_id = Column(
         String(36),
         ForeignKey("jarvis_production_sessions.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     user_id = Column(
         String(36),
         ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     # Event classification
-    event_type = Column(String(50), nullable=False)  # 'page_visit', 'click', 'action', 'error', etc.
-    event_category = Column(String(30), nullable=False)  # 'user', 'system', 'ai', 'integration'
+    event_type = Column(
+        String(50), nullable=False
+    )  # 'page_visit', 'click', 'action', 'error', etc.
+    event_category = Column(
+        String(30), nullable=False
+    )  # 'user', 'system', 'ai', 'integration'
     # Event details
-    event_name = Column(String(100), nullable=False)  # 'viewed_approvals', 'paused_ai', etc.
+    event_name = Column(
+        String(100), nullable=False
+    )  # 'viewed_approvals', 'paused_ai', etc.
     description = Column(Text, nullable=True)
     # Rich event data
     metadata_json = Column(Text, default="{}")
@@ -149,33 +176,42 @@ class JarvisActivityEvent(Base):
 
 # ── Jarvis Memory (Long-term) ─────────────────────────────────────
 
+
 class JarvisMemory(Base):
     """Long-term memory storage for Jarvis.
-    
+
     Stores user preferences, patterns, recurring questions,
     and important context that Jarvis should remember.
     """
+
     __tablename__ = "jarvis_memories"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     session_id = Column(
         String(36),
         ForeignKey("jarvis_production_sessions.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     user_id = Column(
         String(36),
         ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     # Memory classification
-    category = Column(String(50), nullable=False)  # 'preference', 'pattern', 'history', 'context'
-    memory_key = Column(String(100), nullable=False)  # e.g., 'preferred_greeting_style', 'common_tasks'
+    category = Column(
+        String(50), nullable=False
+    )  # 'preference', 'pattern', 'history', 'context'
+    memory_key = Column(
+        String(100), nullable=False
+    )  # e.g., 'preferred_greeting_style', 'common_tasks'
     # Memory content
     memory_value = Column(Text, nullable=False)  # JSON or text
     # Importance and retention
@@ -197,38 +233,47 @@ class JarvisMemory(Base):
             "importance >= 1 AND importance <= 10",
             name="ck_jarvis_memory_importance",
         ),
-        Index("ix_jarvis_memory_lookup", "company_id", "user_id", "category", "memory_key"),
+        Index(
+            "ix_jarvis_memory_lookup", "company_id", "user_id", "category", "memory_key"
+        ),
     )
 
 
 # ── Jarvis Draft (Review-Before-Execute) ───────────────────────────
 
+
 class JarvisDraft(Base):
     """Pending action drafts for review-before-execute workflow.
-    
+
     For bulk actions, financial operations, or high-impact changes,
     Jarvis creates a draft for user approval before execution.
     """
+
     __tablename__ = "jarvis_drafts"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     session_id = Column(
         String(36),
         ForeignKey("jarvis_production_sessions.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     user_id = Column(
         String(36),
         ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     # Draft classification
-    draft_type = Column(String(50), nullable=False)  # 'email', 'sms', 'settings', 'bulk_action'
+    draft_type = Column(
+        String(50), nullable=False
+    )  # 'email', 'sms', 'settings', 'bulk_action'
     # Draft content
     subject = Column(String(255), nullable=True)  # For emails
     content_json = Column(Text, nullable=False)  # Main content as JSON
@@ -236,7 +281,9 @@ class JarvisDraft(Base):
     recipient_count = Column(Integer, default=0)
     recipients_json = Column(Text, default="[]")
     # Status
-    status = Column(String(20), nullable=False, default="pending")  # 'pending', 'approved', 'cancelled', 'expired'
+    status = Column(
+        String(20), nullable=False, default="pending"
+    )  # 'pending', 'approved', 'cancelled', 'expired'
     # Execution info
     approved_by = Column(String(36), ForeignKey("users.id"), nullable=True)
     approved_at = Column(DateTime, nullable=True)
@@ -262,9 +309,10 @@ class JarvisDraft(Base):
 
 # ── Jarvis Alert (Proactive Notifications) ────────────────────────
 
+
 class JarvisAlert(Base):
     """Proactive alerts from Jarvis for important events.
-    
+
     Jarvis monitors the system and creates alerts when:
     - Approval queue overflows
     - Error rate spikes
@@ -273,18 +321,21 @@ class JarvisAlert(Base):
     - VIP customer has issue
     - Security anomalies detected
     """
+
     __tablename__ = "jarvis_alerts"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     session_id = Column(
         String(36),
         ForeignKey("jarvis_production_sessions.id", ondelete="CASCADE"),
-        nullable=True, index=True,
+        nullable=True,
+        index=True,
     )
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     user_id = Column(
         String(36),
@@ -292,7 +343,9 @@ class JarvisAlert(Base):
         nullable=True,  # NULL for company-wide alerts
     )
     # Alert classification
-    alert_type = Column(String(50), nullable=False)  # 'error_spike', 'integration_down', etc.
+    alert_type = Column(
+        String(50), nullable=False
+    )  # 'error_spike', 'integration_down', etc.
     severity = Column(String(20), nullable=False)  # 'low', 'medium', 'high', 'critical'
     # Alert content
     title = Column(String(255), nullable=False)
@@ -300,7 +353,9 @@ class JarvisAlert(Base):
     # Suggested action (if any)
     suggested_action_json = Column(Text, nullable=True)
     # Status
-    status = Column(String(20), nullable=False, default="active")  # 'active', 'acknowledged', 'dismissed', 'resolved'
+    status = Column(
+        String(20), nullable=False, default="active"
+    )  # 'active', 'acknowledged', 'dismissed', 'resolved'
     # Delivery tracking
     delivered_via = Column(String(50), nullable=True)  # 'in_app', 'email', 'sms'
     delivered_at = Column(DateTime, nullable=True)
@@ -310,7 +365,9 @@ class JarvisAlert(Base):
     resolved_at = Column(DateTime, nullable=True)
     resolution_notes = Column(Text, nullable=True)
     # Related entity
-    related_entity_type = Column(String(50), nullable=True)  # 'ticket', 'integration', 'user'
+    related_entity_type = Column(
+        String(50), nullable=True
+    )  # 'ticket', 'integration', 'user'
     related_entity_id = Column(String(36), nullable=True)
     # Timestamps
     created_at = Column(DateTime, default=lambda: datetime.utcnow(), index=True)
@@ -334,42 +391,53 @@ class JarvisAlert(Base):
 
 # ── Jarvis Action Log (Audit Trail) ────────────────────────────────
 
+
 class JarvisActionLog(Base):
     """Audit trail of all actions taken by or through Jarvis.
-    
+
     Every action executed through Jarvis is logged here for:
     - Accountability
     - Undo capability
     - Analytics and patterns
     """
+
     __tablename__ = "jarvis_action_logs"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     session_id = Column(
         String(36),
         ForeignKey("jarvis_production_sessions.id", ondelete="SET NULL"),
-        nullable=True, index=True,
+        nullable=True,
+        index=True,
     )
     company_id = Column(
         String(36),
         ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     user_id = Column(
         String(36),
         ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     # Action details
-    action_type = Column(String(50), nullable=False)  # 'send_sms', 'pause_ai', 'update_settings'
-    action_category = Column(String(30), nullable=False)  # 'communication', 'ai_control', 'settings'
+    action_type = Column(
+        String(50), nullable=False
+    )  # 'send_sms', 'pause_ai', 'update_settings'
+    action_category = Column(
+        String(30), nullable=False
+    )  # 'communication', 'ai_control', 'settings'
     # Execution mode
     execution_mode = Column(String(20), nullable=False)  # 'direct', 'draft_approved'
     # Input and output
     input_json = Column(Text, nullable=True)  # Parameters provided
     output_json = Column(Text, nullable=True)  # Result of action
     # Status
-    status = Column(String(20), nullable=False, default="pending")  # 'pending', 'success', 'failed', 'undone'
+    status = Column(
+        String(20), nullable=False, default="pending"
+    )  # 'pending', 'success', 'failed', 'undone'
     error_message = Column(Text, nullable=True)
     # Undo tracking
     can_undo = Column(Boolean, default=False)

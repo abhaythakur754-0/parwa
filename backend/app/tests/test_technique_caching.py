@@ -30,7 +30,6 @@ from app.core.technique_caching import (
 )
 from app.core.technique_router import TechniqueID
 
-
 # ── Fixtures ──────────────────────────────────────────────────────
 
 
@@ -180,20 +179,32 @@ class TestBasicSetGet:
 
     def test_cache_key_deterministic(self, cache):
         key1 = TechniqueCache.make_cache_key(
-            "clara", "q1", "s1", "co1",
+            "clara",
+            "q1",
+            "s1",
+            "co1",
         )
         key2 = TechniqueCache.make_cache_key(
-            "clara", "q1", "s1", "co1",
+            "clara",
+            "q1",
+            "s1",
+            "co1",
         )
         assert key1 == key2
         assert len(key1) == 64  # SHA-256 hex digest
 
     def test_cache_key_different_inputs(self, cache):
         key1 = TechniqueCache.make_cache_key(
-            "clara", "q1", "s1", "co1",
+            "clara",
+            "q1",
+            "s1",
+            "co1",
         )
         key2 = TechniqueCache.make_cache_key(
-            "clara", "q2", "s1", "co1",
+            "clara",
+            "q2",
+            "s1",
+            "co1",
         )
         assert key1 != key2
 
@@ -211,16 +222,24 @@ class TestTTLExpiry:
 
     def test_entry_not_expired_immediately(self, cache):
         cache.set(
-            "clara", "q1", "s1", "co1",
-            "result", ttl_seconds=10,
+            "clara",
+            "q1",
+            "s1",
+            "co1",
+            "result",
+            ttl_seconds=10,
         )
         result = cache.get("clara", "q1", "s1", "co1")
         assert result == "result"
 
     def test_entry_expired_after_ttl(self, cache):
         cache.set(
-            "clara", "q1", "s1", "co1",
-            "result", ttl_seconds=0,
+            "clara",
+            "q1",
+            "s1",
+            "co1",
+            "result",
+            ttl_seconds=0,
         )
         # Even with 0 TTL, the entry is set but expires
         # immediately on next get
@@ -230,8 +249,12 @@ class TestTTLExpiry:
 
     def test_expired_entry_removed_on_get(self, cache):
         cache.set(
-            "clara", "q1", "s1", "co1",
-            "result", ttl_seconds=0,
+            "clara",
+            "q1",
+            "s1",
+            "co1",
+            "result",
+            ttl_seconds=0,
         )
         time.sleep(0.01)
         cache.get("clara", "q1", "s1", "co1")  # triggers removal
@@ -240,8 +263,12 @@ class TestTTLExpiry:
 
     def test_custom_ttl_override(self, cache):
         cache.set(
-            "clara", "q1", "s1", "co1",
-            "result", ttl_seconds=1,
+            "clara",
+            "q1",
+            "s1",
+            "co1",
+            "result",
+            ttl_seconds=1,
         )
         time.sleep(0.05)
         result = cache.get("clara", "q1", "s1", "co1")
@@ -250,12 +277,18 @@ class TestTTLExpiry:
     def test_tier_based_ttl(self, cache):
         # Tier 1 technique should use tier_1 TTL
         cache.set(
-            TechniqueID.CLARA.value, "q1", "s1", "co1",
+            TechniqueID.CLARA.value,
+            "q1",
+            "s1",
+            "co1",
             "result",
         )
         # Verify the entry was created
         result = cache.get(
-            TechniqueID.CLARA.value, "q1", "s1", "co1",
+            TechniqueID.CLARA.value,
+            "q1",
+            "s1",
+            "co1",
         )
         assert result == "result"
 
@@ -286,7 +319,10 @@ class TestLRUEviction:
         cache = TechniqueCache(max_size=3)
         for i in range(5):
             cache.set(
-                "clara", f"q{i}", "s1", "co1",
+                "clara",
+                f"q{i}",
+                "s1",
+                "co1",
                 f"result_{i}",
             )
         stats = cache.get_stats()
@@ -326,13 +362,20 @@ class TestCompanyIsolation:
     """Tests for per-company cache isolation."""
 
     def test_different_company_different_result(
-        self, populated_cache,
+        self,
+        populated_cache,
     ):
         r_a = populated_cache.get(
-            "clara", "q1", "s1", "company_a",
+            "clara",
+            "q1",
+            "s1",
+            "company_a",
         )
         r_b = populated_cache.get(
-            "clara", "q1", "s1", "company_b",
+            "clara",
+            "q1",
+            "s1",
+            "company_b",
         )
         assert r_a == {"answer": "hello"}
         assert r_b == {"answer": "different"}
@@ -344,17 +387,24 @@ class TestCompanyIsolation:
         assert removed >= 1
 
         r_b = populated_cache.get(
-            "clara", "q1", "s1", "company_b",
+            "clara",
+            "q1",
+            "s1",
+            "company_b",
         )
         assert r_b is None
 
         r_a = populated_cache.get(
-            "clara", "q1", "s1", "company_a",
+            "clara",
+            "q1",
+            "s1",
+            "company_a",
         )
         assert r_a is not None
 
     def test_invalidate_preserves_other_company(
-        self, populated_cache,
+        self,
+        populated_cache,
     ):
         populated_cache.invalidate(company_id="company_b")
         stats = populated_cache.get_stats()
@@ -406,8 +456,12 @@ class TestHitMissStats:
 
     def test_expired_counts_as_miss(self, cache):
         cache.set(
-            "clara", "q1", "s1", "co1",
-            "result", ttl_seconds=0,
+            "clara",
+            "q1",
+            "s1",
+            "co1",
+            "result",
+            ttl_seconds=0,
         )
         time.sleep(0.01)
         cache.get("clara", "q1", "s1", "co1")
@@ -443,7 +497,10 @@ class TestInvalidation:
         assert removed == 3
         # CoT entry should remain
         result = populated_cache.get(
-            "chain_of_thought", "q3", "s3", "company_a",
+            "chain_of_thought",
+            "q3",
+            "s3",
+            "company_a",
         )
         assert result == {"answer": "step1"}
 
@@ -454,7 +511,8 @@ class TestInvalidation:
         assert removed == 3
 
     def test_invalidate_by_technique_and_company(
-        self, populated_cache,
+        self,
+        populated_cache,
     ):
         removed = populated_cache.invalidate(
             technique_id="clara",
@@ -463,7 +521,10 @@ class TestInvalidation:
         assert removed == 2
         # Company B clara should remain
         result = populated_cache.get(
-            "clara", "q1", "s1", "company_b",
+            "clara",
+            "q1",
+            "s1",
+            "company_b",
         )
         assert result is not None
 
@@ -474,7 +535,8 @@ class TestInvalidation:
         assert removed == 0
 
     def test_invalidate_with_technique_id_enum(
-        self, populated_cache,
+        self,
+        populated_cache,
     ):
         removed = populated_cache.invalidate(
             technique_id=TechniqueID.CLARA,
@@ -569,12 +631,20 @@ class TestCleanup:
 
     def test_cleanup_expired(self, cache):
         cache.set(
-            "clara", "q1", "s1", "co1",
-            "result", ttl_seconds=0,
+            "clara",
+            "q1",
+            "s1",
+            "co1",
+            "result",
+            ttl_seconds=0,
         )
         cache.set(
-            "clara", "q2", "s1", "co1",
-            "result", ttl_seconds=300,
+            "clara",
+            "q2",
+            "s1",
+            "co1",
+            "result",
+            ttl_seconds=300,
         )
         time.sleep(0.01)
 
@@ -610,7 +680,11 @@ class TestResize:
     def test_resize_down_evicts(self, cache):
         for i in range(5):
             cache.set(
-                "clara", f"q{i}", "s1", "co1", f"r{i}",
+                "clara",
+                f"q{i}",
+                "s1",
+                "co1",
+                f"r{i}",
             )
         evicted = cache.resize(max_size=2)
         assert evicted == 3
@@ -628,7 +702,11 @@ class TestResize:
     def test_resize_to_minimum(self, cache):
         for i in range(5):
             cache.set(
-                "clara", f"q{i}", "s1", "co1", f"r{i}",
+                "clara",
+                f"q{i}",
+                "s1",
+                "co1",
+                f"r{i}",
             )
         evicted = cache.resize(max_size=0)
         assert cache.get_max_size() == 1
@@ -663,10 +741,7 @@ class TestConcurrency:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=write_batch, args=(t,))
-            for t in range(10)
-        ]
+        threads = [threading.Thread(target=write_batch, args=(t,)) for t in range(10)]
         for t in threads:
             t.start()
         for t in threads:
@@ -682,14 +757,15 @@ class TestConcurrency:
             try:
                 for _ in range(100):
                     populated_cache.get(
-                        "clara", "q1", "s1", "company_a",
+                        "clara",
+                        "q1",
+                        "s1",
+                        "company_a",
                     )
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=read_many) for _ in range(5)
-        ]
+        threads = [threading.Thread(target=read_many) for _ in range(5)]
         for t in threads:
             t.start()
         for t in threads:
@@ -704,7 +780,10 @@ class TestConcurrency:
             try:
                 for i in range(50):
                     populated_cache.set(
-                        "clara", f"qw_{i}", "s1", "co1",
+                        "clara",
+                        f"qw_{i}",
+                        "s1",
+                        "co1",
                         f"result_{i}",
                     )
             except Exception as e:
@@ -714,7 +793,10 @@ class TestConcurrency:
             try:
                 for _ in range(50):
                     populated_cache.get(
-                        "clara", "q1", "s1", "company_a",
+                        "clara",
+                        "q1",
+                        "s1",
+                        "company_a",
                     )
             except Exception as e:
                 errors.append(e)
@@ -739,15 +821,17 @@ class TestConcurrency:
                 for _ in range(10):
                     populated_cache.invalidate()
                     populated_cache.set(
-                        "clara", "q_new", "s1", "co1", "r",
+                        "clara",
+                        "q_new",
+                        "s1",
+                        "co1",
+                        "r",
                     )
             except Exception as e:
                 errors.append(e)
 
         with ThreadPoolExecutor(max_workers=3) as executor:
-            futs = [
-                executor.submit(invalidator) for _ in range(3)
-            ]
+            futs = [executor.submit(invalidator) for _ in range(3)]
             for f in as_completed(futs):
                 f.result()
 
@@ -767,7 +851,8 @@ class TestMonitoring:
         assert cache.get_max_size() == 100
 
     def test_get_entry_count_by_company(
-        self, populated_cache,
+        self,
+        populated_cache,
     ):
         count = populated_cache.get_entry_count_by_company(
             "company_a",
@@ -835,12 +920,9 @@ class TestEdgeCases:
         cache.set("clara", "q1", "s1", "co1", "r1")
         cache.set("clara", "q2", "s1", "co1", "r2")
         entries = [
-            {"query_hash": "q3", "signals_hash": "s3",
-             "result": "r3"},
-            {"query_hash": "q4", "signals_hash": "s4",
-             "result": "r4"},
-            {"query_hash": "q5", "signals_hash": "s5",
-             "result": "r5"},
+            {"query_hash": "q3", "signals_hash": "s3", "result": "r3"},
+            {"query_hash": "q4", "signals_hash": "s4", "result": "r4"},
+            {"query_hash": "q5", "signals_hash": "s5", "result": "r5"},
         ]
         loaded = cache.warm("clara", "co1", entries)
         assert loaded == 3
@@ -877,16 +959,20 @@ class TestCacheEntry:
 
     def test_entry_not_expired_initially(self):
         entry = CacheEntry(
-            key="k", technique_id="clara",
-            company_id="co1", result="data",
+            key="k",
+            technique_id="clara",
+            company_id="co1",
+            result="data",
             ttl_seconds=300,
         )
         assert not entry.is_expired
 
     def test_entry_expired_after_ttl(self):
         entry = CacheEntry(
-            key="k", technique_id="clara",
-            company_id="co1", result="data",
+            key="k",
+            technique_id="clara",
+            company_id="co1",
+            result="data",
             ttl_seconds=0,
             created_at=time.time() - 1,
         )
@@ -894,8 +980,10 @@ class TestCacheEntry:
 
     def test_touch_updates_access(self):
         entry = CacheEntry(
-            key="k", technique_id="clara",
-            company_id="co1", result="data",
+            key="k",
+            technique_id="clara",
+            company_id="co1",
+            result="data",
         )
         assert entry.access_count == 0
         entry.touch()
@@ -903,8 +991,10 @@ class TestCacheEntry:
 
     def test_age_seconds(self):
         entry = CacheEntry(
-            key="k", technique_id="clara",
-            company_id="co1", result="data",
+            key="k",
+            technique_id="clara",
+            company_id="co1",
+            result="data",
             created_at=time.time() - 10,
         )
         assert 9.9 < entry.age_seconds < 10.1
