@@ -609,7 +609,7 @@ def export_audit_trail(
     if format not in ("json",):
         raise ValueError(
             f"Unsupported export format '{format}'. "
-            f"Only 'json' is currently supported."
+            "Only 'json' is currently supported."
         )
 
     query = db.query(AuditTrail).filter(AuditTrail.company_id == company_id)

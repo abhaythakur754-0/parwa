@@ -350,8 +350,8 @@ class WebhookHealthService:
                         day_total
                     total_weight += day_total
             avg_time = int(
-                total_time_weight /
-                total_weight) if total_weight > 0 else 0
+                total_time_weight
+                / total_weight) if total_weight > 0 else 0
 
             # Check alert conditions
             alerts: List[str] = []
@@ -1137,7 +1137,7 @@ class WebhookHealthService:
 
                 return {
                     "delayed": True, "waiting_for": gap_event.paddle_event_id, "message": (
-                        f"Event ordering gap detected. " f"Waiting for earlier event {
+                        "Event ordering gap detected. " f"Waiting for earlier event {
                             gap_event.paddle_event_id} " f"(occurred at {
                             gap_event.occurred_at.isoformat()})."), }
 

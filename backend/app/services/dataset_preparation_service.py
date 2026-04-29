@@ -498,7 +498,7 @@ class DatasetPreparationService:
             .filter(
                 AgentMistake.company_id == company_id,
                 AgentMistake.agent_id == agent_id,
-                AgentMistake.used_in_training == False,
+                AgentMistake.used_in_training is False,
             )
             .order_by(AgentMistake.created_at.desc())
             .limit(MAX_DATASET_SIZE)

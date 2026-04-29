@@ -482,7 +482,7 @@ class PIIDetector:
                 confidence = 0.50
             elif "." not in domain:
                 continue
-            elif domain.endswith((".png", ".jpg", ".jpeg", ".gif", ".svg")):
+            elif domain.endswith((".png", ".jpg", ".jpeg", ".gi", ".svg")):
                 continue
             else:
                 confidence = 0.97
@@ -512,7 +512,7 @@ class PIIDetector:
                 continue
             raw = m.group()
             local, domain = raw.rsplit("@", 1)
-            if domain.endswith((".png", ".jpg", ".jpeg", ".gif", ".svg")):
+            if domain.endswith((".png", ".jpg", ".jpeg", ".gi", ".svg")):
                 continue
             if domain in ("example.com", "test.com", "domain.com"):
                 continue

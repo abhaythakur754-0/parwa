@@ -513,14 +513,14 @@ class TestTwoMiniParwaInstances:
         result1 = self.instance1.process_ticket(ticket1)
         result2 = self.instance2.process_ticket(ticket2)
 
-        print(f"\nCompany 1 Ticket Result:")
+        print("\nCompany 1 Ticket Result:")
         print(f"  - Ticket ID: {result1['ticket_id']}")
         print(f"  - Processed: {result1['processed']}")
         print(f"  - AI Response: {result1['ai_response']}")
         print(f"  - Matched FAQ: {result1['matched_faq']}")
         print(f"  - Techniques: {result1['techniques_used']}")
 
-        print(f"\nCompany 2 Ticket Result:")
+        print("\nCompany 2 Ticket Result:")
         print(f"  - Ticket ID: {result2['ticket_id']}")
         print(f"  - Processed: {result2['processed']}")
         print(f"  - AI Response: {result2['ai_response']}")
@@ -626,7 +626,7 @@ class TestTwoMiniParwaInstances:
         self.instance2.reset_monthly_counters()
 
         # Company 1: Hindi support
-        print(f"\n--- Company 1: Testing Hindi Support ---")
+        print("\n--- Company 1: Testing Hindi Support ---")
         hindi_ticket = CustomerTicket(
             id="TKT_HINDI_001",
             company_id=self.company1.id,
@@ -647,7 +647,7 @@ class TestTwoMiniParwaInstances:
         print("  ✅ Hindi FAQ matched correctly")
 
         # Company 2: Spanish support
-        print(f"\n--- Company 2: Testing Spanish Support ---")
+        print("\n--- Company 2: Testing Spanish Support ---")
         spanish_ticket = CustomerTicket(
             id="TKT_SPANISH_001",
             company_id=self.company2.id,
@@ -797,8 +797,8 @@ class TestTwoMiniParwaInstances:
                 f"  {feature}: Instance 1 = {
                     '✅ Allowed' if allowed1 else '❌ Blocked'}, Instance 2 = {
                     '✅ Allowed' if allowed2 else '❌ Blocked'}")
-            assert allowed1 == False, f"{feature} should be blocked for Instance 1"
-            assert allowed2 == False, f"{feature} should be blocked for Instance 2"
+            assert allowed1 is False, f"{feature} should be blocked for Instance 1"
+            assert allowed2 is False, f"{feature} should be blocked for Instance 2"
 
         # Test SMS channel rejection
         print("\n--- Testing SMS Channel Rejection ---")
@@ -937,8 +937,8 @@ class TestTwoMiniParwaInstances:
                 f"  {op}: Instance 1 = {
                     '✅ Allowed' if allowed1 else '❌ Blocked'}, Instance 2 = {
                     '✅ Allowed' if allowed2 else '❌ Blocked'}")
-            assert allowed1 == False
-            assert allowed2 == False
+            assert allowed1 is False
+            assert allowed2 is False
 
         print("\n✅ PASSED: API restrictions work correctly - Read-only access")
 
@@ -1046,14 +1046,14 @@ class TestTwoMiniParwaInstances:
         print(
             f"\nInstance 2 Current Members: {len(self.company2.team_members)}/3")
         print(f"Can add member: {self.instance2.can_add_team_member()}")
-        assert self.instance2.can_add_team_member() == False
+        assert self.instance2.can_add_team_member() is False
 
         # Add member to company 1
         self.company1.team_members.append("new_member@shopeasy.example.com")
         print(
             f"\nAfter adding member to Instance 1: {len(self.company1.team_members)}/3")
         print(f"Can add another: {self.instance1.can_add_team_member()}")
-        assert self.instance1.can_add_team_member() == False
+        assert self.instance1.can_add_team_member() is False
 
         print("\n✅ PASSED: Team member limits enforced correctly")
 
@@ -1264,7 +1264,7 @@ class TestTwoMiniParwaInstances:
         print(f"✅ Instance 2 Company: {self.instance2.company.name}")
         print(f"✅ Instance 1 FAQs: {len(self.instance1.company.faqs)} unique")
         print(f"✅ Instance 2 FAQs: {len(self.instance2.company.faqs)} unique")
-        print(f"✅ No cross-instance data leakage")
+        print("✅ No cross-instance data leakage")
 
         print("\n✅ PASSED: Complete isolation between instances verified")
 
@@ -1333,8 +1333,8 @@ def run_all_tests():
     print("\n" + "-" * 70)
     print(
         f" Total: {
-            passed +
-            failed} tests | ✅ Passed: {passed} | ❌ Failed: {failed}")
+            passed
+            + failed} tests | ✅ Passed: {passed} | ❌ Failed: {failed}")
     print(f" Success Rate: {(passed / (passed + failed)) * 100:.1f}%")
     print("-" * 70)
 

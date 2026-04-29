@@ -72,8 +72,8 @@ class TestModelValidationService:
             "safety_score": 0.80,
         }
         gates = service._check_quality_gates(metrics)
-        assert gates["accuracy"]["passed"] == False
-        assert gates["latency_p95"]["passed"] == False
+        assert gates["accuracy"]["passed"] is False
+        assert gates["latency_p95"]["passed"] is False
 
     def test_is_model_deployable(self, service):
         """Test deployability check."""
@@ -90,7 +90,7 @@ class TestModelValidationService:
             "status": "failed",
             "quality_gates": {"accuracy": {"passed": False}},
         }
-        assert service.is_model_deployable(failed_result) == False
+        assert service.is_model_deployable(failed_result) is False
 
     def test_regression_tests(self, service):
         """Test regression test suite."""
@@ -261,7 +261,7 @@ class TestValidationDeploymentIntegration:
             },
         }
 
-        assert service.is_model_deployable(failed_validation) == False
+        assert service.is_model_deployable(failed_validation) is False
 
 
 if __name__ == "__main__":

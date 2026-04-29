@@ -859,16 +859,16 @@ class NotificationService:
                 data.get(
                     'customer_name',
                     'a customer')}.",
-            "ticket_updated": f"Ticket has been updated.",
-            "ticket_assigned": f"Ticket has been assigned to you.",
-            "ticket_resolved": f"Your ticket has been resolved.",
-            "ticket_closed": f"Your ticket has been closed.",
-            "ticket_reopened": f"A ticket has been reopened.",
+            "ticket_updated": "Ticket has been updated.",
+            "ticket_assigned": "Ticket has been assigned to you.",
+            "ticket_resolved": "Your ticket has been resolved.",
+            "ticket_closed": "Your ticket has been closed.",
+            "ticket_reopened": "A ticket has been reopened.",
             "sla_warning": f"SLA deadline approaching. Time remaining: {
                 data.get(
                     'time_remaining',
                     'unknown')}",
-            "sla_breached": f"SLA deadline has been breached for this ticket.",
+            "sla_breached": "SLA deadline has been breached for this ticket.",
             "ticket_escalated": f"Ticket escalated. Reason: {
                 data.get(
                     'escalation_reason',

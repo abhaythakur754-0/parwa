@@ -997,9 +997,9 @@ class ResponseGenerator:
         if brand_config:
             brand_name = getattr(brand_config, "brand_name", brand_name)
         parts.append(
-            f"You are a helpful, professional customer support agent for "
+            "You are a helpful, professional customer support agent for "
             f"{brand_name}.  Respond to the customer's inquiry accurately "
-            f"and empathetically."
+            "and empathetically."
         )
 
         # ── Tone and formality ────────────────────────────────────
@@ -1072,7 +1072,7 @@ class ResponseGenerator:
                 )
             elif frustration >= 40:
                 parts.append(
-                    f"\n**Note:** This customer shows moderate frustration "
+                    "\n**Note:** This customer shows moderate frustration "
                     f"(score: {frustration}/100). Be empathetic and "
                     "solution-focused."
                 )

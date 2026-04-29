@@ -75,7 +75,7 @@ class _PromoService:
         if discount_type not in ("percentage", "fixed"):
             raise PromoError(
                 f"Invalid discount_type '{discount_type}'. "
-                f"Must be 'percentage' or 'fixed' (PROMO-001)"
+                "Must be 'percentage' or 'fixed' (PROMO-001)"
             )
 
         if discount_type == "percentage" and discount_value > Decimal("100"):
@@ -193,7 +193,7 @@ class _PromoService:
             if prev_use:
                 raise PromoAlreadyUsedError(
                     f"Company has already used promo code '{code}' "
-                    f"(PROMO-010)"
+                    "(PROMO-010)"
                 )
 
             return {
@@ -229,7 +229,7 @@ class _PromoService:
             ).first()
 
             if not promo:
-                raise PromoNotFoundError(f"Promo code not found (PROMO-011)")
+                raise PromoNotFoundError("Promo code not found (PROMO-011)")
 
             # Get company's subscription to calculate discount
             subscription = (

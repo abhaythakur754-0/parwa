@@ -591,8 +591,8 @@ def check_stopped_services(self) -> dict:
 
             # Get unresolved payment failures
             failures = db.query(PaymentFailure).filter(
-                PaymentFailure.resolved == False,
-                PaymentFailure.notification_sent == False,
+                PaymentFailure.resolved is False,
+                PaymentFailure.notification_sent is False,
             ).all()
 
             for failure in failures:

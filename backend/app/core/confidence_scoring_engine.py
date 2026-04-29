@@ -930,7 +930,7 @@ class ConfidenceScoringEngine:
         # Extract question words from the query
         question_words = set(
             w.lower() for w in re.findall(r"\b\w+\b", query) if w.lower()
-        ) - {"the", "and", "is", "a", "an", "to", "of", "in", "for", "it"}
+        ) - {"the", "and", "is", "a", "an", "to", "o", "in", "for", "it"}
 
         # Check if query contains multiple sub-questions
         query_lower = query.lower()

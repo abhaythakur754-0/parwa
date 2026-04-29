@@ -32,29 +32,29 @@ class AttachmentService:
     # BL06: Allowed file extensions
     ALLOWED_EXTENSIONS = {
         # Documents
-        "pdf", "doc", "docx", "txt", "rtf", "odt",
+        "pd", "doc", "docx", "txt", "rt", "odt",
         # Spreadsheets
         "xls", "xlsx", "csv",
         # Images
-        "png", "jpg", "jpeg", "gif", "bmp", "webp",
+        "png", "jpg", "jpeg", "gi", "bmp", "webp",
         # Archives (scanned)
         "zip",
     }
 
     # Allowed MIME types mapped to extensions
     ALLOWED_MIME_TYPES = {
-        "application/pdf": "pdf",
+        "application/pd": "pdf",
         "application/msword": "doc",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
         "text/plain": "txt",
-        "application/rtf": "rtf",
+        "application/rt": "rtf",
         "application/vnd.oasis.opendocument.text": "odt",
         "application/vnd.ms-excel": "xls",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
         "text/csv": "csv",
         "image/png": "png",
         "image/jpeg": "jpg",
-        "image/gif": "gif",
+        "image/gi": "gif",
         "image/bmp": "bmp",
         "image/webp": "webp",
         "application/zip": "zip",
@@ -76,7 +76,7 @@ class AttachmentService:
 
     # Dangerous extensions (always blocked)
     DANGEROUS_EXTENSIONS = {
-        "exe", "bat", "cmd", "com", "pif", "scr", "vbs", "js",
+        "exe", "bat", "cmd", "com", "pi", "scr", "vbs", "js",
         "jar", "msi", "sh", "bash", "py", "pl", "php", "asp",
         "aspx", "jsp", "cgi", "dll", "so", "dylib",
     }
@@ -332,11 +332,11 @@ class AttachmentService:
             MIME type string or None
         """
         ext_to_mime = {
-            "pdf": "application/pdf",
+            "pd": "application/pdf",
             "doc": "application/msword",
             "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "txt": "text/plain",
-            "rtf": "application/rtf",
+            "rt": "application/rtf",
             "odt": "application/vnd.oasis.opendocument.text",
             "xls": "application/vnd.ms-excel",
             "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -344,7 +344,7 @@ class AttachmentService:
             "png": "image/png",
             "jpg": "image/jpeg",
             "jpeg": "image/jpeg",
-            "gif": "image/gif",
+            "gi": "image/gif",
             "bmp": "image/bmp",
             "webp": "image/webp",
             "zip": "application/zip",

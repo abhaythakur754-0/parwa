@@ -611,10 +611,10 @@ class TestMiniParwaAndFullParwa:
             # Try Mini PARWA first
             if self.mini_parwa.can_handle_request(req):
                 result = self.mini_parwa.process_request(req)
-                print(f"  Handled by: Mini PARWA")
+                print("  Handled by: Mini PARWA")
             else:
                 result = self.full_parwa.process_request(req)
-                print(f"  Handled by: Full PARWA (escalated)")
+                print("  Handled by: Full PARWA (escalated)")
 
             print(f"  AI Response: {result['ai_response'][:80]}...")
             print(f"  Techniques: {result['techniques_used']}")
@@ -622,7 +622,7 @@ class TestMiniParwaAndFullParwa:
                 f"  Status: {
                     '✅ Resolved' if result['processed'] else '❌ Failed'}")
 
-        print(f"\n--- Summary ---")
+        print("\n--- Summary ---")
         print(f"Mini PARWA processed: {self.mini_parwa.tickets_processed}")
         print(f"Full PARWA processed: {self.full_parwa.tickets_processed}")
 
@@ -663,7 +663,7 @@ class TestMiniParwaAndFullParwa:
             f"\n  Mini PARWA can handle: {
                 self.mini_parwa.can_handle_request(sms_request)}")
         assert self.mini_parwa.can_handle_request(
-            sms_request) == False, "Mini PARWA cannot handle SMS"
+            sms_request) is False, "Mini PARWA cannot handle SMS"
 
         # Full PARWA handles SMS
         result = self.full_parwa.process_request(sms_request)
@@ -700,11 +700,11 @@ class TestMiniParwaAndFullParwa:
         print(f"\nVoice Request: {voice_request.id}")
         print(f"  Customer: {voice_request.customer_name}")
         print(f"  Phone: {voice_request.customer_phone}")
-        print(f"  Language: Hindi")
+        print("  Language: Hindi")
 
         # Mini PARWA cannot handle Voice
         assert self.mini_parwa.can_handle_request(
-            voice_request) == False, "Mini PARWA cannot handle Voice"
+            voice_request) is False, "Mini PARWA cannot handle Voice"
 
         # Full PARWA handles Voice
         result = self.full_parwa.process_request(voice_request)
@@ -840,8 +840,8 @@ class TestMiniParwaAndFullParwa:
         self.full_parwa.tickets_this_month = full_limit
 
         # Should block
-        assert self.mini_parwa.can_handle_request(test_request) == False
-        assert self.full_parwa.can_handle_request(test_request) == False
+        assert self.mini_parwa.can_handle_request(test_request) is False
+        assert self.full_parwa.can_handle_request(test_request) is False
         print("✅ Both instances block tickets at limit")
 
         print("\n✅ PASSED: Ticket limits enforced correctly")
@@ -910,7 +910,7 @@ class TestMiniParwaAndFullParwa:
 धन्यवाद!
 """
 
-        print(f"\nHindi Voice Message:")
+        print("\nHindi Voice Message:")
         print("-" * 50)
         print(hindi_message)
         print("-" * 50)
@@ -921,7 +921,7 @@ class TestMiniParwaAndFullParwa:
             message_hindi=hindi_message
         )
 
-        print(f"\nVoice Call Result:")
+        print("\nVoice Call Result:")
         print(f"  Success: {result['success']}")
         print(f"  Phone: {result['phone_number']}")
 
@@ -953,7 +953,7 @@ class TestMiniParwaAndFullParwa:
             message=sms_message
         )
 
-        print(f"\nSMS Result:")
+        print("\nSMS Result:")
         print(f"  Success: {result['success']}")
         print(f"  Phone: {result['phone_number']}")
         print(f"  Message: {result['message'][:50]}...")

@@ -120,11 +120,11 @@ def initiate_mfa_setup(
     # L30: Clean up any previous unverified setup
     db.query(MFASecret).filter(
         MFASecret.user_id == user.id,
-        MFASecret.is_verified == False,  # noqa: E712
+        MFASecret.is_verified is False,  # noqa: E712
     ).delete()
     db.query(BackupCode).filter(
         BackupCode.user_id == user.id,
-        BackupCode.is_used == False,  # noqa: E712
+        BackupCode.is_used is False,  # noqa: E712
     ).delete()
 
     # Generate TOTP secret
@@ -152,7 +152,7 @@ def initiate_mfa_setup(
     # Delete any existing temp secret for this user
     db.query(MFASecret).filter(
         MFASecret.user_id == user.id,
-        MFASecret.is_verified == False,  # noqa: E712
+        MFASecret.is_verified is False,  # noqa: E712
     ).delete()
 
     mfa_record = MFASecret(
@@ -217,7 +217,7 @@ def verify_mfa_setup(
     # Mark MFASecret as verified
     mfa_record = db.query(MFASecret).filter(
         MFASecret.user_id == user.id,
-        MFASecret.is_verified == False,  # noqa: E712
+        MFASecret.is_verified is False,  # noqa: E712
     ).first()
 
     if mfa_record:
@@ -322,7 +322,7 @@ def verify_mfa_login(
             raise AuthenticationError(
                 message=(
                     "Too many failed MFA attempts. "
-                    f"Account locked for "
+                    "Account locked for "
                     f"{_MFA_LOCKOUT_MINUTES} minutes."
                 ),
                 details={"locked": True},
@@ -380,7 +380,7 @@ def use_backup_code(
     bc = db.query(BackupCode).filter(
         BackupCode.user_id == user.id,
         BackupCode.code_hash == code_hash,
-        BackupCode.is_used == False,  # noqa: E712
+        BackupCode.is_used is False,  # noqa: E712
     ).first()
 
     if not bc:
@@ -396,7 +396,7 @@ def use_backup_code(
     # Count remaining
     remaining = db.query(BackupCode).filter(
         BackupCode.user_id == user.id,
-        BackupCode.is_used == False,  # noqa: E712
+        BackupCode.is_used is False,  # noqa: E712
     ).count()
 
     # Reset MFA failure count on successful backup use
@@ -497,5 +497,5 @@ def get_remaining_backup_codes(
     """Get count of remaining unused backup codes."""
     return db.query(BackupCode).filter(
         BackupCode.user_id == user.id,
-        BackupCode.is_used == False,  # noqa: E712
+        BackupCode.is_used is False,  # noqa: E712
     ).count()

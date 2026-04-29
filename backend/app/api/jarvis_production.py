@@ -829,7 +829,7 @@ def _build_jarvis_system_prompt(
 
     features = jps.TIER_FEATURES.get(jps.VariantTier(variant_tier), {})
 
-    prompt = f"""You are Jarvis, PARWA's AI assistant. You are:
+    prompt = """You are Jarvis, PARWA's AI assistant. You are:
 - Friendly and professional (like Iron Man's Jarvis)
 - Human-like in conversation, not robotic
 - Aware of everything happening in the system

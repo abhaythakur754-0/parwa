@@ -315,8 +315,8 @@ def execute_training_run(self, company_id: str, run_id: str) -> dict:
             base_loss = 2.0
             base_accuracy = 0.3
             loss = max(0.1, base_loss * (0.7 ** epoch))  # Decreasing loss
-            accuracy = min(0.95, base_accuracy + 0.2 *
-                           epoch)  # Increasing accuracy
+            accuracy = min(0.95, base_accuracy + 0.2
+                           * epoch)  # Increasing accuracy
 
             metrics = {
                 "epoch": epoch,
@@ -368,8 +368,8 @@ def execute_training_run(self, company_id: str, run_id: str) -> dict:
                                              {}).get("accuracy",
                                                      0.8) if checkpoints else 0.8
 
-        quality_score = min(1.0, (final_accuracy * 0.6) +
-                            ((1 - final_loss) * 0.4))
+        quality_score = min(1.0, (final_accuracy * 0.6)
+                            + ((1 - final_loss) * 0.4))
 
         # Terminate GPU instance
         gpu_service.terminate_instance(

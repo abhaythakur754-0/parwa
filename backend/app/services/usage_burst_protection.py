@@ -462,7 +462,7 @@ class UsageBurstProtectionService:
                 reason = (
                     f"RPM ({current_rpm:.1f}) exceeds "
                     f"{burst_mult}× threshold ({rpm_threshold}) — "
-                    f"critical burst detected"
+                    "critical burst detected"
                 )
             elif current_rpm > rpm_threshold:
                 # ── HIGH: over threshold ──
@@ -1020,7 +1020,7 @@ class UsageBurstProtectionService:
                         throttle_rate=0.0,
                         retry_after_seconds=round(retry_after, 2),
                         reason=(
-                            f"Company is blocked. "
+                            "Company is blocked. "
                             f"Retry after {retry_after:.0f}s."
                         ),
                     )
@@ -1042,7 +1042,7 @@ class UsageBurstProtectionService:
                         throttle_rate=round(throttle_rate, 2),
                         retry_after_seconds=round(retry_after, 2),
                         reason=(
-                            f"Company is throttled "
+                            "Company is throttled "
                             f"(rate={throttle_rate:.2f}). "
                             f"Full access after {retry_after:.0f}s."
                         ),
@@ -1074,7 +1074,7 @@ class UsageBurstProtectionService:
                         ),
                         reason=(
                             f"Burst detected: {burst.reason}. "
-                            f"Blocked for "
+                            "Blocked for "
                             f"{self.config.block_duration_seconds}s."
                         ),
                     )

@@ -342,7 +342,7 @@ class SpamDetectionService:
         # Total non-spam tickets
         total_non_spam = self.db.query(Ticket).filter(
             Ticket.company_id == self.company_id,
-            Ticket.is_spam == False,
+            Ticket.is_spam is False,
         ).count()
 
         # By spam level (using simplified approach since spam_score is not on

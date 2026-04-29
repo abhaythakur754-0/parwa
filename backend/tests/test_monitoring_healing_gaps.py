@@ -1135,7 +1135,7 @@ class TestSilentFailureConfidenceThresholdAdjustment:
         ])
 
         assert second_count == first_count, (
-            f"Cooldown bypassed for confidence drop! "
+            "Cooldown bypassed for confidence drop! "
             f"{first_count} -> {second_count}"
         )
 

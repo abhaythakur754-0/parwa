@@ -118,7 +118,7 @@ _LANGUAGE_LEXICONS: Dict[str, List[str]] = {
     ],
     Language.GERMAN: [
         "der", "die", "das", "den", "dem", "des", "ein", "eine", "und",
-        "ist", "nicht", "mit", "von", "auf", "für", "an", "aber", "auch",
+        "ist", "nicht", "mit", "von", "au", "für", "an", "aber", "auch",
         "hallo", "danke", "bitte", "kann", "ich", "wie", "was", "wann",
         "wo", "gut", "sehr", "alle", "hat", "haben", "werden",
     ],

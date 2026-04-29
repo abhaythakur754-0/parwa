@@ -925,5 +925,5 @@ class TestTrainingDataCrossContamination:
         assert path_mini not in mock_redis._store or \
             path_mini + ":meta" not in mock_redis._store or \
             mock_redis._store[path_mini + ":meta"]["variant_type"] == "mini_parwa"
-        assert mock_redis._store[path_high +
-                                 ":meta"]["variant_type"] == "parwa_high"
+        assert mock_redis._store[path_high
+                                 + ":meta"]["variant_type"] == "parwa_high"

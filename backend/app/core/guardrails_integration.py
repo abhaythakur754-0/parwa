@@ -366,7 +366,7 @@ def _run_day4_output_scanners(
                     "scanner": "pii_output_scan",
                     "severity": "critical",
                     "reason": (
-                        f"PII detected in LLM output: "
+                        "PII detected in LLM output: "
                         f"{', '.join(pii_types)} "
                         f"({len(high_conf_pii)} instance(s))"
                     ),
@@ -410,7 +410,7 @@ def _run_day4_output_scanners(
                 "scanner": "prompt_injection_output",
                 "severity": "high",
                 "reason": (
-                    f"Prompt injection remnants in LLM output: "
+                    "Prompt injection remnants in LLM output: "
                     f"{getattr(injection_result, 'reason', 'unknown')}"
                 ),
             })
@@ -455,7 +455,7 @@ def _run_day4_output_scanners(
                 "scanner": "info_leak_guard",
                 "severity": severity,
                 "reason": (
-                    f"Information leak in LLM output: "
+                    "Information leak in LLM output: "
                     f"categories={', '.join(categories)} "
                     f"action={leak_action}"
                 ),

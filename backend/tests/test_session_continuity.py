@@ -618,7 +618,8 @@ class TestContinuityEvents(unittest.TestCase):
         """Stops receiving after removal."""
         mgr = _mgr()
         received = []
-        def cb(et, pl): return received.append((et, pl))
+        def cb(et, pl):
+            return received.append((et, pl))
         mgr.add_event_listener(cb)
         mgr.acquire_lock("co1", "tkt1", "agent-A")
         count_after_add = len(received)

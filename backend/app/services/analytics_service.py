@@ -153,9 +153,9 @@ class BillingAnalyticsService:
 
             tickets_used = usage.tickets_used if usage else 0
             percentage = (
-                tickets_used /
-                ticket_limit *
-                100) if ticket_limit > 0 else 0
+                tickets_used
+                / ticket_limit
+                * 100) if ticket_limit > 0 else 0
 
             thresholds = [50, 75, 90, 100]
             alerts = []

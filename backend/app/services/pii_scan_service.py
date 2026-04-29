@@ -217,9 +217,9 @@ class PIIScanService:
 
             # Replace in text
             redacted_text = (
-                redacted_text[:finding["start"]] +
-                redaction_token +
-                redacted_text[finding["end"]:]
+                redacted_text[:finding["start"]]
+                + redaction_token
+                + redacted_text[finding["end"]:]
             )
 
             # Store in map

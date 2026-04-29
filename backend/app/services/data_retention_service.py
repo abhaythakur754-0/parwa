@@ -390,19 +390,19 @@ class DataRetentionService:
 
             # Add README
             readme = (
-                f"PARWA Data Export\n"
-                f"==================\n"
+                "PARWA Data Export\n"
+                "==================\n"
                 f"Company ID: {company_id}\n"
                 f"Exported: {export_data.get('export_info', {}).get('exported_at', 'unknown')}\n\n"
-                f"Contents:\n"
-                f"- parwa_export.json: Full export in JSON format\n"
-                f"- subscription.csv: Subscription history\n"
-                f"- invoices.csv: Invoice records\n"
-                f"- tickets.csv: Ticket history (if available)\n"
-                f"- customers.csv: Customer records (if available)\n\n"
-                f"Note: Per our data retention policy, billing records "
+                "Contents:\n"
+                "- parwa_export.json: Full export in JSON format\n"
+                "- subscription.csv: Subscription history\n"
+                "- invoices.csv: Invoice records\n"
+                "- tickets.csv: Ticket history (if available)\n"
+                "- customers.csv: Customer records (if available)\n\n"
+                "Note: Per our data retention policy, billing records "
                 f"are retained for {BILLING_RETENTION_YEARS} years "
-                f"for financial compliance."
+                "for financial compliance."
             )
             zf.writestr("README.txt", readme)
 
@@ -462,7 +462,7 @@ class DataRetentionService:
             expired = db.query(Subscription).filter(
                 Subscription.status == "canceled",
                 Subscription.service_stopped_at <= cutoff,
-                Subscription.data_hard_deleted == False,  # type: ignore
+                Subscription.data_hard_deleted is False,  # type: ignore
             ).all()
 
             for sub in expired:

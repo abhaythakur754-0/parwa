@@ -184,8 +184,8 @@ class TestHealingRules:
             COMPANY_ID, "consecutive_failures_disable", False)
         assert result is True
         rules = engine.get_rules(COMPANY_ID)
-        rule = [r for r in rules if r.rule_id ==
-                "consecutive_failures_disable"][0]
+        rule = [r for r in rules if r.rule_id
+                == "consecutive_failures_disable"][0]
         assert rule.enabled is False
 
     def test_enable_nonexistent_rule(self, engine):
@@ -195,8 +195,8 @@ class TestHealingRules:
     def test_rules_isolated_per_company(self, engine):
         engine.enable_rule(COMPANY_ID, "consecutive_failures_disable", False)
         rules_other = engine.get_rules(ANOTHER_COMPANY)
-        rule = [r for r in rules_other if r.rule_id ==
-                "consecutive_failures_disable"][0]
+        rule = [r for r in rules_other if r.rule_id
+                == "consecutive_failures_disable"][0]
         assert rule.enabled is True  # Still enabled for other company
 
 

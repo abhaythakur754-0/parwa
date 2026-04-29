@@ -525,7 +525,7 @@ def _validate_variant_type(variant_type: str) -> None:
             error_code="INVALID_VARIANT_TYPE",
             message=(
                 f"Invalid variant_type '{variant_type}'. "
-                f"Must be one of: "
+                "Must be one of: "
                 f"{', '.join(VARIANT_LEVELS.keys())}"
             ),
             status_code=400,

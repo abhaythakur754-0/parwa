@@ -291,9 +291,9 @@ class TestEdgeCaseHandlerOrdering:
         result = registry.process(
             "hello",
             context={
-                "_processing_elapsed_ms": CHAIN_TIMEOUT_SECONDS *
-                1000 +
-                1},
+                "_processing_elapsed_ms": CHAIN_TIMEOUT_SECONDS
+                * 1000
+                + 1},
         )
         handler_types = [r.handler_type for r in result.results]
         assert "timeout" in handler_types
@@ -486,7 +486,7 @@ class TestGSDTransitionValidation:
     async def test_transition_table_consistency(self):
         """All states in FULL_TRANSITION_TABLE have valid targets."""
         all_states = {"new", "greeting", "diagnosis", "resolution",
-                      "follow_up", "escalate", "human_handoff", "closed"}
+                      "follow_up", "escalate", "human_handof", "closed"}
         for state, targets in FULL_TRANSITION_TABLE.items():
             assert state in all_states, f"Unknown state {state} in table"
             for t in targets:

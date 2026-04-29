@@ -1517,7 +1517,7 @@ class PromptInjectionDetector:
                 confidence=min(0.5 + anomaly_score * 0.05, 0.95),
                 matched_text=query[:100] + ("..." if len(query) > 100 else ""),
                 rule_id="ANOM-001",
-                description=f"Anomalous query characteristics: "
+                description="Anomalous query characteristics: "
                 f"{'; '.join(anomalies)}",
             )
 

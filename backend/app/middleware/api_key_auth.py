@@ -274,7 +274,7 @@ def require_scope(required_scope: str):
             raise HTTPException(
                 status_code=403,
                 detail=(
-                    f"Insufficient scope. "
+                    "Insufficient scope. "
                     f"Required: {required_scope}"
                 ),
             )

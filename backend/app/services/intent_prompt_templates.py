@@ -364,7 +364,7 @@ class PromptTemplateRegistry:
             (intent, response_type),
             f"You are a helpful customer support assistant handling a {intent} "
             f"request with a {response_type} approach. Provide clear, professional, "
-            f"and helpful responses.",
+            "and helpful responses.",
         )
 
     def _get_few_shot_examples(

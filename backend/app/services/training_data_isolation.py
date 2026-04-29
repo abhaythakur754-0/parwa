@@ -247,7 +247,7 @@ def _validate_variant_type(variant_type: str) -> None:
             error_code="INVALID_VARIANT_TYPE",
             message=(
                 f"Invalid variant_type '{variant_type}'. "
-                f"Must be one of: "
+                "Must be one of: "
                 f"{', '.join(sorted(VALID_VARIANT_TYPES))}"
             ),
             status_code=400,
@@ -282,7 +282,7 @@ def _validate_record_content(content: str) -> None:
         raise ParwaBaseError(
             error_code="RECORD_TOO_LARGE",
             message=(
-                f"Record content exceeds max length "
+                "Record content exceeds max length "
                 f"({MAX_CONTENT_LENGTH} chars)"
             ),
             status_code=400,
@@ -401,7 +401,7 @@ class TrainingDataIsolationService:
             raise ParwaBaseError(
                 error_code="DATASET_LIMIT_EXCEEDED",
                 message=(
-                    f"Company has reached the maximum of "
+                    "Company has reached the maximum of "
                     f"{MAX_DATASETS_PER_COMPANY} datasets"
                 ),
                 status_code=400,
@@ -512,7 +512,7 @@ class TrainingDataIsolationService:
             raise ParwaBaseError(
                 error_code="BATCH_TOO_LARGE",
                 message=(
-                    f"Cannot add more than 10,000 records "
+                    "Cannot add more than 10,000 records "
                     f"in a single call (got {len(records)})"
                 ),
                 status_code=400,
@@ -544,7 +544,7 @@ class TrainingDataIsolationService:
             raise ParwaBaseError(
                 error_code="DATASET_FULL",
                 message=(
-                    f"Dataset would exceed maximum of "
+                    "Dataset would exceed maximum of "
                     f"{MAX_RECORDS_PER_DATASET} records"
                 ),
                 status_code=400,
@@ -891,7 +891,7 @@ class TrainingDataIsolationService:
                     result.violations.append(
                         f"Dataset '{dataset_id}' exists "
                         f"under variant '{vt}' — "
-                        f"cross-variant duplication detected"
+                        "cross-variant duplication detected"
                     )
                     result.cross_variant_access_attempted = (
                         True
@@ -915,7 +915,7 @@ class TrainingDataIsolationService:
                     )
                     result.is_isolated = False
                     result.violations.append(
-                        f"Records list found at variant "
+                        "Records list found at variant "
                         f"'{vt}' path for dataset "
                         f"'{dataset_id}'"
                     )
@@ -1170,7 +1170,7 @@ class TrainingDataIsolationService:
                 error_code="UNSUPPORTED_EXPORT_FORMAT",
                 message=(
                     f"Unsupported format '{format}'. "
-                    f"Only 'json' is supported."
+                    "Only 'json' is supported."
                 ),
                 status_code=400,
             )
@@ -1420,7 +1420,7 @@ class TrainingDataIsolationService:
             raise ParwaBaseError(
                 error_code="INVALID_INDEX_METADATA",
                 message=(
-                    f"Missing required keys: "
+                    "Missing required keys: "
                     f"{', '.join(sorted(missing))}"
                 ),
                 status_code=400,

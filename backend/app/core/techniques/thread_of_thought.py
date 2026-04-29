@@ -58,10 +58,10 @@ _STOP_WORDS: FrozenSet[str] = frozenset({
     "is", "am", "are", "was", "were", "be", "been", "being",
     "have", "has", "had", "do", "does", "did",
     "will", "would", "could", "should", "may", "might", "shall", "can",
-    "to", "of", "in", "for", "on", "with", "at", "by", "from",
+    "to", "o", "in", "for", "on", "with", "at", "by", "from",
     "as", "into", "through", "during", "before", "after", "above",
     "below", "between", "and", "but", "or", "nor", "not", "so",
-    "if", "then", "than", "too", "very", "just", "about", "also",
+    "i", "then", "than", "too", "very", "just", "about", "also",
     "that", "this", "these", "those", "what", "how", "when", "where",
     "why", "who", "which", "up", "out", "a", "an", "the",
 })
@@ -99,7 +99,7 @@ _TOPIC_DOMAINS: Dict[str, FrozenSet[str]] = {
     }),
     "account": frozenset({
         "account", "profile", "email", "username", "settings", "notification",
-        "pref", "subscription", "plan", "tier", "upgrade", "downgrade",
+        "pre", "subscription", "plan", "tier", "upgrade", "downgrade",
         "cancel", "reactivate", "verify", "verification",
     }),
     "order": frozenset({
@@ -362,10 +362,10 @@ class ThoTProcessor:
         repetition_penalty = min(0.2, len(repeated_info) * 0.05)
         loop_penalty = 0.3 if loop_detected else 0.0
 
-        continuity = max(0.0, min(1.0, topic_score -
-                                  contradiction_penalty -
-                                  repetition_penalty -
-                                  loop_penalty), )
+        continuity = max(0.0, min(1.0, topic_score
+                                  - contradiction_penalty
+                                  - repetition_penalty
+                                  - loop_penalty), )
 
         return ThreadAnalysis(
             turn_count=turn_count,
@@ -425,9 +425,9 @@ class ThoTProcessor:
                     word_a = list(a_hits_rev)[0]
                     word_b = list(b_hits_rev)[0]
                     # Avoid duplicate if already found in forward direction
-                    desc = f"Turn {i +
-                                   1}->{i +
-                                        2}: '{word_a}' contradicts '{word_b}'"
+                    desc = f"Turn {i
+                                   + 1}->{i +
+                                          2}: '{word_a}' contradicts '{word_b}'"
                     if desc not in contradictions:
                         contradictions.append(desc)
 

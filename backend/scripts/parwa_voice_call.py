@@ -55,7 +55,7 @@ def create_twiml_for_hindi(message: str) -> str:
             say_tags.append(
                 f'        <Say language="hi-IN" voice="Polly.Aditi">{sentence.strip()}.</Say>')
 
-    twiml = f'''<?xml version="1.0" encoding="UTF-8"?>
+    twiml = '''<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Pause length="1"/>
 {chr(10).join(say_tags)}
@@ -151,7 +151,7 @@ def make_voice_call_tts(to_number: str, audio_url: str) -> dict:
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
         # TwiML to play audio
-        twiml = f'''<?xml version="1.0" encoding="UTF-8"?>
+        twiml = '''<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Play>{audio_url}</Play>
 </Response>'''
@@ -252,7 +252,7 @@ def demo_parwa_voice_call(phone_number: str):
     conn_test = test_twilio_connection()
 
     if conn_test["success"]:
-        print(f"✅ Connected to Twilio")
+        print("✅ Connected to Twilio")
         print(f"   Account: {conn_test.get('account_name', 'N/A')}")
         print(f"   Status: {conn_test.get('account_status', 'N/A')}")
         print(f"   Phone: {conn_test.get('phone_number', 'N/A')}")
@@ -270,7 +270,7 @@ def demo_parwa_voice_call(phone_number: str):
     call_result = make_voice_call_twiml(phone_number, twiml)
 
     if call_result["success"]:
-        print(f"✅ Voice call initiated!")
+        print("✅ Voice call initiated!")
         print(f"   Call SID: {call_result['call_sid']}")
         print(f"   Status: {call_result.get('status', 'unknown')}")
         print(f"   To: {call_result['to_number']}")
@@ -287,7 +287,7 @@ def demo_parwa_voice_call(phone_number: str):
     sms_result = send_sms_notification(phone_number, sms_message)
 
     if sms_result["success"]:
-        print(f"✅ SMS sent successfully")
+        print("✅ SMS sent successfully")
         print(f"   Message SID: {sms_result['message_sid']}")
     else:
         print(f"❌ SMS failed: {sms_result['error']}")
@@ -326,7 +326,7 @@ def main():
         result = test_twilio_connection()
 
         if result["success"]:
-            print(f"✅ Connection successful")
+            print("✅ Connection successful")
             print(f"   Account SID: {result['account_sid']}")
             print(f"   Account Name: {result.get('account_name', 'N/A')}")
             print(f"   Phone Number: {result.get('phone_number', 'N/A')}")
@@ -355,8 +355,8 @@ def main():
         conn = test_twilio_connection()
         print(
             f"\nTwilio Connection: {
-                '✅ OK' if conn['success'] else '❌ ' +
-                conn['error']}")
+                '✅ OK' if conn['success'] else '❌ '
+                + conn['error']}")
 
         return
 

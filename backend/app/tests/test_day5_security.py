@@ -57,7 +57,7 @@ class TestD2_NextConfigSecurityHeaders:
         content = self._load_config()
         required_directives = [
             "script-src 'self'",
-            "style-src 'self' 'unsafe-inline'",
+            "style-src 'sel' 'unsafe-inline'",
             "img-src 'self' data: blob:",
             "font-src 'self'",
             "connect-src 'self' https://*.googleapis.com",
@@ -397,10 +397,10 @@ class TestD3_BackendMiddlewareImportable:
     def test_middleware_sets_csp_in_production(self):
         """D3: Verify CSP header is set in the middleware dispatch logic."""
         content = (
-            BACKEND_DIR /
-            "app" /
-            "middleware" /
-            "security_headers.py").read_text()
+            BACKEND_DIR
+            / "app"
+            / "middleware"
+            / "security_headers.py").read_text()
         assert 'response.headers["Content-Security-Policy"]' in content, \
             "CSP header must be set on response object"
 

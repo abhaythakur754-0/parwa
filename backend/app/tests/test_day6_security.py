@@ -240,7 +240,7 @@ class TestInMemoryVectorStore:
             {"chunk_id": "c2", "content": "hello there", "metadata": {"section": "B"}},
             {"chunk_id": "c3", "content": "hello again", "metadata": {"section": "A"}},
         ]
-        store.add_document("doc_f", chunks, company_id="co_filter")
+        store.add_document("doc_", chunks, company_id="co_filter")
 
         results = store.search(
             query_embedding=_make_unit_vector(1),

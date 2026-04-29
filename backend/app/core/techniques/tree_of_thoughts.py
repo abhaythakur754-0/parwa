@@ -2641,7 +2641,7 @@ class TreeOfThoughtsNode(BaseTechniqueNode):
         # Opening context
         parts.append(
             f"Based on my analysis of the {domain} issue, "
-            f"here is the recommended resolution path:"
+            "here is the recommended resolution path:"
         )
 
         # Walk through each step

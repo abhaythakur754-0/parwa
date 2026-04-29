@@ -124,8 +124,8 @@ class TestVeryLongInput:
     async def test_signal_extraction_10k_chars(self):
         """Signal extraction handles 10,000+ character queries."""
         long_query = (
-            "I have a billing problem with my account. " *
-            400)  # ~12,000 chars
+            "I have a billing problem with my account. "
+            * 400)  # ~12,000 chars
         req = SignalExtractionRequest(
             query=long_query,
             company_id="c1",
@@ -164,14 +164,14 @@ class TestVeryLongInput:
     async def test_clara_10k_chars(self):
         """CLARA handles very long response text."""
         long_response = (
-            "Thank you for contacting support. " *
-            800)  # ~12,000 chars
+            "Thank you for contacting support. "
+            * 800)  # ~12,000 chars
         result = await self.gate.evaluate(
             response=long_response,
             query="refund",
         )
-        structure = next(s for s in result.stages if s.stage ==
-                         CLARAStage.STRUCTURE_CHECK)
+        structure = next(s for s in result.stages if s.stage
+                         == CLARAStage.STRUCTURE_CHECK)
         assert structure.result == StageResult.FAIL  # >500 words
 
 
@@ -769,8 +769,8 @@ class TestFullEndToEndFlow:
         assert len(mapping.selected_techniques) > 0
         assert len(clara_result.stages) == 5
         # Empathetic response should pass tone check
-        tone = next(s for s in clara_result.stages if s.stage ==
-                    CLARAStage.TONE_CHECK)
+        tone = next(s for s in clara_result.stages if s.stage
+                    == CLARAStage.TONE_CHECK)
         assert tone.result == StageResult.PASS
 
     @pytest.mark.asyncio
@@ -910,13 +910,13 @@ class TestCLARAAllStagesFailing:
         )
 
         # Structure should fail (too short)
-        structure = next(s for s in result.stages if s.stage ==
-                         CLARAStage.STRUCTURE_CHECK)
+        structure = next(s for s in result.stages if s.stage
+                         == CLARAStage.STRUCTURE_CHECK)
         assert structure.result == StageResult.FAIL
 
         # Tone should fail (no empathy for angry customer)
-        tone = next(s for s in result.stages if s.stage ==
-                    CLARAStage.TONE_CHECK)
+        tone = next(s for s in result.stages if s.stage
+                    == CLARAStage.TONE_CHECK)
         assert tone.result == StageResult.FAIL
 
     @pytest.mark.asyncio
@@ -929,12 +929,12 @@ class TestCLARAAllStagesFailing:
             customer_sentiment=0.2,
         )
 
-        delivery = next(s for s in result.stages if s.stage ==
-                        CLARAStage.DELIVERY_CHECK)
+        delivery = next(s for s in result.stages if s.stage
+                        == CLARAStage.DELIVERY_CHECK)
         assert delivery.result == StageResult.FAIL
 
-        tone = next(s for s in result.stages if s.stage ==
-                    CLARAStage.TONE_CHECK)
+        tone = next(s for s in result.stages if s.stage
+                    == CLARAStage.TONE_CHECK)
         assert tone.result == StageResult.FAIL
 
         # Overall should fail

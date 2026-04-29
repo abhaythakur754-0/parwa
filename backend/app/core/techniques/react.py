@@ -481,12 +481,12 @@ class ReActProcessor:
             if total > 0:
                 observation = (
                     f"Knowledge base search returned {total} result(s). "
-                    f"Top articles found matching the query."
+                    "Top articles found matching the query."
                 )
             else:
                 observation = (
-                    f"Knowledge base search returned 0 results. "
-                    f"No matching articles found. "
+                    "Knowledge base search returned 0 results. "
+                    "No matching articles found. "
                     f"{message}" if message else ""
                 ).strip()
 
@@ -652,9 +652,9 @@ class ReActProcessor:
         """
         if not observations:
             return (
-                f"I'd be happy to help with your query about "
+                "I'd be happy to help with your query about "
                 f"'{query}'. Let me search our knowledge base for "
-                f"relevant information to assist you."
+                "relevant information to assist you."
             )
 
         # Determine answer type based on categories

@@ -902,7 +902,7 @@ class CrossVariantRouter:
                 channel=channel,
                 company_id=company_id,
                 reason=(
-                    f"gap015_queued: all escalation targets at capacity, "
+                    "gap015_queued: all escalation targets at capacity, "
                     f"fallback_timer={ESCALATION_FALLBACK_SECONDS}s, "
                     f"fallback_variant={queued.fallback_variant}"
                 ),
@@ -1011,7 +1011,7 @@ class CrossVariantRouter:
                             channel=ChannelType.CHAT,
                             company_id=qt.company_id,
                             reason=(
-                                f"gap015_timer_expired: queued for "
+                                "gap015_timer_expired: queued for "
                                 f"{elapsed:.1f}s, routed to {next_variant}"
                             ),
                             escalated=True,
@@ -1105,7 +1105,7 @@ class CrossVariantRouter:
                     warnings.append(
                         f"target_variant {target_variant} at "
                         f"{cap.utilization_pct:.1f}% capacity — "
-                        f"approaching threshold",
+                        "approaching threshold",
                     )
 
             is_valid = len(reasons) == 0

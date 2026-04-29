@@ -508,7 +508,7 @@ class TestMiniParwaSimulation:
         # AI generates response
         ai_response = ai_simulator.generate_response(ticket)
 
-        print(f"\n✓ AI Response Generated:")
+        print("\n✓ AI Response Generated:")
         print(f"  Type: {ai_response.get('response_type', 'unknown')}")
         print(
             f"  Technique: {
@@ -521,7 +521,7 @@ class TestMiniParwaSimulation:
 
         # For FAQ match, verify response
         if ai_response.get("response_type") == "faq_match":
-            print(f"  FAQ Matched: Yes")
+            print("  FAQ Matched: Yes")
             print(f"  Response: {ai_response['response'][:100]}...")
             assert "reset your password" in ai_response["response"].lower()
         else:
@@ -733,7 +733,7 @@ class TestMiniParwaSimulation:
             message="This should be blocked",
             customer_email="test@example.com"
         )
-        assert result["success"] == False
+        assert result["success"] is False
         assert result["error"] == "TICKET_LIMIT_REACHED"
         print(f"✗ Blocked overflow ticket: {result['error']}")
 
@@ -772,7 +772,7 @@ class TestMiniParwaSimulation:
 
         for feature in blocked_features:
             result = fake_company.can_use_feature(feature)
-            assert result["available"] == False
+            assert result["available"] is False
             print(f"\n✗ {feature}: BLOCKED")
             print(f"   Reason: {result['reason']}")
             print(f"   Upgrade: {result['upgrade_required']}")
@@ -845,7 +845,7 @@ class TestMiniParwaSimulation:
         print("\n--- Tier 2 Techniques (Blocked) ---")
         for technique in tier2_techniques:
             result = ai_simulator.can_use_technique(technique)
-            assert result["available"] == False
+            assert result["available"] is False
             print(f"\n✗ {technique.upper()}: BLOCKED (Tier {result['tier']})")
             print(f"  Reason: {result['reason']}")
 
@@ -855,7 +855,7 @@ class TestMiniParwaSimulation:
         print("\n--- Tier 3 Techniques (Blocked) ---")
         for technique in tier3_techniques:
             result = ai_simulator.can_use_technique(technique)
-            assert result["available"] == False
+            assert result["available"] is False
             print(f"\n✗ {technique.upper()}: BLOCKED (Tier {result['tier']})")
             print(f"  Reason: {result['reason']}")
 
@@ -888,7 +888,7 @@ class TestMiniParwaSimulation:
         for op in write_operations:
             api_feature = "api_readwrite"
             result = fake_company.can_use_feature(api_feature)
-            assert result["available"] == False
+            assert result["available"] is False
             print(f"✗ {op}: BLOCKED")
             print(f"   Reason: {result['reason']}")
 
@@ -928,10 +928,10 @@ class TestMiniParwaSimulation:
         print("\n--- Shadow Mode Response Generation ---")
         ai_response = ai_simulator.generate_response(ticket)
 
-        print(f"\n✓ AI Generated Suggestion:")
+        print("\n✓ AI Generated Suggestion:")
         print(f"  Technique: {ai_response.get('technique', 'unknown')}")
         print(f"  Confidence: {ai_response.get('confidence', 0)}")
-        print(f"  Status: PENDING APPROVAL (Shadow Mode)")
+        print("  Status: PENDING APPROVAL (Shadow Mode)")
 
         # Simulate human approval
         print("\n--- Human Review ---")
@@ -1007,10 +1007,10 @@ class TestMiniParwaSimulation:
         # Verify these match Mini PARWA limits
         assert expected_config["model_tiers"] == ["light"]
         assert expected_config["rag_depth"]["top_k"] == 3
-        assert expected_config["rag_depth"]["rerank"] == False
+        assert expected_config["rag_depth"]["rerank"] is False
         assert expected_config["confidence_threshold"] == 60.0
         assert expected_config["max_response_length"] == 500
-        assert expected_config["brand_voice"] == False
+        assert expected_config["brand_voice"] is False
 
         print("\n✅ SCENARIO 11 PASSED: Pipeline config matches official documentation\n")
 
@@ -1112,7 +1112,7 @@ class TestMiniParwaSimulation:
         total_tickets = base_tickets + ecommerce_tickets
         total_kb_docs = base_kb_docs + ecommerce_kb
 
-        print(f"\n--- Mini PARWA + E-commerce Add-on ---")
+        print("\n--- Mini PARWA + E-commerce Add-on ---")
         print(f"Base: {base_tickets} tickets, {base_kb_docs} KB docs")
         print(f"Add-on: +{ecommerce_tickets} tickets, +{ecommerce_kb} KB docs")
         print(f"Total: {total_tickets} tickets, {total_kb_docs} KB docs")

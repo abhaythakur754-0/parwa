@@ -752,7 +752,7 @@ class SelfConsistencyProcessor:
             return (
                 f"All {len(answers)} independent reasoning approaches arrived at "
                 f"the same conclusion: {consistency.majority_value}. "
-                f"No disagreement detected."
+                "No disagreement detected."
             )
 
         # No dissenters despite non-unanimous (shouldn't happen, but BC-008)
@@ -760,7 +760,7 @@ class SelfConsistencyProcessor:
             return (
                 f"Majority conclusion is {consistency.majority_value} with "
                 f"{consistency.agreement_ratio:.0%} agreement. "
-                f"No dissenting answers found."
+                "No dissenting answers found."
             )
 
         # Build structured disagreement analysis
@@ -791,11 +791,11 @@ class SelfConsistencyProcessor:
         # Summary recommendation
         if consensus == ConsensusLevel.MAJORITY:
             parts.append(
-                f"Recommendation: Accept the majority value of "
+                "Recommendation: Accept the majority value of "
                 f"{consistency.majority_value}. The dissenting "
                 f"{dissenting[0].approach} approach uses a different "
-                f"assumption that should be noted but does not "
-                f"invalidate the majority conclusion."
+                "assumption that should be noted but does not "
+                "invalidate the majority conclusion."
             )
         elif consensus in (ConsensusLevel.SPLIT, ConsensusLevel.NO_CONSENSUS):
             parts.append(
@@ -1062,7 +1062,7 @@ class SelfConsistencyProcessor:
                 "penalty",
                 "deduction")):
             return (
-                f"Applied an additional fee or penalty not included in the "
+                "Applied an additional fee or penalty not included in the "
                 f"majority calculation, resulting in {dissenter.key_value} "
                 f"instead of {majority_value}"
             )
@@ -1074,7 +1074,7 @@ class SelfConsistencyProcessor:
                 "buffer",
                 "conservative")):
             return (
-                f"Added a conservative rounding buffer, yielding "
+                "Added a conservative rounding buffer, yielding "
                 f"{dissenter.key_value} vs. majority {majority_value}"
             )
 
@@ -1086,7 +1086,7 @@ class SelfConsistencyProcessor:
                 "loyalty",
                 "favorable")):
             return (
-                f"Included a customer-favorable or goodwill adjustment, "
+                "Included a customer-favorable or goodwill adjustment, "
                 f"producing {dissenter.key_value} vs. majority {majority_value}"
             )
 
@@ -1097,7 +1097,7 @@ class SelfConsistencyProcessor:
                 "exclud",
                 "pending")):
             return (
-                f"Excluded partial or unverified periods, resulting in "
+                "Excluded partial or unverified periods, resulting in "
                 f"{dissenter.key_value} instead of {majority_value}"
             )
 
@@ -1109,7 +1109,7 @@ class SelfConsistencyProcessor:
                 "clause",
                 "terms")):
             return (
-                f"Interpreted policy terms differently, arriving at "
+                "Interpreted policy terms differently, arriving at "
                 f"{dissenter.key_value} vs. majority {majority_value}"
             )
 
@@ -1126,7 +1126,7 @@ class SelfConsistencyProcessor:
 
         # Default divergence reason
         return (
-            f"Used a different calculation assumption, arriving at "
+            "Used a different calculation assumption, arriving at "
             f"{dissenter.key_value} vs. majority {majority_value}"
         )
 
@@ -1277,7 +1277,7 @@ class SelfConsistencyNode(BaseTechniqueNode):
                 # For split consensus, include the answer but note the variance
                 state.response_parts.append(
                     f"{result.final_answer} "
-                    f"(Note: reasoning approaches showed minor variance; "
+                    "(Note: reasoning approaches showed minor variance; "
                     f"{result.consistency.majority_value} is the majority conclusion.)"
                 )
 

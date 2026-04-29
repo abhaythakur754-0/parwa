@@ -174,7 +174,7 @@ def _validate_sub_tasks(
             raise ValidationError(
                 message=(
                     f"sub_tasks[{i}] task_id must be a "
-                    f"non-empty string"
+                    "non-empty string"
                 ),
             )
         if tid in seen_ids:
@@ -198,7 +198,7 @@ def _validate_sub_tasks(
             raise ValidationError(
                 message=(
                     f"sub_tasks[{i}] name must be a "
-                    f"non-empty string"
+                    "non-empty string"
                 ),
             )
         # estimate_hours
@@ -209,14 +209,14 @@ def _validate_sub_tasks(
                 raise ValidationError(
                     message=(
                         f"sub_tasks[{i}] estimate_hours "
-                        f"cannot be negative"
+                        "cannot be negative"
                     ),
                 )
         except (TypeError, ValueError):
             raise ValidationError(
                 message=(
                     f"sub_tasks[{i}] estimate_hours must "
-                    f"be a number"
+                    "be a number"
                 ),
             )
         # dependencies
@@ -225,7 +225,7 @@ def _validate_sub_tasks(
             raise ValidationError(
                 message=(
                     f"sub_tasks[{i}] dependencies must be "
-                    f"a list"
+                    "a list"
                 ),
             )
         for dep in deps:
@@ -236,7 +236,7 @@ def _validate_sub_tasks(
                 raise ValidationError(
                     message=(
                         f"sub_tasks[{i}] each dependency "
-                        f"must be a non-empty string"
+                        "must be a non-empty string"
                     ),
                 )
         # status
@@ -389,7 +389,7 @@ class TaskDecompositionService:
             raise ValidationError(
                 message=(
                     f"Feature '{fid}' already has a "
-                    f"decomposition. Use update instead."
+                    "decomposition. Use update instead."
                 ),
             )
 

@@ -1097,7 +1097,7 @@ class SmartRouter:
                 provider=model.provider,
                 tier=ModelTier.GUARDRAIL,
                 variant_type=variant_type,
-                routing_reason=f"guardrail_step_always_guardrail_model",
+                routing_reason="guardrail_step_always_guardrail_model",
                 fallback_models=fallbacks,
                 estimated_tokens=200,
             )

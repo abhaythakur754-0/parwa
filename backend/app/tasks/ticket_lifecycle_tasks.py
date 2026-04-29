@@ -223,7 +223,7 @@ def detect_spam_patterns_task(
                     recent = db.query(Ticket).filter(
                         Ticket.company_id == company_id,
                         Ticket.customer_id == customer_info["customer_id"],
-                        Ticket.is_spam == False,
+                        Ticket.is_spam is False,
                     ).all()
 
                     for ticket in recent:

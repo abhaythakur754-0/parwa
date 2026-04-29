@@ -382,8 +382,8 @@ class ModelValidationService:
                 0),
             "accuracy_delta": new_metrics.get(
                 METRIC_ACCURACY,
-                0) -
-            baseline_metrics.get(
+                0)
+            - baseline_metrics.get(
                 METRIC_ACCURACY,
                 0),
             "baseline_latency_p95": baseline_metrics.get(
@@ -394,8 +394,8 @@ class ModelValidationService:
                 0),
             "latency_delta": new_metrics.get(
                 METRIC_LATENCY_P95,
-                0) -
-            baseline_metrics.get(
+                0)
+            - baseline_metrics.get(
                 METRIC_LATENCY_P95,
                 0),
             "is_improvement": new_metrics.get(

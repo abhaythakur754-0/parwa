@@ -94,7 +94,7 @@ class TestParwaVariant:
 
         limits = VARIANT_LIMITS.get("parwa", {})
 
-        print(f"\nPARWA Limits:")
+        print("\nPARWA Limits:")
         for key, value in limits.items():
             print(f"  - {key}: {value}")
 
@@ -269,7 +269,7 @@ class TestParwaVariant:
             # Test connection
             result = provider.test_connection()
 
-            print(f"\nBrevo Connection Test:")
+            print("\nBrevo Connection Test:")
             print(f"  - Success: {result.success}")
             print(f"  - Provider: {result.provider_name}")
             if result.error_message:
@@ -280,7 +280,7 @@ class TestParwaVariant:
 
             # Get rate limits
             limits = provider.get_rate_limits()
-            print(f"\nBrevo Rate Limits:")
+            print("\nBrevo Rate Limits:")
             for key, value in limits.items():
                 print(f"  - {key}: {value}")
 
@@ -319,7 +319,7 @@ class TestParwaVariant:
             # Test connection
             result = provider.test_connection()
 
-            print(f"\nTwilio Connection Test:")
+            print("\nTwilio Connection Test:")
             print(f"  - Success: {result.success}")
             print(f"  - Provider: {result.provider_name}")
             if result.error_message:
@@ -330,7 +330,7 @@ class TestParwaVariant:
 
             # Get rate limits
             limits = provider.get_rate_limits()
-            print(f"\nTwilio Rate Limits:")
+            print("\nTwilio Rate Limits:")
             for key, value in limits.items():
                 print(f"  - {key}: {value}")
 
@@ -367,7 +367,7 @@ class TestParwaVariant:
 
             # Test the service
             test_result = service.test_connection()
-            print(f"\nUniversal Email Service Test:")
+            print("\nUniversal Email Service Test:")
             print(f"  - Success: {test_result.get('success')}")
             print(f"  - Provider: {test_result.get('provider_name')}")
 
@@ -408,7 +408,7 @@ class TestParwaVariant:
 
             # Test the service
             test_result = service.test_connection()
-            print(f"\nUniversal SMS Service Test:")
+            print("\nUniversal SMS Service Test:")
             print(f"  - Success: {test_result.get('success')}")
             print(f"  - Provider: {test_result.get('provider_name')}")
 

@@ -327,7 +327,7 @@ class TestRetrievalQuality:
         print(f"Total Queries: {results_report['total_queries']}")
         print(f"\nRecall@5:     {avg_recall:.2%} (target: >=70%)")
         print(f"MRR:          {avg_mrr:.2%} (target: >=60%)")
-        print(f"\nLatency:")
+        print("\nLatency:")
         print(f"  Average:    {avg_latency:.2f}ms (target: <200ms)")
         print(f"  P50:        {p50:.2f}ms")
         print(f"  P95:        {p95:.2f}ms")
@@ -336,9 +336,9 @@ class TestRetrievalQuality:
 
         # Overall pass/fail
         passed = (
-            avg_recall >= 0.7 * 0.95 and
-            avg_mrr >= 0.6 * 0.95 and
-            avg_latency < 200
+            avg_recall >= 0.7 * 0.95
+            and avg_mrr >= 0.6 * 0.95
+            and avg_latency < 200
         )
 
         assert passed, "Retrieval quality targets not met"

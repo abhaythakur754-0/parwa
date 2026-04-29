@@ -221,7 +221,7 @@ class CitationFormatter(BaseFormatter):
         if len(unique_citations) < 2:
             return text
 
-        sources_lines = [f"\n\n**Sources:**"]
+        sources_lines = ["\n\n**Sources:**"]
         for num in sorted(unique_citations):
             sources_lines.append(f"- [{num}] Source reference {num}")
 

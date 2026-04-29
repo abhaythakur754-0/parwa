@@ -723,7 +723,7 @@ def warm_technique_cache(
                         "result": {
                             "technique_id": tid,
                             "cached_response": (
-                                f"[Warmed cache entry for "
+                                "[Warmed cache entry for "
                                 f"{tid}: {query[:50]}...]"
                             ),
                             "confidence": 0.5,

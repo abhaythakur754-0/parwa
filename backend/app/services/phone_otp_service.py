@@ -143,7 +143,7 @@ def verify_otp(
             and_(
                 PhoneOTP.phone == phone_number,
                 PhoneOTP.company_id == company_id,
-                PhoneOTP.verified == False,  # noqa: E712
+                PhoneOTP.verified is False,  # noqa: E712
                 PhoneOTP.expires_at > now,
             )
         )

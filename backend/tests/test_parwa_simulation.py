@@ -219,7 +219,7 @@ class LLMClient:
             self, ticket: Ticket, variant: str) -> Dict[str, Any]:
         """Generate AI response for a ticket"""
 
-        system_prompt = f"""You are a professional customer support agent for TechMart Inc.
+        system_prompt = """You are a professional customer support agent for TechMart Inc.
 Variant: {variant}
 Customer Tier: {ticket.customer.tier}
 Customer Lifetime Value: ${ticket.customer.lifetime_value:,.2f}
@@ -234,7 +234,7 @@ Guidelines:
 - Keep responses concise but complete (under 200 words)
 - If you cannot resolve fully, indicate what steps you'll take"""
 
-        user_message = f"""Ticket ID: {ticket.ticket_id}
+        user_message = """Ticket ID: {ticket.ticket_id}
 Subject: {ticket.subject}
 Customer: {ticket.customer.name} ({ticket.customer.email})
 Message: {ticket.message}
@@ -245,7 +245,7 @@ Please respond to this customer."""
 
         if self.available:
             try:
-                script = f'''
+                script = '''
 const ZAI = require('z-ai-web-dev-sdk').default;
 async function main() {{
     const zai = await ZAI.create();
@@ -409,7 +409,7 @@ class ProductionSimulator:
             TicketCategory.BILLING_PAYMENTS: f"Billing Inquiry - Account {customer.customer_id}",
             TicketCategory.TECHNICAL_SUPPORT: f"Technical Support Needed - {product}",
             TicketCategory.ACCOUNT_ISSUES: f"Account Issue - {customer.email}",
-            TicketCategory.COMPLAINTS_ESCALATIONS: f"ESCALATION - Urgent Assistance Required"
+            TicketCategory.COMPLAINTS_ESCALATIONS: "ESCALATION - Urgent Assistance Required"
         }
 
         # Approval needed for high-value refunds
@@ -467,10 +467,10 @@ class ProductionSimulator:
         print("=" * 70)
         print("🚀 PARWA PRODUCTION SIMULATION - TechMart Inc.")
         print("=" * 70)
-        print(f"Company: TechMart Inc. (E-commerce, 50K customers)")
-        print(f"Monthly Tickets: 7,000+")
+        print("Company: TechMart Inc. (E-commerce, 50K customers)")
+        print("Monthly Tickets: 7,000+")
         print(f"Simulating: {num_tickets} diverse tickets")
-        print(f"Variants Testing: PARWA ($2,499/mo) & PARWA High ($3,999/mo)")
+        print("Variants Testing: PARWA ($2,499/mo) & PARWA High ($3,999/mo)")
         print("=" * 70)
 
         # Generate tickets
@@ -561,9 +561,9 @@ class ProductionSimulator:
             name = "PARWA ($2,499/mo)" if variant == "parwa" else "PARWA High ($3,999/mo)"
             r = self.results[variant]
             resolve_rate = (
-                r["resolved"] /
-                r["processed"] *
-                100) if r["processed"] > 0 else 0
+                r["resolved"]
+                / r["processed"]
+                * 100) if r["processed"] > 0 else 0
 
             print(f"\n{name}")
             print("-" * 40)
@@ -582,9 +582,9 @@ class ProductionSimulator:
         total_resolved = self.results["parwa"]["resolved"] + \
             self.results["parwa_high"]["resolved"]
         overall_rate = (
-            total_resolved /
-            total_processed *
-            100) if total_processed > 0 else 0
+            total_resolved
+            / total_processed
+            * 100) if total_processed > 0 else 0
 
         if overall_rate >= 80:
             print("✅ PRODUCTION READY - High confidence")

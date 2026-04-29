@@ -1010,7 +1010,7 @@ class TicketService:
                 "risk_score": 0.5,
                 "mode": "supervised",
                 "shadow_log_id": None,
-                "reason": f"Evaluation error - defaulting to supervised",
+                "reason": "Evaluation error - defaulting to supervised",
                 "error": str(e),
                 "auto_execute": False,
             }

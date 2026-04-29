@@ -1171,8 +1171,8 @@ class TestSuspiciousPatterns:
         svc.register_instance("company", "inst-2", "mini_parwa")
         svc.register_instance("company", "inst-3", "mini_parwa")
         alerts = svc.detect_suspicious_patterns("company")
-        rapid_alerts = [a for a in alerts if a.alert_type ==
-                        "rapid_instance_creation"]
+        rapid_alerts = [a for a in alerts if a.alert_type
+                        == "rapid_instance_creation"]
         assert len(rapid_alerts) == 1
         assert rapid_alerts[0].level == ArbitrageAlertLevel.HIGH
 
@@ -1220,8 +1220,8 @@ class TestSuspiciousPatterns:
         for i in range(5):
             svc.register_instance("company", f"inst-{i}", "mini_parwa")
         alerts = svc.detect_suspicious_patterns("company")
-        hoarding = [a for a in alerts if a.alert_type ==
-                    "single_variant_hoarding"]
+        hoarding = [a for a in alerts if a.alert_type
+                    == "single_variant_hoarding"]
         assert len(hoarding) == 1
         assert hoarding[0].level == ArbitrageAlertLevel.HIGH
 
@@ -1243,8 +1243,8 @@ class TestSuspiciousPatterns:
         for i in range(5):
             svc2.register_instance("company", f"inst-{i}", "parwa")
         alerts = svc2.detect_suspicious_patterns("company")
-        hoarding = [a for a in alerts if a.alert_type ==
-                    "single_variant_hoarding"]
+        hoarding = [a for a in alerts if a.alert_type
+                    == "single_variant_hoarding"]
         assert len(hoarding) == 0
 
     def test_multiple_alert_types_simultaneously(self):
@@ -1280,8 +1280,8 @@ class TestSuspiciousPatterns:
         for i in range(4):
             svc.register_instance("company", f"inst-{i}", "mini_parwa")
         alerts = svc.detect_suspicious_patterns("company")
-        hoarding = [a for a in alerts if a.alert_type ==
-                    "single_variant_hoarding"]
+        hoarding = [a for a in alerts if a.alert_type
+                    == "single_variant_hoarding"]
         assert len(hoarding) == 0
 
 

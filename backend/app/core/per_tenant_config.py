@@ -475,7 +475,7 @@ class TenantConfigManager:
                 if category not in CATEGORY_SCHEMAS:
                     raise ValueError(
                         f"Invalid category: {category}. "
-                        f"Must be one of "
+                        "Must be one of "
                         f"{list(CATEGORY_SCHEMAS.keys())}"
                     )
                 if company_id in self._overrides:
@@ -568,14 +568,14 @@ class TenantConfigManager:
             if "strategy" in config_dict:
                 if config_dict["strategy"] not in VALID_STRATEGIES:
                     errors.append(
-                        f"Invalid strategy: "
+                        "Invalid strategy: "
                         f"{config_dict['strategy']}. "
                         f"Must be one of {VALID_STRATEGIES}"
                     )
             if "level" in config_dict:
                 if config_dict["level"] not in VALID_LEVELS:
                     errors.append(
-                        f"Invalid level: "
+                        "Invalid level: "
                         f"{config_dict['level']}. "
                         f"Must be one of {VALID_LEVELS}"
                     )
@@ -586,7 +586,7 @@ class TenantConfigManager:
                 if vt not in VALID_VARIANT_TYPES:
                     errors.append(
                         f"Invalid variant_type: {vt}. "
-                        f"Must be one of "
+                        "Must be one of "
                         f"{VALID_VARIANT_TYPES}"
                     )
 
@@ -604,7 +604,7 @@ class TenantConfigManager:
                     if not (0.0 <= temp <= 2.0):
                         warnings.append(
                             f"Temperature {temp} is outside "
-                            f"recommended range [0.0, 2.0]"
+                            "recommended range [0.0, 2.0]"
                         )
 
         # Positive value checks
@@ -658,7 +658,7 @@ class TenantConfigManager:
                     if not isinstance(val, (int, float)):
                         errors.append(
                             f"Threshold for '{tid}' must be "
-                            f"a number"
+                            "a number"
                         )
 
         return ValidationResult(

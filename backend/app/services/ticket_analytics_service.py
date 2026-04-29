@@ -364,8 +364,8 @@ class TicketAnalyticsService:
         first_response_times = []
         for t in timers:
             if t.first_response_at and t.created_at:
-                minutes = (t.first_response_at -
-                           t.created_at).total_seconds() / 60
+                minutes = (t.first_response_at
+                           - t.created_at).total_seconds() / 60
                 first_response_times.append(minutes)
 
         resolution_times = []
@@ -538,8 +538,8 @@ class TicketAnalyticsService:
         times = []
         for ticket in tickets:
             if ticket.first_response_at and ticket.created_at:
-                hours = (ticket.first_response_at -
-                         ticket.created_at).total_seconds() / 3600
+                hours = (ticket.first_response_at
+                         - ticket.created_at).total_seconds() / 3600
                 times.append(hours)
 
         return sum(times) / len(times) if times else None

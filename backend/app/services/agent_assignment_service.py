@@ -65,7 +65,7 @@ def _validate_status(status: str) -> None:
         raise ValidationError(
             message=(
                 f"Invalid status '{status}'. "
-                f"Must be one of: "
+                "Must be one of: "
                 f"{', '.join(sorted(VALID_STATUSES))}"
             ),
         )
@@ -138,7 +138,7 @@ def register_agent(
         raise ValidationError(
             message=(
                 f"Agent with name '{agent_name.strip()}' "
-                f"already exists"
+                "already exists"
             ),
         )
 

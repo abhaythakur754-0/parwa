@@ -178,7 +178,7 @@ _ALLOWED_TAGS: Set[str] = {
     "p", "br", "strong", "em", "ul", "ol", "li", "a", "span", "div",
 }
 
-_ALLOWED_ATTRS: Set[str] = {"href", "class", "style", "title"}
+_ALLOWED_ATTRS: Set[str] = {"hre", "class", "style", "title"}
 
 # Regex for stripping dangerous content
 _RE_SCRIPT = re.compile(
@@ -1251,16 +1251,16 @@ class ResponseTemplateService:
                 if open_count > close_count:
                     unclosed_count = open_count - close_count
                     errors.append(
-                        f"Unclosed variable tags detected: "
+                        "Unclosed variable tags detected: "
                         f"{unclosed_count} more opening braces than closing"
                     )
                     for m in all_open[close_count:]:
                         unclosed.append("{{")
                 else:
                     errors.append(
-                        f"Orphan closing braces detected: " f"{
-                            close_count -
-                            open_count} more closing braces than opening")
+                        "Orphan closing braces detected: " f"{
+                            close_count
+                            - open_count} more closing braces than opening")
 
             # Check for whitespace or special chars inside braces
             for m in re.finditer(r"\{\{([^}]*)\}\}", template_content):
@@ -1272,7 +1272,7 @@ class ResponseTemplateService:
                 elif not re.match(r"^\w+$", inner):
                     warnings.append(
                         f"Variable '{inner}' contains non-word characters; "
-                        f"consider using only letters, digits, and underscores"
+                        "consider using only letters, digits, and underscores"
                     )
 
             # Warn about unknown variables

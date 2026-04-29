@@ -157,8 +157,8 @@ def process_webhook(
 
     if not _validate_provider(provider):
         raise ValueError(
-            f"Invalid provider: must be one of "
-            f"paddle, twilio, shopify, brevo"
+            "Invalid provider: must be one of "
+            "paddle, twilio, shopify, brevo"
         )
 
     if not event_id or not isinstance(event_id, str):
@@ -330,7 +330,7 @@ def retry_failed_webhook(event_db_id: str) -> dict:
             raise ValueError(
                 f"Maximum retry attempts ({MAX_RETRY_ATTEMPTS}) "
                 f"exceeded for event {event_db_id}. "
-                f"Manual intervention required."
+                "Manual intervention required."
             )
 
         # Reset to pending, increment attempts

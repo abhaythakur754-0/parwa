@@ -1243,8 +1243,8 @@ class TestDay26Integration:
             if cluster.avg_confidence > 0.8:
                 cluster.status = ClusterStatus.APPROVED.value
 
-        approved = [c for c in clusters if c.status ==
-                    ClusterStatus.APPROVED.value]
+        approved = [c for c in clusters if c.status
+                    == ClusterStatus.APPROVED.value]
         assert len(approved) >= 1
 
     def test_technique_executor_full_pipeline(self):

@@ -171,10 +171,10 @@ class TestHelperFunctions:
         parsed = _parse_iso(ts)
         assert parsed is not None
         assert (
-            parsed -
-            _parse_iso(base)).total_seconds() == pytest.approx(
-            72 *
-            3600,
+            parsed
+            - _parse_iso(base)).total_seconds() == pytest.approx(
+            72
+            * 3600,
             abs=1)
 
     def test_compute_auto_reject_at_critical(self):
@@ -183,10 +183,10 @@ class TestHelperFunctions:
         parsed = _parse_iso(ts)
         assert parsed is not None
         assert (
-            parsed -
-            _parse_iso(base)).total_seconds() == pytest.approx(
-            24 *
-            3600,
+            parsed
+            - _parse_iso(base)).total_seconds() == pytest.approx(
+            24
+            * 3600,
             abs=1)
 
     def test_compute_auto_reject_at_urgent(self):
@@ -195,10 +195,10 @@ class TestHelperFunctions:
         parsed = _parse_iso(ts)
         assert parsed is not None
         assert (
-            parsed -
-            _parse_iso(base)).total_seconds() == pytest.approx(
-            48 *
-            3600,
+            parsed
+            - _parse_iso(base)).total_seconds() == pytest.approx(
+            48
+            * 3600,
             abs=1)
 
 
@@ -630,8 +630,8 @@ class TestCleanup:
         # Set updated_at to 100 days ago
         old_time = (
             datetime.now(
-                timezone.utc) -
-            timedelta(
+                timezone.utc)
+            - timedelta(
                 days=100)).isoformat()
         br.updated_at = old_time
         deleted = manager.cleanup_old_records(COMPANY_ID, days=90)
@@ -647,8 +647,8 @@ class TestCleanup:
             ReviewAction.REJECTED.value)
         old_time = (
             datetime.now(
-                timezone.utc) -
-            timedelta(
+                timezone.utc)
+            - timedelta(
                 days=100)).isoformat()
         br.updated_at = old_time
         deleted = manager.cleanup_old_records(COMPANY_ID, days=90)
@@ -659,8 +659,8 @@ class TestCleanup:
         # Make it very old but still pending
         old_time = (
             datetime.now(
-                timezone.utc) -
-            timedelta(
+                timezone.utc)
+            - timedelta(
                 days=200)).isoformat()
         br.created_at = old_time
         br.updated_at = old_time
@@ -678,8 +678,8 @@ class TestCleanup:
         # Set to 50 days ago
         old_time = (
             datetime.now(
-                timezone.utc) -
-            timedelta(
+                timezone.utc)
+            - timedelta(
                 days=50)).isoformat()
         br.updated_at = old_time
         # With 90-day retention, should NOT be cleaned
@@ -691,15 +691,15 @@ class TestCleanup:
         br = _make_blocked(manager)
         old_time = (
             datetime.now(
-                timezone.utc) -
-            timedelta(
+                timezone.utc)
+            - timedelta(
                 hours=200)).isoformat()
         br.auto_reject_at = old_time
         manager.process_auto_rejects(COMPANY_ID)
         br.updated_at = (
             datetime.now(
-                timezone.utc) -
-            timedelta(
+                timezone.utc)
+            - timedelta(
                 days=100)).isoformat()
         deleted = manager.cleanup_old_records(COMPANY_ID, days=90)
         assert deleted == 1

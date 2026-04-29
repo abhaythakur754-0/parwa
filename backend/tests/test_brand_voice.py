@@ -1285,8 +1285,8 @@ class TestMultiWordProhibitedPhrases:
             "We offer guaranteed returns on investment.", "corp-001",
         )
         assert result.has_violations is True
-        assert any(v["normalized_form"] ==
-                   "guaranteed returns" for v in result.violations)
+        assert any(v["normalized_form"]
+                   == "guaranteed returns" for v in result.violations)
 
     @pytest.mark.asyncio
     async def test_multi_word_phrase_not_partial_match(self, service):

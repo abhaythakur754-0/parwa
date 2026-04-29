@@ -656,8 +656,8 @@ class AgentTrainingService:
         runs = query.all()
 
         total_runs = len(runs)
-        completed = len([r for r in runs if r.status ==
-                        TRAINING_STATUS_COMPLETED])
+        completed = len([r for r in runs if r.status
+                        == TRAINING_STATUS_COMPLETED])
         failed = len([r for r in runs if r.status == TRAINING_STATUS_FAILED])
         running = len([r for r in runs if r.status == TRAINING_STATUS_RUNNING])
         queued = len([r for r in runs if r.status == TRAINING_STATUS_QUEUED])

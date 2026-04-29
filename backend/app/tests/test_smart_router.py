@@ -237,23 +237,23 @@ class TestSharedHealthState:
 
 class TestModelRegistry:
     def test_has_light_models(self):
-        light = [m for m in MODEL_REGISTRY.values() if m.tier ==
-                 ModelTier.LIGHT]
+        light = [m for m in MODEL_REGISTRY.values() if m.tier
+                 == ModelTier.LIGHT]
         assert len(light) >= 2
 
     def test_has_medium_models(self):
-        medium = [m for m in MODEL_REGISTRY.values() if m.tier ==
-                  ModelTier.MEDIUM]
+        medium = [m for m in MODEL_REGISTRY.values() if m.tier
+                  == ModelTier.MEDIUM]
         assert len(medium) >= 2
 
     def test_has_heavy_models(self):
-        heavy = [m for m in MODEL_REGISTRY.values() if m.tier ==
-                 ModelTier.HEAVY]
+        heavy = [m for m in MODEL_REGISTRY.values() if m.tier
+                 == ModelTier.HEAVY]
         assert len(heavy) >= 2
 
     def test_has_guardrail_model(self):
-        guardrail = [m for m in MODEL_REGISTRY.values() if m.tier ==
-                     ModelTier.GUARDRAIL]
+        guardrail = [m for m in MODEL_REGISTRY.values() if m.tier
+                     == ModelTier.GUARDRAIL]
         assert len(guardrail) >= 1
 
 

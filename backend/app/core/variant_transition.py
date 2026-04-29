@@ -1656,12 +1656,12 @@ class VariantTransitionHandler:
         )
 
         message = (
-            f"Your PARWA variant has been downgraded from "
+            "Your PARWA variant has been downgraded from "
             f"'{from_variant}' to '{to_variant}'. "
-            f"The following features are no longer available: "
+            "The following features are no longer available: "
             f"{feature_list}. "
-            f"Existing tickets in-flight will complete their current "
-            f"turn with previous capabilities before switching."
+            "Existing tickets in-flight will complete their current "
+            "turn with previous capabilities before switching."
         )
 
         notice = DeactivationNotice(
@@ -1899,10 +1899,10 @@ class VariantTransitionHandler:
                 t for t in history if t.transition_type == TransitionType.UPGRADE]
             downgrades = [
                 t for t in history if t.transition_type == TransitionType.DOWNGRADE]
-            completed = [t for t in history if t.status ==
-                         TransitionStatus.COMPLETED]
-            rolled_back = [t for t in history if t.status ==
-                           TransitionStatus.ROLLED_BACK]
+            completed = [t for t in history if t.status
+                         == TransitionStatus.COMPLETED]
+            rolled_back = [t for t in history if t.status
+                           == TransitionStatus.ROLLED_BACK]
 
             effective_variant = self.get_company_effective_variant(company_id)
 

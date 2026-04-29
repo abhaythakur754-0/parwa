@@ -592,7 +592,7 @@ class TokenBudgetService:
                 error=(
                     f"Token budget overflow: cannot reserve {tokens} tokens. "
                     f"Remaining capacity: {remaining}. "
-                    f"Consider truncating older messages."
+                    "Consider truncating older messages."
                 ),
             )
 
@@ -876,8 +876,8 @@ class TokenBudgetService:
             if status.available_tokens >= estimated_tokens:
                 return OverflowCheck(
                     can_fit=True,
-                    remaining_tokens=status.available_tokens -
-                    estimated_tokens,
+                    remaining_tokens=status.available_tokens
+                    - estimated_tokens,
                     overflow_amount=0,
                     truncation_needed=False,
                     suggested_truncation_tokens=0,
@@ -955,7 +955,7 @@ class TokenBudgetService:
                     strategy="keep_all",
                     reason=(
                         f"Usage at {pct:.1f}% (below {warning_threshold:.0f}% "
-                        f"warning threshold). No context management needed."
+                        "warning threshold). No context management needed."
                     ),
                     tokens_to_remove=0,
                     messages_to_remove=0,
@@ -972,7 +972,7 @@ class TokenBudgetService:
                     strategy_type="truncate_old",
                     reason=(
                         f"Usage at {pct:.1f}% (warning zone). "
-                        f"Recommend truncating oldest messages to free space."
+                        "Recommend truncating oldest messages to free space."
                     ),
                 )
 
@@ -985,7 +985,7 @@ class TokenBudgetService:
                     status=status,
                     reason=(
                         f"Usage at {pct:.1f}% (critical zone). "
-                        f"Recommend summarizing older messages to preserve context."
+                        "Recommend summarizing older messages to preserve context."
                     ),
                 )
 
@@ -997,7 +997,7 @@ class TokenBudgetService:
                 status=status,
                 reason=(
                     f"Usage at {pct:.1f}% (exhausted). "
-                    f"Must use sliding window — only keeping recent messages."
+                    "Must use sliding window — only keeping recent messages."
                 ),
             )
 

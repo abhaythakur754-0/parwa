@@ -59,10 +59,10 @@ _STOP_WORDS: frozenset = frozenset({
     "the", "a", "an", "is", "are", "was", "were", "be", "been",
     "being", "have", "has", "had", "do", "does", "did", "will",
     "would", "could", "should", "may", "might", "can", "shall",
-    "to", "of", "in", "for", "on", "with", "at", "by", "from",
+    "to", "o", "in", "for", "on", "with", "at", "by", "from",
     "it", "its", "this", "that", "these", "those", "i", "me",
     "my", "we", "our", "you", "your", "he", "she", "they",
-    "them", "their", "and", "but", "or", "so", "if", "then",
+    "them", "their", "and", "but", "or", "so", "i", "then",
     "not", "no", "yes", "just", "also", "very", "too",
 })
 

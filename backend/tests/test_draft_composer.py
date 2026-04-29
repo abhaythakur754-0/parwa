@@ -679,12 +679,12 @@ class TestDeduplication:
         """Drafts that are 90%+ similar should be deduplicated."""
         base = "Thank you for contacting our support team. We are happy to help you with your inquiry. "
         d1 = _make_draft(
-            content=base +
-            "Please let us know how else we can assist.",
+            content=base
+            + "Please let us know how else we can assist.",
             quality_score=0.9)
         d2 = _make_draft(
-            content=base +
-            "Please let us know what else we can assist.",
+            content=base
+            + "Please let us know what else we can assist.",
             quality_score=0.8)
         result = self.composer._deduplicate_drafts([d1, d2])
         assert len(result) == 1
@@ -721,12 +721,12 @@ class TestDeduplication:
     def test_three_drafts_two_similar_one_removed(self):
         base = "We apologize for the inconvenience caused. "
         d1 = _make_draft(
-            content=base +
-            "Here is your refund info.",
+            content=base
+            + "Here is your refund info.",
             quality_score=0.9)
         d2 = _make_draft(
-            content=base +
-            "Here is the refund info.",
+            content=base
+            + "Here is the refund info.",
             quality_score=0.85)
         d3 = _make_draft(
             content="Completely different response text here.",

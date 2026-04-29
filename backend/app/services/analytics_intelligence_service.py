@@ -231,7 +231,7 @@ def _check_channel_usage(
                     "message": (
                         f"No tickets received via {channel_name} in the last "
                         f"{CHANNEL_NOT_USED_THRESHOLD} days. "
-                        f"Activate it to reach more customers."
+                        "Activate it to reach more customers."
                     ),
                     "action_label": "Configure Channel",
                     "action_url": f"/settings/channels/{channel_key}",

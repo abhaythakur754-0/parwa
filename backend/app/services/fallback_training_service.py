@@ -166,8 +166,8 @@ class FallbackTrainingService:
                 else:
                     is_due = False
                     reason = f"not_due_yet_{
-                        RETRAINING_INTERVAL_DAYS -
-                        days_since_training}_days_remaining"
+                        RETRAINING_INTERVAL_DAYS
+                        - days_since_training}_days_remaining"
             else:
                 is_due = False
                 reason = "recently_trained"

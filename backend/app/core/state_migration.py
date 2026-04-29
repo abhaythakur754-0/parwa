@@ -176,12 +176,12 @@ def _migrate_v4_to_v5(
         else:
             warnings.append(
                 f"Unknown gsd_state int value: {gsd}, "
-                f"falling back to 'new'"
+                "falling back to 'new'"
             )
             state["gsd_state"] = "new"
             changes.append(
                 f"Converted gsd_state from int {gsd} "
-                f"to fallback 'new'"
+                "to fallback 'new'"
             )
     elif isinstance(gsd, str):
         warnings.append(
@@ -189,7 +189,7 @@ def _migrate_v4_to_v5(
         )
     else:
         warnings.append(
-            f"gsd_state has unexpected type "
+            "gsd_state has unexpected type "
             f"{type(gsd).__name__}, setting to 'new'"
         )
         state["gsd_state"] = "new"
@@ -246,9 +246,9 @@ def _migrate_v5_to_v6(
                 )
         else:
             warnings.append(
-                f"signals has unexpected type "
+                "signals has unexpected type "
                 f"{type(state['signals']).__name__}, "
-                f"replacing with defaults"
+                "replacing with defaults"
             )
             state["signals"] = copy.deepcopy(default_signals)
             changes.append(
@@ -450,7 +450,7 @@ class StateMigrator:
             else:
                 warnings.append(
                     f"Unknown gsd_state string '{gsd}', "
-                    f"falling back to 0"
+                    "falling back to 0"
                 )
                 state["gsd_state"] = 0
                 changes.append(
@@ -496,9 +496,9 @@ class StateMigrator:
 
         if from_version > to_version:
             raise ValueError(
-                f"Cannot migrate backwards from "
+                "Cannot migrate backwards from "
                 f"v{from_version} to v{to_version}. "
-                f"Use rollback instead."
+                "Use rollback instead."
             )
 
         path: List[Tuple[int, int]] = []
@@ -507,7 +507,7 @@ class StateMigrator:
             step = (current, current + 1)
             if step not in self._registry:
                 raise ValueError(
-                    f"No migration registered for step "
+                    "No migration registered for step "
                     f"v{current} -> v{current + 1}"
                 )
             path.append(step)
@@ -601,7 +601,7 @@ class StateMigrator:
                     )
                     if not step_val.valid:
                         all_warnings.append(
-                            f"Validation warning after "
+                            "Validation warning after "
                             f"v{from_v}->v{to_v}: "
                             f"{step_val.errors}"
                         )
@@ -688,7 +688,7 @@ class StateMigrator:
                     to_version=target_version,
                     changes_made=[],
                     warnings=[
-                        f"No rollback registered for step "
+                        "No rollback registered for step "
                         f"v{current}->v{current - 1}"
                     ],
                     state_after=copy.deepcopy(state_dict),

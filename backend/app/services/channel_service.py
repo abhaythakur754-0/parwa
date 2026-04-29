@@ -415,8 +415,8 @@ class ChannelService:
             "retry_count": 0,
             "next_retry_at": (
                 datetime.now(
-                    timezone.utc) +
-                timedelta(
+                    timezone.utc)
+                + timedelta(
                     minutes=self.VARIANT_RETRY_DELAY_MINUTES)).isoformat(),
         }
         ticket.metadata_json = json.dumps(metadata)
@@ -523,8 +523,8 @@ class ChannelService:
                 "retry_count", 0) + 1
             failure_info["next_retry_at"] = (
                 datetime.now(
-                    timezone.utc) +
-                timedelta(
+                    timezone.utc)
+                + timedelta(
                     minutes=self.VARIANT_RETRY_DELAY_MINUTES)).isoformat()
             metadata["variant_failure"] = failure_info
 

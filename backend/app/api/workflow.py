@@ -223,7 +223,7 @@ def get_workflow_state(
         if state is None:
             raise NotFoundError(
                 message=(
-                    f"No workflow state found for "
+                    "No workflow state found for "
                     f"conversation '{conversation_id}'"
                 ),
                 details={"conversation_id": conversation_id},
@@ -355,7 +355,7 @@ def force_state_transition(
         if state is None:
             raise NotFoundError(
                 message=(
-                    f"No workflow state found for "
+                    "No workflow state found for "
                     f"conversation '{conversation_id}'"
                 ),
                 details={"conversation_id": conversation_id},

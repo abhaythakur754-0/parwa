@@ -870,7 +870,7 @@ class TestPipelineWithRealServices:
         content, msg_type, metadata, knowledge = result
 
         # Sentiment should be present (real service was called)
-        print(f"\n  === PIPELINE RESULT (angry message) ===")
+        print("\n  === PIPELINE RESULT (angry message) ===")
         print(f"  Content: '{content[:100]}...'")
         print(f"  Message type: {msg_type}")
         print(f"  Sentiment in metadata: {metadata.get('sentiment')}")
@@ -888,7 +888,7 @@ class TestPipelineWithRealServices:
                 f"  ✓ SENTIMENT IS REAL: frustration={
                     metadata['sentiment']['frustration_score']}")
         else:
-            print(f"  ✗ Sentiment is None — service call may have failed internally")
+            print("  ✗ Sentiment is None — service call may have failed internally")
 
     def test_pipeline_different_tones_for_different_messages(self):
         """PROVE: Pipeline produces DIFFERENT metadata for happy vs angry messages."""
@@ -923,7 +923,7 @@ class TestPipelineWithRealServices:
             print(f"  Frustration diff: {abs(happy_f - angry_f)}")
             # They might be the same if the service doesn't produce different results
             # due to simple keyword matching not catching all patterns
-            print(f"  ✓ Both have real sentiment data")
+            print("  ✓ Both have real sentiment data")
 
     def test_pipeline_when_all_services_fail(self):
         """Pipeline still works when all services fail (baseline behavior)."""
@@ -1040,13 +1040,13 @@ class TestDiagnosticWhyUserCantSeeChanges:
 
         print(
             f"\n  Standard prompt additions: {
-                len(prompt_standard) -
-                len('You are Jarvis.')} chars")
+                len(prompt_standard)
+                - len('You are Jarvis.')} chars")
         print(
             f"  De-escalation prompt additions: {
-                len(prompt_deescalation) -
-                len('You are Jarvis.')} chars")
-        print(f"  Both still start with 'You are Jarvis.'")
+                len(prompt_deescalation)
+                - len('You are Jarvis.')} chars")
+        print("  Both still start with 'You are Jarvis.'")
         print("  FINDING: Sentiment only APPENDS to prompt. AI may not change behavior")
 
     def test_response_formatters_are_subtle(self):

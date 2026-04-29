@@ -552,7 +552,7 @@ class ChatWidgetService:
             .filter(
                 ChatWidgetMessage.session_id == session_id,
                 ChatWidgetMessage.company_id == company_id,
-                ChatWidgetMessage.is_read == False,  # noqa: E712
+                ChatWidgetMessage.is_read is False,  # noqa: E712
                 ChatWidgetMessage.role != "system",
             )
             .all()
@@ -1040,7 +1040,7 @@ class ChatWidgetService:
         # Check total message limit
         if session.message_count >= MAX_MESSAGES_PER_SESSION:
             return (
-                f"BC-006: Session message limit exceeded "
+                "BC-006: Session message limit exceeded "
                 f"({MAX_MESSAGES_PER_SESSION})"
             )
 
@@ -1058,7 +1058,7 @@ class ChatWidgetService:
 
         if recent_count >= MAX_VISITOR_MESSAGES_PER_HOUR:
             return (
-                f"BC-006: Visitor rate limit exceeded "
+                "BC-006: Visitor rate limit exceeded "
                 f"({MAX_VISITOR_MESSAGES_PER_HOUR} messages/hour)"
             )
 

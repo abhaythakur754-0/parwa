@@ -50,7 +50,7 @@ OOO_AUTO_SUBMITTED_VALUES = [
 ]
 
 OOO_X_AUTO_RESPONSE_VALUES = [
-    "oof", "dr", "autoreply", "all",
+    "oo", "dr", "autoreply", "all",
 ]
 
 # ── Body pattern matching ────────────────────────────────────────

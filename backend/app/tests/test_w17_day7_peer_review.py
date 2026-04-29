@@ -91,7 +91,7 @@ class TestPeerReviewService:
             response_draft="Test response",
         )
 
-        assert result["escalated"] == False
+        assert result["escalated"] is False
         assert result["reason"] == "agent_not_found"
 
     def test_auto_escalate_not_junior_tier(self, service, mock_db):
@@ -110,7 +110,7 @@ class TestPeerReviewService:
             response_draft="Test response",
         )
 
-        assert result["escalated"] == False
+        assert result["escalated"] is False
         assert result["reason"] == "not_junior_tier"
 
     def test_auto_escalate_confidence_above_threshold(self, service, mock_db):
@@ -129,7 +129,7 @@ class TestPeerReviewService:
             response_draft="Test response",
         )
 
-        assert result["escalated"] == False
+        assert result["escalated"] is False
         assert result["reason"] == "confidence_above_threshold"
 
     def test_get_review_queue(self, service, mock_db):
@@ -363,7 +363,7 @@ class TestPeerReviewAPIEndpoints:
         )
 
         assert req.senior_agent_id == "senior-123"
-        assert req.approved == False
+        assert req.approved is False
         assert req.use_for_training
 
 

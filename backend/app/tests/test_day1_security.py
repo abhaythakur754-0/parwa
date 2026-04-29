@@ -84,7 +84,7 @@ class TestCSRFMiddleware:
         request = MagicMock()
         request.method = "POST"
         request.url.path = "/api/tickets"
-        request.cookies = {"parwa_csrf": "val"}  # has cookies but header empty
+        request.cookies = {"parwa_csr": "val"}  # has cookies but header empty
         request.headers = MagicMock()
         request.headers.get = MagicMock(return_value="")
 
@@ -99,7 +99,7 @@ class TestCSRFMiddleware:
         request = MagicMock()
         request.method = "POST"
         request.url.path = "/api/tickets"
-        request.cookies = {"parwa_csrf": "test-token-123"}
+        request.cookies = {"parwa_csr": "test-token-123"}
         request.headers = MagicMock()
         request.headers.get = MagicMock(return_value="test-token-123")
 
@@ -114,7 +114,7 @@ class TestCSRFMiddleware:
         request = MagicMock()
         request.method = "POST"
         request.url.path = "/api/tickets"
-        request.cookies = {"parwa_csrf": "token-a"}
+        request.cookies = {"parwa_csr": "token-a"}
         request.headers = MagicMock()
         request.headers.get = MagicMock(return_value="token-b")
 

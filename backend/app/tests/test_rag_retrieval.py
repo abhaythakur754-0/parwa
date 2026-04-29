@@ -62,7 +62,7 @@ class TestMockVectorStoreBasics:
             document_id="doc1",
             chunks=[{"content": "Test content"}],
             company_id="c1",
-            metadata={"source": "test.pdf", "page": 1},
+            metadata={"source": "test.pd", "page": 1},
         )
         doc = self.store.get_document("doc1", "c1")
         assert doc["metadata"]["source"] == "test.pdf"
@@ -102,7 +102,7 @@ class TestMockVectorStoreBasics:
                 {"content": "Test", "metadata": {"section": "intro"}},
             ],
             company_id="c1",
-            metadata={"source": "manual.pdf", "page": 5},
+            metadata={"source": "manual.pd", "page": 5},
         )
         doc = self.store.get_document("doc1", "c1")
         assert doc["chunks"][0]["metadata"]["source"] == "manual.pdf"
@@ -449,7 +449,7 @@ class TestRAGRetrieverBasic:
                 {"content": "To process a refund, contact support with your order number"},
             ],
             "c1",
-            {"source": "refund_policy.pdf", "page": 1},
+            {"source": "refund_policy.pd", "page": 1},
         )
         self.store.add_document(
             "tech_doc",

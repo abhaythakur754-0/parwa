@@ -427,7 +427,7 @@ class PgVectorStore(VectorStore):
         where_sql = " AND ".join(where_clauses)
         params["limit"] = top_k
 
-        query_sql = f"""
+        query_sql = """
             SELECT id, metadata, embedding <=> :query_embedding::vector AS similarity
             FROM knowledge_base_vectors
             WHERE {where_sql}

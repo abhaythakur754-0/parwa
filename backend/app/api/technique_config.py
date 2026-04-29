@@ -376,8 +376,8 @@ async def update_technique_config(
                     "error": "Invalid technique_id",
                     "detail": (
                         f"Technique '{technique_id}' not found "
-                        f"in TECHNIQUE_REGISTRY. "
-                        f"Valid: "
+                        "in TECHNIQUE_REGISTRY. "
+                        "Valid: "
                         f"{[t.value for t in TechniqueID]}"
                     ),
                 },
@@ -392,7 +392,7 @@ async def update_technique_config(
                     "error": "Tier 1 techniques cannot be disabled",
                     "detail": (
                         f"Technique '{technique_id}' is Tier 1 (always-active) "
-                        f"and cannot be disabled. Tier 1 techniques are: "
+                        "and cannot be disabled. Tier 1 techniques are: "
                         f"{[t.value for t in TechniqueID if TECHNIQUE_REGISTRY[t].tier == TechniqueTier.TIER_1]}"
                     ),
                 },
@@ -469,8 +469,8 @@ async def get_technique_config(
                     "error": "Invalid technique_id",
                     "detail": (
                         f"Technique '{technique_id}' not found "
-                        f"in TECHNIQUE_REGISTRY. "
-                        f"Valid: "
+                        "in TECHNIQUE_REGISTRY. "
+                        "Valid: "
                         f"{[t.value for t in TechniqueID]}"
                     ),
                 },

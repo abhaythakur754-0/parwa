@@ -937,7 +937,7 @@ def send_business_otp(
         otp_html = render_email_template(
             "otp_email.html",
             {"otp_code": otp_code, "expires_minutes": OTP_EXPIRY_MINUTES},
-        ) if hasattr(render_email_template, '__call__') else f"""
+        ) if hasattr(render_email_template, '__call__') else """
         <html><body>
         <h2>Your PARWA Verification Code</h2>
         <p>Your business email verification code is:</p>
@@ -1006,8 +1006,8 @@ def verify_business_otp(
         return {
             "message": "Email does not match the one OTP was sent to",
             "status": "error",
-            "attempts_remaining": MAX_OTP_ATTEMPTS -
-            otp_data.get(
+            "attempts_remaining": MAX_OTP_ATTEMPTS
+            - otp_data.get(
                 "attempts",
                 0),
         }
@@ -1052,11 +1052,11 @@ def verify_business_otp(
 
     return {
         "message": f"Invalid OTP. {
-            MAX_OTP_ATTEMPTS -
-            attempts} attempts remaining.",
+            MAX_OTP_ATTEMPTS
+            - attempts} attempts remaining.",
         "status": "invalid",
-        "attempts_remaining": MAX_OTP_ATTEMPTS -
-        attempts,
+        "attempts_remaining": MAX_OTP_ATTEMPTS
+        - attempts,
     }
 
 
@@ -2174,22 +2174,22 @@ def build_system_prompt(
     if clicked_variant:
         welcome_instruction += (
             f"CRITICAL: The user was just looking at '{clicked_variant}' on the Models page. "
-            f"You MUST mention this in your first message. Say something like: "
+            "You MUST mention this in your first message. Say something like: "
             f"'I see you were checking out {clicked_variant}! Here's what I can do for you — '"
-            f"then explain what this model handles, what problems it solves, "
-            f"and offer to show them how it works or compare with other models. "
+            "then explain what this model handles, what problems it solves, "
+            "and offer to show them how it works or compare with other models. "
         )
     elif entry_source == "roi":
         roi = ctx.get("roi_result")
         if roi:
             savings_pct = roi.get("savings_pct", "")
             welcome_instruction += (
-                f"CRITICAL: The user just used the ROI Calculator. "
-                f"You MUST reference their results in your welcome. "
+                "CRITICAL: The user just used the ROI Calculator. "
+                "You MUST reference their results in your welcome. "
             )
             if savings_pct:
                 welcome_instruction += (
-                    f"Say: 'Based on your calculation, you could save up to "
+                    "Say: 'Based on your calculation, you could save up to "
                     f"{savings_pct}%! Here's how I can help you achieve that — '"
                 )
             welcome_instruction += (
@@ -4308,7 +4308,7 @@ def _call_zai_sdk(messages: List[Dict[str, str]]) -> Optional[str]:
     messages_json = json_mod.dumps(messages)
 
     # Create Node.js script to call the SDK
-    node_script = f"""
+    node_script = """
 const ZAI = require('z-ai-web-dev-sdk').default;
 (async () => {{
     try {{
@@ -4663,7 +4663,7 @@ def jarvis_shadow_set_preference(
         "success": True,
         "message": (
             f"Done! I've set '{action_category}' to {preferred_mode} mode. "
-            f"This change is reflected in your dashboard settings now."
+            "This change is reflected in your dashboard settings now."
         ),
         "preference": preference,
     }
@@ -4769,7 +4769,7 @@ def jarvis_shadow_get_pending(
         "success": True,
         "message": (
             f"You have {result.get('total', 0)} pending action(s) awaiting review. "
-            f"Here are the most recent ones:"
+            "Here are the most recent ones:"
         ),
         "pending_actions": action_list,
         "total": result.get("total", 0),
@@ -4853,7 +4853,7 @@ def jarvis_shadow_approve_last(
         "message": (
             f"Approved! The {last_item.get('action_type', 'action')} "
             f"(risk score: {last_item.get('jarvis_risk_score', 'N/A')}) "
-            f"has been approved and will be executed."
+            "has been approved and will be executed."
         ),
         "approved_action": approved,
     }
@@ -4936,7 +4936,7 @@ def jarvis_shadow_reject_last(
         "success": True,
         "message": (
             f"Rejected. The {last_item.get('action_type', 'action')} "
-            f"will NOT be executed."
+            "will NOT be executed."
         ),
         "rejected_action": rejected,
     }
@@ -5011,7 +5011,7 @@ def jarvis_shadow_switch_mode(
         "message": (
             f"Switched to {new_mode} mode! "
             f"{mode_labels.get(new_mode, '')} "
-            f"Your dashboard header badge has been updated."
+            "Your dashboard header badge has been updated."
         ),
         "mode": new_mode,
         "previous_mode": result.get("previous_mode"),
@@ -5097,7 +5097,7 @@ def jarvis_shadow_undo_last(
         "success": True,
         "message": (
             f"Done! The {last_item.get('action_type', 'action')} has been undone. "
-            f"The reversal has been logged in your audit trail."
+            "The reversal has been logged in your audit trail."
         ),
         "undo_result": undo_result,
     }

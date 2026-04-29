@@ -67,7 +67,7 @@ class ZAILLMClient:
         if self.available:
             try:
                 # Create Node.js script for LLM call
-                script = f'''
+                script = '''
 const ZAI = require('z-ai-web-dev-sdk').default;
 async function main() {{
     try {{
@@ -226,8 +226,8 @@ class ProductionTestResults:
 
     def get_summary(self) -> Dict:
         total = len(self.results["passed"]) + len(self.results["failed"])
-        pass_rate = (len(self.results["passed"]) /
-                     total * 100) if total > 0 else 0
+        pass_rate = (len(self.results["passed"])
+                     / total * 100) if total > 0 else 0
 
         return {
             "total_tests": total,

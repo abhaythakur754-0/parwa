@@ -42,11 +42,11 @@ ALLOWED_CONTENT_TYPES: set = {
 }
 
 """File extensions allowed for upload (F-032)."""
-ALLOWED_EXTENSIONS: set = {".pdf", ".txt", ".md", ".html", ".csv", ".docx"}
+ALLOWED_EXTENSIONS: set = {".pd", ".txt", ".md", ".html", ".csv", ".docx"}
 
 """Mapping from extension to canonical MIME type."""
 EXTENSION_TO_CONTENT_TYPE: dict = {
-    ".pdf": "application/pdf",
+    ".pd": "application/pdf",
     ".txt": "text/plain",
     ".md": "text/markdown",
     ".html": "text/html",
@@ -1193,7 +1193,7 @@ def get_storage_backend() -> StorageBackend:
     else:
         raise ValueError(
             f"Unknown STORAGE_BACKEND value: '{backend_type}'. "
-            f"Must be 'local' or 'gcp'."
+            "Must be 'local' or 'gcp'."
         )
 
     logger.info(
@@ -1346,7 +1346,7 @@ def validate_file_upload(
         raise ValueError(
             f"File size ({actual_mb:.1f} MB) exceeds the limit for "
             f"the '{tier_lower}' tier ({tier_limit_mb:.0f} MB). "
-            f"Upgrade your plan to upload larger files."
+            "Upgrade your plan to upload larger files."
         )
 
     # --- 6. Extension existence ---

@@ -194,8 +194,8 @@ async def metrics_endpoint(
     # Build info
     env = os.environ.get("ENVIRONMENT", "unknown")
     lines.append(
-        f'# HELP parwa_build_info PARWA build information\n'
-        f'# TYPE parwa_build_info gauge\n'
+        '# HELP parwa_build_info PARWA build information\n'
+        '# TYPE parwa_build_info gauge\n'
         f'parwa_build_info{{version="{APP_VERSION}",'
         f'environment="{env}"}} 1'
     )
@@ -203,8 +203,8 @@ async def metrics_endpoint(
     # Uptime
     uptime = _get_uptime_seconds()
     lines.append(
-        f'\n# HELP parwa_uptime_seconds PARWA uptime in seconds\n'
-        f'# TYPE parwa_uptime_seconds gauge\n'
+        '\n# HELP parwa_uptime_seconds PARWA uptime in seconds\n'
+        '# TYPE parwa_uptime_seconds gauge\n'
         f'parwa_uptime_seconds {uptime}'
     )
 
@@ -229,19 +229,19 @@ async def metrics_endpoint(
         )
         lines.append(f'parwa_health_check {{status="aggregate"}} {aggregate}')
         lines.append(
-            f'parwa_health_check '
+            'parwa_health_check '
             f'{{status="checks_total"}} {health.checks_total}'
         )
         lines.append(
-            f'parwa_health_check '
+            'parwa_health_check '
             f'{{status="checks_healthy"}} {health.checks_healthy}'
         )
         lines.append(
-            f'parwa_health_check '
+            'parwa_health_check '
             f'{{status="checks_degraded"}} {health.checks_degraded}'
         )
         lines.append(
-            f'parwa_health_check '
+            'parwa_health_check '
             f'{{status="checks_unhealthy"}} {health.checks_unhealthy}'
         )
 

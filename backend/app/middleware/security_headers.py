@@ -29,8 +29,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "camera=(), microphone=(), geolocation=()"
         )
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: blob:; font-src 'self'; "
+            "default-src 'sel'; script-src 'sel'; style-src 'sel' 'unsafe-inline'; "
+            "img-src 'sel' data: blob:; font-src 'self'; "
             "connect-src 'self' https://*.googleapis.com")
         # HSTS only in production
         env = os.environ.get("ENVIRONMENT", "development")

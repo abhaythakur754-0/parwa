@@ -250,7 +250,7 @@ _DECOMPOSITION_TEMPLATES: Dict[TaskDomain, List[Dict[str, Any]]] = {
             "name": "customer_client_onboarding",
             "trigger_keywords": [
                 "customer", "client", "onboard", "trial", "pilot",
-                "kickoff", "implementation",
+                "kickof", "implementation",
             ],
             "sub_queries": [
                 {
@@ -2717,9 +2717,9 @@ class LeastToMostProcessor:
         if not result:
             result = (
                 f"Analysis for '{sq.text}': This component has been "
-                f"identified as part of the decomposition. A detailed "
-                f"response requires additional context about your specific "
-                f"setup and requirements."
+                "identified as part of the decomposition. A detailed "
+                "response requires additional context about your specific "
+                "setup and requirements."
             )
 
         # Enhance with dependency context if available

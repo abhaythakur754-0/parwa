@@ -283,7 +283,7 @@ class GSDTerminalService:
         # 2. Validate target state
         valid_states = {
             "new", "greeting", "diagnosis", "resolution",
-            "follow_up", "escalate", "human_handoff", "closed",
+            "follow_up", "escalate", "human_handof", "closed",
         }
         target = target_state.lower().strip()
         if target not in valid_states:
@@ -447,7 +447,7 @@ class GSDTerminalService:
                         "priority": "high",
                         "description": (
                             f"Session stuck for {duration / 60:.0f} "
-                            f"minutes — immediate human review needed"
+                            "minutes — immediate human review needed"
                         ),
                     })
                     suggestions.append({
@@ -479,7 +479,7 @@ class GSDTerminalService:
                             "action": "suggest_transition",
                             "priority": "low",
                             "description": (
-                                f"Valid next states from "
+                                "Valid next states from "
                                 f"'{current_state}': "
                                 f"{', '.join(valid)}"
                             ),
@@ -821,8 +821,8 @@ class GSDTerminalService:
             return (
                 f"Stuck in '{state}' for {
                     minutes:.0f} minutes " f"(>{
-                    CRITICAL_STUCK_THRESHOLD_SECONDS /
-                    60:.0f} min critical threshold)")
+                    CRITICAL_STUCK_THRESHOLD_SECONDS
+                    / 60:.0f} min critical threshold)")
         return (
             f"In '{state}' for {minutes:.0f} minutes "
             f"(>{STUCK_THRESHOLD_SECONDS / 60:.0f} min threshold)"

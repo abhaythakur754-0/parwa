@@ -1739,7 +1739,7 @@ class GracefulEscalationManager:
 
             lines: List[str] = [
                 f"{severity_emoji} Escalation Alert [{
-                    record.severity.upper()}]", f"", f"Trigger: {trigger_label}", f"Ticket: {
+                    record.severity.upper()}]", "", f"Trigger: {trigger_label}", f"Ticket: {
                     record.ticket_id}", f"Escalation ID: {
                     record.escalation_id}", f"Channel: {channel_label}", f"Status: {
                     record.status.replace(
@@ -1750,7 +1750,7 @@ class GracefulEscalationManager:
             if ctx:
                 description = ctx.get("description", "")
                 if description:
-                    lines.append(f"")
+                    lines.append("")
                     lines.append(f"Description: {description}")
 
                 frustration = ctx.get("frustration_score", 0.0)
@@ -1782,7 +1782,7 @@ class GracefulEscalationManager:
                 lines.append(f"Assigned To: {record.assigned_to}")
 
             if record.response_message:
-                lines.append(f"")
+                lines.append("")
                 lines.append(f"Response: {record.response_message}")
 
             lines.append("")

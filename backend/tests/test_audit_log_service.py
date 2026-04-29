@@ -1964,8 +1964,8 @@ class TestSecurityRelevantActions:
         svc = self._make_svc()
         svc.log_event("co-1", "authorization", "warning", "permission_change")
         alerts = svc.get_alerts("co-1")
-        assert any(a["alert_type"] ==
-                   "audit_permission_change" for a in alerts)
+        assert any(a["alert_type"]
+                   == "audit_permission_change" for a in alerts)
 
     def test_api_key_revoke_creates_alert(self):
         svc = self._make_svc()

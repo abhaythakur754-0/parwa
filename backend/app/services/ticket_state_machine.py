@@ -273,8 +273,8 @@ class TicketStateMachine:
             if ticket.resolved_at:
                 days_since_resolved = (
                     datetime.now(
-                        timezone.utc) -
-                    ticket.resolved_at).days
+                        timezone.utc)
+                    - ticket.resolved_at).days
                 if days_since_resolved > 7:
                     return "Reopen window has expired (7 days)"
 
@@ -284,8 +284,8 @@ class TicketStateMachine:
             if ticket.closed_at:
                 days_since_closed = (
                     datetime.now(
-                        timezone.utc) -
-                    ticket.closed_at).days
+                        timezone.utc)
+                    - ticket.closed_at).days
                 if days_since_closed > 7:
                     return "Reopen window has expired (7 days after closing)"
 
@@ -299,8 +299,8 @@ class TicketStateMachine:
             if ticket.frozen_at:
                 days_frozen = (
                     datetime.now(
-                        timezone.utc) -
-                    ticket.frozen_at).days
+                        timezone.utc)
+                    - ticket.frozen_at).days
                 if days_frozen < 30:
                     return "Frozen tickets can only be closed after 30 days"
 

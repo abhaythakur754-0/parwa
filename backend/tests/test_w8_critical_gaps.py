@@ -174,7 +174,7 @@ class TestTierBoundaryOverflow:
                 )
                 assert decision.tier == ModelTier.LIGHT, (
                     f"Step {step.value} leaked to tier {decision.tier.value} "
-                    f"under parwa_high"
+                    "under parwa_high"
                 )
 
     def test_all_medium_steps_get_medium_under_parwa_high(

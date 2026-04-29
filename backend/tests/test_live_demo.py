@@ -33,7 +33,7 @@ def test_ai_sdk_direct():
         {"role": "user", "content": "Hello! I'm testing the PARWA demo. Can you help me understand how you can assist my e-commerce business?"}
     ])
 
-    node_script = f"""
+    node_script = """
 const ZAI = require('z-ai-web-dev-sdk').default;
 (async () => {{
     const zai = await ZAI.create();
@@ -168,7 +168,7 @@ def test_demo_chat_flow():
 
         print(f"✅ Session created: {str(session.id)[:8]}...")
         print(f"   Pack Type: {session.pack_type}")
-        print(f"   Entry Source: landing_page")
+        print("   Entry Source: landing_page")
 
         # Check message limit
         limit, remaining = check_message_limit(db, session)
@@ -246,7 +246,7 @@ def test_onboarding_integration():
 
         # Create onboarding session
         session = get_or_create_session(db, user_id, company_id)
-        print(f"\n✅ Onboarding session created")
+        print("\n✅ Onboarding session created")
 
         # Accept legal consents
         print("\n📋 Accepting legal consents...")

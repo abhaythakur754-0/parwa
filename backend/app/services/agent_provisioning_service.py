@@ -363,7 +363,7 @@ class AgentProvisioningService:
         if pending.payment_status != "paid":
             raise ValidationError(
                 message=(
-                    f"Cannot provision agent with payment_status="
+                    "Cannot provision agent with payment_status="
                     f"'{pending.payment_status}'. Payment must be completed."
                 ),
                 details={
@@ -447,7 +447,7 @@ class AgentProvisioningService:
                 "status": "training",
                 "message": (
                     f"Agent '{pending.agent_name}' provisioned "
-                    f"successfully and is now training"
+                    "successfully and is now training"
                 ),
             }
 
@@ -780,7 +780,7 @@ class AgentProvisioningService:
                     )
                     if not checkout_url:
                         checkout_url = (
-                            f"https://checkout.paddle.com/"
+                            "https://checkout.paddle.com/"
                             f"agent/{pending_id}"
                         )
                     return checkout_url

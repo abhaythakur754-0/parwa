@@ -279,10 +279,10 @@ def get_savings_counter(
         for i in range(months):
             month_start = (
                 now.replace(
-                    day=1) -
-                timedelta(
-                    days=30 *
-                    i)).replace(
+                    day=1)
+                - timedelta(
+                    days=30
+                    * i)).replace(
                 day=1,
                 hour=0,
                 minute=0,
@@ -376,16 +376,16 @@ def _get_monthly_savings(
     ).scalar() or 0
 
     ai_cost = round(
-        ai_tickets *
-        _get_avg_ai_cost(
+        ai_tickets
+        * _get_avg_ai_cost(
             db,
             company_id,
             month_start,
             month_end),
         2)
     human_cost = round(
-        human_tickets *
-        _get_avg_human_cost(
+        human_tickets
+        * _get_avg_human_cost(
             db,
             company_id,
             month_start,

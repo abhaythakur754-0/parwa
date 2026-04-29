@@ -582,7 +582,7 @@ class BounceComplaintService:
             EmailBounce.company_id == company_id,
             EmailBounce.customer_email == email,
             EmailBounce.bounce_type != "complaint",
-            EmailBounce.whitelisted == False,
+            EmailBounce.whitelisted is False,
         ).update(
             {
                 "whitelisted": True,
@@ -746,7 +746,7 @@ class BounceComplaintService:
                             "hard_bounced",
                             "complained",
                             "suppressed"]),
-                    CustomerEmailStatus.whitelisted == False,
+                    CustomerEmailStatus.whitelisted is False,
                 ) .scalar()) or 0
         except Exception:
             suppressed = 0
@@ -832,7 +832,7 @@ class BounceComplaintService:
                 self.db.query(EmailDeliverabilityAlert)
                 .filter(
                     EmailDeliverabilityAlert.company_id == company_id,
-                    EmailDeliverabilityAlert.acknowledged == False,
+                    EmailDeliverabilityAlert.acknowledged is False,
                     EmailDeliverabilityAlert.severity.in_(["high", "critical"]),
                 )
                 .order_by(EmailDeliverabilityAlert.created_at.desc())
@@ -1135,7 +1135,7 @@ class BounceComplaintService:
                     message=(
                         f"Gmail complaint rate ({rate:.2%}) exceeds "
                         f"threshold ({GMAIL_COMPLAINT_RATE_THRESHOLD:.2%}). "
-                        f"Sender reputation at risk."
+                        "Sender reputation at risk."
                     ),
                     metric_value=rate,
                     threshold=GMAIL_COMPLAINT_RATE_THRESHOLD,

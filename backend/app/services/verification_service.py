@@ -65,7 +65,7 @@ def create_verification_token(
     # Invalidate all previous unused tokens for user
     db.query(VerificationToken).filter(
         VerificationToken.user_id == user.id,
-        VerificationToken.is_used == False,  # noqa: E712
+        VerificationToken.is_used is False,  # noqa: E712
     ).update({"is_used": True})
 
     # Create new token
@@ -154,7 +154,7 @@ def verify_email(
     # Invalidate all other unused tokens for user
     db.query(VerificationToken).filter(
         VerificationToken.user_id == stored.user_id,
-        VerificationToken.is_used == False,  # noqa: E712
+        VerificationToken.is_used is False,  # noqa: E712
     ).update({"is_used": True})
 
     db.commit()

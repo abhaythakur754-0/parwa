@@ -57,7 +57,7 @@ class TestEdgeCaseStage:
             ctx = make_context(query="")
             # Empty handler list means no edge case detected
             await pipeline._stage_edge_case(ctx)
-            assert ctx.is_edge_case == False  # No handlers = no detection
+            assert ctx.is_edge_case is False  # No handlers = no detection
 
     @pytest.mark.asyncio
     async def test_normal_query_passes_edge_case(self):
@@ -70,7 +70,7 @@ class TestEdgeCaseStage:
         with patch.object(pipeline, "_get_edge_case_handlers", return_value=[mock_handler]):
             ctx = make_context(query="How do I get a refund?")
             await pipeline._stage_edge_case(ctx)
-            assert ctx.is_edge_case == False
+            assert ctx.is_edge_case is False
 
     @pytest.mark.asyncio
     async def test_blocked_edge_case_returns_early(self):
@@ -117,8 +117,8 @@ class TestInjectionScanStage:
         with patch.object(pipeline, "_get_injection_detector", return_value=mock_detector):
             ctx = make_context(query="How do I reset my password?")
             pipeline._stage_injection_scan(ctx)
-            assert ctx.injection_detected == False
-            assert ctx.injection_blocked == False
+            assert ctx.injection_detected is False
+            assert ctx.injection_blocked is False
 
     def test_injection_blocked(self):
         """SQL injection should be blocked."""
@@ -152,7 +152,7 @@ class TestInjectionScanStage:
         with patch.object(pipeline, "_get_injection_detector", return_value=None):
             ctx = make_context()
             pipeline._stage_injection_scan(ctx)
-            assert ctx.injection_blocked == False
+            assert ctx.injection_blocked is False
 
 
 # ── Stage 3: Signal Extraction Tests ───────────────────────────
@@ -356,7 +356,7 @@ class TestRAGStage:
         mock_assembled.context_text = "Refund policy: 30 days..."
         mock_assembled.to_dict.return_value = {
             "chunks": [{"text": "Refund policy"}],
-            "citations": [{"source": "refund_policy.pdf", "score": 0.95}],
+            "citations": [{"source": "refund_policy.pd", "score": 0.95}],
         }
         mock_reranker.rerank = AsyncMock(return_value=mock_assembled)
 
@@ -390,7 +390,7 @@ class TestResponseGenerationStage:
         mock_result.response_text = "Based on our policy, you can request a refund within 30 days."
         mock_result.confidence_score = 0.88
         mock_result.rag_context_used = True
-        mock_result.citations = [{"source": "policy.pdf", "score": 0.9}]
+        mock_result.citations = [{"source": "policy.pd", "score": 0.9}]
         mock_result.tokens_used = 150
         mock_result.generation_time_ms = 500.0
         mock_result.clara_passed = True
@@ -489,7 +489,7 @@ class TestGuardrailsStage:
             ctx.response_text = "Here's how to reset your password."
             pipeline._stage_guardrails(ctx)
             assert ctx.guardrails_passed
-            assert ctx.guardrails_blocked == False
+            assert ctx.guardrails_blocked is False
 
     def test_guardrails_block_unsafe_response(self):
         """Guardrails should block unsafe response."""
@@ -553,7 +553,7 @@ class TestConfidenceStage:
             ctx = make_context(variant_type="mini_parwa")
             ctx.response_text = "Test response"
             pipeline._stage_confidence_scoring(ctx)
-            assert ctx.confidence_auto_action == False
+            assert ctx.confidence_auto_action is False
             assert ctx.confidence_threshold == 95.0
 
             # PARWA: 85+ threshold — 90 SHOULD auto-action
@@ -601,7 +601,7 @@ class TestBrandVoiceStage:
         ctx = make_context(company_id="")
         ctx.response_text = "Original response"
         pipeline._stage_brand_voice(ctx)
-        assert ctx.brand_voice_applied == False
+        assert ctx.brand_voice_applied is False
         assert ctx.response_text == "Original response"
 
 
@@ -862,7 +862,7 @@ class TestFullPipeline:
             result = await pipeline.process(ctx)
 
             assert result.guardrails_blocked
-            assert result.auto_action == False
+            assert result.auto_action is False
             assert "safe_fallback" in result.stages_completed
 
     @pytest.mark.asyncio

@@ -643,8 +643,8 @@ async def run_health_checks(
         # Check if any dependency is unhealthy
         for dep in deps:
             dep_health = subsystems.get(dep)
-            if (dep_health and
-                    dep_health.status == HealthStatus.UNHEALTHY.value):
+            if (dep_health
+                    and dep_health.status == HealthStatus.UNHEALTHY.value):
                 # Force dependent to degraded (not unhealthy — the
                 # subsystem itself may be fine, just its dependency is down)
                 subsystems[name] = SubsystemHealth(

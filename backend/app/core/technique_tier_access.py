@@ -401,7 +401,7 @@ class TechniqueTierAccessChecker:
             reason = (
                 f"technique_{technique_tier}_exceeds_"
                 f"variant_max_{max_allowed}_"
-                f"no_fallback_available"
+                "no_fallback_available"
             )
             log_level = "warning"
 

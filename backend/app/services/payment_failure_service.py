@@ -125,7 +125,7 @@ class PaymentFailureService:
             # Check if there's already an unresolved payment failure
             existing_failure = db.query(PaymentFailure).filter(
                 PaymentFailure.company_id == str(company_id),
-                PaymentFailure.resolved == False,
+                PaymentFailure.resolved is False,
             ).first()
 
             if existing_failure:
@@ -205,7 +205,7 @@ class PaymentFailureService:
                         send_email(
                             to=company_owner.email,
                             subject="PARWA: Payment Failed — Action Required",
-                            html_content=f"""
+                            html_content="""
                             <html><body>
                             <h2>Payment Failed</h2>
                             <p>Hello {company_owner.full_name or 'there'},</p>
@@ -334,7 +334,7 @@ class PaymentFailureService:
         with SessionLocal() as db:
             # Find all unresolved failures past grace period
             expired_failures = db.query(PaymentFailure).filter(
-                PaymentFailure.resolved == False,
+                PaymentFailure.resolved is False,
                 PaymentFailure.grace_period_ends_at.isnot(None),
                 PaymentFailure.grace_period_ends_at < now,
                 PaymentFailure.service_stopped_at.isnot(
@@ -417,7 +417,7 @@ class PaymentFailureService:
                             send_email(
                                 to=owner.email,
                                 subject="PARWA: Service Suspended — Grace Period Expired",
-                                html_content=f"""
+                                html_content="""
                                 <html><body>
                                 <h2>Service Suspended</h2>
                                 <p>Hello {owner.full_name or 'there'},</p>
@@ -473,7 +473,7 @@ class PaymentFailureService:
         with SessionLocal() as db:
             failure = db.query(PaymentFailure).filter(
                 PaymentFailure.company_id == str(company_id),
-                PaymentFailure.resolved == False,
+                PaymentFailure.resolved is False,
             ).first()
 
             if not failure:
@@ -561,7 +561,7 @@ class PaymentFailureService:
             # Check if there's already an unresolved payment failure
             existing_failure = db.query(PaymentFailure).filter(
                 PaymentFailure.company_id == str(company_id),
-                PaymentFailure.resolved == False,
+                PaymentFailure.resolved is False,
             ).first()
 
             if existing_failure:
@@ -638,7 +638,7 @@ class PaymentFailureService:
                         send_email(
                             to=company_owner.email,
                             subject="PARWA: Payment Failed — Action Required",
-                            html_content=f"""
+                            html_content="""
                             <html><body>
                             <h2>Payment Failed</h2>
                             <p>Hello {company_owner.full_name or 'there'},</p>
@@ -726,7 +726,7 @@ class PaymentFailureService:
             # grace period
             failure = db.query(PaymentFailure).filter(
                 PaymentFailure.company_id == str(company_id),
-                PaymentFailure.resolved == False,
+                PaymentFailure.resolved is False,
             ).first()
 
             if failure and failure.grace_period_ends_at:
@@ -757,7 +757,7 @@ class PaymentFailureService:
                 # Verify there's an active failure with unexpired grace period
                 failure = db.query(PaymentFailure).filter(
                     PaymentFailure.company_id == str(company_id),
-                    PaymentFailure.resolved == False,
+                    PaymentFailure.resolved is False,
                 ).first()
 
                 if failure and failure.grace_period_ends_at:
@@ -805,7 +805,7 @@ class PaymentFailureService:
             # Get active payment failure
             failure = db.query(PaymentFailure).filter(
                 PaymentFailure.company_id == str(company_id),
-                PaymentFailure.resolved == False,
+                PaymentFailure.resolved is False,
             ).first()
 
             if not failure:
@@ -905,13 +905,13 @@ class PaymentFailureService:
                             subject="PARWA: Service Resumed",
                             html_content=(
                                 "<html><body>"
-                                f"<h2>Welcome Back!</h2>"
+                                "<h2>Welcome Back!</h2>"
                                 f"<p>Hello {company_owner.full_name or 'there'},</p>"
-                                f"<p>Your payment was received and your "
-                                f"PARWA service has been fully resumed.</p>"
+                                "<p>Your payment was received and your "
+                                "PARWA service has been fully resumed.</p>"
                                 f"<p><strong>Company:</strong> {company.name}</p>"
-                                f"<p>Your AI agents are now active and all "
-                                f"previously frozen tickets have been unfrozen.</p>"
+                                "<p>Your AI agents are now active and all "
+                                "previously frozen tickets have been unfrozen.</p>"
                                 "</body></html>"
                             ),
                         )
@@ -1027,7 +1027,7 @@ class PaymentFailureService:
         with SessionLocal() as db:
             failure = db.query(PaymentFailure).filter(
                 PaymentFailure.company_id == str(company_id),
-                PaymentFailure.resolved == False,
+                PaymentFailure.resolved is False,
             ).first()
 
             if not failure:

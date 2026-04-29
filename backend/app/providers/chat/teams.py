@@ -106,7 +106,7 @@ class TeamsChatProvider(ChatProvider):
 
         token_url = (
             f"https://login.microsoftonline.com/{self.tenant_id}"
-            f"/oauth2/v2.0/token"
+            "/oauth2/v2.0/token"
         )
 
         try:

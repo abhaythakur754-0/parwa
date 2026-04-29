@@ -1689,7 +1689,7 @@ class LangGraphWorkflow:
 
             hint_str = " ".join(context_hints)
             response = (
-                f"Thank you for your message. "
+                "Thank you for your message. "
                 f"Regarding your query about '{query[:50]}', "
                 f"I'd be happy to help{(' ' + hint_str) if hint_str else ''}. "
                 f"[Technique: {technique}]"

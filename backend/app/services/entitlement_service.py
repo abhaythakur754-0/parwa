@@ -403,7 +403,7 @@ class EntitlementService:
                 from database.models.provisioning import KnowledgeBaseDocument
                 count = db.query(KnowledgeBaseDocument).filter(
                     KnowledgeBaseDocument.company_id == company_id,
-                    KnowledgeBaseDocument.is_archived == False,
+                    KnowledgeBaseDocument.is_archived is False,
                 ).count()
                 return count
             except Exception:
@@ -475,8 +475,8 @@ class EntitlementService:
                             ResourceType.TICKETS),
                         "remaining": max(
                             0,
-                            limits.monthly_tickets -
-                            self._get_current_usage(
+                            limits.monthly_tickets
+                            - self._get_current_usage(
                                 db,
                                 company_id_str,
                                 ResourceType.TICKETS)),
@@ -489,8 +489,8 @@ class EntitlementService:
                             ResourceType.AGENTS),
                         "remaining": max(
                             0,
-                            limits.ai_agents -
-                            self._get_current_usage(
+                            limits.ai_agents
+                            - self._get_current_usage(
                                 db,
                                 company_id_str,
                                 ResourceType.AGENTS)),
@@ -503,8 +503,8 @@ class EntitlementService:
                             ResourceType.TEAM_MEMBERS),
                         "remaining": max(
                             0,
-                            limits.team_members -
-                            self._get_current_usage(
+                            limits.team_members
+                            - self._get_current_usage(
                                 db,
                                 company_id_str,
                                 ResourceType.TEAM_MEMBERS)),
@@ -517,8 +517,8 @@ class EntitlementService:
                             ResourceType.VOICE_CHANNELS),
                         "remaining": max(
                             0,
-                            limits.voice_slots -
-                            self._get_current_usage(
+                            limits.voice_slots
+                            - self._get_current_usage(
                                 db,
                                 company_id_str,
                                 ResourceType.VOICE_CHANNELS)),
@@ -531,8 +531,8 @@ class EntitlementService:
                             ResourceType.KB_DOCS),
                         "remaining": max(
                             0,
-                            limits.kb_docs -
-                            self._get_current_usage(
+                            limits.kb_docs
+                            - self._get_current_usage(
                                 db,
                                 company_id_str,
                                 ResourceType.KB_DOCS)),

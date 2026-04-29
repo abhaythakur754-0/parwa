@@ -648,7 +648,7 @@ class CrossVariantInteractionService:
                     reason=(
                         f"{variant_type} confidence {clamped_score:.3f} "
                         f"below threshold {threshold:.3f} — highest "
-                        f"tier reached, escalating to human review"
+                        "tier reached, escalating to human review"
                     ),
                     escalation_context=escalation_context,
                     confidence_score=clamped_score,
@@ -796,7 +796,7 @@ class CrossVariantInteractionService:
                         success=True,
                         handoff_context=existing,
                         message=(
-                            f"Handoff already exists and is pending "
+                            "Handoff already exists and is pending "
                             f"for ticket_id={ticket_id} → "
                             f"{to_variant}"
                         ),
@@ -1011,7 +1011,7 @@ class CrossVariantInteractionService:
                                 success=True,
                                 handoff_context=context,
                                 message=(
-                                    f"Active handoff: "
+                                    "Active handoff: "
                                     f"{context.from_variant} → "
                                     f"{context.to_variant} for "
                                     f"ticket_id={context.ticket_id}"

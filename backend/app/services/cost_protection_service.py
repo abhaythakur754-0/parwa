@@ -303,8 +303,8 @@ class CostProtectionService:
             if budget.status == "disabled":
                 return BudgetCheckResult(
                     allowed=True,
-                    remaining_tokens=budget.max_tokens -
-                    budget.used_tokens,
+                    remaining_tokens=budget.max_tokens
+                    - budget.used_tokens,
                     usage_pct=self._calc_usage_pct(
                         budget.used_tokens,
                         budget.max_tokens),
@@ -337,8 +337,8 @@ class CostProtectionService:
                 if new_used > budget.max_tokens:
                     return BudgetCheckResult(
                         allowed=False,
-                        remaining_tokens=budget.max_tokens -
-                        budget.used_tokens,
+                        remaining_tokens=budget.max_tokens
+                        - budget.used_tokens,
                         usage_pct=usage_pct,
                         alert_level=alert_level,
                         budget_status=BudgetStatus.EXHAUSTED,

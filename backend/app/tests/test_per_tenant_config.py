@@ -643,7 +643,8 @@ class TestChangeNotifications:
 
     def test_remove_callback(self, manager):
         received = []
-        def cb(cid, cat, chg): return received.append(True)
+        def cb(cid, cat, chg):
+            return received.append(True)
         manager.on_config_change(cb)
         manager.remove_config_change_callback(cb)
         manager.update_config(

@@ -349,7 +349,8 @@ class TestInitialization(_Base):
         assert svc._abstractive_generator is None
 
     def test_create_with_custom_generator(self):
-        def gen(msgs): return "custom"
+        def gen(msgs):
+            return "custom"
         svc = ConversationSummarizationService(abstractive_generator=gen)
         assert svc._abstractive_generator is gen
 

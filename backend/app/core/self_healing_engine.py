@@ -573,7 +573,7 @@ class SelfHealingEngine:
                             "reason": (
                                 f"Restored to {default_thresh} after "
                                 f"{state.consecutive_high_scores} "
-                                f"consecutive high scores"
+                                "consecutive high scores"
                             ),
                             "consecutive_high_scores": (
                                 state.consecutive_high_scores
@@ -820,7 +820,7 @@ class SelfHealingEngine:
                     current_threshold=new_thresh,
                     adjusted_at=_now_utc(),
                     reason=(
-                        f"Consecutive low scores: "
+                        "Consecutive low scores: "
                         f"{state.consecutive_low_scores}"
                     ),
                     low_score_count=state.consecutive_low_scores,
@@ -1064,14 +1064,14 @@ class SelfHealingEngine:
                             issues.append(
                                 f"{pkey}: "
                                 f"{ps.consecutive_failures} "
-                                f"consecutive failures"
+                                "consecutive failures"
                             )
 
                     if vstate.consecutive_low_scores > 3:
                         issues.append(
-                            f"Low confidence: "
+                            "Low confidence: "
                             f"{vstate.consecutive_low_scores} "
-                            f"consecutive low scores"
+                            "consecutive low scores"
                         )
 
                     active = [

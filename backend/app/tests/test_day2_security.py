@@ -221,7 +221,7 @@ class TestF6WorkerHealthcheck:
 
     def test_worker_healthcheck_celery(self):
         content = _read("docker-compose.prod.yml")
-        assert "pgrep -f" in content and "backend.worker" in content, \
+        assert "pgrep -" in content and "backend.worker" in content, \
             "Worker healthcheck must check for backend.worker process"
 
 

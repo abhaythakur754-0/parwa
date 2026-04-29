@@ -119,8 +119,8 @@ def parse_date_range(
                 timezone.utc))
     elif end_date:
         return DateRange(
-            start_date=end_date -
-            __import__('datetime').timedelta(
+            start_date=end_date
+            - __import__('datetime').timedelta(
                 days=default_days),
             end_date=end_date,
         )

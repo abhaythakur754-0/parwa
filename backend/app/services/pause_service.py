@@ -83,7 +83,7 @@ class _PauseService:
             )
             if existing_pause:
                 raise AlreadyPausedError(
-                    f"Subscription already paused since "
+                    "Subscription already paused since "
                     f"{existing_pause.paused_at.isoformat()} (PAUSE-002)"
                 )
 
@@ -92,8 +92,8 @@ class _PauseService:
                 db.query(PauseRecord) .filter(
                     PauseRecord.company_id == str(company_id),
                     PauseRecord.resumed_at.isnot(None),
-                    PauseRecord.resumed_at > now -
-                    timedelta(
+                    PauseRecord.resumed_at > now
+                    - timedelta(
                         days=MIN_PAUSE_INTERVAL_DAYS),
                 ) .first())
             if recent_pause:
@@ -127,8 +127,8 @@ class _PauseService:
                 "paused_at": now.isoformat(),
                 "max_pause_days": MAX_PAUSE_DAYS,
                 "auto_resume_at": (
-                    now +
-                    timedelta(
+                    now
+                    + timedelta(
                         days=MAX_PAUSE_DAYS)).isoformat(),
                 "status": "paused",
             }
@@ -173,8 +173,8 @@ class _PauseService:
                         subscription,
                         "current_period_end") and subscription.current_period_end:
                     subscription.current_period_end = (
-                        subscription.current_period_end +
-                        timedelta(
+                        subscription.current_period_end
+                        + timedelta(
                             days=pause_duration))
                 db.flush()
 
@@ -252,8 +252,8 @@ class _PauseService:
                             subscription,
                             "current_period_end") and subscription.current_period_end:
                         subscription.current_period_end = (
-                            subscription.current_period_end +
-                            timedelta(
+                            subscription.current_period_end
+                            + timedelta(
                                 days=pause_duration))
 
                 auto_resumed += 1

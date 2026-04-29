@@ -1092,8 +1092,8 @@ class TestAdditionalCoverage:
         templates = svc.list_templates(company_id=COMPANY_ID)
         # Should have 10 entries (custom replaces default by name)
         assert len(templates) == 10
-        cs_templates = [t for t in templates if t.name ==
-                        "customer_support_system"]
+        cs_templates = [t for t in templates if t.name
+                        == "customer_support_system"]
         assert len(cs_templates) == 1
         assert cs_templates[0].is_default is False
 

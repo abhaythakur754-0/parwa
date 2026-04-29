@@ -193,7 +193,7 @@ def _get_ai_response(
 
     # Variant-specific system prompts
     system_prompts = {
-        DemoVariant.MINI_PARWA: f"""You are a helpful AI assistant for PARWA demo.
+        DemoVariant.MINI_PARWA: """You are a helpful AI assistant for PARWA demo.
 You are demonstrating the Mini Parwa tier capabilities.
 Industry context: {industry}
 
@@ -201,7 +201,7 @@ Keep responses concise and focused on FAQ handling and simple tasks.
 For complex issues, recommend upgrading to Parwa or High Parwa.
 Max response length: 200 characters.""",
 
-        DemoVariant.PARWA: f"""You are an advanced AI assistant for PARWA demo.
+        DemoVariant.PARWA: """You are an advanced AI assistant for PARWA demo.
 You are demonstrating the Parwa tier capabilities.
 Industry context: {industry}
 
@@ -209,7 +209,7 @@ Provide detailed, helpful responses with knowledge base integration.
 You can handle multi-step issues and provide personalized recommendations.
 Max response length: 500 characters.""",
 
-        DemoVariant.HIGH_PARWA: f"""You are a premium AI assistant for PARWA demo.
+        DemoVariant.HIGH_PARWA: """You are a premium AI assistant for PARWA demo.
 You are demonstrating the High Parwa tier capabilities.
 Industry context: {industry}
 
@@ -230,7 +230,7 @@ Max response length: 1000 characters.""",
 
     try:
         # Use z-ai-web-dev-sdk via Node.js
-        node_script = f"""
+        node_script = """
 const ZAI = require('z-ai-web-dev-sdk').default;
 (async () => {{
     const zai = await ZAI.create();
@@ -269,7 +269,7 @@ const ZAI = require('z-ai-web-dev-sdk').default;
 def _get_web_search_results(query: str) -> List[Dict[str, str]]:
     """Get web search results using z-ai-web-dev-sdk (High Parwa only)."""
     try:
-        node_script = f"""
+        node_script = """
 const ZAI = require('z-ai-web-dev-sdk').default;
 (async () => {{
     const zai = await ZAI.create();
@@ -575,7 +575,7 @@ class DemoService:
             price = capabilities.get("price_monthly", Decimal("0"))
 
             subject = f"Thanks for trying {display_name} - Your PARWA Demo Results"
-            html_content = f"""
+            html_content = """
             <h2>Thanks for trying PARWA!</h2>
             <p>You tested the <strong>{display_name}</strong> tier with our AI assistant.</p>
             <p>Monthly price: ${price}/month</p>

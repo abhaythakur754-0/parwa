@@ -624,7 +624,7 @@ class DSPyIntegration:
 
         return {
             "response": (
-                f"[Fallback] Processing: "
+                "[Fallback] Processing: "
                 f"{str(query)[:100]}..."
                 if query_len > 100
                 else f"[Fallback] Processing: {query}"
@@ -839,7 +839,7 @@ class DSPyIntegration:
             mt = config_dict["max_tokens"]
             if not isinstance(mt, int) or mt <= 0:
                 raise ValueError(
-                    f"max_tokens must be a positive integer, "
+                    "max_tokens must be a positive integer, "
                     f"got {mt!r}"
                 )
 
@@ -847,12 +847,12 @@ class DSPyIntegration:
             temp = config_dict["temperature"]
             if not isinstance(temp, (int, float)):
                 raise ValueError(
-                    f"temperature must be a number, "
+                    "temperature must be a number, "
                     f"got {temp!r}"
                 )
             if not (0.0 <= float(temp) <= 2.0):
                 raise ValueError(
-                    f"temperature must be between 0.0 and 2.0, "
+                    "temperature must be between 0.0 and 2.0, "
                     f"got {temp}"
                 )
 
@@ -860,7 +860,7 @@ class DSPyIntegration:
             mn = config_dict["model_name"]
             if not isinstance(mn, str) or not mn.strip():
                 raise ValueError(
-                    f"model_name must be a non-empty string, "
+                    "model_name must be a non-empty string, "
                     f"got {mn!r}"
                 )
 
@@ -868,7 +868,7 @@ class DSPyIntegration:
             nt = config_dict["num_threads"]
             if not isinstance(nt, int) or nt < 1:
                 raise ValueError(
-                    f"num_threads must be an integer >= 1, "
+                    "num_threads must be an integer >= 1, "
                     f"got {nt!r}"
                 )
 

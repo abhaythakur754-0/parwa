@@ -826,7 +826,8 @@ class TestEscalationEvents(unittest.TestCase):
     def test_remove_listener(self):
         """Removed listener stops receiving events."""
         events = []
-        def callback(name, data): return events.append((name, data))
+        def callback(name, data):
+            return events.append((name, data))
         self.mgr.add_event_listener(callback)
         ctx = _make_context(trigger="legal_sensitive")
         self.mgr.create_escalation(COMPANY_ID, ctx)

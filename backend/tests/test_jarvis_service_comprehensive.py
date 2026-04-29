@@ -711,7 +711,7 @@ class TestOriginalFunctions:
         assert get_entry_context("demo")["detected_stage"] == "demo"
 
     def test_entry_referral(self):
-        ctx = get_entry_context("referral", {"ref": "friend"})
+        ctx = get_entry_context("referral", {"re": "friend"})
         assert ctx["referral_source"] == "friend"
 
     def test_welcome_direct(self):

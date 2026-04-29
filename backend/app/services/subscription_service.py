@@ -743,7 +743,7 @@ class SubscriptionService:
                 "message": (
                     "Subscription canceled immediately."
                     if effective_immediately else
-                    f"Subscription will be canceled at end of billing period "
+                    "Subscription will be canceled at end of billing period "
                     f"({subscription.current_period_end.isoformat() if subscription.current_period_end else 'period end'}). "
                     "You can continue using PARWA until then."
                 ),
@@ -839,9 +839,9 @@ class SubscriptionService:
             elapsed = now - executed_at
             if elapsed.total_seconds() > DOWNGRADE_UNDO_WINDOW_HOURS * 3600:
                 raise DowngradeUndoExpiredError(
-                    f"Downgrade undo window expired. " f"Downgrade was executed {
-                        elapsed.total_seconds() /
-                        3600:.1f} " f"hours ago (limit: {DOWNGRADE_UNDO_WINDOW_HOURS} hours).")
+                    "Downgrade undo window expired. " f"Downgrade was executed {
+                        elapsed.total_seconds()
+                        / 3600:.1f} " f"hours ago (limit: {DOWNGRADE_UNDO_WINDOW_HOURS} hours).")
 
             # Restore previous tier
             old_tier = subscription.previous_tier
@@ -1323,7 +1323,7 @@ class SubscriptionService:
             kb_limit = new_limits.get("kb_docs", 100)
             active_docs = db.query(KnowledgeBaseDocument).filter(
                 KnowledgeBaseDocument.company_id == company_id,
-                KnowledgeBaseDocument.is_archived == False,
+                KnowledgeBaseDocument.is_archived is False,
             ).order_by(KnowledgeBaseDocument.created_at.asc()).all()
 
             for i, doc in enumerate(active_docs):
@@ -1585,7 +1585,7 @@ class SubscriptionService:
             kb_limit = new_limits.get("kb_docs", 100)
             doc_count = db.query(KnowledgeBaseDocument).filter(
                 KnowledgeBaseDocument.company_id == subscription.company_id,
-                KnowledgeBaseDocument.is_archived == False,
+                KnowledgeBaseDocument.is_archived is False,
             ).count()
             docs_archived = max(0, doc_count - kb_limit)
         except Exception:
@@ -1607,8 +1607,8 @@ class SubscriptionService:
                 "kb_docs_to_archive": docs_archived,
                 "voice_channels_to_disable": max(
                     0,
-                    old_limits.get("voice_slots", 0) -
-                    new_limits.get("voice_slots", 0)
+                    old_limits.get("voice_slots", 0)
+                    - new_limits.get("voice_slots", 0)
                 ),
             },
         }
@@ -1694,7 +1694,7 @@ class SubscriptionService:
         with SessionLocal() as db:
             upcoming_renewals = db.query(Subscription).filter(
                 Subscription.status == SubscriptionStatus.ACTIVE.value,
-                Subscription.cancel_at_period_end == False,
+                Subscription.cancel_at_period_end is False,
                 Subscription.current_period_end > now,
                 Subscription.current_period_end <= reminder_threshold,
             ).all()
@@ -1722,7 +1722,7 @@ class SubscriptionService:
         with SessionLocal() as db:
             expired = db.query(Subscription).filter(
                 Subscription.status == SubscriptionStatus.ACTIVE.value,
-                Subscription.cancel_at_period_end == False,
+                Subscription.cancel_at_period_end is False,
                 Subscription.pending_downgrade_tier.is_(None),
                 Subscription.current_period_end <= now,
             ).all()
@@ -2026,8 +2026,8 @@ class SubscriptionService:
                     tzinfo=timezone.utc)
 
             retention_deadline = (
-                service_stopped_at +
-                timedelta(
+                service_stopped_at
+                + timedelta(
                     days=30) if service_stopped_at else None)
 
             within_retention = (
@@ -2202,7 +2202,7 @@ class SubscriptionService:
             member_limit = new_limits.get("team_members", 3)
             inactive_members = db.query(User).filter(
                 User.company_id == company_id,
-                User.is_active == False,
+                User.is_active is False,
                 User.role != "owner",
             ).order_by(User.created_at.asc()).limit(member_limit).all()
 
@@ -2223,7 +2223,7 @@ class SubscriptionService:
             from database.models.core import Channel
             disabled_channels = db.query(Channel).filter(
                 Channel.company_id == company_id,
-                Channel.is_enabled == False,
+                Channel.is_enabled is False,
             ).all()
 
             for channel in disabled_channels:

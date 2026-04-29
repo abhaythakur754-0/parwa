@@ -129,8 +129,8 @@ def process_all_overages(self, target_date: str = None) -> dict:
         else:
             process_date = (
                 datetime.now(
-                    timezone.utc) -
-                timedelta(
+                    timezone.utc)
+                - timedelta(
                     days=1)).date()
 
         results = {

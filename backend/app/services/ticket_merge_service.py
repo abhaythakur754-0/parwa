@@ -107,7 +107,7 @@ class TicketMergeService:
             # Check if already merged
             existing_merge = self.db.query(TicketMerge).filter(
                 TicketMerge.primary_ticket_id == ticket.id,
-                TicketMerge.undone == False,  # noqa: E712
+                TicketMerge.undone is False,  # noqa: E712
             ).first()
 
             if existing_merge:
@@ -118,7 +118,7 @@ class TicketMergeService:
             # Check if this ticket is a primary of another merge
             as_primary_merge = self.db.query(TicketMerge).filter(
                 TicketMerge.primary_ticket_id == ticket.id,
-                TicketMerge.undone == False,  # noqa: E712
+                TicketMerge.undone is False,  # noqa: E712
             ).first()
 
             if as_primary_merge:
@@ -372,7 +372,7 @@ class TicketMergeService:
             # Check if already merged
             existing_merge = self.db.query(TicketMerge).filter(
                 TicketMerge.merged_ticket_ids.contains(f'"{ticket_id}"'),
-                TicketMerge.undone == False,  # noqa: E712
+                TicketMerge.undone is False,  # noqa: E712
             ).first()
 
             if existing_merge:

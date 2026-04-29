@@ -202,7 +202,7 @@ async def cleanup_old_events(company_id: str) -> int:
         cutoff = time.time() - EVENT_BUFFER_TTL_SECONDS
 
         # Remove entries with score < cutoff (older than 24h)
-        removed = await client.zremrangebyscore(key, "-inf", f"({cutoff}")
+        removed = await client.zremrangebyscore(key, "-in", f"({cutoff}")
         return removed
     except Exception as exc:
         logger.warning(

@@ -201,7 +201,7 @@ class WorkerHealthHandler(BaseHTTPRequestHandler):
 
     def _send_prometheus_metrics(self, status: WorkerHealthStatus) -> None:
         """Send Prometheus-style metrics."""
-        metrics = f"""# HELP parwa_worker_uptime_seconds Worker uptime in seconds
+        metrics = """# HELP parwa_worker_uptime_seconds Worker uptime in seconds
 # TYPE parwa_worker_uptime_seconds gauge
 parwa_worker_uptime_seconds {status.uptime_seconds}
 

@@ -64,7 +64,7 @@ class TestFallbackTrainingService:
 
         assert len(result) == 1
         assert result[0]["agent_id"] == "agent-123"
-        assert result[0]["is_due_for_retraining"] == False
+        assert result[0]["is_due_for_retraining"] is False
         assert "cold_start" in result[0]["reason"]
 
     def test_get_agents_due_for_retraining_recently_trained(
@@ -90,7 +90,7 @@ class TestFallbackTrainingService:
         result = service.get_agents_due_for_retraining("company-123")
 
         assert len(result) == 1
-        assert result[0]["is_due_for_retraining"] == False
+        assert result[0]["is_due_for_retraining"] is False
         assert "recently_trained" in result[0]["reason"] or "not_due" in result[0]["reason"]
 
     def test_get_agents_due_for_retraining_biweekly_due(
@@ -259,7 +259,7 @@ class TestColdStartService:
         result = service.get_cold_start_status("company-123", "agent-123")
 
         assert result["needs_cold_start"]
-        assert result["has_training_history"] == False
+        assert result["has_training_history"] is False
         assert result["suggested_industry"] == "ecommerce"
 
     def test_get_cold_start_status_has_training(self, service, mock_db):
@@ -274,7 +274,7 @@ class TestColdStartService:
 
         result = service.get_cold_start_status("company-123", "agent-123")
 
-        assert result["needs_cold_start"] == False
+        assert result["needs_cold_start"] is False
         assert result["has_training_history"]
 
     def test_get_agents_needing_cold_start(self, service, mock_db):

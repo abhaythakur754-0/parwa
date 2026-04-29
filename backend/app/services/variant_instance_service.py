@@ -61,7 +61,7 @@ def _validate_variant_type(variant_type: str) -> None:
             error_code="INVALID_VARIANT_TYPE",
             message=(
                 f"Invalid variant_type '{variant_type}'. "
-                f"Must be one of: "
+                "Must be one of: "
                 f"{', '.join(sorted(VALID_VARIANT_TYPES))}"
             ),
             status_code=400,
@@ -85,7 +85,7 @@ def _validate_channels(channels: list[str]) -> None:
         raise ParwaBaseError(
             error_code="INVALID_CHANNEL",
             message=(
-                f"Invalid channels: "
+                "Invalid channels: "
                 f"{', '.join(sorted(invalid))}. "
                 f"Valid: {', '.join(sorted(VALID_CHANNELS))}"
             ),
@@ -125,7 +125,7 @@ def _validate_status(status: str) -> None:
             error_code="INVALID_STATUS",
             message=(
                 f"Invalid status '{status}'. "
-                f"Must be one of: "
+                "Must be one of: "
                 f"{', '.join(sorted(VALID_STATUSES))}"
             ),
             status_code=400,
@@ -477,7 +477,7 @@ def update_channel_assignment(
             raise ParwaBaseError(
                 error_code="INVALID_JSON",
                 message=(
-                    f"channel_assignment must be a valid JSON "
+                    "channel_assignment must be a valid JSON "
                     f"array or a list of strings. Parse error: {exc}"
                 ),
                 status_code=400,
@@ -486,7 +486,7 @@ def update_channel_assignment(
             raise ParwaBaseError(
                 error_code="INVALID_CHANNEL_FORMAT",
                 message=(
-                    f"channel_assignment must resolve to a list, "
+                    "channel_assignment must resolve to a list, "
                     f"got {type(parsed).__name__}"
                 ),
                 status_code=400,

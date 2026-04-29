@@ -95,19 +95,19 @@ _CHARS_PER_TOKEN = 4
 
 _STOP_WORDS: Set[str] = {
     "a", "an", "the", "is", "it", "in", "on", "at", "to", "for",
-    "of", "and", "or", "but", "not", "with", "as", "by", "from",
+    "o", "and", "or", "but", "not", "with", "as", "by", "from",
     "this", "that", "these", "those", "be", "are", "was", "were",
     "been", "being", "have", "has", "had", "do", "does", "did",
     "will", "would", "could", "should", "may", "might", "can",
     "shall", "must", "i", "you", "he", "she", "we", "they",
     "me", "him", "her", "us", "them", "my", "your", "his",
     "our", "their", "its", "what", "which", "who", "whom",
-    "how", "when", "where", "why", "if", "then", "so", "no",
+    "how", "when", "where", "why", "i", "then", "so", "no",
     "yes", "all", "each", "every", "both", "few", "more",
     "most", "other", "some", "such", "only", "own", "same",
     "than", "too", "very", "just", "about", "above", "also",
     "into", "over", "after", "before", "between", "through",
-    "during", "up", "out", "off", "again", "once", "here",
+    "during", "up", "out", "of", "again", "once", "here",
     "there", "any", "much", "many",
 }
 

@@ -91,8 +91,8 @@ def get_confidence_trend(
                 avg_conf = round(sum(scores) / len(scores), 2)
                 min_conf = round(min(scores), 2)
                 max_conf = round(max(scores), 2)
-                low_count = sum(1 for s in scores if s <
-                                LOW_CONFIDENCE_THRESHOLD)
+                low_count = sum(1 for s in scores if s
+                                < LOW_CONFIDENCE_THRESHOLD)
             else:
                 avg_conf = 0.0
                 min_conf = 0.0

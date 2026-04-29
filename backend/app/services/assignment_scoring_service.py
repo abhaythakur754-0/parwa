@@ -237,11 +237,11 @@ class AssignmentScoringService:
 
         # Total raw score
         total_raw = (
-            expertise_score +
-            workload_score +
-            performance_score +
-            response_score +
-            availability_score
+            expertise_score
+            + workload_score
+            + performance_score
+            + response_score
+            + availability_score
         )
 
         # Normalize to 0.0-1.0
@@ -675,8 +675,8 @@ class AssignmentScoringService:
             ).count()
 
             if resolved_with_sla > 0:
-                return round((resolved_with_sla - breached) /
-                             resolved_with_sla * 100, 1)
+                return round((resolved_with_sla - breached)
+                             / resolved_with_sla * 100, 1)
 
             return None
 
@@ -745,9 +745,9 @@ class AssignmentScoringService:
                         "total": stats["total"],
                         "resolved": stats["resolved"],
                         "resolution_rate": round(
-                            stats["resolved"] /
-                            stats["total"] *
-                            100,
+                            stats["resolved"]
+                            / stats["total"]
+                            * 100,
                             1),
                     }
 

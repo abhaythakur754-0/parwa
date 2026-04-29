@@ -1087,7 +1087,7 @@ class SMSChannelService:
 
         if hourly_count >= config.max_outbound_per_hour:
             return (
-                f"BC-006: Hourly outbound limit exceeded "
+                "BC-006: Hourly outbound limit exceeded "
                 f"({hourly_count}/{config.max_outbound_per_hour})"
             )
 
@@ -1106,7 +1106,7 @@ class SMSChannelService:
 
         if daily_count >= config.max_outbound_per_day:
             return (
-                f"BC-006: Daily outbound limit exceeded "
+                "BC-006: Daily outbound limit exceeded "
                 f"({daily_count}/{config.max_outbound_per_day})"
             )
 
@@ -1143,7 +1143,7 @@ class SMSChannelService:
         # 100 inbound per hour is a reasonable flood limit
         if count >= 100:
             return (
-                f"BC-006: Inbound rate limit exceeded "
+                "BC-006: Inbound rate limit exceeded "
                 f"({count}/100 per hour)"
             )
 

@@ -330,21 +330,21 @@ class TestGap1StateSerializationFidelity:
         if original_signals and deserialized_signals:
             assert deserialized_signals.intent_type == original_signals.intent_type
             assert abs(
-                deserialized_signals.sentiment_score -
-                original_signals.sentiment_score) < 0.001
+                deserialized_signals.sentiment_score
+                - original_signals.sentiment_score) < 0.001
             assert abs(
-                deserialized_signals.query_complexity -
-                original_signals.query_complexity) < 0.001
+                deserialized_signals.query_complexity
+                - original_signals.query_complexity) < 0.001
             assert abs(
-                deserialized_signals.monetary_value -
-                original_signals.monetary_value) < 0.01
+                deserialized_signals.monetary_value
+                - original_signals.monetary_value) < 0.01
             assert deserialized_signals.customer_tier == original_signals.customer_tier
             assert deserialized_signals.turn_count == original_signals.turn_count
-            assert abs(deserialized_signals.frustration_score -
-                       original_signals.frustration_score) < 0.001
+            assert abs(deserialized_signals.frustration_score
+                       - original_signals.frustration_score) < 0.001
             assert abs(
-                deserialized_signals.confidence_score -
-                original_signals.confidence_score) < 0.001
+                deserialized_signals.confidence_score
+                - original_signals.confidence_score) < 0.001
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -699,7 +699,7 @@ class TestGap5GSDTransitionValidation:
             ("follow_up", "closed"),
             ("follow_up", "diagnosis"),
             ("escalate", "human_handoff"),
-            ("human_handoff", "diagnosis"),
+            ("human_handof", "diagnosis"),
             ("closed", "new"),
         ]
 
@@ -803,7 +803,7 @@ class TestGap5GSDTransitionValidation:
 
         # HUMAN_HANDOFF -> DIAGNOSIS should be valid in PARWA_HIGH
         result = asyncio.run(gsd_engine.can_transition_with_variant(
-            "human_handoff", "diagnosis", "high_parwa"
+            "human_handof", "diagnosis", "high_parwa"
         ))
         assert result, "HUMAN_HANDOFF -> DIAGNOSIS should be valid for PARWA_HIGH"
 

@@ -182,7 +182,7 @@ _STOP_WORDS: FrozenSet[str] = frozenset({
     "is", "am", "are", "was", "were", "be", "been",
     "have", "has", "had", "do", "does", "did",
     "will", "would", "could", "should", "may", "might",
-    "shall", "can", "to", "of", "in", "for", "on",
+    "shall", "can", "to", "o", "in", "for", "on",
     "with", "at", "by", "from", "as", "into",
     "the", "a", "an", "and", "or", "but", "if",
     "not", "no", "this", "that", "these", "those",

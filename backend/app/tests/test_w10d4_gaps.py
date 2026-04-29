@@ -788,7 +788,7 @@ class TestHistoryBufferOverflow:
         if final_len > config.max_history_entries:
             pytest.xfail(
                 f"History grew to {final_len} > max {config.max_history_entries} — "
-                f"ring buffer overflow not enforced (w10d11-GAP7 documented)"
+                "ring buffer overflow not enforced (w10d11-GAP7 documented)"
             )
 
     def test_context_health_history_bounded_by_max_length(self):

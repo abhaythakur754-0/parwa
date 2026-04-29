@@ -771,7 +771,7 @@ class AIMonitoringService:
                     condition_id="error_rate_critical",
                     level=AlertLevel.CRITICAL.value,
                     message=(
-                        f"Critical error rate: "
+                        "Critical error rate: "
                         f"{error_metrics.error_rate * 100:.1f}% "
                         f"({error_metrics.total_errors} errors)"
                     ),
@@ -784,7 +784,7 @@ class AIMonitoringService:
                     condition_id="error_rate_warning",
                     level=AlertLevel.WARNING.value,
                     message=(
-                        f"Elevated error rate: "
+                        "Elevated error rate: "
                         f"{error_metrics.error_rate * 100:.1f}%"
                     ),
                     metric_value=error_metrics.error_rate * 100,
@@ -800,7 +800,7 @@ class AIMonitoringService:
                     condition_id="confidence_drop_warning",
                     level=AlertLevel.WARNING.value,
                     message=(
-                        f"Low average confidence: "
+                        "Low average confidence: "
                         f"{conf_dist.avg_score:.1f}%"
                     ),
                     metric_value=conf_dist.avg_score,
@@ -816,7 +816,7 @@ class AIMonitoringService:
                     level=AlertLevel.WARNING.value,
                     message=(
                         f"High P90 latency: {latency.p90:.0f}ms "
-                        f"(threshold: 5000ms)"
+                        "(threshold: 5000ms)"
                     ),
                     metric_value=latency.p90,
                     threshold=5000.0,

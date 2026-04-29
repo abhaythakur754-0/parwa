@@ -339,7 +339,7 @@ class ReverseThinkingProcessor:
         problem = (
             f"Determine the correct response for a {category_label} "
             f"query. Key terms: {', '.join(key_terms)}. "
-            f"Provide accurate, policy-compliant guidance."
+            "Provide accurate, policy-compliant guidance."
         )
         return problem
 
@@ -653,7 +653,7 @@ class ReverseThinkingProcessor:
             "is", "am", "are", "was", "were", "be", "been",
             "have", "has", "had", "do", "does", "did",
             "will", "would", "could", "should", "may", "might",
-            "shall", "can", "to", "of", "in", "for", "on",
+            "shall", "can", "to", "o", "in", "for", "on",
             "with", "at", "by", "from", "as", "into",
             "the", "a", "an", "and", "or", "but", "if",
             "not", "no", "this", "that", "these", "those",

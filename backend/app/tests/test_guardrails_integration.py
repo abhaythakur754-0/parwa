@@ -323,7 +323,7 @@ class TestShadowModeBypass:
         )
         # Should NOT be blocked — should be flagged instead
         assert result.action == GuardrailsAction.FLAG_FOR_REVIEW, (
-            f"Shadow mode should downgrade BLOCK to FLAG_FOR_REVIEW, "
+            "Shadow mode should downgrade BLOCK to FLAG_FOR_REVIEW, "
             f"got {result.action}"
         )
         # The original content should be in the safe_response

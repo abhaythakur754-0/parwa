@@ -392,7 +392,7 @@ def _safe_json_dumps(obj: Any, max_size: int = 5 * 1024 * 1024) -> str:
     if len(serialized.encode("utf-8")) > max_size:
         raise StateSerializationError(
             message=(
-                f"Serialized state exceeds maximum size: "
+                "Serialized state exceeds maximum size: "
                 f"{len(serialized.encode('utf-8'))} > {max_size} bytes"
             ),
             error_code="STATE_SERIALIZE_TOO_LARGE",
@@ -2970,10 +2970,10 @@ class StateSerializer:
                             "ticket_id": ticket_id,
                             "attempt": attempt,
                             "elapsed_ms": int(
-                                (time.monotonic() -
-                                 deadline +
-                                 self._config.lock_timeout_seconds) *
-                                1000),
+                                (time.monotonic()
+                                 - deadline
+                                 + self._config.lock_timeout_seconds)
+                                * 1000),
                         },
                     )
                     return lock_token

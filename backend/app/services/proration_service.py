@@ -117,7 +117,7 @@ class ProrationService:
         # Validate upgrade direction
         if not self._is_upgrade(old_variant, new_variant):
             raise ProrationError(
-                f"calculate_upgrade_proration called for non-upgrade: "
+                "calculate_upgrade_proration called for non-upgrade: "
                 f"{old_variant} -> {new_variant}"
             )
 

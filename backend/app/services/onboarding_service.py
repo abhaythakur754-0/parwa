@@ -112,9 +112,8 @@ def _generate_ai_greeting(
     try:
         # Use SDK for AI greeting generation
         import subprocess
-        import json as json_mod
 
-        prompt = f"""Generate a warm, {ai_tone} greeting message for an AI assistant named {ai_name}.
+        prompt = """Generate a warm, {ai_tone} greeting message for an AI assistant named {ai_name}.
 The assistant is joining a company called {company_name}.
 Keep it under 100 characters. Just the greeting message, no quotes or explanation.
 Example: "Hi! I'm Jarvis, your AI assistant. How can I help you today?"
@@ -122,7 +121,7 @@ Example: "Hi! I'm Jarvis, your AI assistant. How can I help you today?"
 
         # Use CLI tool for quick AI generation
         result = subprocess.run(
-            ["node", "-e", f"""
+            ["node", "-e", """
 const ZAI = require('z-ai-web-dev-sdk').default;
 (async () => {{
     const zai = await ZAI.create();

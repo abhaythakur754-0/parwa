@@ -56,7 +56,7 @@ def run_sla_check(self, company_id: str) -> Dict[str, Any]:
         # Get all active SLA timers
         active_timers = db.query(SLATimer).filter(
             SLATimer.company_id == company_id,
-            SLATimer.is_breached == False,  # noqa: E712
+            SLATimer.is_breached is False,  # noqa: E712
             SLATimer.resolved_at == None,  # noqa: E711
         ).all()
 
@@ -594,7 +594,7 @@ def daily_sla_report_all(self) -> Dict[str, Any]:
                 reports_failed += 1
 
         logger.info(
-            f"Daily SLA report queue complete: "
+            "Daily SLA report queue complete: "
             f"{reports_generated} generated, {reports_failed} failed"
         )
 

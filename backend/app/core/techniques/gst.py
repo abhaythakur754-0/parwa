@@ -759,8 +759,8 @@ class GSTProcessor:
         # Filter options that pass risk threshold
         safe_options = [
             o for o in options if (
-                1.0 -
-                risk_lookup.get(
+                1.0
+                - risk_lookup.get(
                     o.option_id,
                     0.0)) >= self.config.risk_threshold]
 
@@ -904,8 +904,8 @@ class GSTProcessor:
                 problem_definition=problem_definition if 'problem_definition' in dir() else {},
                 options=options if 'options' in dir() else [],
                 checkpoints=checkpoints if 'checkpoints' in dir() else [],
-                steps_applied=steps_applied +
-                ["error_fallback"] if 'steps_applied' in dir() else ["error_fallback"],
+                steps_applied=steps_applied
+                + ["error_fallback"] if 'steps_applied' in dir() else ["error_fallback"],
                 risk_summary=risk_summary if 'risk_summary' in dir() else {},
             )
 

@@ -76,7 +76,7 @@ def validate_encryption_key() -> None:
         logger.warning(
             "encryption_key_too_short",
             message=f"PARWA_ENCRYPTION_KEY is only {len(key)} chars. "
-            f"Recommend at least 32 characters for security.",
+            "Recommend at least 32 characters for security.",
         )
     else:
         logger.info(
@@ -660,7 +660,7 @@ class CustomIntegrationService:
         if integration.status != "draft":
             raise ValidationError(
                 message=f"Cannot activate integration in '{
-                    integration.status}' status. " f"Only draft integrations can be activated.",
+                    integration.status}' status. " "Only draft integrations can be activated.",
                 details={
                     "current_status": integration.status},
             )
@@ -697,7 +697,7 @@ class CustomIntegrationService:
         if integration.status != "disabled":
             raise ValidationError(
                 message=f"Cannot reactivate integration in '{integration.status}' status. "
-                f"Only disabled integrations can be reactivated.",
+                "Only disabled integrations can be reactivated.",
                 details={"current_status": integration.status},
             )
 

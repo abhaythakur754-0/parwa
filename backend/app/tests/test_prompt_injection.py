@@ -355,7 +355,7 @@ class TestDetectorMultiTurn:
         assert any(m.rule_id == "MTR-001" for m in result.matches)
 
     def test_continue_from(self, detector):
-        result = detector.scan("Continue from where we left off", "company1")
+        result = detector.scan("Continue from where we left of", "company1")
         assert result.is_injection is True
         assert any(m.rule_id == "MTR-002" for m in result.matches)
 

@@ -471,7 +471,7 @@ class MemoryPressureAction(BaseHealingAction):
                 "action": "stale_session_eviction",
                 "message": (
                     f"Evicted {evicted} stale session keys to "
-                    f"reduce memory pressure"
+                    "reduce memory pressure"
                 ),
             }
         except Exception as exc:
@@ -510,7 +510,7 @@ class DBConnectionPoolAction(BaseHealingAction):
                     if utilization > DB_POOL_EXHAUSTED_THRESHOLD:
                         return (
                             True,
-                            f"DB pool utilization at "
+                            "DB pool utilization at "
                             f"{utilization:.1%} "
                             f"({pool_checked_out}/{pool_size})",
                         )
@@ -641,7 +641,7 @@ class IntegrationRecoveryAction(BaseHealingAction):
             "all_healthy": all_healthy,
             "action": "integration_retry",
             "message": (
-                f"Integration recovery: "
+                "Integration recovery: "
                 f"{sum(1 for r in results.values() if r['retry_success'])}/"
                 f"{len(results)} recovered"
             ),
@@ -725,8 +725,8 @@ class StuckTicketRecoveryAction(BaseHealingAction):
                 "action": "stuck_ticket_recovery",
                 "message": (
                     f"Identified {len(advanced)} stuck ticket(s). "
-                    f"Admin should review and force-advance via "
-                    f"GSD terminal."
+                    "Admin should review and force-advance via "
+                    "GSD terminal."
                 ),
             }
         except Exception as exc:
@@ -815,7 +815,7 @@ class ApprovalQueueBacklogAction(BaseHealingAction):
                 "action": "escalation_notification",
                 "message": (
                     f"Escalation logged for {pending_count} "
-                    f"pending approvals. Admin notification sent."
+                    "pending approvals. Admin notification sent."
                 ),
             }
         except Exception as exc:
@@ -860,7 +860,7 @@ class ConfidenceDropRecoveryAction(BaseHealingAction):
                         return (
                             True,
                             f"Variant {summary.variant} confidence "
-                            f"threshold dropped from "
+                            "threshold dropped from "
                             f"{summary.threshold_current} to "
                             f"{summary.threshold_original} "
                             f"(drop: {drop:.1%})",
@@ -912,9 +912,9 @@ class ConfidenceDropRecoveryAction(BaseHealingAction):
                 "suggestions": suggestions,
                 "action": "alert_and_suggest_retraining",
                 "message": (
-                    f"Confidence drop detected in "
+                    "Confidence drop detected in "
                     f"{len(affected_variants)} variant(s). "
-                    f"Retraining recommended."
+                    "Retraining recommended."
                 ),
             }
         except Exception as exc:

@@ -79,7 +79,7 @@ class ExecuteTechniqueTask(ParwaBaseTask):
                 "tokens_used": 0,
                 "message": (
                     f"Technique {technique_id} execution stub — "
-                    f"full implementation in Week 10+"
+                    "full implementation in Week 10+"
                 ),
             }
 

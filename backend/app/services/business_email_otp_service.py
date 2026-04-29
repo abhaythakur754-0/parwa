@@ -120,7 +120,7 @@ def send_business_email_otp(
 
     if recent_otps >= MAX_REQUESTS_PER_HOUR:
         raise RateLimitError(
-            message=f"Too many OTP requests. Please wait before requesting another code.",
+            message="Too many OTP requests. Please wait before requesting another code.",
             details={
                 "retry_after_seconds": 3600},
         )
@@ -129,7 +129,7 @@ def send_business_email_otp(
     db.query(BusinessEmailOTP).filter(
         BusinessEmailOTP.email == email,
         BusinessEmailOTP.company_id == company_id,
-        BusinessEmailOTP.verified == False,  # noqa: E712
+        BusinessEmailOTP.verified is False,  # noqa: E712
     ).update({"expires_at": datetime.now(timezone.utc)})  # Expire them
 
     # Generate new OTP
@@ -238,7 +238,7 @@ def verify_business_email_otp(
             and_(
                 BusinessEmailOTP.email == email,
                 BusinessEmailOTP.company_id == company_id,
-                BusinessEmailOTP.verified == False,  # noqa: E712
+                BusinessEmailOTP.verified is False,  # noqa: E712
                 BusinessEmailOTP.expires_at > now,
             )
         )

@@ -1359,7 +1359,7 @@ class ReflexionProcessor:
 
         parts = [base]
         if prev_preview:
-            parts.append(f"Previous response preview: \"{prev_preview}\"")
+            parts.append("Previous response preview: \"{prev_preview}\"")
 
         return " ".join(parts)
 
@@ -1382,7 +1382,7 @@ class ReflexionProcessor:
             "is", "am", "are", "was", "were", "be", "been",
             "have", "has", "had", "do", "does", "did",
             "will", "would", "could", "should", "may", "might",
-            "shall", "can", "to", "of", "in", "for", "on",
+            "shall", "can", "to", "o", "in", "for", "on",
             "with", "at", "by", "from", "as", "into",
             "the", "a", "an", "and", "or", "but", "if",
             "not", "no", "this", "that", "these", "those",
@@ -1459,8 +1459,8 @@ class ReflexionProcessor:
             "option_c": "Option C — escalate for specialised assistance",
             "alternative_with_details": (
                 f"Option A: the standard resolution for {topic}; "
-                f"Option B: an alternative approach that may be faster; "
-                f"Option C: escalate to a specialist if needed"
+                "Option B: an alternative approach that may be faster; "
+                "Option C: escalate to a specialist if needed"
             ),
             "recommended_option": "Option A, as it follows the standard process",
             "detailed_breakdown": (

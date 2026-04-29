@@ -63,7 +63,7 @@ _TECHNICAL_JARGON: Set[str] = {
     "cdn", "latency", "throughput", "bandwidth", "payload",
     "middleware", "microservice", "container", "kubernetes", "docker",
     "load balancer", "rate limit", "idempotent", "cron", "daemon",
-    "protobuf", "graphql", "rest", "grpc", "tcp", "udp", "http",
+    "protobu", "graphql", "rest", "grpc", "tcp", "udp", "http",
     "ssh", "sftp", "ci/cd", "deployment", "rollback", "hotfix",
     "schema", "migration", "index", "replica", "shard", "cluster",
     "serialization", "deserialization", "authentication", "authorization",
@@ -273,10 +273,10 @@ class StepBackProcessor:
             "the", "a", "an", "is", "are", "was", "were", "be", "been",
             "being", "have", "has", "had", "do", "does", "did", "will",
             "would", "could", "should", "may", "might", "can", "shall",
-            "to", "of", "in", "for", "on", "with", "at", "by", "from",
+            "to", "o", "in", "for", "on", "with", "at", "by", "from",
             "as", "into", "through", "during", "before", "after", "above",
             "below", "between", "and", "but", "or", "nor", "not", "so",
-            "if", "then", "than", "too", "very", "just", "about", "also",
+            "i", "then", "than", "too", "very", "just", "about", "also",
             "that", "this", "these", "those", "it", "its", "i", "me",
             "my", "we", "our", "you", "your", "he", "she", "they", "them",
         }
@@ -292,8 +292,8 @@ class StepBackProcessor:
             top_word = loop_words[0]
             confidence = min(
                 1.0,
-                word_counts[top_word] /
-                len(reasoning_thread))
+                word_counts[top_word]
+                / len(reasoning_thread))
             return NarrowQueryDetector(
                 is_narrow=True,
                 narrow_type="stuck_reasoning",
@@ -480,8 +480,8 @@ class StepBackProcessor:
         scores.append(breadth)
 
         # 2. Coverage score: how many broadened queries were generated
-        coverage = min(1.0, len(broadened_queries) /
-                       max(self.config.max_broadening_levels, 1))
+        coverage = min(1.0, len(broadened_queries)
+                       / max(self.config.max_broadening_levels, 1))
         scores.append(coverage)
 
         # 3. Clarity score: broadened queries are longer and more specific

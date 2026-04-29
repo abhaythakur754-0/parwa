@@ -49,7 +49,7 @@ logger = logging.getLogger("parwa.knowledge_base")
 
 # ── Allowed File Types ─────────────────────────────────────────────
 
-ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt", ".csv", ".md", ".json"}
+ALLOWED_EXTENSIONS = {".pd", ".docx", ".doc", ".txt", ".csv", ".md", ".json"}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
 

@@ -1150,8 +1150,8 @@ class ProviderManagementService:
             keys = list(self._api_keys.get(company_id, []))
 
             if provider:
-                keys = [k for k in keys if k.provider ==
-                        provider.lower().strip()]
+                keys = [k for k in keys if k.provider
+                        == provider.lower().strip()]
 
             # Return masked representation.
             return [

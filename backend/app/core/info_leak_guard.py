@@ -313,7 +313,7 @@ class InfoLeakGuard:
                 action="block",
                 sanitized_response=CANNED_REFUSAL_RESPONSE,
                 reason=(
-                    f"Information leakage detected in categories: "
+                    "Information leakage detected in categories: "
                     f"{', '.join(categories)}"
                 ),
             )
@@ -334,7 +334,7 @@ class InfoLeakGuard:
             matches=all_matches,
             action="flagged",
             reason=(
-                f"Low-confidence leak detected in categories: "
+                "Low-confidence leak detected in categories: "
                 f"{', '.join(categories)}"
             ),
         )

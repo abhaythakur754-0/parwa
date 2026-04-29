@@ -635,7 +635,7 @@ class TestSessionLifecycle:
             ("demo", {}, "demo"),
             ("features", {}, "discovery"),
             ("direct", {}, "welcome"),
-            ("referral", {"ref": "friend"}, "welcome"),
+            ("referral", {"re": "friend"}, "welcome"),
         ]
 
         for source, params, expected_stage in test_cases:

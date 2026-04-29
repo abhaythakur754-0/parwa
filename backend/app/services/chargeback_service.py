@@ -337,7 +337,7 @@ class ChargebackService:
             old_status = chargeback.status
             if not self._is_valid_transition(old_status, status):
                 raise ChargebackError(
-                    f"Invalid chargeback status transition: "
+                    "Invalid chargeback status transition: "
                     f"{old_status} → {status}"
                 )
 
@@ -434,8 +434,8 @@ class ChargebackService:
                         f"Chargeback of {chargeback.currency} "
                         f"{chargeback.amount} received from "
                         f"{company.name if company else 'Unknown'}. "
-                        f"Service has been stopped. "
-                        f"Review and respond within 48 hours."
+                        "Service has been stopped. "
+                        "Review and respond within 48 hours."
                     ),
                 },
             }
@@ -490,61 +490,61 @@ class ChargebackService:
 
             # Build template based on current status
             if chargeback.status == "received":
-                subject = f"Important: Chargeback Notice for Your PARWA Account"
+                subject = "Important: Chargeback Notice for Your PARWA Account"
                 body = (
                     f"Dear {company_name},\n\n"
-                    f"We have received a chargeback notification from your "
-                    f"payment provider for the amount of "
+                    "We have received a chargeback notification from your "
+                    "payment provider for the amount of "
                     f"{chargeback.currency} {chargeback.amount}.\n\n"
-                    f"As a result, your PARWA service has been temporarily "
-                    f"suspended while we review this matter.\n\n"
-                    f"If you initiated this chargeback or have questions, "
-                    f"please contact our billing team immediately at "
-                    f"billing@parwa.io with your account details.\n\n"
-                    f"We aim to resolve this within 48 hours. Once resolved, "
-                    f"your service will be restored.\n\n"
-                    f"Best regards,\nThe PARWA Billing Team"
+                    "As a result, your PARWA service has been temporarily "
+                    "suspended while we review this matter.\n\n"
+                    "If you initiated this chargeback or have questions, "
+                    "please contact our billing team immediately at "
+                    "billing@parwa.io with your account details.\n\n"
+                    "We aim to resolve this within 48 hours. Once resolved, "
+                    "your service will be restored.\n\n"
+                    "Best regards,\nThe PARWA Billing Team"
                 )
                 communication_type = "chargeback_received"
             elif chargeback.status == "under_review":
-                subject = f"Update: Your Chargeback Case is Under Review"
+                subject = "Update: Your Chargeback Case is Under Review"
                 body = (
                     f"Dear {company_name},\n\n"
-                    f"Your chargeback case regarding "
+                    "Your chargeback case regarding "
                     f"{chargeback.currency} {chargeback.amount} is currently "
-                    f"under review by our billing team.\n\n"
-                    f"We are working with the payment processor to resolve "
-                    f"this matter as quickly as possible.\n\n"
-                    f"We will update you within 24-48 hours with the outcome.\n\n"
-                    f"Best regards,\nThe PARWA Billing Team"
+                    "under review by our billing team.\n\n"
+                    "We are working with the payment processor to resolve "
+                    "this matter as quickly as possible.\n\n"
+                    "We will update you within 24-48 hours with the outcome.\n\n"
+                    "Best regards,\nThe PARWA Billing Team"
                 )
                 communication_type = "chargeback_under_review"
             elif chargeback.status == "won":
-                subject = f"Good News: Chargeback Dispute Resolved in Your Favor"
+                subject = "Good News: Chargeback Dispute Resolved in Your Favor"
                 body = (
                     f"Dear {company_name},\n\n"
-                    f"We are pleased to inform you that the chargeback dispute "
+                    "We are pleased to inform you that the chargeback dispute "
                     f"for {chargeback.currency} {chargeback.amount} has been "
-                    f"resolved in your favor.\n\n"
-                    f"Your PARWA service has been fully restored. If you "
-                    f"experience any issues, please contact our support team.\n\n"
-                    f"Thank you for your patience.\n\n"
-                    f"Best regards,\nThe PARWA Billing Team"
+                    "resolved in your favor.\n\n"
+                    "Your PARWA service has been fully restored. If you "
+                    "experience any issues, please contact our support team.\n\n"
+                    "Thank you for your patience.\n\n"
+                    "Best regards,\nThe PARWA Billing Team"
                 )
                 communication_type = "chargeback_won"
             else:  # lost
                 notes = chargeback.resolution_notes or "No additional details."
-                subject = f"Notice: Chargeback Case Resolution"
+                subject = "Notice: Chargeback Case Resolution"
                 body = (
                     f"Dear {company_name},\n\n"
-                    f"The chargeback case for "
+                    "The chargeback case for "
                     f"{chargeback.currency} {chargeback.amount} has been "
-                    f"resolved.\n\n"
+                    "resolved.\n\n"
                     f"Resolution notes: {notes}\n\n"
-                    f"Your PARWA service remains suspended. If you believe "
-                    f"this is an error or would like to discuss reinstatement "
-                    f"options, please contact billing@parwa.io.\n\n"
-                    f"Best regards,\nThe PARWA Billing Team"
+                    "Your PARWA service remains suspended. If you believe "
+                    "this is an error or would like to discuss reinstatement "
+                    "options, please contact billing@parwa.io.\n\n"
+                    "Best regards,\nThe PARWA Billing Team"
                 )
                 communication_type = "chargeback_lost"
 

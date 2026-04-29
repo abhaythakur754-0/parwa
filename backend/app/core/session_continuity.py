@@ -606,8 +606,8 @@ class SessionContinuityManager:
                     if (s.company_id == company_id
                             and s.status == SessionStatus.ACTIVE.value):
                         elapsed = (
-                            now -
-                            _parse_utc(
+                            now
+                            - _parse_utc(
                                 s.last_heartbeat_at)).total_seconds()
                         if elapsed > threshold:
                             stale.append({"session_id": s.session_id,
@@ -895,8 +895,8 @@ class SessionContinuityManager:
                     self._collision_events.get(
                         company_id, []))
                 avg_dur = (
-                    sum(durations) /
-                    len(durations)) if durations else 0.0
+                    sum(durations)
+                    / len(durations)) if durations else 0.0
                 most_active = (max(agent_counts, key=agent_counts.get)
                                if agent_counts else None)
                 rate = (company_collisions / self._total_acquire_attempts

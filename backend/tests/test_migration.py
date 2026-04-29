@@ -600,8 +600,8 @@ class TestCircuitBreaker:
         state = cb._ensure("k")
         state.opened_at = (
             datetime.now(
-                timezone.utc) -
-            timedelta(
+                timezone.utc)
+            - timedelta(
                 seconds=1)).isoformat()
         assert cb.get_state("k") == CircuitState.HALF_OPEN
         # Now record enough successes
@@ -616,8 +616,8 @@ class TestCircuitBreaker:
         state = cb._ensure("k")
         state.opened_at = (
             datetime.now(
-                timezone.utc) -
-            timedelta(
+                timezone.utc)
+            - timedelta(
                 seconds=120)).isoformat()
         assert cb.get_state("k") == CircuitState.HALF_OPEN
         cb.record_failure("k")
@@ -813,7 +813,8 @@ class TestMigrationEventBus:
 
     def test_unsubscribe(self):
         bus = MigrationEventBus()
-        def handler(ev): return None
+        def handler(ev):
+            return None
         bus.subscribe("e", handler)
         bus.unsubscribe("e", handler)
         assert bus._subs.get("e") == []

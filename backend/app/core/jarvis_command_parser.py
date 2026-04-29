@@ -259,11 +259,11 @@ _register_command(
         description="Assign an agent to handle a ticket",
         category="agents",
         patterns=[
-            r"^assign\s+(?:agent\s+)?" +
-            _AGENT_ID_PATTERN +
-            r"\s+to\s+(?:ticket\s+)?" +
-            _TICKET_ID_PATTERN +
-            r"$",
+            r"^assign\s+(?:agent\s+)?"
+            + _AGENT_ID_PATTERN
+            + r"\s+to\s+(?:ticket\s+)?"
+            + _TICKET_ID_PATTERN
+            + r"$",
         ],
         aliases=["assign agent"],
         requires_confirmation=False,
@@ -298,12 +298,12 @@ _register_command(
         description="Get details of a specific ticket",
         category="tickets",
         patterns=[
-            r"^(?:show|get|view|details?\s+(?:of\s+)?)ticket\s+" +
-            _TICKET_ID_PATTERN +
-            r"$",
-            r"^ticket\s+" +
-            _TICKET_ID_PATTERN +
-            r"$",
+            r"^(?:show|get|view|details?\s+(?:of\s+)?)ticket\s+"
+            + _TICKET_ID_PATTERN
+            + r"$",
+            r"^ticket\s+"
+            + _TICKET_ID_PATTERN
+            + r"$",
         ],
         aliases=[
             "ticket details",
@@ -321,12 +321,12 @@ _register_command(
         description="Escalate a ticket to a human agent",
         category="tickets",
         patterns=[
-            r"^escalate\s+(?:ticket\s+)?" +
-            _TICKET_ID_PATTERN +
-            r"$",
-            r"^(?:assign|handoff)\s+(?:ticket\s+)?" +
-            _TICKET_ID_PATTERN +
-            r"\s+to\s+human$",
+            r"^escalate\s+(?:ticket\s+)?"
+            + _TICKET_ID_PATTERN
+            + r"$",
+            r"^(?:assign|handoff)\s+(?:ticket\s+)?"
+            + _TICKET_ID_PATTERN
+            + r"\s+to\s+human$",
         ],
         aliases=[
             "escalate",
@@ -346,12 +346,12 @@ _register_command(
         description="Close a ticket",
         category="tickets",
         patterns=[
-            r"^close\s+(?:ticket\s+)?" +
-            _TICKET_ID_PATTERN +
-            r"$",
-            r"^(?:resolve|mark\s+as\s+resolved)\s+(?:ticket\s+)?" +
-            _TICKET_ID_PATTERN +
-            r"$",
+            r"^close\s+(?:ticket\s+)?"
+            + _TICKET_ID_PATTERN
+            + r"$",
+            r"^(?:resolve|mark\s+as\s+resolved)\s+(?:ticket\s+)?"
+            + _TICKET_ID_PATTERN
+            + r"$",
         ],
         aliases=[
             "close ticket",
@@ -392,8 +392,8 @@ _register_command(
             "dashboard",
             "show analytics"],
         params={
-            "period": r"(?:for\s+(?:the\s+)?)?(?:last|past)\s+" +
-            _DURATION_PATTERN,
+            "period": r"(?:for\s+(?:the\s+)?)?(?:last|past)\s+"
+            + _DURATION_PATTERN,
         },
         examples=[
             "show analytics",
@@ -434,8 +434,8 @@ _register_command(
             "cost report",
             "usage summary"],
         params={
-            "period": r"(?:for\s+(?:the\s+)?)?(?:last|past|this)\s+" +
-            _DURATION_PATTERN,
+            "period": r"(?:for\s+(?:the\s+)?)?(?:last|past|this)\s+"
+            + _DURATION_PATTERN,
         },
         examples=[
             "show usage",
@@ -463,9 +463,9 @@ _register_command(
         description="Check health of a specific integration",
         category="integrations",
         patterns=[
-            r"^check\s+(?:integration\s+)?" +
-            _INTEGRATION_PATTERN +
-            r"\s*(?:health|status)?$",
+            r"^check\s+(?:integration\s+)?"
+            + _INTEGRATION_PATTERN
+            + r"\s*(?:health|status)?$",
         ],
         aliases=[
             "check integration",

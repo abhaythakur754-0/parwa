@@ -518,7 +518,7 @@ class AntiArbitrageService:
                             level=ArbitrageAlertLevel.HIGH,
                             alert_type="rapid_instance_creation",
                             description=(
-                                f"Rapid instance creation detected: "
+                                "Rapid instance creation detected: "
                                 f"{rapid_cnt} instances in "
                                 f"{_RAPID_CREATION_WINDOW_SECONDS // 60} min"
                             ),
@@ -534,14 +534,14 @@ class AntiArbitrageService:
                             instance_count=new_cnt,
                             max_instances=self.config.max_instances_per_variant,
                             utilization_pct=(
-                                new_cap /
-                                self.config.max_weighted_capacity *
-                                100 if self.config.max_weighted_capacity > 0 else 0.0),
+                                new_cap
+                                / self.config.max_weighted_capacity
+                                * 100 if self.config.max_weighted_capacity > 0 else 0.0),
                             action=InstanceAction.BLOCKED,
                             reason=(
-                                f"Rapid instance creation rate exceeded: " f"{rapid_cnt} in last " f"{
-                                    _RAPID_CREATION_WINDOW_SECONDS //
-                                    60} min"),
+                                "Rapid instance creation rate exceeded: " f"{rapid_cnt} in last " f"{
+                                    _RAPID_CREATION_WINDOW_SECONDS
+                                    // 60} min"),
                         )
 
                     if status_code == 1:
@@ -560,7 +560,7 @@ class AntiArbitrageService:
                             action=InstanceAction.BLOCKED,
                             reason=(
                                 f"Adding {variant_type} (weight {weight}) "
-                                f"would exceed max weighted capacity "
+                                "would exceed max weighted capacity "
                                 f"({self.config.max_weighted_capacity})"
                             ),
                         )
@@ -578,7 +578,7 @@ class AntiArbitrageService:
                     if utilisation >= threshold_pct:
                         action = InstanceAction.FLAGGED
                         reason = (
-                            f"Allowed but flagged — capacity at " f"{
+                            "Allowed but flagged — capacity at " f"{
                                 utilisation:.1f}% (>= {threshold_pct}% threshold)")
                         self._create_alert(
                             company_id=company_id,
@@ -630,12 +630,12 @@ class AntiArbitrageService:
                         instance_count=len(instances),
                         max_instances=self.config.max_instances_per_variant,
                         utilization_pct=(
-                            current_cap /
-                            self.config.max_weighted_capacity *
-                            100 if self.config.max_weighted_capacity > 0 else 0.0),
+                            current_cap
+                            / self.config.max_weighted_capacity
+                            * 100 if self.config.max_weighted_capacity > 0 else 0.0),
                         action=InstanceAction.BLOCKED,
                         reason=(
-                            f"Rapid instance creation rate exceeded " f"(in-memory fallback)"),
+                            "Rapid instance creation rate exceeded " "(in-memory fallback)"),
                     )
 
                 if new_capacity > self.config.max_weighted_capacity:
@@ -653,7 +653,7 @@ class AntiArbitrageService:
                         action=InstanceAction.BLOCKED,
                         reason=(
                             f"Adding {variant_type} (weight {weight}) "
-                            f"would exceed max weighted capacity "
+                            "would exceed max weighted capacity "
                             f"({self.config.max_weighted_capacity})"
                         ),
                     )
@@ -934,7 +934,7 @@ class AntiArbitrageService:
                     level=level,
                     alert_type="capacity_gaming",
                     description=(
-                        f"Weighted capacity utilisation at "
+                        "Weighted capacity utilisation at "
                         f"{utilisation:.1f}% (threshold {threshold_pct}%)"
                     ),
                     details={
@@ -960,12 +960,12 @@ class AntiArbitrageService:
                             level=ArbitrageAlertLevel.HIGH,
                             alert_type="single_variant_hoarding",
                             description=(
-                                f"{count} mini_parwa instances detected — " f"potential capacity gaming"),
+                                f"{count} mini_parwa instances detected — " "potential capacity gaming"),
                             details={
                                 "variant_type": vtype,
                                 "count": count,
-                                "combined_weight": count *
-                                self.config.capacity_weights.get(
+                                "combined_weight": count
+                                * self.config.capacity_weights.get(
                                     vtype,
                                     1.0),
                             },

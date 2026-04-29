@@ -36,10 +36,8 @@ from app.schemas.billing import (
     SubscriptionUpdate,
     SubscriptionCancel,
     SubscriptionInfo,
-    SubscriptionStatus,
     VariantType,
     ProrationResult,
-    ProrationAudit,
     CompanyVariantCreate,
     CompanyVariantList,
     CompanyVariantInfo,
@@ -51,7 +49,6 @@ from app.schemas.billing import (
     ResubscriptionResponse,
     RetentionStatusResponse,
     DataExportRequestResponse,
-    DataExportDownloadResponse,
     PaymentMethodUpdateRequest,
     PaymentMethodUpdateResponse,
     PaymentFailureStatusResponse,
@@ -71,8 +68,6 @@ from app.schemas.billing import (
     ManualInvoiceRequest,
     InvoiceAmendmentRequest,
     InvoiceAmendmentInfo,
-    SpendingSummary,
-    ChannelBreakdown,
     SpendingTrend,
     BudgetAlert,
     VoiceUsageInfo,
@@ -824,12 +819,12 @@ async def get_current_usage(
         overage_tickets=overage,
         overage_charges=str(
             Decimal(
-                str(overage)) *
-            Decimal("0.10")),
+                str(overage))
+            * Decimal("0.10")),
         usage_percentage=min(
             1.0,
-            tickets_used /
-            ticket_limit) if ticket_limit > 0 else 0,
+            tickets_used
+            / ticket_limit) if ticket_limit > 0 else 0,
     )
 
 
@@ -2002,7 +1997,7 @@ async def deactivate_promo_code(promo_id: str, request: Request):
     try:
         result = svc.deactivate_promo_code(promo_id)
         return MessageResponse(
-            message=f"Promo code deactivated",
+            message="Promo code deactivated",
             code="promo_deactivated")
     except PromoError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -2175,7 +2170,7 @@ async def get_plan_comparison(request: Request):
 
 
 @router.get("/variant-catalog", response_model=VariantCatalog)
-async def get_variant_catalog(request: Request):
+async def get_variant_catalog_v2(request: Request):
     """DI3: Available industry variants with customer's active ones."""
     company_id = getattr(request.state, "company_id", None)
     catalog_items = [

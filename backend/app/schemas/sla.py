@@ -207,8 +207,8 @@ class SLATimerResponse(BaseModel):
             return False
 
         total_seconds = (
-            self.resolution_target -
-            self.created_at).total_seconds()
+            self.resolution_target
+            - self.created_at).total_seconds()
         elapsed_seconds = (now - self.created_at).total_seconds()
 
         if total_seconds <= 0:

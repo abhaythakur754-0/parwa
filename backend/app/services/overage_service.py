@@ -125,8 +125,8 @@ class OverageService:
         if target_date is None:
             target_date = (
                 datetime.now(
-                    timezone.utc) -
-                timedelta(
+                    timezone.utc)
+                - timedelta(
                     days=1)).date()
 
         with SessionLocal() as db:
@@ -554,9 +554,9 @@ class OverageService:
 
             # Calculate percentage
             usage_percentage = (
-                tickets_used /
-                ticket_limit *
-                100) if ticket_limit > 0 else 0.0
+                tickets_used
+                / ticket_limit
+                * 100) if ticket_limit > 0 else 0.0
 
             return UsageInfo(
                 company_id=company_id,
@@ -678,8 +678,8 @@ class OverageService:
             "ticket_limit": usage.ticket_limit,
             "tickets_remaining": max(
                 0,
-                usage.ticket_limit -
-                usage.tickets_used),
+                usage.ticket_limit
+                - usage.tickets_used),
             "threshold": threshold,
         }
 

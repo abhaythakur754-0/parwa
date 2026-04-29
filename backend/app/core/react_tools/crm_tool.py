@@ -551,8 +551,8 @@ class CRMTool(BaseReactTool):
         interaction_count = len(interactions)
         days_since_active = max(
             (datetime.now(
-                timezone.utc) -
-                datetime.fromisoformat(
+                timezone.utc)
+                - datetime.fromisoformat(
                 cust["last_active_at"])).days,
             0,
         )
@@ -579,8 +579,8 @@ class CRMTool(BaseReactTool):
                     []),
                 "account_age_days": (
                     datetime.now(
-                        timezone.utc) -
-                    datetime.fromisoformat(
+                        timezone.utc)
+                    - datetime.fromisoformat(
                         cust["created_at"])).days,
             },
             execution_time_ms=0,

@@ -162,7 +162,7 @@ class SharedGSDManager:
                 "valid": True,
                 "reason": (
                     f"Transition {current_state} -> {target_state} "
-                    f"is permitted by the GSD state machine."
+                    "is permitted by the GSD state machine."
                 ),
             }
         else:
@@ -176,7 +176,7 @@ class SharedGSDManager:
                 "valid": False,
                 "reason": (
                     f"Transition {current_state} -> {target_state} "
-                    f"is not permitted."
+                    "is not permitted."
                     + suggestion
                 ),
             }
@@ -429,7 +429,7 @@ class SharedGSDManager:
                     f"Ticket stuck in '{state}' for "
                     f"{duration:.0f}s (> "
                     f"{self.CRITICAL_STUCK_THRESHOLD_SECONDS:.0f}s). "
-                    f"Immediate human review recommended."
+                    "Immediate human review recommended."
                 ),
                 "priority": "high",
                 "target_state": "human_handoff",
@@ -437,8 +437,8 @@ class SharedGSDManager:
             suggestions.append({
                 "action": "force_transition",
                 "reason": (
-                    f"Consider force-transitioning to 'closed' "
-                    f"if the issue has been resolved externally."
+                    "Consider force-transitioning to 'closed' "
+                    "if the issue has been resolved externally."
                 ),
                 "priority": "medium",
                 "target_state": "closed",
@@ -448,7 +448,7 @@ class SharedGSDManager:
                 "action": "review_state",
                 "reason": (
                     f"Ticket in '{state}' for {duration:.0f}s. "
-                    f"Review may be needed."
+                    "Review may be needed."
                 ),
                 "priority": "medium",
                 "target_state": None,
@@ -478,7 +478,7 @@ class SharedGSDManager:
                 "action": "escalate_diagnosis_loop",
                 "reason": (
                     f"DIAGNOSIS entered {diagnosis_count} times. "
-                    f"Auto-escalation recommended."
+                    "Auto-escalation recommended."
                 ),
                 "priority": "high",
                 "target_state": "escalate",

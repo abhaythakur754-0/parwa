@@ -1679,7 +1679,7 @@ class LoadAwareDistributor:
                         "variant_type": variant_type,
                         "skipped": True,
                         "reason": (
-                            f"Need at least 2 instances for rebalancing, "
+                            "Need at least 2 instances for rebalancing, "
                             f"found {len(instances)}"
                         ),
                     }

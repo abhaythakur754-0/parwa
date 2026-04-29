@@ -103,7 +103,7 @@ class EscalationCooldownError(GSDEngineError):
         self.last_escalation_time = last_escalation_time
         super().__init__(
             message=(
-                f"Escalation cooldown active: "
+                "Escalation cooldown active: "
                 f"{cooldown_remaining_seconds:.1f}s remaining"
             ),
             details={
@@ -1210,7 +1210,7 @@ class GSDEngine:
             # Skip common stop words for comparison
             stop_words = {
                 "the", "a", "an", "is", "are", "was", "were", "be",
-                "to", "of", "in", "for", "on", "at", "by", "with",
+                "to", "o", "in", "for", "on", "at", "by", "with",
                 "and", "or", "but", "not", "can", "you", "your",
                 "have", "has", "had", "do", "does", "did", "what",
                 "when", "where", "how", "this", "that", "it",
@@ -1979,7 +1979,7 @@ class GSDEngine:
         if variant == GSDVariant.MINI_PARWA.value and to_state in (
                 "escalate", "human_handoff"):
             return (
-                f"Escalation and human handoff are not available in "
+                "Escalation and human handoff are not available in "
                 f"{GSDVariant.MINI_PARWA.value} variant"
             )
 
@@ -2008,8 +2008,8 @@ class GSDEngine:
             ("resolution", "closed"): "auto_close_simple",
             ("follow_up", "closed"): "customer_satisfied",
             ("follow_up", "diagnosis"): "new_issue_detected",
-            ("escalate", "human_handoff"): "auto_handoff",
-            ("human_handoff", "diagnosis"): "agent_resolved_return_to_ai",
+            ("escalate", "human_handof"): "auto_handoff",
+            ("human_handof", "diagnosis"): "agent_resolved_return_to_ai",
             ("closed", "new"): "new_message_on_closed_ticket",
         }
         return default_triggers.get(

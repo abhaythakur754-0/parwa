@@ -83,8 +83,8 @@ def _mock_ticket(
         "company_id": company_id,
         "customer_id": cid,
         "subject": subject or random.choice(_SUBJECTS),
-        "description": f"Customer reported an issue with their account. "
-        f"Needs investigation by the support team.",
+        "description": "Customer reported an issue with their account. "
+        "Needs investigation by the support team.",
         "status": status,
         "priority": random.choice(_PRIORITIES),
         "category": random.choice(_CATEGORIES),

@@ -303,7 +303,7 @@ async def receive_webhook(
                 "error": {
                     "code": "PAYLOAD_TOO_LARGE",
                     "message": (
-                        f"Webhook payload exceeds maximum "
+                        "Webhook payload exceeds maximum "
                         f"size of {MAX_WEBHOOK_PAYLOAD_SIZE} bytes"
                     ),
                     "details": {

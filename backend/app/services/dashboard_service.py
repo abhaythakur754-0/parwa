@@ -355,17 +355,17 @@ def get_key_metrics(
             [TicketStatus.resolved.value, TicketStatus.closed.value],
         )
         current_rate = (
-            resolved /
-            current_total *
-            100) if current_total > 0 else 0
+            resolved
+            / current_total
+            * 100) if current_total > 0 else 0
         prev_resolved = _count_tickets_by_status(
             db, company_id, previous_start, current_start,
             [TicketStatus.resolved.value, TicketStatus.closed.value],
         )
         prev_rate = (
-            prev_resolved /
-            previous_total *
-            100) if previous_total > 0 else 0
+            prev_resolved
+            / previous_total
+            * 100) if previous_total > 0 else 0
         kpis.append(_build_kpi(
             key="resolution_rate",
             label="Resolution Rate",
@@ -702,18 +702,18 @@ def _detect_anomalies(
         last_24h = _count_tickets(
             db,
             company_id,
-            now -
-            timedelta(
+            now
+            - timedelta(
                 hours=24),
             now)
         prev_24h = _count_tickets(
             db,
             company_id,
-            now -
-            timedelta(
+            now
+            - timedelta(
                 hours=48),
-            now -
-            timedelta(
+            now
+            - timedelta(
                 hours=24))
 
         if prev_24h > 0 and last_24h >= prev_24h * ANOMALY_THRESHOLD:
@@ -1043,11 +1043,11 @@ def _flag_anomalies(
     prev_24h = _count_tickets(
         db,
         company_id,
-        now -
-        timedelta(
+        now
+        - timedelta(
             hours=48),
-        now -
-        timedelta(
+        now
+        - timedelta(
             hours=24))
 
     if prev_24h > 0 and last_24h >= prev_24h * ANOMALY_THRESHOLD:
@@ -1070,7 +1070,7 @@ _RESPONSE_TIME_BUCKETS: List[Tuple[int, str, str]] = [
     (120, "1-2h", "1-2h"),
     (240, "2-4h", "2-4h"),
     (480, "4-8h", "4-8h"),
-    (float("inf"), "8h+", "8h+"),
+    (float("in"), "8h+", "8h+"),
 ]
 
 

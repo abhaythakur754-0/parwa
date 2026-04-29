@@ -202,7 +202,7 @@ class MessageService:
 
         # Filter internal notes
         if not include_internal:
-            query = query.filter(TicketMessage.is_internal == False)
+            query = query.filter(TicketMessage.is_internal is False)
 
         # Filter by role
         if role:

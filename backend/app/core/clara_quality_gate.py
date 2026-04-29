@@ -475,7 +475,7 @@ class CLARAQualityGate:
         word_count = len(response.split())
         if word_count > self.brand_voice.max_length:
             issues.append(
-                f"Response exceeds max length "
+                "Response exceeds max length "
                 f"({word_count}/{self.brand_voice.max_length} words)"
             )
             suggestions.append(
@@ -692,8 +692,8 @@ class CLARAQualityGate:
             match_pos = response_lower.find(match)
             if match_pos > 0:
                 preceding = response_lower[max(0, match_pos - 30):match_pos]
-                following = response_lower[match_pos + \
-                    len(match):match_pos + len(match) + 30]
+                following = response_lower[match_pos
+                                           + len(match):match_pos + len(match) + 30]
                 surrounding = preceding + " " + following
                 if any(
                         indicator in surrounding for indicator in tracking_indicators):

@@ -57,10 +57,14 @@ class _CompatLogger:
             exc_info=exc_info,
             stack_info=stack_info)
 
-    def info(self, msg, *a, **kw): self._call('info', msg, *a, **kw)
-    def warning(self, msg, *a, **kw): self._call('warning', msg, *a, **kw)
-    def error(self, msg, *a, **kw): self._call('error', msg, *a, **kw)
-    def debug(self, msg, *a, **kw): self._call('debug', msg, *a, **kw)
+    def info(self, msg, *a, **kw):
+        self._call('info', msg, *a, **kw)
+    def warning(self, msg, *a, **kw):
+        self._call('warning', msg, *a, **kw)
+    def error(self, msg, *a, **kw):
+        self._call('error', msg, *a, **kw)
+    def debug(self, msg, *a, **kw):
+        self._call('debug', msg, *a, **kw)
 
 
 logger = _CompatLogger(logger)
@@ -148,8 +152,8 @@ class CircuitBreaker:
                 "circuit_half_open feature=%s elapsed_s=%s",
                 self.feature,
                 round(
-                    now -
-                    self.last_failure_time))
+                    now
+                    - self.last_failure_time))
             return True
 
         return False
@@ -710,8 +714,8 @@ class RuleAIMigrationEngine:
             self,
             key: str,
             start: int = 0,
-            stop: int = -
-            1) -> List[str]:
+            stop: int =
+            - 1) -> List[str]:
         """Safe Redis LRANGE."""
         if self._redis is None:
             return []

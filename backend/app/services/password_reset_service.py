@@ -126,7 +126,7 @@ def initiate_password_reset(
     # Invalidate previous unused tokens
     db.query(PasswordResetToken).filter(
         PasswordResetToken.user_id == user.id,
-        PasswordResetToken.is_used == False,  # noqa: E712
+        PasswordResetToken.is_used is False,  # noqa: E712
     ).update({"is_used": True})
 
     db.commit()

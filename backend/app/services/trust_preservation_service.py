@@ -258,7 +258,7 @@ class TrustPreservationService:
             return {
                 "error": (
                     f"Invalid protocol mode '{mode}'. "
-                    f"Must be one of: green, amber, red"
+                    "Must be one of: green, amber, red"
                 ),
                 "valid_modes": [m.value for m in ProtocolMode],
             }
@@ -657,13 +657,13 @@ class TrustPreservationService:
                 estimate_seconds = GREEN_STABLE_SECONDS
                 message = (
                     "All critical subsystems healthy. " f"Protocol will return to GREEN in ~{
-                        GREEN_STABLE_SECONDS //
-                        60} " "minutes if stability maintained.")
+                        GREEN_STABLE_SECONDS
+                        // 60} " "minutes if stability maintained.")
             else:
                 # Critical subsystems degraded
                 estimate_seconds = -1  # Indeterminate
                 message = (
-                    f"Critical subsystem(s) degraded: "
+                    "Critical subsystem(s) degraded: "
                     f"{', '.join(i['subsystem'] for i in critical_issues)}. "
                     "Recovery depends on subsystem resolution."
                 )
@@ -679,7 +679,7 @@ class TrustPreservationService:
             else:
                 estimate_seconds = -1
                 message = (
-                    f"Critical subsystem(s) down: "
+                    "Critical subsystem(s) down: "
                     f"{', '.join(i['subsystem'] for i in critical_issues)}. "
                     "Immediate attention required."
                 )

@@ -418,9 +418,9 @@ class ContextHealthMeter:
                         max(0.0, 1.0 - metrics.token_usage_ratio),
                     ),
                     message=(
-                        f"Token budget at "
+                        "Token budget at "
                         f"{metrics.token_usage_ratio:.0%}, "
-                        f"threshold "
+                        "threshold "
                         f"{self._config.token_budget_threshold:.0%}"
                     ),
                     metric_name="token_usage_ratio",
@@ -441,9 +441,9 @@ class ContextHealthMeter:
                     alert_type=atype,
                     severity=HealthStatus.DEGRADING,
                     message=(
-                        f"Context compressed to "
+                        "Context compressed to "
                         f"{metrics.compression_ratio:.0%}, "
-                        f"below threshold "
+                        "below threshold "
                         f"{self._config.compression_ratio_threshold:.0%}"
                     ),
                     metric_name="compression_ratio",
@@ -467,7 +467,7 @@ class ContextHealthMeter:
                     alert_type=atype,
                     severity=HealthStatus.CRITICAL,
                     message=(
-                        f"Signal preservation at "
+                        "Signal preservation at "
                         f"{metrics.signal_preservation:.2f}, "
                         f"below {sig_threshold}"
                     ),
@@ -515,7 +515,7 @@ class ContextHealthMeter:
                     alert_type=atype,
                     severity=HealthStatus.DEGRADING,
                     message=(
-                        f"Context freshness at "
+                        "Context freshness at "
                         f"{metrics.freshness_score:.2f}, "
                         f"below {fresh_threshold} — "
                         "consider refreshing context"

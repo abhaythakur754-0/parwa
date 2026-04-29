@@ -87,7 +87,7 @@ def _validate_strategy(strategy: str) -> None:
             error_code="INVALID_STRATEGY",
             message=(
                 f"Invalid strategy '{strategy}'. "
-                f"Must be one of: "
+                "Must be one of: "
                 f"{', '.join(sorted(VALID_STRATEGIES))}"
             ),
             status_code=400,
@@ -335,7 +335,7 @@ def route_ticket(
         raise ParwaBaseError(
             error_code="NO_AVAILABLE_INSTANCE",
             message=(
-                f"No active instances available for "
+                "No active instances available for "
                 f"company '{company_id}'"
             ),
             status_code=503,
@@ -653,7 +653,7 @@ def escalate_ticket(
         raise ParwaBaseError(
             error_code="NO_ACTIVE_DISTRIBUTION",
             message=(
-                f"No active distribution found for "
+                "No active distribution found for "
                 f"ticket '{ticket_id}'"
             ),
             status_code=404,
@@ -670,7 +670,7 @@ def escalate_ticket(
             error_code="INSTANCE_NOT_FOUND",
             message=(
                 f"Current instance '{current.instance_id}' "
-                f"not found"
+                "not found"
             ),
             status_code=404,
         )
@@ -695,7 +695,7 @@ def escalate_ticket(
         raise ParwaBaseError(
             error_code="NO_HIGHER_INSTANCE",
             message=(
-                f"No higher-variant instance available for "
+                "No higher-variant instance available for "
                 f"escalation from '{current_inst.variant_type}'"
             ),
             status_code=503,

@@ -759,7 +759,7 @@ class TopicRelevanceGuard:
                 layer=self.LAYER_NAME,
                 severity=severity,
                 reason=(
-                    f"Response has low topic relevance: "
+                    "Response has low topic relevance: "
                     f"{overlap_ratio:.1%} keyword overlap "
                     f"(minimum {self.MIN_OVERLAP_THRESHOLD:.0%})"
                 ),
@@ -771,7 +771,7 @@ class TopicRelevanceGuard:
             passed=True,
             layer=self.LAYER_NAME,
             reason=(
-                f"Response is on-topic: "
+                "Response is on-topic: "
                 f"{overlap_ratio:.1%} keyword overlap"
             ),
             metadata=metadata,
@@ -860,7 +860,7 @@ class HallucinationCheckGuard:
                 layer=self.LAYER_NAME,
                 severity=severity,
                 reason=(
-                    f"Potential hallucination detected: "
+                    "Potential hallucination detected: "
                     f"{len(hallucination_markers_found)} marker(s) found"
                 ),
                 blocked_content="; ".join(hallucination_markers_found[:3]),
@@ -1159,7 +1159,7 @@ class LengthControlGuard:
                     else SeverityLevel.MEDIUM.value
                 ),
                 reason=(
-                    f"Response exceeds maximum length: "
+                    "Response exceeds maximum length: "
                     f"{length} chars (max {max_len})"
                 ),
                 action=_resolve_action(
@@ -1174,7 +1174,7 @@ class LengthControlGuard:
                 layer=self.LAYER_NAME,
                 severity=SeverityLevel.MEDIUM.value,
                 reason=(
-                    f"Response below minimum length: "
+                    "Response below minimum length: "
                     f"{length} chars (min {min_len})"
                 ),
                 action=_resolve_action(
@@ -1190,7 +1190,7 @@ class LengthControlGuard:
                 layer=self.LAYER_NAME,
                 severity=SeverityLevel.LOW.value,
                 reason=(
-                    f"Response is a wall-of-text: "
+                    "Response is a wall-of-text: "
                     f"{length} chars (flagged, not blocked)"
                 ),
                 action=GuardAction.FLAG_FOR_REVIEW.value,
@@ -1293,10 +1293,10 @@ class PIILeakGuard:
                 layer=self.LAYER_NAME,
                 severity=severity,
                 reason=(
-                    f"PII detected in response: "
+                    "PII detected in response: "
                     f"{len(pii_findings)} finding(s) across "
                     f"{len(set(f['category'] for f in pii_findings))} "
-                    f"category(ies)"
+                    "category(ies)"
                 ),
                 blocked_content="; ".join(
                     f["category"] for f in pii_findings

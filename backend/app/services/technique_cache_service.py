@@ -87,7 +87,7 @@ def _validate_cache_result(result: Any) -> str:
         raise ParwaBaseError(
             error_code="INVALID_CACHE_RESULT",
             message=(
-                f"cached_result is not valid JSON-serializable: "
+                "cached_result is not valid JSON-serializable: "
                 f"{str(exc)}"
             ),
             status_code=400,

@@ -355,8 +355,8 @@ class RuleBasedAssigner(BaseAssigner):
 
         # Follow-up routing: reuse previous agent if available
         if ticket.previous_agent_id:
-            prev = next((a for a in agents if a.agent_id ==
-                         ticket.previous_agent_id and a.can_accept), None, )
+            prev = next((a for a in agents if a.agent_id
+                         == ticket.previous_agent_id and a.can_accept), None, )
             if prev is not None:
                 elapsed_ms = (time.monotonic() - start) * 1000
                 result = AssignmentResult(
@@ -901,8 +901,8 @@ class SLAHelper:
             base = datetime.now(timezone.utc)
         target = cls.response_target_seconds(priority, tier)
         return (
-            base +
-            __import__("datetime").timedelta(
+            base
+            + __import__("datetime").timedelta(
                 seconds=target)).isoformat()
 
     @classmethod

@@ -681,7 +681,7 @@ class CapacityMonitor:
                         "reason": (
                             f"Variants {high_util_variants} "
                             f"at or above {THRESHOLD_CRITICAL * 100:.0f}% "
-                            f"utilization."
+                            "utilization."
                         ),
                     }
 

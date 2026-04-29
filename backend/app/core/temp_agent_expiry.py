@@ -203,7 +203,7 @@ class TempAgentExpiryService:
                 raise ValueError("duration_hours must be a positive integer")
             if duration_hours > self._config.max_duration_hours:
                 raise ValueError(
-                    f"duration_hours cannot exceed "
+                    "duration_hours cannot exceed "
                     f"{self._config.max_duration_hours}"
                 )
 
@@ -683,7 +683,7 @@ class TempAgentExpiryService:
                 if record.is_expired:
                     raise ValueError(
                         f"Agent '{agent_id}' has already expired. "
-                        f"Register a new agent instead."
+                        "Register a new agent instead."
                     )
 
                 new_expires = record.expires_at + timedelta(

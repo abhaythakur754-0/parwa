@@ -100,7 +100,7 @@ class JarvisSessionCreate(BaseModel):
     def entry_source_must_be_valid(cls, v: str) -> str:
         if v not in _VALID_ENTRY_SOURCES:
             raise ValueError(
-                f"Invalid entry_source. "
+                "Invalid entry_source. "
                 f"Must be one of: {', '.join(_VALID_ENTRY_SOURCES)}"
             )
         return v
@@ -158,7 +158,7 @@ class JarvisEntryContextRequest(BaseModel):
     def entry_source_must_be_valid(cls, v: str) -> str:
         if v not in _VALID_ENTRY_SOURCES:
             raise ValueError(
-                f"Invalid entry_source. "
+                "Invalid entry_source. "
                 f"Must be one of: {', '.join(_VALID_ENTRY_SOURCES)}"
             )
         return v
@@ -421,7 +421,7 @@ class JarvisActionTicketCreate(BaseModel):
     def ticket_type_must_be_valid(cls, v: str) -> str:
         if v not in _VALID_TICKET_TYPES:
             raise ValueError(
-                f"Invalid ticket_type. "
+                "Invalid ticket_type. "
                 f"Must be one of: {', '.join(_VALID_TICKET_TYPES)}"
             )
         return v
@@ -437,7 +437,7 @@ class JarvisActionTicketUpdateStatus(BaseModel):
     def status_must_be_valid(cls, v: str) -> str:
         if v not in _VALID_TICKET_STATUSES:
             raise ValueError(
-                f"Invalid status. "
+                "Invalid status. "
                 f"Must be one of: {', '.join(_VALID_TICKET_STATUSES)}"
             )
         return v

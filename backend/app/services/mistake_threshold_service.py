@@ -353,7 +353,7 @@ class MistakeThresholdService:
             .filter(
                 AgentMistake.company_id == company_id,
                 AgentMistake.agent_id == agent_id,
-                AgentMistake.used_in_training == False,
+                AgentMistake.used_in_training is False,
             )
             .update({"used_in_training": True})
         )
@@ -400,7 +400,7 @@ class MistakeThresholdService:
             .filter(
                 AgentMistake.company_id == company_id,
                 AgentMistake.agent_id == agent_id,
-                AgentMistake.used_in_training == False,
+                AgentMistake.used_in_training is False,
             )
             .scalar()
         ) or 0
@@ -525,7 +525,7 @@ class MistakeThresholdService:
             .filter(
                 AgentMistake.company_id == company_id,
                 AgentMistake.agent_id == agent_id,
-                AgentMistake.used_in_training == False,
+                AgentMistake.used_in_training is False,
             )
             .all()
         )

@@ -383,8 +383,8 @@ class SLAService:
             return False
 
         # Calculate time to first response
-        response_time = (timer.first_response_at -
-                         timer.created_at).total_seconds() / 60
+        response_time = (timer.first_response_at
+                         - timer.created_at).total_seconds() / 60
 
         if response_time > policy.first_response_minutes:
             timer.breached_at = timer.first_response_at
@@ -535,7 +535,7 @@ class SLAService:
         # Get all active timers
         timers = self.db.query(SLATimer).filter(
             SLATimer.company_id == company_id,
-            SLATimer.is_breached == False,  # noqa: E712
+            SLATimer.is_breached is False,  # noqa: E712
             SLATimer.resolved_at == None,  # noqa: E711
         ).all()
 
@@ -602,8 +602,8 @@ class SLAService:
         first_response_times = []
         for t in timers:
             if t.first_response_at and t.created_at:
-                minutes = (t.first_response_at -
-                           t.created_at).total_seconds() / 60
+                minutes = (t.first_response_at
+                           - t.created_at).total_seconds() / 60
                 first_response_times.append(minutes)
 
         resolution_times = []

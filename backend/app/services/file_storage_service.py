@@ -42,7 +42,7 @@ class FileStorageService:
     Usage::
 
         svc = FileStorageService()
-        result = svc.upload_file("comp-123", content, "report.pdf", "application/pdf", uploaded_by="user-456")
+        result = svc.upload_file("comp-123", content, "report.pd", "application/pd", uploaded_by="user-456")
     """
 
     def __init__(self, backend: Optional[StorageBackend] = None) -> None:

@@ -1038,8 +1038,8 @@ class DraftComposer:
         brand_name = brand.get("brand_name", "our company")
         parts.append(
             f"You are a customer support co-pilot for {brand_name}. "
-            f"Draft a response that a human agent can review, edit, "
-            f"and send to the customer."
+            "Draft a response that a human agent can review, edit, "
+            "and send to the customer."
         )
 
         # ── Variant-specific instructions ─────────────────────────

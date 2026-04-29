@@ -185,7 +185,7 @@ class RefundService:
                     elapsed_hours = (now - period_start).total_seconds() / 3600
                     if elapsed_hours > COOLING_OFF_HOURS:
                         raise CoolingOffExpiredError(
-                            f"Cooling-off period expired. "
+                            "Cooling-off period expired. "
                             f"{elapsed_hours:.1f} hours have passed since "
                             f"subscription start (limit: {COOLING_OFF_HOURS} hours)."
                         )
@@ -262,7 +262,7 @@ class RefundService:
             if refund.status not in ("pending", "approved"):
                 raise RefundAlreadyProcessedError(
                     f"Refund {refund_id} is in '{refund.status}' status and "
-                    f"cannot be approved"
+                    "cannot be approved"
                 )
 
             amount = Decimal(str(refund.refund_amount))
@@ -363,7 +363,7 @@ class RefundService:
             if refund.status not in ("pending", "approved"):
                 raise RefundAlreadyProcessedError(
                     f"Refund {refund_id} is in '{refund.status}' status and "
-                    f"cannot be rejected"
+                    "cannot be rejected"
                 )
 
             refund.status = "rejected"
@@ -434,7 +434,7 @@ class RefundService:
             if refund.status != "approved":
                 raise RefundAlreadyProcessedError(
                     f"Refund {refund_id} is in '{refund.status}' status. "
-                    f"Only 'approved' refunds can be processed."
+                    "Only 'approved' refunds can be processed."
                 )
 
             amount = Decimal(str(refund.refund_amount))
@@ -445,7 +445,7 @@ class RefundService:
                 raise RefundError(
                     f"Refund of {amount} exceeds dual-approval threshold "
                     f"({DUAL_APPROVAL_THRESHOLD}). A second approval is required "
-                    f"before processing."
+                    "before processing."
                 )
 
             company_id = refund.company_id
@@ -473,10 +473,10 @@ class RefundService:
                     description=f"Credit from {
                         refund.refund_type} refund: {
                         refund.reason}",
-                    expires_at=now +
-                    timedelta(
-                        days=CREDIT_DEFAULT_EXPIRY_MONTHS *
-                        30),
+                    expires_at=now
+                    + timedelta(
+                        days=CREDIT_DEFAULT_EXPIRY_MONTHS
+                        * 30),
                 ).get("id")
 
                 # Link credit to refund audit
@@ -756,8 +756,8 @@ class RefundService:
                 CreditBalance.amount > Decimal("0.00"),
             ).filter(
                 # Not expired
-                (CreditBalance.expires_at.is_(None)) |
-                (CreditBalance.expires_at > now)
+                (CreditBalance.expires_at.is_(None))
+                | (CreditBalance.expires_at > now)
             ).order_by(
                 CreditBalance.expires_at.asc().nulls_last()  # FIFO: soonest expiry first
             ).all()
@@ -821,7 +821,7 @@ class RefundService:
                 elapsed_hours = (now - period_start).total_seconds() / 3600
                 if elapsed_hours > COOLING_OFF_HOURS:
                     raise CoolingOffExpiredError(
-                        f"Cooling-off period expired. "
+                        "Cooling-off period expired. "
                         f"{elapsed_hours:.1f} hours have passed since "
                         f"subscription start (limit: {COOLING_OFF_HOURS} hours)."
                     )

@@ -1119,7 +1119,7 @@ class UoTProcessor:
         speed_display = raw.get("resolution_speed", "moderate")
 
         score_summary = (
-            f"\nScore Summary — "
+            "\nScore Summary — "
             f"CSAT: {raw.get('customer_satisfaction', 'N/A')}/10, "
             f"Cost Impact: {cost_label}, "
             f"Policy: {raw.get('policy_compliance', 'N/A')}, "

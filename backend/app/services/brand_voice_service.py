@@ -1212,7 +1212,7 @@ class BrandVoiceService:
         if formality_diff > 0.2:
             violations.append(
                 f"Detected formality level ({estimated_formality}) "
-                f"differs significantly from configured "
+                "differs significantly from configured "
                 f"({config.formality_level}) by {formality_diff:.2f}"
             )
             if estimated_formality < config.formality_level:
@@ -1228,7 +1228,7 @@ class BrandVoiceService:
         elif formality_diff > 0.1:
             warnings.append(
                 f"Detected formality level ({estimated_formality}) "
-                f"slightly differs from configured "
+                "slightly differs from configured "
                 f"({config.formality_level})"
             )
 
@@ -1260,7 +1260,7 @@ class BrandVoiceService:
         elif config.emoji_usage == "none" and emoji_count > 0:
             warnings.append(
                 f"Response contains {emoji_count} emoji(s) but "
-                f"emoji usage is set to 'none'"
+                "emoji usage is set to 'none'"
             )
 
         # ── 5. Response length preference check ──

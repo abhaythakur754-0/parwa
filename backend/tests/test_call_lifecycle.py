@@ -225,8 +225,8 @@ class TestStageTransitions(unittest.TestCase):
         mgr.fail_stage("co1", lid, "signal_extraction", "DB connection lost")
         snap = mgr.get_lifecycle("co1", lid)
         execs = snap["stage_executions"]
-        failed = [e for e in execs if e["stage"] ==
-                  "signal_extraction" and e["status"] == "failed"]
+        failed = [e for e in execs if e["stage"]
+                  == "signal_extraction" and e["status"] == "failed"]
         self.assertEqual(len(failed), 1)
         self.assertEqual(failed[0]["error"], "DB connection lost")
 
@@ -425,7 +425,8 @@ class TestLifecycleEvents(unittest.TestCase):
     def test_remove_listener(self):
         mgr = _mgr()
         events = []
-        def cb(eid, etype, data): return events.append(etype)
+        def cb(eid, etype, data):
+            return events.append(etype)
         mgr.add_event_listener(cb)
         mgr.start_lifecycle("co1", "tkt1")
         self.assertEqual(len(events), 1)

@@ -677,9 +677,9 @@ class AgentDashboardService:
                 sa_func.avg(
                     sa_func.extract(
                         'epoch',
-                        Ticket.first_response_at -
-                        Ticket.created_at) /
-                    60)).join(
+                        Ticket.first_response_at
+                        - Ticket.created_at)
+                    / 60)).join(
                 TicketAssignment,
                 TicketAssignment.ticket_id == Ticket.id,
             ).filter(

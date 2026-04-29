@@ -319,7 +319,7 @@ def _validate_category(category: Any) -> AuditCategory:
     raise AuditLogError(
         error_code="INVALID_CATEGORY",
         message=(
-            f"Category must be a non-empty string or AuditCategory enum. "
+            "Category must be a non-empty string or AuditCategory enum. "
             f"Valid values: {valid}"
         ),
         status_code=400,
@@ -356,7 +356,7 @@ def _validate_severity(severity: Any) -> AuditSeverity:
     raise AuditLogError(
         error_code="INVALID_SEVERITY",
         message=(
-            f"Severity must be a non-empty string or AuditSeverity enum. "
+            "Severity must be a non-empty string or AuditSeverity enum. "
             f"Valid values: {valid}"
         ),
         status_code=400,
@@ -1156,8 +1156,8 @@ class AuditLogService:
             return AuditStats(
                 company_id=company_id,
                 period_start=datetime.now(
-                    timezone.utc) -
-                timedelta(
+                    timezone.utc)
+                - timedelta(
                     days=max(
                         1,
                         days)),
@@ -1455,7 +1455,7 @@ class AuditLogService:
                     error_code="EXPORT_FAILED",
                     message=(
                         f"Unsupported export format: {format}. "
-                        f"Supported: json, csv"
+                        "Supported: json, csv"
                     ),
                     status_code=400,
                 )

@@ -653,19 +653,19 @@ class OutboundEmailService:
             lines = body.split("\n")
             quoted = "\n".join(f"> {line}" for line in lines[:20])
             return (
-                f'<div style="border-left:3px solid #ccc;padding-left:12px;'
-                f'margin:16px 0;color:#666;font-size:13px">'
-                f'<p style="margin:0 0 4px;color:#999">'
+                '<div style="border-left:3px solid #ccc;padding-left:12px;'
+                'margin:16px 0;color:#666;font-size:13px">'
+                '<p style="margin:0 0 4px;color:#999">'
                 f'On {date_str}, {sender} wrote:</p>'
-                f'<pre style="margin:0;white-space:pre-wrap;font-family:inherit">'
+                '<pre style="margin:0;white-space:pre-wrap;font-family:inherit">'
                 f'{quoted}</pre></div>'
             )
         else:
             # HTML quote
             return (
-                f'<div style="border-left:3px solid #ccc;padding-left:12px;'
-                f'margin:16px 0;color:#666;font-size:13px">'
-                f'<p style="margin:0 0 4px;color:#999">'
+                '<div style="border-left:3px solid #ccc;padding-left:12px;'
+                'margin:16px 0;color:#666;font-size:13px">'
+                '<p style="margin:0 0 4px;color:#999">'
                 f'On {date_str}, {sender} wrote:</p>'
                 f'<div style="margin:0">{body}</div></div>'
             )
@@ -716,7 +716,7 @@ class OutboundEmailService:
             quote_block = ""
             if inline_quote_html:
                 quote_block = f"<div style='margin-top:20px'>{inline_quote_html}</div>"
-            return f"""
+            return """
             <div style="font-family:sans-serif;max-width:600px;padding:20px">
                 <p>Hi {customer_name or 'there'},</p>
                 <div style="margin:16px 0">{ai_response_html}</div>

@@ -255,8 +255,8 @@ def aggregate_all_usage(self, target_date: str = None) -> dict:
         else:
             process_date = (
                 datetime.now(
-                    timezone.utc) -
-                timedelta(
+                    timezone.utc)
+                - timedelta(
                     days=1)).date()
 
         results = {

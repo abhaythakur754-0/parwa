@@ -536,7 +536,7 @@ class CodeBlocksHandler(EdgeCaseHandler):
             severity=EdgeCaseSeverity.LOW.value,
             reason=(
                 f"Query contains {len(blocks)} code block(s) "
-                f"— consider specialized routing"
+                "— consider specialized routing"
             ),
             metadata={"code_block_count": len(blocks)},
         )
@@ -587,7 +587,7 @@ class DuplicateQueryHandler(EdgeCaseHandler):
             severity=EdgeCaseSeverity.LOW.value,
             rewritten_query=query,
             reason=(
-                f"Near-duplicate query detected "
+                "Near-duplicate query detected "
                 f"(similarity: {best_ratio:.2f})"
             ),
             metadata={
@@ -626,7 +626,7 @@ class EmbeddedImagesHandler(EdgeCaseHandler):
             action=EdgeCaseAction.PROCEED,
             severity=EdgeCaseSeverity.LOW.value,
             reason=(
-                f"Query references attachments: "
+                "Query references attachments: "
                 f"{', '.join(markers_found)}"
             ),
             metadata={"markers_found": markers_found},
@@ -733,7 +733,7 @@ class MaliciousHTMLHandler(EdgeCaseHandler):
             action=EdgeCaseAction.BLOCK,
             severity=EdgeCaseSeverity.CRITICAL.value,
             reason=(
-                f"Malicious HTML/script injection detected: "
+                "Malicious HTML/script injection detected: "
                 f"{matched_text}"
             ),
             metadata={"matched_pattern": matched_text},
@@ -820,7 +820,7 @@ class BelowConfidenceHandler(EdgeCaseHandler):
             action=EdgeCaseAction.ESCALATE,
             severity=EdgeCaseSeverity.HIGH.value,
             reason=(
-                f"Classification confidence below threshold: "
+                "Classification confidence below threshold: "
                 f"{score:.2f} < {CONFIDENCE_THRESHOLD}"
             ),
             metadata={
@@ -913,7 +913,7 @@ class ExpiredContextHandler(EdgeCaseHandler):
             severity=EdgeCaseSeverity.MEDIUM.value,
             rewritten_query=query,
             reason=(
-                f"Conversation context expired "
+                "Conversation context expired "
                 f"(older than {CONTEXT_EXPIRY_MINUTES} minutes)"
             ),
             metadata={
@@ -1031,7 +1031,7 @@ class LegalTerminologyHandler(EdgeCaseHandler):
             action=EdgeCaseAction.ESCALATE,
             severity=EdgeCaseSeverity.HIGH.value,
             reason=(
-                f"Legal terminology detected: "
+                "Legal terminology detected: "
                 f"{', '.join(matched)}"
             ),
             metadata={"matched_keywords": matched},
@@ -1079,7 +1079,7 @@ class CompetitorMentionHandler(EdgeCaseHandler):
             action=EdgeCaseAction.PROCEED,
             severity=EdgeCaseSeverity.LOW.value,
             reason=(
-                f"Competitor mention detected: "
+                "Competitor mention detected: "
                 f"{', '.join(matched)}"
             ),
             metadata={
@@ -1116,7 +1116,7 @@ class SystemCommandsHandler(EdgeCaseHandler):
             action=EdgeCaseAction.BLOCK,
             severity=EdgeCaseSeverity.CRITICAL.value,
             reason=(
-                f"System command attempt detected: "
+                "System command attempt detected: "
                 f"{matched_text}"
             ),
             metadata={"matched_pattern": matched_text},
@@ -1152,7 +1152,7 @@ class TimeoutHandler(EdgeCaseHandler):
             action=EdgeCaseAction.ESCALATE,
             severity=EdgeCaseSeverity.HIGH.value,
             reason=(
-                f"Edge-case handler chain exceeded timeout: "
+                "Edge-case handler chain exceeded timeout: "
                 f"{elapsed:.0f}ms > "
                 f"{CHAIN_TIMEOUT_SECONDS * 1000:.0f}ms"
             ),

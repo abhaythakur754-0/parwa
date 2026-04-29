@@ -117,7 +117,7 @@ class VariantLimitExceededError(VariantLimitError):
             message = (
                 f"{label.title()} limit exceeded: "
                 f"{current_usage}/{limit} used. "
-                f"Please upgrade your plan to increase this limit."
+                "Please upgrade your plan to increase this limit."
             )
         super().__init__(
             message=message,
@@ -388,7 +388,7 @@ class VariantLimitService:
             if allowed
             else (
                 f"Ticket limit exceeded: {usage}/{ticket_limit}. "
-                f"Upgrade your plan or remove add-ons to adjust capacity."
+                "Upgrade your plan or remove add-ons to adjust capacity."
             ),
         }
 

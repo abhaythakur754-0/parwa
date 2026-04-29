@@ -356,8 +356,8 @@ class ColdStartService:
         now = time.monotonic()
         with self._prewarm_lock:
             if now - self._last_prewarm_time < _PREWARM_COOLDOWN_SECONDS:
-                remaining = int(_PREWARM_COOLDOWN_SECONDS -
-                                (now - self._last_prewarm_time))
+                remaining = int(_PREWARM_COOLDOWN_SECONDS
+                                - (now - self._last_prewarm_time))
                 return {
                     "status": "cooldown",
                     "message": f"Prewarm on cooldown. Retry in {remaining}s.",

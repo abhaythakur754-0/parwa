@@ -155,7 +155,7 @@ class VariantAddonService:
             if existing is not None:
                 raise VariantAddonError(
                     f"Variant '{variant_id}' is already active or pending removal "
-                    f"for this company.",
+                    "for this company.",
                     code="DUPLICATE_VARIANT",
                 )
 
@@ -171,8 +171,8 @@ class VariantAddonService:
             now = datetime.now(timezone.utc)
             days_remaining = max(
                 0,
-                (subscription.current_period_end -
-                 now).days) if subscription.current_period_end else period_days
+                (subscription.current_period_end
+                 - now).days) if subscription.current_period_end else period_days
             proration_amount = self._calculate_proration_amount(
                 price, days_remaining, period_days
             )
@@ -288,7 +288,7 @@ class VariantAddonService:
             if variant.status == "archived":
                 raise VariantAddonError(
                     f"Variant '{variant_id}' is already archived. "
-                    f"Use restore_variant() to re-activate.",
+                    "Use restore_variant() to re-activate.",
                     code="ALREADY_ARCHIVED",
                 )
 
@@ -469,7 +469,7 @@ class VariantAddonService:
                         kb_docs = (
                             db.query(KnowledgeDocument) .filter(
                                 KnowledgeDocument.company_id == variant.company_id,
-                                KnowledgeDocument.is_archived == False,
+                                KnowledgeDocument.is_archived is False,
                             ) .all())
                         for doc in kb_docs:
                             # V8 Fix: Only archive variant-specific docs

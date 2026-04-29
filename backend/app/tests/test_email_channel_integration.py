@@ -149,10 +149,10 @@ class TestBC006RateLimit:
                 channel="email",
                 content=f"Old message {i}",
                 created_at=datetime.now(
-                    timezone.utc) -
-                timedelta(
-                    hours=25 +
-                    i),
+                    timezone.utc)
+                - timedelta(
+                    hours=25
+                    + i),
             )
             db_session.add(msg)
 

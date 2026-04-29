@@ -1054,7 +1054,7 @@ class BlockedResponseManager:
                     item.status = QueueStatus.AUTO_REJECTED.value
                     item.reviewer_action = ReviewAction.AUTO_REJECTED.value
                     item.review_notes = (
-                        f"Auto-rejected: review deadline expired "
+                        "Auto-rejected: review deadline expired "
                         f"at {item.auto_reject_at}"
                     )
                     item.reviewed_at = _now_utc()

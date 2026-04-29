@@ -1842,7 +1842,7 @@ class PartialFailureHandler:
             recommendations.append(
                 f"Degraded pipeline: {len(failed_ids)} stage(s) "
                 f"failed: {', '.join(failed_ids)}. "
-                f"Using fallback response generation.",
+                "Using fallback response generation.",
             )
 
             # Check if retry is viable
@@ -1858,7 +1858,7 @@ class PartialFailureHandler:
                 if retryable:
                     recommendations.append(
                         f"{len(retryable)} stage(s) are eligible "
-                        f"for retry: "
+                        "for retry: "
                         f"{', '.join(f.stage_id for f in retryable)}.",
                     )
 
@@ -1866,7 +1866,7 @@ class PartialFailureHandler:
         if ctx.available_signals:
             recommendations.append(
                 f"{len(ctx.available_signals)} signal(s) available "
-                f"for degraded response: "
+                "for degraded response: "
                 f"{', '.join(ctx.available_signals[:5])}.",
             )
         else:

@@ -1156,7 +1156,7 @@ class PromptTemplateService:
                 raise NotFoundError(
                     message=(
                         f"Template '{template_id}' not found or is "
-                        f"a built-in default that cannot be updated"
+                        "a built-in default that cannot be updated"
                     ),
                 )
 
@@ -1179,7 +1179,7 @@ class PromptTemplateService:
                         version=template.version,
                         content=content,
                         change_description=(
-                            f"Updated from version "
+                            "Updated from version "
                             f"{template.version - 1}"
                         ),
                     ),
