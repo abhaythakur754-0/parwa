@@ -20,11 +20,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend.app.exceptions import (
+from app.exceptions import (
     AuthenticationError,
     ValidationError,
 )
-from backend.app.services.auth_service import (
+from app.services.auth_service import (
     authenticate_user,
     check_email_availability,
     get_user_by_id,
@@ -333,7 +333,7 @@ class TestLogoutUser:
 class TestGoogleAuth:
     """Tests for Google OAuth authentication."""
 
-    @patch("backend.app.services.auth_service.httpx")
+    @patch("app.services.auth_service.httpx")
     def test_google_new_user_registration(self, mock_httpx, _setup_db):
         """New Google user should get company + user created."""
         db = _setup_db
@@ -359,7 +359,7 @@ class TestGoogleAuth:
         assert result.user.is_verified is True
         assert result.tokens.access_token is not None
 
-    @patch("backend.app.services.auth_service.httpx")
+    @patch("app.services.auth_service.httpx")
     def test_google_existing_user_login(self, mock_httpx, _setup_db):
         """Existing Google user should login without new company."""
         db = _setup_db
@@ -387,7 +387,7 @@ class TestGoogleAuth:
         )
         assert result2.user.company_id == company_id_1
 
-    @patch("backend.app.services.auth_service.httpx")
+    @patch("app.services.auth_service.httpx")
     def test_google_verification_failure_raises(
         self, mock_httpx, _setup_db
     ):
@@ -509,7 +509,7 @@ class TestIsNewUser:
         )
         assert result.is_new_user is False
 
-    @patch("backend.app.services.auth_service.httpx")
+    @patch("app.services.auth_service.httpx")
     def test_google_new_user_flag(self, mock_httpx, _setup_db):
         """Google OAuth new user sets is_new_user=True."""
         db = _setup_db
@@ -529,7 +529,7 @@ class TestIsNewUser:
         )
         assert result.is_new_user is True
 
-    @patch("backend.app.services.auth_service.httpx")
+    @patch("app.services.auth_service.httpx")
     def test_google_returning_user_flag(self, mock_httpx, _setup_db):
         """Google OAuth returning user sets is_new_user=False."""
         db = _setup_db
@@ -737,7 +737,7 @@ class TestEmailAvailability:
 class TestGoogleTokenNotStored:
     """L09: Tests that Google ID token is not stored."""
 
-    @patch("backend.app.services.auth_service.httpx")
+    @patch("app.services.auth_service.httpx")
     def test_oauth_access_token_is_none(self, mock_httpx, _setup_db):
         """OAuthAccount.access_token should be None (L09)."""
         db = _setup_db
@@ -766,21 +766,21 @@ class TestPasswordStrength:
     """L03: Tests for password strength meter."""
 
     def test_weak_password(self):
-        from backend.app.schemas.auth import get_password_strength
+        from app.schemas.auth import get_password_strength
         assert get_password_strength("short") == "weak"
 
     def test_fair_password(self):
-        from backend.app.schemas.auth import get_password_strength
+        from app.schemas.auth import get_password_strength
         assert get_password_strength("Abcd123!") == "fair"
 
     def test_strong_password(self):
-        from backend.app.schemas.auth import get_password_strength
+        from app.schemas.auth import get_password_strength
         assert get_password_strength(
             "Abcdef123!@#"
         ) == "strong"
 
     def test_very_strong_password(self):
-        from backend.app.schemas.auth import get_password_strength
+        from app.schemas.auth import get_password_strength
         assert get_password_strength(
             "VeryLongPassword123!@#$%^&"
         ) == "very strong"
