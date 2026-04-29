@@ -326,7 +326,7 @@ export default function TrainingDashboardPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-white">
-                  {retrainingDue.reduce((sum, a) => sum + (a.current_mistakes ?? 0), 0) || stats?.failed ?? 0}
+                  {(retrainingDue.reduce((sum, a) => sum + (a.current_mistakes ?? 0), 0) || (stats?.failed ?? 0))}
                 </p>
                 <p className="text-xs text-zinc-400">Mistakes Reported</p>
               </div>

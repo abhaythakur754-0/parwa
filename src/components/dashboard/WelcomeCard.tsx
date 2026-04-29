@@ -17,7 +17,7 @@ interface WelcomeCardProps {
   resolutionRate?: string;
 }
 
-export function WelcomeCard({
+function WelcomeCard({
   userName,
   companyName,
   variantCount = 0,
@@ -96,3 +96,6 @@ function StatItem({
     </div>
   );
 }
+
+export default WelcomeCard;
+export { WelcomeCard };

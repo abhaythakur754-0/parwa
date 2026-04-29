@@ -15,6 +15,7 @@ os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["REDIS_URL"] = "redis://localhost:6379/0"
 os.environ["JWT_SECRET_KEY"] = "test_jwt_secret_key_not_prod"
 os.environ["DATA_ENCRYPTION_KEY"] = "12345678901234567890123456789012"
+os.environ["REFRESH_TOKEN_PEPPER"] = "test_refresh_token_pepper_for_testing_only_32chars"
 
 from backend.app.main import app  # noqa: E402
 from database.base import init_db  # noqa: E402

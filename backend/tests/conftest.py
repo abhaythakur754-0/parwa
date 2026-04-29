@@ -28,6 +28,8 @@ if not os.environ.get("DATA_ENCRYPTION_KEY"):
     os.environ["DATA_ENCRYPTION_KEY"] = "test-encryption-key-for-testing-32"
 if not os.environ.get("ENVIRONMENT"):
     os.environ["ENVIRONMENT"] = "test"
+if not os.environ.get("REFRESH_TOKEN_PEPPER"):
+    os.environ["REFRESH_TOKEN_PEPPER"] = "test-refresh-token-pepper-for-testing-32c"
 
 
 # ════════════════════════════════════════════════════════════════════════
