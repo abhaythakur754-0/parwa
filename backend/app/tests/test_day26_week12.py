@@ -53,7 +53,6 @@ from app.core.voice_demo import (
 # ══════════════════════════════════════════════════════════════════
 
 
-
 class TestVoiceDemoSystem:
     """
     Day 26.1: Voice Demo System (F-008) - Complete Test Coverage
