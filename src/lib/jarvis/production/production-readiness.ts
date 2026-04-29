@@ -722,7 +722,13 @@ export class ReleaseChecklistManager {
    * Create default checklist
    */
   private createDefaultChecklist(version: string): ReleaseChecklist {
-    const defaultItems = [
+    const defaultItems: Array<{
+      category: 'pre_deploy' | 'deploy' | 'post_deploy' | 'verification';
+      title: string;
+      description: string;
+      completed: boolean;
+      required: boolean;
+    }> = [
       // Pre-deploy
       { category: 'pre_deploy', title: 'Code Review Completed', description: 'All code changes have been reviewed', completed: false, required: true },
       { category: 'pre_deploy', title: 'Tests Passing', description: 'All automated tests are passing', completed: false, required: true },

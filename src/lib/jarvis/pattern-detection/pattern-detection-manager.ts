@@ -930,10 +930,12 @@ export class PatternDetectionManager {
   }
 
   invalidatePattern(patternId: string, reason?: string): boolean {
+    const existingPattern = this.storage.getPattern(patternId);
     const pattern = this.storage.updatePattern(patternId, {
       status: 'invalidated',
       metadata: {
-        ...this.storage.getPattern(patternId)?.metadata,
+        ...(existingPattern?.metadata || {}),
+        detection_method: existingPattern?.metadata?.detection_method || 'manual',
         invalidation_reason: reason,
         invalidated_at: new Date(),
       },
@@ -1118,6 +1120,7 @@ export function getPatternDetectionManager(
 
   if (!managers.has(key)) {
     managers.set(key, createPatternDetectionManager({
+      ...DEFAULT_PATTERN_DETECTION_CONFIG,
       tenant_id: tenantId,
       variant,
     }));

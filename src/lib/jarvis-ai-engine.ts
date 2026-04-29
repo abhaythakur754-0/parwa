@@ -65,7 +65,6 @@ const INTENT_PATTERNS: Record<string, { keywords: string[]; phrases: string[]; w
   industry_ecommerce: { keywords: ['ecommerce', 'e-commerce', 'online store', 'shop', 'retail', 'amazon', 'shopify', 'woocommerce', 'magento', 'bigcommerce', 'product catalog', 'cart'], phrases: ['online store', 'e commerce', 'retail business', 'selling online'], weight: 1.2 },
   industry_saas: { keywords: ['saas', 'software', 'app company', 'platform', 'b2b software', 'subscription business', 'tech startup'], phrases: ['saas company', 'software business', 'my app'], weight: 1.2 },
   industry_logistics: { keywords: ['logistics', 'shipping', 'warehouse', 'delivery', 'freight', 'supply chain', 'courier', 'fleet', 'transportation', 'tms', 'wms', 'cargo'], phrases: ['logistics company', 'shipping business', 'supply chain'], weight: 1.2 },
-  industry_logistics: { keywords: ['logistics', 'shipping', 'warehouse', 'delivery', 'freight', 'supply chain', 'courier', 'fleet', 'transportation', 'tms', 'wms', 'cargo'], phrases: ['logistics company', 'shipping business', 'supply chain'], weight: 1.2 },
   features: { keywords: ['feature', 'features', 'capability', 'capabilities', 'what can you do', 'what does parwa do', 'functionality', 'offer'], phrases: ['what can', 'what does parwa', 'tell me about', 'what do you offer', 'your features'], weight: 0.9 },
   integrations: { keywords: ['integration', 'integrate', 'connect', 'shopify', 'zendesk', 'slack', 'freshdesk', 'intercom', 'salesforce', 'hubspot', 'stripe', 'api', 'webhook'], phrases: ['integrates with', 'connect to', 'works with', 'compatible with'], weight: 1.0 },
   demo: { keywords: ['demo', 'try', 'show me', 'test', 'experience', 'see it', 'live demo', 'sample', 'example', 'roleplay'], phrases: ['show me how', 'can i try', 'give me a demo', 'let me see', 'walk me through'], weight: 1.1 },
@@ -334,7 +333,6 @@ export class JarvisAIEngine {
     const industryMap: Record<string, string> = {
       'ecommerce': 'e-commerce', 'e-commerce': 'e-commerce', 'online store': 'e-commerce', 'retail': 'e-commerce',
       'saas': 'saas', 'software': 'saas',
-      'logistics': 'logistics', 'shipping': 'logistics', 'warehouse': 'logistics', 'freight': 'logistics',
       'logistics': 'logistics', 'shipping': 'logistics', 'warehouse': 'logistics', 'freight': 'logistics',
     };
     for (const [keyword, entity] of Object.entries(industryMap)) {

@@ -99,8 +99,6 @@ export class TwilioSMSAdapter implements SMSAdapter {
   
   async sendSMS(request: SendSMSRequest): Promise<SendSMSResponse> {
     try {
-      const recipients = request.recipients || [];
-      
       // Use messaging service or individual from number
       const from = this.config.messagingServiceSid || request.from || this.config.fromNumber;
       

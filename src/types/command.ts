@@ -53,6 +53,7 @@ export type IntentAction =
   | 'view_alerts'
   | 'acknowledge_alert'
   | 'configure_settings'
+  | 'check_sla_status'
   // Knowledge intents
   | 'search_knowledge'
   | 'create_article'
@@ -62,6 +63,18 @@ export type IntentAction =
   | 'send_message'
   | 'schedule_followup'
   | 'create_note'
+  | 'set_reminder'
+  // Refund intents
+  | 'refund_request'
+  | 'return_request'
+  // Account intents
+  | 'email_change'
+  | 'password_change'
+  | 'billing_change'
+  // Special action intents
+  | 'vip_action'
+  | 'policy_exception'
+  | 'financial_transaction'
   // Automation intents
   | 'create_rule'
   | 'update_rule'
@@ -69,7 +82,10 @@ export type IntentAction =
   // Help intents
   | 'get_help'
   | 'list_commands'
-  | 'explain_feature';
+  | 'explain_feature'
+  // Daily intents
+  | 'daily_briefing'
+  | 'daily_summary';
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
 

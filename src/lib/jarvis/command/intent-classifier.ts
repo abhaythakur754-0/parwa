@@ -20,7 +20,7 @@ interface IntentPattern {
   category: IntentCategory;
   patterns: string[];
   keywords: string[];
-  context_boosts: Record<string, number>;
+  context_boosts: Record<string, number | Record<string, number>>;
   weight: number;
 }
 
@@ -679,12 +679,25 @@ export class IntentClassifier {
       send_message: 'Send message to customer',
       schedule_followup: 'Schedule follow-up',
       create_note: 'Add internal note',
+      set_reminder: 'Set a reminder',
       create_rule: 'Create automation rule',
       update_rule: 'Update automation rule',
       view_automations: 'View automation rules',
       get_help: 'Get help',
       list_commands: 'List available commands',
       explain_feature: 'Explain a feature',
+      check_sla_status: 'Check SLA status and deadlines',
+      daily_briefing: 'Get morning briefing summary',
+      daily_summary: 'Get end of day summary',
+      // Financial & Account Intents (require approval)
+      refund_request: 'Process a refund request',
+      return_request: 'Process a return request',
+      email_change: 'Change customer email address',
+      password_change: 'Change or reset password',
+      billing_change: 'Update billing information',
+      vip_action: 'Process VIP customer action',
+      policy_exception: 'Handle policy exception request',
+      financial_transaction: 'Process financial transaction',
     };
     return descriptions[intent] || 'Unknown intent';
   }
@@ -776,7 +789,7 @@ export class IntentClassifier {
     let boost = 0;
 
     for (const [key, value] of Object.entries(pattern.context_boosts)) {
-      const contextValue = (context as Record<string, unknown>)[key];
+      const contextValue = (context as unknown as Record<string, unknown>)[key];
 
       if (typeof contextValue === 'string' && typeof value === 'object') {
         const boostMap = value as Record<string, number>;

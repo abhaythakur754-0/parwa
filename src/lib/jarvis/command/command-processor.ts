@@ -31,7 +31,7 @@ import { ResultHandler, createResultHandler, FormattedResult } from './result-ha
 
 // ── Command Processor Configuration ───────────────────────────────────
 
-interface CommandProcessorConfig {
+export interface CommandProcessorConfig {
   tenant_id: string;
   variant: 'mini_parwa' | 'parwa' | 'parwa_high';
 }

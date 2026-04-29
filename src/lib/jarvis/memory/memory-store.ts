@@ -251,7 +251,7 @@ export class MemoryStore {
       content,
       metadata: {
         ...metadata,
-        source: metadata.source ?? 'explicit',
+        source: (metadata.source as "inferred" | "explicit" | "learned") ?? 'explicit',
       },
       importance,
       status: 'active',

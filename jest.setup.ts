@@ -4,6 +4,7 @@
 // Used for __tests__/testing-library.js
 // Learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
+import { jest, beforeAll, afterAll } from '@jest/globals';
 
 // Mock localStorage
 const localStorageMock = {
@@ -15,7 +16,7 @@ const localStorageMock = {
 Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 
 // Mock fetch
-global.fetch = jest.fn();
+global.fetch = jest.fn() as any;
 
 // Mock Next.js router
 jest.mock('next/navigation', () => ({

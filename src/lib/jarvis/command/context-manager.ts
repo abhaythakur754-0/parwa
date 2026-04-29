@@ -211,7 +211,7 @@ export class ContextManager {
     }
 
     for (const field of requiredFields) {
-      const value = (context as Record<string, unknown>)[field];
+      const value = (context as unknown as Record<string, unknown>)[field];
       if (value === undefined || value === null || value === '') {
         missing.push(field);
       }

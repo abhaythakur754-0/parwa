@@ -17,7 +17,6 @@ import type {
   ThresholdViolation,
   PerformanceAlert,
   OptimizationSuggestion,
-  DEFAULT_PERFORMANCE_THRESHOLDS,
 } from './types';
 
 // ── Performance Monitor ──────────────────────────────────────────────

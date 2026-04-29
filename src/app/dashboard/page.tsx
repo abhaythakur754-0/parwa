@@ -368,7 +368,6 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ActivityFeed
           initialEvents={homeData?.activity_feed}
-          isLoading={!homeData}
         />
         <RecentApprovals />
       </div>

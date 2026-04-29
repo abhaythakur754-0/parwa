@@ -420,6 +420,7 @@ export class AutomationManager {
     return this.createWorkflow({
       ...template.workflow,
       name: `${template.name} (Copy)`,
+      created_by: 'system',
       variables: template.workflow.variables.map(v => ({
         ...v,
         default_value: variables[v.name] ?? v.default_value,
@@ -477,7 +478,7 @@ export class AutomationManager {
     return () => this.eventListeners.delete(listener);
   }
 
-  private emitEvent(event: AutomationEvent): void {
+  private emitEvent(event: Omit<AutomationEvent, 'timestamp'>): void {
     const fullEvent: AutomationEvent = {
       ...event,
       timestamp: new Date(),
@@ -679,6 +680,7 @@ export class AutomationManager {
       variables: [] as Workflow['variables'],
       tags: [] as string[],
       metadata: {} as Record<string, unknown>,
+      version: 1,
     };
 
     switch (templateId) {

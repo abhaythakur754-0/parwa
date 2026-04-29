@@ -378,7 +378,7 @@ export class JarvisOrchestrator {
         resultType: commandResult.approval_required ? 'draft_created' : 'direct_execution',
         suggestions: commandResult.suggestions?.map((s, i) => ({
           type: 'command' as const,
-          label: typeof s === 'string' ? s : (s.description || s.intent),
+          label: s,
           priority: i + 1,
         })) || [],
         timestamp: new Date(),

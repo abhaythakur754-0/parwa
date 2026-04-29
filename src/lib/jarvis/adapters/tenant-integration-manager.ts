@@ -9,7 +9,6 @@
  * - SMS: Twilio only (fixed)
  */
 
-import { prisma } from '@/lib/db';
 import type {
   EmailAdapter,
   SMSAdapter,
@@ -187,7 +186,7 @@ export class TenantIntegrationManager {
       default:
         return {
           success: false,
-          action: action.type,
+          action: (action as JarvisIntegrationAction).type,
           error: `Unknown action type`,
         };
     }
@@ -247,62 +246,8 @@ export class TenantIntegrationManager {
     };
     
     try {
-      // Fetch integrations from database
-      const integrations = await prisma.integration.findMany({
-        where: {
-          company_id: this.organizationId,
-          status: 'connected',
-        },
-      });
-      
-      for (const integration of integrations) {
-        // Parse credentials (decrypt in production)
-        const credentials = this.parseCredentials(integration.credentials_encrypted);
-        const settings = JSON.parse(integration.settings || '{}');
-        
-        switch (integration.integration_type) {
-          case 'email':
-          case 'brevo':
-          case 'sendgrid':
-          case 'mailgun':
-            config.email = {
-              provider: this.getEmailProviderType(integration.integration_type),
-              credentials,
-              settings,
-              isActive: true,
-            };
-            break;
-          
-          case 'sms':
-          case 'twilio':
-            config.sms = {
-              provider: 'twilio',
-              credentials: {
-                accountSid: credentials.accountSid || credentials.account_sid,
-                authToken: credentials.authToken || credentials.auth_token,
-                apiKey: credentials.apiKey || credentials.api_key,
-                apiSecret: credentials.apiSecret || credentials.api_secret,
-              },
-              settings: {
-                fromNumber: settings.fromNumber || settings.from_number,
-                messagingServiceSid: settings.messagingServiceSid || settings.messaging_service_sid,
-              },
-              isActive: true,
-            };
-            break;
-          
-          case 'slack':
-          case 'discord':
-          case 'teams':
-            config.chat = {
-              provider: integration.integration_type as 'slack' | 'discord' | 'teams',
-              credentials,
-              settings,
-              isActive: true,
-            };
-            break;
-        }
-      }
+      // TODO: Fetch integrations from database when Prisma schema is updated
+      // For now, use environment variables (handled by createIntegrationManagerFromEnv)
     } catch (error) {
       console.error('Failed to fetch integration config:', error);
     }

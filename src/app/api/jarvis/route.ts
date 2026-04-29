@@ -113,8 +113,8 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json({
-          success: true,
           ...response,
+          success: true,
         });
       }
 
@@ -129,8 +129,8 @@ export async function POST(request: NextRequest) {
         );
 
         return NextResponse.json({
-          success: true,
           ...response,
+          success: true,
         });
       }
 
@@ -145,8 +145,8 @@ export async function POST(request: NextRequest) {
         );
 
         return NextResponse.json({
-          success: true,
           ...response,
+          success: true,
         });
       }
 

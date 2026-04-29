@@ -275,7 +275,7 @@ class SuggestionGenerator {
         'You have high workload. Let me help prioritize your tickets.',
         {
           type: 'command',
-          intent: 'prioritize_tickets',
+          intent: 'prioritize_ticket',
         },
         0.75,
         'medium',
@@ -297,7 +297,7 @@ class SuggestionGenerator {
 
       // Suggest actions based on entity type
       switch (recentEntity.type) {
-        case 'ticket':
+        case 'ticket_id':
           suggestions.push(this.createSuggestion(
             'entity',
             'entity_focus',
@@ -314,7 +314,7 @@ class SuggestionGenerator {
           ));
           break;
 
-        case 'customer':
+        case 'customer_id':
           suggestions.push(this.createSuggestion(
             'entity',
             'entity_focus',
@@ -331,7 +331,7 @@ class SuggestionGenerator {
           ));
           break;
 
-        case 'agent':
+        case 'agent_id':
           suggestions.push(this.createSuggestion(
             'collaboration',
             'entity_focus',
@@ -339,7 +339,7 @@ class SuggestionGenerator {
             'Check this agent\'s current workload and availability.',
             {
               type: 'command',
-              intent: 'view_agent_workload',
+              intent: 'view_workload',
               params: { agent_id: recentEntity.value },
             },
             0.7,
@@ -463,7 +463,7 @@ class SuggestionGenerator {
       }
 
       // After resolving a ticket, suggest feedback request
-      if (lastIntent === 'resolve_ticket') {
+      if (lastIntent === 'close_ticket') {
         suggestions.push(this.createSuggestion(
           'workflow',
           'pattern_match',
@@ -471,8 +471,8 @@ class SuggestionGenerator {
           'Send a customer satisfaction survey for the resolved ticket.',
           {
             type: 'command',
-            intent: 'send_survey',
-            params: { type: 'satisfaction' },
+            intent: 'send_message',
+            params: { type: 'satisfaction_survey' },
           },
           0.7,
           'low',
@@ -909,13 +909,29 @@ export class SmartSuggestionsManager {
       average_confidence: count > 0 ? totalConfidence / count : 0,
       top_suggestions: this.getTopSuggestions(),
       variant_stats: {
-        [this.config.variant]: {
-          total_generated: total,
-          acceptance_rate: acceptanceRate,
-          max_suggestions_per_day: this.variantLimits.max_suggestions_per_hour * 24,
-          types_available: Object.keys(byType).filter(
-            t => byType[t as SuggestionType] > 0
-          ) as SuggestionType[],
+        mini_parwa: {
+          total_generated: this.config.variant === 'mini_parwa' ? total : 0,
+          acceptance_rate: this.config.variant === 'mini_parwa' ? acceptanceRate : 0,
+          max_suggestions_per_day: this.config.variant === 'mini_parwa' ? this.variantLimits.max_suggestions_per_hour * 24 : 0,
+          types_available: this.config.variant === 'mini_parwa' 
+            ? Object.keys(byType).filter(t => byType[t as SuggestionType] > 0) as SuggestionType[]
+            : [],
+        },
+        parwa: {
+          total_generated: this.config.variant === 'parwa' ? total : 0,
+          acceptance_rate: this.config.variant === 'parwa' ? acceptanceRate : 0,
+          max_suggestions_per_day: this.config.variant === 'parwa' ? this.variantLimits.max_suggestions_per_hour * 24 : 0,
+          types_available: this.config.variant === 'parwa'
+            ? Object.keys(byType).filter(t => byType[t as SuggestionType] > 0) as SuggestionType[]
+            : [],
+        },
+        parwa_high: {
+          total_generated: this.config.variant === 'parwa_high' ? total : 0,
+          acceptance_rate: this.config.variant === 'parwa_high' ? acceptanceRate : 0,
+          max_suggestions_per_day: this.config.variant === 'parwa_high' ? this.variantLimits.max_suggestions_per_hour * 24 : 0,
+          types_available: this.config.variant === 'parwa_high'
+            ? Object.keys(byType).filter(t => byType[t as SuggestionType] > 0) as SuggestionType[]
+            : [],
         },
       },
     };
@@ -1032,6 +1048,7 @@ export function getSmartSuggestionsManager(
 
   if (!managers.has(key)) {
     managers.set(key, createSmartSuggestionsManager({
+      ...DEFAULT_SMART_SUGGESTIONS_CONFIG,
       tenant_id: tenantId,
       variant,
     }));

@@ -19,6 +19,7 @@ export interface User {
   company_id: string;
   company_name?: string | null;
   industry?: string | null;
+  variant_type?: string | null;
   onboarding_completed?: boolean;
   created_at: string | null;
 }

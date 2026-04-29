@@ -15,6 +15,18 @@ Main FastAPI app with:
 - Security headers middleware (HSTS, CSP, X-Frame-Options)
 """
 
+import os
+import sys
+
+# Ensure the backend/ directory is on PYTHONPATH so that
+# ``from app.config`` and ``from shared.*`` resolve correctly.
+# In production, uvicorn runs from backend/ so this is a no-op.
+# In tests/CI, pytest runs from the project root so this is essential.
+# MUST be done BEFORE any app imports.
+_backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
+
 from app.api.demo import router as demo_router  # Demo: Pre-purchase variant demo
 # FAQ Management (Mini Parwa Feature)
 from app.api.faqs import router as faqs_router
@@ -156,17 +168,6 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Query, Request
 from contextlib import asynccontextmanager
-import os
-import sys
-
-# Ensure the backend/ directory is on PYTHONPATH so that
-# ``from app.config`` and ``from shared.*`` resolve correctly.
-# In production, uvicorn runs from backend/ so this is a no-op.
-# In tests/CI, pytest runs from the project root so this is essential.
-_backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _backend_dir not in sys.path:
-    sys.path.insert(0, _backend_dir)
-
 
 # Import webhook handlers so their @register_handler decorators fire and
 # populate the registry. These modules have no other import side-effects.
