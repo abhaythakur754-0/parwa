@@ -3150,7 +3150,7 @@ def jarvis_get_leads(
                 leads = lead_svc.get_all_leads()
             if isinstance(leads, list):
                 return [
-                    l.to_dict() if hasattr(l, "to_dict") else str(l)
+                    item.to_dict() if hasattr(item, "to_dict") else str(item)
                     for item in leads
                 ]
     except Exception:

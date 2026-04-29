@@ -211,7 +211,7 @@ class TestM1_PhoneOTPSecure:
         # The line should NOT have .upper() anymore
         otp_lines = [
             item for item in content.split("\n")
-            if "secrets.randbelow" in l
+            if "secrets.randbelow" in item
         ]
         assert len(otp_lines) == 1
         assert ".upper()" not in otp_lines[0]
