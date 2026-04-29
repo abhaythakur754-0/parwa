@@ -19,7 +19,6 @@ from sqlalchemy import (
     Text, ForeignKey, Index, Numeric,
 )
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import JSONB
 
 from database.base import Base
 

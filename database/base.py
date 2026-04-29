@@ -18,7 +18,7 @@ import os
 from contextlib import contextmanager
 from typing import Any, Callable, Generator
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, JSON
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.orm.session import Session
 from sqlalchemy.pool import StaticPool
@@ -48,12 +48,16 @@ if _db_url.startswith("sqlite"):
     _engine_kwargs["connect_args"] = {"check_same_thread": False}
     if ":memory:" in _db_url:
         _engine_kwargs["poolclass"] = StaticPool
+    # Use JSON for SQLite compatibility (JSONB is PostgreSQL-only)
+    JSONType = JSON
 else:
     _engine_kwargs.update({
         "pool_pre_ping": True,
         "pool_size": 10,
         "max_overflow": 20,
     })
+    # Use JSONB for PostgreSQL (better performance)
+    from sqlalchemy.dialects.postgresql import JSONB as JSONType  # type: ignore[misc]
 
 engine = create_engine(_db_url, **_engine_kwargs)
 

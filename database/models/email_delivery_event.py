@@ -18,10 +18,10 @@ from sqlalchemy import (
     Column, String, Text, Integer, Boolean,
     DateTime, ForeignKey, Index,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from database.base import Base
+from database.base import Base, JSONType
 
 
 class EmailDeliveryEvent(Base):
@@ -63,7 +63,7 @@ class EmailDeliveryEvent(Base):
 
     # Provider metadata
     provider = Column(String(50), nullable=False, default="brevo")
-    provider_data = Column(JSONB, nullable=True)
+    provider_data = Column(JSONType, nullable=True)
     # Raw event payload from Brevo for audit
 
     # Status tracking

@@ -24,10 +24,9 @@ from sqlalchemy import (
     Column, String, Float, Text, DateTime, ForeignKey,
     UniqueConstraint, Index, Boolean, Integer,
 )
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 
-from database.base import Base
+from database.base import Base, JSONType
 
 
 def _uuid() -> str:
@@ -45,8 +44,8 @@ class ShadowLog(Base):
     )
     # Action type: 'refund', 'sms_reply', 'email_reply', etc.
     action_type = Column(String(50), nullable=False)
-    # Full action payload (JSONB for flexible schema)
-    action_payload = Column(JSONB, nullable=False, default=dict)
+    # Full action payload (JSON for flexible schema)
+    action_payload = Column(JSONType, nullable=False, default=dict)
     # Risk score computed by Jarvis heuristic engine (0.0 to 1.0)
     jarvis_risk_score = Column(Float, nullable=True)
     # Execution mode: shadow / supervised / graduated
@@ -142,8 +141,8 @@ class EmailShadowQueue(Base):
         nullable=True, index=True,
     )
     template_id = Column(String(36), nullable=True)
-    template_data = Column(JSONB, nullable=True, default=dict)
-    attachments = Column(JSONB, nullable=True, default=list)
+    template_data = Column(JSONType, nullable=True, default=dict)
+    attachments = Column(JSONType, nullable=True, default=list)
     # Status tracking
     status = Column(String(20), nullable=False, default="pending")  # pending/approved/rejected/sent/failed
     message_id = Column(String(255), nullable=True)  # Brevo message ID
@@ -234,7 +233,7 @@ class SmsShadowQueue(Base):
         ForeignKey("tickets.id", ondelete="SET NULL"),
         nullable=True, index=True,
     )
-    media_urls = Column(JSONB, nullable=True, default=list)
+    media_urls = Column(JSONType, nullable=True, default=list)
     # Status tracking
     status = Column(String(20), nullable=False, default="pending")  # pending/approved/rejected/sent/failed
     message_sid = Column(String(100), nullable=True)  # Twilio SID
@@ -317,8 +316,8 @@ class ChatShadowQueue(Base):
     # Message details
     message_text = Column(Text, nullable=False)
     message_type = Column(String(20), default="text")  # text, card, carousel, etc.
-    attachments = Column(JSONB, nullable=True)  # List of attachment metadata
-    quick_replies = Column(JSONB, nullable=True)  # Quick reply options
+    attachments = Column(JSONType, nullable=True)  # List of attachment metadata
+    quick_replies = Column(JSONType, nullable=True)  # Quick reply options
     # Customer info
     customer_id = Column(String(36), ForeignKey("customers.id"), nullable=True)
     visitor_id = Column(String(100), nullable=True)  # For anonymous visitors
