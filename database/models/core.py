@@ -249,25 +249,11 @@ class APIKey(Base):
 
 
 # ── Agents (AI agents per company) ─────────────────────────────────
-
-class Agent(Base):
-    __tablename__ = "agents"
-    __table_args__ = {"extend_existing": True}
-
-    id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
-    )
-    name = Column(String(255), nullable=False)
-    variant = Column(String(50), nullable=False)
-    status = Column(String(50), default="active")
-    capacity_used = Column(Integer, default=0)
-    capacity_max = Column(Integer, default=100)
-    accuracy_rate = Column(Numeric(5, 2), default=0)
-    tickets_resolved = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-
+# NOTE: Agent model is defined in database/models/agent.py with full schema
+# Including relationships, check constraints, and setup logging
+# Do not redefine here to avoid duplicate index creation errors
+# Re-export for backward compatibility with existing imports
+from database.models.agent import Agent  # noqa: F401, E402
 
 # ── Emergency States (pause controls) ──────────────────────────────
 
