@@ -12,7 +12,7 @@ Pipeline (6 steps):
   5. Action/Observation Loop — Repeat up to max_iterations
   6. Final Answer — Synthesize observations into coherent response
 
-Trigger: state.signals.external_data_required == True
+Trigger: state.signals.external_data_required is True
 
 Performance: deterministic/heuristic-based (NO LLM calls).
 Building Codes: BC-001 (company isolation), BC-008 (never crash),
@@ -887,7 +887,7 @@ class ReActNode(BaseTechniqueNode):
     pipeline (F-060).
 
     Activation trigger:
-      - external_data_required == True
+      - external_data_required is True
     """
 
     def __init__(

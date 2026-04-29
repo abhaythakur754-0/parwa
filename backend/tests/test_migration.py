@@ -813,6 +813,7 @@ class TestMigrationEventBus:
 
     def test_unsubscribe(self):
         bus = MigrationEventBus()
+
         def handler(ev):
             return None
         bus.subscribe("e", handler)

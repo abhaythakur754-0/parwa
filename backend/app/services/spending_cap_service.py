@@ -390,7 +390,7 @@ class SpendingCapService:
                 db.query(SpendingCap)
                 .filter(
                     SpendingCap.company_id == company_id_str,
-                    SpendingCap.is_active == True,  # noqa: E712
+                    SpendingCap.is_active is True,  # noqa: E712
                 )
                 .first()
             )
@@ -544,7 +544,7 @@ class SpendingCapService:
                 db.query(SpendingCap)
                 .filter(
                     SpendingCap.company_id == company_id_str,
-                    SpendingCap.is_active == True,  # noqa: E712
+                    SpendingCap.is_active is True,  # noqa: E712
                 )
                 .first()
             )
@@ -681,7 +681,7 @@ class SpendingCapService:
                 db.query(SpendingCap)
                 .filter(
                     SpendingCap.company_id == company_id_str,
-                    SpendingCap.is_active == True,  # noqa: E712
+                    SpendingCap.is_active is True,  # noqa: E712
                 )
                 .first()
             )
@@ -819,7 +819,7 @@ class SpendingCapService:
                 db.query(SpendingCap)
                 .filter(
                     SpendingCap.company_id == company_id_str,
-                    SpendingCap.is_active == True,  # noqa: E712
+                    SpendingCap.is_active is True,  # noqa: E712
                 )
                 .first()
             )

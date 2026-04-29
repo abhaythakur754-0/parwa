@@ -1195,7 +1195,7 @@ def cleanup_frozen_tickets(
             # Get all frozen tickets
             frozen_tickets = db.query(Ticket).filter(
                 Ticket.company_id == company_id,
-                Ticket.frozen == True,  # noqa: E712
+                Ticket.frozen is True,  # noqa: E712
             ).all()
 
             processed_count = 0

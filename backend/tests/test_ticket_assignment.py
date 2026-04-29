@@ -930,6 +930,7 @@ class TestAssignmentEventBus:
 
     def test_unsubscribe(self):
         bus = AssignmentEventBus()
+
         def handler(e):
             return None
         bus.subscribe("test", handler)
@@ -1165,6 +1166,7 @@ class TestAssignmentEngine:
 
     def test_subscribe(self):
         engine = AssignmentEngine()
+
         def handler(e):
             return None
         engine.subscribe("test", handler)

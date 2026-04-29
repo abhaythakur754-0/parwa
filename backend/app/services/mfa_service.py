@@ -293,7 +293,7 @@ def verify_mfa_login(
     # Get verified MFA secret
     mfa_record = db.query(MFASecret).filter(
         MFASecret.user_id == user.id,
-        MFASecret.is_verified == True,  # noqa: E712
+        MFASecret.is_verified is True,  # noqa: E712
     ).first()
 
     if not mfa_record:
@@ -445,7 +445,7 @@ def regenerate_backup_codes(
     # Verify MFA code first
     mfa_record = db.query(MFASecret).filter(
         MFASecret.user_id == user.id,
-        MFASecret.is_verified == True,  # noqa: E712
+        MFASecret.is_verified is True,  # noqa: E712
     ).first()
 
     if not mfa_record:

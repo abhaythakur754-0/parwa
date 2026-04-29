@@ -380,7 +380,7 @@ def update_team_member(
             owner_count = db.query(User).filter(
                 User.company_id == company_id,
                 User.role == "owner",
-                User.is_active == True,  # noqa: E712
+                User.is_active is True,  # noqa: E712
             ).count()
 
             if owner_count <= 1:
@@ -412,7 +412,7 @@ def update_team_member(
             owner_count = db.query(User).filter(
                 User.company_id == company_id,
                 User.role == "owner",
-                User.is_active == True,  # noqa: E712
+                User.is_active is True,  # noqa: E712
             ).count()
 
             if owner_count <= 1:
@@ -497,7 +497,7 @@ def remove_team_member(
         owner_count = db.query(User).filter(
             User.company_id == company_id,
             User.role == "owner",
-            User.is_active == True,  # noqa: E712
+            User.is_active is True,  # noqa: E712
         ).count()
 
         if owner_count <= 1:

@@ -643,6 +643,7 @@ class TestChangeNotifications:
 
     def test_remove_callback(self, manager):
         received = []
+
         def cb(cid, cat, chg):
             return received.append(True)
         manager.on_config_change(cb)
@@ -659,6 +660,7 @@ class TestChangeNotifications:
         assert result is False
 
     def test_callback_error_does_not_break_update(self, manager):
+
         def bad_cb(cid, cat, chg):
             raise RuntimeError("callback error")
 

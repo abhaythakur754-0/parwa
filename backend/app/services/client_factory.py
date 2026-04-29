@@ -358,7 +358,7 @@ def check_team_member_limit(
 
     current_count = db.query(User).filter(
         User.company_id == company_id,
-        User.is_active == True,  # noqa: E712
+        User.is_active is True,  # noqa: E712
     ).count()
 
     return current_count < max_members

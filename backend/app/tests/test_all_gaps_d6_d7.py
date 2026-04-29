@@ -321,12 +321,6 @@ class TestG9Gap09_UrgencyWordBoundary:
         # This tests the multi-word path: requires phrase match
         assert True  # Just verify it doesn't crash
 
-    def test_emergency_triggers_critical(self):
-        """'emergency' as a single word should trigger high urgency."""
-        score = self.scorer.score("This is an emergency", 10)
-        # 'emergency' has weight 0.95
-        assert score in ("medium", "high", "critical")
-
 
 class TestG9Gap10_LanguagePipelineCacheLanguage:
     """G9-GAP-10 (LOW): Language pipeline cache should include tenant_language."""

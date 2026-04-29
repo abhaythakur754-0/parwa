@@ -554,7 +554,7 @@ async def _execute_command(
                     db.query(User)
                     .filter(
                         User.company_id == company_id,
-                        User.is_active == True,  # noqa: E712
+                        User.is_active is True,  # noqa: E712
                     )
                     .all()
                 )

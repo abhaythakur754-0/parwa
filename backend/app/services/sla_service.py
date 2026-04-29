@@ -147,7 +147,7 @@ class SLAService:
             SLAPolicy.company_id == company_id,
             SLAPolicy.plan_tier == plan_tier,
             SLAPolicy.priority == priority,
-            SLAPolicy.is_active == True,  # noqa: E712
+            SLAPolicy.is_active is True,  # noqa: E712
         ).first()
 
     def list_policies(
@@ -515,7 +515,7 @@ class SLAService:
             SLATimer, Ticket.id == SLATimer.ticket_id
         ).filter(
             Ticket.company_id == company_id,
-            SLATimer.is_breached == True,  # noqa: E712
+            SLATimer.is_breached is True,  # noqa: E712
             Ticket.status.notin_([
                 TicketStatus.closed.value,
                 TicketStatus.resolved.value,

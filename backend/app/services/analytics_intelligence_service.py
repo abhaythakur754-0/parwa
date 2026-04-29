@@ -331,7 +331,7 @@ def _check_sla_pattern(
         breached = db.query(func.count(SLATimer.id)).filter(
             SLATimer.company_id == company_id,
             SLATimer.created_at >= last_7d,
-            SLATimer.is_breached == True,  # noqa: E712
+            SLATimer.is_breached is True,  # noqa: E712
         ).scalar() or 0
 
         total = db.query(func.count(SLATimer.id)).filter(

@@ -287,7 +287,7 @@ def check_spending_caps(self) -> dict:
             # Get all active caps
             active_caps = (
                 db.query(SpendingCapModel)
-                .filter(SpendingCapModel.is_active == True)  # noqa: E712
+                .filter(SpendingCapModel.is_active is True)  # noqa: E712
                 .all()
             )
 

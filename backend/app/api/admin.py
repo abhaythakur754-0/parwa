@@ -371,7 +371,7 @@ def list_api_providers(
 ) -> dict:
     """List all API providers (global)."""
     providers = db.query(APIProvider).filter(
-        APIProvider.is_active == True,  # noqa: E712
+        APIProvider.is_active is True,  # noqa: E712
     ).order_by(APIProvider.name).all()
     return {
         "items": [_serialize_provider(p) for p in providers],

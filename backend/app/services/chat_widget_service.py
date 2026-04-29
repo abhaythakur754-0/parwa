@@ -1081,7 +1081,7 @@ class ChatWidgetService:
                 self.db.query(Agent)
                 .filter(
                     Agent.company_id == session.company_id,
-                    Agent.is_active == True,  # noqa: E712
+                    Agent.is_active is True,  # noqa: E712
                 )
                 .limit(10)
                 .all()

@@ -3151,7 +3151,7 @@ def jarvis_get_leads(
             if isinstance(leads, list):
                 return [
                     l.to_dict() if hasattr(l, "to_dict") else str(l)
-                    for l in leads
+                    for item in leads
                 ]
     except Exception:
         pass

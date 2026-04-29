@@ -826,6 +826,7 @@ class TestEscalationEvents(unittest.TestCase):
     def test_remove_listener(self):
         """Removed listener stops receiving events."""
         events = []
+
         def callback(name, data):
             return events.append((name, data))
         self.mgr.add_event_listener(callback)
@@ -840,6 +841,7 @@ class TestEscalationEvents(unittest.TestCase):
 
     def test_listener_error_safe(self):
         """Bad listener does not crash the manager."""
+
         def bad_listener(name, data):
             raise RuntimeError("listener error")
 

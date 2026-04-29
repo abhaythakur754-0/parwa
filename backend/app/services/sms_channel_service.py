@@ -846,7 +846,7 @@ class SMSChannelService:
             .filter(
                 SMSConversation.company_id == company_id,
                 SMSConversation.customer_number == customer_number,
-                SMSConversation.is_opted_out == True,  # noqa: E712
+                SMSConversation.is_opted_out is True,  # noqa: E712
             )
             .all()
         )

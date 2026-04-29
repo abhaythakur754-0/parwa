@@ -320,7 +320,7 @@ def check_business_email_verified(
     verified_otp = db.query(BusinessEmailOTP).filter(
         BusinessEmailOTP.email == email,
         BusinessEmailOTP.company_id == company_id,
-        BusinessEmailOTP.verified == True,  # noqa: E712
+        BusinessEmailOTP.verified is True,  # noqa: E712
     ).first()
 
     return verified_otp is not None

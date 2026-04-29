@@ -980,7 +980,7 @@ class OOODetectionService:
                         OOODetectionRule.company_id == company_id,
                         OOODetectionRule.company_id == None,  # noqa: E711
                     ),
-                    OOODetectionRule.active == True,
+                    OOODetectionRule.active is True,
                 )
                 .all()
             )

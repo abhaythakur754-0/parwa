@@ -59,10 +59,13 @@ class _CompatLogger:
 
     def info(self, msg, *a, **kw):
         self._call('info', msg, *a, **kw)
+
     def warning(self, msg, *a, **kw):
         self._call('warning', msg, *a, **kw)
+
     def error(self, msg, *a, **kw):
         self._call('error', msg, *a, **kw)
+
     def debug(self, msg, *a, **kw):
         self._call('debug', msg, *a, **kw)
 

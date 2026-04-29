@@ -1,7 +1,7 @@
 """
 F-143: GST (Guided Sequential Thinking) — Tier 3 Premium AI Reasoning Technique
 
-Activates when state.signals.is_strategic_decision == True. Uses deterministic
+Activates when state.signals.is_strategic_decision is True. Uses deterministic
 heuristic-based sequential analysis (no LLM calls) to guide strategic decisions:
 
   1. Problem Definition — Define the strategic decision clearly
@@ -948,7 +948,7 @@ class GSTNode(BaseTechniqueNode):
     pipeline (F-060).
 
     Activation trigger:
-      - state.signals.is_strategic_decision == True
+      - state.signals.is_strategic_decision is True
     """
 
     def __init__(

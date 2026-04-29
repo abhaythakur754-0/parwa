@@ -126,7 +126,7 @@ class TestF2RedisPasswordDev:
         content = _read("docker-compose.yml")
         # The worker REDIS_URL should also contain password
         lines = content.split("\n")
-        redis_url_lines = [l for l in lines if "REDIS_URL" in l]
+        redis_url_lines = [item for item in lines if "REDIS_URL" in item]
         for line in redis_url_lines:
             assert "${REDIS_PASSWORD" in line, \
                 f"All REDIS_URL entries must include password: {line}"
@@ -158,7 +158,7 @@ class TestF3NoDefaultDbPasswords:
         content = _read("docker-compose.yml")
         # Both DATABASE_URL entries should use :? syntax
         lines = content.split("\n")
-        db_url_lines = [l for l in lines if "DATABASE_URL" in l]
+        db_url_lines = [item for item in lines if "DATABASE_URL" in item]
         for line in db_url_lines:
             assert "${POSTGRES_PASSWORD:?" in line, \
                 f"DATABASE_URL must use required POSTGRES_PASSWORD: {line}"

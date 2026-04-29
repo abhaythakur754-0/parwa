@@ -225,7 +225,7 @@ def get_all_leads() -> List[LeadData]:
 
 def get_leads_by_status(status: str) -> List[LeadData]:
     """Get leads filtered by status."""
-    return [l for l in _leads.values() if l.lead_status == status]
+    return [item for item in _leads.values() if item.lead_status == status]
 
 
 def get_lead_stats() -> Dict[str, Any]:
@@ -246,10 +246,10 @@ def get_lead_stats() -> Dict[str, Any]:
     for lead in all_leads:
         by_source[lead.entry_source] = by_source.get(lead.entry_source, 0) + 1
 
-    verified_count = sum(1 for l in all_leads if l.email_verified)
-    demo_count = sum(1 for l in all_leads if l.demo_pack_purchased)
-    converted_count = sum(1 for l in all_leads if l.payment_completed)
-    total_estimated_value = sum(l.estimated_monthly_value for l in all_leads)
+    verified_count = sum(1 for item in all_leads if item.email_verified)
+    demo_count = sum(1 for item in all_leads if item.demo_pack_purchased)
+    converted_count = sum(1 for item in all_leads if item.payment_completed)
+    total_estimated_value = sum(item.estimated_monthly_value for item in all_leads)
 
     return {
         "total_leads": total,

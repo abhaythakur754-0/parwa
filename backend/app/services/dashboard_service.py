@@ -913,7 +913,7 @@ def _get_sla_compliance_rate(
         SLATimer.company_id == company_id,
         SLATimer.created_at >= start,
         SLATimer.created_at <= end,
-        SLATimer.is_breached == True,  # noqa: E712
+        SLATimer.is_breached is True,  # noqa: E712
     ).scalar() or 0
 
     return 1.0 - (breached / total)
@@ -954,7 +954,7 @@ def _count_breached_sla(
         SLATimer.company_id == company_id,
         SLATimer.created_at >= start,
         SLATimer.created_at <= end,
-        SLATimer.is_breached == True,  # noqa: E712
+        SLATimer.is_breached is True,  # noqa: E712
     ).scalar() or 0
 
 

@@ -425,6 +425,7 @@ class TestLifecycleEvents(unittest.TestCase):
     def test_remove_listener(self):
         mgr = _mgr()
         events = []
+
         def cb(eid, etype, data):
             return events.append(etype)
         mgr.add_event_listener(cb)

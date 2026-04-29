@@ -484,7 +484,7 @@ class TwilioClient:
             conv = db.query(SMSConversation).filter(
                 SMSConversation.company_id == company_id,
                 SMSConversation.customer_number == phone,
-                SMSConversation.is_opted_out == True,  # noqa: E712
+                SMSConversation.is_opted_out is True,  # noqa: E712
             ).first()
 
             return conv is not None

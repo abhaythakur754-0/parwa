@@ -618,6 +618,7 @@ class TestContinuityEvents(unittest.TestCase):
         """Stops receiving after removal."""
         mgr = _mgr()
         received = []
+
         def cb(et, pl):
             return received.append((et, pl))
         mgr.add_event_listener(cb)
@@ -780,7 +781,7 @@ class TestEnumValues(unittest.TestCase):
             "released",
             "expired",
             "not_found"}
-        actual = {l.value for l in LockStatus}
+        actual = {item.value for item in LockStatus}
         self.assertEqual(actual, expected)
 
 
