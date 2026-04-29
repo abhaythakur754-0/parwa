@@ -91,6 +91,7 @@ class TestOverageDoubleCounting:
         """M1: record_ticket_usage should INCREMENT existing count, not replace."""
         from app.services.overage_service import OverageService
         import inspect
+        import re
 
         source = inspect.getsource(OverageService.record_ticket_usage)
 
@@ -101,8 +102,13 @@ class TestOverageDoubleCounting:
             "Bug: record_ticket_usage still replaces instead of incrementing"
 
         # Should use (usage_record.tickets_used or 0) pattern
-        assert "(usage_record.tickets_used or 0)" in source or \
-               "usage_record.tickets_used + ticket_count" in source, \
+        # Normalize whitespace for comparison (code may be formatted across lines)
+        # Remove all whitespace and check for the pattern
+        normalized_source = re.sub(r'\s+', '', source)
+        # Pattern: (usage_record.tickets_used or 0) -> (usage_record.tickets_usedor0)
+        # or pattern: usage_record.tickets_used + ticket_count
+        assert "usage_record.tickets_usedor0" in normalized_source or \
+               "usage_record.tickets_used+ticket_count" in normalized_source, \
             "Should handle None/0 initial value safely"
 
 
