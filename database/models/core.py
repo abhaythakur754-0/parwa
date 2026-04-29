@@ -105,6 +105,10 @@ class Company(Base):
         "RefundAudit", back_populates="company",
         cascade="all, delete-orphan",
     )
+    data_exports = relationship(
+        "DataExport", back_populates="company",
+        cascade="all, delete-orphan",
+    )
 
 
 # ── Users ──────────────────────────────────────────────────────────
