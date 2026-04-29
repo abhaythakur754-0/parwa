@@ -498,26 +498,17 @@ class TestMeEndpoint:
 class TestGoogleEndpoint:
     """Tests for POST /api/auth/google."""
 
-    @patch("backend.app.services.auth_service.get_settings")
-    @patch("backend.app.services.auth_service.httpx")
-    def test_google_new_user(self, mock_httpx, mock_get_settings, client):
+    @patch("backend.app.services.auth_service._verify_google_token")
+    def test_google_new_user(self, mock_verify, client):
         """New Google user gets registered and gets tokens."""
-        # Mock settings to return None for GOOGLE_CLIENT_ID to bypass audience check
-        mock_settings = MagicMock()
-        mock_settings.GOOGLE_CLIENT_ID = None
-        mock_get_settings.return_value = mock_settings
-
-        mock_httpx.get.return_value = MagicMock(
-            status_code=200,
-            json=lambda: {
-                "sub": "g-123",
-                "email": "gnew@test.com",
-                "name": "Google New",
-                "picture": "https://pic.jpg",
-                "email_verified": True,
-                "aud": "",
-            },
-        )
+        mock_verify.return_value = {
+            "sub": "g-123",
+            "email": "gnew@test.com",
+            "name": "Google New",
+            "picture": "https://pic.jpg",
+            "email_verified": True,
+            "aud": "",
+        }
         resp = client.post("/api/auth/google", json={
             "id_token": "fake-g-token",
         })
@@ -527,20 +518,13 @@ class TestGoogleEndpoint:
         assert data["user"]["is_verified"] is True
         assert data["is_new_user"] is True
 
-    @patch("backend.app.services.auth_service.get_settings")
-    @patch("backend.app.services.auth_service.httpx")
-    def test_google_verification_fails(
-        self, mock_httpx, mock_get_settings, client
-    ):
+    @patch("backend.app.services.auth_service._verify_google_token")
+    def test_google_verification_fails(self, mock_verify, client):
         """Failed Google verification returns 401."""
-        # Mock settings to return None for GOOGLE_CLIENT_ID to bypass audience check
-        mock_settings = MagicMock()
-        mock_settings.GOOGLE_CLIENT_ID = None
-        mock_get_settings.return_value = mock_settings
+        from backend.app.exceptions import AuthenticationError
 
-        mock_httpx.get.return_value = MagicMock(
-            status_code=400,
-            json=lambda: {"error": "invalid"},
+        mock_verify.side_effect = AuthenticationError(
+            message="Google token verification failed"
         )
         resp = client.post("/api/auth/google", json={
             "id_token": "bad-token",
