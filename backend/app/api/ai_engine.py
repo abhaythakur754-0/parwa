@@ -952,8 +952,6 @@ def get_router_providers(
     from app.core.smart_router import (
         MODEL_REGISTRY,
         VARIANT_MODEL_ACCESS,
-        ModelTier,
-        ModelProvider,
     )
 
     # Group models by provider

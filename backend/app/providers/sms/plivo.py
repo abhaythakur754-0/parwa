@@ -5,7 +5,7 @@ Implementation of the SMSProvider interface for Plivo.
 Uses the Plivo REST API: https://api.plivo.com/v1/Account/{auth_id}
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import httpx
 
@@ -137,7 +137,9 @@ class PlivoSMSProvider(SMSProvider):
                         success=True,
                         provider_name=self.provider_name,
                         operation="send_sms",
-                        message_id=message_uuids[0] if isinstance(message_uuids, list) else str(message_uuids),
+                        message_id=message_uuids[0] if isinstance(
+                            message_uuids,
+                            list) else str(message_uuids),
                         metadata={
                             "api_id": data.get("api_id"),
                             "message_uuids": message_uuids,
@@ -152,7 +154,8 @@ class PlivoSMSProvider(SMSProvider):
                         error_message="No message UUID returned by Plivo",
                     )
             else:
-                data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+                data = response.json() if response.headers.get(
+                    "content-type", "").startswith("application/json") else {}
                 return ProviderResult(
                     success=False,
                     provider_name=self.provider_name,

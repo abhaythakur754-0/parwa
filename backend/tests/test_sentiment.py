@@ -101,11 +101,13 @@ class TestFrustrationDetector:
         assert 0 < score < 50
 
     def test_moderate_frustration_medium_score(self):
-        score = self.detector.detect("I am very annoyed and frustrated with this terrible service")
+        score = self.detector.detect(
+            "I am very annoyed and frustrated with this terrible service")
         assert score > 10
 
     def test_strong_frustration_high_score(self):
-        score = self.detector.detect("This is absolutely unacceptable and furious disgusting!")
+        score = self.detector.detect(
+            "This is absolutely unacceptable and furious disgusting!")
         assert score > 20
 
     def test_all_caps_boosts_score(self):
@@ -143,7 +145,8 @@ class TestFrustrationDetector:
 
     def test_intensifiers_increase_score(self):
         normal = self.detector.detect("I am upset")
-        intensified = self.detector.detect("I am very extremely upset and completely terrible")
+        intensified = self.detector.detect(
+            "I am very extremely upset and completely terrible")
         assert intensified >= normal
 
     def test_question_marks_increase_score(self):
@@ -158,7 +161,8 @@ class TestFrustrationDetector:
         assert score > 0
 
     def test_lexicon_moderate_words(self):
-        score = self.detector._lexicon_score("I am angry and annoyed and frustrated")
+        score = self.detector._lexicon_score(
+            "I am angry and annoyed and frustrated")
         assert score > 0
 
     def test_lexicon_mild_words(self):
@@ -173,20 +177,24 @@ class TestFrustrationDetector:
 
     def test_gap03_mild_word_boundary_no_false_positive(self):
         """G9-GAP-03: 'issue' in 'tissue' should NOT trigger mild frustration."""
-        score_tissue = self.detector._lexicon_score("I need a tissue for my nose")
-        score_issue = self.detector._lexicon_score("I have an issue with my order")
+        score_tissue = self.detector._lexicon_score(
+            "I need a tissue for my nose")
+        score_issue = self.detector._lexicon_score(
+            "I have an issue with my order")
         assert score_tissue < score_issue
 
     def test_gap03_bad_in_badge_no_false_positive(self):
         """G9-GAP-03: 'bad' in 'badge' should NOT trigger mild frustration."""
-        score_badge = self.detector._lexicon_score("He wore a badge on his shirt")
+        score_badge = self.detector._lexicon_score(
+            "He wore a badge on his shirt")
         score_bad = self.detector._lexicon_score("This is a bad experience")
         assert score_badge <= score_bad
 
     def test_gap03_error_in_terrain_no_false_positive(self):
         """G9-GAP-03: 'error' in 'terrain' should NOT trigger."""
         score_terrain = self.detector._lexicon_score("We crossed the terrain")
-        score_error = self.detector._lexicon_score("There is an error in the system")
+        score_error = self.detector._lexicon_score(
+            "There is an error in the system")
         assert score_terrain <= score_error
 
     # -- _caps_score --
@@ -249,7 +257,8 @@ class TestFrustrationDetector:
         assert score > 0
 
     def test_intensifier_multi_word(self):
-        score = self.detector._intensifier_score("this is completely unacceptable")
+        score = self.detector._intensifier_score(
+            "this is completely unacceptable")
         assert score > 0
 
     def test_intensifier_capped_at_5(self):
@@ -267,24 +276,32 @@ class TestEmpathySignalDetector:
         self.detector = EmpathySignalDetector()
 
     def test_apology_expectation(self):
-        signals = self.detector.detect("you should be ashamed and apologize to me")
+        signals = self.detector.detect(
+            "you should be ashamed and apologize to me")
         assert "apology_expectation" in signals
 
     def test_timeline_pressure(self):
-        signals = self.detector.detect("I need this fixed immediately, it is urgent and an emergency")
+        signals = self.detector.detect(
+            "I need this fixed immediately, it is urgent and an emergency")
         assert "timeline_pressure" in signals
 
     def test_financial_impact(self):
-        signals = self.detector.detect("I lost money and was overcharged, I want a refund")
+        signals = self.detector.detect(
+            "I lost money and was overcharged, I want a refund")
         assert "financial_impact" in signals
 
     def test_personal_impact(self):
-        signals = self.detector.detect("This ruined my reputation and caused me anxiety and stress")
+        signals = self.detector.detect(
+            "This ruined my reputation and caused me anxiety and stress")
         assert "personal_impact" in signals
 
     def test_repeated_contacts_with_history(self):
-        history = ["please help me with my account", "I need help with my account please", "please help me with my account now"]
-        signals = self.detector.detect("please help me with my account", history)
+        history = [
+            "please help me with my account",
+            "I need help with my account please",
+            "please help me with my account now"]
+        signals = self.detector.detect(
+            "please help me with my account", history)
         assert "repeated_contacts" in signals
 
     def test_no_signals(self):
@@ -328,39 +345,48 @@ class TestEmotionClassifier:
         self.classifier = EmotionClassifier()
 
     def test_classify_angry(self):
-        emotion, breakdown = self.classifier.classify("I am furious and enraged and hate this")
+        emotion, breakdown = self.classifier.classify(
+            "I am furious and enraged and hate this")
         assert emotion == "angry"
 
     def test_classify_frustrated(self):
-        emotion, breakdown = self.classifier.classify("I am frustrated and annoyed and irritated")
+        emotion, breakdown = self.classifier.classify(
+            "I am frustrated and annoyed and irritated")
         assert emotion == "frustrated"
 
     def test_classify_disappointed(self):
-        emotion, breakdown = self.classifier.classify("I am disappointed and let down")
+        emotion, breakdown = self.classifier.classify(
+            "I am disappointed and let down")
         assert emotion == "disappointed"
 
     def test_classify_neutral(self):
-        emotion, breakdown = self.classifier.classify("What time does the store open?")
+        emotion, breakdown = self.classifier.classify(
+            "What time does the store open?")
         assert emotion == "neutral"
 
     def test_classify_happy(self):
-        emotion, breakdown = self.classifier.classify("I am happy and glad, thank you")
+        emotion, breakdown = self.classifier.classify(
+            "I am happy and glad, thank you")
         assert emotion == "happy"
 
     def test_classify_delighted(self):
-        emotion, breakdown = self.classifier.classify("I am delighted and amazed, outstanding excellent!")
+        emotion, breakdown = self.classifier.classify(
+            "I am delighted and amazed, outstanding excellent!")
         assert emotion == "delighted"
 
     def test_frustration_boosts_angry(self):
-        emotion_high, _ = self.classifier.classify("this is okay", frustration_score=90)
+        emotion_high, _ = self.classifier.classify(
+            "this is okay", frustration_score=90)
         assert emotion_high == "angry"
 
     def test_frustration_boosts_frustrated(self):
-        emotion_mid, _ = self.classifier.classify("I am frustrated and this is annoying", frustration_score=50)
+        emotion_mid, _ = self.classifier.classify(
+            "I am frustrated and this is annoying", frustration_score=50)
         assert emotion_mid == "frustrated"
 
     def test_positive_boosts_happy(self):
-        emotion, _ = self.classifier.classify("awesome brilliant excellent fantastic")
+        emotion, _ = self.classifier.classify(
+            "awesome brilliant excellent fantastic")
         assert emotion in ("happy", "delighted")
 
     def test_empty_query(self):
@@ -374,7 +400,13 @@ class TestEmotionClassifier:
 
     def test_breakdown_keys(self):
         _, breakdown = self.classifier.classify("test text")
-        expected = {"angry", "frustrated", "disappointed", "neutral", "happy", "delighted"}
+        expected = {
+            "angry",
+            "frustrated",
+            "disappointed",
+            "neutral",
+            "happy",
+            "delighted"}
         assert set(breakdown.keys()) == expected
         # Scores should sum to ~1.0
         total = sum(breakdown.values())
@@ -402,7 +434,8 @@ class TestUrgencyScorer:
         assert level in (UrgencyLevel.HIGH, UrgencyLevel.CRITICAL)
 
     def test_critical_urgency(self):
-        level = self.scorer.score("emergency breach security data loss critical!")
+        level = self.scorer.score(
+            "emergency breach security data loss critical!")
         assert level == UrgencyLevel.CRITICAL
 
     def test_empty_query(self):
@@ -618,8 +651,13 @@ class TestSentimentAnalyzer:
             "tone_recommendation": "empathetic",
             "empathy_signals": [],
             "sentiment_score": 0.58,
-            "emotion_breakdown": {"angry": 0.1, "frustrated": 0.5, "neutral": 0.2,
-                                   "disappointed": 0.1, "happy": 0.05, "delighted": 0.05},
+            "emotion_breakdown": {
+                "angry": 0.1,
+                "frustrated": 0.5,
+                "neutral": 0.2,
+                "disappointed": 0.1,
+                "happy": 0.05,
+                "delighted": 0.05},
             "processing_time_ms": 5.0,
             "conversation_trend": "stable",
         }
@@ -688,7 +726,8 @@ class TestSentimentAnalyzer:
                     company_id="c1",
                     conversation_history=["hello", "how are you", "I need help"],
                 )
-        assert result.conversation_trend in ("improving", "stable", "worsening")
+        assert result.conversation_trend in (
+            "improving", "stable", "worsening")
 
     @pytest.mark.asyncio
     async def test_variant_type_preserved(self):
@@ -787,7 +826,8 @@ class TestSentimentEdgeCases:
         assert isinstance(score, float)
 
     def test_mixed_language(self):
-        emotion, breakdown = self.classifier.classify("je suis très content et happy")
+        emotion, breakdown = self.classifier.classify(
+            "je suis très content et happy")
         assert emotion in ("happy", "delighted", "neutral", "frustrated")
 
     def test_numbers_only(self):
@@ -804,14 +844,16 @@ class TestSentimentEdgeCases:
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 import asyncio
                 analyzer = SentimentAnalyzer()
-                result = asyncio.get_event_loop().run_until_complete(
-                    analyzer.analyze("I am furious and absolutely unacceptable", company_id="c1")
-                )
+                result = asyncio.get_event_loop().run_until_complete(analyzer.analyze(
+                    "I am furious and absolutely unacceptable", company_id="c1"))
         assert result.sentiment_score > 0.5
 
     def test_empathy_signals_with_metadata(self):
         detector = EmpathySignalDetector()
-        signals = detector.detect("I lost money", customer_metadata={"vip": True})
+        signals = detector.detect(
+            "I lost money",
+            customer_metadata={
+                "vip": True})
         assert "financial_impact" in signals
 
     def test_query_hash_deterministic(self):

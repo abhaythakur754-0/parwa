@@ -7,8 +7,6 @@ Uses pytest with standard unittest class-based test style.
 
 import time
 import unittest
-from datetime import datetime, timezone
-from unittest.mock import MagicMock
 
 from app.core.graceful_escalation import (
     GracefulEscalationManager,
@@ -215,7 +213,8 @@ class TestEvaluateEscalation(unittest.TestCase):
             trigger="high_frustration",
             frustration_score=85.0,
         )
-        should, matched, severity = self.mgr.evaluate_escalation(COMPANY_ID, ctx)
+        should, matched, severity = self.mgr.evaluate_escalation(
+            COMPANY_ID, ctx)
         self.assertTrue(should)
         self.assertTrue(len(matched) > 0)
         self.assertEqual(matched[0].name, "high_frustration")
@@ -223,7 +222,8 @@ class TestEvaluateEscalation(unittest.TestCase):
     def test_legal_sensitive_triggers(self):
         """trigger=legal_sensitive always triggers."""
         ctx = _make_context(trigger="legal_sensitive")
-        should, matched, severity = self.mgr.evaluate_escalation(COMPANY_ID, ctx)
+        should, matched, severity = self.mgr.evaluate_escalation(
+            COMPANY_ID, ctx)
         self.assertTrue(should)
 
     def test_multiple_failures_triggers(self):
@@ -232,7 +232,8 @@ class TestEvaluateEscalation(unittest.TestCase):
             trigger="multiple_failures",
             failure_count=3,
         )
-        should, matched, severity = self.mgr.evaluate_escalation(COMPANY_ID, ctx)
+        should, matched, severity = self.mgr.evaluate_escalation(
+            COMPANY_ID, ctx)
         self.assertTrue(should)
 
     def test_no_trigger_when_below_threshold(self):
@@ -241,7 +242,8 @@ class TestEvaluateEscalation(unittest.TestCase):
             trigger="high_frustration",
             frustration_score=50.0,
         )
-        should, matched, severity = self.mgr.evaluate_escalation(COMPANY_ID, ctx)
+        should, matched, severity = self.mgr.evaluate_escalation(
+            COMPANY_ID, ctx)
         self.assertFalse(should)
 
     def test_confidence_low_with_min_turns(self):
@@ -251,7 +253,8 @@ class TestEvaluateEscalation(unittest.TestCase):
             confidence_score=0.2,
             conversation_turns=10,
         )
-        should, matched, severity = self.mgr.evaluate_escalation(COMPANY_ID, ctx)
+        should, matched, severity = self.mgr.evaluate_escalation(
+            COMPANY_ID, ctx)
         self.assertTrue(should)
 
     def test_confidence_low_without_enough_turns(self):
@@ -261,7 +264,8 @@ class TestEvaluateEscalation(unittest.TestCase):
             confidence_score=0.1,
             conversation_turns=2,
         )
-        should, matched, severity = self.mgr.evaluate_escalation(COMPANY_ID, ctx)
+        should, matched, severity = self.mgr.evaluate_escalation(
+            COMPANY_ID, ctx)
         self.assertFalse(should)
 
     def test_vip_customer_triggers(self):
@@ -270,25 +274,29 @@ class TestEvaluateEscalation(unittest.TestCase):
             trigger="vip_customer",
             customer_tier="vip",
         )
-        should, matched, severity = self.mgr.evaluate_escalation(COMPANY_ID, ctx)
+        should, matched, severity = self.mgr.evaluate_escalation(
+            COMPANY_ID, ctx)
         self.assertTrue(should)
 
     def test_loop_detected_triggers(self):
         """trigger=loop_detected triggers escalation."""
         ctx = _make_context(trigger="loop_detected")
-        should, matched, severity = self.mgr.evaluate_escalation(COMPANY_ID, ctx)
+        should, matched, severity = self.mgr.evaluate_escalation(
+            COMPANY_ID, ctx)
         self.assertTrue(should)
 
     def test_timeout_triggers(self):
         """trigger=timeout triggers escalation."""
         ctx = _make_context(trigger="timeout")
-        should, matched, severity = self.mgr.evaluate_escalation(COMPANY_ID, ctx)
+        should, matched, severity = self.mgr.evaluate_escalation(
+            COMPANY_ID, ctx)
         self.assertTrue(should)
 
     def test_capacity_overflow_triggers(self):
         """trigger=capacity_overflow triggers escalation."""
         ctx = _make_context(trigger="capacity_overflow")
-        should, matched, severity = self.mgr.evaluate_escalation(COMPANY_ID, ctx)
+        should, matched, severity = self.mgr.evaluate_escalation(
+            COMPANY_ID, ctx)
         self.assertTrue(should)
 
     def test_multiple_rules_match(self):
@@ -304,7 +312,8 @@ class TestEvaluateEscalation(unittest.TestCase):
         )
         self.mgr.add_rule(extra)
         ctx = _make_context(trigger="legal_sensitive")
-        should, matched, severity = self.mgr.evaluate_escalation(COMPANY_ID, ctx)
+        should, matched, severity = self.mgr.evaluate_escalation(
+            COMPANY_ID, ctx)
         self.assertTrue(should)
         self.assertGreaterEqual(len(matched), 1)
         self.assertEqual(severity, "critical")
@@ -334,15 +343,24 @@ class TestCreateEscalation(unittest.TestCase):
     def test_create_sets_cooldown(self):
         """Cooldown is set after escalation creation."""
         ctx = _make_context(trigger="legal_sensitive")
-        self.assertFalse(self.mgr.check_cooldown(COMPANY_ID, TICKET_ID, "legal_sensitive"))
+        self.assertFalse(
+            self.mgr.check_cooldown(
+                COMPANY_ID,
+                TICKET_ID,
+                "legal_sensitive"))
         record = self.mgr.create_escalation(COMPANY_ID, ctx)
         self.assertIsNotNone(record)
-        self.assertTrue(self.mgr.check_cooldown(COMPANY_ID, TICKET_ID, "legal_sensitive"))
+        self.assertTrue(
+            self.mgr.check_cooldown(
+                COMPANY_ID,
+                TICKET_ID,
+                "legal_sensitive"))
 
     def test_create_with_channel_override(self):
         """Uses the channel_override when provided."""
         ctx = _make_context(trigger="legal_sensitive")
-        record = self.mgr.create_escalation(COMPANY_ID, ctx, channel_override="sms")
+        record = self.mgr.create_escalation(
+            COMPANY_ID, ctx, channel_override="sms")
         self.assertIsNotNone(record)
         self.assertEqual(record.channel, "sms")
 
@@ -372,7 +390,8 @@ class TestCreateEscalation(unittest.TestCase):
         ctx = _make_context(trigger="legal_sensitive")
         r1 = self.mgr.create_escalation(COMPANY_ID, ctx)
         self.assertIsNotNone(r1)
-        # Cooldown is now active, but create_escalation does not block on cooldown
+        # Cooldown is now active, but create_escalation does not block on
+        # cooldown
         r2 = self.mgr.create_escalation(COMPANY_ID, ctx)
         # It should still create because legal_sensitive has cooldown_seconds=0
         self.assertIsNotNone(r2)
@@ -487,7 +506,8 @@ class TestCooldownManagement(unittest.TestCase):
 
     def test_check_cooldown_inactive(self):
         """No cooldown returns False."""
-        result = self.mgr.check_cooldown(COMPANY_ID, TICKET_ID, "legal_sensitive")
+        result = self.mgr.check_cooldown(
+            COMPANY_ID, TICKET_ID, "legal_sensitive")
         self.assertFalse(result)
 
     def test_check_cooldown_active(self):
@@ -500,15 +520,24 @@ class TestCooldownManagement(unittest.TestCase):
     def test_set_cooldown_manual(self):
         """Manual cooldown can be set."""
         self.mgr.set_cooldown(COMPANY_ID, TICKET_ID, "manual_request", 0.05)
-        result = self.mgr.check_cooldown(COMPANY_ID, TICKET_ID, "manual_request")
+        result = self.mgr.check_cooldown(
+            COMPANY_ID, TICKET_ID, "manual_request")
         self.assertTrue(result)
 
     def test_cooldown_expires(self):
         """After timeout, cooldown becomes inactive."""
         self.mgr.set_cooldown(COMPANY_ID, TICKET_ID, "test_trigger", 0.01)
-        self.assertTrue(self.mgr.check_cooldown(COMPANY_ID, TICKET_ID, "test_trigger"))
+        self.assertTrue(
+            self.mgr.check_cooldown(
+                COMPANY_ID,
+                TICKET_ID,
+                "test_trigger"))
         time.sleep(0.02)
-        self.assertFalse(self.mgr.check_cooldown(COMPANY_ID, TICKET_ID, "test_trigger"))
+        self.assertFalse(
+            self.mgr.check_cooldown(
+                COMPANY_ID,
+                TICKET_ID,
+                "test_trigger"))
 
     def test_vip_shorter_cooldown(self):
         """VIP gets a shorter cooldown (0.7x multiplier)."""
@@ -636,7 +665,10 @@ class TestQueryMethods(unittest.TestCase):
         r1 = self.mgr.create_escalation(COMPANY_ID, ctx_high)
         self.assertIsNotNone(r1)
 
-        ctx_med = _make_context(ticket_id=TICKET_ID_B, trigger="timeout", severity="medium")
+        ctx_med = _make_context(
+            ticket_id=TICKET_ID_B,
+            trigger="timeout",
+            severity="medium")
         r2 = self.mgr.create_escalation(COMPANY_ID, ctx_med)
         self.assertIsNotNone(r2)
 
@@ -782,7 +814,9 @@ class TestEscalationEvents(unittest.TestCase):
     def test_add_listener(self):
         """Callback is invoked on escalation creation."""
         events = []
-        self.mgr.add_event_listener(lambda name, data: events.append((name, data)))
+        self.mgr.add_event_listener(
+            lambda name, data: events.append(
+                (name, data)))
         ctx = _make_context(trigger="legal_sensitive")
         self.mgr.create_escalation(COMPANY_ID, ctx)
         self.assertEqual(len(events), 1)
@@ -792,7 +826,7 @@ class TestEscalationEvents(unittest.TestCase):
     def test_remove_listener(self):
         """Removed listener stops receiving events."""
         events = []
-        callback = lambda name, data: events.append((name, data))
+        def callback(name, data): return events.append((name, data))
         self.mgr.add_event_listener(callback)
         ctx = _make_context(trigger="legal_sensitive")
         self.mgr.create_escalation(COMPANY_ID, ctx)
@@ -886,7 +920,10 @@ class TestEscalationStatistics(unittest.TestCase):
         """Severity breakdown present in statistics."""
         ctx = _make_context(trigger="legal_sensitive", severity="high")
         self.mgr.create_escalation(COMPANY_ID, ctx)
-        ctx2 = _make_context(ticket_id=TICKET_ID_B, trigger="timeout", severity="medium")
+        ctx2 = _make_context(
+            ticket_id=TICKET_ID_B,
+            trigger="timeout",
+            severity="medium")
         self.mgr.create_escalation(COMPANY_ID, ctx2)
 
         stats = self.mgr.get_statistics(COMPANY_ID)

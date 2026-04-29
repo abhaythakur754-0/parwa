@@ -18,6 +18,7 @@ Building Codes: BC-001 (multi-tenant), BC-005 (real-time / Socket.io),
 """
 
 from __future__ import annotations
+from collections import OrderedDict
 
 import json
 from datetime import datetime, timedelta, timezone
@@ -320,9 +321,9 @@ class AgentDashboardService:
         if agent.status not in _PAUSE_ALLOWED_FROM:
             raise ValidationError(
                 message=(
-                    f"Cannot pause agent in '{agent.status}' status. "
-                    f"Only agents in {list(_PAUSE_ALLOWED_FROM)} can be paused."
-                ),
+                    f"Cannot pause agent in '{
+                        agent.status}' status. " f"Only agents in {
+                        list(_PAUSE_ALLOWED_FROM)} can be paused."),
                 details={
                     "agent_id": agent_id,
                     "current_status": agent.status,
@@ -399,9 +400,9 @@ class AgentDashboardService:
         if agent.status not in _RESUME_ALLOWED_FROM:
             raise ValidationError(
                 message=(
-                    f"Cannot resume agent in '{agent.status}' status. "
-                    f"Only agents in {list(_RESUME_ALLOWED_FROM)} can be resumed."
-                ),
+                    f"Cannot resume agent in '{
+                        agent.status}' status. " f"Only agents in {
+                        list(_RESUME_ALLOWED_FROM)} can be resumed."),
                 details={
                     "agent_id": agent_id,
                     "current_status": agent.status,
@@ -526,7 +527,6 @@ class AgentDashboardService:
                 TicketFeedback,
                 TicketAssignment,
             )
-            from sqlalchemy.orm import aliased
 
             # ── Tickets handled in last 24h ──
             now = datetime.now(timezone.utc)
@@ -671,13 +671,15 @@ class AgentDashboardService:
         try:
             from database.models.tickets import Ticket, TicketAssignment
 
-            from sqlalchemy import func as sa_func, extract
+            from sqlalchemy import func as sa_func
 
             avg_minutes = db.query(
                 sa_func.avg(
-                    sa_func.extract('epoch', Ticket.first_response_at - Ticket.created_at) / 60
-                )
-            ).join(
+                    sa_func.extract(
+                        'epoch',
+                        Ticket.first_response_at -
+                        Ticket.created_at) /
+                    60)).join(
                 TicketAssignment,
                 TicketAssignment.ticket_id == Ticket.id,
             ).filter(
@@ -923,7 +925,6 @@ class AgentDashboardService:
 # LAZY SERVICE LOADING (BC-008)
 # ══════════════════════════════════════════════════════════════════
 
-from collections import OrderedDict
 
 _SERVICE_CACHE_MAX_SIZE = 1000
 _service_cache: OrderedDict[str, AgentDashboardService] = OrderedDict()

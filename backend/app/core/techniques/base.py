@@ -15,7 +15,6 @@ from typing import Any, Dict, List, Optional
 
 from app.core.technique_router import (
     TechniqueID,
-    TechniqueTier,
     ExecutionResultStatus,
     QuerySignals,
     TECHNIQUE_REGISTRY,

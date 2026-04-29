@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Type
+from typing import Any, Dict, List, Optional, Set
 
 from app.logger import get_logger
 
@@ -140,7 +140,7 @@ VARIANT_HANDLER_WHITELIST: Dict[str, List[str]] = {
         "faq_match",
     ],
     "parwa": None,      # All handlers
-    "high_parwa": None, # All handlers
+    "high_parwa": None,  # All handlers
 }
 
 # Compiled regex for system commands (module-level)

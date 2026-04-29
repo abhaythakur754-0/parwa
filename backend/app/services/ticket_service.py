@@ -18,7 +18,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, desc, func, or_, update as sa_update
+from sqlalchemy import desc, or_, update as sa_update
 from sqlalchemy.orm import Session
 
 from app.exceptions import (
@@ -36,7 +36,6 @@ from database.models.tickets import (
     TicketStatusChange,
     TicketStatus,
     TicketPriority,
-    TicketCategory,
 )
 from database.models.core import Company
 from database.models.shadow_mode import ShadowLog
@@ -352,7 +351,8 @@ class TicketService:
                 if status == TicketStatus.closed.value:
                     update_values["closed_at"] = datetime.now(timezone.utc)
                 elif status == TicketStatus.reopened.value:
-                    update_values["reopen_count"] = (ticket.reopen_count or 0) + 1
+                    update_values["reopen_count"] = (
+                        ticket.reopen_count or 0) + 1
 
             if assigned_to is not None:
                 update_values["assigned_to"] = assigned_to
@@ -636,7 +636,8 @@ class TicketService:
             Company.id == self.company_id
         ).first()
 
-        if company and hasattr(company, 'is_suspended') and company.is_suspended:
+        if company and hasattr(company,
+                               'is_suspended') and company.is_suspended:
             raise AuthorizationError(
                 "Account is suspended. Cannot create new tickets."
             )
@@ -930,7 +931,7 @@ class TicketService:
 
         return success_count, failures
 
-    # ── SHADOW MODE TICKET METHODS ─────────────────────────────────────────────
+    # ── SHADOW MODE TICKET METHODS ──────────────────────────────────────────
 
     def evaluate_ticket_shadow(
         self,
@@ -1061,13 +1062,15 @@ class TicketService:
             ]:
                 return {
                     "success": False,
-                    "error": f"Cannot resolve ticket in status: {ticket.status}",
+                    "error": f"Cannot resolve ticket in status: {
+                        ticket.status}",
                     "ticket_id": ticket_id,
                 }
 
             shadow_service = ShadowModeService()
 
-            if evaluation["requires_approval"] and not evaluation.get("auto_execute"):
+            if evaluation["requires_approval"] and not evaluation.get(
+                    "auto_execute"):
                 # Log to shadow_log and set pending
                 log_result = shadow_service.log_shadow_action(
                     company_id=self.company_id,
@@ -1194,7 +1197,8 @@ class TicketService:
             if ticket.shadow_status != "pending_approval":
                 return {
                     "success": False,
-                    "error": f"Ticket is not pending approval. Current status: {ticket.shadow_status}",
+                    "error": f"Ticket is not pending approval. Current status: {
+                        ticket.shadow_status}",
                     "ticket_id": ticket_id,
                 }
 
@@ -1285,7 +1289,8 @@ class TicketService:
             if ticket.shadow_status not in ["approved", "auto_approved"]:
                 return {
                     "success": False,
-                    "error": f"Ticket is not in an approved state. Current status: {ticket.shadow_status}",
+                    "error": f"Ticket is not in an approved state. Current status: {
+                        ticket.shadow_status}",
                     "ticket_id": ticket_id,
                 }
 
@@ -1369,7 +1374,8 @@ class TicketService:
             result = {
                 "ticket_id": ticket_id,
                 "shadow_status": ticket.shadow_status or "none",
-                "risk_score": float(ticket.risk_score) if ticket.risk_score else None,
+                "risk_score": float(
+                    ticket.risk_score) if ticket.risk_score else None,
                 "approved_by": ticket.approved_by,
                 "approved_at": ticket.approved_at.isoformat() if ticket.approved_at else None,
                 "shadow_log_id": ticket.shadow_log_id,

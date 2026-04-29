@@ -14,10 +14,8 @@ Comprehensive tests for:
 - Brevo handler dispatch
 """
 
-import json
 import pytest
-from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 # Service under test — must be imported before use in test classes
 from app.services.email_channel_service import EmailChannelService
@@ -101,7 +99,6 @@ class MockDB:
 
     def add(self, obj):
         """Simulate adding an object to the session."""
-        pass
 
     def commit(self):
         """Simulate commit."""
@@ -113,7 +110,6 @@ class MockDB:
 
     def refresh(self, obj):
         """Simulate refresh."""
-        pass
 
     def query(self, model):
         """Return a mock query object."""
@@ -175,8 +171,12 @@ class TestImports:
             AutoReplyDetection,
             EmailProcessResult,
         )
-        assert all([InboundEmailCreate, InboundEmailResponse, EmailThreadResponse,
-                    EmailLoopDetection, AutoReplyDetection, EmailProcessResult])
+        assert all([InboundEmailCreate,
+                    InboundEmailResponse,
+                    EmailThreadResponse,
+                    EmailLoopDetection,
+                    AutoReplyDetection,
+                    EmailProcessResult])
 
     def test_import_email_channel_service(self):
         """Email channel service should be importable."""
@@ -288,7 +288,9 @@ class TestAutoReplyDetection:
     def test_detect_ooo_by_auto_submitted_header(self):
         """Should detect OOO via Auto-Submitted header."""
         service = self._get_service()
-        email_data = {**SAMPLE_INBOUND_EMAIL, "headers_json": '{"Auto-Submitted": "auto-replied"}'}
+        email_data = {
+            **SAMPLE_INBOUND_EMAIL,
+            "headers_json": '{"Auto-Submitted": "auto-replied"}'}
         result = service.detect_auto_reply(email_data)
         assert result.is_auto_reply is True
         assert result.detection_source == "header"
@@ -296,7 +298,8 @@ class TestAutoReplyDetection:
     def test_detect_ooo_by_precedence_header(self):
         """Should detect OOO via Precedence: auto_reply header."""
         service = self._get_service()
-        email_data = {**SAMPLE_INBOUND_EMAIL, "headers_json": '{"Precedence": "auto_reply"}'}
+        email_data = {**SAMPLE_INBOUND_EMAIL,
+                      "headers_json": '{"Precedence": "auto_reply"}'}
         result = service.detect_auto_reply(email_data)
         assert result.is_auto_reply is True
         assert result.detection_source == "header"
@@ -304,7 +307,9 @@ class TestAutoReplyDetection:
     def test_detect_ooo_by_body_pattern_out_of_office(self):
         """Should detect OOO via 'out of office' body pattern."""
         service = self._get_service()
-        email_data = {**SAMPLE_INBOUND_EMAIL, "body_text": "I am out of the office until next Monday"}
+        email_data = {
+            **SAMPLE_INBOUND_EMAIL,
+            "body_text": "I am out of the office until next Monday"}
         result = service.detect_auto_reply(email_data)
         assert result.is_auto_reply is True
         assert result.detection_source == "body"
@@ -312,7 +317,8 @@ class TestAutoReplyDetection:
     def test_detect_ooo_by_body_pattern_autoreply(self):
         """Should detect OOO via 'autoreply' body pattern."""
         service = self._get_service()
-        email_data = {**SAMPLE_INBOUND_EMAIL, "body_text": "This is an autoreply message"}
+        email_data = {**SAMPLE_INBOUND_EMAIL,
+                      "body_text": "This is an autoreply message"}
         result = service.detect_auto_reply(email_data)
         assert result.is_auto_reply is True
         assert result.detection_source == "body"
@@ -320,14 +326,17 @@ class TestAutoReplyDetection:
     def test_detect_ooo_by_body_pattern_vacation(self):
         """Should detect OOO via 'vacation notice' body pattern."""
         service = self._get_service()
-        email_data = {**SAMPLE_INBOUND_EMAIL, "body_text": "Vacation notice: I will be back next week"}
+        email_data = {
+            **SAMPLE_INBOUND_EMAIL,
+            "body_text": "Vacation notice: I will be back next week"}
         result = service.detect_auto_reply(email_data)
         assert result.is_auto_reply is True
 
     def test_detect_ooo_by_body_pattern_away(self):
         """Should detect OOO via 'I am away' body pattern."""
         service = self._get_service()
-        email_data = {**SAMPLE_INBOUND_EMAIL, "body_text": "I am currently away on leave"}
+        email_data = {**SAMPLE_INBOUND_EMAIL,
+                      "body_text": "I am currently away on leave"}
         result = service.detect_auto_reply(email_data)
         assert result.is_auto_reply is True
 
@@ -340,7 +349,8 @@ class TestAutoReplyDetection:
     def test_no_ooo_with_auto_submitted_no(self):
         """Should NOT detect OOO when Auto-Submitted = no."""
         service = self._get_service()
-        email_data = {**SAMPLE_INBOUND_EMAIL, "headers_json": '{"Auto-Submitted": "no"}'}
+        email_data = {**SAMPLE_INBOUND_EMAIL,
+                      "headers_json": '{"Auto-Submitted": "no"}'}
         result = service.detect_auto_reply(email_data)
         assert result.is_auto_reply is False
 
@@ -374,7 +384,9 @@ class TestLoopDetection:
     def test_detect_self_sent_getparwa_domain(self):
         """Should detect loop from getparwa.com domain."""
         service = self._get_service()
-        email_data = {**SAMPLE_SELF_SENT_EMAIL, "sender_email": "system@getparwa.com"}
+        email_data = {
+            **SAMPLE_SELF_SENT_EMAIL,
+            "sender_email": "system@getparwa.com"}
         result = service.detect_email_loop(COMPANY_ID, email_data)
         assert result.is_loop is True
 
@@ -387,7 +399,8 @@ class TestLoopDetection:
     def test_no_loop_normal_sender_company_domain(self):
         """Should NOT detect loop for customer company domain."""
         service = self._get_service()
-        email_data = {**SAMPLE_INBOUND_EMAIL, "sender_email": "user@customercompany.com"}
+        email_data = {**SAMPLE_INBOUND_EMAIL,
+                      "sender_email": "user@customercompany.com"}
         result = service.detect_email_loop(COMPANY_ID, email_data)
         assert result.is_loop is False
 
@@ -413,7 +426,10 @@ class TestReferencesParsing:
         service = self._get_service()
         refs = "<msg1@example.com> <msg2@example.com> <msg3@example.com>"
         result = service._parse_references(refs)
-        assert result == ["msg1@example.com", "msg2@example.com", "msg3@example.com"]
+        assert result == [
+            "msg1@example.com",
+            "msg2@example.com",
+            "msg3@example.com"]
 
     def test_parse_empty_references(self):
         """Should return empty list for empty references."""
@@ -424,7 +440,8 @@ class TestReferencesParsing:
     def test_parse_single_reference(self):
         """Should parse a single Message-ID."""
         service = self._get_service()
-        assert service._parse_references("<only-one@example.com>") == ["only-one@example.com"]
+        assert service._parse_references(
+            "<only-one@example.com>") == ["only-one@example.com"]
 
     def test_parse_whitespace_references_fallback(self):
         """Should fallback to whitespace split if no angle brackets."""
@@ -548,7 +565,9 @@ class TestBrevoHandler:
 
         event = {
             "event_type": "delivered",
-            "payload": {"email": "delivered@example.com", "message_id": "<msg1>"},
+            "payload": {
+                "email": "delivered@example.com",
+                "message_id": "<msg1>"},
             "company_id": COMPANY_ID,
         }
 

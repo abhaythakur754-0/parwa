@@ -15,9 +15,8 @@ Tests the full end-to-end AI pipeline:
 
 import asyncio
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Any
 
 
 # ── Test Fixtures ───────────────────────────────────────────────
@@ -51,7 +50,7 @@ class TestEdgeCaseStage:
     @pytest.mark.asyncio
     async def test_empty_query_detected_as_edge_case(self):
         """Empty query should be caught and marked as edge case."""
-        from app.core.ai_pipeline import AIPipeline, PipelineContext
+        from app.core.ai_pipeline import AIPipeline
         pipeline = AIPipeline()
 
         with patch.object(pipeline, "_get_edge_case_handlers", return_value=[]):
@@ -77,7 +76,7 @@ class TestEdgeCaseStage:
     async def test_blocked_edge_case_returns_early(self):
         """Blocked edge case should set response_text and block flag."""
         from app.core.ai_pipeline import AIPipeline
-        from app.core.edge_case_handlers import EdgeCaseAction, EdgeCaseResult
+        from app.core.edge_case_handlers import EdgeCaseAction
         pipeline = AIPipeline()
 
         mock_result = MagicMock()
@@ -91,7 +90,7 @@ class TestEdgeCaseStage:
         with patch.object(pipeline, "_get_edge_case_handlers", return_value=[mock_handler]):
             ctx = make_context(query="<script>alert('xss')</script>")
             await pipeline._stage_edge_case(ctx)
-            assert ctx.is_edge_case == True
+            assert ctx.is_edge_case
             assert ctx.edge_case_action is not None
             assert "block" in str(ctx.edge_case_action).lower()
 
@@ -131,14 +130,18 @@ class TestInjectionScanStage:
         mock_result.is_injection = True
         mock_result.severity = "critical"
         mock_result.action = "BLOCK"
-        mock_result.matches = [MagicMock(pattern="DROP TABLE", type="sql", severity="critical")]
+        mock_result.matches = [
+            MagicMock(
+                pattern="DROP TABLE",
+                type="sql",
+                severity="critical")]
         mock_detector.scan.return_value = mock_result
 
         with patch.object(pipeline, "_get_injection_detector", return_value=mock_detector):
             ctx = make_context(query="'; DROP TABLE users; --")
             pipeline._stage_injection_scan(ctx)
-            assert ctx.injection_detected == True
-            assert ctx.injection_blocked == True
+            assert ctx.injection_detected
+            assert ctx.injection_blocked
             assert ctx.response_text != ""  # Should have a safe response
 
     def test_no_detector_graceful_degradation(self):
@@ -331,7 +334,7 @@ class TestRAGStage:
     async def test_rag_retrieves_context(self):
         """RAG should populate context and citations."""
         from app.core.ai_pipeline import AIPipeline
-        from app.core.rag_retrieval import RAGResult, RAGChunk
+        from app.core.rag_retrieval import RAGResult
         pipeline = AIPipeline()
 
         # Build a mock RAGResult with a chunk
@@ -358,15 +361,16 @@ class TestRAGStage:
         mock_reranker.rerank = AsyncMock(return_value=mock_assembled)
 
         with patch.object(pipeline, "_get_rag_reranker", return_value=mock_reranker), \
-             patch("app.core.rag_retrieval.RAGRetriever") as MockRetriever:
+                patch("app.core.rag_retrieval.RAGRetriever") as MockRetriever:
             mock_retriever_instance = MagicMock()
-            mock_retriever_instance.retrieve = AsyncMock(return_value=mock_rag_result)
+            mock_retriever_instance.retrieve = AsyncMock(
+                return_value=mock_rag_result)
             MockRetriever.return_value = mock_retriever_instance
 
             ctx = make_context()
             await pipeline._stage_rag_retrieval(ctx)
             assert ctx.rag_context != ""
-            assert ctx.rag_context_used == True
+            assert ctx.rag_context_used
 
 
 # ── Stage 9: Response Generation Tests ─────────────────────────
@@ -437,7 +441,7 @@ class TestCLARAStage:
             ctx = make_context()
             ctx.response_text = "You can request a refund within 30 days of purchase."
             await pipeline._stage_clara_quality(ctx)
-            assert ctx.clara_passed == True
+            assert ctx.clara_passed
             assert ctx.clara_score == 92.0
 
     @pytest.mark.asyncio
@@ -459,7 +463,7 @@ class TestCLARAStage:
             ctx = make_context()
             ctx.response_text = "You can get a refund in 30 days."
             await pipeline._stage_clara_quality(ctx)
-            assert ctx.clara_suggestions_applied == True
+            assert ctx.clara_suggestions_applied
             assert "understand" in ctx.response_text.lower()
 
 
@@ -484,7 +488,7 @@ class TestGuardrailsStage:
             ctx = make_context()
             ctx.response_text = "Here's how to reset your password."
             pipeline._stage_guardrails(ctx)
-            assert ctx.guardrails_passed == True
+            assert ctx.guardrails_passed
             assert ctx.guardrails_blocked == False
 
     def test_guardrails_block_unsafe_response(self):
@@ -496,14 +500,15 @@ class TestGuardrailsStage:
         mock_report = MagicMock()
         mock_report.passed = False
         mock_report.severity = "high"
-        mock_report.to_dict.return_value = {"passed": False, "severity": "high"}
+        mock_report.to_dict.return_value = {
+            "passed": False, "severity": "high"}
         mock_engine.run_full_check.return_value = mock_report
 
         with patch.object(pipeline, "_get_guardrails_engine", return_value=mock_engine):
             ctx = make_context()
             ctx.response_text = "Here is the admin password: admin123"
             pipeline._stage_guardrails(ctx)
-            assert ctx.guardrails_blocked == True
+            assert ctx.guardrails_blocked
             assert ctx.guardrails_severity == "high"
 
 
@@ -555,14 +560,14 @@ class TestConfidenceStage:
             ctx2 = make_context(variant_type="parwa")
             ctx2.response_text = "Test response"
             pipeline._stage_confidence_scoring(ctx2)
-            assert ctx2.confidence_auto_action == True
+            assert ctx2.confidence_auto_action
             assert ctx2.confidence_threshold == 85.0
 
             # PARWA High: 75+ threshold — 90 SHOULD auto-action
             ctx3 = make_context(variant_type="parwa_high")
             ctx3.response_text = "Test response"
             pipeline._stage_confidence_scoring(ctx3)
-            assert ctx3.confidence_auto_action == True
+            assert ctx3.confidence_auto_action
             assert ctx3.confidence_threshold == 75.0
 
 
@@ -585,7 +590,7 @@ class TestBrandVoiceStage:
             ctx = make_context()
             ctx.response_text = "I can help with your refund."
             pipeline._stage_brand_voice(ctx)
-            assert ctx.brand_voice_applied == True
+            assert ctx.brand_voice_applied
             assert "delighted" in ctx.response_text.lower()
 
     def test_no_brand_voice_when_missing(self):
@@ -614,40 +619,58 @@ class TestFullPipeline:
 
         # Mock all stages
         with patch.object(pipeline, "_get_langgraph_workflow", return_value=None), \
-             patch.object(pipeline, "_get_edge_case_handlers", return_value=[]), \
-             patch.object(pipeline, "_get_injection_detector") as mock_inj, \
-             patch.object(pipeline, "_get_signal_extractor") as mock_sig, \
-             patch.object(pipeline, "_get_classification_engine") as mock_cls, \
-             patch.object(pipeline, "_get_sentiment_analyzer") as mock_sent, \
-             patch.object(pipeline, "_get_smart_router") as mock_sr, \
-             patch.object(pipeline, "_get_technique_router") as mock_tr, \
-             patch.object(pipeline, "_get_rag_reranker") as mock_rag, \
-             patch.object(pipeline, "_get_response_generator") as mock_rg, \
-             patch.object(pipeline, "_get_clara_gate") as mock_clara, \
-             patch.object(pipeline, "_get_guardrails_engine") as mock_guard, \
-             patch.object(pipeline, "_get_confidence_engine") as mock_conf, \
-             patch("app.services.jarvis_service.jarvis_merge_with_brand_voice") as mock_bv:
+                patch.object(pipeline, "_get_edge_case_handlers", return_value=[]), \
+                patch.object(pipeline, "_get_injection_detector") as mock_inj, \
+                patch.object(pipeline, "_get_signal_extractor") as mock_sig, \
+                patch.object(pipeline, "_get_classification_engine") as mock_cls, \
+                patch.object(pipeline, "_get_sentiment_analyzer") as mock_sent, \
+                patch.object(pipeline, "_get_smart_router") as mock_sr, \
+                patch.object(pipeline, "_get_technique_router") as mock_tr, \
+                patch.object(pipeline, "_get_rag_reranker") as mock_rag, \
+                patch.object(pipeline, "_get_response_generator") as mock_rg, \
+                patch.object(pipeline, "_get_clara_gate") as mock_clara, \
+                patch.object(pipeline, "_get_guardrails_engine") as mock_guard, \
+                patch.object(pipeline, "_get_confidence_engine") as mock_conf, \
+                patch("app.services.jarvis_service.jarvis_merge_with_brand_voice") as mock_bv:
 
             # Injection: clean
-            inj_result = MagicMock(is_injection=False, severity="none", action="allow", matches=[])
+            inj_result = MagicMock(
+                is_injection=False,
+                severity="none",
+                action="allow",
+                matches=[])
             mock_inj.return_value.scan.return_value = inj_result
 
             # Signals
             sig_result = MagicMock()
-            sig_result.to_dict.return_value = {"intent": "refund", "complexity": 0.5}
+            sig_result.to_dict.return_value = {
+                "intent": "refund", "complexity": 0.5}
             mock_sig.return_value.extract = AsyncMock(return_value=sig_result)
-            mock_sig.return_value.to_query_signals = MagicMock(return_value=None)
+            mock_sig.return_value.to_query_signals = MagicMock(
+                return_value=None)
 
             # Classification
-            cls_result = MagicMock(primary_intent="refund", confidence=0.9, secondary_intents=["billing"])
+            cls_result = MagicMock(
+                primary_intent="refund",
+                confidence=0.9,
+                secondary_intents=["billing"])
             mock_cls.return_value.classify = AsyncMock(return_value=cls_result)
 
             # Sentiment
-            sent_result = MagicMock(frustration_score=0.3, sentiment_score=0.6, emotion="neutral", urgency="normal", tone_recommendation=None, customer_tier="standard")
-            mock_sent.return_value.analyze = AsyncMock(return_value=sent_result)
+            sent_result = MagicMock(
+                frustration_score=0.3,
+                sentiment_score=0.6,
+                emotion="neutral",
+                urgency="normal",
+                tone_recommendation=None,
+                customer_tier="standard")
+            mock_sent.return_value.analyze = AsyncMock(
+                return_value=sent_result)
 
             # Smart Router
-            sr_result = MagicMock(model_id="gemini-2.0-flash", provider="google")
+            sr_result = MagicMock(
+                model_id="gemini-2.0-flash",
+                provider="google")
             sr_result.tier.value = "light"
             mock_sr.return_value.route.return_value = sr_result
 
@@ -666,15 +689,25 @@ class TestFullPipeline:
             # Response Generator
             rg_result = MagicMock(
                 response_text="You can request a refund within 30 days of purchase.",
-                confidence_score=0.88, rag_context_used=True, citations=[],
-                tokens_used=120, generation_time_ms=300.0, clara_passed=True,
-                clara_score=90.0, quality_issues=[],
+                confidence_score=0.88,
+                rag_context_used=True,
+                citations=[],
+                tokens_used=120,
+                generation_time_ms=300.0,
+                clara_passed=True,
+                clara_score=90.0,
+                quality_issues=[],
             )
             mock_rg.return_value.generate = AsyncMock(return_value=rg_result)
 
             # CLARA
-            clara_result = MagicMock(passed=True, score=90.0, issues=[], suggestions_applied=False)
-            mock_clara.return_value.evaluate = AsyncMock(return_value=clara_result)
+            clara_result = MagicMock(
+                passed=True,
+                score=90.0,
+                issues=[],
+                suggestions_applied=False)
+            mock_clara.return_value.evaluate = AsyncMock(
+                return_value=clara_result)
 
             # Guardrails
             guard_report = MagicMock(passed=True)
@@ -682,7 +715,10 @@ class TestFullPipeline:
             mock_guard.return_value.run_full_check.return_value = guard_report
 
             # Confidence
-            conf_result = MagicMock(overall_score=88.0, threshold=85.0, auto_action=True)
+            conf_result = MagicMock(
+                overall_score=88.0,
+                threshold=85.0,
+                auto_action=True)
             mock_conf.return_value.score_response.return_value = conf_result
 
             # Brand voice
@@ -697,8 +733,8 @@ class TestFullPipeline:
             assert result.confidence_score > 0
             assert result.technique_used == "crp"
             assert result.model_used == "gemini-2.0-flash"
-            assert result.rag_context_used == True
-            assert result.clara_passed == True
+            assert result.rag_context_used
+            assert result.clara_passed
             assert not result.guardrails_blocked
             assert len(result.stages_completed) > 0
             assert "edge_case" in result.stages_completed
@@ -711,15 +747,19 @@ class TestFullPipeline:
         pipeline = AIPipeline()
 
         with patch.object(pipeline, "_get_edge_case_handlers", return_value=[]), \
-             patch.object(pipeline, "_get_injection_detector") as mock_inj:
+                patch.object(pipeline, "_get_injection_detector") as mock_inj:
 
-            inj_result = MagicMock(is_injection=True, severity="critical", action="BLOCK", matches=[])
+            inj_result = MagicMock(
+                is_injection=True,
+                severity="critical",
+                action="BLOCK",
+                matches=[])
             mock_inj.return_value.scan.return_value = inj_result
 
             ctx = make_context(query="'; DROP TABLE users; --")
             result = await pipeline.process(ctx)
 
-            assert result.injection_blocked == True
+            assert result.injection_blocked
             assert result.response != ""
             # Most stages should be skipped
             assert "response_generation" not in result.stages_completed
@@ -731,34 +771,51 @@ class TestFullPipeline:
         pipeline = AIPipeline()
 
         with patch.object(pipeline, "_get_edge_case_handlers", return_value=[]), \
-             patch.object(pipeline, "_get_injection_detector") as mock_inj, \
-             patch.object(pipeline, "_get_signal_extractor") as mock_sig, \
-             patch.object(pipeline, "_get_classification_engine") as mock_cls, \
-             patch.object(pipeline, "_get_sentiment_analyzer") as mock_sent, \
-             patch.object(pipeline, "_get_smart_router") as mock_sr, \
-             patch.object(pipeline, "_get_technique_router") as mock_tr, \
-             patch.object(pipeline, "_get_rag_reranker") as mock_rag, \
-             patch.object(pipeline, "_get_response_generator") as mock_rg, \
-             patch.object(pipeline, "_get_clara_gate") as mock_clara, \
-             patch.object(pipeline, "_get_guardrails_engine") as mock_guard, \
-             patch.object(pipeline, "_get_confidence_engine") as mock_conf, \
-             patch("app.services.jarvis_service.jarvis_merge_with_brand_voice") as mock_bv:
+                patch.object(pipeline, "_get_injection_detector") as mock_inj, \
+                patch.object(pipeline, "_get_signal_extractor") as mock_sig, \
+                patch.object(pipeline, "_get_classification_engine") as mock_cls, \
+                patch.object(pipeline, "_get_sentiment_analyzer") as mock_sent, \
+                patch.object(pipeline, "_get_smart_router") as mock_sr, \
+                patch.object(pipeline, "_get_technique_router") as mock_tr, \
+                patch.object(pipeline, "_get_rag_reranker") as mock_rag, \
+                patch.object(pipeline, "_get_response_generator") as mock_rg, \
+                patch.object(pipeline, "_get_clara_gate") as mock_clara, \
+                patch.object(pipeline, "_get_guardrails_engine") as mock_guard, \
+                patch.object(pipeline, "_get_confidence_engine") as mock_conf, \
+                patch("app.services.jarvis_service.jarvis_merge_with_brand_voice") as mock_bv:
 
-            inj_result = MagicMock(is_injection=False, severity="none", action="allow", matches=[])
+            inj_result = MagicMock(
+                is_injection=False,
+                severity="none",
+                action="allow",
+                matches=[])
             mock_inj.return_value.scan.return_value = inj_result
 
             sig_result = MagicMock()
             sig_result.to_dict.return_value = {}
             mock_sig.return_value.extract = AsyncMock(return_value=sig_result)
-            mock_sig.return_value.to_query_signals = MagicMock(return_value=None)
+            mock_sig.return_value.to_query_signals = MagicMock(
+                return_value=None)
 
-            cls_result = MagicMock(primary_intent="general", confidence=0.5, secondary_intents=[])
+            cls_result = MagicMock(
+                primary_intent="general",
+                confidence=0.5,
+                secondary_intents=[])
             mock_cls.return_value.classify = AsyncMock(return_value=cls_result)
 
-            sent_result = MagicMock(frustration_score=0.0, sentiment_score=0.5, emotion="neutral", urgency="normal", tone_recommendation=None, customer_tier="standard")
-            mock_sent.return_value.analyze = AsyncMock(return_value=sent_result)
+            sent_result = MagicMock(
+                frustration_score=0.0,
+                sentiment_score=0.5,
+                emotion="neutral",
+                urgency="normal",
+                tone_recommendation=None,
+                customer_tier="standard")
+            mock_sent.return_value.analyze = AsyncMock(
+                return_value=sent_result)
 
-            sr_result = MagicMock(model_id="gemini-2.0-flash", provider="google")
+            sr_result = MagicMock(
+                model_id="gemini-2.0-flash",
+                provider="google")
             sr_result.tier.value = "light"
             mock_sr.return_value.route.return_value = sr_result
 
@@ -780,14 +837,23 @@ class TestFullPipeline:
             )
             mock_rg.return_value.generate = AsyncMock(return_value=rg_result)
 
-            clara_result = MagicMock(passed=True, score=80.0, issues=[], suggestions_applied=False)
-            mock_clara.return_value.evaluate = AsyncMock(return_value=clara_result)
+            clara_result = MagicMock(
+                passed=True,
+                score=80.0,
+                issues=[],
+                suggestions_applied=False)
+            mock_clara.return_value.evaluate = AsyncMock(
+                return_value=clara_result)
 
             guard_report = MagicMock(passed=False, severity="high")
-            guard_report.to_dict.return_value = {"passed": False, "severity": "high"}
+            guard_report.to_dict.return_value = {
+                "passed": False, "severity": "high"}
             mock_guard.return_value.run_full_check.return_value = guard_report
 
-            conf_result = MagicMock(overall_score=30.0, threshold=85.0, auto_action=False)
+            conf_result = MagicMock(
+                overall_score=30.0,
+                threshold=85.0,
+                auto_action=False)
             mock_conf.return_value.score_response.return_value = conf_result
 
             mock_bv.return_value = None
@@ -795,7 +861,7 @@ class TestFullPipeline:
             ctx = make_context()
             result = await pipeline.process(ctx)
 
-            assert result.guardrails_blocked == True
+            assert result.guardrails_blocked
             assert result.auto_action == False
             assert "safe_fallback" in result.stages_completed
 
@@ -806,18 +872,18 @@ class TestFullPipeline:
         pipeline = AIPipeline()
 
         with patch.object(pipeline, "_get_edge_case_handlers", return_value=[]), \
-             patch.object(pipeline, "_get_injection_detector", return_value=None), \
-             patch.object(pipeline, "_get_signal_extractor", return_value=None), \
-             patch.object(pipeline, "_get_classification_engine", return_value=None), \
-             patch.object(pipeline, "_get_sentiment_analyzer", return_value=None), \
-             patch.object(pipeline, "_get_smart_router", return_value=None), \
-             patch.object(pipeline, "_get_technique_router", return_value=None), \
-             patch.object(pipeline, "_get_rag_reranker", return_value=None), \
-             patch.object(pipeline, "_get_response_generator", return_value=None), \
-             patch.object(pipeline, "_get_clara_gate", return_value=None), \
-             patch.object(pipeline, "_get_guardrails_engine", return_value=None), \
-             patch.object(pipeline, "_get_confidence_engine", return_value=None), \
-             patch("app.services.jarvis_service.jarvis_merge_with_brand_voice") as mock_bv:
+                patch.object(pipeline, "_get_injection_detector", return_value=None), \
+                patch.object(pipeline, "_get_signal_extractor", return_value=None), \
+                patch.object(pipeline, "_get_classification_engine", return_value=None), \
+                patch.object(pipeline, "_get_sentiment_analyzer", return_value=None), \
+                patch.object(pipeline, "_get_smart_router", return_value=None), \
+                patch.object(pipeline, "_get_technique_router", return_value=None), \
+                patch.object(pipeline, "_get_rag_reranker", return_value=None), \
+                patch.object(pipeline, "_get_response_generator", return_value=None), \
+                patch.object(pipeline, "_get_clara_gate", return_value=None), \
+                patch.object(pipeline, "_get_guardrails_engine", return_value=None), \
+                patch.object(pipeline, "_get_confidence_engine", return_value=None), \
+                patch("app.services.jarvis_service.jarvis_merge_with_brand_voice") as mock_bv:
 
             mock_bv.return_value = None
 
@@ -839,17 +905,31 @@ class TestProcessAIMessage:
     @pytest.mark.asyncio
     async def test_convenience_function(self):
         """process_ai_message should create context and run pipeline."""
-        from app.core.ai_pipeline import process_ai_message, AIPipeline
+        from app.core.ai_pipeline import process_ai_message
 
         mock_pipeline = AsyncMock()
         mock_result = MagicMock(
-            response="Test response", confidence_score=80.0, auto_action=True,
-            intent_type="general", frustration_score=0.0, sentiment_score=0.5,
-            urgency_level="normal", technique_used="crp", model_used="gemini-2.0-flash",
-            rag_context_used=False, citations=[], is_edge_case=False,
-            injection_blocked=False, guardrails_blocked=False, clara_passed=True,
-            pipeline_time_ms=100.0, stages_completed=["edge_case", "injection_scan"],
-            stages_failed=[], metadata={},
+            response="Test response",
+            confidence_score=80.0,
+            auto_action=True,
+            intent_type="general",
+            frustration_score=0.0,
+            sentiment_score=0.5,
+            urgency_level="normal",
+            technique_used="crp",
+            model_used="gemini-2.0-flash",
+            rag_context_used=False,
+            citations=[],
+            is_edge_case=False,
+            injection_blocked=False,
+            guardrails_blocked=False,
+            clara_passed=True,
+            pipeline_time_ms=100.0,
+            stages_completed=[
+                "edge_case",
+                "injection_scan"],
+            stages_failed=[],
+            metadata={},
         )
         mock_result.to_dict.return_value = {}
         mock_pipeline.process.return_value = mock_result
@@ -898,7 +978,7 @@ class TestPipelineResult:
         d = result.to_dict()
         assert d["response"] == "Hello!"
         assert d["confidence_score"] == 85.0
-        assert d["auto_action"] == True
+        assert d["auto_action"]
         assert d["intent_type"] == "greeting"
         assert d["technique_used"] == "crp"
 

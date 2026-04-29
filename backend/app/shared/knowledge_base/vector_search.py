@@ -27,7 +27,7 @@ import math
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("parwa.vector_search")
 
@@ -318,7 +318,8 @@ class PgVectorStore(VectorStore):
         if len(vector_ids) != len(embeddings):
             logger.warning(
                 "PgVectorStore.add_vectors: vector_ids (%d) != embeddings (%d)",
-                len(vector_ids), len(embeddings),
+                len(vector_ids),
+                len(embeddings),
             )
             return False
 
@@ -336,13 +337,10 @@ class PgVectorStore(VectorStore):
                             ON CONFLICT (id) DO UPDATE SET
                                 embedding = EXCLUDED.embedding,
                                 metadata = EXCLUDED.metadata
-                        """),
-                        {
-                            "id": vid,
-                            "embedding": str(emb),
-                            "metadata": str(meta) if isinstance(meta, dict) else str({}),
-                        },
-                    )
+                        """), {
+                            "id": vid, "embedding": str(emb), "metadata": str(meta) if isinstance(
+                                meta, dict) else str(
+                                {}), }, )
             return True
         except Exception as exc:
             logger.warning("PgVectorStore.add_vectors failed: %s", exc)
@@ -370,7 +368,8 @@ class PgVectorStore(VectorStore):
         for i, chunk in enumerate(chunks):
             vector_ids.append(chunk.get("chunk_id", f"{document_id}_{i}"))
             embeddings.append(chunk.get("embedding", []))
-            combined_meta: Dict[str, Any] = {"company_id": company_id, "document_id": document_id}
+            combined_meta: Dict[str, Any] = {
+                "company_id": company_id, "document_id": document_id}
             combined_meta.update(metadata or {})
             metas.append(combined_meta)
 
@@ -421,7 +420,8 @@ class PgVectorStore(VectorStore):
             for fk, fv in filters.items():
                 param_key = f"filter_{fk}"
                 params[param_key] = str(fv)
-                where_clauses.append(f"metadata::jsonb->>'{fk}' = :{param_key}")
+                where_clauses.append(
+                    f"metadata::jsonb->>'{fk}' = :{param_key}")
                 filter_idx += 1
 
         where_sql = " AND ".join(where_clauses)
@@ -509,14 +509,12 @@ class PgVectorStore(VectorStore):
                 with engine.connect() as conn:
                     # 1. Check pgvector extension
                     result = conn.execute(
-                        text("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
-                    ).fetchone()
+                        text("SELECT extversion FROM pg_extension WHERE extname = 'vector'")).fetchone()
 
                     if result is None:
                         logger.warning(
                             "PgVectorStore: pgvector extension not found in database "
-                            "— run CREATE EXTENSION vector; in PostgreSQL"
-                        )
+                            "— run CREATE EXTENSION vector; in PostgreSQL")
                         return False
 
                     # 2. Check knowledge_base_vectors table exists
@@ -532,8 +530,7 @@ class PgVectorStore(VectorStore):
                     if not table_check or not table_check[0]:
                         logger.warning(
                             "PgVectorStore: knowledge_base_vectors table not found "
-                            "— run the migration to create it"
-                        )
+                            "— run the migration to create it")
                         return False
 
                     return True
@@ -579,7 +576,8 @@ def get_vector_store() -> VectorStore:
 
     # Fallback to InMemoryVectorStore (was MockVectorStore)
     _store_instance = InMemoryVectorStore()
-    logger.info("Using InMemoryVectorStore for vector search (dev/fallback mode)")
+    logger.info(
+        "Using InMemoryVectorStore for vector search (dev/fallback mode)")
     return _store_instance
 
 
@@ -591,7 +589,8 @@ def _create_pg_vector_store() -> Optional[VectorStore]:
             logger.info("PgVectorStore created — using real pgvector search")
             return store
         else:
-            logger.warning("pgvector extension or table not found — InMemoryVectorStore will be used")
+            logger.warning(
+                "pgvector extension or table not found — InMemoryVectorStore will be used")
             return None
     except Exception as exc:
         logger.warning("PgVectorStore creation failed: %s", exc)

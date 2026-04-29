@@ -196,7 +196,7 @@ def mock_redis():
             return []
         if stop == -1:
             return list(lst[start:])
-        return list(lst[start : stop + 1])
+        return list(lst[start: stop + 1])
 
     # ── key ops ──
 

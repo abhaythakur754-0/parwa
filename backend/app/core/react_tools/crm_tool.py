@@ -53,8 +53,10 @@ def _mock_customer(
     """Generate a realistic mock customer record."""
     cid = customer_id or f"CUST-{uuid.uuid4().hex[:8].upper()}"
     first = name.split()[0] if name else random.choice(_FIRST_NAMES)
-    last = name.split()[-1] if name and " " in name else random.choice(_LAST_NAMES)
-    domain = random.choice(["gmail.com", "outlook.com", "company.io", "example.com"])
+    last = name.split(
+    )[-1] if name and " " in name else random.choice(_LAST_NAMES)
+    domain = random.choice(
+        ["gmail.com", "outlook.com", "company.io", "example.com"])
     local = f"{first.lower()}.{last.lower()}"
 
     created = datetime.now(timezone.utc) - timedelta(
@@ -65,26 +67,39 @@ def _mock_customer(
         hours=random.randint(0, 23),
     )
 
-    return {
-        "customer_id": cid,
-        "company_id": company_id,
-        "name": f"{first} {last}",
-        "first_name": first,
-        "last_name": last,
-        "email": email or f"{local}@{domain}",
-        "phone": f"+1-{random.randint(200, 999)}-{random.randint(100, 999)}-{random.randint(1000, 9999)}",
-        "tier": random.choice(_TIERS),
-        "status": "active",
-        "country": random.choice(_COUNTRIES),
-        "created_at": created.isoformat(),
-        "last_active_at": last_active.isoformat(),
-        "lifetime_value": round(random.uniform(50, 15000), 2),
-        "total_orders": random.randint(0, 50),
-        "tags": random.sample(["vip", "churned", "new", "enterprise", "high-value", "support-frequent"], k=random.randint(1, 3)),
-    }
+    return {"customer_id": cid,
+            "company_id": company_id,
+            "name": f"{first} {last}",
+            "first_name": first,
+            "last_name": last,
+            "email": email or f"{local}@{domain}",
+            "phone": f"+1-{random.randint(200,
+                                          999)}-{random.randint(100,
+                                                                999)}-{random.randint(1000,
+                                                                                      9999)}",
+            "tier": random.choice(_TIERS),
+            "status": "active",
+            "country": random.choice(_COUNTRIES),
+            "created_at": created.isoformat(),
+            "last_active_at": last_active.isoformat(),
+            "lifetime_value": round(random.uniform(50,
+                                                   15000),
+                                    2),
+            "total_orders": random.randint(0,
+                                           50),
+            "tags": random.sample(["vip",
+                                   "churned",
+                                   "new",
+                                   "enterprise",
+                                   "high-value",
+                                   "support-frequent"],
+                                  k=random.randint(1,
+                                                   3)),
+            }
 
 
-def _mock_interactions(customer_id: str, company_id: str, limit: int = 5) -> list[dict[str, Any]]:
+def _mock_interactions(customer_id: str, company_id: str,
+                       limit: int = 5) -> list[dict[str, Any]]:
     """Generate mock interaction history."""
     interactions: list[dict[str, Any]] = []
     subjects = [
@@ -265,7 +280,9 @@ class CRMTool(BaseReactTool):
         await asyncio.sleep(random.uniform(0.02, 0.12))
 
         if action == "__health_check__":
-            return ToolResult(success=True, error=None, data={"status": "ok"}, execution_time_ms=0)
+            return ToolResult(
+                success=True, error=None, data={
+                    "status": "ok"}, execution_time_ms=0)
 
         handler = {
             "get_customer": self._get_customer,
@@ -279,7 +296,9 @@ class CRMTool(BaseReactTool):
         if handler is None:
             return ToolResult(
                 success=False,
-                error=f"Unknown action: {action}. Available: {', '.join(self.actions)}",
+                error=f"Unknown action: {action}. Available: {
+                    ', '.join(
+                        self.actions)}",
                 data=None,
                 execution_time_ms=0,
             )
@@ -288,7 +307,10 @@ class CRMTool(BaseReactTool):
 
     # ── Action Handlers ─────────────────────────────────────────
 
-    async def _get_customer(self, company_id: str, **params: Any) -> ToolResult:
+    async def _get_customer(
+            self,
+            company_id: str,
+            **params: Any) -> ToolResult:
         """Fetch full customer profile."""
         customer_id: str = params.get("customer_id", "")
 
@@ -301,13 +323,24 @@ class CRMTool(BaseReactTool):
                     data=None,
                     execution_time_ms=0,
                 )
-            return ToolResult(success=True, error=None, data=cust, execution_time_ms=0)
+            return ToolResult(
+                success=True,
+                error=None,
+                data=cust,
+                execution_time_ms=0)
 
         cust = _mock_customer(customer_id=customer_id, company_id=company_id)
         self._customers[customer_id] = cust
-        return ToolResult(success=True, error=None, data=cust, execution_time_ms=0)
+        return ToolResult(
+            success=True,
+            error=None,
+            data=cust,
+            execution_time_ms=0)
 
-    async def _search_customers(self, company_id: str, **params: Any) -> ToolResult:
+    async def _search_customers(
+            self,
+            company_id: str,
+            **params: Any) -> ToolResult:
         """Search customers by various criteria."""
         query: str = params.get("query", "").lower().strip()
         tag: str | None = params.get("tag")
@@ -348,13 +381,18 @@ class CRMTool(BaseReactTool):
             execution_time_ms=0,
         )
 
-    async def _update_customer(self, company_id: str, **params: Any) -> ToolResult:
+    async def _update_customer(
+            self,
+            company_id: str,
+            **params: Any) -> ToolResult:
         """Update customer fields."""
         customer_id: str = params.get("customer_id", "")
 
         cust = self._customers.get(customer_id)
         if cust is None:
-            cust = _mock_customer(customer_id=customer_id, company_id=company_id)
+            cust = _mock_customer(
+                customer_id=customer_id,
+                company_id=company_id)
             self._customers[customer_id] = cust
 
         if cust["company_id"] != company_id:
@@ -379,7 +417,8 @@ class CRMTool(BaseReactTool):
                 cust[field_name] = value
                 updated_fields.append(param_key)
                 # Also update first/last name if name changed
-                if param_key == "name" and isinstance(value, str) and " " in value:
+                if param_key == "name" and isinstance(
+                        value, str) and " " in value:
                     parts = value.split(maxsplit=1)
                     cust["first_name"] = parts[0]
                     cust["last_name"] = parts[-1]
@@ -396,7 +435,9 @@ class CRMTool(BaseReactTool):
         if "tier" in params and params["tier"] not in _TIERS:
             return ToolResult(
                 success=False,
-                error=f"Invalid tier '{params['tier']}'. Must be one of: {', '.join(_TIERS)}",
+                error=f"Invalid tier '{
+                    params['tier']}'. Must be one of: {
+                    ', '.join(_TIERS)}",
                 data=None,
                 execution_time_ms=0,
             )
@@ -415,7 +456,10 @@ class CRMTool(BaseReactTool):
             execution_time_ms=0,
         )
 
-    async def _get_interaction_history(self, company_id: str, **params: Any) -> ToolResult:
+    async def _get_interaction_history(
+            self,
+            company_id: str,
+            **params: Any) -> ToolResult:
         """Get interaction history for a customer."""
         customer_id: str = params.get("customer_id", "")
         limit: int = min(max(params.get("limit", 10), 1), 50)
@@ -454,7 +498,8 @@ class CRMTool(BaseReactTool):
                 execution_time_ms=0,
             )
 
-        tags = [t.strip() for t in raw_tags.split(",") if t.strip()] if raw_tags else []
+        tags = [t.strip() for t in raw_tags.split(
+            ",") if t.strip()] if raw_tags else []
 
         note: dict[str, Any] = {
             "note_id": f"NOTE-{uuid.uuid4().hex[:8].upper()}",
@@ -477,13 +522,18 @@ class CRMTool(BaseReactTool):
             execution_time_ms=0,
         )
 
-    async def _get_customer_stats(self, company_id: str, **params: Any) -> ToolResult:
+    async def _get_customer_stats(
+            self,
+            company_id: str,
+            **params: Any) -> ToolResult:
         """Get aggregate statistics for a customer."""
         customer_id: str = params.get("customer_id", "")
 
         cust = self._customers.get(customer_id)
         if cust is None:
-            cust = _mock_customer(customer_id=customer_id, company_id=company_id)
+            cust = _mock_customer(
+                customer_id=customer_id,
+                company_id=company_id)
             self._customers[customer_id] = cust
 
         if cust["company_id"] != company_id:
@@ -500,10 +550,14 @@ class CRMTool(BaseReactTool):
         # Engagement score (simple heuristic)
         interaction_count = len(interactions)
         days_since_active = max(
-            (datetime.now(timezone.utc) - datetime.fromisoformat(cust["last_active_at"])).days,
+            (datetime.now(
+                timezone.utc) -
+                datetime.fromisoformat(
+                cust["last_active_at"])).days,
             0,
         )
-        engagement = max(100 - days_since_active, 0) + min(interaction_count * 5, 50)
+        engagement = max(100 - days_since_active, 0) + \
+            min(interaction_count * 5, 50)
 
         return ToolResult(
             success=True,
@@ -516,12 +570,18 @@ class CRMTool(BaseReactTool):
                 "total_orders": cust["total_orders"],
                 "interaction_count": interaction_count,
                 "note_count": len(notes),
-                "engagement_score": min(engagement, 100),
+                "engagement_score": min(
+                    engagement,
+                    100),
                 "days_since_last_active": days_since_active,
-                "tags": cust.get("tags", []),
+                "tags": cust.get(
+                    "tags",
+                    []),
                 "account_age_days": (
-                    datetime.now(timezone.utc) - datetime.fromisoformat(cust["created_at"])
-                ).days,
+                    datetime.now(
+                        timezone.utc) -
+                    datetime.fromisoformat(
+                        cust["created_at"])).days,
             },
             execution_time_ms=0,
         )

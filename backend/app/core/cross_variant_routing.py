@@ -56,11 +56,11 @@ VALID_VARIANTS: set = set(ESCALATION_CHAIN)
 
 # Default channel → variant mapping (before per-company overrides).
 DEFAULT_CHANNEL_MAPPINGS: Dict[str, Tuple[str, int]] = {
-    "email":       ("parwa",        10),
-    "chat":        ("mini_parwa",    20),
-    "phone":       ("high_parwa",    30),
-    "web_widget":  ("mini_parwa",    20),
-    "social":      ("parwa",         10),
+    "email": ("parwa", 10),
+    "chat": ("mini_parwa", 20),
+    "phone": ("high_parwa", 30),
+    "web_widget": ("mini_parwa", 20),
+    "social": ("parwa", 10),
 }
 
 
@@ -201,7 +201,8 @@ class CrossVariantRouter:
     """
 
     def __init__(self) -> None:
-        # Per-company channel overrides: {company_id: {channel_str: ChannelMapping}}
+        # Per-company channel overrides: {company_id: {channel_str:
+        # ChannelMapping}}
         self._channel_overrides: Dict[str, Dict[str, ChannelMapping]] = {}
         # Capacity store: {company_id: {variant: CapacitySnapshot}}
         self._capacity: Dict[str, Dict[str, CapacitySnapshot]] = {}
@@ -473,7 +474,8 @@ class CrossVariantRouter:
         Returns ``None`` if *variant_type* is already the highest tier.
         """
         try:
-            idx = ESCALATION_CHAIN.index(variant_type) if variant_type in ESCALATION_CHAIN else -1
+            idx = ESCALATION_CHAIN.index(
+                variant_type) if variant_type in ESCALATION_CHAIN else -1
             if idx >= 0 and idx < len(ESCALATION_CHAIN) - 1:
                 return ESCALATION_CHAIN[idx + 1]
             return None
@@ -529,7 +531,8 @@ class CrossVariantRouter:
             complexity_trigger = False
 
             # Complexity escalation only for lower variants
-            if complexity_score > 0.8 and variant_type in ("mini_parwa", "parwa"):
+            if complexity_score > 0.8 and variant_type in (
+                    "mini_parwa", "parwa"):
                 complexity_trigger = True
 
             if not (capacity_trigger or complexity_trigger):
@@ -549,7 +552,9 @@ class CrossVariantRouter:
 
             reason_parts: List[str] = []
             if capacity_trigger:
-                reason_parts.append(f"capacity at {snapshot.utilization_pct:.1f}%")
+                reason_parts.append(
+                    f"capacity at {
+                        snapshot.utilization_pct:.1f}%")
             if complexity_trigger:
                 reason_parts.append(f"complexity score {complexity_score:.2f}")
             logger.info(
@@ -957,7 +962,9 @@ class CrossVariantRouter:
 
     # ── Pending Queue Management (W9-GAP-015) ────────────────────
 
-    def process_pending_queue(self, company_id: str = "") -> List[RoutingResult]:
+    def process_pending_queue(
+            self,
+            company_id: str = "") -> List[RoutingResult]:
         """Process tickets in the pending queue whose fallback timer
         has expired.
 
@@ -1073,14 +1080,12 @@ class CrossVariantRouter:
             # Check target variant is known
             if target_variant and target_variant not in VALID_VARIANTS:
                 reasons.append(
-                    f"target_variant '{target_variant}' is not a known variant",
-                )
+                    f"target_variant '{target_variant}' is not a known variant", )
 
             # Check original variant is known
             if original_variant not in VALID_VARIANTS:
                 reasons.append(
-                    f"original_variant '{original_variant}' is not a known variant",
-                )
+                    f"original_variant '{original_variant}' is not a known variant", )
 
             # Check escalation direction (must be same-tier or higher)
             if (target_variant and original_variant
@@ -1225,7 +1230,8 @@ class CrossVariantRouter:
             with self._lock:
                 queue = self._pending_queue
                 if company_id:
-                    return sum(1 for qt in queue if qt.company_id == company_id)
+                    return sum(
+                        1 for qt in queue if qt.company_id == company_id)
                 return len(queue)
         except Exception:
             logger.exception("get_pending_queue_size failed")

@@ -101,7 +101,9 @@ class ConversationMessage:
     message_id: str
     content: str
     role: str  # "customer" or "agent"
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(
+        default_factory=lambda: datetime.now(
+            timezone.utc))
     metadata: Dict = field(default_factory=dict)
 
 
@@ -121,7 +123,9 @@ class ConversationSummary:
     message_count: int = 0
     original_message_count: int = 0
     compression_ratio: float = 0.0
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(
+        default_factory=lambda: datetime.now(
+            timezone.utc))
     generation_time_ms: float = 0.0
     metadata: Dict = field(default_factory=dict)
 
@@ -183,7 +187,17 @@ def _split_sentences(text: str) -> List[str]:
         return []
     # Protect known abbreviations from being treated as sentence ends
     protected = text
-    for abbr in ("Mr.", "Mrs.", "Ms.", "Dr.", "e.g.", "i.e.", "etc.", "vs.", "Jr.", "Sr."):
+    for abbr in (
+        "Mr.",
+        "Mrs.",
+        "Ms.",
+        "Dr.",
+        "e.g.",
+        "i.e.",
+        "etc.",
+        "vs.",
+        "Jr.",
+            "Sr."):
         protected = protected.replace(abbr, abbr.replace(".", "DOTPROTECT"))
 
     raw_parts = re.split(r"(?<=[.!?])\s+", protected)
@@ -256,7 +270,8 @@ def _score_sentence(
     # --- 5. TF-IDF-like rarity score ---
     non_stop = [w for w in words if w not in _STOP_WORDS]
     if non_stop and total_words > 0:
-        avg_log_freq = sum(math.log(1 + word_freq.get(w, 0)) for w in non_stop) / len(non_stop)
+        avg_log_freq = sum(math.log(1 + word_freq.get(w, 0))
+                           for w in non_stop) / len(non_stop)
         # Lower average frequency → rarer words → higher score
         max_possible = math.log(1 + max(word_freq.values(), default=1))
         rarity_score = 1.0 - (avg_log_freq / max(1.0, max_possible))
@@ -449,7 +464,8 @@ class ConversationSummarizationService:
 
         key = _conv_key(company_id, conversation_id)
         lock = self._get_lock(key)
-        stats = self._stats.setdefault(company_id, self._init_stats(company_id))
+        stats = self._stats.setdefault(
+            company_id, self._init_stats(company_id))
 
         try:
             # Ensure company_id on request matches
@@ -538,7 +554,8 @@ class ConversationSummarizationService:
                     break
 
                 if result_summary is not None and result_summary.status == SummaryStatus.STALE:
-                    # Second run also went stale — keep last result but mark failed
+                    # Second run also went stale — keep last result but mark
+                    # failed
                     result_summary.status = SummaryStatus.FAILED
                     stats["failed_summarizations"] += 1
                     stats["total_messages_processed"] += len(messages)
@@ -558,7 +575,8 @@ class ConversationSummarizationService:
                 # --- Step 5: store result ---
                 if result_summary is not None:
                     result_summary.status = SummaryStatus.COMPLETED
-                    self._summary_cache.setdefault(key, []).append(result_summary)
+                    self._summary_cache.setdefault(
+                        key, []).append(result_summary)
                     ctx.summaries.append(result_summary)
                     ctx.last_summarized_at = datetime.now(timezone.utc)
                     stats["successful_summarizations"] += 1
@@ -626,10 +644,14 @@ class ConversationSummarizationService:
         key_points: List[str] = []
 
         try:
-            if mode in (SummarizationMode.EXTRACTIVE, SummarizationMode.HYBRID):
+            if mode in (
+                    SummarizationMode.EXTRACTIVE,
+                    SummarizationMode.HYBRID):
                 extractive, key_points = self._extractive_summarize(messages)
 
-            if mode in (SummarizationMode.ABSTRACTIVE, SummarizationMode.HYBRID):
+            if mode in (
+                    SummarizationMode.ABSTRACTIVE,
+                    SummarizationMode.HYBRID):
                 abstractive = self._abstractive_summarize(messages)
 
             # Build hybrid summary text
@@ -730,7 +752,8 @@ class ConversationSummarizationService:
         # Derive key points — highest-scoring unique sentences, deduplicated
         seen = set()
         key_points: List[str] = []
-        for _score, _idx, sent in sorted(scored, key=lambda x: x[0], reverse=True):
+        for _score, _idx, sent in sorted(
+                scored, key=lambda x: x[0], reverse=True):
             # Normalise for dedup
             norm = re.sub(r"\s+", " ", sent.lower().strip())
             if norm not in seen and norm:
@@ -765,7 +788,8 @@ class ConversationSummarizationService:
 
         return self._rule_based_abstractive(messages)
 
-    def _rule_based_abstractive(self, messages: List[ConversationMessage]) -> str:
+    def _rule_based_abstractive(
+            self, messages: List[ConversationMessage]) -> str:
         """Built-in rule-based condensation.
 
         Strategy:
@@ -1024,7 +1048,10 @@ class ConversationSummarizationService:
     def get_stats(self, company_id: str) -> Dict:
         """Return summarization statistics for a company."""
         try:
-            return dict(self._stats.get(company_id, self._init_stats(company_id)))
+            return dict(
+                self._stats.get(
+                    company_id,
+                    self._init_stats(company_id)))
         except Exception as exc:
             logger.error(
                 "get_stats_failed",

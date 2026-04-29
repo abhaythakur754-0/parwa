@@ -8,21 +8,22 @@ Tests for:
 """
 
 from __future__ import annotations
+import typing as _typing
 
-import importlib
 import os
-import sys
 from pathlib import Path
 
 import pytest
-from datetime import datetime, timezone
-from typing import Any, Dict
 
 # Set required env vars before any app imports (needed by Celery task tests
 # which trigger app.config.Settings loading via celery_app → base imports).
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-workflow-tests")
-os.environ.setdefault("JWT_SECRET_KEY", "test-jwt-secret-key-for-workflow-tests")
-os.environ.setdefault("DATA_ENCRYPTION_KEY", "test-data-encryption-key-32chars")
+os.environ.setdefault(
+    "JWT_SECRET_KEY",
+    "test-jwt-secret-key-for-workflow-tests")
+os.environ.setdefault(
+    "DATA_ENCRYPTION_KEY",
+    "test-data-encryption-key-32chars")
 
 # Import workflow schemas directly to bypass app/api/__init__.py
 # which cascades to database.base (unavailable in test env)
@@ -34,7 +35,6 @@ _schema_path = str(
 _schema_code = open(_schema_path).read().replace(
     "from __future__ import annotations\n", ""
 )
-import typing as _typing
 _mod_ns = {
     "__builtins__": __builtins__,
     "Dict": _typing.Dict,
@@ -551,7 +551,8 @@ class TestCeleryWorkflowTasks:
         """compress_stale_contexts returns empty when no health data."""
         from app.tasks.workflow_tasks import compress_stale_contexts
 
-        result = compress_stale_contexts.__wrapped__(health_threshold="warning")
+        result = compress_stale_contexts.__wrapped__(
+            health_threshold="warning")
         assert isinstance(result, dict)
         assert result["status"] == "checked"
         assert "compressed" in result
@@ -609,7 +610,8 @@ class TestTaskCoreIntegration:
 
         collector = TechniqueMetricsCollector()
         for _ in range(5):
-            collector.record_execution("clara", "parwa", "co1", "success", 50, 10)
+            collector.record_execution(
+                "clara", "parwa", "co1", "success", 50, 10)
 
         stats_before = collector.get_technique_stats("clara", company_id="co1")
         assert stats_before is not None
@@ -631,7 +633,8 @@ class TestTaskCoreIntegration:
 
         collector = TechniqueMetricsCollector()
         for _ in range(3):
-            collector.record_execution("gsd", "parwa", "co1", "success", 20, 30)
+            collector.record_execution(
+                "gsd", "parwa", "co1", "success", 20, 30)
 
         result = export_metrics.__wrapped__(window="1hr")
         summary = result["summary"]
@@ -646,7 +649,6 @@ class TestTaskCoreIntegration:
         cache instance.
         """
         from app.tasks.workflow_tasks import warm_technique_cache
-        from app.core.technique_caching import TechniqueCache
 
         result = warm_technique_cache.__wrapped__(technique_id="clara")
         assert result["status"] == "warmed"

@@ -40,7 +40,7 @@ class TestPIIRedactionPatterns(unittest.TestCase):
         matches = self.detector.detect("Reach me at user@example.com please")
         types = {m.pii_type for m in matches}
         self.assertIn("EMAIL", types,
-                       "Standard email should be detected as EMAIL")
+                      "Standard email should be detected as EMAIL")
 
     def test_detect_short_email_a_at_b_co(self):
         """Short email a@b.co should be detected (EMAIL_SHORT or EMAIL)."""
@@ -111,7 +111,7 @@ class TestPIIRedactionPatterns(unittest.TestCase):
         matches = self.detector.detect("My number ends in XXX-XXX-1234")
         types = {m.pii_type for m in matches}
         self.assertIn("PHONE_PARTIAL", types,
-                       "Masked phone pattern should be detected")
+                      "Masked phone pattern should be detected")
 
     def test_detect_partial_phone_last_four(self):
         """Last 4 digits pattern should be detected."""
@@ -132,7 +132,7 @@ class TestPIIRedactionPatterns(unittest.TestCase):
         matches = self.detector.detect("Please forward to Mr. Smith")
         types = {m.pii_type for m in matches}
         self.assertIn("NAME", types,
-                       "Title-prefixed name should be detected")
+                      "Title-prefixed name should be detected")
 
     def test_detect_name_with_dr_title(self):
         """Dr. Priya should be detected as NAME."""
@@ -145,14 +145,14 @@ class TestPIIRedactionPatterns(unittest.TestCase):
         matches = self.detector.detect("Please contact John for details")
         types = {m.pii_type for m in matches}
         self.assertIn("NAME", types,
-                       "Action-verb + common name should be detected")
+                      "Action-verb + common name should be detected")
 
     def test_detect_name_common_pair(self):
         """'John Smith' as a pair should be detected."""
         matches = self.detector.detect("The account belongs to John Smith")
         types = {m.pii_type for m in matches}
         self.assertIn("NAME", types,
-                       "Common first+last name pair should be detected")
+                      "Common first+last name pair should be detected")
 
     def test_no_false_positive_generic_capitalized(self):
         """Generic capitalized words should NOT trigger NAME detection."""
@@ -173,7 +173,8 @@ class TestPromptInjectionDefense(unittest.TestCase):
 
     def test_detect_sql_drop_table(self):
         """SQL DROP TABLE should be detected."""
-        result = self.detector.scan("SELECT * FROM users; DROP TABLE users", "co1")
+        result = self.detector.scan(
+            "SELECT * FROM users; DROP TABLE users", "co1")
         rule_ids = {m.rule_id for m in result.matches}
         self.assertTrue(
             any(r.startswith("SQL-") for r in rule_ids),

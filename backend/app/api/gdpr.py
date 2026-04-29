@@ -45,9 +45,15 @@ from database.models.core import (
 
 logger = logging.getLogger("parwa.gdpr")
 
-router = APIRouter(prefix="/api/gdpr",
+router = APIRouter(
+    prefix="/api/gdpr",
     tags=["GDPR"],
-    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+    dependencies=[
+        Depends(
+            require_roles(
+                "owner",
+                "admin",
+                "agent"))],
 )
 
 # ── Helpers ──────────────────────────────────────────────────────

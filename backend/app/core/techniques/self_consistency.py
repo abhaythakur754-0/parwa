@@ -29,13 +29,12 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional, Tuple
 
 from app.core.technique_router import TechniqueID
 from app.core.techniques.base import (
     BaseTechniqueNode,
     ConversationState,
-    ExecutionResultStatus,
 )
 from app.logger import get_logger
 
@@ -632,14 +631,17 @@ class SelfConsistencyProcessor:
             return []
 
         category = self._categorize_query(query)
-        templates = _ANSWER_TEMPLATES.get(category, _ANSWER_TEMPLATES[_DEFAULT_CATEGORY])
+        templates = _ANSWER_TEMPLATES.get(
+            category, _ANSWER_TEMPLATES[_DEFAULT_CATEGORY])
         selected = templates[: self.config.num_answers]
 
         answers: List[IndependentAnswer] = []
         for template in selected:
             approach = template["approach"]
             answer = IndependentAnswer(
-                approach=approach.value if isinstance(approach, ReasoningApproach) else str(approach),
+                approach=approach.value if isinstance(
+                    approach,
+                    ReasoningApproach) else str(approach),
                 answer_text=template["answer"],
                 key_value=template["key_value"],
                 reasoning=template["reasoning"],
@@ -1054,7 +1056,11 @@ class SelfConsistencyProcessor:
         answer_lower = dissenter.answer_text.lower()
 
         # Check for fee/penalty deductions
-        if any(kw in reasoning_lower for kw in ("fee", "penalty", "deduction")):
+        if any(
+            kw in reasoning_lower for kw in (
+                "fee",
+                "penalty",
+                "deduction")):
             return (
                 f"Applied an additional fee or penalty not included in the "
                 f"majority calculation, resulting in {dissenter.key_value} "
@@ -1062,35 +1068,57 @@ class SelfConsistencyProcessor:
             )
 
         # Check for rounding/buffer adjustments
-        if any(kw in reasoning_lower for kw in ("rounding", "buffer", "conservative")):
+        if any(
+            kw in reasoning_lower for kw in (
+                "rounding",
+                "buffer",
+                "conservative")):
             return (
                 f"Added a conservative rounding buffer, yielding "
                 f"{dissenter.key_value} vs. majority {majority_value}"
             )
 
         # Check for goodwill/customer-favorable adjustments
-        if any(kw in reasoning_lower for kw in ("goodwill", "courtesy", "loyalty", "favorable")):
+        if any(
+            kw in reasoning_lower for kw in (
+                "goodwill",
+                "courtesy",
+                "loyalty",
+                "favorable")):
             return (
                 f"Included a customer-favorable or goodwill adjustment, "
                 f"producing {dissenter.key_value} vs. majority {majority_value}"
             )
 
         # Check for partial-period exclusions
-        if any(kw in reasoning_lower for kw in ("partial", "exclud", "pending")):
+        if any(
+            kw in reasoning_lower for kw in (
+                "partial",
+                "exclud",
+                "pending")):
             return (
                 f"Excluded partial or unverified periods, resulting in "
                 f"{dissenter.key_value} instead of {majority_value}"
             )
 
         # Check for policy interpretation differences
-        if any(kw in reasoning_lower for kw in ("policy", "section", "clause", "terms")):
+        if any(
+            kw in reasoning_lower for kw in (
+                "policy",
+                "section",
+                "clause",
+                "terms")):
             return (
                 f"Interpreted policy terms differently, arriving at "
                 f"{dissenter.key_value} vs. majority {majority_value}"
             )
 
         # Check for provisional/estimate language
-        if any(kw in answer_lower for kw in ("provisional", "estimate", "approximate")):
+        if any(
+            kw in answer_lower for kw in (
+                "provisional",
+                "estimate",
+                "approximate")):
             return (
                 f"Provided a provisional estimate of {dissenter.key_value} "
                 f"rather than the firm majority value of {majority_value}"
@@ -1242,10 +1270,8 @@ class SelfConsistencyNode(BaseTechniqueNode):
 
             # Append the verified answer if consensus was achieved
             consensus = ConsensusLevel(result.consistency.consensus_level)
-            if (
-                result.final_answer
-                and consensus in (ConsensusLevel.UNANIMOUS, ConsensusLevel.MAJORITY)
-            ):
+            if (result.final_answer and consensus in (
+                    ConsensusLevel.UNANIMOUS, ConsensusLevel.MAJORITY)):
                 state.response_parts.append(result.final_answer)
             elif result.final_answer and consensus == ConsensusLevel.SPLIT:
                 # For split consensus, include the answer but note the variance

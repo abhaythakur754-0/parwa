@@ -20,14 +20,12 @@ from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, desc, func, or_
+from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
-from app.exceptions import NotFoundError, ValidationError
 from app.services.customer_service import CustomerService
 from database.models.tickets import (
     Customer,
-    CustomerChannel,
     IdentityMatchLog,
     Ticket,
 )
@@ -54,7 +52,7 @@ class IdentityResolutionService:
         self.company_id = company_id
         self.customer_service = CustomerService(db, company_id)
 
-    # ── IDENTITY RESOLUTION ───────────────────────────────────────────────────
+    # ── IDENTITY RESOLUTION ─────────────────────────────────────────────────
 
     def resolve_identity(
         self,
@@ -318,7 +316,7 @@ class IdentityResolutionService:
 
         return log_entry
 
-    # ── DUPLICATE DETECTION ────────────────────────────────────────────────────
+    # ── DUPLICATE DETECTION ─────────────────────────────────────────────────
 
     def find_potential_duplicates(
         self,
@@ -345,7 +343,8 @@ class IdentityResolutionService:
 
         for i, c1 in enumerate(customers):
             for c2 in customers[i + 1:]:
-                confidence, method = self._calculate_duplicate_confidence(c1, c2)
+                confidence, method = self._calculate_duplicate_confidence(
+                    c1, c2)
 
                 if confidence >= min_confidence:
                     duplicates.append({
@@ -391,7 +390,9 @@ class IdentityResolutionService:
 
         # Phone match
         if c1.phone and c2.phone:
-            if self._normalize_phone(c1.phone) == self._normalize_phone(c2.phone):
+            if self._normalize_phone(
+                    c1.phone) == self._normalize_phone(
+                    c2.phone):
                 return self.CONFIDENCE_PHONE, "phone"
 
         # Name similarity (lower confidence)
@@ -405,7 +406,7 @@ class IdentityResolutionService:
 
         return 0.0, "none"
 
-    # ── MATCH LOGS ─────────────────────────────────────────────────────────────
+    # ── MATCH LOGS ──────────────────────────────────────────────────────────
 
     def get_match_logs(
         self,
@@ -432,7 +433,7 @@ class IdentityResolutionService:
 
         return logs, total
 
-    # ── PS14: GRANDFATHERED TICKETS ────────────────────────────────────────────
+    # ── PS14: GRANDFATHERED TICKETS ─────────────────────────────────────────
 
     def get_grandfathered_tickets(
         self,
@@ -495,7 +496,7 @@ class IdentityResolutionService:
 
         ticket.plan_snapshot = json.dumps(plan_snapshot)
 
-    # ── PRIVATE HELPERS ────────────────────────────────────────────────────────
+    # ── PRIVATE HELPERS ─────────────────────────────────────────────────────
 
     def _normalize_phone(self, phone: str) -> str:
         """Normalize phone number for comparison."""

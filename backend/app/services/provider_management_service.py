@@ -17,13 +17,12 @@ BC-008: Never crash — all public methods are wrapped in try/except.
 BC-012: All timestamps UTC.
 """
 
-import time
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from app.exceptions import ParwaBaseError
 from app.logger import get_logger
@@ -252,7 +251,8 @@ class ProviderManagementService:
         self._health_tracker = None
 
         # ── In-memory stores (company_id → data) ──
-        # Manually disabled models: {company_id: {(provider, model_id): reason}}
+        # Manually disabled models: {company_id: {(provider, model_id):
+        # reason}}
         self._disabled_models: Dict[str, Dict[tuple, str]] = {}
 
         # Alerts: {company_id: [ProviderAlert, ...]}
@@ -264,7 +264,8 @@ class ProviderManagementService:
         # Usage stats accumulator: {company_id: {provider: {date: stats}}}
         self._usage_stats: Dict[str, Dict[str, Dict[str, dict]]] = {}
 
-        # Last success timestamps: {company_id: {(provider, model_id): iso_str}}
+        # Last success timestamps: {company_id: {(provider, model_id):
+        # iso_str}}
         self._last_success: Dict[str, Dict[tuple, str]] = {}
 
         # Latency accumulator: {company_id: {(provider, model_id): [ms, ...]}}
@@ -427,7 +428,9 @@ class ProviderManagementService:
                 )
                 return ProviderSummary(
                     provider=provider,
-                    display_name=_PROVIDER_DISPLAY_NAMES.get(provider, provider),
+                    display_name=_PROVIDER_DISPLAY_NAMES.get(
+                        provider,
+                        provider),
                     status=ProviderStatus.UNKNOWN.value,
                     total_models=0,
                     healthy_models=0,
@@ -770,7 +773,8 @@ class ProviderManagementService:
                         "tier": config.tier.value,
                     })
 
-                worst = _worst_status(model_statuses) if model_statuses else ProviderStatus.UNKNOWN.value
+                worst = _worst_status(
+                    model_statuses) if model_statuses else ProviderStatus.UNKNOWN.value
                 all_statuses.append(worst)
 
                 provider_results[provider] = {
@@ -797,7 +801,8 @@ class ProviderManagementService:
                         ),
                     )
 
-            overall = _worst_status(all_statuses) if all_statuses else ProviderStatus.UNKNOWN.value
+            overall = _worst_status(
+                all_statuses) if all_statuses else ProviderStatus.UNKNOWN.value
 
             logger.info(
                 "health_check_completed",
@@ -1145,7 +1150,8 @@ class ProviderManagementService:
             keys = list(self._api_keys.get(company_id, []))
 
             if provider:
-                keys = [k for k in keys if k.provider == provider.lower().strip()]
+                keys = [k for k in keys if k.provider ==
+                        provider.lower().strip()]
 
             # Return masked representation.
             return [
@@ -1230,7 +1236,7 @@ class ProviderManagementService:
                 provider=provider,
                 level=AlertLevel.INFO.value,
                 message=f"API key rotated for provider '{provider}'. "
-                        f"New key ID: {new_config.key_id}",
+                f"New key ID: {new_config.key_id}",
             )
 
             logger.info(

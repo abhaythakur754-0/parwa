@@ -113,7 +113,8 @@ _COMPILED_CUSTOMER = [re.compile(p, re.I) for p in _CUSTOMER_PATTERNS]
 _COMPILED_BILLING = [re.compile(p, re.I) for p in _BILLING_PATTERNS]
 _COMPILED_TECHNICAL = [re.compile(p, re.I) for p in _TECHNICAL_PATTERNS]
 _COMPILED_KNOWLEDGE = [re.compile(p, re.I) for p in _KNOWLEDGE_PATTERNS]
-_COMPILED_TICKET_HISTORY = [re.compile(p, re.I) for p in _TICKET_HISTORY_PATTERNS]
+_COMPILED_TICKET_HISTORY = [re.compile(p, re.I)
+                            for p in _TICKET_HISTORY_PATTERNS]
 
 
 # ── Tool Selection Mapping ─────────────────────────────────────────
@@ -337,10 +338,9 @@ class ReActProcessor:
                 tools_needed.append(tool)
 
         thought = (
-            f"Analyzing query: '{query}'. "
-            f"Detected information needs: {', '.join(needs)}. "
-            f"Tools to consult: {', '.join(tools_needed) if tools_needed else 'none identified'}."
-        )
+            f"Analyzing query: '{query}'. " f"Detected information needs: {
+                ', '.join(needs)}. " f"Tools to consult: {
+                ', '.join(tools_needed) if tools_needed else 'none identified'}.")
 
         return thought
 
@@ -901,7 +901,8 @@ class ReActNode(BaseTechniqueNode):
             tool_registry=tool_registry,
         )
         # Initialize technique_info from registry
-        self.technique_info = TECHNIQUE_REGISTRY[TechniqueID.REACT]  # type: ignore[assignment]
+        # type: ignore[assignment]
+        self.technique_info = TECHNIQUE_REGISTRY[TechniqueID.REACT]
 
     @property
     def technique_id(self) -> TechniqueID:

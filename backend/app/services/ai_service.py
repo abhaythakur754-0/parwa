@@ -14,11 +14,8 @@ called by Jarvis onboarding chat and Customer Care Jarvis.
 
 from __future__ import annotations
 
-import json
-import logging
-import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from app.logger import get_logger
 
@@ -85,7 +82,9 @@ def process_message(request: AIProcessRequest) -> AIProcessResult:
     knowledge = _search_knowledge(request)
     trained_responses = _get_trained_responses(request)
     escalation_record = _evaluate_escalation(request, sentiment_data)
-    tone = sentiment_data.get("tone_recommendation", "standard") if sentiment_data else "standard"
+    tone = sentiment_data.get(
+        "tone_recommendation",
+        "standard") if sentiment_data else "standard"
 
     # Build context updates to merge back into session
     context_updates: Dict[str, Any] = {}
@@ -99,7 +98,8 @@ def process_message(request: AIProcessRequest) -> AIProcessResult:
         }
 
     if escalation_record:
-        context_updates["last_escalation"] = escalation_record.get("escalation_id")
+        context_updates["last_escalation"] = escalation_record.get(
+            "escalation_id")
 
     return AIProcessResult(
         response_content="",  # Filled by caller after AI provider call
@@ -149,8 +149,7 @@ def enrich_system_prompt(
             "Acknowledge their frustration first. Apologize sincerely. "
             "Focus on resolving their issue immediately. "
             "Do NOT be overly cheerful or dismissive. "
-            "Use calming language and assure them you're taking this seriously.\n"
-        )
+            "Use calming language and assure them you're taking this seriously.\n")
     elif tone_recommendation == "empathetic":
         tone_section += (
             "The user is experiencing some frustration or concern. "
@@ -337,7 +336,7 @@ def _get_trained_responses(request: AIProcessRequest) -> Optional[str]:
 
     try:
         # Fall back to global response templates
-        from app.services.response_template_service import ResponseTemplateService
+        pass
 
         # Use a placeholder db session - response templates are typically
         # fetched differently, so we do a keyword-based lookup
@@ -405,8 +404,7 @@ def _evaluate_escalation(
         )
 
         should_escalate, matched_rules, result_severity = manager.evaluate_escalation(
-            request.company_id, ctx,
-        )
+            request.company_id, ctx, )
 
         if should_escalate:
             record = manager.create_escalation(

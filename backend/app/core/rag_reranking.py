@@ -37,7 +37,6 @@ from app.logger import get_logger
 from app.core.rag_retrieval import (
     RAGChunk,
     RAGResult,
-    VARIANT_CONFIG,
 )
 
 logger = get_logger("rag_reranking")
@@ -132,7 +131,8 @@ class AssembledContext:
     context_string: str = ""
     total_tokens: int = 0
     chunks_used: List[RAGChunk] = field(default_factory=list)
-    citations: List[Citation] = field(default_factory=list)  # type: ignore[assignment]
+    citations: List[Citation] = field(
+        default_factory=list)  # type: ignore[assignment]
     truncated: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
@@ -254,7 +254,7 @@ class MetadataFilter:
         chunk_date = meta.get("date")
         if chunk_date:
             try:
-                from datetime import datetime, timezone
+                from datetime import datetime
 
                 if isinstance(chunk_date, str):
                     chunk_dt = datetime.fromisoformat(chunk_date)
@@ -518,7 +518,8 @@ class ContextWindowAssembler:
         accumulated_parts: List[str] = []
         used_chunks: List[RAGChunk] = []
         current_length = 0
-        positions: List[Tuple[str, str, float, int]] = []  # for CitationTracker
+        # for CitationTracker
+        positions: List[Tuple[str, str, float, int]] = []
 
         for chunk in chunks:
             content = chunk.content.strip()
@@ -526,13 +527,15 @@ class ContextWindowAssembler:
                 continue
 
             # Calculate length of this chunk with separator
-            part_len = len(content) + (separator_len if accumulated_parts else 0)
+            part_len = len(content) + \
+                (separator_len if accumulated_parts else 0)
 
             if current_length + part_len > effective_max_chars:
                 # We need to truncate this last chunk to fit
                 remaining_chars = effective_max_chars - current_length
                 if remaining_chars > 100:  # Only add if meaningful content fits
-                    truncated_content = cls._smart_truncate(content, remaining_chars)
+                    truncated_content = cls._smart_truncate(
+                        content, remaining_chars)
                     if truncated_content:
                         pos_offset = current_length
                         accumulated_parts.append(truncated_content)
@@ -813,7 +816,8 @@ class CrossEncoderReranker:
                 timeout_seconds=timeout_seconds,
             )
         except Exception as exc:
-            # BC-008: On complete failure, return chunks sorted by original score
+            # BC-008: On complete failure, return chunks sorted by original
+            # score
             logger.warning(
                 "rerank_execution_failed_fallback_to_original_order",
                 company_id=company_id,
@@ -821,7 +825,8 @@ class CrossEncoderReranker:
                 error=str(exc),
             )
             sorted_chunks = sorted(chunks, key=lambda c: c.score, reverse=True)
-            retrieval_time_ms = round((time.monotonic() - start_time) * 1000, 2)
+            retrieval_time_ms = round(
+                (time.monotonic() - start_time) * 1000, 2)
             result = RAGResult(
                 chunks=sorted_chunks[:top_k],
                 total_found=len(sorted_chunks),
@@ -1151,7 +1156,8 @@ class CrossEncoderReranker:
 
         # All retries exhausted — raise so the caller's BC-008 guard
         # can catch and fall back
-        raise last_error or RuntimeError("rerank_execute_with_guard: unexpected state")
+        raise last_error or RuntimeError(
+            "rerank_execute_with_guard: unexpected state")
 
     async def _execute_strategy(
         self,
@@ -1592,5 +1598,6 @@ def get_reranker() -> CrossEncoderReranker:
     Returns a module-level singleton for efficiency.
     """
     if not hasattr(get_reranker, "_instance"):
-        get_reranker._instance = CrossEncoderReranker()  # type: ignore[attr-defined]
+        # type: ignore[attr-defined]
+        get_reranker._instance = CrossEncoderReranker()
     return get_reranker._instance  # type: ignore[attr-defined]

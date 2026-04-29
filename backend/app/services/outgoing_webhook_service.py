@@ -81,16 +81,12 @@ class OutgoingWebhookService:
                 # Find all active webhook_out integrations for this company
                 # that subscribe to this trigger event
                 integrations = (
-                    db.query(CustomIntegration)
-                    .filter(
+                    db.query(CustomIntegration) .filter(
                         and_(
                             CustomIntegration.company_id == company_id,
                             CustomIntegration.integration_type == "webhook_out",
                             CustomIntegration.status == "active",
-                        )
-                    )
-                    .all()
-                )
+                        )) .all())
 
                 for integration in integrations:
                     try:
@@ -187,7 +183,8 @@ class OutgoingWebhookService:
                 "error": "Internal dispatch error",
             }
 
-    def retry_delivery(self, delivery_log_id: str, company_id: str) -> Dict[str, Any]:
+    def retry_delivery(self, delivery_log_id: str,
+                       company_id: str) -> Dict[str, Any]:
         """Retry a failed webhook delivery.
 
         Args:
@@ -217,15 +214,11 @@ class OutgoingWebhookService:
                     }
 
                 integration = (
-                    db.query(CustomIntegration)
-                    .filter(
+                    db.query(CustomIntegration) .filter(
                         and_(
                             CustomIntegration.id == log_entry.custom_integration_id,
                             CustomIntegration.company_id == company_id,
-                        )
-                    )
-                    .first()
-                )
+                        )) .first())
 
                 if not integration:
                     return {
@@ -287,8 +280,7 @@ class OutgoingWebhookService:
 
                 if integration_id:
                     query = query.filter(
-                        WebhookDeliveryLog.custom_integration_id == integration_id
-                    )
+                        WebhookDeliveryLog.custom_integration_id == integration_id)
 
                 if status:
                     query = query.filter(WebhookDeliveryLog.status == status)
@@ -366,7 +358,8 @@ class OutgoingWebhookService:
         if webhook_secret:
             timestamp = str(int(time.time()))
             payload_bytes = json.dumps(final_payload, sort_keys=True).encode()
-            signature = self._sign_payload(payload_bytes, webhook_secret, timestamp)
+            signature = self._sign_payload(
+                payload_bytes, webhook_secret, timestamp)
             headers[SIGNATURE_HEADER] = signature
             headers[TIMESTAMP_HEADER] = timestamp
 
@@ -426,7 +419,8 @@ class OutgoingWebhookService:
 
                     # Record success on the integration
                     service = CustomIntegrationService(db)
-                    service.record_success(integration.id, integration.company_id)
+                    service.record_success(
+                        integration.id, integration.company_id)
 
                     db.flush()
                     break
@@ -490,7 +484,9 @@ class OutgoingWebhookService:
             result = json.dumps(template)
             result = result.replace("{{event}}", trigger_event)
             result = result.replace("{{payload}}", json.dumps(payload))
-            result = result.replace("{{timestamp}}", datetime.now(timezone.utc).isoformat())
+            result = result.replace(
+                "{{timestamp}}", datetime.now(
+                    timezone.utc).isoformat())
             return json.loads(result)
         except Exception:
             return payload

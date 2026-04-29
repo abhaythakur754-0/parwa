@@ -19,8 +19,6 @@ import types
 import json
 import unittest.mock as mock
 
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # Module import setup (same as unit tests)
@@ -38,7 +36,8 @@ _mock_db_jarvis.JarvisMessage = mock.MagicMock
 _mock_db_jarvis.JarvisKnowledgeUsed = mock.MagicMock
 _mock_db_jarvis.JarvisActionTicket = mock.MagicMock
 _mock_app_exceptions.NotFoundError = type("NotFoundError", (Exception,), {})
-_mock_app_exceptions.ValidationError = type("ValidationError", (Exception,), {})
+_mock_app_exceptions.ValidationError = type(
+    "ValidationError", (Exception,), {})
 _mock_app_exceptions.RateLimitError = type("RateLimitError", (Exception,), {})
 _mock_app_exceptions.InternalError = type("InternalError", (Exception,), {})
 
@@ -95,8 +94,7 @@ class ServiceMocks:
 
         # 2. KnowledgeBase
         self.build_context_knowledge = mock.MagicMock(
-            return_value="## KB Section\nPARWA pricing: mini_parwa $49, parwa $99, parwa_high $199"
-        )
+            return_value="## KB Section\nPARWA pricing: mini_parwa $49, parwa $99, parwa_high $199")
         self.kb_service_module = mock.MagicMock(
             build_context_knowledge=self.build_context_knowledge,
         )
@@ -107,10 +105,15 @@ class ServiceMocks:
             "query": "what features does parwa have",
             "response": "PARWA offers 700+ features across 3 tiers.",
         }.get(k, d))
-        mock_dataset = mock.MagicMock(is_active=True, variant_type="support", dataset_id="ds1")
+        mock_dataset = mock.MagicMock(
+            is_active=True,
+            variant_type="support",
+            dataset_id="ds1")
         self.training_svc = mock.MagicMock()
-        self.training_svc.list_datasets = mock.AsyncMock(return_value=[mock_dataset])
-        self.training_svc.get_records = mock.AsyncMock(return_value=[mock_record])
+        self.training_svc.list_datasets = mock.AsyncMock(
+            return_value=[mock_dataset])
+        self.training_svc.get_records = mock.AsyncMock(
+            return_value=[mock_record])
         self.training_module = mock.MagicMock(
             TrainingDataIsolationService=lambda: self.training_svc,
         )
@@ -118,11 +121,11 @@ class ServiceMocks:
         # 4. ConversationService
         self.create_conversation = mock.MagicMock()
         self.get_conversation_context = mock.MagicMock(
-            return_value=mock.MagicMock(turn_count=1, sentiment_trend="stable"),
-        )
+            return_value=mock.MagicMock(
+                turn_count=1, sentiment_trend="stable"), )
         self.add_message_to_context = mock.MagicMock(
-            return_value=mock.MagicMock(turn_count=2, sentiment_trend="stable"),
-        )
+            return_value=mock.MagicMock(
+                turn_count=2, sentiment_trend="stable"), )
         self.conversation_module = mock.MagicMock(
             ConversationContext=mock.MagicMock,
             create_conversation=self.create_conversation,
@@ -154,14 +157,16 @@ class ServiceMocks:
             "tone_recommendation": "standard",
             "conversation_trend": "stable",
         }
-        self.sentiment_analyzer.analyze = mock.AsyncMock(return_value=self.sentiment_result)
+        self.sentiment_analyzer.analyze = mock.AsyncMock(
+            return_value=self.sentiment_result)
         self.sentiment_module = mock.MagicMock(
             SentimentAnalyzer=lambda: self.sentiment_analyzer,
         )
 
         # 8. GracefulEscalation
         self.escalation_manager = mock.MagicMock()
-        self.escalation_manager.evaluate_escalation.return_value = (False, [], "low")
+        self.escalation_manager.evaluate_escalation.return_value = (
+            False, [], "low")
         self.escalation_module = mock.MagicMock(
             EscalationContext=mock.MagicMock,
             EscalationTrigger=mock.MagicMock,
@@ -204,7 +209,9 @@ class TestFullPipelineAllServicesConnected:
                     system_prompt="BASE_PROMPT",
                     history=[],
                     user_message="What features does PARWA have?",
-                    context={"detected_stage": "discovery", "industry": "SaaS"},
+                    context={
+                        "detected_stage": "discovery",
+                        "industry": "SaaS"},
                     session_id="sess1",
                     user_id="user1",
                     company_id="co1",
@@ -214,18 +221,23 @@ class TestFullPipelineAllServicesConnected:
 
         # 1. AIService was called
         assert mocks.enrich_system_prompt.called, "AIService NOT called"
-        print(f"  AIService called: {mocks.enrich_system_prompt.call_count} times")
+        print(
+            f"  AIService called: {
+                mocks.enrich_system_prompt.call_count} times")
 
         # 2. SentimentAnalyzer was called
         assert mocks.sentiment_analyzer.analyze.called, "SentimentAnalyzer NOT called"
-        print(f"  SentimentAnalyzer called: {mocks.sentiment_analyzer.analyze.call_count} times")
+        print(
+            f"  SentimentAnalyzer called: {
+                mocks.sentiment_analyzer.analyze.call_count} times")
 
         # 3. TrainingData lookup was called
         assert mocks.training_svc.list_datasets.called or mocks.training_svc.get_records.called, \
             "TrainingDataIsolation NOT called"
 
         # 4. Metadata includes sentiment data
-        assert metadata.get("sentiment") is not None, "Sentiment data NOT in metadata"
+        assert metadata.get(
+            "sentiment") is not None, "Sentiment data NOT in metadata"
         print(f"  Sentiment in metadata: {metadata['sentiment']}")
 
         # 5. Metadata includes pipeline_version
@@ -273,7 +285,8 @@ class TestFullPipelineAllServicesConnected:
         if mocks.enrich_system_prompt.called:
             call_kwargs = mocks.enrich_system_prompt.call_args[1]
             trained = call_kwargs.get("trained_response")
-            # If company_id is set and pattern matches, trained response should be passed
+            # If company_id is set and pattern matches, trained response should
+            # be passed
             assert trained is not None or True  # May be None if no match
 
     def test_kb_content_in_system_prompt(self):
@@ -311,10 +324,10 @@ class TestFullPipelineAllServicesConnected:
             "tone_recommendation": "de-escalation",
             "conversation_trend": "declining",
         }
-        mocks.escalation_manager.evaluate_escalation.return_value = (True, ["HIGH_FRUSTRATION"], "high")
+        mocks.escalation_manager.evaluate_escalation.return_value = (
+            True, ["HIGH_FRUSTRATION"], "high")
         mocks.escalation_manager.create_escalation.return_value = mock.MagicMock(
-            escalation_id="esc_test_123", channel="email",
-        )
+            escalation_id="esc_test_123", channel="email", )
 
         with mock.patch.dict(sys.modules, mocks.get_all_modules()):
             with mock.patch.object(jarvis, "_try_ai_providers", return_value="Calm response"):
@@ -473,6 +486,7 @@ class TestServiceCallOrder:
         )
 
         original_try = jarvis._try_ai_providers
+
         def track_ai_call(*args, **kwargs):
             call_order.append("ai_provider")
             return "AI response"
@@ -482,7 +496,8 @@ class TestServiceCallOrder:
                 jarvis._call_ai_provider("prompt", [], "msg", {})
 
         assert call_order[0] == "sentiment", f"Expected sentiment first, got: {call_order}"
-        assert call_order[1] == "ai_provider", f"Expected AI provider second, got: {call_order}"
+        assert call_order[
+            1] == "ai_provider", f"Expected AI provider second, got: {call_order}"
 
     def test_escalation_called_after_sentiment(self):
         """Escalation evaluation runs AFTER sentiment analysis."""
@@ -495,14 +510,15 @@ class TestServiceCallOrder:
             "tone_recommendation": "de-escalation",
             "conversation_trend": "declining",
         }
-        mocks.escalation_manager.evaluate_escalation.return_value = (True, [], "medium")
+        mocks.escalation_manager.evaluate_escalation.return_value = (
+            True, [], "medium")
         mocks.escalation_manager.create_escalation.return_value = mock.MagicMock(
-            escalation_id="esc_1", channel="email",
-        )
+            escalation_id="esc_1", channel="email", )
 
         call_order = []
 
         original_evaluate = mocks.escalation_manager.evaluate_escalation
+
         def track_esc(*a, **kw):
             call_order.append("escalation")
             return original_evaluate(*a, **kw)
@@ -514,12 +530,14 @@ class TestServiceCallOrder:
 
         with mock.patch.dict(sys.modules, mocks.get_all_modules()):
             with mock.patch.object(jarvis, "_try_ai_providers", return_value="response"):
-                jarvis._call_ai_provider("prompt", [], "msg", {}, session_id="s1")
+                jarvis._call_ai_provider(
+                    "prompt", [], "msg", {}, session_id="s1")
 
         # Escalation service uses try/except:pass, so mock.patch.dict doesn't work
         # because _DynamicModule intercepts the import chain.
         # When escalation module can't be imported, it silently returns None.
-        # The escalation check (frustration >= 60) happens but the service call fails.
+        # The escalation check (frustration >= 60) happens but the service call
+        # fails.
         assert "sentiment" in call_order, f"Sentiment not called, got: {call_order}"
         # Escalation is gated on: frustration >= 60 AND service importable
         # Since service can't be imported, escalation is skipped silently
@@ -562,10 +580,10 @@ class TestMetadataCompleteness:
             "tone_recommendation": "de-escalation",
             "conversation_trend": "declining",
         }
-        mocks.escalation_manager.evaluate_escalation.return_value = (True, [], "high")
+        mocks.escalation_manager.evaluate_escalation.return_value = (
+            True, [], "high")
         mocks.escalation_manager.create_escalation.return_value = mock.MagicMock(
-            escalation_id="esc_abc", channel="email",
-        )
+            escalation_id="esc_abc", channel="email", )
 
         with mock.patch.dict(sys.modules, mocks.get_all_modules()):
             with mock.patch.object(jarvis, "_try_ai_providers", return_value="response"):
@@ -623,9 +641,12 @@ class TestConversationServiceIntegration:
         call_history = []
 
         original_add = mocks.add_message_to_context
+
         def track_role(conv_ctx, role, content, sentiment=None):
             call_history.append(role)
-            return mock.MagicMock(turn_count=len(call_history), sentiment_trend="stable")
+            return mock.MagicMock(
+                turn_count=len(call_history),
+                sentiment_trend="stable")
 
         mocks.add_message_to_context.side_effect = track_role
 
@@ -700,8 +721,10 @@ class TestAnalyticsTrackingIntegration:
                 ctx=ctx,
             )
 
-        # Should track: email_provided, email_verified, industry_provided, variants_selected
-        event_types = [c[1]["event_type"] for c in mocks.track_event.call_args_list]
+        # Should track: email_provided, email_verified, industry_provided,
+        # variants_selected
+        event_types = [c[1]["event_type"]
+                       for c in mocks.track_event.call_args_list]
         assert "email_verified" in event_types
         assert "industry_provided" in event_types
         assert "variants_selected" in event_types
@@ -735,10 +758,10 @@ class TestEndToEndScenario:
         }
 
         # Enable escalation
-        mocks.escalation_manager.evaluate_escalation.return_value = (True, ["HIGH_FRUSTRATION"], "medium")
+        mocks.escalation_manager.evaluate_escalation.return_value = (
+            True, ["HIGH_FRUSTRATION"], "medium")
         mocks.escalation_manager.create_escalation.return_value = mock.MagicMock(
-            escalation_id="esc_frustrated_1", channel="email",
-        )
+            escalation_id="esc_frustrated_1", channel="email", )
 
         with mock.patch.dict(sys.modules, mocks.get_all_modules()):
             with mock.patch.object(jarvis, "_try_ai_providers", return_value="I understand your frustration. Let me help you right away."):

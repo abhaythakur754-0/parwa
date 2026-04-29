@@ -22,7 +22,6 @@ from __future__ import annotations
 import hashlib
 import re
 import time
-import unicodedata
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
@@ -323,7 +322,8 @@ class LanguageDetector:
                     best_score = score
                     best_lang = lang_code
 
-            # English is default for Latin text; boost confidence if clearly non-English
+            # English is default for Latin text; boost confidence if clearly
+            # non-English
             if best_lang == Language.ENGLISH and best_score < 0.1:
                 return Language.ENGLISH, 0.4  # Low confidence English
 
@@ -399,7 +399,8 @@ class TranslationSimulator:
         Language.KOREAN: "[Translated from Korean] ",
     }
 
-    def translate(self, text: str, source_lang: str, target_lang: str = "en") -> Tuple[str, bool]:
+    def translate(self, text: str, source_lang: str,
+                  target_lang: str = "en") -> Tuple[str, bool]:
         """Translate text from source_lang to target_lang (simulated).
 
         Args:
@@ -588,10 +589,13 @@ class TranslationQualityChecker:
         """Detect if the text contains characters from unexpected scripts."""
         has_latin = any(c.isascii() and c.isalpha() for c in text)
         has_cjk = any(_char_in_ranges(c, _CJK_RANGES) for c in text)
-        has_hk = any(_char_in_ranges(c, _HIRAGANA_KATAKANA_RANGES) for c in text)
+        has_hk = any(_char_in_ranges(c, _HIRAGANA_KATAKANA_RANGES)
+                     for c in text)
         has_hangul = any(_char_in_ranges(c, _HANGUL_RANGES) for c in text)
         has_arabic = any(_char_in_ranges(c, _ARABIC_RANGES) for c in text)
-        has_devanagari = any(_char_in_ranges(c, _DEVANAGARI_RANGES) for c in text)
+        has_devanagari = any(
+            _char_in_ranges(
+                c, _DEVANAGARI_RANGES) for c in text)
 
         scripts_present = []
         if has_cjk:
@@ -723,7 +727,9 @@ class LanguagePipeline:
                 translation_performed=False,
                 quality_score=0.0,
                 quality_issues=["empty_input"],
-                processing_time_ms=round((time.monotonic() - start_time) * 1000, 2),
+                processing_time_ms=round(
+                    (time.monotonic() - start_time) * 1000,
+                    2),
                 pipeline_steps=steps,
                 fallback_used=True,
                 fallback_warning="Empty query — no processing performed",
@@ -742,13 +748,19 @@ class LanguagePipeline:
         # ── Step 1: Detection ───────────────────────────────────────
         step_start = time.monotonic()
         try:
-            detected_language, confidence = self._detector.detect(original_text)
-            steps.append(PipelineStepResult(
-                step_name="detection",
-                status=StepStatus.SUCCESS,
-                duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                metadata={"language": detected_language, "confidence": confidence},
-            ))
+            detected_language, confidence = self._detector.detect(
+                original_text)
+            steps.append(
+                PipelineStepResult(
+                    step_name="detection",
+                    status=StepStatus.SUCCESS,
+                    duration_ms=round(
+                        (time.monotonic() - step_start) * 1000,
+                        2),
+                    metadata={
+                        "language": detected_language,
+                        "confidence": confidence},
+                ))
         except Exception as exc:
             logger.warning("pipeline_detection_failed", error=str(exc))
             steps.append(PipelineStepResult(
@@ -822,32 +834,45 @@ class LanguagePipeline:
                 )
                 if success and translated_text:
                     translation_performed = True
-                    steps.append(PipelineStepResult(
-                        step_name="translate",
-                        status=StepStatus.SUCCESS,
-                        duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                        metadata={
-                            "source": detected_language,
-                            "target": Language.ENGLISH,
-                            "success": True,
-                        },
-                    ))
+                    steps.append(
+                        PipelineStepResult(
+                            step_name="translate",
+                            status=StepStatus.SUCCESS,
+                            duration_ms=round(
+                                (time.monotonic() - step_start) * 1000,
+                                2),
+                            metadata={
+                                "source": detected_language,
+                                "target": Language.ENGLISH,
+                                "success": True,
+                            },
+                        ))
                 else:
-                    steps.append(PipelineStepResult(
-                        step_name="translate",
-                        status=StepStatus.FAILED,
-                        duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                        metadata={"source": detected_language, "target": Language.ENGLISH, "success": False},
-                    ))
+                    steps.append(
+                        PipelineStepResult(
+                            step_name="translate",
+                            status=StepStatus.FAILED,
+                            duration_ms=round(
+                                (time.monotonic() - step_start) * 1000,
+                                2),
+                            metadata={
+                                "source": detected_language,
+                                "target": Language.ENGLISH,
+                                "success": False},
+                        ))
                     translated_text = original_text
             except Exception as exc:
                 logger.warning("pipeline_translate_failed", error=str(exc))
-                steps.append(PipelineStepResult(
-                    step_name="translate",
-                    status=StepStatus.FAILED,
-                    duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                    metadata={"error": str(exc)},
-                ))
+                steps.append(
+                    PipelineStepResult(
+                        step_name="translate",
+                        status=StepStatus.FAILED,
+                        duration_ms=round(
+                            (time.monotonic() - step_start) * 1000,
+                            2),
+                        metadata={
+                            "error": str(exc)},
+                    ))
                 translated_text = original_text
         else:
             # Already English — skip
@@ -887,32 +912,46 @@ class LanguagePipeline:
                     translated_text, detected_language, Language.ENGLISH
                 )
                 if success:
-                    steps.append(PipelineStepResult(
-                        step_name="translate_back",
-                        status=StepStatus.SUCCESS,
-                        duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                        metadata={
-                            "target": detected_language,
-                            "success": True,
-                        },
-                    ))
+                    steps.append(
+                        PipelineStepResult(
+                            step_name="translate_back",
+                            status=StepStatus.SUCCESS,
+                            duration_ms=round(
+                                (time.monotonic() - step_start) * 1000,
+                                2),
+                            metadata={
+                                "target": detected_language,
+                                "success": True,
+                            },
+                        ))
                     # For pipeline result, keep the English translation
                     # back_text is what would be shown to user
                 else:
-                    steps.append(PipelineStepResult(
+                    steps.append(
+                        PipelineStepResult(
+                            step_name="translate_back",
+                            status=StepStatus.FAILED,
+                            duration_ms=round(
+                                (time.monotonic() - step_start) * 1000,
+                                2),
+                            metadata={
+                                "target": detected_language,
+                                "success": False},
+                        ))
+            except Exception as exc:
+                logger.warning(
+                    "pipeline_translate_back_failed",
+                    error=str(exc))
+                steps.append(
+                    PipelineStepResult(
                         step_name="translate_back",
                         status=StepStatus.FAILED,
-                        duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                        metadata={"target": detected_language, "success": False},
+                        duration_ms=round(
+                            (time.monotonic() - step_start) * 1000,
+                            2),
+                        metadata={
+                            "error": str(exc)},
                     ))
-            except Exception as exc:
-                logger.warning("pipeline_translate_back_failed", error=str(exc))
-                steps.append(PipelineStepResult(
-                    step_name="translate_back",
-                    status=StepStatus.FAILED,
-                    duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                    metadata={"error": str(exc)},
-                ))
         else:
             steps.append(PipelineStepResult(
                 step_name="translate_back",
@@ -928,26 +967,33 @@ class LanguagePipeline:
                 quality_score, quality_issues = self._quality_checker.check(
                     translated_text, detected_language, Language.ENGLISH
                 )
-                steps.append(PipelineStepResult(
-                    step_name="quality_check",
-                    status=StepStatus.SUCCESS,
-                    duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                    metadata={
-                        "quality_score": quality_score,
-                        "issues_count": len(quality_issues),
-                        "issues": quality_issues,
-                    },
-                ))
+                steps.append(
+                    PipelineStepResult(
+                        step_name="quality_check",
+                        status=StepStatus.SUCCESS,
+                        duration_ms=round(
+                            (time.monotonic() - step_start) * 1000,
+                            2),
+                        metadata={
+                            "quality_score": quality_score,
+                            "issues_count": len(quality_issues),
+                            "issues": quality_issues,
+                        },
+                    ))
             except Exception as exc:
                 logger.warning("pipeline_quality_check_failed", error=str(exc))
                 quality_score = 0.5
                 quality_issues = ["quality_check_error"]
-                steps.append(PipelineStepResult(
-                    step_name="quality_check",
-                    status=StepStatus.FAILED,
-                    duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-                    metadata={"error": str(exc)},
-                ))
+                steps.append(
+                    PipelineStepResult(
+                        step_name="quality_check",
+                        status=StepStatus.FAILED,
+                        duration_ms=round(
+                            (time.monotonic() - step_start) * 1000,
+                            2),
+                        metadata={
+                            "error": str(exc)},
+                    ))
         else:
             steps.append(PipelineStepResult(
                 step_name="quality_check",
@@ -963,20 +1009,24 @@ class LanguagePipeline:
             fallback_used = True
             failed_names = [s.step_name for s in failed_steps]
             fallback_warning = (
-                f"Pipeline completed with {len(failed_steps)} failed step(s): "
-                f"{', '.join(failed_names)}. Original text returned as fallback."
-            )
+                f"Pipeline completed with {
+                    len(failed_steps)} failed step(s): " f"{
+                    ', '.join(failed_names)}. Original text returned as fallback.")
             translated_text = original_text
             translation_performed = False
-        steps.append(PipelineStepResult(
-            step_name="fallback",
-            status=StepStatus.SUCCESS if not failed_steps else StepStatus.FAILED,
-            duration_ms=round((time.monotonic() - step_start) * 1000, 2),
-            metadata={
-                "fallback_used": fallback_used,
-                "failed_steps": [s.step_name for s in failed_steps],
-            },
-        ))
+        steps.append(
+            PipelineStepResult(
+                step_name="fallback",
+                status=StepStatus.SUCCESS if not failed_steps else StepStatus.FAILED,
+                duration_ms=round(
+                    (time.monotonic() - step_start) * 1000,
+                    2),
+                metadata={
+                    "fallback_used": fallback_used,
+                    "failed_steps": [
+                        s.step_name for s in failed_steps],
+                },
+            ))
 
         # ── Cache result (BC-001: scoped to company_id) ─────────────
         total_ms = round((time.monotonic() - start_time) * 1000, 2)

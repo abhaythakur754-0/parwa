@@ -1860,7 +1860,10 @@ class ToTProcessor:
                 + " "
                 + tmpl.get("root_content", "")
             )
-            tmpl_words = set(re.findall(r"\b[a-zA-Z]{3,}\b", tmpl_text.lower()))
+            tmpl_words = set(
+                re.findall(
+                    r"\b[a-zA-Z]{3,}\b",
+                    tmpl_text.lower()))
 
             # Score based on keyword overlap
             overlap = len(query_words & tmpl_words)

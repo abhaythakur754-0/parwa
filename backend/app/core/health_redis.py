@@ -11,7 +11,6 @@ Key Structure:
 This enables horizontal scaling of workers with shared health state.
 """
 
-import json
 import logging
 import time
 from dataclasses import dataclass, asdict
@@ -104,10 +103,14 @@ class RedisHealthTracker:
         last_reset = await self._redis.get(DAILY_RESET_KEY)
 
         if last_reset:
-            last_reset = last_reset.decode("utf-8") if isinstance(last_reset, bytes) else last_reset
+            last_reset = last_reset.decode(
+                "utf-8") if isinstance(last_reset, bytes) else last_reset
 
         if today != last_reset:
-            logger.info("Daily usage reset triggered for %s (was %s)", today, last_reset)
+            logger.info(
+                "Daily usage reset triggered for %s (was %s)",
+                today,
+                last_reset)
 
             # Use Lua script for atomic reset
             lua_script = """
@@ -150,7 +153,9 @@ class RedisHealthTracker:
 
         return False
 
-    async def get_health_data(self, registry_key: str) -> Optional[ProviderHealthData]:
+    async def get_health_data(
+            self,
+            registry_key: str) -> Optional[ProviderHealthData]:
         """Get health data for a provider+model combo."""
         key = self._get_health_key(registry_key)
         data = await self._redis.hgetall(key)
@@ -162,7 +167,10 @@ class RedisHealthTracker:
         str_data = {k.decode(): v.decode() for k, v in data.items()}
         return ProviderHealthData.from_redis_hash(str_data)
 
-    async def set_health_data(self, registry_key: str, data: ProviderHealthData) -> None:
+    async def set_health_data(
+            self,
+            registry_key: str,
+            data: ProviderHealthData) -> None:
         """Set health data for a provider+model combo."""
         key = self._get_health_key(registry_key)
         await self._redis.hset(key, mapping=data.to_redis_hash())
@@ -259,7 +267,10 @@ class RedisHealthTracker:
                 model_id,
             )
         except Exception as e:
-            logger.error("Failed to record success for %s: %s", registry_key, e)
+            logger.error(
+                "Failed to record success for %s: %s",
+                registry_key,
+                e)
 
     async def record_failure(
         self,
@@ -343,7 +354,9 @@ class RedisHealthTracker:
             if consecutive_failures >= self.CONSECUTIVE_FAILURE_THRESHOLD:
                 logger.warning(
                     "Provider %s marked UNHEALTHY after %d consecutive failures: %s",
-                    registry_key, consecutive_failures, error_msg,
+                    registry_key,
+                    consecutive_failures,
+                    error_msg,
                 )
                 return True
             else:
@@ -354,7 +367,10 @@ class RedisHealthTracker:
                 return False
 
         except Exception as e:
-            logger.error("Failed to record failure for %s: %s", registry_key, e)
+            logger.error(
+                "Failed to record failure for %s: %s",
+                registry_key,
+                e)
             return False
 
     async def record_rate_limit(
@@ -420,7 +436,10 @@ class RedisHealthTracker:
         data = await self.get_health_data(registry_key)
         return data.daily_count if data else 0
 
-    async def get_daily_remaining(self, registry_key: str, default_limit: int = 14400) -> int:
+    async def get_daily_remaining(
+            self,
+            registry_key: str,
+            default_limit: int = 14400) -> int:
         """Get remaining daily requests for a provider+model."""
         await self._reset_daily_if_needed()
         data = await self.get_health_data(registry_key)

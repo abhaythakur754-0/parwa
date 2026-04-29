@@ -22,7 +22,7 @@ Building Codes:
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Request
 from fastapi.responses import PlainTextResponse
 
 logger = logging.getLogger("parwa.api.channels")
@@ -328,7 +328,6 @@ async def voice_inbound(request: Request):
 
         # Check business hours
         import os
-        from datetime import datetime
 
         # Get business hours from config (simplified)
         # In production, load from SMSChannelConfig.business_hours_json

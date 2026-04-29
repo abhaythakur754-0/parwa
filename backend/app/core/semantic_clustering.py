@@ -75,10 +75,12 @@ class ClusterConfig:
     def __post_init__(self) -> None:
         """Validate config values (BC-008: never crash)."""
         try:
-            self.min_similarity = float(max(0.0, min(1.0, self.min_similarity)))
+            self.min_similarity = float(
+                max(0.0, min(1.0, self.min_similarity)))
             self.max_cluster_size = int(max(1, self.max_cluster_size))
             self.cluster_ttl_hours = int(max(1, self.cluster_ttl_hours))
-            self.max_clusters_per_company = int(max(1, self.max_clusters_per_company))
+            self.max_clusters_per_company = int(
+                max(1, self.max_clusters_per_company))
             self.embedding_dimension = int(max(1, self.embedding_dimension))
         except (TypeError, ValueError):
             # BC-008: fall back to safe defaults on garbage input

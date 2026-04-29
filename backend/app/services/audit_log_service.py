@@ -242,13 +242,10 @@ class AuditLogError(ParwaBaseError):
         INTEGRITY_VIOLATION — checksum mismatch detected
     """
 
-    pass
-
 
 # ══════════════════════════════════════════════════════════════════
 # CONSTANTS
 # ══════════════════════════════════════════════════════════════════
-
 # Default per-category retention when no explicit policy is set.
 # Security categories get longer retention for compliance (e.g. SOC2).
 _DEFAULT_CATEGORY_RETENTION_DAYS: Dict[str, int] = {
@@ -581,7 +578,8 @@ class AuditLogService:
                     category_entries,
                     key=lambda e: e.created_at,
                 )
-                cutoff_idx = len(sorted_entries) - policy.max_entries_per_category
+                cutoff_idx = len(sorted_entries) - \
+                    policy.max_entries_per_category
                 if entry.entry_id in [
                     e.entry_id for e in sorted_entries[:cutoff_idx]
                 ]:
@@ -1002,7 +1000,9 @@ class AuditLogService:
                 filtered.append(entry)
 
             # Sort by created_at descending (newest first)
-            filtered.sort(key=lambda e: e.created_at or datetime.min, reverse=True)
+            filtered.sort(
+                key=lambda e: e.created_at or datetime.min,
+                reverse=True)
 
             total = len(filtered)
             page = filtered[offset: offset + limit]
@@ -1104,7 +1104,8 @@ class AuditLogService:
 
                 # Unique resources
                 if entry.resource_type and entry.resource_id:
-                    resource_set.add(f"{entry.resource_type}:{entry.resource_id}")
+                    resource_set.add(
+                        f"{entry.resource_type}:{entry.resource_id}")
 
                 # Temporal counts
                 if entry.created_at >= last_24h_cutoff:
@@ -1154,8 +1155,14 @@ class AuditLogService:
             )
             return AuditStats(
                 company_id=company_id,
-                period_start=datetime.now(timezone.utc) - timedelta(days=max(1, days)),
-                period_end=datetime.now(timezone.utc),
+                period_start=datetime.now(
+                    timezone.utc) -
+                timedelta(
+                    days=max(
+                        1,
+                        days)),
+                period_end=datetime.now(
+                    timezone.utc),
             )
 
     def verify_integrity(
@@ -1471,8 +1478,7 @@ class AuditLogService:
                 format=format.value,
                 total_entries=result.total_entries,
                 duration_ms=(
-                    (export_completed_at - export_started_at).total_seconds() * 1000
-                ),
+                    (export_completed_at - export_started_at).total_seconds() * 1000),
             )
 
             return result
@@ -1726,18 +1732,21 @@ class AuditLogService:
 
                 # Redact old_value
                 if entry.old_value:
-                    entry.old_value = self._redact_if_sensitive(entry.old_value)
+                    entry.old_value = self._redact_if_sensitive(
+                        entry.old_value)
 
                 # Redact new_value
                 if entry.new_value:
-                    entry.new_value = self._redact_if_sensitive(entry.new_value)
+                    entry.new_value = self._redact_if_sensitive(
+                        entry.new_value)
 
                 # Redact metadata fields
                 for sensitive_key in self.config.sensitive_fields:
                     if sensitive_key in entry.metadata:
                         val = entry.metadata[sensitive_key]
                         if isinstance(val, str):
-                            entry.metadata[sensitive_key] = self._redact_field(val)
+                            entry.metadata[sensitive_key] = self._redact_field(
+                                val)
                         elif isinstance(val, dict):
                             for k, v in val.items():
                                 if isinstance(v, str):

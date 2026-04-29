@@ -17,10 +17,8 @@ from __future__ import annotations
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from app.core.techniques.base import GSDState
 from app.logger import get_logger
 
 logger = get_logger("shared_gsd")

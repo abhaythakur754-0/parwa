@@ -13,8 +13,7 @@ BC-008: Never crash the caller — defensive error handling.
 
 import asyncio
 import logging
-from datetime import datetime, timezone, timedelta
-from decimal import Decimal
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import func as sa_func
@@ -28,6 +27,7 @@ from database.models.approval import UndoLog, ExecutedAction
 logger = logging.getLogger("parwa.services.shadow_mode")
 
 # ── Socket.io Event Emitter Helper ──────────────────────────────
+
 
 async def _emit_shadow_event(
     company_id: str,
@@ -58,9 +58,15 @@ def _emit_shadow_event_sync(
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
-            asyncio.create_task(_emit_shadow_event(company_id, event_type, payload))
+            asyncio.create_task(
+                _emit_shadow_event(
+                    company_id,
+                    event_type,
+                    payload))
         else:
-            loop.run_until_complete(_emit_shadow_event(company_id, event_type, payload))
+            loop.run_until_complete(
+                _emit_shadow_event(
+                    company_id, event_type, payload))
     except RuntimeError:
         # No event loop, create a new one
         asyncio.run(_emit_shadow_event(company_id, event_type, payload))
@@ -68,6 +74,7 @@ def _emit_shadow_event_sync(
         logger.warning("shadow_event_sync_failed: %s", str(e))
 
 # ── Valid modes ────────────────────────────────────────────────
+
 
 VALID_MODES = {"shadow", "supervised", "graduated"}
 VALID_DECISIONS = {"approved", "rejected", "modified"}
@@ -111,17 +118,14 @@ CRITICAL_REFUND_THRESHOLD = 500.0  # Refunds above $500 get even more
 
 class ShadowModeError(Exception):
     """Base exception for shadow mode errors."""
-    pass
 
 
 class ShadowLogNotFoundError(ShadowModeError):
     """Shadow log entry not found."""
-    pass
 
 
 class InvalidModeError(ShadowModeError):
     """Invalid mode value."""
-    pass
 
 
 # ── Service ─────────────────────────────────────────────────────
@@ -196,8 +200,9 @@ class ShadowModeService:
         """
         if mode not in VALID_MODES:
             raise InvalidModeError(
-                f"Invalid mode: {mode}. Must be one of: {', '.join(sorted(VALID_MODES))}"
-            )
+                f"Invalid mode: {mode}. Must be one of: {
+                    ', '.join(
+                        sorted(VALID_MODES))}")
 
         with SessionLocal() as db:
             company = db.query(Company).filter(
@@ -205,7 +210,8 @@ class ShadowModeService:
             ).first()
 
             if not company:
-                raise ShadowModeError(f"Company {company_id} not found (BC-001)")
+                raise ShadowModeError(
+                    f"Company {company_id} not found (BC-001)")
 
             old_mode = getattr(company, "system_mode", None) or "supervised"
             company.system_mode = mode
@@ -215,7 +221,10 @@ class ShadowModeService:
 
             logger.info(
                 "shadow_mode_changed company_id=%s old_mode=%s new_mode=%s set_via=%s",
-                company_id, old_mode, mode, set_via,
+                company_id,
+                old_mode,
+                mode,
+                set_via,
             )
 
             # Emit Socket.io event
@@ -272,10 +281,12 @@ class ShadowModeService:
                         f"Company {company_id} not found (BC-001)"
                     )
 
-                company_mode = getattr(company, "system_mode", None) or "supervised"
+                company_mode = getattr(
+                    company, "system_mode", None) or "supervised"
 
                 # ── Stage 0: Shadow Actions Remaining Check ──
-                shadow_remaining = getattr(company, "shadow_actions_remaining", None)
+                shadow_remaining = getattr(
+                    company, "shadow_actions_remaining", None)
                 if shadow_remaining is not None and shadow_remaining > 0:
                     # Force shadow mode for Stage 0 onboarding
                     return {
@@ -287,17 +298,33 @@ class ShadowModeService:
                         "stage_0": True,
                         "shadow_actions_remaining": shadow_remaining,
                         "layers": {
-                            "layer1_heuristic": {"score": 0.5, "reason": "Stage 0 forced"},
-                            "layer2_preference": {"mode": None, "reason": "Stage 0 override"},
-                            "layer3_historical": {"avg_risk": None, "reason": "Stage 0 override"},
-                            "layer4_safety_floor": {"hard_safety": True, "reason": "Stage 0 override"},
+                            "layer1_heuristic": {
+                                "score": 0.5,
+                                "reason": "Stage 0 forced"},
+                            "layer2_preference": {
+                                "mode": None,
+                                "reason": "Stage 0 override"},
+                            "layer3_historical": {
+                                "avg_risk": None,
+                                "reason": "Stage 0 override"},
+                            "layer4_safety_floor": {
+                                "hard_safety": True,
+                                "reason": "Stage 0 override"},
                         },
                         "company_mode": "shadow",
                     }
 
                 # ── Get config thresholds from company ──
-                risk_threshold_shadow = float(getattr(company, "risk_threshold_shadow", 0.7) or 0.7)
-                risk_threshold_auto = float(getattr(company, "risk_threshold_auto", 0.3) or 0.3)
+                risk_threshold_shadow = float(
+                    getattr(
+                        company,
+                        "risk_threshold_shadow",
+                        0.7) or 0.7)
+                risk_threshold_auto = float(
+                    getattr(
+                        company,
+                        "risk_threshold_auto",
+                        0.3) or 0.3)
 
                 # ── Layer 1: Heuristic Risk Score ──
                 base_score = ACTION_RISK_BASE.get(action_type, 0.5)
@@ -335,8 +362,8 @@ class ShadowModeService:
                 # ── Layer 4: Hard Safety Floor ──
                 hard_safety = action_type in HARD_SAFETY_ACTIONS
                 layer4_reason = (
-                    f"Hard safety: {'ALWAYS requires approval' if hard_safety else 'No override'}"
-                )
+                    f"Hard safety: {
+                        'ALWAYS requires approval' if hard_safety else 'No override'}")
 
                 # ── Decision Logic ──
                 # Start with company-level mode
@@ -403,10 +430,18 @@ class ShadowModeService:
                 "requires_approval": True,
                 "auto_execute": False,
                 "layers": {
-                    "layer1_heuristic": {"score": 0.5, "reason": "Fallback"},
-                    "layer2_preference": {"mode": None, "reason": "N/A"},
-                    "layer3_historical": {"avg_risk": None, "reason": "N/A"},
-                    "layer4_safety_floor": {"hard_safety": True, "reason": "Safety fallback"},
+                    "layer1_heuristic": {
+                        "score": 0.5,
+                        "reason": "Fallback"},
+                    "layer2_preference": {
+                        "mode": None,
+                        "reason": "N/A"},
+                    "layer3_historical": {
+                        "avg_risk": None,
+                        "reason": "N/A"},
+                    "layer4_safety_floor": {
+                        "hard_safety": True,
+                        "reason": "Safety fallback"},
                 },
                 "company_mode": "supervised",
             }
@@ -451,7 +486,11 @@ class ShadowModeService:
 
             logger.info(
                 "shadow_action_logged id=%s company_id=%s action=%s mode=%s risk=%.2f",
-                entry.id, company_id, action_type, mode, risk_score or 0.0,
+                entry.id,
+                company_id,
+                action_type,
+                mode,
+                risk_score or 0.0,
             )
 
             # Emit Socket.io event for new shadow action
@@ -550,7 +589,10 @@ class ShadowModeService:
 
             logger.info(
                 "shadow_preference_set company_id=%s category=%s mode=%s set_via=%s",
-                company_id, action_category, preferred_mode, set_via,
+                company_id,
+                action_category,
+                preferred_mode,
+                set_via,
             )
 
             # Emit Socket.io event for preference change
@@ -589,7 +631,9 @@ class ShadowModeService:
 
             logger.info(
                 "shadow_preference_deleted company_id=%s category=%s deleted=%s",
-                company_id, action_category, deleted,
+                company_id,
+                action_category,
+                deleted,
             )
 
             return {
@@ -801,7 +845,8 @@ class ShadowModeService:
             executed_action = ExecutedAction(
                 company_id=entry.company_id,
                 action_type=entry.action_type,
-                action_data=str(entry.action_payload) if entry.action_payload else None,
+                action_data=str(
+                    entry.action_payload) if entry.action_payload else None,
                 executed_by=manager_id,
                 created_at=datetime.utcnow(),
             )
@@ -812,7 +857,8 @@ class ShadowModeService:
                 company_id=entry.company_id,
                 executed_action_id=executed_action.id,
                 undo_type="reversal",
-                original_data=str(entry.action_payload) if entry.action_payload else None,
+                original_data=str(
+                    entry.action_payload) if entry.action_payload else None,
                 undo_data=None,
                 undo_reason=reason,
                 undone_by=manager_id,
@@ -933,11 +979,16 @@ class ShadowModeService:
             items = query.offset(offset).limit(page_size).all()
 
             return {
-                "items": [self._shadow_log_to_dict(i) for i in items],
+                "items": [
+                    self._shadow_log_to_dict(i) for i in items],
                 "total": total,
                 "page": page,
                 "page_size": page_size,
-                "total_pages": (total + page_size - 1) // page_size if page_size > 0 else 0,
+                "total_pages": (
+                    total +
+                    page_size -
+                    1) //
+                page_size if page_size > 0 else 0,
             }
 
     # ═══════════════════════════════════════════════════════════════
@@ -989,7 +1040,9 @@ class ShadowModeService:
                 ShadowLog.jarvis_risk_score.isnot(None),
             ).scalar()
 
-            avg_risk = round(float(avg_risk_result), 3) if avg_risk_result else 0.0
+            avg_risk = round(
+                float(avg_risk_result),
+                3) if avg_risk_result else 0.0
 
             # Mode distribution
             mode_dist_rows = db.query(
@@ -1176,8 +1229,14 @@ class ShadowModeService:
 
         # PII indicators in payload
         if payload:
-            text_fields = " ".join(str(v) for v in payload.values() if isinstance(v, str))
-            pii_indicators = ["ssn", "social_security", "credit_card", "dob", "date_of_birth"]
+            text_fields = " ".join(str(v)
+                                   for v in payload.values() if isinstance(v, str))
+            pii_indicators = [
+                "ssn",
+                "social_security",
+                "credit_card",
+                "dob",
+                "date_of_birth"]
             for indicator in pii_indicators:
                 if indicator in text_fields.lower():
                     score += 0.2
@@ -1233,16 +1292,21 @@ class ShadowModeService:
     def _build_decision_reason(mode: str, risk_score: float) -> str:
         """Build a human-readable reason for the decision."""
         if mode == "shadow":
-            return f"Shadow mode: action logged for observation only (risk: {risk_score:.2f})"
+            return f"Shadow mode: action logged for observation only (risk: {
+                risk_score:.2f})"
         elif mode == "supervised":
             if risk_score >= 0.7:
-                return f"High risk ({risk_score:.2f}): requires manager approval"
+                return f"High risk ({
+                    risk_score:.2f}): requires manager approval"
             elif risk_score >= 0.4:
-                return f"Medium risk ({risk_score:.2f}): requires manager approval"
+                return f"Medium risk ({
+                    risk_score:.2f}): requires manager approval"
             else:
-                return f"Supervised mode: action requires manager approval (risk: {risk_score:.2f})"
+                return f"Supervised mode: action requires manager approval (risk: {
+                    risk_score:.2f})"
         else:  # graduated
-            return f"Graduated mode: auto-approved (low risk: {risk_score:.2f})"
+            return f"Graduated mode: auto-approved (low risk: {
+                risk_score:.2f})"
 
     @staticmethod
     def _shadow_log_to_dict(entry: ShadowLog) -> Dict[str, Any]:

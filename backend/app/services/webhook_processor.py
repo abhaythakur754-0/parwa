@@ -20,7 +20,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, Optional
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from database.base import SessionLocal
@@ -209,7 +209,10 @@ def store_idempotency_key(
 
     except Exception as e:
         db.rollback()
-        logger.error("idempotency_key_store_error key=%s error=%s", key, str(e))
+        logger.error(
+            "idempotency_key_store_error key=%s error=%s",
+            key,
+            str(e))
         raise
     finally:
         db.close()
@@ -293,8 +296,7 @@ def process_with_idempotency(
                     "error_detail": (
                         "Duplicate webhook detected but request body hash does not "
                         "match the originally processed event. This may indicate "
-                        "tampering. The cached response will NOT be returned."
-                    ),
+                        "tampering. The cached response will NOT be returned."),
                     "duplicate": True,
                     "response_status": 409,
                     "response_body": json.dumps(
@@ -302,10 +304,8 @@ def process_with_idempotency(
                             "error": "request_body_hash_mismatch",
                             "message": (
                                 "Event ID already processed with a different "
-                                "request body. Possible tampering detected."
-                            ),
-                        }
-                    ),
+                                "request body. Possible tampering detected."),
+                        }),
                 }
 
             logger.info(

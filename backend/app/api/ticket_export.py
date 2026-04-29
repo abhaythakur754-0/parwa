@@ -14,9 +14,8 @@ import csv
 import io
 import json
 import os
-import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
@@ -24,7 +23,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from app.api.deps import get_current_user, get_db, require_roles
-from app.services.ticket_merge_service import TicketMergeService
 from database.models.tickets import Ticket, TicketMessage, TicketAttachment
 
 router = APIRouter(
@@ -115,7 +113,9 @@ async def export_tickets_csv(
     output.seek(0)
 
     # Stream response
-    filename = f"tickets_export_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
+    filename = f"tickets_export_{
+        datetime.now(
+            timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
 
     return StreamingResponse(
         io.BytesIO(output.getvalue().encode('utf-8')),
@@ -281,7 +281,10 @@ async def export_ticket_pdf(
 
         # Title
         elements.append(Paragraph(f"Ticket #{ticket_id[:8]}", title_style))
-        elements.append(Paragraph(ticket.subject or "No Subject", styles["Heading2"]))
+        elements.append(
+            Paragraph(
+                ticket.subject or "No Subject",
+                styles["Heading2"]))
         elements.append(Spacer(1, 10))
 
         # Ticket metadata table
@@ -333,7 +336,8 @@ async def export_ticket_pdf(
                 textColor=role_color,
                 fontName="Helvetica-Bold",
             )
-            created = msg.created_at.strftime("%Y-%m-%d %H:%M") if msg.created_at else ""
+            created = msg.created_at.strftime(
+                "%Y-%m-%d %H:%M") if msg.created_at else ""
             elements.append(Paragraph(f"{role_label} - {created}", role_style))
 
             # Message content
@@ -342,7 +346,12 @@ async def export_ticket_pdf(
             if len(content) > 2000:
                 content = content[:2000] + "..."
 
-            elements.append(Paragraph(content.replace("\n", "<br/>"), styles["Normal"]))
+            elements.append(
+                Paragraph(
+                    content.replace(
+                        "\n",
+                        "<br/>"),
+                    styles["Normal"]))
             elements.append(Spacer(1, 10))
 
         doc.build(elements)

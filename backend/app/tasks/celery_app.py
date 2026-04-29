@@ -110,25 +110,25 @@ def _build_config() -> dict:
             },
             "purge-dead-letter-queue-hourly": {
                 "task": ("app.tasks.periodic"
-                          ".purge_dead_letter_queue"),
+                         ".purge_dead_letter_queue"),
                 "schedule": 3600.0,  # Every hour
                 "kwargs": {},
             },
             "check-webhook-health-every-5min": {
                 "task": ("app.tasks.periodic"
-                          ".check_webhook_health"),
+                         ".check_webhook_health"),
                 "schedule": 300.0,  # Every 5 minutes
                 "kwargs": {},
             },
             "flush-audit-queue": {
                 "task": ("app.tasks.periodic"
-                          ".flush_audit_queue"),
+                         ".flush_audit_queue"),
                 "schedule": 60.0,  # Every 60 seconds
                 "kwargs": {},
             },
             "cleanup-audit-trail": {
                 "task": ("app.tasks.periodic"
-                          ".cleanup_audit_trail"),
+                         ".cleanup_audit_trail"),
                 "schedule": {
                     # Daily at 03:00 UTC
                     "hour": 3,
@@ -139,104 +139,104 @@ def _build_config() -> dict:
             # Day 22: New Beat schedule entries
             "approval-timeout-check-every-15min": {
                 "task": ("app.tasks.periodic"
-                          ".approval_timeout_check"),
+                         ".approval_timeout_check"),
                 "schedule": 900.0,
                 "kwargs": {},
             },
             "approval-reminder-every-30min": {
                 "task": ("app.tasks.periodic"
-                          ".approval_reminder_dispatch"),
+                         ".approval_reminder_dispatch"),
                 "schedule": 1800.0,
                 "kwargs": {},
             },
             "daily-overage-charge-02utc": {
                 "task": ("app.tasks.periodic"
-                          ".daily_overage_charge"),
+                         ".daily_overage_charge"),
                 "schedule": {"hour": 2, "minute": 0},
                 "kwargs": {},
             },
             "drift-detection-daily-03utc": {
                 "task": ("app.tasks.periodic"
-                          ".drift_detection_analysis"),
+                         ".drift_detection_analysis"),
                 "schedule": {"hour": 3, "minute": 30},
                 "kwargs": {},
             },
             "metric-aggregation-every-5min": {
                 "task": ("app.tasks.periodic"
-                          ".metric_aggregation"),
+                         ".metric_aggregation"),
                 "schedule": 300.0,
                 "kwargs": {},
             },
             "training-mistake-check-hourly": {
                 "task": ("app.tasks.periodic"
-                          ".training_mistake_check"),
+                         ".training_mistake_check"),
                 "schedule": 3600.0,
                 "kwargs": {},
             },
             # Week 8: AI Engine beat schedule entries
             "ai-rebalance-workload-60s": {
                 "task": ("app.tasks.ai_engine_tasks"
-                          ".rebalance_workload"),
+                         ".rebalance_workload"),
                 "schedule": 60.0,
                 "kwargs": {},
             },
             "ai-reset-daily-budgets-midnight": {
                 "task": ("app.tasks.ai_engine_tasks"
-                          ".reset_daily_budgets"),
+                         ".reset_daily_budgets"),
                 "schedule": {"hour": 0, "minute": 0},
                 "kwargs": {},
             },
             "ai-cleanup-injection-logs-daily": {
                 "task": ("app.tasks.ai_engine_tasks"
-                          ".cleanup_stale_injection_logs"),
+                         ".cleanup_stale_injection_logs"),
                 "schedule": {"hour": 4, "minute": 0},
                 "kwargs": {"days": 90},
             },
             # Week 13 Day 3: Email channel beat schedule entries
             "cleanup-expired-ooo-profiles-hourly": {
                 "task": ("app.tasks.periodic"
-                          ".cleanup_expired_ooo_profiles"),
+                         ".cleanup_expired_ooo_profiles"),
                 "schedule": 3600.0,  # Every hour
                 "kwargs": {},
             },
             "retry-soft-bounces-every-2h": {
                 "task": ("app.tasks.periodic"
-                          ".retry_soft_bounces"),
+                         ".retry_soft_bounces"),
                 "schedule": 7200.0,  # Every 2 hours
                 "kwargs": {},
             },
             # Day 2: Period-end transitions (midnight UTC)
             "process-period-end-transitions-midnight": {
                 "task": ("app.tasks.billing"
-                          ".period_end_transitions"),
+                         ".period_end_transitions"),
                 "schedule": {"hour": 0, "minute": 0},
                 "kwargs": {},
             },
             # Day 2: Pre-downgrade warnings (check daily)
             "pre-downgrade-warnings-daily": {
                 "task": ("app.tasks.billing"
-                          ".pre_downgrade_warnings"),
+                         ".pre_downgrade_warnings"),
                 "schedule": {"hour": 0, "minute": 5},
                 "kwargs": {},
             },
             # Day 2: Process renewals (midnight UTC, after transitions)
             "process-renewals-midnight": {
                 "task": ("app.tasks.billing"
-                          ".process_renewals"),
+                         ".process_renewals"),
                 "schedule": {"hour": 0, "minute": 10},
                 "kwargs": {},
             },
             # Day 3.2: Sync Redis usage to PostgreSQL (daily at 1 AM)
             "sync-all-redis-usage-daily": {
                 "task": ("app.tasks.billing"
-                          ".sync_all_redis_usage"),
+                         ".sync_all_redis_usage"),
                 "schedule": {"hour": 1, "minute": 0},
                 "kwargs": {},
             },
             # Day 6: Reindex knowledge documents (weekly, Sunday 2 AM UTC)
             "reindex-knowledge-documents-weekly": {
                 "task": ("app.tasks.periodic"
-                          ".reindex_all_knowledge_documents"),
+                         ".reindex_all_knowledge_documents"),
                 "schedule": {
                     "day_of_week": 0,  # Sunday
                     "hour": 2,
@@ -247,7 +247,7 @@ def _build_config() -> dict:
             # Day 6: DSPy optimization (weekly, Sunday 2-4 AM UTC)
             "dspy-weekly-optimization": {
                 "task": ("app.tasks.periodic"
-                          ".dspy_weekly_optimization"),
+                         ".dspy_weekly_optimization"),
                 "schedule": {
                     "day_of_week": 0,  # Sunday
                     "hour": 3,
@@ -258,46 +258,46 @@ def _build_config() -> dict:
             # Part 13 Day 2: SLA timer checks (every minute)
             "sla-check-all-companies-1min": {
                 "task": ("app.tasks.sla_tasks"
-                          ".check_all_company_slas"),
+                         ".check_all_company_slas"),
                 "schedule": 60.0,  # Every 60 seconds
                 "kwargs": {},
             },
             # Part 13 Day 2: Daily SLA report (daily at 6 AM UTC)
             "sla-daily-report-6am": {
                 "task": ("app.tasks.sla_tasks"
-                          ".daily_sla_report_all"),
+                         ".daily_sla_report_all"),
                 "schedule": {"hour": 6, "minute": 0},
                 "kwargs": {},
             },
             # Shadow mode periodic tasks
             "shadow-cleanup-expired-queue-15min": {
                 "task": ("app.tasks.shadow_tasks"
-                          ".cleanup_expired_shadow_queue"),
+                         ".cleanup_expired_shadow_queue"),
                 "schedule": 900.0,  # Every 15 minutes
                 "kwargs": {},
             },
             "shadow-aggregate-stats-5min": {
                 "task": ("app.tasks.shadow_tasks"
-                          ".aggregate_shadow_stats"),
+                         ".aggregate_shadow_stats"),
                 "schedule": 300.0,  # Every 5 minutes
                 "kwargs": {},
             },
             # Day 5: Financial safety, webhook health, anomaly detection
             "process-dead-letter-queue-hourly": {
                 "task": ("app.tasks.day5"
-                          ".process_dead_letter_queue"),
+                         ".process_dead_letter_queue"),
                 "schedule": 3600.0,  # Every hour
                 "kwargs": {},
             },
             "daily-anomaly-check-04utc": {
                 "task": ("app.tasks.day5"
-                          ".daily_anomaly_check"),
+                         ".daily_anomaly_check"),
                 "schedule": {"hour": 4, "minute": 0},
                 "kwargs": {},
             },
             "weekly-invoice-audit-mon-05utc": {
                 "task": ("app.tasks.day5"
-                          ".weekly_invoice_audit"),
+                         ".weekly_invoice_audit"),
                 "schedule": {
                     "day_of_week": 0,  # Monday
                     "hour": 5,
@@ -307,19 +307,19 @@ def _build_config() -> dict:
             },
             "webhook-health-summary-0630utc": {
                 "task": ("app.tasks.day5"
-                          ".webhook_health_summary"),
+                         ".webhook_health_summary"),
                 "schedule": {"hour": 6, "minute": 30},
                 "kwargs": {},
             },
             "check-spending-caps-07utc": {
                 "task": ("app.tasks.day5"
-                          ".check_spending_caps"),
+                         ".check_spending_caps"),
                 "schedule": {"hour": 7, "minute": 0},
                 "kwargs": {},
             },
             "expire-credits-0330utc": {
                 "task": ("app.tasks.day5"
-                          ".expire_credits"),
+                         ".expire_credits"),
                 "schedule": {"hour": 3, "minute": 30},
                 "kwargs": {},
             },

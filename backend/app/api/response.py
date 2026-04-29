@@ -44,13 +44,11 @@ BC-008: try/except on every endpoint — never crash.
 
 from __future__ import annotations
 
-import logging
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 
 from app.api.deps import (
     get_company_id,
@@ -58,12 +56,10 @@ from app.api.deps import (
     require_roles,
 )
 from app.exceptions import (
-    InternalError,
     NotFoundError,
     ValidationError,
 )
 from app.logger import get_logger
-from database.base import get_db
 from database.models.core import User
 
 logger = get_logger("response_api")
@@ -248,9 +244,13 @@ class AIAssignmentRequestSchema(BaseModel):
     ticket_id: str = Field(..., description="Ticket to assign")
     variant_type: str = Field(default="parwa")
     intent_type: str = Field(default="general")
-    priority: str = Field(default="medium", description="low | medium | high | urgent")
+    priority: str = Field(
+        default="medium",
+        description="low | medium | high | urgent")
     sentiment_score: float = Field(default=0.5, ge=0.0, le=1.0)
-    customer_tier: str = Field(default="basic", description="basic | pro | enterprise")
+    customer_tier: str = Field(
+        default="basic",
+        description="basic | pro | enterprise")
     conversation_history: Optional[List[dict]] = None
     skills_required: Optional[List[str]] = None
     max_candidates: int = Field(default=5, ge=1, le=20)
@@ -353,7 +353,9 @@ async def generate_response(
         result = await generator.generate(req)
         return {
             "status": "ok",
-            "data": result.to_dict() if hasattr(result, "to_dict") else asdict(result),
+            "data": result.to_dict() if hasattr(
+                result,
+                "to_dict") else asdict(result),
         }
 
     except (ValidationError, NotFoundError) as exc:
@@ -367,7 +369,9 @@ async def generate_response(
             extra={"company_id": company_id, "error": str(exc)},
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail="Failed to generate response")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to generate response")
 
 
 @response_router.post("/generate/batch", summary="Batch generate responses")
@@ -481,7 +485,9 @@ async def get_token_budget(
             },
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail="Failed to get budget status")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to get budget status")
 
 
 @response_router.post(
@@ -518,7 +524,9 @@ async def initialize_budget(
             },
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail="Failed to initialize budget")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to initialize budget")
 
 
 @response_router.post(
@@ -563,7 +571,9 @@ async def check_overflow(
 # ═══════════════════════════════════════════════════════════════════
 
 
-@response_router.post("/templates", summary="Create response template", status_code=201)
+@response_router.post("/templates",
+                      summary="Create response template",
+                      status_code=201)
 async def create_template(
     request: TemplateCreateSchema,
     company_id: str = Depends(get_company_id),
@@ -583,7 +593,9 @@ async def create_template(
         )
         return {
             "status": "ok",
-            "data": template.to_dict() if hasattr(template, "to_dict") else asdict(template),
+            "data": template.to_dict() if hasattr(
+                template,
+                "to_dict") else asdict(template),
         }
 
     except (ValidationError, NotFoundError) as exc:
@@ -597,7 +609,9 @@ async def create_template(
             extra={"company_id": company_id, "error": str(exc)},
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail="Failed to create template")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to create template")
 
 
 @response_router.get("/templates", summary="List response templates")
@@ -642,7 +656,8 @@ async def list_templates(
         raise HTTPException(status_code=500, detail="Failed to list templates")
 
 
-@response_router.get("/templates/{template_id}", summary="Get response template")
+@response_router.get("/templates/{template_id}",
+                     summary="Get response template")
 async def get_template(
     template_id: str,
     company_id: str = Depends(get_company_id),
@@ -656,7 +671,9 @@ async def get_template(
         template = await service.get_template(template_id, company_id)
         return {
             "status": "ok",
-            "data": template.to_dict() if hasattr(template, "to_dict") else asdict(template),
+            "data": template.to_dict() if hasattr(
+                template,
+                "to_dict") else asdict(template),
         }
 
     except NotFoundError as exc:
@@ -674,7 +691,8 @@ async def get_template(
         raise HTTPException(status_code=500, detail="Failed to get template")
 
 
-@response_router.put("/templates/{template_id}", summary="Update response template")
+@response_router.put("/templates/{template_id}",
+                     summary="Update response template")
 async def update_template(
     template_id: str,
     request: TemplateUpdateSchema,
@@ -696,7 +714,9 @@ async def update_template(
         )
         return {
             "status": "ok",
-            "data": template.to_dict() if hasattr(template, "to_dict") else asdict(template),
+            "data": template.to_dict() if hasattr(
+                template,
+                "to_dict") else asdict(template),
         }
 
     except NotFoundError as exc:
@@ -713,10 +733,13 @@ async def update_template(
             },
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail="Failed to update template")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to update template")
 
 
-@response_router.delete("/templates/{template_id}", summary="Delete response template")
+@response_router.delete("/templates/{template_id}",
+                        summary="Delete response template")
 async def delete_template(
     template_id: str,
     company_id: str = Depends(get_company_id),
@@ -742,7 +765,9 @@ async def delete_template(
                 "error": str(exc)},
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail="Failed to delete template")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to delete template")
 
 
 @response_router.post(
@@ -789,7 +814,9 @@ async def render_template(
                 "error": str(exc)},
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail="Failed to render template")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to render template")
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -811,10 +838,8 @@ async def get_brand_voice(
 
         service = BrandVoiceService()
         config = await service.get_config(company_id)
-        return {
-            "status": "ok",
-            "data": asdict(config) if hasattr(config, "__dataclass_fields__") else config,
-        }
+        return {"status": "ok", "data": asdict(config) if hasattr(
+            config, "__dataclass_fields__") else config, }
 
     except (ValidationError, NotFoundError) as exc:
         raise HTTPException(
@@ -827,7 +852,8 @@ async def get_brand_voice(
             extra={"company_id": company_id, "error": str(exc)},
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail="Failed to get brand voice config")
+        raise HTTPException(status_code=500,
+                            detail="Failed to get brand voice config")
 
 
 @brand_voice_router.post("", summary="Create or update brand voice config")
@@ -854,10 +880,8 @@ async def upsert_brand_voice(
         except (NotFoundError, Exception):
             config = await service.create_config(company_id, config_data)
 
-        return {
-            "status": "ok",
-            "data": asdict(config) if hasattr(config, "__dataclass_fields__") else config,
-        }
+        return {"status": "ok", "data": asdict(config) if hasattr(
+            config, "__dataclass_fields__") else config, }
 
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.to_dict())
@@ -867,7 +891,8 @@ async def upsert_brand_voice(
             extra={"company_id": company_id, "error": str(exc)},
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail="Failed to save brand voice config")
+        raise HTTPException(status_code=500,
+                            detail="Failed to save brand voice config")
 
 
 @brand_voice_router.delete("", summary="Delete brand voice config")
@@ -895,7 +920,8 @@ async def delete_brand_voice(
             extra={"company_id": company_id, "error": str(exc)},
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail="Failed to delete brand voice config")
+        raise HTTPException(status_code=500,
+                            detail="Failed to delete brand voice config")
 
 
 @brand_voice_router.post(
@@ -1068,7 +1094,9 @@ async def get_agent_workload(
             extra={"company_id": company_id, "error": str(exc)},
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail="Failed to get agent workload")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to get agent workload")
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1110,7 +1138,8 @@ async def get_migration_status(
             extra={"company_id": company_id, "error": str(exc)},
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail="Failed to get migration status")
+        raise HTTPException(status_code=500,
+                            detail="Failed to get migration status")
 
 
 @migration_router.post("/toggle", summary="Enable/disable AI feature")
@@ -1175,7 +1204,9 @@ async def toggle_migration(
             },
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail="Failed to toggle migration")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to toggle migration")
 
 
 # ═══════════════════════════════════════════════════════════════════

@@ -22,7 +22,6 @@ BC-005: Events validated against registry.
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -33,8 +32,7 @@ from app.core.events import (
     TicketEventPayload,
     get_event_registry,
 )
-from app.core.event_emitter import emit_event, emit_ticket_event
-from app.core.socketio import emit_to_tenant, get_tenant_room
+from app.core.event_emitter import emit_ticket_event
 from app.logger import get_logger
 
 logger = get_logger("ticket_events")
@@ -127,7 +125,10 @@ async def emit_ticket_created(
         "extra": {
             "subject": ticket_data.get("subject"),
             "actor_id": actor_id,
-            "created_at": ticket_data.get("created_at", datetime.now(timezone.utc).isoformat()),
+            "created_at": ticket_data.get(
+                "created_at",
+                datetime.now(
+                    timezone.utc).isoformat()),
         },
     }
 
@@ -567,8 +568,11 @@ async def emit_sla_breach(
         "company_id": company_id,
         "extra": {
             "breach_type": breach_type,
-            "minutes_overdue": round(minutes_overdue, 1) if minutes_overdue else None,
-            "breached_at": datetime.now(timezone.utc).isoformat(),
+            "minutes_overdue": round(
+                minutes_overdue,
+                1) if minutes_overdue else None,
+            "breached_at": datetime.now(
+                timezone.utc).isoformat(),
         },
     }
 

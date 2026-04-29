@@ -12,7 +12,6 @@ Tests cover:
 
 import pytest
 from unittest.mock import Mock, MagicMock, patch
-from datetime import datetime, timezone
 
 from app.services.identity_resolution_service import IdentityResolutionService
 from app.services.customer_service import CustomerService
@@ -32,7 +31,7 @@ class TestIdentityResolutionService:
         """Create service instance."""
         return IdentityResolutionService(mock_db, "company-123")
 
-    # ── EMAIL MATCHING ────────────────────────────────────────────────────────
+    # ── EMAIL MATCHING ──────────────────────────────────────────────────────
 
     def test_match_by_email_exact(self, service, mock_db):
         """Test exact email match."""
@@ -93,7 +92,8 @@ class TestIdentityResolutionService:
         # No exact match
         mock_db.query.return_value.filter.return_value.first.return_value = None
         # Return customers for fuzzy matching
-        mock_db.query.return_value.filter.return_value.all.return_value = [customer]
+        mock_db.query.return_value.filter.return_value.all.return_value = [
+            customer]
 
         # Similar email (typo)
         result = service._match_by_email("test-uer@example.com")
@@ -101,7 +101,7 @@ class TestIdentityResolutionService:
         assert result is not None
         assert result["method"] == "email_fuzzy"
 
-    # ── PHONE MATCHING ─────────────────────────────────────────────────────────
+    # ── PHONE MATCHING ──────────────────────────────────────────────────────
 
     def test_match_by_phone_exact(self, service, mock_db):
         """Test exact phone match."""
@@ -138,14 +138,14 @@ class TestIdentityResolutionService:
         assert service._normalize_phone("+1-234-567-890") == "+1234567890"
         assert service._normalize_phone("123 456 7890") == "1234567890"
 
-    # ── SOCIAL ID MATCHING ─────────────────────────────────────────────────────
+    # ── SOCIAL ID MATCHING ──────────────────────────────────────────────────
 
     def test_match_by_social_id_no_social_channels(self, service):
         """Social media channels removed — method returns None."""
         result = service._match_by_social_id("any-social-id")
         assert result is None
 
-    # ── RESOLVE IDENTITY ────────────────────────────────────────────────────────
+    # ── RESOLVE IDENTITY ────────────────────────────────────────────────────
 
     def test_resolve_identity_email_match(self, service, mock_db):
         """Test identity resolution with email match."""
@@ -240,7 +240,7 @@ class TestIdentityResolutionService:
         # Email match should win (higher confidence)
         assert result["matched_customer_id"] == "email-customer"
 
-    # ── DUPLICATE DETECTION ─────────────────────────────────────────────────────
+    # ── DUPLICATE DETECTION ─────────────────────────────────────────────────
 
     def test_find_potential_duplicates_email(self, service, mock_db):
         """Test finding duplicates by email."""
@@ -257,9 +257,11 @@ class TestIdentityResolutionService:
         c2.name = "Test User 2"
 
         with patch.object(service.customer_service, 'get_customer', return_value=c1):
-            mock_db.query.return_value.filter.return_value.all.return_value = [c1, c2]
+            mock_db.query.return_value.filter.return_value.all.return_value = [
+                c1, c2]
 
-            duplicates = service.find_potential_duplicates(customer_id="customer-1")
+            duplicates = service.find_potential_duplicates(
+                customer_id="customer-1")
 
         assert len(duplicates) > 0
         assert duplicates[0]["match_method"] == "email_exact"
@@ -279,9 +281,11 @@ class TestIdentityResolutionService:
         c2.name = "Test User 2"
 
         with patch.object(service.customer_service, 'get_customer', return_value=c1):
-            mock_db.query.return_value.filter.return_value.all.return_value = [c1, c2]
+            mock_db.query.return_value.filter.return_value.all.return_value = [
+                c1, c2]
 
-            duplicates = service.find_potential_duplicates(customer_id="customer-1")
+            duplicates = service.find_potential_duplicates(
+                customer_id="customer-1")
 
         assert len(duplicates) > 0
 
@@ -300,7 +304,8 @@ class TestIdentityResolutionService:
         c2.name = "Completely Different"
 
         with patch.object(service.customer_service, 'get_customer', return_value=c1):
-            mock_db.query.return_value.filter.return_value.all.return_value = [c1, c2]
+            mock_db.query.return_value.filter.return_value.all.return_value = [
+                c1, c2]
 
             # High threshold should filter out low-confidence matches
             duplicates = service.find_potential_duplicates(
@@ -311,7 +316,7 @@ class TestIdentityResolutionService:
         # Low confidence matches should be filtered
         assert len(duplicates) == 0
 
-    # ── CONFIDENCE SCORES ───────────────────────────────────────────────────────
+    # ── CONFIDENCE SCORES ───────────────────────────────────────────────────
 
     def test_confidence_scores(self, service):
         """Test confidence score constants."""
@@ -339,7 +344,7 @@ class TestCustomerService:
         """Create service instance."""
         return CustomerService(mock_db, "company-123")
 
-    # ── CUSTOMER MERGE ─────────────────────────────────────────────────────────
+    # ── CUSTOMER MERGE ──────────────────────────────────────────────────────
 
     def test_merge_customers_basic(self, service, mock_db):
         """Test basic customer merge."""
@@ -387,7 +392,7 @@ class TestCustomerService:
                 merged_customer_ids=["customer-2", "customer-2"],  # Duplicate
             )
 
-    # ── CHANNEL LINKING ────────────────────────────────────────────────────────
+    # ── CHANNEL LINKING ─────────────────────────────────────────────────────
 
     def test_link_channel_email(self, service, mock_db):
         """Test linking email channel."""
@@ -432,8 +437,14 @@ class TestCustomerService:
     def test_get_customer_channels(self, service, mock_db):
         """Test getting all channels for a customer."""
         channels = [
-            Mock(spec=CustomerChannel, channel_type="email", external_id="test@example.com"),
-            Mock(spec=CustomerChannel, channel_type="phone", external_id="+1234567890"),
+            Mock(
+                spec=CustomerChannel,
+                channel_type="email",
+                external_id="test@example.com"),
+            Mock(
+                spec=CustomerChannel,
+                channel_type="phone",
+                external_id="+1234567890"),
         ]
 
         mock_db.query.return_value.filter.return_value.all.return_value = channels

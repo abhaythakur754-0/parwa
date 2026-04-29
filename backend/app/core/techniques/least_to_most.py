@@ -2538,7 +2538,8 @@ class LeastToMostProcessor:
         for pattern, domain in _DOMAIN_PATTERNS:
             matches = pattern.findall(query_lower)
             if matches:
-                domain_scores[domain] = domain_scores.get(domain, 0) + len(matches)
+                domain_scores[domain] = domain_scores.get(
+                    domain, 0) + len(matches)
 
         for domain, score in domain_scores.items():
             if score > best_score:

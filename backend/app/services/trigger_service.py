@@ -17,7 +17,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, desc, or_
+from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 
 from app.exceptions import NotFoundError, ValidationError
@@ -103,7 +103,7 @@ class TriggerService:
         # Check limit
         current_count = self.db.query(TicketTrigger).filter(
             TicketTrigger.company_id == self.company_id,
-            TicketTrigger.is_active == True,
+            TicketTrigger.is_active,
         ).count()
 
         if current_count >= self.MAX_TRIGGERS_PER_COMPANY:
@@ -189,19 +189,23 @@ class TriggerService:
 
         if action_type == "change_status":
             if "status" not in params:
-                raise ValidationError("change_status action requires 'status' param")
+                raise ValidationError(
+                    "change_status action requires 'status' param")
 
         elif action_type == "assign_to":
             if "assignee_id" not in params:
-                raise ValidationError("assign_to action requires 'assignee_id' param")
+                raise ValidationError(
+                    "assign_to action requires 'assignee_id' param")
 
         elif action_type in ["add_tag", "remove_tag"]:
             if "tag" not in params:
-                raise ValidationError(f"{action_type} action requires 'tag' param")
+                raise ValidationError(
+                    f"{action_type} action requires 'tag' param")
 
         elif action_type == "set_priority":
             if "priority" not in params:
-                raise ValidationError("set_priority action requires 'priority' param")
+                raise ValidationError(
+                    "set_priority action requires 'priority' param")
 
     def get_trigger(self, trigger_id: str) -> TicketTrigger:
         """Get a trigger by ID.
@@ -343,7 +347,10 @@ class TriggerService:
 
         return True
 
-    def toggle_trigger(self, trigger_id: str, is_active: bool) -> TicketTrigger:
+    def toggle_trigger(
+            self,
+            trigger_id: str,
+            is_active: bool) -> TicketTrigger:
         """Enable or disable a trigger.
 
         Args:
@@ -381,7 +388,7 @@ class TriggerService:
         # Get all active triggers for this event
         triggers = self.db.query(TicketTrigger).filter(
             TicketTrigger.company_id == self.company_id,
-            TicketTrigger.is_active == True,
+            TicketTrigger.is_active,
         ).order_by(desc(TicketTrigger.priority_order)).all()
 
         executed_actions = []
@@ -395,7 +402,11 @@ class TriggerService:
                 continue
 
             # Evaluate conditions
-            if self._evaluate_conditions(ticket, conditions.get("conditions", [])):
+            if self._evaluate_conditions(
+                ticket,
+                conditions.get(
+                    "conditions",
+                    [])):
                 # Mark as executed
                 trigger.execution_count = (trigger.execution_count or 0) + 1
                 trigger.last_executed_at = datetime.now(timezone.utc)

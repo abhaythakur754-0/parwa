@@ -22,18 +22,11 @@ from dataclasses import asdict
 import pytest
 
 from app.core.per_tenant_config import (
-    CATEGORY_SCHEMAS,
     TenantConfigManager,
-    TenantCompressionConfig,
     TenantFullConfig,
-    TenantModelConfig,
-    TenantTechniqueConfig,
-    TenantWorkflowConfig,
     VALID_LEVELS,
-    VALID_MODEL_TIERS,
     VALID_STRATEGIES,
     VALID_VARIANT_TYPES,
-    ValidationResult,
     VARIANT_DEFAULTS,
 )
 
@@ -650,7 +643,7 @@ class TestChangeNotifications:
 
     def test_remove_callback(self, manager):
         received = []
-        cb = lambda cid, cat, chg: received.append(True)
+        def cb(cid, cat, chg): return received.append(True)
         manager.on_config_change(cb)
         manager.remove_config_change_callback(cb)
         manager.update_config(

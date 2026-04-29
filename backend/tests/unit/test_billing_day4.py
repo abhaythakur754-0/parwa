@@ -140,7 +140,8 @@ class TestCancelSaveOffer:
         assert result["discounted_price"] is not None
         # Verify discounted price = 80% of original
         expected_discounted = result["original_price"] * Decimal("0.80")
-        assert result["discounted_price"] == expected_discounted.quantize(Decimal("0.01"))
+        assert result["discounted_price"] == expected_discounted.quantize(
+            Decimal("0.01"))
 
     def test_apply_save_offer_stores_metadata(self):
         """C1: apply_save_offer should store offer details in subscription metadata."""
@@ -228,7 +229,8 @@ class TestCancelConfirm:
         mock_sub.tier = "parwa"
         mock_sub.status = "active"
         mock_sub.cancel_at_period_end = False
-        mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=15)
+        mock_sub.current_period_end = datetime.now(
+            timezone.utc) + timedelta(days=15)
         mock_sub.paddle_subscription_id = None
         mock_sub.billing_frequency = "monthly"
         mock_sub.pending_downgrade_tier = None
@@ -354,7 +356,7 @@ class TestCancelEffectiveImmediately:
 
     def test_effective_period_end_keeps_active(self):
         """C2: effective_immediately=False should keep status active until period end."""
-        from app.services.subscription_service import SubscriptionService, SubscriptionStatus
+        from app.services.subscription_service import SubscriptionService
 
         service = SubscriptionService()
         company_id = uuid.uuid4()
@@ -460,7 +462,8 @@ class TestServiceStopOnCancel:
         mock_agent2.status = "active"
 
         mock_query_agents = MagicMock()
-        mock_query_agents.filter.return_value.all.return_value = [mock_agent1, mock_agent2]
+        mock_query_agents.filter.return_value.all.return_value = [
+            mock_agent1, mock_agent2]
         mock_query_team = MagicMock()
         mock_query_team.filter.return_value.all.return_value = []
         mock_query_channels = MagicMock()
@@ -477,7 +480,8 @@ class TestServiceStopOnCancel:
         mock_core.User = MagicMock()
         mock_core.Channel = MagicMock()
         with patch.dict(sys.modules, {"database.models.core": mock_core}):
-            result = service._apply_service_stop_on_cancel(mock_db, "company-1")
+            result = service._apply_service_stop_on_cancel(
+                mock_db, "company-1")
 
         assert result["agents_paused"] == 2
         assert mock_agent1.status == "paused"
@@ -497,7 +501,8 @@ class TestServiceStopOnCancel:
         mock_query_agents = MagicMock()
         mock_query_agents.filter.return_value.all.return_value = []
         mock_query_team = MagicMock()
-        mock_query_team.filter.return_value.all.return_value = [mock_member1, mock_member2]
+        mock_query_team.filter.return_value.all.return_value = [
+            mock_member1, mock_member2]
         mock_query_channels = MagicMock()
         mock_query_channels.filter.return_value.all.return_value = []
 
@@ -511,7 +516,8 @@ class TestServiceStopOnCancel:
         mock_core.User = MagicMock()
         mock_core.Channel = MagicMock()
         with patch.dict(sys.modules, {"database.models.core": mock_core}):
-            result = service._apply_service_stop_on_cancel(mock_db, "company-1")
+            result = service._apply_service_stop_on_cancel(
+                mock_db, "company-1")
 
         assert result["team_members_disabled"] == 2
         assert mock_member1.is_active is False
@@ -549,10 +555,15 @@ class TestServiceStopOnCancel:
         mock_core.User = MagicMock()
         mock_core.Channel = MagicMock()
         with patch.dict(sys.modules, {"database.models.core": mock_core}):
-            result = service._apply_service_stop_on_cancel(mock_db, "company-1")
+            result = service._apply_service_stop_on_cancel(
+                mock_db, "company-1")
 
         assert result["channels_disabled"] == 3
-        assert all(c.is_enabled is False for c in [mock_channel1, mock_channel2, mock_channel3])
+        assert all(
+            c.is_enabled is False for c in [
+                mock_channel1,
+                mock_channel2,
+                mock_channel3])
 
     def test_service_stop_empty_company(self):
         """C3: Should return zeros for a company with no resources."""
@@ -577,7 +588,8 @@ class TestServiceStopOnCancel:
         mock_core.User = MagicMock()
         mock_core.Channel = MagicMock()
         with patch.dict(sys.modules, {"database.models.core": mock_core}):
-            result = service._apply_service_stop_on_cancel(mock_db, "empty-company")
+            result = service._apply_service_stop_on_cancel(
+                mock_db, "empty-company")
 
         assert result["agents_paused"] == 0
         assert result["team_members_disabled"] == 0
@@ -662,7 +674,8 @@ class TestDataRetentionStatus:
 
         assert result["status"] == "in_retention"
         assert result["days_remaining"] > 0
-        assert result["days_remaining"] >= RETENTION_PERIOD_DAYS - 11  # Allow 1 day tolerance for time precision
+        # Allow 1 day tolerance for time precision
+        assert result["days_remaining"] >= RETENTION_PERIOD_DAYS - 11
         assert result["retention_period_days"] == RETENTION_PERIOD_DAYS
 
     def test_retention_expired_returns_expired(self):
@@ -741,7 +754,8 @@ class TestDataExport:
         with patch("app.services.data_retention_service.SessionLocal", return_value=mock_db):
             with patch.object(service, "get_retention_status", return_value={"status": "active"}):
                 with patch.object(service, "_generate_export_data", return_value={"export_info": {}}):
-                    result = asyncio.run(service.request_data_export(company_id))
+                    result = asyncio.run(
+                        service.request_data_export(company_id))
 
         assert "export_id" in result
         assert result["status"] == "completed"
@@ -778,7 +792,8 @@ class TestDataExport:
 
         mock_export = MagicMock()
         mock_export.status = "completed"
-        mock_export.expires_at = datetime.now(timezone.utc) + timedelta(hours=23)
+        mock_export.expires_at = datetime.now(
+            timezone.utc) + timedelta(hours=23)
         mock_export.export_data_json = '{"export_info": {"company_id": "test"}}'
 
         mock_db = MagicMock()
@@ -826,7 +841,8 @@ class TestDataExport:
 
         mock_export = MagicMock()
         mock_export.status = "completed"
-        mock_export.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        mock_export.expires_at = datetime.now(
+            timezone.utc) - timedelta(hours=1)
         mock_export.export_data_json = "{}"
 
         mock_db = MagicMock()
@@ -858,10 +874,12 @@ class TestDataRetentionCron:
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(uuid.uuid4())
         mock_sub.data_hard_deleted = False
-        mock_sub.service_stopped_at = datetime.now(timezone.utc) - timedelta(days=35)
+        mock_sub.service_stopped_at = datetime.now(
+            timezone.utc) - timedelta(days=35)
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value.all.return_value = [mock_sub]
+        mock_db.query.return_value.filter.return_value.all.return_value = [
+            mock_sub]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
@@ -882,7 +900,8 @@ class TestDataRetentionCron:
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(uuid.uuid4())
         mock_sub.data_hard_deleted = False
-        mock_sub.service_stopped_at = datetime.now(timezone.utc) - timedelta(days=15)
+        mock_sub.service_stopped_at = datetime.now(
+            timezone.utc) - timedelta(days=15)
 
         mock_db = MagicMock()
         # The query filter uses service_stopped_at <= cutoff (30 days ago)
@@ -906,7 +925,8 @@ class TestDataRetentionCron:
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(uuid.uuid4())
         mock_sub.data_hard_deleted = True  # Already deleted
-        mock_sub.service_stopped_at = datetime.now(timezone.utc) - timedelta(days=35)
+        mock_sub.service_stopped_at = datetime.now(
+            timezone.utc) - timedelta(days=35)
 
         mock_db = MagicMock()
         mock_db.query.return_value.filter.return_value.all.return_value = []
@@ -943,7 +963,8 @@ class TestDataCleanup:
 
         mock_db = MagicMock()
         mock_query_ticket = MagicMock()
-        mock_query_ticket.filter.return_value.all.return_value = [mock_ticket1, mock_ticket2]
+        mock_query_ticket.filter.return_value.all.return_value = [
+            mock_ticket1, mock_ticket2]
         mock_query_customer = MagicMock()
         mock_query_customer.filter.return_value.all.return_value = []
         mock_query_kb = MagicMock()
@@ -983,7 +1004,8 @@ class TestDataCleanup:
         mock_query_ticket = MagicMock()
         mock_query_ticket.filter.return_value.all.return_value = []
         mock_query_customer = MagicMock()
-        mock_query_customer.filter.return_value.all.return_value = [mock_customer]
+        mock_query_customer.filter.return_value.all.return_value = [
+            mock_customer]
         mock_query_kb = MagicMock()
         mock_query_kb.filter.return_value.all.return_value = []
         mock_db.query.side_effect = [
@@ -1018,7 +1040,8 @@ class TestDataCleanup:
         mock_query_customer = MagicMock()
         mock_query_customer.filter.return_value.all.return_value = []
         mock_query_kb = MagicMock()
-        mock_query_kb.filter.return_value.all.return_value = [mock_doc1, mock_doc2]
+        mock_query_kb.filter.return_value.all.return_value = [
+            mock_doc1, mock_doc2]
         mock_db.query.side_effect = [
             mock_query_ticket, mock_query_customer, mock_query_kb,
         ]
@@ -1054,9 +1077,12 @@ class TestResubscribeWithinRetention:
         mock_canceled_sub.id = str(uuid.uuid4())
         mock_canceled_sub.company_id = str(company_id)
         mock_canceled_sub.status = "canceled"
-        mock_canceled_sub.service_stopped_at = datetime.now(timezone.utc) - timedelta(days=10)
-        mock_canceled_sub.updated_at = datetime.now(timezone.utc) - timedelta(days=10)
-        mock_canceled_sub.created_at = datetime.now(timezone.utc) - timedelta(days=45)
+        mock_canceled_sub.service_stopped_at = datetime.now(
+            timezone.utc) - timedelta(days=10)
+        mock_canceled_sub.updated_at = datetime.now(
+            timezone.utc) - timedelta(days=10)
+        mock_canceled_sub.created_at = datetime.now(
+            timezone.utc) - timedelta(days=45)
 
         mock_company = MagicMock()
         mock_company.paddle_customer_id = None
@@ -1105,19 +1131,24 @@ class TestResubscribeWithinRetention:
 
         mock_db = MagicMock()
         mock_q_agent = MagicMock()
-        mock_q_agent.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [mock_agent]
+        mock_q_agent.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [
+            mock_agent]
         mock_q_member = MagicMock()
-        mock_q_member.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [mock_member]
+        mock_q_member.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [
+            mock_member]
         mock_q_channel = MagicMock()
         mock_q_channel.filter.return_value.all.return_value = [mock_channel]
-        mock_db.query.side_effect = [mock_q_agent, mock_q_member, mock_q_channel]
+        mock_db.query.side_effect = [
+            mock_q_agent, mock_q_member, mock_q_channel]
 
         mock_core = MagicMock()
         mock_core.Agent = MagicMock()
         mock_core.User = MagicMock()
         mock_core.Channel = MagicMock()
         with patch.dict(sys.modules, {"database.models.core": mock_core}):
-            result = asyncio.run(service._restore_archived_data(mock_db, "company-1", "parwa"))
+            result = asyncio.run(
+                service._restore_archived_data(
+                    mock_db, "company-1", "parwa"))
 
         assert result["agents_restored"] == 1
         assert mock_agent.status == "active"
@@ -1148,9 +1179,12 @@ class TestResubscribeAfterRetention:
         mock_canceled_sub.id = str(uuid.uuid4())
         mock_canceled_sub.company_id = str(company_id)
         mock_canceled_sub.status = "canceled"
-        mock_canceled_sub.service_stopped_at = datetime.now(timezone.utc) - timedelta(days=45)
-        mock_canceled_sub.updated_at = datetime.now(timezone.utc) - timedelta(days=45)
-        mock_canceled_sub.created_at = datetime.now(timezone.utc) - timedelta(days=80)
+        mock_canceled_sub.service_stopped_at = datetime.now(
+            timezone.utc) - timedelta(days=45)
+        mock_canceled_sub.updated_at = datetime.now(
+            timezone.utc) - timedelta(days=45)
+        mock_canceled_sub.created_at = datetime.now(
+            timezone.utc) - timedelta(days=80)
 
         mock_company = MagicMock()
         mock_company.paddle_customer_id = None
@@ -1253,9 +1287,12 @@ class TestResubscribePlanChange:
         mock_canceled_sub.company_id = str(company_id)
         mock_canceled_sub.status = "canceled"
         mock_canceled_sub.tier = "parwa"  # Was on growth
-        mock_canceled_sub.service_stopped_at = datetime.now(timezone.utc) - timedelta(days=5)
-        mock_canceled_sub.updated_at = datetime.now(timezone.utc) - timedelta(days=5)
-        mock_canceled_sub.created_at = datetime.now(timezone.utc) - timedelta(days=40)
+        mock_canceled_sub.service_stopped_at = datetime.now(
+            timezone.utc) - timedelta(days=5)
+        mock_canceled_sub.updated_at = datetime.now(
+            timezone.utc) - timedelta(days=5)
+        mock_canceled_sub.created_at = datetime.now(
+            timezone.utc) - timedelta(days=40)
 
         mock_company = MagicMock()
         mock_company.paddle_customer_id = None
@@ -1310,9 +1347,12 @@ class TestResubscribePlanChange:
         mock_canceled_sub.id = str(uuid.uuid4())
         mock_canceled_sub.company_id = str(company_id)
         mock_canceled_sub.status = "canceled"
-        mock_canceled_sub.service_stopped_at = datetime.now(timezone.utc) - timedelta(days=5)
-        mock_canceled_sub.updated_at = datetime.now(timezone.utc) - timedelta(days=5)
-        mock_canceled_sub.created_at = datetime.now(timezone.utc) - timedelta(days=40)
+        mock_canceled_sub.service_stopped_at = datetime.now(
+            timezone.utc) - timedelta(days=5)
+        mock_canceled_sub.updated_at = datetime.now(
+            timezone.utc) - timedelta(days=5)
+        mock_canceled_sub.created_at = datetime.now(
+            timezone.utc) - timedelta(days=40)
 
         mock_company = MagicMock()
         mock_company.paddle_customer_id = None
@@ -1361,7 +1401,8 @@ class TestPaymentFailureImmediateStop:
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(uuid.uuid4())
         mock_sub.status = SubscriptionStatus.PAYMENT_FAILED.value
-        mock_sub.payment_failed_at = datetime.now(timezone.utc) - timedelta(days=8)
+        mock_sub.payment_failed_at = datetime.now(
+            timezone.utc) - timedelta(days=8)
 
         mock_company = MagicMock()
         mock_company.subscription_status = "payment_failed"
@@ -1395,7 +1436,8 @@ class TestPaymentFailureImmediateStop:
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(uuid.uuid4())
         mock_sub.status = SubscriptionStatus.PAYMENT_FAILED.value
-        mock_sub.payment_failed_at = datetime.now(timezone.utc) - timedelta(days=3)
+        mock_sub.payment_failed_at = datetime.now(
+            timezone.utc) - timedelta(days=3)
 
         mock_db = MagicMock()
         mock_q_sub = MagicMock()
@@ -1453,7 +1495,8 @@ class TestAutoRetryPayments:
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(uuid.uuid4())
         mock_sub.status = SubscriptionStatus.PAYMENT_FAILED.value
-        mock_sub.payment_failed_at = datetime.now(timezone.utc) - timedelta(days=1)
+        mock_sub.payment_failed_at = datetime.now(
+            timezone.utc) - timedelta(days=1)
 
         mock_db = MagicMock()
         mock_q_sub = MagicMock()
@@ -1480,7 +1523,8 @@ class TestAutoRetryPayments:
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(uuid.uuid4())
         mock_sub.status = SubscriptionStatus.PAYMENT_FAILED.value
-        mock_sub.payment_failed_at = datetime.now(timezone.utc) - timedelta(days=2)
+        mock_sub.payment_failed_at = datetime.now(
+            timezone.utc) - timedelta(days=2)
 
         mock_db = MagicMock()
         mock_q_sub = MagicMock()
@@ -1505,7 +1549,8 @@ class TestAutoRetryPayments:
             mock_sub.id = str(uuid.uuid4())
             mock_sub.company_id = str(uuid.uuid4())
             mock_sub.status = SubscriptionStatus.PAYMENT_FAILED.value
-            mock_sub.payment_failed_at = datetime.now(timezone.utc) - timedelta(days=day)
+            mock_sub.payment_failed_at = datetime.now(
+                timezone.utc) - timedelta(days=day)
 
             mock_db = MagicMock()
             mock_q_sub = MagicMock()
@@ -1559,7 +1604,8 @@ class TestAutoRetryPayments:
 
         assert result["success"] is True
         assert mock_sub.status == SubscriptionStatus.ACTIVE.value
-        mock_paddle.resume_subscription.assert_called_once_with("paddle_sub_123")
+        mock_paddle.resume_subscription.assert_called_once_with(
+            "paddle_sub_123")
 
     def test_retry_no_subscription_raises(self):
         """G3: retry_failed_payment should raise if no payment_failed subscription."""
@@ -1646,7 +1692,8 @@ class TestPaymentMethodUpdate:
 
         with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
             with pytest.raises(SubscriptionError):
-                asyncio.run(service.generate_payment_method_update_url(company_id))
+                asyncio.run(
+                    service.generate_payment_method_update_url(company_id))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1678,7 +1725,10 @@ class TestDay4Coverage:
         # This meta-test just ensures we've organized tests by item ID
         # The actual coverage is provided by the test classes above
         test_classes = {
-            "C1": [TestCancelFeedbackSave, TestCancelSaveOffer, TestCancelConfirm],
+            "C1": [
+                TestCancelFeedbackSave,
+                TestCancelSaveOffer,
+                TestCancelConfirm],
             "C2": [TestCancelEffectiveImmediately],
             "C3": [TestServiceStopOnCancel],
             "C4": [TestDataRetentionStatus],
@@ -1694,4 +1744,5 @@ class TestDay4Coverage:
             "G4": [TestPaymentMethodUpdate],
         }
         assert item_id in test_classes, f"Item {item_id} ({description}) has no test class"
-        assert len(test_classes[item_id]) > 0, f"Item {item_id} has no test classes"
+        assert len(test_classes[item_id]
+                   ) > 0, f"Item {item_id} has no test classes"

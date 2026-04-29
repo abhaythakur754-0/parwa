@@ -19,23 +19,6 @@ Covers:
 """
 
 from __future__ import annotations
-
-import os
-import time
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
-
-# ── Environment bootstrap ──────────────────────────────────────────
-os.environ.setdefault("ENVIRONMENT", "test")
-os.environ.setdefault("SECRET_KEY", "test_secret")
-os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
-os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
-os.environ.setdefault("JWT_SECRET_KEY", "test_jwt")
-os.environ.setdefault("DATA_ENCRYPTION_KEY", "12345678901234567890123456789012")
-
 from app.core.rule_to_ai_migration import (
     CircuitBreaker,
     CircuitBreakerState,
@@ -56,6 +39,22 @@ from app.core.rule_to_ai_migration import (
     RolloutStrategy,
     create_migration_engine,
 )
+
+import os
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock
+
+import pytest
+
+# ── Environment bootstrap ──────────────────────────────────────────
+os.environ.setdefault("ENVIRONMENT", "test")
+os.environ.setdefault("SECRET_KEY", "test_secret")
+os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault("JWT_SECRET_KEY", "test_jwt")
+os.environ.setdefault(
+    "DATA_ENCRYPTION_KEY",
+    "12345678901234567890123456789012")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -206,7 +205,8 @@ class TestRedisFeatureFlagBackend:
         mock_redis = AsyncMock()
         b = RedisFeatureFlagBackend(mock_redis, key_prefix="migration")
         await b.set("t1:f1", "ai", ttl=3600)
-        mock_redis.set.assert_called_once_with("migration:t1:f1", "ai", ex=3600)
+        mock_redis.set.assert_called_once_with(
+            "migration:t1:f1", "ai", ex=3600)
 
     @pytest.mark.asyncio
     async def test_set_redis_error_no_crash(self):
@@ -438,7 +438,8 @@ class TestCheckShouldUseAi:
         assert result.timestamp is not None
 
     @pytest.mark.asyncio
-    async def test_flag_disabled_increments_rule_fallbacks(self, memory_backend):
+    async def test_flag_disabled_increments_rule_fallbacks(
+            self, memory_backend):
         engine = MigrationEngine(backend=memory_backend)
         await engine.disable_ai("t1", "f1")
         await engine.check_should_use_ai("t1", "f1")
@@ -468,7 +469,10 @@ class TestBatchCheck:
     @pytest.mark.asyncio
     async def test_batch_check_with_confidence(self, memory_backend):
         engine = MigrationEngine(backend=memory_backend)
-        config = MigrationConfig(tenant_id="t1", feature="f1", confidence_threshold=0.90)
+        config = MigrationConfig(
+            tenant_id="t1",
+            feature="f1",
+            confidence_threshold=0.90)
         await engine.set_config(config)
         checks = [
             {"tenant_id": "t1", "feature": "f1", "confidence": 0.50},
@@ -594,7 +598,11 @@ class TestCircuitBreaker:
         cb.record_failure("k")
         # Force opened_at in the past
         state = cb._ensure("k")
-        state.opened_at = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+        state.opened_at = (
+            datetime.now(
+                timezone.utc) -
+            timedelta(
+                seconds=1)).isoformat()
         assert cb.get_state("k") == CircuitState.HALF_OPEN
         # Now record enough successes
         for _ in range(3):
@@ -606,7 +614,11 @@ class TestCircuitBreaker:
         cb.record_failure("k")
         cb.record_failure("k")
         state = cb._ensure("k")
-        state.opened_at = (datetime.now(timezone.utc) - timedelta(seconds=120)).isoformat()
+        state.opened_at = (
+            datetime.now(
+                timezone.utc) -
+            timedelta(
+                seconds=120)).isoformat()
         assert cb.get_state("k") == CircuitState.HALF_OPEN
         cb.record_failure("k")
         # After failure in half_open, circuit re-opens. Since opened_at
@@ -720,11 +732,17 @@ class TestMigrationConfig:
         assert c.fallback_to_rule is True
 
     def test_rollout_percentage_clamped_high(self):
-        c = MigrationConfig(tenant_id="t1", feature="f1", rollout_percentage=2.0)
+        c = MigrationConfig(
+            tenant_id="t1",
+            feature="f1",
+            rollout_percentage=2.0)
         assert c.rollout_percentage == 1.0
 
     def test_rollout_percentage_clamped_low(self):
-        c = MigrationConfig(tenant_id="t1", feature="f1", rollout_percentage=-0.5)
+        c = MigrationConfig(
+            tenant_id="t1",
+            feature="f1",
+            rollout_percentage=-0.5)
         assert c.rollout_percentage == 0.0
 
     def test_created_at_auto_set(self):
@@ -732,7 +750,10 @@ class TestMigrationConfig:
         assert c.created_at != ""
 
     def test_to_dict(self):
-        c = MigrationConfig(tenant_id="t1", feature="f1", rollout_percentage=0.5)
+        c = MigrationConfig(
+            tenant_id="t1",
+            feature="f1",
+            rollout_percentage=0.5)
         d = c.to_dict()
         assert d["tenant_id"] == "t1"
         assert d["feature"] == "f1"
@@ -792,7 +813,7 @@ class TestMigrationEventBus:
 
     def test_unsubscribe(self):
         bus = MigrationEventBus()
-        handler = lambda ev: None
+        def handler(ev): return None
         bus.subscribe("e", handler)
         bus.unsubscribe("e", handler)
         assert bus._subs.get("e") == []
@@ -831,7 +852,10 @@ class TestMigrationEventBus:
 class TestConfigCrud:
     @pytest.mark.asyncio
     async def test_set_and_get_config(self, engine):
-        config = MigrationConfig(tenant_id="t1", feature="f1", rollout_percentage=0.5)
+        config = MigrationConfig(
+            tenant_id="t1",
+            feature="f1",
+            rollout_percentage=0.5)
         await engine.set_config(config)
         retrieved = await engine.get_config("t1", "f1")
         assert retrieved is not None
@@ -862,7 +886,8 @@ class TestConfigCrud:
     async def test_set_config_publishes_event(self, engine):
         config = MigrationConfig(tenant_id="t1", feature="f1")
         await engine.set_config(config)
-        events = engine.get_event_history(event_type="migration.config_updated")
+        events = engine.get_event_history(
+            event_type="migration.config_updated")
         assert len(events) == 1
 
 
@@ -1140,5 +1165,6 @@ class TestEngineEvents:
     async def test_get_event_history_filter(self, engine):
         await engine.enable_ai("t1", "f1")
         await engine.disable_ai("t1", "f1")
-        enable_events = engine.get_event_history(event_type="migration.ai_enabled")
+        enable_events = engine.get_event_history(
+            event_type="migration.ai_enabled")
         assert len(enable_events) == 1

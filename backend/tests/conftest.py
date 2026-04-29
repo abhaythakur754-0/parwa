@@ -9,6 +9,8 @@ the real app package is discovered by Python's import system.
 Instead, we set env vars and let app.config's Settings class validate
 against them, then override get_settings to return a mock.
 """
+import pytest
+from decimal import Decimal as _Decimal
 import sys
 import types
 import os
@@ -46,11 +48,11 @@ _fake_jarvis_models = types.ModuleType("database.models.jarvis")
 _fake_core_models = types.ModuleType("database.models.core")
 _fake_onboarding_models = types.ModuleType("database.models.onboarding")
 
-from unittest.mock import patch as _patch
 
 _fake_base.Base = MagicMock()
 _fake_base.engine = MagicMock()
 _fake_base.SessionLocal = MagicMock(return_value=_mock_db)
+
 
 def _fake_get_db():
     """Fake get_db generator for tests."""
@@ -58,6 +60,7 @@ def _fake_get_db():
         yield _mock_db
     finally:
         pass
+
 
 _fake_base.get_db = _fake_get_db
 _fake_base.get_tenant_db = _fake_get_db
@@ -67,7 +70,9 @@ _fake_core_models.__all__ = []
 _fake_onboarding_models.__all__ = []
 
 # User and Company are imported from database.models.core by deps.py
-_MockUser = type("User", (), {"id": None, "company_id": None, "role": None, "is_active": True})
+_MockUser = type(
+    "User", (), {
+        "id": None, "company_id": None, "role": None, "is_active": True})
 _MockCompany = type("Company", (), {
     "id": None, "name": None, "industry": None,
     "subscription_tier": None, "subscription_status": "active",
@@ -93,53 +98,76 @@ for model_name in ["DocumentChunk", "KnowledgeDocument"]:
     setattr(_fake_onboarding_models, model_name, MagicMock(name=model_name))
 
 # ── Attribute chain support for ORM mock queries ─────────────────
+
+
 class _AttrChainer:
     """Supports SQLAlchemy-style attribute chaining on mock model classes.
     e.g., EmailDeliveryEvent.created_at.desc() for order_by() calls,
     Model.severity.in_([...]) for filter expressions.
     """
+
     def __getattr__(self, name):
         return _AttrChainer()
+
     def desc(self):
         return self
+
     def asc(self):
         return self
+
     def __ge__(self, other):
         return True  # Always pass for mock filter comparisons
+
     def __le__(self, other):
         return True
+
     def __gt__(self, other):
         return True  # Support > comparisons
+
     def __lt__(self, other):
         return False  # Support < comparisons (for expires_at < now etc.)
+
     def __eq__(self, other):
         return True  # Filters always match in mocks
+
     def __ne__(self, other):
         return False
+
     def in_(self, *args):
         return self  # Support .in_() for filter expressions
+
     def isnot(self, *args):
         return self  # Support .isnot() for filter expressions
+
     def is_(self, *args):
         return self  # Support .is_(None) for filter expressions
+
     def contains(self, *args):
         return self  # Support .contains() for JSON column queries
+
     def __bool__(self):
         return True
+
     def __or__(self, other):
         return self  # Support | (SQLAlchemy OR) for filter expressions
+
     def __and__(self, other):
         return self  # Support & (SQLAlchemy AND) for filter expressions
+
     def nulls_last(self):
         return self  # Support .nulls_last() for order_by() calls
 
 # ── Common mock model helpers (used across multiple model modules) ──
+
+
 def _mock_model_init(self, **kwargs):
     for k, v in kwargs.items():
         setattr(self, k, v)
 
+
 def _mock_model_to_dict(self):
     return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
+
 
 # ── database.models.billing and billing_extended (Day 1/2 billing) ──
 _fake_billing_models = types.ModuleType("database.models.billing")
@@ -194,12 +222,15 @@ _MockProrationAudit = type("ProrationAudit", (object,), {
     "calculated_at": _AttrChainer(),
     "__init__": _mock_model_init,
 })
+
+
 def _company_variant_init(self, **kwargs):
     """CompanyVariant init that sets proper defaults for AttrChainer fields."""
     import uuid as _uuid
     _mock_model_init(self, **kwargs)
     # Set defaults for fields that use _AttrChainer on the class
-    # so instances get proper Python types (not _AttrChainer) for Pydantic validation
+    # so instances get proper Python types (not _AttrChainer) for Pydantic
+    # validation
     if "id" not in kwargs:
         self.id = str(_uuid.uuid4())
     if "deactivated_at" not in kwargs:
@@ -208,6 +239,7 @@ def _company_variant_init(self, **kwargs):
         self.activated_at = None
     if "created_at" not in kwargs:
         self.created_at = None
+
 
 _MockCompanyVariant = type("CompanyVariant", (object,), {
     "__tablename__": "company_variants",
@@ -465,7 +497,8 @@ _MockCustomer = type("Customer", (), {
 })
 setattr(_fake_tickets_models, "Customer", _MockCustomer)
 
-# Ticket/TicketMessage needed by outbound_email_service.py (imports from database.models.tickets)
+# Ticket/TicketMessage needed by outbound_email_service.py (imports from
+# database.models.tickets)
 _MockTicket = type("Ticket", (), {
     "id": None, "company_id": None, "customer_id": None,
     "channel": "email", "subject": None, "status": "open",
@@ -482,7 +515,8 @@ _MockTicketMessage = type("TicketMessage", (), {
 setattr(_fake_tickets_models, "Ticket", _MockTicket)
 setattr(_fake_tickets_models, "TicketMessage", _MockTicketMessage)
 
-# TicketFeedback and TicketAssignment needed by agent_dashboard_service.py (Week 17)
+# TicketFeedback and TicketAssignment needed by agent_dashboard_service.py
+# (Week 17)
 _MockTicketFeedback = type("TicketFeedback", (object,), {
     "id": None, "company_id": _AttrChainer(), "ticket_id": None,
     "rating": None, "created_at": _AttrChainer(),
@@ -525,8 +559,10 @@ _MockOutboundEmail = type("OutboundEmail", (), {
 })
 
 for model_name in ["EmailThread", "InboundEmail"]:
-    setattr(_fake_email_channel, model_name,
-            _MockEmailThread if model_name == "EmailThread" else _MockInboundEmail)
+    setattr(
+        _fake_email_channel,
+        model_name,
+        _MockEmailThread if model_name == "EmailThread" else _MockInboundEmail)
 setattr(_fake_outbound_email, "OutboundEmail", _MockOutboundEmail)
 
 _MockEmailDeliveryEvent = type("EmailDeliveryEvent", (object,), {
@@ -542,14 +578,21 @@ _MockEmailDeliveryEvent = type("EmailDeliveryEvent", (object,), {
     "__tablename__": "email_delivery_events",
 })
 
+
 def _email_delivery_to_dict(self):
-    return {"id": getattr(self, 'id', None), "event_type": getattr(self, 'event_type', None)}
+    return {
+        "id": getattr(
+            self, 'id', None), "event_type": getattr(
+            self, 'event_type', None)}
+
 
 _MockEmailDeliveryEvent.to_dict = _email_delivery_to_dict
+
 
 def _email_delivery_init(self, **kwargs):
     for k, v in kwargs.items():
         setattr(self, k, v)
+
 
 _MockEmailDeliveryEvent.__init__ = _email_delivery_init
 
@@ -558,7 +601,9 @@ setattr(_fake_delivery_event, "EmailDeliveryEvent", _MockEmailDeliveryEvent)
 
 sys.modules.setdefault("database.models.email_channel", _fake_email_channel)
 sys.modules.setdefault("database.models.outbound_email", _fake_outbound_email)
-sys.modules.setdefault("database.models.email_delivery_event", _fake_delivery_event)
+sys.modules.setdefault(
+    "database.models.email_delivery_event",
+    _fake_delivery_event)
 
 # ── database.models.ooo_detection (Week 13 Day 3 — F-122) ──────────
 _fake_ooo_models = types.ModuleType("database.models.ooo_detection")
@@ -636,7 +681,10 @@ _MockEmailDeliverabilityAlert = type("EmailDeliverabilityAlert", (object,), {
 
 setattr(_fake_bounces_models, "EmailBounce", _MockEmailBounce)
 setattr(_fake_bounces_models, "CustomerEmailStatus", _MockCustomerEmailStatus)
-setattr(_fake_bounces_models, "EmailDeliverabilityAlert", _MockEmailDeliverabilityAlert)
+setattr(
+    _fake_bounces_models,
+    "EmailDeliverabilityAlert",
+    _MockEmailDeliverabilityAlert)
 sys.modules.setdefault("database.models.email_bounces", _fake_bounces_models)
 
 # ── database.models.chat_widget (Week 13 Day 4 — F-122) ────────
@@ -828,10 +876,21 @@ _MockAgentPerformanceAlert = type("AgentPerformanceAlert", (object,), {
     "created_at": _AttrChainer(), "updated_at": _AttrChainer(),
     "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
 })
-setattr(_fake_agent_metrics_models, "AgentMetricsDaily", _MockAgentMetricsDaily)
-setattr(_fake_agent_metrics_models, "AgentMetricThreshold", _MockAgentMetricThreshold)
-setattr(_fake_agent_metrics_models, "AgentPerformanceAlert", _MockAgentPerformanceAlert)
-sys.modules.setdefault("database.models.agent_metrics", _fake_agent_metrics_models)
+setattr(
+    _fake_agent_metrics_models,
+    "AgentMetricsDaily",
+    _MockAgentMetricsDaily)
+setattr(
+    _fake_agent_metrics_models,
+    "AgentMetricThreshold",
+    _MockAgentMetricThreshold)
+setattr(
+    _fake_agent_metrics_models,
+    "AgentPerformanceAlert",
+    _MockAgentPerformanceAlert)
+sys.modules.setdefault(
+    "database.models.agent_metrics",
+    _fake_agent_metrics_models)
 
 # ── database.models.provisioning (Week 17 Day 2 — F-099) ──
 _fake_provisioning_models = types.ModuleType("database.models.provisioning")
@@ -848,7 +907,9 @@ _MockPendingAgent = type("PendingAgent", (object,), {
     "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
 })
 setattr(_fake_provisioning_models, "PendingAgent", _MockPendingAgent)
-sys.modules.setdefault("database.models.provisioning", _fake_provisioning_models)
+sys.modules.setdefault(
+    "database.models.provisioning",
+    _fake_provisioning_models)
 
 sys.modules.setdefault("database", _fake_database)
 sys.modules.setdefault("database.base", _fake_base)
@@ -858,7 +919,7 @@ sys.modules.setdefault("database.models.core", _fake_core_models)
 sys.modules.setdefault("database.models.onboarding", _fake_onboarding_models)
 sys.modules.setdefault("database.models.billing", _fake_billing_models)
 # ── Add get_variant_limits helper (used by refund_service cooling-off) ──
-from decimal import Decimal as _Decimal
+
 
 def _get_variant_limits(variant_name: str):
     """Mock version of get_variant_limits from billing_extended."""
@@ -869,9 +930,12 @@ def _get_variant_limits(variant_name: str):
     }
     return _LIMITS.get(variant_name)
 
+
 setattr(_fake_billing_extended, "get_variant_limits", _get_variant_limits)
 
-sys.modules.setdefault("database.models.billing_extended", _fake_billing_extended)
+sys.modules.setdefault(
+    "database.models.billing_extended",
+    _fake_billing_extended)
 
 # ── shared layer (exists on disk but imports database.models.onboarding) ──
 _FAKE_SHARED = types.ModuleType("shared")
@@ -919,7 +983,11 @@ for mod_path, attrs in {
     },
 }.items():
     mod_file = mod_path.replace(".", "/") + ".py"
-    if not os.path.exists(os.path.join(os.path.dirname(__file__), "..", mod_file)):
+    if not os.path.exists(
+        os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            mod_file)):
         mod = types.ModuleType(mod_path)
         for k, v in attrs.items():
             setattr(mod, k, v)
@@ -928,7 +996,11 @@ for mod_path, attrs in {
 # ── app.services — some tests import from app.services.* ─────────────
 # Mock specific service modules that tests reference but may not exist
 # or may have cascading import issues.
-_SERVICES_DIR = os.path.join(os.path.dirname(__file__), "..", "app", "services")
+_SERVICES_DIR = os.path.join(
+    os.path.dirname(__file__),
+    "..",
+    "app",
+    "services")
 
 for mod_path in [
     "app.services.prompt_template_service",
@@ -936,7 +1008,11 @@ for mod_path in [
     "app.services.response_template_service",
 ]:
     mod_file = mod_path.replace(".", "/") + ".py"
-    if not os.path.exists(os.path.join(os.path.dirname(__file__), "..", mod_file)):
+    if not os.path.exists(
+        os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            mod_file)):
         sys.modules.setdefault(mod_path, MagicMock())
 
 # ── app.core.email_renderer — mock for outbound email tests ────────
@@ -963,8 +1039,6 @@ if not os.path.exists(_event_emitter_path):
 # ════════════════════════════════════════════════════════════════════════
 # Phase 4: pytest fixtures
 # ════════════════════════════════════════════════════════════════════════
-
-import pytest
 
 
 @pytest.fixture

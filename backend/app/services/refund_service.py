@@ -43,7 +43,12 @@ COOLING_OFF_AUTO_APPROVE_THRESHOLD = Decimal("1000.00")
 
 # ── Valid refund statuses ───────────────────────────────────────────────────
 
-VALID_REFUND_STATUSES = {"pending", "approved", "rejected", "processed", "failed"}
+VALID_REFUND_STATUSES = {
+    "pending",
+    "approved",
+    "rejected",
+    "processed",
+    "failed"}
 
 # ── Valid refund types ─────────────────────────────────────────────────────
 
@@ -55,7 +60,11 @@ VALID_CREDIT_SOURCES = {"refund", "promo", "goodwill", "cooling_off"}
 
 # ── Valid credit statuses ──────────────────────────────────────────────────
 
-VALID_CREDIT_STATUSES = {"available", "partially_used", "fully_used", "expired"}
+VALID_CREDIT_STATUSES = {
+    "available",
+    "partially_used",
+    "fully_used",
+    "expired"}
 
 
 # ── Exceptions ──────────────────────────────────────────────────────────────
@@ -63,27 +72,22 @@ VALID_CREDIT_STATUSES = {"available", "partially_used", "fully_used", "expired"}
 
 class RefundError(Exception):
     """Base exception for refund errors."""
-    pass
 
 
 class RefundNotFoundError(RefundError):
     """Refund record not found."""
-    pass
 
 
 class RefundAlreadyProcessedError(RefundError):
     """Refund has already been processed and cannot be modified."""
-    pass
 
 
 class CoolingOffExpiredError(RefundError):
     """Cooling-off period has expired."""
-    pass
 
 
 class InsufficientCreditsError(RefundError):
     """Not enough credit balance available."""
-    pass
 
 
 # ── Service ─────────────────────────────────────────────────────────────────
@@ -175,7 +179,8 @@ class RefundService:
                 if subscription and subscription.current_period_start:
                     period_start = subscription.current_period_start
                     if period_start.tzinfo is None:
-                        period_start = period_start.replace(tzinfo=timezone.utc)
+                        period_start = period_start.replace(
+                            tzinfo=timezone.utc)
 
                     elapsed_hours = (now - period_start).total_seconds() / 3600
                     if elapsed_hours > COOLING_OFF_HOURS:
@@ -365,7 +370,9 @@ class RefundService:
             refund.approver_id = str(approver_id)
             # Store rejection reason in the existing reason field
             # with a prefix to distinguish from original reason
-            refund.reason = f"[REJECTED] {reason.strip()} — Original: {refund.reason}"
+            refund.reason = f"[REJECTED] {
+                reason.strip()} — Original: {
+                refund.reason}"
 
             db.commit()
             db.refresh(refund)
@@ -463,8 +470,13 @@ class RefundService:
                     company_id=UUID(company_id),
                     amount=amount,
                     source="refund" if refund.refund_type == "credit" else "cooling_off",
-                    description=f"Credit from {refund.refund_type} refund: {refund.reason}",
-                    expires_at=now + timedelta(days=CREDIT_DEFAULT_EXPIRY_MONTHS * 30),
+                    description=f"Credit from {
+                        refund.refund_type} refund: {
+                        refund.reason}",
+                    expires_at=now +
+                    timedelta(
+                        days=CREDIT_DEFAULT_EXPIRY_MONTHS *
+                        30),
                 ).get("id")
 
                 # Link credit to refund audit
@@ -473,8 +485,10 @@ class RefundService:
             # Record transaction
             transaction = Transaction(
                 company_id=company_id,
-                amount=-amount.quantize(Decimal("0.01")),  # Negative for refund
-                currency=refund.currency if hasattr(refund, "currency") else "USD",
+                # Negative for refund
+                amount=-amount.quantize(Decimal("0.01")),
+                currency=refund.currency if hasattr(
+                    refund, "currency") else "USD",
                 status="completed",
                 transaction_type="refund",
                 description=f"Refund ({refund.refund_type}): {refund.reason}",
@@ -505,9 +519,8 @@ class RefundService:
                 "credit_balance_id": credit_balance_id,
                 "transaction_id": transaction.id,
                 "message": (
-                    f"Refund of {amount} processed successfully."
-                    + (f" Credit balance {credit_balance_id} created." if credit_balance_id else "")
-                ),
+                    f"Refund of {amount} processed successfully." + (
+                        f" Credit balance {credit_balance_id} created." if credit_balance_id else "")),
             }
 
     # ═══════════════════════════════════════════════════════════════════
@@ -639,8 +652,8 @@ class RefundService:
 
             if credit.status in ("fully_used", "expired"):
                 raise InsufficientCreditsError(
-                    f"Credit {credit_id} is {credit.status} and cannot be applied"
-                )
+                    f"Credit {credit_id} is {
+                        credit.status} and cannot be applied")
 
             # Check expiry
             now = datetime.now(timezone.utc)
@@ -827,8 +840,8 @@ class RefundService:
 
             if refund_amount <= 0:
                 raise RefundError(
-                    f"Cannot determine refund amount for tier '{subscription.tier}'"
-                )
+                    f"Cannot determine refund amount for tier '{
+                        subscription.tier}'")
 
             now = datetime.now(timezone.utc)
 
@@ -949,7 +962,9 @@ class RefundService:
 
             refunds = query.order_by(RefundAudit.created_at.desc()).all()
 
-            return [self._refund_audit_to_dict(r, include_meta=True) for r in refunds]
+            return [
+                self._refund_audit_to_dict(
+                    r, include_meta=True) for r in refunds]
 
     # ═══════════════════════════════════════════════════════════════════
     # Internal Helpers
@@ -974,7 +989,7 @@ class RefundService:
             Paddle refund ID string, or None if not applicable
         """
         try:
-            from app.clients.paddle_client import get_paddle_client
+            pass
         except ImportError:
             logger.warning("paddle_client not available for refund processing")
             return None

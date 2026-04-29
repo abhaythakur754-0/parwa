@@ -24,13 +24,10 @@ Building Codes:
 - BC-012: Error handling (structured errors, retry logic)
 """
 
-import json
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any, List
-from decimal import Decimal
+from typing import Optional, Dict, List
 
-from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger("parwa.fallback_training")
@@ -168,7 +165,9 @@ class FallbackTrainingService:
                     reason = "high_mistakes_early_retrain"
                 else:
                     is_due = False
-                    reason = f"not_due_yet_{RETRAINING_INTERVAL_DAYS - days_since_training}_days_remaining"
+                    reason = f"not_due_yet_{
+                        RETRAINING_INTERVAL_DAYS -
+                        days_since_training}_days_remaining"
             else:
                 is_due = False
                 reason = "recently_trained"
@@ -231,7 +230,8 @@ class FallbackTrainingService:
             )
 
             if last_training and last_training.completed_at:
-                next_training = last_training.completed_at + timedelta(days=RETRAINING_INTERVAL_DAYS)
+                next_training = last_training.completed_at + \
+                    timedelta(days=RETRAINING_INTERVAL_DAYS)
             else:
                 # Cold start agents - schedule immediately
                 next_training = now
@@ -276,13 +276,14 @@ class FallbackTrainingService:
         Returns:
             Dict with scheduling result.
         """
-        from database.models.agent import Agent
         from app.services.agent_training_service import AgentTrainingService
         from app.services.dataset_preparation_service import DatasetPreparationService
 
         # Check eligibility
-        due_agents = self.get_agents_due_for_retraining(company_id, include_force=force)
-        agent_info = next((a for a in due_agents if a["agent_id"] == agent_id), None)
+        due_agents = self.get_agents_due_for_retraining(
+            company_id, include_force=force)
+        agent_info = next(
+            (a for a in due_agents if a["agent_id"] == agent_id), None)
 
         if not agent_info:
             return {
@@ -342,7 +343,8 @@ class FallbackTrainingService:
             if dataset_result.get("status") != "prepared":
                 return {
                     "status": "error",
-                    "error": f"Dataset preparation failed: {dataset_result.get('error')}",
+                    "error": f"Dataset preparation failed: {
+                        dataset_result.get('error')}",
                     "agent_id": agent_id,
                 }
 
@@ -475,7 +477,6 @@ class FallbackTrainingService:
             Dict with effectiveness metrics.
         """
         from database.models.training import TrainingRun, AgentMistake
-        from database.models.agent_metrics import AgentMetrics
 
         query = (
             self.db.query(TrainingRun)
@@ -503,10 +504,13 @@ class FallbackTrainingService:
                 before_start = run.started_at - timedelta(days=7)
                 before_end = run.started_at
             else:
-                before_start = run.created_at - timedelta(days=7) if run.created_at else datetime.now(timezone.utc) - timedelta(days=7)
-                before_end = run.created_at if run.created_at else datetime.now(timezone.utc)
+                before_start = run.created_at - \
+                    timedelta(days=7) if run.created_at else datetime.now(timezone.utc) - timedelta(days=7)
+                before_end = run.created_at if run.created_at else datetime.now(
+                    timezone.utc)
 
-            after_start = run.completed_at if run.completed_at else datetime.now(timezone.utc)
+            after_start = run.completed_at if run.completed_at else datetime.now(
+                timezone.utc)
             after_end = after_start + timedelta(days=7)
 
             mistakes_before = (
@@ -533,7 +537,8 @@ class FallbackTrainingService:
 
             # Calculate improvement
             if mistakes_before > 0:
-                improvement_pct = ((mistakes_before - mistakes_after) / mistakes_before) * 100
+                improvement_pct = (
+                    (mistakes_before - mistakes_after) / mistakes_before) * 100
             else:
                 improvement_pct = 0 if mistakes_after == 0 else -100
 
@@ -561,11 +566,13 @@ class FallbackTrainingService:
 
         if effectiveness_data:
             improvements = [d["improvement_pct"] for d in effectiveness_data]
-            accuracies = [d["final_accuracy"] for d in effectiveness_data if d["final_accuracy"]]
+            accuracies = [d["final_accuracy"]
+                          for d in effectiveness_data if d["final_accuracy"]]
             costs = [d["cost_usd"] for d in effectiveness_data]
 
             avg_improvement = sum(improvements) / len(improvements)
-            avg_accuracy = sum(accuracies) / len(accuracies) if accuracies else 0
+            avg_accuracy = sum(accuracies) / \
+                len(accuracies) if accuracies else 0
             total_cost = sum(costs)
 
         return {

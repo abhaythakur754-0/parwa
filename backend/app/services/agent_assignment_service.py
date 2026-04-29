@@ -14,7 +14,6 @@ from sqlalchemy.orm.session import Session
 
 from database.models.variant_engine import AIAgentAssignment
 from app.exceptions import (
-    ParwaBaseError,
     ValidationError,
     NotFoundError,
 )

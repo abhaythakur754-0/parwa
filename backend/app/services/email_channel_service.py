@@ -25,7 +25,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import and_, or_
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.schemas.email_channel import AutoReplyDetection, EmailLoopDetection
@@ -225,7 +225,9 @@ class EmailChannelService:
         # Step 4b: Spam detection (PS15 + MF21)
         spam_result = self._check_spam(company_id, email_data)
         if spam_result and spam_result.get("should_auto_flag"):
-            inbound_email.processing_error = f"Auto-flagged as spam: {spam_result.get('spam_score', 0)}"
+            inbound_email.processing_error = f"Auto-flagged as spam: {
+                spam_result.get(
+                    'spam_score', 0)}"
             self.db.commit()
             logger.warning(
                 "email_spam_flagged",
@@ -249,7 +251,8 @@ class EmailChannelService:
         # Step 6: Find existing thread
         in_reply_to = email_data.get("in_reply_to")
         references = email_data.get("references", "")
-        email_thread = self.find_email_thread(company_id, in_reply_to, references)
+        email_thread = self.find_email_thread(
+            company_id, in_reply_to, references)
 
         try:
             if email_thread:
@@ -359,7 +362,8 @@ class EmailChannelService:
             headers = headers_json
 
         # Check 1: Self-sent (sender domain matches PARWA domains)
-        sender_domain = sender_email.split("@")[-1] if "@" in sender_email else ""
+        sender_domain = sender_email.split(
+            "@")[-1] if "@" in sender_email else ""
         if sender_domain in PARWA_SYSTEM_DOMAINS:
             return EmailLoopDetection(
                 is_loop=True,
@@ -605,7 +609,8 @@ class EmailChannelService:
         total_pages = max(1, (total + page_size - 1) // page_size)
         offset = (page - 1) * page_size
 
-        items = query.order_by(InboundEmail.created_at.desc()).offset(offset).limit(page_size).all()
+        items = query.order_by(InboundEmail.created_at.desc()).offset(
+            offset).limit(page_size).all()
 
         return {
             "items": [item.to_dict() for item in items],
@@ -617,7 +622,10 @@ class EmailChannelService:
 
     # ── Private Methods ─────────────────────────────────────────
 
-    def _store_raw_email(self, company_id: str, email_data: dict) -> InboundEmail:
+    def _store_raw_email(
+            self,
+            company_id: str,
+            email_data: dict) -> InboundEmail:
         """Store raw inbound email in the database.
 
         Args:
@@ -726,7 +734,10 @@ class EmailChannelService:
         # Fallback: split by whitespace
         return [r.strip() for r in references.split() if r.strip()]
 
-    def _find_or_create_customer(self, company_id: str, email_data: dict) -> Optional[str]:
+    def _find_or_create_customer(
+            self,
+            company_id: str,
+            email_data: dict) -> Optional[str]:
         """Find or create a customer based on email address.
 
         Uses the identity resolution service if available,
@@ -797,7 +808,8 @@ class EmailChannelService:
             from app.services.spam_detection_service import SpamDetectionService
             spam_svc = SpamDetectionService(self.db, company_id)
             subject = email_data.get("subject", "")
-            content = email_data.get("body_text") or email_data.get("body_html", "")
+            content = email_data.get(
+                "body_text") or email_data.get("body_html", "")
             return spam_svc.analyze_ticket(
                 subject=subject,
                 content=content[:2000],  # Limit for performance
@@ -813,7 +825,10 @@ class EmailChannelService:
             )
             return None
 
-    def _classify_email(self, company_id: str, email_data: dict) -> Optional[dict]:
+    def _classify_email(
+            self,
+            company_id: str,
+            email_data: dict) -> Optional[dict]:
         """Run AI intent classification on inbound email (F-062).
 
         Uses ClassificationEngine to determine the primary intent,
@@ -831,7 +846,6 @@ class EmailChannelService:
         try:
             from app.core.classification_engine import (
                 ClassificationEngine,
-                INTENT_TO_CATEGORY_MAP,
             )
             engine = ClassificationEngine()
             text = email_data.get("body_text") or ""

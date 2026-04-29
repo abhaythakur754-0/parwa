@@ -11,11 +11,8 @@ Tests for all 7 Day 1 fixes:
   D1: CORS — no wildcard fallback with credentials
 """
 
-import json
-import os
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-import asyncio
+from unittest.mock import AsyncMock, MagicMock
 
 
 # ============================================================
@@ -111,7 +108,8 @@ class TestCSRFMiddleware:
         call_next.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_post_with_mismatched_csrf_returns_403(self, csrf_middleware):
+    async def test_post_with_mismatched_csrf_returns_403(
+            self, csrf_middleware):
         """A3: POST with mismatched CSRF token should return 403."""
         request = MagicMock()
         request.method = "POST"
@@ -162,7 +160,8 @@ class TestCORSConfig:
         """D1: When CORS_ORIGINS is empty, origins should be [] not ['*']."""
         cors_origins_setting = ""
         if cors_origins_setting:
-            result = [o.strip() for o in cors_origins_setting.split(",") if o.strip()]
+            result = [o.strip()
+                      for o in cors_origins_setting.split(",") if o.strip()]
         else:
             result = []
         assert result == [], f"Expected empty list, got {result}"
@@ -171,7 +170,8 @@ class TestCORSConfig:
     def test_valid_cors_origins_parsed(self):
         """D1: Valid comma-separated origins should be parsed correctly."""
         cors_origins_setting = "https://parwa.ai, https://app.parwa.ai"
-        result = [o.strip() for o in cors_origins_setting.split(",") if o.strip()]
+        result = [o.strip()
+                  for o in cors_origins_setting.split(",") if o.strip()]
         assert result == ["https://parwa.ai", "https://app.parwa.ai"]
         assert "*" not in result
 
@@ -365,11 +365,11 @@ class TestHTMLEscapingInEmails:
         # Simulate the escapeHtml function logic
         def escapeHtml(s: str) -> str:
             return (s
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace('"', "&quot;")
-                .replace("'", "&#039;"))
+                    .replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;")
+                    .replace('"', "&quot;")
+                    .replace("'", "&#039;"))
 
         malicious = '<script>alert("xss")</script>'
         escaped = escapeHtml(malicious)
@@ -382,11 +382,11 @@ class TestHTMLEscapingInEmails:
         """C6: escapeHtml should handle ampersands."""
         def escapeHtml(s: str) -> str:
             return (s
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace('"', "&quot;")
-                .replace("'", "&#039;"))
+                    .replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;")
+                    .replace('"', "&quot;")
+                    .replace("'", "&#039;"))
 
         assert escapeHtml("Tom & Jerry") == "Tom &amp; Jerry"
 
@@ -428,7 +428,8 @@ class TestOTPNotInSubject:
 
         lines = content.split("\n")
         for line in lines:
-            if "subject=" in line and ("{otp" in line.lower() or "{code" in line.lower()):
+            if "subject=" in line and (
+                    "{otp" in line.lower() or "{code" in line.lower()):
                 assert False, \
                     f"business_email_otp_service should NOT include OTP in subject: {line}"
 

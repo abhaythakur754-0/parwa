@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field, field_validator
 
 
-# ── Assignment Rule Schemas ───────────────────────────────────────────────────
+# ── Assignment Rule Schemas ─────────────────────────────────────────────
 
 
 class AssignmentRuleCreate(BaseModel):

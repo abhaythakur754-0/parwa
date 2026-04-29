@@ -17,15 +17,11 @@ Target: 45+ tests
 
 from __future__ import annotations
 
-import time
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
 
 import pytest
 
 from app.core.dspy_integration import (
     DSPyIntegration,
-    DSPyConfig,
     StubModule,
     StubPrediction,
     PREDEFINED_SIGNATURES,
@@ -289,7 +285,8 @@ class TestBridgeToParwa:
         )
         assert updates == {}
 
-    def test_bridge_invalid_confidence_ignored(self, dspy, mock_conversation_state):
+    def test_bridge_invalid_confidence_ignored(
+            self, dspy, mock_conversation_state):
         dspy_output = {"confidence": "not_a_number"}
         updates = dspy.bridge_to_parwa(
             dspy_output, mock_conversation_state
@@ -312,7 +309,8 @@ class TestBridgeFromParwa:
         inputs = dspy.bridge_from_parwa(mock_conversation_state)
         assert inputs["gsd_state"] == "diagnosis"
 
-    def test_bridge_extracts_conversation_history(self, dspy, mock_conversation_state):
+    def test_bridge_extracts_conversation_history(
+            self, dspy, mock_conversation_state):
         inputs = dspy.bridge_from_parwa(mock_conversation_state)
         assert "conversation_history" in inputs
         assert len(inputs["conversation_history"]) == 3

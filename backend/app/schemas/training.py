@@ -8,10 +8,8 @@ Building Codes:
 - BC-012: Structured error responses
 """
 
-from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, ConfigDict
-from uuid import UUID
+from pydantic import BaseModel, Field
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -26,9 +24,12 @@ class MistakeReportRequest(BaseModel):
         "incorrect_response",
         description="Type of mistake (incorrect_response, hallucination, tone_issue, incomplete, policy_violation, escalation_needed, other)"
     )
-    original_response: Optional[str] = Field(None, description="The incorrect AI response")
-    expected_response: Optional[str] = Field(None, description="What the response should have been")
-    correction: Optional[str] = Field(None, description="Correction or action taken")
+    original_response: Optional[str] = Field(
+        None, description="The incorrect AI response")
+    expected_response: Optional[str] = Field(
+        None, description="What the response should have been")
+    correction: Optional[str] = Field(
+        None, description="Correction or action taken")
     severity: str = Field(
         "medium",
         description="Severity level (low, medium, high, critical)"
@@ -97,11 +98,19 @@ class TrainingRunCreateRequest(BaseModel):
     name: Optional[str] = Field(None, description="Optional run name")
     trigger: str = Field(
         "manual",
-        description="Trigger type (manual, auto_threshold, scheduled, cold_start)"
-    )
-    base_model: Optional[str] = Field(None, description="Base model to fine-tune")
-    epochs: int = Field(3, ge=1, le=10, description="Number of training epochs")
-    learning_rate: float = Field(0.0001, ge=1e-6, le=1e-2, description="Learning rate")
+        description="Trigger type (manual, auto_threshold, scheduled, cold_start)")
+    base_model: Optional[str] = Field(
+        None, description="Base model to fine-tune")
+    epochs: int = Field(
+        3,
+        ge=1,
+        le=10,
+        description="Number of training epochs")
+    learning_rate: float = Field(
+        0.0001,
+        ge=1e-6,
+        le=1e-2,
+        description="Learning rate")
     batch_size: int = Field(16, ge=1, le=64, description="Batch size")
 
 

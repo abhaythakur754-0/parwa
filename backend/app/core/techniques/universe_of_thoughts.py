@@ -885,7 +885,8 @@ class UoTProcessor:
 
         # Ensure minimum count — if primary category has too few,
         # supplement from general category
-        if len(selected) < self.config.min_solutions and category != SolutionCategory.GENERAL:
+        if len(
+                selected) < self.config.min_solutions and category != SolutionCategory.GENERAL:
             general_templates = _SOLUTION_TEMPLATES[SolutionCategory.GENERAL]
             needed = self.config.min_solutions - len(selected)
             selected.extend(general_templates[:needed])
@@ -988,14 +989,24 @@ class UoTProcessor:
                 "category": solution.category,
                 "customer_satisfaction": csat_score,
                 "financial_cost": cost_score,
-                "financial_cost_raw": raw.get("financial_cost", 0),
+                "financial_cost_raw": raw.get(
+                    "financial_cost",
+                    0),
                 "policy_compliance": policy_score,
-                "policy_compliance_raw": raw.get("policy_compliance", "yes"),
+                "policy_compliance_raw": raw.get(
+                    "policy_compliance",
+                    "yes"),
                 "resolution_speed": speed_score,
-                "resolution_speed_raw": raw.get("resolution_speed", "moderate"),
+                "resolution_speed_raw": raw.get(
+                    "resolution_speed",
+                    "moderate"),
                 "long_term_impact": long_term_score,
-                "long_term_impact_raw": raw.get("long_term_impact", "neutral"),
-                "total": round(total, 4),
+                "long_term_impact_raw": raw.get(
+                    "long_term_impact",
+                    "neutral"),
+                "total": round(
+                    total,
+                    4),
                 "weights_used": dict(weights),
             }
             matrix_rows.append(matrix_row)

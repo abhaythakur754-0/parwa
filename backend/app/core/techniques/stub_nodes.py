@@ -22,7 +22,6 @@ from app.core.technique_router import TechniqueID
 from app.core.techniques.base import (
     BaseTechniqueNode,
     ConversationState,
-    GSDState,
     TECHNIQUE_NODES,
 )
 
@@ -32,7 +31,7 @@ if TYPE_CHECKING:
 
 class CRPNode(BaseTechniqueNode):
     """F-140: Concise Response Protocol — Tier 1 always-active.
-    
+
     Note: CRP processing logic is in app.core.techniques.crp (CRPProcessor).
     This node wraps the CRPProcessor for pipeline integration.
     """

@@ -13,7 +13,7 @@ Endpoints:
 - POST /api/demo/complete - Complete demo session
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Dict, Any
@@ -22,9 +22,7 @@ from enum import Enum
 from app.logger import get_logger
 from app.services.demo_service import (
     get_demo_service,
-    DemoService,
     DemoVariant,
-    DemoStatus,
 )
 
 logger = get_logger("demo_api")
@@ -41,7 +39,9 @@ class DemoVariantEnum(str, Enum):
 
 class CreateDemoSessionRequest(BaseModel):
     variant: DemoVariantEnum = DemoVariantEnum.parwa
-    industry: str = Field(default="ecommerce", description="Industry for demo context")
+    industry: str = Field(
+        default="ecommerce",
+        description="Industry for demo context")
     visitor_email: Optional[EmailStr] = None
     visitor_phone: Optional[str] = None
 
@@ -144,7 +144,8 @@ async def create_demo_session(request: CreateDemoSessionRequest):
 
     except Exception as e:
         logger.error("create_demo_session_failed", error=str(e))
-        raise HTTPException(status_code=500, detail="Failed to create demo session")
+        raise HTTPException(status_code=500,
+                            detail="Failed to create demo session")
 
 
 @router.get("/session/{session_id}")
@@ -217,7 +218,8 @@ async def send_demo_message(request: SendMessageRequest):
     )
 
 
-@router.get("/scenarios/{variant}/{industry}", response_model=List[DemoScenario])
+@router.get("/scenarios/{variant}/{industry}",
+            response_model=List[DemoScenario])
 async def get_demo_scenarios(variant: DemoVariantEnum, industry: str):
     """
     Get demo scenarios available for a variant and industry.

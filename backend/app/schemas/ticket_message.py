@@ -15,7 +15,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ── Message Schemas ─────────────────────────────────────────────────────
@@ -36,8 +36,10 @@ class MessageCreate(BaseModel):
     role: Literal["customer", "agent", "system", "ai"] = Field(
         ..., description="Message sender role"
     )
-    channel: str = Field(..., min_length=1, description="Communication channel")
-    is_internal: bool = Field(default=False, description="Whether message is internal")
+    channel: str = Field(..., min_length=1,
+                         description="Communication channel")
+    is_internal: bool = Field(default=False,
+                              description="Whether message is internal")
     metadata_json: dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata"
     )
@@ -121,9 +123,15 @@ class AttachmentUpload(BaseModel):
         file_url: URL where the file is stored
     """
 
-    filename: str = Field(..., min_length=1, max_length=255, description="File name")
+    filename: str = Field(...,
+                          min_length=1,
+                          max_length=255,
+                          description="File name")
     file_size: int = Field(..., gt=0, description="File size in bytes")
-    mime_type: str = Field(..., min_length=1, max_length=100, description="MIME type")
+    mime_type: str = Field(...,
+                           min_length=1,
+                           max_length=100,
+                           description="MIME type")
     file_url: str = Field(..., min_length=1, description="File storage URL")
 
     @field_validator("file_size")

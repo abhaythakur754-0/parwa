@@ -18,7 +18,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, desc, func, or_
+from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 
 from app.exceptions import NotFoundError, ValidationError
@@ -68,13 +68,13 @@ class TemplateService:
         # Check limit
         current_count = self.db.query(ResponseTemplate).filter(
             ResponseTemplate.company_id == self.company_id,
-            ResponseTemplate.is_active == True,
+            ResponseTemplate.is_active,
         ).count()
 
         if current_count >= self.MAX_TEMPLATES_PER_COMPANY:
             raise ValidationError(
-                f"Maximum {self.MAX_TEMPLATES_PER_COMPANY} templates per company"
-            )
+                f"Maximum {
+                    self.MAX_TEMPLATES_PER_COMPANY} templates per company")
 
         # Validate name
         if not name or len(name.strip()) == 0:
@@ -84,17 +84,19 @@ class TemplateService:
         existing = self.db.query(ResponseTemplate).filter(
             ResponseTemplate.company_id == self.company_id,
             ResponseTemplate.name == name.strip(),
-            ResponseTemplate.is_active == True,
+            ResponseTemplate.is_active,
         ).first()
 
         if existing:
-            raise ValidationError(f"Template with name '{name}' already exists")
+            raise ValidationError(
+                f"Template with name '{name}' already exists")
 
         # Extract variables from template if not provided
         if variables is None:
             variables = list(set(self.VARIABLE_PATTERN.findall(template_text)))
 
-        # Validate variables are alphanumeric (allowing underscores but not dunder)
+        # Validate variables are alphanumeric (allowing underscores but not
+        # dunder)
         for var in variables:
             # Must start with letter or single underscore, contain only alphanumeric/underscore
             # Must not be a dunder (double underscore) pattern
@@ -235,18 +237,20 @@ class TemplateService:
                 ResponseTemplate.company_id == self.company_id,
                 ResponseTemplate.name == name.strip(),
                 ResponseTemplate.id != template_id,
-                ResponseTemplate.is_active == True,
+                ResponseTemplate.is_active,
             ).first()
 
             if existing:
-                raise ValidationError(f"Template with name '{name}' already exists")
+                raise ValidationError(
+                    f"Template with name '{name}' already exists")
 
             template.name = name.strip()
 
         if template_text is not None:
             # Extract variables if not provided
             if variables is None:
-                variables = list(set(self.VARIABLE_PATTERN.findall(template_text)))
+                variables = list(
+                    set(self.VARIABLE_PATTERN.findall(template_text)))
 
             # Validate variables
             for var in variables:
@@ -350,7 +354,8 @@ class TemplateService:
         template = self.get_template(template_id)
         return json.loads(template.variables or "[]")
 
-    def get_templates_by_intent(self, intent_type: str) -> List[ResponseTemplate]:
+    def get_templates_by_intent(
+            self, intent_type: str) -> List[ResponseTemplate]:
         """Get all active templates for an intent type.
 
         Args:
@@ -362,5 +367,5 @@ class TemplateService:
         return self.db.query(ResponseTemplate).filter(
             ResponseTemplate.company_id == self.company_id,
             ResponseTemplate.intent_type == intent_type,
-            ResponseTemplate.is_active == True,
+            ResponseTemplate.is_active,
         ).order_by(ResponseTemplate.name).all()

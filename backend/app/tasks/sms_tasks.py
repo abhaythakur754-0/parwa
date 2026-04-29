@@ -185,7 +185,6 @@ def cleanup_expired_sms_conversations(self) -> dict:
         from database.base import SessionLocal
         from database.models.sms_channel import SMSConversation
         from datetime import datetime, timedelta
-        from sqlalchemy import and_
 
         db = SessionLocal()
         try:

@@ -4,9 +4,8 @@ Tests cover: PIIDetector, PIIRedactor, PIIDeredactor, PIIRedactionCache,
 overlap deduplication, token determinism, factory functions.
 """
 
-import hashlib
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 # ── Fixtures ────────────────────────────────────────────────────
 
@@ -156,7 +155,8 @@ class TestPIIDetectorPhone:
 
     def test_reject_too_long(self, detector):
         matches = detector._detect_phone("12345678901234567")
-        # Long digit sequences may partially match as phone; just ensure no INTERNATIONAL match
+        # Long digit sequences may partially match as phone; just ensure no
+        # INTERNATIONAL match
         for m in matches:
             assert m.pattern_matched != "phone_international"
 
@@ -168,7 +168,8 @@ class TestPIIDetectorOverlap:
         """SSN and phone patterns can overlap. Only one should be kept."""
         # "123-45-6789" matches as SSN and also as phone.
         # SSN has higher confidence (0.95) and longer match (-len sort).
-        matches = detector.detect("My SSN is 123-45-6789", {PII_SSN, PII_PHONE})
+        matches = detector.detect(
+            "My SSN is 123-45-6789", {PII_SSN, PII_PHONE})
         # Should not return both at the same position
         starts = [m.start for m in matches]
         for i in range(len(starts)):
@@ -211,15 +212,16 @@ class TestPIIDetectorAllTypes:
         assert matches[0].pii_type == PII_DATE_OF_BIRTH
 
     def test_detect_api_key_openai(self, detector):
-        from app.core.pii_redaction_engine import PII_API_KEY
-        matches = detector._detect_api_key("Key: sk-proj-abc123def456ghi789jkl012mno345")
+        matches = detector._detect_api_key(
+            "Key: sk-proj-abc123def456ghi789jkl012mno345")
         assert len(matches) >= 1
         assert matches[0].pattern_matched == "api_key_openai"
 
     def test_detect_api_key_google(self, detector):
-        from app.core.pii_redaction_engine import PII_API_KEY
+        pass
         # AIza + 35 chars = 39 total (matching regex AIza[A-Za-z0-9_\-]{35})
-        matches = detector._detect_api_key("AIzaSyA1234567890abcdefghijklmnopqrstuv")
+        matches = detector._detect_api_key(
+            "AIzaSyA1234567890abcdefghijklmnopqrstuv")
         assert len(matches) >= 1
         assert "google" in matches[0].pattern_matched
 
@@ -335,7 +337,7 @@ class TestPIIRedactor:
 
     @pytest.mark.asyncio
     async def test_redact_subset_types(self, redactor):
-        from app.core.pii_redaction_engine import PII_EMAIL, PII_SSN
+        from app.core.pii_redaction_engine import PII_SSN
         result = await redactor.redact(
             "Email john@foo.com and SSN 123-45-6789",
             "company1",

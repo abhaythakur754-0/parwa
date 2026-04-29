@@ -9,12 +9,11 @@ Implements MF02: Category classification with:
 
 from __future__ import annotations
 
-import re
 from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from database.models.tickets import Ticket, TicketCategory
+from database.models.tickets import TicketCategory
 
 
 class CategoryService:

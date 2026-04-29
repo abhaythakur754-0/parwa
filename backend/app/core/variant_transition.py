@@ -464,7 +464,8 @@ class VariantTransitionHandler:
 
             # Resolve effective variant: if a transition has set a new
             # effective variant for the company, use that for new tickets
-            effective = self._resolve_effective_variant(company_id, variant_type)
+            effective = self._resolve_effective_variant(
+                company_id, variant_type)
 
             ticket = InFlightTicket(
                 ticket_id=ticket_id,
@@ -1377,9 +1378,9 @@ class VariantTransitionHandler:
         try:
             all_transitions = self.get_transition_history(company_id)
             active = [
-                t for t in all_transitions
-                if t.status in (TransitionStatus.ACTIVE, TransitionStatus.PENDING)
-            ]
+                t for t in all_transitions if t.status in (
+                    TransitionStatus.ACTIVE,
+                    TransitionStatus.PENDING)]
             return active
 
         except Exception:
@@ -1894,10 +1895,14 @@ class VariantTransitionHandler:
             notices = self.get_deactivation_notices(company_id)
             unacknowledged = [n for n in notices if not n.acknowledged]
 
-            upgrades = [t for t in history if t.transition_type == TransitionType.UPGRADE]
-            downgrades = [t for t in history if t.transition_type == TransitionType.DOWNGRADE]
-            completed = [t for t in history if t.status == TransitionStatus.COMPLETED]
-            rolled_back = [t for t in history if t.status == TransitionStatus.ROLLED_BACK]
+            upgrades = [
+                t for t in history if t.transition_type == TransitionType.UPGRADE]
+            downgrades = [
+                t for t in history if t.transition_type == TransitionType.DOWNGRADE]
+            completed = [t for t in history if t.status ==
+                         TransitionStatus.COMPLETED]
+            rolled_back = [t for t in history if t.status ==
+                           TransitionStatus.ROLLED_BACK]
 
             effective_variant = self.get_company_effective_variant(company_id)
 

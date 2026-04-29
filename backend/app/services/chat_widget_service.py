@@ -23,11 +23,10 @@ import hashlib
 import hmac
 import json
 import logging
-import time
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime, timedelta
+from typing import Any, Optional
 
-from sqlalchemy import and_, func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database.models.chat_widget import (
@@ -107,7 +106,8 @@ class ChatWidgetService:
             if missing:
                 return {
                     "status": "error",
-                    "error": f"Missing required visitor fields: {', '.join(missing)}",
+                    "error": f"Missing required visitor fields: {
+                        ', '.join(missing)}",
                 }
 
         session = ChatWidgetSession(
@@ -1243,7 +1243,9 @@ class ChatWidgetService:
                 },
             )
 
-    def _get_widget_config(self, company_id: str) -> Optional[ChatWidgetConfig]:
+    def _get_widget_config(
+            self,
+            company_id: str) -> Optional[ChatWidgetConfig]:
         """Get widget config (private helper)."""
         return (
             self.db.query(ChatWidgetConfig)

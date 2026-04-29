@@ -2,17 +2,6 @@
 Comprehensive Unit + Integration Tests for jarvis_service.py
 Tests all 73 public functions (25 original + 48 new jarvis_* functions)
 """
-import sys
-import os
-import json
-import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
-from datetime import datetime, timedelta, timezone
-
-# Ensure conftest mocks are loaded BEFORE any app imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-import tests.conftest  # noqa: F401
-
 from app.services.jarvis_service import (
     _get_service, _get_service_module, _clear_service_cache, _service_cache,
     FREE_DAILY_LIMIT, DEMO_DAILY_LIMIT,
@@ -59,6 +48,16 @@ from app.services.jarvis_service import (
     jarvis_execute_bulk_action, jarvis_scan_pii,
     jarvis_merge_with_brand_voice,
 )
+import sys
+import os
+import json
+import pytest
+from unittest.mock import MagicMock, patch
+from datetime import datetime, timedelta, timezone
+
+# Ensure conftest mocks are loaded BEFORE any app imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+import tests.conftest  # noqa: F401
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -78,12 +77,25 @@ def _db():
 
 def _sess(**overrides):
     defaults = dict(
-        id="sess-1", user_id="user-1", company_id=None, type="onboarding",
-        context_json='{}', pack_type="free", message_count_today=0,
-        total_message_count=0, is_active=True, payment_status=None,
-        demo_call_used=False, pack_expiry=None, handoff_completed=False,
-        last_message_date=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc), created_at=datetime.now(timezone.utc),
+        id="sess-1",
+        user_id="user-1",
+        company_id=None,
+        type="onboarding",
+        context_json='{}',
+        pack_type="free",
+        message_count_today=0,
+        total_message_count=0,
+        is_active=True,
+        payment_status=None,
+        demo_call_used=False,
+        pack_expiry=None,
+        handoff_completed=False,
+        last_message_date=datetime.now(
+            timezone.utc),
+        updated_at=datetime.now(
+            timezone.utc),
+        created_at=datetime.now(
+            timezone.utc),
     )
     defaults.update(overrides)
     s = MagicMock()
@@ -102,12 +114,20 @@ class TestServiceInfrastructure:
     def test_get_service_caches(self, mock_import):
         svc = MagicMock(name='PIIScanService')
         mock_import.return_value = MagicMock(PIIScanService=svc)
-        r1 = _get_service("ps", "app.services.pii_scan_service", "PIIScanService")
-        r2 = _get_service("ps", "app.services.pii_scan_service", "PIIScanService")
+        r1 = _get_service(
+            "ps",
+            "app.services.pii_scan_service",
+            "PIIScanService")
+        r2 = _get_service(
+            "ps",
+            "app.services.pii_scan_service",
+            "PIIScanService")
         assert r1 is svc and r2 is r1
 
     def test_get_service_none_on_import_error(self):
-        assert _get_service("nonexistent_xyz_123", "app.services.nonexistent_xyz_123") is None
+        assert _get_service(
+            "nonexistent_xyz_123",
+            "app.services.nonexistent_xyz_123") is None
 
     def test_clear_cache(self):
         _service_cache["x"] = 1
@@ -119,8 +139,10 @@ class TestServiceInfrastructure:
         # The real analytics_service module should be loadable from disk
         # Just verify the function doesn't crash
         _clear_service_cache()
-        # It may fail due to deep deps; just verify it returns something or None
-        r = _get_service_module("app.services.analytics_service_nonexistent_xyz")
+        # It may fail due to deep deps; just verify it returns something or
+        # None
+        r = _get_service_module(
+            "app.services.analytics_service_nonexistent_xyz")
         assert r is None  # nonexistent module returns None
 
 
@@ -166,7 +188,8 @@ class TestTicketOperations:
     @patch('app.services.jarvis_service._get_service')
     def test_create_ticket_success(self, gs):
         mock_inst = MagicMock()
-        mock_inst.create_ticket.return_value = MagicMock(id="t1", to_dict=MagicMock(return_value={"id": "t1"}))
+        mock_inst.create_ticket.return_value = MagicMock(
+            id="t1", to_dict=MagicMock(return_value={"id": "t1"}))
         gs.return_value.return_value = mock_inst
         r = jarvis_create_ticket(_db(), "co-1", "Help", "Need assistance")
         assert r is not None and r.get("id") == "t1"
@@ -179,16 +202,20 @@ class TestTicketOperations:
     @patch('app.services.jarvis_service._get_service')
     def test_get_tickets_success(self, gs):
         # list_tickets returns Tuple[list, int] — jarvis function checks isinstance(result, list)
-        # Since tuple != list, function returns None. This is a known pattern in the code.
-        gs.return_value.return_value.list_tickets.return_value = ([MagicMock(id="t1")], 1)
+        # Since tuple != list, function returns None. This is a known pattern
+        # in the code.
+        gs.return_value.return_value.list_tickets.return_value = (
+            [MagicMock(id="t1")], 1)
         result = jarvis_get_tickets(_db(), "co-1")
         # Function returns None because list_tickets returns tuple, not list
-        assert result is None  # Known limitation: jarvis_get_tickets returns None for tuple returns
+        # Known limitation: jarvis_get_tickets returns None for tuple returns
+        assert result is None
 
     @patch('app.services.jarvis_service._get_service')
     def test_get_ticket_success(self, gs):
         inst = MagicMock()
-        inst.get_ticket.return_value = MagicMock(id="t1", to_dict=MagicMock(return_value={"id": "t1"}))
+        inst.get_ticket.return_value = MagicMock(
+            id="t1", to_dict=MagicMock(return_value={"id": "t1"}))
         gs.return_value.return_value = inst
         assert jarvis_get_ticket(_db(), "co-1", "t1") is not None
 
@@ -197,11 +224,13 @@ class TestTicketOperations:
         inst = MagicMock()
         inst.update_ticket.return_value = MagicMock(id="t1")
         gs.return_value.return_value = inst
-        assert jarvis_update_ticket(_db(), "co-1", "t1", {"subject": "Up"}) is not None
+        assert jarvis_update_ticket(
+            _db(), "co-1", "t1", {"subject": "Up"}) is not None
 
     @patch('app.services.jarvis_service._get_service')
     def test_delete_ticket_success(self, gs):
-        # delete_ticket returns bool, not a dict — function checks hasattr(to_dict)
+        # delete_ticket returns bool, not a dict — function checks
+        # hasattr(to_dict)
         inst = MagicMock()
         inst.delete_ticket.return_value = True
         gs.return_value.return_value = inst
@@ -217,8 +246,10 @@ class TestTicketOperations:
 
     @patch('app.services.jarvis_service._get_service')
     def test_transition_ticket_success(self, gs):
-        gs.return_value.return_value.transition.return_value = MagicMock(id="t1")
-        assert jarvis_transition_ticket(_db(), "co-1", MagicMock(), "in_progress") is not None
+        gs.return_value.return_value.transition.return_value = MagicMock(
+            id="t1")
+        assert jarvis_transition_ticket(
+            _db(), "co-1", MagicMock(), "in_progress") is not None
 
     @patch('app.services.jarvis_service._get_service')
     def test_classify_ticket_success(self, gs):
@@ -240,17 +271,21 @@ class TestTicketOperations:
 
     @patch('app.services.jarvis_service._get_service')
     def test_merge_tickets_success(self, gs):
-        gs.return_value.return_value.merge_tickets.return_value = (MagicMock(), MagicMock())
+        gs.return_value.return_value.merge_tickets.return_value = (
+            MagicMock(), MagicMock())
         assert jarvis_merge_tickets(_db(), "co-1", "p1", ["m1"]) is not None
 
     @patch('app.services.jarvis_service._get_service')
     def test_check_lifecycle_success(self, gs):
-        gs.return_value.return_value.check_out_of_plan_scope.return_value = {"in_scope": True}
-        assert jarvis_check_ticket_lifecycle(_db(), "co-1", MagicMock()) is not None
+        gs.return_value.return_value.check_out_of_plan_scope.return_value = {
+            "in_scope": True}
+        assert jarvis_check_ticket_lifecycle(
+            _db(), "co-1", MagicMock()) is not None
 
     @patch('app.services.jarvis_service._get_service')
     def test_ticket_analytics_success(self, gs):
-        gs.return_value.return_value.get_summary.return_value = MagicMock(total_tickets=100)
+        gs.return_value.return_value.get_summary.return_value = MagicMock(
+            total_tickets=100)
         assert jarvis_get_ticket_analytics(_db(), "co-1") is not None
 
     @patch('app.services.jarvis_service._get_service')
@@ -285,7 +320,8 @@ class TestAnalyticsOperations:
 
     @patch('app.services.jarvis_service._get_service_module')
     def test_funnel_metrics(self, gm):
-        gm.return_value.get_funnel_metrics.return_value = {"visit_to_demo": 0.3}
+        gm.return_value.get_funnel_metrics.return_value = {
+            "visit_to_demo": 0.3}
         assert jarvis_get_funnel_metrics() is not None
 
     @patch('app.services.jarvis_service._get_service_module')
@@ -334,12 +370,14 @@ class TestBillingAndUsage:
 
     @patch('app.services.jarvis_service._get_service')
     def test_get_usage(self, gs):
-        gs.return_value.return_value.get_current_usage.return_value = {"tickets_used": 100}
+        gs.return_value.return_value.get_current_usage.return_value = {
+            "tickets_used": 100}
         assert jarvis_get_usage("co-1") is not None
 
     @patch('app.services.jarvis_service._get_service')
     def test_check_usage_limit(self, gs):
-        gs.return_value.return_value.check_approaching_limit.return_value = {"approaching": False}
+        gs.return_value.return_value.check_approaching_limit.return_value = {
+            "approaching": False}
         assert jarvis_check_usage_limit("co-1") is not None
 
     @patch('app.services.jarvis_service._get_service')
@@ -351,7 +389,8 @@ class TestBillingAndUsage:
         mock_getter = MagicMock(return_value=mock_svc)
         gs.return_value = mock_getter
         result = jarvis_get_invoices("co-1")
-        # Empty list is valid, function returns list comprehension of empty list
+        # Empty list is valid, function returns list comprehension of empty
+        # list
         assert result is not None
 
     @patch('app.services.jarvis_service._get_service')
@@ -361,7 +400,8 @@ class TestBillingAndUsage:
 
     @patch('app.services.jarvis_service._get_service')
     def test_monthly_cost(self, gs):
-        gs.return_value.return_value.get_monthly_report.return_value = {"tokens": 50000}
+        gs.return_value.return_value.get_monthly_report.return_value = {
+            "tokens": 50000}
         assert jarvis_get_monthly_cost_report(_db(), "co-1") is not None
 
 
@@ -387,7 +427,8 @@ class TestSecurityAndCompliance:
     def test_audit_log_events(self, gs):
         # audit_log_events uses _get_service("audit_log_service", ..., "AuditLogService")
         # then svc_cls() with no args, then svc.query_events()
-        gs.return_value.return_value.query_events.return_value = ([MagicMock()], 1)
+        gs.return_value.return_value.query_events.return_value = ([
+                                                                  MagicMock()], 1)
         r = jarvis_get_audit_log_events("co-1")
         assert r is not None or r is None  # depends on isinstance check
 
@@ -398,7 +439,8 @@ class TestSecurityAndCompliance:
 
     @patch('app.services.jarvis_service._get_service')
     def test_rate_limit(self, gs):
-        gs.return_value.return_value.check_rate_limit.return_value = MagicMock(allowed=True)
+        gs.return_value.return_value.check_rate_limit.return_value = MagicMock(
+            allowed=True)
         assert jarvis_check_rate_limit("demo_chat", "u1") is not None
 
 
@@ -410,19 +452,23 @@ class TestOnboardingAndPricing:
 
     @patch('app.services.jarvis_service._get_service_module')
     def test_complete_step(self, gm):
-        gm.return_value.complete_step.return_value = {"step": "s1", "done": True}
-        assert jarvis_complete_onboarding_step(_db(), "u", "c", "s1") is not None
+        gm.return_value.complete_step.return_value = {
+            "step": "s1", "done": True}
+        assert jarvis_complete_onboarding_step(
+            _db(), "u", "c", "s1") is not None
 
     @patch('app.services.jarvis_service._get_service_module')
     def test_accept_consents(self, gm):
         gm.return_value.accept_legal_consents.return_value = {"accepted": True}
-        assert jarvis_accept_legal_consents(_db(), "u", "c", True, True, True,
-               datetime.now(timezone.utc).isoformat(), "1.2.3.4", "Mozilla") is not None
+        assert jarvis_accept_legal_consents(
+            _db(), "u", "c", True, True, True, datetime.now(
+                timezone.utc).isoformat(), "1.2.3.4", "Mozilla") is not None
 
     @patch('app.services.jarvis_service._get_service_module')
     def test_activate_ai(self, gm):
         gm.return_value.activate_ai.return_value = {"activated": True}
-        assert jarvis_activate_ai(_db(), "u", "c", "Jarvis", "friendly") is not None
+        assert jarvis_activate_ai(
+            _db(), "u", "c", "Jarvis", "friendly") is not None
 
     @patch('app.services.jarvis_service._get_service_module')
     def test_pricing_variants(self, gm):
@@ -432,7 +478,8 @@ class TestOnboardingAndPricing:
 
     @patch('app.services.jarvis_service._get_service_module')
     def test_validate_selection(self, gm):
-        gm.return_value.validate_variant_selection.return_value = {"valid": True}
+        gm.return_value.validate_variant_selection.return_value = {
+            "valid": True}
         assert jarvis_validate_variant_selection("ecommerce", []) is not None
 
     @patch('app.services.jarvis_service._get_service_module')
@@ -450,7 +497,8 @@ class TestNotifications:
     @patch('app.services.jarvis_service._get_service')
     def test_send_notification(self, gs):
         gs.return_value.return_value.send.return_value = {"sent": True}
-        assert jarvis_send_notification(_db(), "co-1", "u1", "assigned", {}) is not None
+        assert jarvis_send_notification(
+            _db(), "co-1", "u1", "assigned", {}) is not None
 
     @patch('app.services.jarvis_service._get_service')
     def test_send_email(self, gs):
@@ -460,7 +508,8 @@ class TestNotifications:
     @patch('app.services.jarvis_service._get_service_module')
     def test_process_webhook(self, gm):
         gm.return_value.process_webhook.return_value = {"ok": True}
-        assert jarvis_process_webhook("co-1", "stripe", "e1", "pay.done", {}) is not None
+        assert jarvis_process_webhook(
+            "co-1", "stripe", "e1", "pay.done", {}) is not None
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -471,12 +520,15 @@ class TestCustomerCompany:
 
     @patch('app.services.jarvis_service._get_service')
     def test_create_customer(self, gs):
-        gs.return_value.return_value.create_customer.return_value = MagicMock(id="c1")
-        assert jarvis_create_customer(_db(), "co-1", "Test User", email="t@t.com") is not None
+        gs.return_value.return_value.create_customer.return_value = MagicMock(
+            id="c1")
+        assert jarvis_create_customer(
+            _db(), "co-1", "Test User", email="t@t.com") is not None
 
     @patch('app.services.jarvis_service._get_service')
     def test_get_customer(self, gs):
-        gs.return_value.return_value.get_customer.return_value = MagicMock(id="c1")
+        gs.return_value.return_value.get_customer.return_value = MagicMock(
+            id="c1")
         assert jarvis_get_customer(_db(), "co-1", "c1") is not None
 
     @patch('app.services.jarvis_service._get_service')
@@ -487,7 +539,8 @@ class TestCustomerCompany:
     @patch('app.services.jarvis_service._get_service')
     def test_update_company(self, gs):
         gs.return_value.return_value.update.return_value = MagicMock(id="co-1")
-        assert jarvis_update_company_profile(_db(), "co-1", {"name": "New"}) is not None
+        assert jarvis_update_company_profile(
+            _db(), "co-1", {"name": "New"}) is not None
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -504,7 +557,8 @@ class TestSupportingServices:
     @patch('app.services.jarvis_service._get_service')
     def test_detect_category(self, gs):
         gs.return_value.return_value.detect_category.return_value = "billing"
-        assert jarvis_detect_category(_db(), "co-1", "payment issue") is not None
+        assert jarvis_detect_category(
+            _db(), "co-1", "payment issue") is not None
 
     @patch('app.services.jarvis_service._get_service')
     def test_detect_priority(self, gs):
@@ -513,8 +567,10 @@ class TestSupportingServices:
 
     @patch('app.services.jarvis_service._get_service')
     def test_auto_assign(self, gs):
-        gs.return_value.return_value.auto_assign.return_value = {"agent_id": "a1"}
-        assert jarvis_auto_assign_ticket(_db(), "co-1", MagicMock()) is not None
+        gs.return_value.return_value.auto_assign.return_value = {
+            "agent_id": "a1"}
+        assert jarvis_auto_assign_ticket(
+            _db(), "co-1", MagicMock()) is not None
 
     @patch('app.services.jarvis_service._get_service')
     def test_sla_target(self, gs):
@@ -568,12 +624,15 @@ class TestSupportingServices:
 
     @patch('app.services.jarvis_service._get_service')
     def test_bulk_action(self, gs):
-        gs.return_value.return_value.execute_bulk.return_value = {"affected": 5}
-        assert jarvis_execute_bulk_action(_db(), "co-1", "close", ["t1"]) is not None
+        gs.return_value.return_value.execute_bulk.return_value = {
+            "affected": 5}
+        assert jarvis_execute_bulk_action(
+            _db(), "co-1", "close", ["t1"]) is not None
 
     @patch('app.services.jarvis_service._get_service')
     def test_scan_pii(self, gs):
-        gs.return_value.return_value.scan_text.return_value = {"detected": True, "count": 1}
+        gs.return_value.return_value.scan_text.return_value = {
+            "detected": True, "count": 1}
         r = jarvis_scan_pii(_db(), "co-1", "email is t@t.com")
         assert r is not None and r["detected"] is True
 
@@ -623,7 +682,8 @@ class TestOriginalFunctions:
 
     def test_detect_pricing(self):
         db = _db()
-        s = _sess(context_json='{"industry": "saas", "selected_variants": [{"name": "Chat"}]}')
+        s = _sess(
+            context_json='{"industry": "saas", "selected_variants": [{"name": "Chat"}]}')
         db.query.return_value.filter.return_value.first.return_value = s
         assert detect_stage(db, "s1") == "pricing"
 
@@ -635,7 +695,8 @@ class TestOriginalFunctions:
 
     def test_detect_verification(self):
         db = _db()
-        s = _sess(context_json='{"otp": {"status": "sent"}, "email_verified": false}')
+        s = _sess(
+            context_json='{"otp": {"status": "sent"}, "email_verified": false}')
         db.query.return_value.filter.return_value.first.return_value = s
         assert detect_stage(db, "s1") == "verification"
 
@@ -661,7 +722,8 @@ class TestOriginalFunctions:
 
     def test_welcome_with_industry(self):
         db = _db()
-        s = _sess(context_json='{"entry_source": "direct", "industry": "Healthcare"}')
+        s = _sess(
+            context_json='{"entry_source": "direct", "industry": "Healthcare"}')
         db.query.return_value.filter.return_value.first.return_value = s
         assert "Healthcare" in build_context_aware_welcome(db, "s1")
 
@@ -696,7 +758,8 @@ class TestOriginalFunctions:
         existing = _sess(session_id="old", context_json='{}')
         db.query.return_value.filter.return_value.order_by.return_value.first.return_value = existing
         s = create_or_resume_session(db, "u1", "c1")
-        # Returns the same session object (may or may not have .id depending on mock)
+        # Returns the same session object (may or may not have .id depending on
+        # mock)
         assert s is not None
         db.add.assert_not_called()
 
@@ -760,9 +823,12 @@ class TestBuildSystemPrompt:
     @patch('app.services.jarvis_service._get_service')
     def test_includes_context(self, gs):
         db = _db()
-        ctx = json.dumps({"industry": "SaaS", "selected_variants": [{"name": "Chat"}],
-                          "business_email": "t@t.com", "email_verified": True,
-                          "entry_source": "pricing", "detected_stage": "pricing"})
+        ctx = json.dumps({"industry": "SaaS",
+                          "selected_variants": [{"name": "Chat"}],
+                          "business_email": "t@t.com",
+                          "email_verified": True,
+                          "entry_source": "pricing",
+                          "detected_stage": "pricing"})
         s = _sess(context_json=ctx)
         db.query.return_value.filter.return_value.first.return_value = s
         gs.return_value = None
@@ -829,7 +895,8 @@ class TestGracefulFallback:
         assert jarvis_auto_assign_ticket(db, "c", MagicMock()) is None
         assert jarvis_get_sla_target(db, "c", "h") is None
         assert jarvis_scan_pii(db, "c", "x") is None
-        # jarvis_merge_with_brand_voice returns response_text as fallback, not None
+        # jarvis_merge_with_brand_voice returns response_text as fallback, not
+        # None
         assert jarvis_merge_with_brand_voice(db, "c", "x") == "x"
 
 
@@ -850,5 +917,6 @@ class TestConstantsAndExports:
 
     def test_jarvis_func_count(self):
         import app.services.jarvis_service as js
-        funcs = [n for n in dir(js) if n.startswith("jarvis_") and callable(getattr(js, n))]
+        funcs = [n for n in dir(js) if n.startswith(
+            "jarvis_") and callable(getattr(js, n))]
         assert len(funcs) >= 48, f"Expected >=48, got {len(funcs)}"

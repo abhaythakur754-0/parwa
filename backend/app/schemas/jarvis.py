@@ -309,7 +309,8 @@ class JarvisPaymentCreate(BaseModel):
 
     @field_validator("variants")
     @classmethod
-    def validate_variants(cls, v: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def validate_variants(
+            cls, v: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         for item in v:
             if "id" not in item:
                 raise ValueError("Each variant must have an 'id'")

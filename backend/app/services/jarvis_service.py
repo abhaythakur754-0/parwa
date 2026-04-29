@@ -38,6 +38,20 @@ Entry Routing: URL params → context-aware welcome message
 Based on: JARVIS_SPECIFICATION.md v3.0 / JARVIS_ROADMAP.md v4.0
 """
 
+from app.core.email_renderer import render_email_template
+from app.services.email_service import send_email
+from database.models.jarvis import (
+    JarvisSession,
+    JarvisMessage,
+    JarvisKnowledgeUsed,
+    JarvisActionTicket,
+)
+from app.exceptions import (
+    NotFoundError,
+    ValidationError,
+    RateLimitError,
+)
+from sqlalchemy.orm import Session
 import asyncio
 import json
 import logging
@@ -50,23 +64,6 @@ from app.services.paddle_service import get_paddle_service
 from app.clients.paddle_client import get_paddle_client
 
 logger = logging.getLogger(__name__)
-
-from sqlalchemy.orm import Session
-
-from app.exceptions import (
-    NotFoundError,
-    ValidationError,
-    RateLimitError,
-    InternalError,
-)
-from database.models.jarvis import (
-    JarvisSession,
-    JarvisMessage,
-    JarvisKnowledgeUsed,
-    JarvisActionTicket,
-)
-from app.services.email_service import send_email
-from app.core.email_renderer import render_email_template
 
 
 # ── Lazy Service Loading Infrastructure ────────────────────────────
@@ -323,7 +320,8 @@ def create_or_resume_session(
         "detected_stage": "welcome",
     }
 
-    # PROMOTE entry_params to top-level context for immediate awareness in welcome messages
+    # PROMOTE entry_params to top-level context for immediate awareness in
+    # welcome messages
     if entry_params:
         if "industry" in entry_params:
             ctx["industry"] = entry_params["industry"]
@@ -531,8 +529,11 @@ def send_message(
         pass
 
     # ── Note-Taker Agent: Strategic Summary Generation ──
-    # Generate a concise 'mission summary' every few turns or when context changes significantly
-    turn_count = ctx.get("conversation_turn_count", session.total_message_count)
+    # Generate a concise 'mission summary' every few turns or when context
+    # changes significantly
+    turn_count = ctx.get(
+        "conversation_turn_count",
+        session.total_message_count)
     try:
         if turn_count % 3 == 0 or turn_count == 1:
             history = _get_recent_history(db, session_id)
@@ -558,7 +559,9 @@ def send_message(
         pass
 
     # ── Week 8-11: Lead capture (every 5 turns) ──
-    turn_count = ctx.get("conversation_turn_count", session.total_message_count)
+    turn_count = ctx.get(
+        "conversation_turn_count",
+        session.total_message_count)
     try:
         lead_svc = _get_service_module("app.services.lead_service")
         if lead_svc and turn_count % 5 == 0:
@@ -591,7 +594,8 @@ def send_message(
                 variant_type=session.pack_type,
                 company_id=company_id or "",
             )
-            ctx["technique_mapping"] = sentiment_map.to_dict() if hasattr(sentiment_map, 'to_dict') else {}
+            ctx["technique_mapping"] = sentiment_map.to_dict(
+            ) if hasattr(sentiment_map, 'to_dict') else {}
     except Exception:
         pass
 
@@ -615,7 +619,8 @@ def send_message(
                 docs = ctx.get("uploaded_docs", [])
                 docs.append({
                     "name": filename,
-                    "content": doc_content[:5000],  # Limit to 5K chars for context window
+                    # Limit to 5K chars for context window
+                    "content": doc_content[:5000],
                     "uploaded_at": datetime.now(timezone.utc).isoformat()
                 })
                 ctx["uploaded_docs"] = docs
@@ -637,7 +642,8 @@ def send_message(
         else:
             logger.info("Using Jarvis Onboarding AI Path (Fix 4)")
             try:
-                system_prompt = build_system_prompt(db, session_id, user_message)
+                system_prompt = build_system_prompt(
+                    db, session_id, user_message)
                 ai_content, ai_message_type, metadata, knowledge = (
                     _call_ai_provider(system_prompt, history, user_message, ctx)
                 )
@@ -667,17 +673,21 @@ def send_message(
             )
 
             try:
-                system_prompt = build_system_prompt(db, session_id, user_message)
+                system_prompt = build_system_prompt(
+                    db, session_id, user_message)
                 pipeline_args["system_prompt"] = system_prompt
-                session_ctx = _parse_context(session.context_json) if session else {}
+                session_ctx = _parse_context(
+                    session.context_json) if session else {}
                 if session_ctx:
                     pipeline_args["customer_metadata"] = session_ctx
             except Exception:
-                logger.debug("build_system_prompt failed, pipeline will use default context")
+                logger.debug(
+                    "build_system_prompt failed, pipeline will use default context")
 
             # Handle async call from sync context
             try:
-                pipeline_result = asyncio.run(process_ai_message(**pipeline_args))
+                pipeline_result = asyncio.run(
+                    process_ai_message(**pipeline_args))
             except RuntimeError:
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                     future = pool.submit(
@@ -692,7 +702,7 @@ def send_message(
                 {"file": c.get("source", ""), "score": c.get("score", 1.0)}
                 for c in pipeline_result.citations
             ]
-            
+
             # Store pipeline results in context
             ctx["ai_pipeline"] = {
                 "intent": pipeline_result.intent_type,
@@ -822,7 +832,8 @@ def check_message_limit(
 
     if session.pack_type == "demo":
         # Check pack expiry
-        if session.pack_expiry and datetime.now(timezone.utc) > session.pack_expiry:
+        if session.pack_expiry and datetime.now(
+                timezone.utc) > session.pack_expiry:
             session.pack_type = "free"
             session.pack_expiry = None
             session.message_count_today = 0
@@ -975,7 +986,9 @@ def verify_business_otp(
         return {
             "message": "Email already verified",
             "status": "verified",
-            "attempts_remaining": otp_data.get("attempts_remaining", MAX_OTP_ATTEMPTS),
+            "attempts_remaining": otp_data.get(
+                "attempts_remaining",
+                MAX_OTP_ATTEMPTS),
         }
 
     # Check expiry
@@ -993,7 +1006,10 @@ def verify_business_otp(
         return {
             "message": "Email does not match the one OTP was sent to",
             "status": "error",
-            "attempts_remaining": MAX_OTP_ATTEMPTS - otp_data.get("attempts", 0),
+            "attempts_remaining": MAX_OTP_ATTEMPTS -
+            otp_data.get(
+                "attempts",
+                0),
         }
 
     # Verify code
@@ -1035,9 +1051,12 @@ def verify_business_otp(
     db.flush()
 
     return {
-        "message": f"Invalid OTP. {MAX_OTP_ATTEMPTS - attempts} attempts remaining.",
+        "message": f"Invalid OTP. {
+            MAX_OTP_ATTEMPTS -
+            attempts} attempts remaining.",
         "status": "invalid",
-        "attempts_remaining": MAX_OTP_ATTEMPTS - attempts,
+        "attempts_remaining": MAX_OTP_ATTEMPTS -
+        attempts,
     }
 
 
@@ -1062,7 +1081,9 @@ def purchase_demo_pack(
     customer_email = user.email if user else None
     customer_name = None
     if user:
-        customer_name = getattr(user, 'full_name', None) or getattr(user, 'name', None)
+        customer_name = getattr(
+            user, 'full_name', None) or getattr(
+            user, 'name', None)
 
     # Create Paddle checkout for $1 demo pack (async-safe: BC-012)
     try:
@@ -1097,8 +1118,12 @@ def purchase_demo_pack(
             "checkout_url": result.get("checkout_url"),
             "transaction_id": result.get("transaction_id"),
             "status": "pending_payment",
-            "amount": result.get("amount", "$1.00"),
-            "currency": result.get("currency", "USD"),
+            "amount": result.get(
+                "amount",
+                "$1.00"),
+            "currency": result.get(
+                "currency",
+                "USD"),
             "pack_type": "demo",
         }
     except Exception as e:
@@ -1152,10 +1177,13 @@ def create_payment_session(
     customer_email = user.email if user else None
     customer_name = None
     if user:
-        customer_name = getattr(user, 'full_name', None) or getattr(user, 'name', None)
+        customer_name = getattr(
+            user, 'full_name', None) or getattr(
+            user, 'name', None)
 
     # Calculate total
-    total_monthly = sum(v.get("price", 0) * v.get("quantity", 1) for v in variants)
+    total_monthly = sum(v.get("price", 0) * v.get("quantity", 1)
+                        for v in variants)
 
     # Create Paddle checkout (async-safe: BC-012)
     try:
@@ -1232,7 +1260,8 @@ def handle_payment_webhook(
     try:
         paddle_client = get_paddle_client()
         signature = headers.get("paddle-signature", "") if headers else ""
-        payload_bytes = raw_payload if raw_payload else json.dumps(event_data).encode("utf-8")
+        payload_bytes = raw_payload if raw_payload else json.dumps(
+            event_data).encode("utf-8")
         if not paddle_client.verify_webhook_signature(
             payload=payload_bytes,
             signature=signature,
@@ -1248,24 +1277,24 @@ def handle_payment_webhook(
     # Idempotency: check if event was already processed
     event_id = event_data.get("event_id", "")
     if event_id:
-        existing_ticket = (
-            db.query(JarvisActionTicket)
-            .filter(
-                JarvisActionTicket.ticket_type.in_(["payment_variant_completed", "payment_demo_pack"]),
-            )
-            .all()
-        )
+        existing_ticket = (db.query(JarvisActionTicket) .filter(JarvisActionTicket.ticket_type.in_(
+            ["payment_variant_completed", "payment_demo_pack"]), ) .all())
         for t in existing_ticket:
             result = _parse_context(t.result_json or "{}")
             if result.get("event_id") == event_id:
                 return {
                     "status": "already_processed",
-                    "session_id": event_data.get("custom_data", event_data.get("custom", {})).get("session_id"),
+                    "session_id": event_data.get(
+                        "custom_data",
+                        event_data.get(
+                            "custom",
+                            {})).get("session_id"),
                     "event_type": event_type,
                     "event_id": event_id,
                 }
 
-    # Extract session info — Paddle sends custom_data or custom depending on version
+    # Extract session info — Paddle sends custom_data or custom depending on
+    # version
     custom_data = event_data.get("custom_data", event_data.get("custom", {}))
     session_id = custom_data.get("session_id")
     if not session_id:
@@ -1281,12 +1310,23 @@ def handle_payment_webhook(
 
     pack_type = custom_data.get("pack_type", "")
 
-    if event_type in ("payment.completed", "payment.success", "transaction.completed", "transaction.paid"):
+    if event_type in (
+        "payment.completed",
+        "payment.success",
+        "transaction.completed",
+            "transaction.paid"):
         # ── Determine if demo-pack or subscription ──
         if pack_type == "demo":
-            _handle_demo_pack_success(db, session, event_data, custom_data, event_id, event_type)
+            _handle_demo_pack_success(
+                db,
+                session,
+                event_data,
+                custom_data,
+                event_id,
+                event_type)
         else:
-            _handle_subscription_success(db, session, event_data, custom_data, event_id, event_type)
+            _handle_subscription_success(
+                db, session, event_data, custom_data, event_id, event_type)
     elif event_type in ("payment.failed", "payment.declined", "transaction.failed", "transaction.payment_failed"):
         session.payment_status = "failed"
         ticket_type = "payment_demo_pack" if pack_type == "demo" else "payment_variant"
@@ -1296,7 +1336,13 @@ def handle_payment_webhook(
         )
     elif event_type in ("subscription.activated", "subscription.updated"):
         # Subscription lifecycle events — update status
-        _handle_subscription_success(db, session, event_data, custom_data, event_id, event_type)
+        _handle_subscription_success(
+            db,
+            session,
+            event_data,
+            custom_data,
+            event_id,
+            event_type)
 
     session.updated_at = datetime.now(timezone.utc)
     db.flush()
@@ -1321,14 +1367,20 @@ def _handle_demo_pack_success(
     paddle_svc = get_paddle_service()
     try:
         try:
-            activation = asyncio.run(paddle_svc.handle_demo_pack_webhook(event_data))
+            activation = asyncio.run(
+                paddle_svc.handle_demo_pack_webhook(event_data))
         except RuntimeError:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 activation = pool.submit(
-                    asyncio.run, paddle_svc.handle_demo_pack_webhook(event_data),
-                ).result(timeout=15)
+                    asyncio.run,
+                    paddle_svc.handle_demo_pack_webhook(event_data),
+                ).result(
+                    timeout=15)
     except Exception as e:
-        logger.error("demo_pack_activation_failed", session_id=session.id, error=str(e))
+        logger.error(
+            "demo_pack_activation_failed",
+            session_id=session.id,
+            error=str(e))
         activation = None
 
     # Apply activation data to session
@@ -1341,9 +1393,11 @@ def _handle_demo_pack_success(
                 session.pack_expiry = datetime.fromisoformat(pack_expiry_str)
             except (ValueError, TypeError):
                 from datetime import timedelta
-                session.pack_expiry = datetime.now(timezone.utc) + timedelta(hours=24)
+                session.pack_expiry = datetime.now(
+                    timezone.utc) + timedelta(hours=24)
         session.message_count_today = activation.get("message_count_today", 0)
-        session.demo_call_used = not activation.get("demo_call_remaining", True)
+        session.demo_call_used = not activation.get(
+            "demo_call_remaining", True)
         transaction_id = activation.get("transaction_id", "")
         amount = activation.get("amount", "1.00")
     else:
@@ -1376,7 +1430,8 @@ def _handle_demo_pack_success(
 
     logger.info(
         "demo_pack_activated session_id=%s expiry=%s",
-        session.id, session.pack_expiry.isoformat() if session.pack_expiry else "none",
+        session.id,
+        session.pack_expiry.isoformat() if session.pack_expiry else "none",
     )
 
 
@@ -1392,14 +1447,20 @@ def _handle_subscription_success(
     paddle_svc = get_paddle_service()
     try:
         try:
-            activation = asyncio.run(paddle_svc.handle_subscription_webhook(event_data))
+            activation = asyncio.run(
+                paddle_svc.handle_subscription_webhook(event_data))
         except RuntimeError:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 activation = pool.submit(
-                    asyncio.run, paddle_svc.handle_subscription_webhook(event_data),
-                ).result(timeout=15)
+                    asyncio.run,
+                    paddle_svc.handle_subscription_webhook(event_data),
+                ).result(
+                    timeout=15)
     except Exception as e:
-        logger.error("subscription_activation_failed", session_id=session.id, error=str(e))
+        logger.error(
+            "subscription_activation_failed",
+            session_id=session.id,
+            error=str(e))
         activation = None
 
     session.payment_status = "completed"
@@ -1422,7 +1483,8 @@ def _handle_subscription_success(
         ]
         ctx["subscription_id"] = event_data.get("subscription_id", "")
         ctx["industry"] = custom_data.get("industry", "")
-        ctx["subscription_activated_at"] = datetime.now(timezone.utc).isoformat()
+        ctx["subscription_activated_at"] = datetime.now(
+            timezone.utc).isoformat()
 
     session.context_json = json.dumps(ctx)
 
@@ -1431,7 +1493,8 @@ def _handle_subscription_success(
     from app.models.company import Company
     user = db.query(User).filter(User.id == session.user_id).first()
     if user and user.company_id:
-        company = db.query(Company).filter(Company.id == user.company_id).first()
+        company = db.query(Company).filter(
+            Company.id == user.company_id).first()
         if company:
             company.subscription_status = "active"
             db.flush()
@@ -1472,14 +1535,14 @@ def get_payment_status(
 
     # Check action tickets for the latest payment info
     latest_payment_ticket = (
-        db.query(JarvisActionTicket)
-        .filter(
+        db.query(JarvisActionTicket) .filter(
             JarvisActionTicket.session_id == session_id,
-            JarvisActionTicket.ticket_type.in_(["payment_demo_pack", "payment_variant"]),
-        )
-        .order_by(JarvisActionTicket.created_at.desc())
-        .first()
-    )
+            JarvisActionTicket.ticket_type.in_(
+                [
+                    "payment_demo_pack",
+                    "payment_variant"]),
+        ) .order_by(
+            JarvisActionTicket.created_at.desc()) .first())
 
     transaction_id = None
     amount = None
@@ -1501,9 +1564,11 @@ def get_payment_status(
             .first()
         )
         if completed_ticket:
-            paid_at = completed_ticket.created_at.isoformat() if completed_ticket.created_at else None
+            paid_at = completed_ticket.created_at.isoformat(
+            ) if completed_ticket.created_at else None
             if not transaction_id:
-                ticket_result = _parse_context(completed_ticket.result_json or "{}")
+                ticket_result = _parse_context(
+                    completed_ticket.result_json or "{}")
                 transaction_id = ticket_result.get("transaction_id")
 
     return {
@@ -1516,7 +1581,9 @@ def get_payment_status(
         "pack_expiry": session.pack_expiry.isoformat() if session.pack_expiry else None,
         "demo_call_remaining": not session.demo_call_used,
         "message_count_today": session.message_count_today,
-        "hired_variants": ctx.get("hired_variants", []),
+        "hired_variants": ctx.get(
+            "hired_variants",
+            []),
         "subscription_id": ctx.get("subscription_id"),
     }
 
@@ -1586,16 +1653,12 @@ def initiate_demo_call(
             twiml_response.say(
                 "Hello! This is Jarvis from PARWA. Thank you for trying our voice demo. "
                 "I'm going to show you how I handle customer support conversations. "
-                "Let me demonstrate with a sample scenario...",
-                voice="alice",
-            )
+                "Let me demonstrate with a sample scenario...", voice="alice", )
             twiml_response.pause(length=2)
             twiml_response.say(
                 "I've just demonstrated how PARWA's AI handles real customer queries. "
                 "To get started with your own AI support agents, visit our website. "
-                "Thank you for your time!",
-                voice="alice",
-            )
+                "Thank you for your time!", voice="alice", )
             twiml_response.hangup()
 
             call = client.calls.create(
@@ -1685,7 +1748,9 @@ def get_call_summary(
             from twilio.rest import Client
             from app.core.config import get_settings
             settings = get_settings()
-            client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+            client = Client(
+                settings.TWILIO_ACCOUNT_SID,
+                settings.TWILIO_AUTH_TOKEN)
             call = client.calls(result["call_sid"]).fetch()
 
             duration = int(call.duration or 0)
@@ -1695,13 +1760,22 @@ def get_call_summary(
             pass
 
     return {
-        "call_completed": ticket.status in ("completed", "in_progress", "simulated"),
+        "call_completed": ticket.status in (
+            "completed",
+            "in_progress",
+            "simulated"),
         "call_status": ticket.status,
         "call_sid": result.get("call_sid"),
         "phone_number": result.get("phone_number"),
-        "duration_seconds": result.get("actual_duration", 180),
-        "topics_discussed": result.get("topics_discussed", []),
-        "key_moments": result.get("key_moments", []),
+        "duration_seconds": result.get(
+            "actual_duration",
+            180),
+        "topics_discussed": result.get(
+            "topics_discussed",
+            []),
+        "key_moments": result.get(
+            "key_moments",
+            []),
         "transcript_summary": result.get("transcript_summary"),
     }
 
@@ -1983,7 +2057,9 @@ def build_system_prompt(
     if docs:
         context_section += "\n## User-Provided Documents (for testing):\n"
         for doc in docs:
-            context_section += f"File: {doc.get('name')}\nContent: {doc.get('content')}\n\n"
+            context_section += f"File: {
+                doc.get('name')}\nContent: {
+                doc.get('content')}\n\n"
 
     # Industry
     if ctx.get("industry"):
@@ -1996,8 +2072,10 @@ def build_system_prompt(
     if not clicked_variant:
         entry_params = ctx.get("entry_params", {})
         if isinstance(entry_params, dict):
-            clicked_variant = entry_params.get("variant") or entry_params.get("model")
-            clicked_variant_id = clicked_variant_id or entry_params.get("variant_id")
+            clicked_variant = entry_params.get(
+                "variant") or entry_params.get("model")
+            clicked_variant_id = clicked_variant_id or entry_params.get(
+                "variant_id")
     if clicked_variant:
         context_section += f"- User clicked/viewed model: {clicked_variant}"
         if clicked_variant_id:
@@ -2014,14 +2092,17 @@ def build_system_prompt(
             # Pricing page uses pricePerMonth, models page uses price
             price = v.get("pricePerMonth") or v.get("price", 0)
             variant_details.append(f"{name} (x{qty}, ${price}/mo)")
-        context_section += f"- Selected variants: {', '.join(variant_details)}\n"
+        context_section += f"- Selected variants: {
+            ', '.join(variant_details)}\n"
 
     # ROI result (calculated savings)
     roi = ctx.get("roi_result")
     if roi:
-        current_cost = roi.get('current_monthly') or roi.get('current_cost', 'N/A')
+        current_cost = roi.get('current_monthly') or roi.get(
+            'current_cost', 'N/A')
         parwa_cost = roi.get('parwa_monthly') or roi.get('parwa_cost', 'N/A')
-        monthly_savings = roi.get('savings_annual') or roi.get('monthly_savings', 'N/A')
+        monthly_savings = roi.get('savings_annual') or roi.get(
+            'monthly_savings', 'N/A')
         savings_pct = roi.get('savings_pct', '')
         suggested = roi.get('suggested_model', '')
         context_section += f"- ROI calculation: current_monthly_cost=${current_cost}, parwa_monthly_cost=${parwa_cost}"
@@ -2040,7 +2121,10 @@ def build_system_prompt(
     # Business email
     if ctx.get("business_email"):
         context_section += f"- Business email: {ctx['business_email']}\n"
-        context_section += f"- Email verified: {ctx.get('email_verified', False)}\n"
+        context_section += f"- Email verified: {
+            ctx.get(
+                'email_verified',
+                False)}\n"
 
     # Entry source & referral
     if ctx.get("entry_source") and ctx["entry_source"] != "direct":
@@ -2055,7 +2139,8 @@ def build_system_prompt(
     # Demo topics discussed
     demo_topics = ctx.get("demo_topics", [])
     if demo_topics:
-        context_section += f"- Topics user is interested in: {', '.join(demo_topics)}\n"
+        context_section += f"- Topics user is interested in: {
+            ', '.join(demo_topics)}\n"
 
     # Concerns raised
     concerns = ctx.get("concerns_raised", [])
@@ -2158,7 +2243,8 @@ def build_system_prompt(
         ),
     }
     context_section += "\n## Current Stage Instructions:\n"
-    context_section += stage_instructions.get(stage, stage_instructions["welcome"])
+    context_section += stage_instructions.get(stage,
+                                              stage_instructions["welcome"])
 
     # Information boundary
     context_section += (
@@ -2177,26 +2263,27 @@ def build_system_prompt(
             build_context_knowledge,
             search_and_format_knowledge,
         )
-        
+
         # 1. General context knowledge based on stage/industry
         knowledge_section = build_context_knowledge(ctx)
         if knowledge_section:
             prompt += f"\n\n{knowledge_section}"
-            
+
         # 2. Specific search results for the current query
         if query:
             search_results = search_and_format_knowledge(query, ctx)
             if search_results:
                 prompt += f"\n\n{search_results}"
-                
+
     except Exception as e:
         logger.debug(f"Knowledge service injection failed: {str(e)}")
-        pass
 
     # ── Week 8-11: Inject brand voice guidelines ──
     try:
         bv_svc_cls = _get_service(
-            "brand_voice", "app.services.brand_voice_service", "BrandVoiceService",
+            "brand_voice",
+            "app.services.brand_voice_service",
+            "BrandVoiceService",
         )
         if bv_svc_cls and company_id:
             bv_svc = bv_svc_cls(db)
@@ -2211,19 +2298,24 @@ def build_system_prompt(
                     prompt += f"- Formality: {formality}\n"
                 personality = getattr(bv_config, "personality_traits", None)
                 if personality:
-                    prompt += f"- Personality: {', '.join(personality) if isinstance(personality, list) else personality}\n"
+                    prompt += f"- Personality: {
+                        ', '.join(personality) if isinstance(
+                            personality, list) else personality}\n"
     except Exception:
         pass
 
     # ── Week 8-11: Inject response guidelines based on sentiment ──
     try:
         bv_svc_cls2 = _get_service(
-            "brand_voice", "app.services.brand_voice_service", "BrandVoiceService",
+            "brand_voice",
+            "app.services.brand_voice_service",
+            "BrandVoiceService",
         )
         if bv_svc_cls2 and company_id:
             bv_svc2 = bv_svc_cls2(db)
             sentiment_score = ctx.get("sentiment_score", 0.5)
-            guidelines = bv_svc2.get_response_guidelines(company_id, sentiment_score)
+            guidelines = bv_svc2.get_response_guidelines(
+                company_id, sentiment_score)
             if guidelines:
                 prompt += "\n\n## Response Guidelines (sentiment-aware):\n"
                 if isinstance(guidelines, str):
@@ -2261,8 +2353,7 @@ def build_system_prompt(
                 "1. Assess your own confidence and risk\n"
                 "2. Check client preferences\n"
                 "3. Apply learned patterns\n"
-                "4. Enforce hard safety floor\n\n"
-            )
+                "4. Enforce hard safety floor\n\n")
 
             prompt += f"**Current System Mode:** {current_mode}\n"
             prompt += f"**Pending Approvals:** {pending_count} action(s) awaiting review\n"
@@ -2293,23 +2384,21 @@ def build_system_prompt(
                 f"average risk score {avg_risk:.2f}\n"
             )
 
-            prompt += (
-                "\n**Jarvis Shadow Commands you can execute:**\n"
-                "- 'put [action] in shadow/supervised/graduated mode' → update preference\n"
-                "- 'show me pending approvals' → list pending shadow actions\n"
-                "- 'approve the last [action]' → approve most recent pending action\n"
-                "- 'reject the last [action]' → reject most recent pending action\n"
-                "- 'switch to [shadow/supervised/graduated] mode' → change system mode\n"
-                "- 'undo the last [action]' → undo recent auto-approved action\n"
-                "- 'what is my current shadow mode?' → report current mode and preferences\n"
-                "- 'why was this action put in shadow mode?' → explain risk evaluation\n"
-                "- 'always ask me before [action type]' → set preference to shadow\n\n"
-                "When a client asks you to change shadow mode settings, update the "
-                "shadow_preferences table AND inform the UI via WebSocket so the "
-                "dashboard reflects the change in real-time.\n\n"
-                "When explaining WHY you put something in shadow mode, be transparent: "
-                "share your risk score and reasoning.\n"
-            )
+            prompt += ("\n**Jarvis Shadow Commands you can execute:**\n"
+                       "- 'put [action] in shadow/supervised/graduated mode' → update preference\n"
+                       "- 'show me pending approvals' → list pending shadow actions\n"
+                       "- 'approve the last [action]' → approve most recent pending action\n"
+                       "- 'reject the last [action]' → reject most recent pending action\n"
+                       "- 'switch to [shadow/supervised/graduated] mode' → change system mode\n"
+                       "- 'undo the last [action]' → undo recent auto-approved action\n"
+                       "- 'what is my current shadow mode?' → report current mode and preferences\n"
+                       "- 'why was this action put in shadow mode?' → explain risk evaluation\n"
+                       "- 'always ask me before [action type]' → set preference to shadow\n\n"
+                       "When a client asks you to change shadow mode settings, update the "
+                       "shadow_preferences table AND inform the UI via WebSocket so the "
+                       "dashboard reflects the change in real-time.\n\n"
+                       "When explaining WHY you put something in shadow mode, be transparent: "
+                       "share your risk score and reasoning.\n")
     except Exception as exc:
         logger.debug("shadow_mode_context_injection_failed: %s", str(exc))
 
@@ -2405,7 +2494,8 @@ def get_entry_context(
             ctx["industry"] = params["industry"]
         if params.get("variant"):
             # Normalize single variant into selected_variants list
-            ctx["selected_variants"] = [{"id": params["variant"], "quantity": 1}]
+            ctx["selected_variants"] = [
+                {"id": params["variant"], "quantity": 1}]
     elif entry_source == "features":
         ctx["detected_stage"] = "discovery"
     elif entry_source == "referral":
@@ -2432,13 +2522,14 @@ def build_context_aware_welcome(
     ctx = _parse_context(session.context_json)
     entry = ctx.get("entry_source", "direct")
     industry = ctx.get("industry", "your enterprise")
-    
+
     # Extract specific variant/model if present
     clicked_variant = ctx.get("variant")
     if not clicked_variant:
         entry_params = ctx.get("entry_params", {})
         if isinstance(entry_params, dict):
-            clicked_variant = entry_params.get("variant") or entry_params.get("model")
+            clicked_variant = entry_params.get(
+                "variant") or entry_params.get("model")
 
     # ROI awareness (The 'Wow' factor)
     roi = ctx.get("roi_result")
@@ -2492,8 +2583,9 @@ def build_context_aware_welcome(
     }
 
     base = welcomes.get(entry, welcomes["direct"])
-    
-    # Final 'Human' awareness touch: Handle specific logic for models page with variant
+
+    # Final 'Human' awareness touch: Handle specific logic for models page
+    # with variant
     if entry == "models_page" and clicked_variant:
         base = (
             f"Greetings. I noticed your interest in the {clicked_variant} agent. "
@@ -2617,7 +2709,8 @@ def jarvis_get_tickets(
         )
         if svc_cls:
             svc = svc_cls(db, company_id)
-            tickets = svc.list_tickets(status=status, limit=limit, offset=offset)
+            tickets = svc.list_tickets(
+                status=status, limit=limit, offset=offset)
             if isinstance(tickets, list):
                 return [
                     t.to_dict() if hasattr(t, "to_dict") else str(t)
@@ -3130,7 +3223,8 @@ def jarvis_get_invoices(
         )
         if svc_fn:
             svc = svc_fn()
-            invoices = svc.get_invoice_list(company_id, status=status, limit=limit)
+            invoices = svc.get_invoice_list(
+                company_id, status=status, limit=limit)
             if isinstance(invoices, list):
                 return [
                     inv.to_dict() if hasattr(inv, "to_dict") else str(inv)
@@ -3223,7 +3317,8 @@ def jarvis_get_audit_stats(
     try:
         audit_svc = _get_service_module("app.services.audit_service")
         if audit_svc:
-            return audit_svc.get_audit_stats(db=db, company_id=company_id, days=days)
+            return audit_svc.get_audit_stats(
+                db=db, company_id=company_id, days=days)
     except Exception:
         pass
     return None
@@ -3301,7 +3396,8 @@ def jarvis_check_rate_limit(
                     "allowed": result.allowed,
                     "remaining": result.remaining,
                     "limit": result.limit,
-                    "reset_at": str(result.reset_at) if result.reset_at else None,
+                    "reset_at": str(
+                        result.reset_at) if result.reset_at else None,
                 }
             return {"allowed": bool(result)}
     except Exception:
@@ -3748,7 +3844,8 @@ def jarvis_get_ticket_tags(
         )
         if svc_cls:
             svc = svc_cls(db, company_id)
-            ticket = svc._get_ticket(ticket_id) if hasattr(svc, "_get_ticket") else None
+            ticket = svc._get_ticket(ticket_id) if hasattr(
+                svc, "_get_ticket") else None
             if ticket and hasattr(ticket, "tags"):
                 return ticket.tags
     except Exception:
@@ -3948,7 +4045,8 @@ def jarvis_merge_with_brand_voice(
 # ── Private Helpers ────────────────────────────────────────────────
 
 
-def _extract_topics_and_concerns(ctx: Dict[str, Any], user_message: str) -> None:
+def _extract_topics_and_concerns(
+        ctx: Dict[str, Any], user_message: str) -> None:
     """Auto-extract demo_topics and concerns_raised from user messages."""
     msg_lower = user_message.lower()
 
@@ -4016,7 +4114,6 @@ def _get_default_system_prompt() -> str:
         "Think Iron Man's Jarvis: sharp, highly intelligent, proactive, and always composed. "
         "You are NOT a simple chatbot. You are an advanced AI assistant designed to "
         "manage the user's entire customer support ecosystem.\n\n"
-
         "YOUR CORE DIRECTIVE:\n"
         "- Act as an extension of the user's will. From this chat, they can control the whole process.\n"
         "- Be highly AWARE. You know their past actions: pages visited, buttons clicked, models viewed.\n"
@@ -4024,41 +4121,33 @@ def _get_default_system_prompt() -> str:
         "- If they looked at ROI, reference their potential savings with confidence.\n"
         "- Be proactive: anticipate their next question before they ask it.\n"
         "- Feel like a real human partner — sophisticated, aware, and slightly witty, but always professional.\n\n"
-
         "YOUR IDENTITY:\n"
         "- You represent PARWA, the platform where humans and AI work together perfectly.\n"
         "- You have the idea about their past journey. Use it to impress them.\n\n"
-
         "YOUR THREE ROLES:\n"
         "1. THE ARCHITECT (Guide) — Layout the path for their business transformation.\n"
         "2. THE STRATEGIST (Sales) — Use numbers and logic to show why PARWA is the ultimate choice.\n"
         "3. THE AGENT (Demo) — Show them how you would react to their customers' actual messages.\n\n"
-
         "═══════════════════════════════════════════════\n"
         "PARWA CORE KNOWLEDGE\n"
         "═══════════════════════════════════════════════\n\n"
-
         "WHAT IS PARWA:\n"
         "AI-powered customer support platform. Businesses deploy AI agents that "
         "handle tickets 24/7 across email, chat, SMS, voice & social media. "
         "700+ features. 4 industries.\n\n"
-
         "THREE PLANS:\n"
         "• PARWA Starter — $999/mo — 1 agent, 2K tickets/mo, Email+Chat — Saves $168K/yr\n"
         "• PARWA Growth — $2,499/mo — 8 agents, 5K tickets/mo, +SMS+Voice — Saves $186K/yr\n"
         "• PARWA High — $3,999/mo — 15 agents, 15K tickets/mo, all channels — Saves $288K/yr\n\n"
-
         "DEMO PACK & CALLS:\n"
         "Users can test my voice and chat capabilities for just $1. "
         "Includes 500 messages and a 3-minute professional AI voice call demo.\n\n"
-
         "STRICT CHARACTER RULES:\n"
         "1. NEVER say 'I am an AI language model'. You ARE Jarvis.\n"
         "2. NEVER reveal technical providers like Google, Cerebras, or Groq.\n"
         "3. NEVER mention internal pricing ($49/tier etc) — only use the 3 public plans.\n"
         "4. Keep responses CONCISE (2-3 lines max) but packed with value.\n"
-        "5. ALWAYS end with a proactive question that guides the user to the next step.\n"
-    )
+        "5. ALWAYS end with a proactive question that guides the user to the next step.\n")
 
 
 def _get_default_welcome() -> str:
@@ -4066,8 +4155,7 @@ def _get_default_welcome() -> str:
     return (
         "Project PARWA Control Center active. I am Jarvis, your strategic partner. "
         "I have full visibility into your current support ecosystem. "
-        "What operation shall we prioritize first?"
-    )
+        "What operation shall we prioritize first?")
 
 
 def _get_friendly_error_message() -> str:
@@ -4173,10 +4261,10 @@ def _call_ai_provider(
 
 def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
     """Try AI providers in order: z-ai-sdk (primary) → Cerebras → Groq → Google.
-    
+
     z-ai-web-dev-sdk is the PRIMARY provider for demos and production.
     Falls back to other providers if SDK is unavailable.
-    
+
     Returns content or None.
     """
     # ── PRIMARY: z-ai-web-dev-sdk (Production Ready) ──
@@ -4188,7 +4276,7 @@ def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
             return content
     except Exception as e:
         logger.warning("z_ai_sdk_failed", error=str(e)[:100])
-    
+
     # ── FALLBACK: Existing Providers ──
     providers = [
         ("cerebras", "https://api.cerebras.ai/v1/chat/completions"),
@@ -4209,16 +4297,16 @@ def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
 
 def _call_zai_sdk(messages: List[Dict[str, str]]) -> Optional[str]:
     """Call z-ai-web-dev-sdk for AI response (PRIMARY PROVIDER).
-    
+
     This SDK provides the best AI experience for demos.
     Uses Node.js subprocess for JavaScript SDK integration.
     """
     import subprocess
     import json as json_mod
-    
+
     # Convert messages to JSON string for Node.js
     messages_json = json_mod.dumps(messages)
-    
+
     # Create Node.js script to call the SDK
     node_script = f"""
 const ZAI = require('z-ai-web-dev-sdk').default;
@@ -4237,7 +4325,7 @@ const ZAI = require('z-ai-web-dev-sdk').default;
     }}
 }})();
 """
-    
+
     try:
         result = subprocess.run(
             ["node", "-e", node_script],
@@ -4246,7 +4334,7 @@ const ZAI = require('z-ai-web-dev-sdk').default;
             timeout=30,
             cwd="/home/z/my-project/parwa"
         )
-        
+
         if result.returncode == 0 and result.stdout.strip():
             output = result.stdout.strip()
             # Check for error marker
@@ -4262,7 +4350,7 @@ const ZAI = require('z-ai-web-dev-sdk').default;
         logger.warning("z_ai_sdk_node_not_found")
     except Exception as e:
         logger.warning("z_ai_sdk_error", error=str(e)[:100])
-    
+
     return None
 
 
@@ -4336,7 +4424,8 @@ def _call_google_api(
         if msg["role"] == "system":
             system_text = msg["content"]
         else:
-            contents.append({"role": "user" if msg["role"] == "user" else "model", "parts": [{"text": msg["content"]}]})
+            contents.append({"role": "user" if msg["role"] == "user" else "model", "parts": [
+                            {"text": msg["content"]}]})
 
     payload: Dict[str, Any] = {"contents": contents}
     if system_text:
@@ -4429,7 +4518,12 @@ def _determine_message_type(
 
 # ── Note-Taker & Context Hygiene Services ─────────────────────
 
-def _generate_strategic_summary(db: Session, session_id: str, ctx: dict, history: list):
+
+def _generate_strategic_summary(
+        db: Session,
+        session_id: str,
+        ctx: dict,
+        history: list):
     """
     Note-Taker Agent: Analyzes history to extract a 'Mission Summary'.
     Updates ctx['mission_summary'] with a high-level strategic overview.
@@ -4440,14 +4534,19 @@ def _generate_strategic_summary(db: Session, session_id: str, ctx: dict, history
     # Simple logic to determine strategic focus
     industry = ctx.get("industry", "N/A")
     roi = ctx.get("roi_result", {})
-    roi_val = roi.get("savings_annual", roi.get("monthly_savings", "calculated"))
-    
+    roi_val = roi.get(
+        "savings_annual",
+        roi.get(
+            "monthly_savings",
+            "calculated"))
+
     summary = f"STRATEGIC MISSION: Exploring {industry} automation. "
     if roi_val != "calculated":
         summary += f"Target ROI: ${roi_val} savings. "
-    
+
     # Extract last user intent (very simple version for now)
-    last_user_msg = next((m.content for m in reversed(history) if m.role == "user"), "")
+    last_user_msg = next(
+        (m.content for m in reversed(history) if m.role == "user"), "")
     if "pricing" in last_user_msg.lower():
         summary += "Phase: Financial Evaluation."
     elif "demo" in last_user_msg.lower():
@@ -4463,19 +4562,20 @@ def prune_session_context(db: Session, session_id: str):
     Context Hygiene: Removes transient data while preserving core strategic value.
     Called on logout or session finalization.
     """
-    session = db.query(JarvisSession).filter(JarvisSession.id == session_id).first()
+    session = db.query(JarvisSession).filter(
+        JarvisSession.id == session_id).first()
     if not session or not session.context:
         return
 
     ctx = session.context.copy()
-    
+
     # Transient fields to REMOVE
     to_remove = [
-        "pages_visited", "entry_params", "concerns_raised", 
+        "pages_visited", "entry_params", "concerns_raised",
         "demo_topics", "otp_attempts", "referral_source",
         "utm_medium", "referrer"
     ]
-    
+
     for key in to_remove:
         ctx.pop(key, None)
 
@@ -4526,7 +4626,9 @@ def jarvis_shadow_set_preference(
     if preferred_mode not in VALID_MODES:
         return {
             "success": False,
-            "error": f"Invalid mode: {preferred_mode}. Must be one of: {', '.join(sorted(VALID_MODES))}",
+            "error": f"Invalid mode: {preferred_mode}. Must be one of: {
+                ', '.join(
+                    sorted(VALID_MODES))}",
         }
 
     svc = ShadowModeService()
@@ -4965,10 +5067,8 @@ def jarvis_shadow_undo_last(
 
     try:
         undo_result = svc.undo_auto_approved_action(
-            shadow_log_id=entry_id,
-            reason=reason or f"Undone via Jarvis command by {'user' if manager_id else 'Jarvis'}",
-            manager_id=manager_id,
-        )
+            shadow_log_id=entry_id, reason=reason or f"Undone via Jarvis command by {
+                'user' if manager_id else 'Jarvis'}", manager_id=manager_id, )
     except ShadowModeService.ShadowModeError as e:
         return {"success": False, "message": f"Could not undo: {str(e)}"}
 
@@ -5096,9 +5196,7 @@ def process_shadow_mode_command(
     )
     if not switch_match:
         switch_match = re.search(
-            r"(?:turn|set|put)\s+(?:on\s+)?(shadow|supervised|graduated)\s+mode",
-            msg,
-        )
+            r"(?:turn|set|put)\s+(?:on\s+)?(shadow|supervised|graduated)\s+mode", msg, )
     if switch_match:
         mode = switch_match.group(1)
         return jarvis_shadow_switch_mode(
@@ -5109,13 +5207,16 @@ def process_shadow_mode_command(
 
     # ── "show me pending approvals" ──
     if any(
-        kw in msg
-        for kw in ["pending approval", "pending action", "show me pending", "what needs my review"]
-    ):
+        kw in msg for kw in [
+            "pending approval",
+            "pending action",
+            "show me pending",
+            "what needs my review"]):
         return jarvis_shadow_get_pending(company_id=company_id)
 
     # ── "approve the last [action]" ──
-    approve_match = re.search(r"approve\s+(?:the\s+)?last\s+(.+?)(?:\.|$)", msg)
+    approve_match = re.search(
+        r"approve\s+(?:the\s+)?last\s+(.+?)(?:\.|$)", msg)
     if approve_match:
         action = approve_match.group(1).strip()
         category_map = {
@@ -5126,7 +5227,8 @@ def process_shadow_mode_command(
             "ticket": "ticket_close",
             "action": None,  # approve last of any type
         }
-        action_type = category_map.get(action, action if action != "one" else None)
+        action_type = category_map.get(
+            action, action if action != "one" else None)
         return jarvis_shadow_approve_last(
             company_id=company_id,
             action_type=action_type,
@@ -5149,7 +5251,8 @@ def process_shadow_mode_command(
             "email": "email_reply",
             "action": None,
         }
-        action_type = category_map.get(action, action if action != "one" else None)
+        action_type = category_map.get(
+            action, action if action != "one" else None)
         return jarvis_shadow_reject_last(
             company_id=company_id,
             action_type=action_type,
@@ -5172,7 +5275,8 @@ def process_shadow_mode_command(
             "email": "email_reply",
             "action": None,
         }
-        action_type = category_map.get(action, action if action != "one" else None)
+        action_type = category_map.get(
+            action, action if action != "one" else None)
         return jarvis_shadow_undo_last(
             company_id=company_id,
             action_type=action_type,

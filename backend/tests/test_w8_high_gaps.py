@@ -10,13 +10,57 @@ Tests cover six critical gap areas:
 6. Alert false positives — normal metric variance doesn't trigger alerts
 """
 
-import hashlib
+from app.exceptions import ParwaBaseError
+from app.core.ai_monitoring_service import (
+    AIMonitoringService,
+)
+from app.core.self_healing_engine import (
+    SelfHealingEngine,
+    HealingRule,
+    ConditionType,
+    ActionType,
+    ProviderState as SHProviderState,
+    _CONSECUTIVE_FAILURE_LIMIT,
+    _LOW_SCORE_CONSECUTIVE,
+    _RECOVERY_HIGH_SCORE_CONSECUTIVE,
+)
+from app.services.technique_cache_service import (
+    _validate_company_id,
+    _safe_parse_json,
+    _validate_cache_result,
+    compute_query_hash,
+    get_cached_result as tcs_get_cached_result,
+    set_cached_result as tcs_set_cached_result,
+    invalidate_cached_result as tcs_invalidate_cached_result,
+)
+from app.services.prompt_template_service import (
+    PromptTemplateService,
+)
+from app.core.prompt_templates import (
+    PromptTemplateManager,
+)
+from app.core.guardrails_engine import (
+    GuardrailsEngine,
+    GuardAction,
+)
+from app.core.confidence_scoring_engine import (
+    ConfidenceScoringEngine,
+    ConfidenceResult,
+)
+from app.core.model_failover import (
+    FailoverManager,
+    FailoverChainExecutor,
+    FailoverReason,
+    ProviderState,
+    DegradedResponseDetector,
+    FAILOVER_CHAINS,
+)
 import json
 import sys
 import types
 import threading
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -33,81 +77,6 @@ sys.modules["database.models"] = types.ModuleType("database.models")
 sys.modules["database.models.variant_engine"] = _mock_variant_engine
 
 # ── Source imports ────────────────────────────────────────────────────
-
-from app.core.model_failover import (
-    FailoverManager,
-    FailoverChainExecutor,
-    FailoverReason,
-    FailoverEvent,
-    CircuitBreaker,
-    ProviderState,
-    DegradedResponseDetector,
-    FAILOVER_CHAINS,
-)
-from app.core.confidence_scoring_engine import (
-    ConfidenceScoringEngine,
-    ConfidenceConfig,
-    ConfidenceResult,
-    SignalScore,
-    VariantType,
-)
-from app.core.guardrails_engine import (
-    GuardrailsEngine,
-    GuardrailConfig,
-    GuardrailResult,
-    GuardrailsReport,
-    GuardAction,
-    GuardrailLayer,
-    SeverityLevel,
-    StrictnessLevel,
-    _build_config,
-)
-from app.core.prompt_templates import (
-    PromptTemplateManager,
-    PromptTemplate,
-    ALL_INTENTS,
-)
-from app.services.prompt_template_service import (
-    PromptTemplateService,
-    ABTestConfig,
-    ABTestStatus,
-    TemplateStatus,
-)
-from app.services.technique_cache_service import (
-    _validate_company_id,
-    _safe_parse_json,
-    _validate_cache_result,
-    compute_query_hash,
-    get_cached_result as tcs_get_cached_result,
-    set_cached_result as tcs_set_cached_result,
-    invalidate_cached_result as tcs_invalidate_cached_result,
-    DEFAULT_CACHE_TTL_HOURS,
-)
-from app.core.self_healing_engine import (
-    SelfHealingEngine,
-    HealingRule,
-    HealingAction,
-    ConditionType,
-    ActionType,
-    HealingStatus,
-    ProviderState as SHProviderState,
-    VariantHealingState,
-    ThresholdAdjustment,
-    _RECOVERY_COOLDOWN_SECONDS,
-    _CONSECUTIVE_FAILURE_LIMIT,
-    _LOW_SCORE_CONSECUTIVE,
-    _RECOVERY_HIGH_SCORE_CONSECUTIVE,
-    _ERROR_SPIKE_THRESHOLD,
-)
-from app.core.ai_monitoring_service import (
-    AIMonitoringService,
-    AlertLevel,
-    AlertCondition,
-    DashboardSnapshot,
-    LatencyStats,
-    ConfidenceDistribution,
-)
-from app.exceptions import ParwaBaseError
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -131,7 +100,9 @@ class TestProviderFailoverRace:
 
     def test_failover_chain_skips_open_circuits(self):
         """get_failover_chain skips providers with open circuits."""
-        mgr = FailoverManager(recovery_threshold=2, recovery_timeout_seconds=9999)
+        mgr = FailoverManager(
+            recovery_threshold=2,
+            recovery_timeout_seconds=9999)
         # Trip the first provider in medium chain
         chain = FAILOVER_CHAINS["medium"]
         first_prov, first_model = chain[0]
@@ -143,7 +114,9 @@ class TestProviderFailoverRace:
         available = mgr.get_failover_chain("medium")
         assert len(available) < len(chain)
         # First provider must NOT be in available chain
-        assert not any(p == first_prov and m == first_model for p, m in available)
+        assert not any(
+            p == first_prov and m == first_model for p,
+            m in available)
 
     def test_concurrent_failures_race_safe(self):
         """Multiple threads reporting failures don't corrupt state."""
@@ -180,7 +153,9 @@ class TestProviderFailoverRace:
 
     def test_executor_falls_through_to_backup_provider(self):
         """Execute_with_failover tries backup when primary fails."""
-        mgr = FailoverManager(recovery_threshold=1, recovery_timeout_seconds=9999)
+        mgr = FailoverManager(
+            recovery_threshold=1,
+            recovery_timeout_seconds=9999)
         executor = FailoverChainExecutor(mgr)
 
         call_fn = MagicMock(side_effect=[
@@ -189,7 +164,8 @@ class TestProviderFailoverRace:
         ])
 
         chain = [("provider_a", "model_a"), ("provider_b", "model_b")]
-        result = executor.execute_with_failover("co1", chain, call_fn, max_retries=1)
+        result = executor.execute_with_failover(
+            "co1", chain, call_fn, max_retries=1)
         assert result.get("content") == "fallback response works"
         assert result.get("_failover_used") is True
 
@@ -201,7 +177,8 @@ class TestProviderFailoverRace:
         call_fn = MagicMock(side_effect=ConnectionError("down"))
         chain = [("p1", "m1"), ("p2", "m2"), ("p3", "m3")]
 
-        result = executor.execute_with_failover("co1", chain, call_fn, max_retries=1)
+        result = executor.execute_with_failover(
+            "co1", chain, call_fn, max_retries=1)
         assert result.get("_all_providers_failed") is True
         assert result.get("_graceful_degradation") is True
         assert "content" in result  # never None
@@ -432,7 +409,8 @@ class TestCacheTenantIsolation:
         mock_db = MagicMock()
         mock_entry = MagicMock()
         mock_entry.cached_result = json.dumps({"answer": "secret data"})
-        mock_entry.ttl_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+        mock_entry.ttl_expires_at = datetime.now(
+            timezone.utc) + timedelta(hours=1)
         mock_entry.hit_count = 0
         mock_db.query.return_value.filter_by.return_value.first.return_value = mock_entry
 
@@ -741,7 +719,8 @@ class TestCrossCuttingEdgeCases:
         assert is_deg is True
         assert "empty" in reason
 
-        is_deg2, reason2 = detector.is_degraded("Internal server error occurred")
+        is_deg2, reason2 = detector.is_degraded(
+            "Internal server error occurred")
         assert is_deg2 is True
 
         good = "This is a perfectly normal response with enough length."

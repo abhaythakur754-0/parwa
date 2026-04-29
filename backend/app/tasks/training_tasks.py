@@ -14,11 +14,8 @@ Building Codes:
 - BC-001: Multi-Tenant Isolation
 """
 
-import json
 import logging
 import time
-from datetime import datetime, timezone
-from typing import Dict, Any, Optional
 
 from app.tasks.base import ParwaBaseTask, with_company_id
 from app.tasks.celery_app import app
@@ -26,7 +23,6 @@ from app.tasks.celery_app import app
 logger = logging.getLogger("parwa.tasks.training")
 
 # Import the LOCKED threshold
-from app.services.mistake_threshold_service import MISTAKE_THRESHOLD
 
 
 @app.task(
@@ -259,9 +255,8 @@ def execute_training_run(self, company_id: str, run_id: str) -> dict:
 
         if run["status"] != "queued":
             return {
-                "status": "error",
-                "error": f"Run is in {run['status']} status, expected 'queued'",
-            }
+                "status": "error", "error": f"Run is in {
+                    run['status']} status, expected 'queued'", }
 
         # Update status to initializing
         service.update_progress(
@@ -312,14 +307,16 @@ def execute_training_run(self, company_id: str, run_id: str) -> dict:
         checkpoints = []
 
         for epoch in range(1, total_epochs + 1):
-            # Calculate progress (5% for init, 90% for training, 5% for finalization)
+            # Calculate progress (5% for init, 90% for training, 5% for
+            # finalization)
             progress = 5 + (epoch / total_epochs) * 90
 
             # Simulate training metrics with realistic values
             base_loss = 2.0
             base_accuracy = 0.3
             loss = max(0.1, base_loss * (0.7 ** epoch))  # Decreasing loss
-            accuracy = min(0.95, base_accuracy + 0.2 * epoch)  # Increasing accuracy
+            accuracy = min(0.95, base_accuracy + 0.2 *
+                           epoch)  # Increasing accuracy
 
             metrics = {
                 "epoch": epoch,
@@ -364,10 +361,15 @@ def execute_training_run(self, company_id: str, run_id: str) -> dict:
             time.sleep(0.1)  # Small delay for simulation
 
         # Calculate final quality score (F-102)
-        final_loss = checkpoints[-1].get("metrics", {}).get("loss", 0.5) if checkpoints else 0.5
-        final_accuracy = checkpoints[-1].get("metrics", {}).get("accuracy", 0.8) if checkpoints else 0.8
+        final_loss = checkpoints[-1].get("metrics",
+                                         {}).get("loss",
+                                                 0.5) if checkpoints else 0.5
+        final_accuracy = checkpoints[-1].get("metrics",
+                                             {}).get("accuracy",
+                                                     0.8) if checkpoints else 0.8
 
-        quality_score = min(1.0, (final_accuracy * 0.6) + ((1 - final_loss) * 0.4))
+        quality_score = min(1.0, (final_accuracy * 0.6) +
+                            ((1 - final_loss) * 0.4))
 
         # Terminate GPU instance
         gpu_service.terminate_instance(
@@ -553,7 +555,8 @@ def auto_trigger_training(self, company_id: str, agent_id: str) -> dict:
             )
             return {
                 "status": "error",
-                "error": f"Dataset preparation failed: {dataset_result.get('error')}",
+                "error": f"Dataset preparation failed: {
+                    dataset_result.get('error')}",
             }
 
         # Create training run

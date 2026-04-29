@@ -23,10 +23,10 @@ Building Codes:
 import json
 import logging
 import re
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timedelta
+from typing import Optional
 
-from sqlalchemy import and_, func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database.models.sms_channel import (
@@ -341,7 +341,9 @@ class SMSChannelService:
         # Normalize phone
         to_normalized = self._normalize_phone(to_number)
         if not to_normalized:
-            return {"status": "error", "error": "Invalid recipient phone number"}
+            return {
+                "status": "error",
+                "error": "Invalid recipient phone number"}
 
         # Check opt-out status (BC-010)
         conv = None
@@ -902,7 +904,10 @@ class SMSChannelService:
 
         any_opted_out = any(c.is_opted_out for c in conversations)
         latest_opt_out = None
-        for c in sorted(conversations, key=lambda x: x.opt_out_at or datetime.min, reverse=True):
+        for c in sorted(
+                conversations,
+                key=lambda x: x.opt_out_at or datetime.min,
+                reverse=True):
             if c.opt_out_at:
                 latest_opt_out = {
                     "keyword": c.opt_out_keyword,
@@ -956,7 +961,8 @@ class SMSChannelService:
         """
         if not keywords_str:
             return []
-        return [k.strip().lower() for k in keywords_str.split(",") if k.strip()]
+        return [k.strip().lower()
+                for k in keywords_str.split(",") if k.strip()]
 
     def _get_or_create_conversation(
         self,

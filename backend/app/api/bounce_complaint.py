@@ -14,7 +14,6 @@ BC-012: Structured JSON error responses.
 """
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
@@ -25,7 +24,6 @@ from app.schemas.bounce_complaint import (
     WhitelistResponse,
     BounceStatsResponse,
     BounceDigestResponse,
-    EmailStatusCheckResponse,
 )
 
 logger = logging.getLogger("parwa.bounce_api")
@@ -164,7 +162,11 @@ async def whitelist_bounced_email(
     except Exception as exc:
         logger.error(
             "whitelist_error",
-            extra={"company_id": company_id, "bounce_id": bounce_id, "error": str(exc)[:200]},
+            extra={
+                "company_id": company_id,
+                "bounce_id": bounce_id,
+                "error": str(exc)[
+                    :200]},
         )
         return JSONResponse(
             status_code=500,
@@ -181,7 +183,11 @@ async def whitelist_bounced_email(
 @router.get("/stats", response_model=BounceStatsResponse)
 async def get_bounce_stats(
     request: Request,
-    range_days: int = Query(7, ge=1, le=90, description="Number of days to look back"),
+    range_days: int = Query(
+        7,
+        ge=1,
+        le=90,
+        description="Number of days to look back"),
 ):
     """Get bounce and complaint statistics for the tenant.
 
@@ -298,7 +304,11 @@ async def check_email_status(request: Request, email: str):
     except Exception as exc:
         logger.error(
             "email_status_check_error",
-            extra={"company_id": company_id, "email": email, "error": str(exc)[:200]},
+            extra={
+                "company_id": company_id,
+                "email": email,
+                "error": str(exc)[
+                    :200]},
         )
         return JSONResponse(
             status_code=500,

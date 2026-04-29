@@ -14,10 +14,9 @@ Tests for all 10 Day 3 fixes (E1, E2, A7, A8, B1, B2, B3, B4, E3):
   E3:  Build GDPR endpoints (erase + export with real DB ops)
 """
 
-import json
 import os
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch, PropertyMock
+from datetime import datetime
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -190,7 +189,8 @@ class TestA7PlatformAdminGuard:
 
     def test_docstring_no_owner_as_primary(self):
         content = _read("backend/app/api/admin.py")
-        # The docstring should NOT say "use require_roles('owner') as a temporary gate"
+        # The docstring should NOT say "use require_roles('owner') as a
+        # temporary gate"
         assert "require_roles(\"owner\") as a temporary gate" not in content, \
             "Docstring should not mention require_roles('owner') as the gate"
 
@@ -221,7 +221,8 @@ class TestA8WebhookAuth:
     def test_webhook_receive_still_public(self):
         """The receive webhook POST should NOT require auth (it uses HMAC)."""
         content = _read("backend/app/api/webhooks.py")
-        # The receive_webhook function should not have Depends(get_current_user)
+        # The receive_webhook function should not have
+        # Depends(get_current_user)
         lines = content.split("\n")
         in_receive = False
         for line in lines:
@@ -421,8 +422,8 @@ class TestB4ChatAPIAuthAndRateLimit:
 
     def test_authentication_required_message(self):
         content = _read("frontend/src/app/api/chat/route.ts")
-        assert "Authentication required" in content or "authentication required" in content.lower(), \
-            "Chat API must return 'Authentication required' message for 401"
+        assert "Authentication required" in content or "authentication required" in content.lower(
+        ), "Chat API must return 'Authentication required' message for 401"
 
     def test_message_validation(self):
         content = _read("frontend/src/app/api/chat/route.ts")
@@ -511,13 +512,14 @@ class TestE3GDPRFunctional:
     @pytest.fixture(autouse=True)
     def _set_env_and_clear_cache(self, monkeypatch):
         """Set required env vars and clear any stale module caches."""
-        monkeypatch.setenv("REFRESH_TOKEN_PEPPER", "test-pepper-for-day3-tests")
+        monkeypatch.setenv(
+            "REFRESH_TOKEN_PEPPER",
+            "test-pepper-for-day3-tests")
         monkeypatch.setenv("JWT_SECRET_KEY", "test-jwt-secret-for-day3-tests")
         monkeypatch.setenv("ENVIRONMENT", "test")
         # Clear stale cached modules that may have failed to import
         # in a previous test run (Python caches ImportError).
         import sys as _sys
-        import types as _types
         # Remove the api package and its children from cache if present
         stale_prefixes = [
             "backend.app.api.auth",
@@ -534,7 +536,8 @@ class TestE3GDPRFunctional:
             "backend.app.config",
         ]
         for mod_name in list(_sys.modules.keys()):
-            if any(mod_name == p or mod_name.startswith(p + ".") for p in stale_prefixes):
+            if any(mod_name == p or mod_name.startswith(p + ".")
+                   for p in stale_prefixes):
                 del _sys.modules[mod_name]
 
     def test_cascade_delete_user_data_deletes_tokens(self):

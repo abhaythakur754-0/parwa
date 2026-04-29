@@ -252,7 +252,9 @@ def send_bulk_notification(
         for i in range(0, len(recipients), BATCH_SIZE):
             batch = recipients[i:i + BATCH_SIZE]
             for recipient in batch:
-                email = recipient.get("email", "") if isinstance(recipient, dict) else str(recipient)
+                email = recipient.get(
+                    "email", "") if isinstance(
+                    recipient, dict) else str(recipient)
                 if not email:
                     failed_count += 1
                     continue

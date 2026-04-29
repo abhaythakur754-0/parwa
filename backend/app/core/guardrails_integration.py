@@ -207,7 +207,8 @@ def check_llm_response(
                 ).observe(duration)
                 if action == GuardrailsAction.BLOCK:
                     for reason in blocked_reasons:
-                        layer = reason.split(":")[0] if ":" in reason else "unknown"
+                        layer = reason.split(
+                            ":")[0] if ":" in reason else "unknown"
                         _guardrails_blocks.labels(
                             company_id=company_id,
                             variant_type=variant_type,
@@ -300,19 +301,18 @@ def _get_safe_fallback_response(blocked_reasons: List[str]) -> str:
 
     This response is customer-facing and should be professional.
     """
-    if any("hate_speech" in r.lower() or "violence" in r.lower() for r in blocked_reasons):
+    if any("hate_speech" in r.lower() or "violence" in r.lower()
+           for r in blocked_reasons):
         return (
             "I apologize, but I'm not able to provide a response to that request. "
             "Please feel free to rephrase your question or ask about something else. "
-            "I'm here to help!"
-        )
+            "I'm here to help!")
 
     if any("pii" in r.lower() for r in blocked_reasons):
         return (
             "For your security, I've withheld some information from my response. "
             "If you need specific details, please contact our support team directly. "
-            "How else can I assist you today?"
-        )
+            "How else can I assist you today?")
 
     if any("policy" in r.lower() for r in blocked_reasons):
         return (
@@ -322,10 +322,8 @@ def _get_safe_fallback_response(blocked_reasons: List[str]) -> str:
         )
 
     # Generic safe response
-    return (
-        "I apologize, but I'm unable to provide a complete response to your request. "
-        "Please try rephrasing your question, or contact our support team for further assistance."
-    )
+    return ("I apologize, but I'm unable to provide a complete response to your request. "
+            "Please try rephrasing your question, or contact our support team for further assistance.")
 
 
 # ── Day 4 Output Scanners (Day 1 Sprint wiring) ──────────────────
@@ -375,7 +373,9 @@ def _run_day4_output_scanners(
                 })
                 logger.warning(
                     "PII detected in LLM output for company_id=%s types=%s count=%d",
-                    company_id, pii_types, len(high_conf_pii),
+                    company_id,
+                    pii_types,
+                    len(high_conf_pii),
                 )
         # Record metrics
         if _METRICS_ENABLED:
@@ -391,7 +391,10 @@ def _run_day4_output_scanners(
             except Exception:
                 pass
     except Exception as e:
-        logger.error("PII output scan failed for company_id=%s: %s", company_id, e)
+        logger.error(
+            "PII output scan failed for company_id=%s: %s",
+            company_id,
+            e)
 
     # Scanner 2: Prompt Injection Output Scan (Layer 10)
     try:
@@ -401,7 +404,8 @@ def _run_day4_output_scanners(
             query=response_content,  # Scan the OUTPUT for injection remnants
             company_id=company_id,
         )
-        if injection_result and getattr(injection_result, "is_injection", False):
+        if injection_result and getattr(
+                injection_result, "is_injection", False):
             issues.append({
                 "scanner": "prompt_injection_output",
                 "severity": "high",
@@ -428,7 +432,10 @@ def _run_day4_output_scanners(
             except Exception:
                 pass
     except Exception as e:
-        logger.error("Prompt injection output scan failed for company_id=%s: %s", company_id, e)
+        logger.error(
+            "Prompt injection output scan failed for company_id=%s: %s",
+            company_id,
+            e)
 
     # Scanner 3: Info Leak Guard (Layer 9)
     try:
@@ -455,12 +462,16 @@ def _run_day4_output_scanners(
             })
             logger.warning(
                 "Info leak detected in LLM output for company_id=%s categories=%s",
-                company_id, categories,
+                company_id,
+                categories,
             )
         # Record metrics
         if _METRICS_ENABLED:
             try:
-                action = getattr(leak_result, "action", "allow") if leak_result else "allow"
+                action = getattr(
+                    leak_result,
+                    "action",
+                    "allow") if leak_result else "allow"
                 _output_scans_total.labels(
                     company_id=company_id,
                     scanner="info_leak_guard",
@@ -469,7 +480,10 @@ def _run_day4_output_scanners(
             except Exception:
                 pass
     except Exception as e:
-        logger.error("Info leak output scan failed for company_id=%s: %s", company_id, e)
+        logger.error(
+            "Info leak output scan failed for company_id=%s: %s",
+            company_id,
+            e)
 
     return issues
 

@@ -13,7 +13,7 @@ import json
 import hashlib
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any
 
 from database.base import SessionLocal
 from database.models.variant_engine import TechniqueCache
@@ -142,7 +142,8 @@ def get_cached_result(
         return None
 
     # Check TTL expiry
-    if entry.ttl_expires_at and entry.ttl_expires_at < datetime.now(timezone.utc):
+    if entry.ttl_expires_at and entry.ttl_expires_at < datetime.now(
+            timezone.utc):
         return None
 
     # Safe JSON parse — BC-008: never crash on malformed data

@@ -14,12 +14,12 @@ BC-002: All money calculations use Decimal
 import json
 import logging
 import uuid
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import and_, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database.base import SessionLocal
@@ -41,12 +41,10 @@ MIN_CAP_AMOUNT: Decimal = Decimal("1.00")
 
 class SpendingCapError(Exception):
     """Base exception for spending cap errors."""
-    pass
 
 
 class SpendingCapExceededError(SpendingCapError):
     """Raised when the spending cap has been reached."""
-    pass
 
 
 # ── Spending Cap ORM stub ────────────────────────────────────────────────
@@ -67,7 +65,6 @@ class _SpendingCapModel:
     __tablename__ = "spending_caps"
 
     # Column stubs (populated at import time from DB if table exists)
-    pass
 
 
 # ── Service Implementation ───────────────────────────────────────────────
@@ -201,14 +198,13 @@ class SpendingCapService:
 
         total = (
             db.query(
-                func.coalesce(func.sum(UsageRecord.overage_charges), Decimal("0.00"))
-            )
-            .filter(
+                func.coalesce(
+                    func.sum(
+                        UsageRecord.overage_charges),
+                    Decimal("0.00"))) .filter(
                 UsageRecord.company_id == company_id,
                 UsageRecord.record_month == current_month,
-            )
-            .scalar()
-        )
+            ) .scalar())
 
         return Decimal(str(total or 0))
 
@@ -408,7 +404,8 @@ class SpendingCapService:
             except (json.JSONDecodeError, TypeError):
                 thresholds = DEFAULT_THRESHOLDS
 
-            current_overage = self._get_current_month_overage(db, company_id_str)
+            current_overage = self._get_current_month_overage(
+                db, company_id_str)
 
             return {
                 "company_id": cap.company_id,
@@ -564,7 +561,8 @@ class SpendingCapService:
                 }
 
             max_cap: Decimal = cap.max_overage_amount
-            current_overage = self._get_current_month_overage(db, company_id_str)
+            current_overage = self._get_current_month_overage(
+                db, company_id_str)
 
             # Calculate what would happen with this charge
             new_total = current_overage + charge_decimal
@@ -718,7 +716,8 @@ class SpendingCapService:
 
             # Parse already-sent alerts from the record
             try:
-                soft_cap_sent_field = getattr(cap, "soft_cap_alerts_sent", None)
+                soft_cap_sent_field = getattr(
+                    cap, "soft_cap_alerts_sent", None)
                 if soft_cap_sent_field:
                     already_sent = json.loads(soft_cap_sent_field)
                 else:

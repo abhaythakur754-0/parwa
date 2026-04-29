@@ -26,7 +26,6 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy.orm import Session
 
 from app.schemas.billing import (
     ProrationResult,
@@ -42,12 +41,10 @@ logger = logging.getLogger("parwa.services.proration")
 
 class ProrationError(Exception):
     """Base exception for proration errors."""
-    pass
 
 
 class InvalidProrationPeriodError(ProrationError):
     """Invalid billing period for proration."""
-    pass
 
 
 class ProrationService:

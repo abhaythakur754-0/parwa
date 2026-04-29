@@ -15,9 +15,7 @@ BC-008: Never crash — every method wrapped in try/except.
 """
 
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -110,9 +108,18 @@ def _record_query(
         variant_type=variant_type,
         query=f"test query for {company_id}",
         response=f"test response for {company_id}",
-        routing_decision={"provider": provider, "model_id": "gemini-pro", "tier": "medium"},
-        confidence_result={"overall_score": confidence_score, "passed": True, "threshold": 85.0},
-        guardrails_report={"passed": True, "blocked_count": 0, "flagged_count": 0},
+        routing_decision={
+            "provider": provider,
+            "model_id": "gemini-pro",
+            "tier": "medium"},
+        confidence_result={
+            "overall_score": confidence_score,
+            "passed": True,
+            "threshold": 85.0},
+        guardrails_report={
+            "passed": True,
+            "blocked_count": 0,
+            "flagged_count": 0},
         latency_ms=latency_ms,
         error=error,
     )
@@ -224,7 +231,12 @@ class TestTenantIsolationInMonitoring:
         # Mix data for multiple companies
         for _ in range(10):
             _record_query(svc, "co_x", latency_ms=100.0, confidence_score=90.0)
-            _record_query(svc, "co_y", latency_ms=500.0, confidence_score=40.0, error="fail")
+            _record_query(
+                svc,
+                "co_y",
+                latency_ms=500.0,
+                confidence_score=40.0,
+                error="fail")
 
         dashboard_x = svc.get_dashboard_data("co_x")
         dashboard_y = svc.get_dashboard_data("co_y")
@@ -719,7 +731,8 @@ class TestIncompleteRollbackAfterFailedHealing:
         # Recovery stages should follow the defined sequence
         # _RECOVERY_STAGES = [10, 25, 50, 100]
         # With 5 successes after disable: stage 1→10%, 2→25%, 3→50%, 4→100%(full)
-        # Some may be skipped due to cooldown timing, but sequence should be valid
+        # Some may be skipped due to cooldown timing, but sequence should be
+        # valid
         valid_stages = {10, 25, 50, 100}
         for stage in recovery_stages_seen:
             assert stage in valid_stages, f"Invalid recovery stage: {stage}"
@@ -838,9 +851,9 @@ class TestAlertFalsePositiveFromPruning:
         errors_after = svc.get_error_metrics("co_err_rate")
         # 30 errors out of 50 total = 60% error rate
         expected_rate = 30 / _MAX_DATA_POINTS
-        assert abs(errors_after.error_rate - expected_rate) < 0.01, (
-            f"Error rate inaccurate: {errors_after.error_rate} != {expected_rate}"
-        )
+        assert abs(
+            errors_after.error_rate - expected_rate) < 0.01, (f"Error rate inaccurate: {
+                errors_after.error_rate} != {expected_rate}")
 
     def test_no_false_alert_after_pruning_good_data(self):
         """After pruning, only errors that remain in window should trigger alerts."""

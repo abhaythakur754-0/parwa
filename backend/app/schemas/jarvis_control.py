@@ -66,7 +66,8 @@ class JarvisCommandRequest(BaseModel):
 class CommandParam(BaseModel):
     """A single extracted parameter from a parsed command."""
 
-    name: str = Field(description="Parameter name (e.g., 'ticket_id', 'agent_id')")
+    name: str = Field(
+        description="Parameter name (e.g., 'ticket_id', 'agent_id')")
     value: str = Field(description="Extracted parameter value")
     confidence: float = Field(
         default=1.0,
@@ -166,7 +167,9 @@ class SystemStatusResponse(BaseModel):
         description="Per-subsystem health data",
     )
     checked_at: str = Field(description="ISO 8601 timestamp")
-    cached: bool = Field(default=False, description="Whether result was cached")
+    cached: bool = Field(
+        default=False,
+        description="Whether result was cached")
     checks_total: int = 0
     checks_healthy: int = 0
     checks_degraded: int = 0
@@ -225,7 +228,8 @@ class GSDStateInfo(BaseModel):
 
     ticket_id: str
     company_id: str
-    current_state: str = Field(description="Current GSD state (e.g., 'diagnosis')")
+    current_state: str = Field(
+        description="Current GSD state (e.g., 'diagnosis')")
     variant: str = Field(default="parwa", description="PARWA variant type")
     entered_at: Optional[str] = Field(
         default=None,
@@ -261,7 +265,9 @@ class GSDSessionInfo(BaseModel):
     current_state: str
     agent_id: Optional[str] = Field(default=None)
     duration_seconds: float = 0.0
-    is_stuck: bool = Field(default=False, description="Whether session is stuck")
+    is_stuck: bool = Field(
+        default=False,
+        description="Whether session is stuck")
     stuck_reason: Optional[str] = Field(default=None)
     transition_count: int = 0
     last_transition_at: Optional[str] = None
@@ -323,10 +329,13 @@ class QuickCommand(BaseModel):
     category: str = Field(description="Command category")
     command_text: str = Field(description="Underlying jarvis command text")
     confirmation_required: bool = Field(default=False)
-    risk_level: str = Field(default="low", description="Risk level: low/medium/high/critical")
+    risk_level: str = Field(
+        default="low",
+        description="Risk level: low/medium/high/critical")
     requires_admin: bool = Field(default=False)
     description: Optional[str] = Field(default=None)
-    display_label: Optional[str] = Field(default=None, description="Tenant-overridden label")
+    display_label: Optional[str] = Field(
+        default=None, description="Tenant-overridden label")
     tenant_enabled: bool = Field(default=True)
     custom_params: Optional[Dict[str, Any]] = Field(default=None)
 
@@ -460,7 +469,11 @@ class DismissResponse(BaseModel):
 
 
 VALID_TRAINING_ACTIONS = ("approved", "rejected", "needs_revision")
-VALID_TRAINING_SOURCES = ("error_auto", "error_manual", "feedback", "correction")
+VALID_TRAINING_SOURCES = (
+    "error_auto",
+    "error_manual",
+    "feedback",
+    "correction")
 VALID_TRAINING_STATUSES_FILTER = (
     "queued_for_review", "approved", "rejected", "in_dataset", "archived",
 )

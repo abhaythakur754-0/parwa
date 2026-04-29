@@ -150,7 +150,8 @@ class MetricsPipeline:
                 If None, creates a default StdoutLogSink.
         """
         self._collector = collector or TechniqueMetricsCollector()
-        self._sinks: List[LogSink] = sinks if sinks is not None else [StdoutLogSink()]
+        self._sinks: List[LogSink] = sinks if sinks is not None else [
+            StdoutLogSink()]
         self._lock = threading.Lock()
 
         # In-memory storage for MetricsRecords by company_id
@@ -247,7 +248,9 @@ class MetricsPipeline:
                 try:
                     sink.emit(record)
                 except Exception as exc:
-                    logger.debug("metrics_individual_sink_failed", sink=str(type(sink).__name__), error=str(exc))
+                    logger.debug(
+                        "metrics_individual_sink_failed", sink=str(
+                            type(sink).__name__), error=str(exc))
 
             return record
 
@@ -366,7 +369,10 @@ class MetricsPipeline:
 
         except Exception as exc:
             # BC-008: never crash
-            logger.debug("metrics_summary_failed", company_id=company_id, error=str(exc))
+            logger.debug(
+                "metrics_summary_failed",
+                company_id=company_id,
+                error=str(exc))
             return {
                 "company_id": company_id,
                 "total_executions": 0,
@@ -421,7 +427,10 @@ class MetricsPipeline:
                     self._company_records.get(company_id, [])
                 )
         except Exception as exc:
-            logger.debug("metrics_count_failed", company_id=company_id, error=str(exc))
+            logger.debug(
+                "metrics_count_failed",
+                company_id=company_id,
+                error=str(exc))
             return 0
 
     def reset_company_metrics(self, company_id: str) -> int:
@@ -443,5 +452,8 @@ class MetricsPipeline:
                 )
                 return len(records)
         except Exception as exc:
-            logger.debug("metrics_reset_failed", company_id=company_id, error=str(exc))
+            logger.debug(
+                "metrics_reset_failed",
+                company_id=company_id,
+                error=str(exc))
             return 0

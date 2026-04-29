@@ -20,10 +20,8 @@ Import patterns:
   - Dependencies: require_roles, get_company_id, get_current_user.
 """
 
-from typing import Optional
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 
 from app.api.deps import (
     get_company_id,
@@ -32,7 +30,6 @@ from app.api.deps import (
 )
 from app.exceptions import NotFoundError, ValidationError
 from app.logger import get_logger
-from database.base import get_db
 from database.models.core import User
 
 router = APIRouter(prefix="/api/rag", tags=["rag"])

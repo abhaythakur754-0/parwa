@@ -24,7 +24,6 @@ Building Codes: BC-001 (multi-tenant), BC-005 (real-time),
 """
 
 import hashlib
-import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -100,7 +99,6 @@ def get_recent_errors(
     """
     try:
         from app.models.system_health import ErrorLog
-        from sqlalchemy import func
 
         query = db.query(ErrorLog).filter(
             ErrorLog.company_id == company_id,

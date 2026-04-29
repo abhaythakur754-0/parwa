@@ -29,7 +29,6 @@ from app.api.deps import (
     require_roles,
 )
 from app.exceptions import (
-    AuthorizationError,
     ValidationError,
 )
 from app.logger import get_logger

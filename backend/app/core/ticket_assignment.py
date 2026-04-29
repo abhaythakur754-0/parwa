@@ -26,9 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 import logging
-import math
 import random
 import time
 import uuid
@@ -101,7 +99,9 @@ class AgentProfile:
     timezone_str: str = "UTC"
     seniority_years: float = 0.0
     languages: List[str] = field(default_factory=lambda: ["en"])
-    customer_tier_access: List[str] = field(default_factory=lambda: ["standard", "premium", "enterprise"])
+    customer_tier_access: List[str] = field(
+        default_factory=lambda: [
+            "standard", "premium", "enterprise"])
     shift_start: Optional[str] = None  # HH:MM in agent timezone
     shift_end: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -141,7 +141,9 @@ class AgentProfile:
             "assigned_count": self.assigned_count,
             "last_assigned": self.last_assigned.isoformat() if self.last_assigned else None,
             "available_capacity": self.available_capacity,
-            "utilization_ratio": round(self.utilization_ratio, 4),
+            "utilization_ratio": round(
+                self.utilization_ratio,
+                4),
         }
 
 
@@ -321,18 +323,24 @@ class RuleBasedAssigner(BaseAssigner):
         ]
         # Prefer agents with matching language
         if ticket.language:
-            lang_match = [a for a in available if ticket.language in a.languages]
+            lang_match = [
+                a for a in available if ticket.language in a.languages]
             if lang_match:
                 available = lang_match
         return available
 
-    def _least_loaded(self, agents: List[AgentProfile]) -> Optional[AgentProfile]:
+    def _least_loaded(
+            self,
+            agents: List[AgentProfile]) -> Optional[AgentProfile]:
         """Return the agent with the lowest current_load (ties broken by last_assigned)."""
         if not agents:
             return None
         return min(
             agents,
-            key=lambda a: (a.current_load, a.last_assigned or datetime.min.replace(tzinfo=timezone.utc)),
+            key=lambda a: (
+                a.current_load,
+                a.last_assigned or datetime.min.replace(
+                    tzinfo=timezone.utc)),
         )
 
     # -- public API --
@@ -347,10 +355,8 @@ class RuleBasedAssigner(BaseAssigner):
 
         # Follow-up routing: reuse previous agent if available
         if ticket.previous_agent_id:
-            prev = next(
-                (a for a in agents if a.agent_id == ticket.previous_agent_id and a.can_accept),
-                None,
-            )
+            prev = next((a for a in agents if a.agent_id ==
+                         ticket.previous_agent_id and a.can_accept), None, )
             if prev is not None:
                 elapsed_ms = (time.monotonic() - start) * 1000
                 result = AssignmentResult(
@@ -365,7 +371,9 @@ class RuleBasedAssigner(BaseAssigner):
                 return result
 
         # Priority escalation: critical/high tickets go to least-loaded
-        if ticket.priority_enum in (TicketPriority.CRITICAL, TicketPriority.HIGH):
+        if ticket.priority_enum in (
+                TicketPriority.CRITICAL,
+                TicketPriority.HIGH):
             pool = self._available_agents(agents, ticket)
             if not pool:
                 pool = agents
@@ -504,13 +512,19 @@ class ScoreBasedAssigner(BaseAssigner):
         """0..jitter_range — random noise for tie-breaking."""
         return random.uniform(0.0, self.jitter_range)
 
-    def _seniority_bonus(self, agent: AgentProfile, ticket: TicketContext) -> float:
+    def _seniority_bonus(
+            self,
+            agent: AgentProfile,
+            ticket: TicketContext) -> float:
         """Small bonus (0..0.05) for senior agents on complex tickets."""
         if ticket.estimated_complexity < 0.5:
             return 0.0
         return min(0.05, agent.seniority_years * 0.01)
 
-    def _language_bonus(self, agent: AgentProfile, ticket: TicketContext) -> float:
+    def _language_bonus(
+            self,
+            agent: AgentProfile,
+            ticket: TicketContext) -> float:
         """0..0.10 bonus when the agent speaks the ticket's language."""
         if not ticket.language or ticket.language == "en":
             return 0.0
@@ -518,7 +532,10 @@ class ScoreBasedAssigner(BaseAssigner):
             return 0.10
         return 0.0
 
-    def _tier_access_score(self, agent: AgentProfile, ticket: TicketContext) -> float:
+    def _tier_access_score(
+            self,
+            agent: AgentProfile,
+            ticket: TicketContext) -> float:
         """1.0 if the agent is authorised for the customer tier, 0.2 otherwise."""
         if ticket.customer_tier in agent.customer_tier_access:
             return 1.0
@@ -711,7 +728,8 @@ class CapacityManager:
     agent load and to expose dashboard-ready capacity snapshots.
     """
 
-    def __init__(self, redis_client: Any = None, ttl_seconds: int = 300) -> None:
+    def __init__(self, redis_client: Any = None,
+                 ttl_seconds: int = 300) -> None:
         self.redis = redis_client
         self.ttl = ttl_seconds
         self._load: Dict[str, int] = {}
@@ -735,7 +753,8 @@ class CapacityManager:
                         f"capacity:{agent_id}", self._load[agent_id], ex=self.ttl
                     )
                 except Exception:
-                    logger.warning("Redis SET failed for capacity:%s", agent_id)
+                    logger.warning(
+                        "Redis SET failed for capacity:%s", agent_id)
             return True
 
     async def release_slot(self, agent_id: str) -> None:
@@ -749,7 +768,8 @@ class CapacityManager:
                         f"capacity:{agent_id}", self._load[agent_id], ex=self.ttl
                     )
                 except Exception:
-                    logger.warning("Redis SET failed for capacity:%s", agent_id)
+                    logger.warning(
+                        "Redis SET failed for capacity:%s", agent_id)
 
     def get_load(self, agent_id: str) -> int:
         return self._load.get(agent_id, 0)
@@ -832,7 +852,9 @@ class AssignmentEventBus:
             try:
                 handler(event)
             except Exception:
-                logger.exception("Event handler error for %s", event.event_type)
+                logger.exception(
+                    "Event handler error for %s",
+                    event.event_type)
 
     def get_history(
         self, event_type: Optional[str] = None, limit: int = 50
@@ -856,23 +878,32 @@ class SLAHelper:
     # Target first-response SLA in seconds per priority / tier.
     SLA_TABLE: Dict[str, Dict[str, int]] = {
         "critical": {"standard": 900, "premium": 600, "enterprise": 300},
-        "high":     {"standard": 1800, "premium": 1200, "enterprise": 600},
-        "medium":   {"standard": 3600, "premium": 2700, "enterprise": 1800},
-        "low":      {"standard": 86400, "premium": 43200, "enterprise": 21600},
+        "high": {"standard": 1800, "premium": 1200, "enterprise": 600},
+        "medium": {"standard": 3600, "premium": 2700, "enterprise": 1800},
+        "low": {"standard": 86400, "premium": 43200, "enterprise": 21600},
     }
 
     @classmethod
     def response_target_seconds(cls, priority: str, tier: str) -> int:
-        return cls.SLA_TABLE.get(priority.lower(), cls.SLA_TABLE["medium"]).get(
-            tier.lower(), 3600
-        )
+        return cls.SLA_TABLE.get(
+            priority.lower(),
+            cls.SLA_TABLE["medium"]).get(
+            tier.lower(),
+            3600)
 
     @classmethod
-    def deadline_iso(cls, priority: str, tier: str, base: Optional[datetime] = None) -> str:
+    def deadline_iso(
+            cls,
+            priority: str,
+            tier: str,
+            base: Optional[datetime] = None) -> str:
         if base is None:
             base = datetime.now(timezone.utc)
         target = cls.response_target_seconds(priority, tier)
-        return (base + __import__("datetime").timedelta(seconds=target)).isoformat()
+        return (
+            base +
+            __import__("datetime").timedelta(
+                seconds=target)).isoformat()
 
     @classmethod
     def is_within_sla(
@@ -895,7 +926,10 @@ class SLAHelper:
 # Utility: Deterministic hash-based jitter
 # ---------------------------------------------------------------------------
 
-def deterministic_jitter(ticket_id: str, agent_id: str, max_val: float = 0.05) -> float:
+def deterministic_jitter(
+        ticket_id: str,
+        agent_id: str,
+        max_val: float = 0.05) -> float:
     """Reproducible jitter so the same ticket+agent always gets the same noise."""
     h = hashlib.md5(f"{ticket_id}:{agent_id}".encode()).hexdigest()
     return (int(h[:8], 16) / 0xFFFFFFFF) * max_val
@@ -952,7 +986,9 @@ class AssignmentEngine:
         try:
             result = await assigner.assign(ticket, agents, **kwargs)
         except Exception as exc:
-            logger.exception("Assignment error for ticket %s", ticket.ticket_id)
+            logger.exception(
+                "Assignment error for ticket %s",
+                ticket.ticket_id)
             self._metrics["errors"] += 1
             result = AssignmentResult(
                 ticket_id=ticket.ticket_id,
@@ -986,10 +1022,11 @@ class AssignmentEngine:
             self._recent_results = self._recent_results[-200:]
 
         # Publish event
-        self._event_bus.publish(AssignmentEvent(
-            event_type="ticket.assigned" if not result.is_unassigned else "ticket.unassigned",
-            payload=result.to_dict(),
-        ))
+        self._event_bus.publish(
+            AssignmentEvent(
+                event_type="ticket.assigned" if not result.is_unassigned else "ticket.unassigned",
+                payload=result.to_dict(),
+            ))
 
         return result
 
@@ -1021,10 +1058,12 @@ class AssignmentEngine:
     def get_recent_results(self, limit: int = 20) -> List[Dict[str, Any]]:
         return [r.to_dict() for r in self._recent_results[-limit:]]
 
-    def get_capacity_snapshot(self, agents: List[AgentProfile]) -> List[Dict[str, Any]]:
+    def get_capacity_snapshot(
+            self, agents: List[AgentProfile]) -> List[Dict[str, Any]]:
         return self._capacity.snapshot(agents)
 
-    def get_event_history(self, event_type: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_event_history(
+            self, event_type: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
         return self._event_bus.get_history(event_type=event_type, limit=limit)
 
     def subscribe(self, event_type: str, handler: Any) -> None:

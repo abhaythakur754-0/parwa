@@ -49,12 +49,10 @@ CHARGEBACK_REASONS = {
 
 class ChargebackError(Exception):
     """Base exception for chargeback errors."""
-    pass
 
 
 class ChargebackNotFoundError(ChargebackError):
     """Chargeback record not found."""
-    pass
 
 
 # ── Service ─────────────────────────────────────────────────────────────────
@@ -113,7 +111,8 @@ class ChargebackService:
 
         amount = Decimal(str(amount_raw))
         if amount <= 0:
-            raise ChargebackError(f"Chargeback amount must be positive, got {amount}")
+            raise ChargebackError(
+                f"Chargeback amount must be positive, got {amount}")
 
         currency = str(event_data.get("currency", "USD")).upper()
         reason = str(event_data.get("reason", "general")).lower().strip()
@@ -127,7 +126,8 @@ class ChargebackService:
             ).first()
 
             if not company:
-                raise ChargebackError(f"Company {company_id} not found (BC-001)")
+                raise ChargebackError(
+                    f"Company {company_id} not found (BC-001)")
 
             now = datetime.now(timezone.utc)
 
@@ -243,8 +243,7 @@ class ChargebackService:
 
             if not chargeback:
                 raise ChargebackNotFoundError(
-                    f"Chargeback {chargeback_id} not found for company {company_id}"
-                )
+                    f"Chargeback {chargeback_id} not found for company {company_id}")
 
             return self._chargeback_to_dict(chargeback)
 

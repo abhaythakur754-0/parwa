@@ -16,9 +16,7 @@ BC-008: Never crash — every method wrapped in try/except.
 
 import asyncio
 import json
-import threading
-import time
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -84,7 +82,8 @@ class TestCacheInvalidationRaceCondition:
         """After cache_delete, subsequent cache_get must NOT return old value."""
         mock_redis = MagicMock()
         # get returns old value initially, then None after delete
-        get_values = [json.dumps({"response": "old_model_output", "model_v": 1})]
+        get_values = [json.dumps(
+            {"response": "old_model_output", "model_v": 1})]
         call_idx = [0]
 
         async def get_side_effect(key):
@@ -134,16 +133,16 @@ class TestCacheInvalidationRaceCondition:
             )
 
             result = await cache_get("co1", "key1")
-            # Result must be one of the two written values, never a partial/corrupt value
+            # Result must be one of the two written values, never a
+            # partial/corrupt value
             assert result in ("version_2", "version_3")
 
     @pytest.mark.asyncio
     async def test_model_version_tagged_in_cache_prevents_serving_stale(self):
         """Cache entries with version tags must be validated before serving."""
         mock_redis = MagicMock()
-        mock_redis.get = AsyncMock(
-            return_value=json.dumps({"response": "hello", "model_version": "2.0"})
-        )
+        mock_redis.get = AsyncMock(return_value=json.dumps(
+            {"response": "hello", "model_version": "2.0"}))
         mock_redis.set = AsyncMock(return_value=True)
         mock_redis.delete = AsyncMock(return_value=True)
 
@@ -151,7 +150,8 @@ class TestCacheInvalidationRaceCondition:
             cached = await cache_get("co1", "prompt:v1")
 
             # If current model version is 3.0, cached 2.0 response is stale
-            if isinstance(cached, dict) and cached.get("model_version") == "2.0":
+            if isinstance(cached, dict) and cached.get(
+                    "model_version") == "2.0":
                 stale = True
             else:
                 stale = False
@@ -162,7 +162,8 @@ class TestCacheInvalidationRaceCondition:
     async def test_cache_invalidation_fails_gracefully_bc008(self):
         """BC-008: cache_delete failure must not raise exception."""
         mock_redis = MagicMock()
-        mock_redis.delete = AsyncMock(side_effect=Exception("Redis connection lost"))
+        mock_redis.delete = AsyncMock(
+            side_effect=Exception("Redis connection lost"))
         mock_redis.get = AsyncMock(return_value="old_value")
 
         with patch("app.core.redis.get_redis", return_value=mock_redis):
@@ -321,7 +322,8 @@ class TestMemoryLeakLargeResponses:
             call_args = mock_redis.set.call_args
             assert call_args is not None
             kwargs = call_args[1] if call_args else {}
-            assert kwargs.get("ex") == 300, "TTL must be set even for large values"
+            assert kwargs.get(
+                "ex") == 300, "TTL must be set even for large values"
 
     @pytest.mark.asyncio
     async def test_response_size_limit_enforced(self):
@@ -378,6 +380,7 @@ class TestMemoryLeakLargeResponses:
         """One tenant's large cache usage must not evict another tenant's keys."""
         mock_redis = MagicMock()
         # Tenant A gets a large cached response
+
         def get_side_effect(key):
             key_str = str(key)
             if "co_a" in key_str and "big" in key_str:
@@ -458,6 +461,7 @@ class TestTenantIsolationInCache:
         """cache_get must only access keys scoped to the requesting company."""
         mock_redis = MagicMock()
         # Return value only for company_a's key
+
         def get_side_effect(key):
             if "co_a" in str(key):
                 return json.dumps({"data": "company_a_private"})
@@ -540,7 +544,8 @@ class TestCacheStampedeEffect:
 
         with patch("app.core.redis.get_redis", return_value=mock_redis):
             # Simulate 5 concurrent requests
-            tasks = [cache_get("co1", "hot_key", default="MISS") for _ in range(5)]
+            tasks = [cache_get("co1", "hot_key", default="MISS")
+                     for _ in range(5)]
             results = await asyncio.gather(*tasks)
 
             # All results should be MISS (cache was empty)
@@ -602,7 +607,8 @@ class TestCacheStampedeEffect:
             # set should be called to repopulate — ideally only once
             # with stampede protection
             set_calls = mock_redis.set.call_count
-            assert set_calls >= 0  # Current behavior: may be 0 (no auto-populate)
+            # Current behavior: may be 0 (no auto-populate)
+            assert set_calls >= 0
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -648,9 +654,8 @@ class TestCostTrackingPrecisionLoss:
 
         # The budget check using truncated total would NOT block
         budget_check_truncated = total_truncated <= budget
-        assert budget_check_truncated is True, (
-            f"Truncated total ${total_truncated:.3f} appears within budget ${budget}"
-        )
+        assert budget_check_truncated is True, (f"Truncated total ${
+            total_truncated:.3f} appears within budget ${budget}")
 
         # But budget check using exact total WOULD block
         budget_check_exact = total_exact > budget

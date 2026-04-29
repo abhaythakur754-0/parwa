@@ -14,20 +14,19 @@ BC-003: All tasks have proper error handling and logging
 """
 
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from app.tasks.base import ParwaBaseTask
 from app.tasks.celery_app import app
 
 from app.clients.paddle_client import (
-    PaddleClient,
     PaddleError,
     get_paddle_client,
 )
 from database.base import SessionLocal
-from database.models.billing import Subscription, Invoice, Transaction
+from database.models.billing import Subscription, Transaction
 from database.models.billing_extended import UsageRecord
 from database.models.core import Company
 
@@ -36,7 +35,6 @@ logger = logging.getLogger("parwa.tasks.reconciliation")
 
 class ReconciliationError(Exception):
     """Base exception for reconciliation errors."""
-    pass
 
 
 @app.task(
@@ -471,12 +469,16 @@ def _compare_subscription(
         # Would need mapping from price_id to tier name
 
     # Compare billing period
-    paddle_period_start = paddle_data.get("current_billing_period", {}).get("starts_at")
-    paddle_period_end = paddle_data.get("current_billing_period", {}).get("ends_at")
+    paddle_period_start = paddle_data.get(
+        "current_billing_period", {}).get("starts_at")
+    paddle_period_end = paddle_data.get(
+        "current_billing_period", {}).get("ends_at")
 
     if paddle_period_start and db_sub.current_period_start:
-        db_start = db_sub.current_period_start.isoformat() if db_sub.current_period_start else None
-        paddle_start = paddle_period_start.replace("Z", "+00:00") if isinstance(paddle_period_start, str) else paddle_period_start
+        db_start = db_sub.current_period_start.isoformat(
+        ) if db_sub.current_period_start else None
+        paddle_start = paddle_period_start.replace(
+            "Z", "+00:00") if isinstance(paddle_period_start, str) else paddle_period_start
         # Compare with tolerance for timezone differences
 
     return discrepancies

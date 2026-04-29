@@ -8,7 +8,6 @@ These FAQs are used by the AI pipeline for quick answers.
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from uuid import UUID
 
 from app.api.deps import get_current_user
 from app.services.faq_service import get_faq_service, FAQService
@@ -56,7 +55,9 @@ class FAQListResponse(BaseModel):
 class FAQImportRequest(BaseModel):
     """Request to import FAQs."""
     faqs: List[FAQCreate]
-    merge: bool = Field(default=True, description="Merge with existing or replace")
+    merge: bool = Field(
+        default=True,
+        description="Merge with existing or replace")
 
 
 class FAQImportResponse(BaseModel):
@@ -67,9 +68,12 @@ class FAQImportResponse(BaseModel):
 
 # ── Dependencies ────────────────────────────────────────────────────────────
 
-def get_faq_service_dep(current_user = Depends(get_current_user)) -> FAQService:
+def get_faq_service_dep(current_user=Depends(get_current_user)) -> FAQService:
     """Get FAQ service with company context from current user."""
-    company_id = str(current_user.company_id) if hasattr(current_user, 'company_id') else None
+    company_id = str(
+        current_user.company_id) if hasattr(
+        current_user,
+        'company_id') else None
     return get_faq_service(company_id=company_id)
 
 
@@ -77,18 +81,26 @@ def get_faq_service_dep(current_user = Depends(get_current_user)) -> FAQService:
 
 @router.get("", response_model=FAQListResponse)
 async def list_faqs(
-    category: Optional[str] = Query(None, description="Filter by category"),
-    search: Optional[str] = Query(None, description="Search in questions and answers"),
-    limit: int = Query(50, ge=1, le=100, description="Max results"),
-    service: FAQService = Depends(get_faq_service_dep),
+        category: Optional[str] = Query(
+            None,
+            description="Filter by category"),
+    search: Optional[str] = Query(
+            None,
+            description="Search in questions and answers"),
+        limit: int = Query(
+            50,
+            ge=1,
+            le=100,
+            description="Max results"),
+        service: FAQService = Depends(get_faq_service_dep),
 ):
     """List all FAQs with optional filtering.
-    
+
     Mini Parwa: Basic FAQ management included.
     """
     faqs = service.list_faqs(category=category, search=search, limit=limit)
     categories = service.get_categories()
-    
+
     return FAQListResponse(
         faqs=[FAQResponse(**faq) for faq in faqs],
         total=len(faqs),
@@ -113,7 +125,7 @@ async def get_faq(
     faq = service.get_faq(faq_id)
     if not faq:
         raise HTTPException(status_code=404, detail="FAQ not found")
-    
+
     return FAQResponse(**faq)
 
 
@@ -123,7 +135,7 @@ async def create_faq(
     service: FAQService = Depends(get_faq_service_dep),
 ):
     """Create a new FAQ.
-    
+
     Mini Parwa: Create FAQs for AI reference.
     """
     faq = service.create_faq(
@@ -132,7 +144,7 @@ async def create_faq(
         category=request.category,
         keywords=request.keywords,
     )
-    
+
     return FAQResponse(**faq)
 
 
@@ -150,10 +162,10 @@ async def update_faq(
         category=request.category,
         keywords=request.keywords,
     )
-    
+
     if not faq:
         raise HTTPException(status_code=404, detail="FAQ not found")
-    
+
     return FAQResponse(**faq)
 
 
@@ -164,10 +176,10 @@ async def delete_faq(
 ):
     """Delete an FAQ."""
     deleted = service.delete_faq(faq_id)
-    
+
     if not deleted:
         raise HTTPException(status_code=404, detail="FAQ not found")
-    
+
     return {"status": "deleted", "id": faq_id}
 
 
@@ -178,12 +190,12 @@ async def search_for_ai(
     service: FAQService = Depends(get_faq_service_dep),
 ):
     """Search FAQs for AI reference.
-    
+
     This endpoint is used by the AI pipeline to find relevant FAQs
     when generating responses.
     """
     results = service.get_faqs_for_ai(query=query, limit=limit)
-    
+
     return {
         "query": query,
         "results": results,
@@ -197,11 +209,11 @@ async def import_faqs(
     service: FAQService = Depends(get_faq_service_dep),
 ):
     """Import multiple FAQs.
-    
+
     Mini Parwa: Bulk import FAQs for quick setup.
     """
     imported = 0
-    
+
     for faq in request.faqs:
         try:
             service.create_faq(
@@ -214,7 +226,7 @@ async def import_faqs(
         except Exception as e:
             # Skip invalid FAQs
             continue
-    
+
     return FAQImportResponse(
         imported=imported,
         message=f"Successfully imported {imported} FAQs",
@@ -227,7 +239,7 @@ async def export_faqs(
 ):
     """Export all FAQs as JSON."""
     faqs_json = service.export_faqs()
-    
+
     return {
         "format": "json",
         "data": faqs_json,

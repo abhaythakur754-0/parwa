@@ -23,12 +23,11 @@ import asyncio
 import hashlib
 import json
 import logging
-import math
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -248,7 +247,9 @@ class _AgentProfile:
     avg_response_time: float  # minutes
     is_active: bool = True
     languages: List[str] = field(default_factory=lambda: ["en"])
-    channels: List[str] = field(default_factory=lambda: ["email", "chat", "phone", "social"])
+    channels: List[str] = field(
+        default_factory=lambda: [
+            "email", "chat", "phone", "social"])
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -256,110 +257,133 @@ class _AgentProfile:
 # ══════════════════════════════════════════════════════════════════
 
 
-DEFAULT_AGENTS: List[Dict[str, Any]] = [
-    {
-        "agent_id": "agent_001",
-        "name": "Sarah Chen",
-        "skills": ["technical", "debugging", "engineering", "troubleshooting"],
-        "specialty": "technical",
-        "max_workload": 15,
-        "resolution_rate": 0.92,
-        "avg_csat": 4.5,
-        "avg_response_time": 5.2,
-    },
-    {
-        "agent_id": "agent_002",
-        "name": "Mike Johnson",
-        "skills": ["billing", "payments", "invoices", "pricing", "refunds"],
-        "specialty": "billing",
-        "max_workload": 20,
-        "resolution_rate": 0.88,
-        "avg_csat": 4.3,
-        "avg_response_time": 8.1,
-    },
-    {
-        "agent_id": "agent_003",
-        "name": "Elena Rodriguez",
-        "skills": ["customer_success", "escalation", "conflict_resolution", "retention"],
-        "specialty": "customer_success",
-        "max_workload": 12,
-        "resolution_rate": 0.95,
-        "avg_csat": 4.8,
-        "avg_response_time": 4.5,
-    },
-    {
-        "agent_id": "agent_004",
-        "name": "James Park",
-        "skills": ["product", "development", "feedback", "feature_request"],
-        "specialty": "product",
-        "max_workload": 10,
-        "resolution_rate": 0.85,
-        "avg_csat": 4.1,
-        "avg_response_time": 12.3,
-    },
-    {
-        "agent_id": "agent_005",
-        "name": "Aisha Patel",
-        "skills": ["logistics", "fulfillment", "orders", "shipping"],
-        "specialty": "shipping",
-        "max_workload": 18,
-        "resolution_rate": 0.90,
-        "avg_csat": 4.4,
-        "avg_response_time": 6.7,
-    },
-    {
-        "agent_id": "agent_006",
-        "name": "David Kim",
-        "skills": ["general", "support", "inquiry", "billing"],
-        "specialty": "general",
-        "max_workload": 25,
-        "resolution_rate": 0.82,
-        "avg_csat": 3.9,
-        "avg_response_time": 10.5,
-    },
-    {
-        "agent_id": "agent_007",
-        "name": "Maria Santos",
-        "skills": ["senior", "escalation", "management", "customer_success"],
-        "specialty": "escalation",
-        "max_workload": 8,
-        "resolution_rate": 0.97,
-        "avg_csat": 4.9,
-        "avg_response_time": 3.8,
-    },
-    {
-        "agent_id": "agent_008",
-        "name": "Tom Williams",
-        "skills": ["account_management", "security", "general", "billing"],
-        "specialty": "account",
-        "max_workload": 14,
-        "resolution_rate": 0.87,
-        "avg_csat": 4.2,
-        "avg_response_time": 7.9,
-    },
-    {
-        "agent_id": "agent_009",
-        "name": "Yuki Tanaka",
-        "skills": ["technical", "engineering", "debugging", "product"],
-        "specialty": "technical",
-        "max_workload": 16,
-        "resolution_rate": 0.91,
-        "avg_csat": 4.6,
-        "avg_response_time": 5.8,
-        "languages": ["en", "ja"],
-    },
-    {
-        "agent_id": "agent_010",
-        "name": "Carlos Mendez",
-        "skills": ["retention", "customer_success", "billing", "conflict_resolution"],
-        "specialty": "cancellation",
-        "max_workload": 11,
-        "resolution_rate": 0.93,
-        "avg_csat": 4.7,
-        "avg_response_time": 6.2,
-        "languages": ["en", "es"],
-    },
-]
+DEFAULT_AGENTS: List[Dict[str,
+                          Any]] = [{"agent_id": "agent_001",
+                                    "name": "Sarah Chen",
+                                    "skills": ["technical",
+                                               "debugging",
+                                               "engineering",
+                                               "troubleshooting"],
+                                    "specialty": "technical",
+                                    "max_workload": 15,
+                                    "resolution_rate": 0.92,
+                                    "avg_csat": 4.5,
+                                    "avg_response_time": 5.2,
+                                    },
+                                   {"agent_id": "agent_002",
+                                    "name": "Mike Johnson",
+                                    "skills": ["billing",
+                                               "payments",
+                                               "invoices",
+                                               "pricing",
+                                               "refunds"],
+                                    "specialty": "billing",
+                                    "max_workload": 20,
+                                    "resolution_rate": 0.88,
+                                    "avg_csat": 4.3,
+                                    "avg_response_time": 8.1,
+                                    },
+                                   {"agent_id": "agent_003",
+                                    "name": "Elena Rodriguez",
+                                    "skills": ["customer_success",
+                                               "escalation",
+                                               "conflict_resolution",
+                                               "retention"],
+                                    "specialty": "customer_success",
+                                    "max_workload": 12,
+                                    "resolution_rate": 0.95,
+                                    "avg_csat": 4.8,
+                                    "avg_response_time": 4.5,
+                                    },
+                                   {"agent_id": "agent_004",
+                                    "name": "James Park",
+                                    "skills": ["product",
+                                               "development",
+                                               "feedback",
+                                               "feature_request"],
+                                    "specialty": "product",
+                                    "max_workload": 10,
+                                    "resolution_rate": 0.85,
+                                    "avg_csat": 4.1,
+                                    "avg_response_time": 12.3,
+                                    },
+                                   {"agent_id": "agent_005",
+                                    "name": "Aisha Patel",
+                                    "skills": ["logistics",
+                                               "fulfillment",
+                                               "orders",
+                                               "shipping"],
+                                    "specialty": "shipping",
+                                    "max_workload": 18,
+                                    "resolution_rate": 0.90,
+                                    "avg_csat": 4.4,
+                                    "avg_response_time": 6.7,
+                                    },
+                                   {"agent_id": "agent_006",
+                                    "name": "David Kim",
+                                    "skills": ["general",
+                                               "support",
+                                               "inquiry",
+                                               "billing"],
+                                    "specialty": "general",
+                                    "max_workload": 25,
+                                    "resolution_rate": 0.82,
+                                    "avg_csat": 3.9,
+                                    "avg_response_time": 10.5,
+                                    },
+                                   {"agent_id": "agent_007",
+                                    "name": "Maria Santos",
+                                    "skills": ["senior",
+                                               "escalation",
+                                               "management",
+                                               "customer_success"],
+                                    "specialty": "escalation",
+                                    "max_workload": 8,
+                                    "resolution_rate": 0.97,
+                                    "avg_csat": 4.9,
+                                    "avg_response_time": 3.8,
+                                    },
+                                   {"agent_id": "agent_008",
+                                    "name": "Tom Williams",
+                                    "skills": ["account_management",
+                                               "security",
+                                               "general",
+                                               "billing"],
+                                    "specialty": "account",
+                                    "max_workload": 14,
+                                    "resolution_rate": 0.87,
+                                    "avg_csat": 4.2,
+                                    "avg_response_time": 7.9,
+                                    },
+                                   {"agent_id": "agent_009",
+                                    "name": "Yuki Tanaka",
+                                    "skills": ["technical",
+                                               "engineering",
+                                               "debugging",
+                                               "product"],
+                                    "specialty": "technical",
+                                    "max_workload": 16,
+                                    "resolution_rate": 0.91,
+                                    "avg_csat": 4.6,
+                                    "avg_response_time": 5.8,
+                                    "languages": ["en",
+                                                  "ja"],
+                                    },
+                                   {"agent_id": "agent_010",
+                                    "name": "Carlos Mendez",
+                                    "skills": ["retention",
+                                               "customer_success",
+                                               "billing",
+                                               "conflict_resolution"],
+                                    "specialty": "cancellation",
+                                    "max_workload": 11,
+                                    "resolution_rate": 0.93,
+                                    "avg_csat": 4.7,
+                                    "avg_response_time": 6.2,
+                                    "languages": ["en",
+                                                  "es"],
+                                    },
+                                   ]
 
 
 def _build_agent_profiles(
@@ -445,9 +469,11 @@ class AIAssignmentEngine:
         if self._assignment_service is None and self.db is not None:
             try:
                 from app.services.assignment_service import AssignmentService
-                self._assignment_service = AssignmentService(self.db, company_id="__placeholder__")
+                self._assignment_service = AssignmentService(
+                    self.db, company_id="__placeholder__")
             except Exception as exc:
-                logger.warning("Could not lazy-load AssignmentService: %s", exc)
+                logger.warning(
+                    "Could not lazy-load AssignmentService: %s", exc)
         return self._assignment_service
 
     # ── PUBLIC API ───────────────────────────────────────────────
@@ -472,7 +498,8 @@ class AIAssignmentEngine:
             # BC-008: graceful degradation — fall back to round-robin
             logger.exception(
                 "AI assignment failed for ticket=%s company=%s, falling back to round-robin",
-                request.ticket_id, request.company_id,
+                request.ticket_id,
+                request.company_id,
             )
             result = await self._fallback_assign(request)
 
@@ -532,7 +559,8 @@ class AIAssignmentEngine:
         # Execute with concurrency cap to avoid overloading Redis / DB
         semaphore = asyncio.Semaphore(10)
 
-        async def _guarded(req: TicketAssignmentRequest) -> TicketAssignmentResult:
+        async def _guarded(
+                req: TicketAssignmentRequest) -> TicketAssignmentResult:
             async with semaphore:
                 return await self.assign_ticket(req)
 
@@ -708,12 +736,16 @@ class AIAssignmentEngine:
             try:
                 cached = await self.redis.get(cache_key)
                 if cached:
-                    data = json.loads(cached) if isinstance(cached, str) else cached
+                    data = json.loads(cached) if isinstance(
+                        cached, str) else cached
                     return {
-                        aid: AgentWorkload(**info) for aid, info in data.items()
-                    }
+                        aid: AgentWorkload(
+                            **info) for aid,
+                        info in data.items()}
             except Exception:
-                logger.warning("Redis cache read failed for workload key=%s", cache_key)
+                logger.warning(
+                    "Redis cache read failed for workload key=%s",
+                    cache_key)
 
         # Compute from profiles
         agents = await self._get_available_agents(company_id)
@@ -758,7 +790,9 @@ class AIAssignmentEngine:
                     ex=WORKLOAD_CACHE_TTL,
                 )
             except Exception:
-                logger.warning("Redis cache write failed for workload key=%s", cache_key)
+                logger.warning(
+                    "Redis cache write failed for workload key=%s",
+                    cache_key)
 
         return workloads
 
@@ -863,12 +897,12 @@ class AIAssignmentEngine:
                 self._model_weights[factor]["weight"] = max(
                     0.1, min(2.0, self._model_weights[factor]["weight"] + adjustment),
                 )
-                self._model_weights[factor]["bias"] = max(
-                    -5.0, min(5.0, self._model_weights[factor]["bias"] + adjustment * 0.5),
-                )
+                self._model_weights[factor]["bias"] = max(-5.0, min(
+                    5.0, self._model_weights[factor]["bias"] + adjustment * 0.5), )
 
         # Simulated after-training accuracy
-        accuracy_after = self._estimate_model_accuracy(historical_data, trained=True)
+        accuracy_after = self._estimate_model_accuracy(
+            historical_data, trained=True)
         improvement = (
             ((accuracy_after - accuracy_before) / max(accuracy_before, 0.01)) * 100
             if accuracy_before > 0
@@ -942,8 +976,7 @@ class AIAssignmentEngine:
                 accuracy_score = 0.0
             else:
                 accuracy_raw = self._score_accuracy(
-                    agent.resolution_rate, agent.avg_csat, agent.avg_response_time,
-                )
+                    agent.resolution_rate, agent.avg_csat, agent.avg_response_time, )
                 accuracy_score = min(
                     accuracy_raw * weights["accuracy_mult"],
                     ACCURACY_MAX,
@@ -990,8 +1023,9 @@ class AIAssignmentEngine:
             skills_match = list(set(agent.skills) & set(intent_skills))
             if request.required_skills:
                 skills_match = list(
-                    set(skills_match) | set(agent.skills) & set(request.required_skills)
-                )
+                    set(skills_match) | set(
+                        agent.skills) & set(
+                        request.required_skills))
 
             scores.append(AgentScore(
                 agent_id=agent.agent_id,
@@ -1028,7 +1062,10 @@ class AIAssignmentEngine:
             return 20.0  # neutral midpoint
 
         # Get ideal skills for this intent
-        ideal_skills = set(INTENT_SKILL_MAP.get(intent_type, ["general", "support"]))
+        ideal_skills = set(
+            INTENT_SKILL_MAP.get(
+                intent_type, [
+                    "general", "support"]))
 
         # Add any explicitly required skills
         if required_skills:
@@ -1261,7 +1298,8 @@ class AIAssignmentEngine:
                 if users:
                     return self._db_users_to_profiles(users)
             except Exception as exc:
-                logger.warning("DB agent fetch failed, using defaults: %s", exc)
+                logger.warning(
+                    "DB agent fetch failed, using defaults: %s", exc)
 
         # Fall back to mock agents with simulated workload
         return self._get_mock_agents_with_workload(company_id)
@@ -1282,7 +1320,13 @@ class AIAssignmentEngine:
 
             profile = _AgentProfile(
                 agent_id=str(user.id),
-                name=getattr(user, "full_name", None) or getattr(user, "email", "Unknown"),
+                name=getattr(
+                    user,
+                    "full_name",
+                    None) or getattr(
+                    user,
+                    "email",
+                    "Unknown"),
                 skills=skills if isinstance(skills, list) else ["general"],
                 specialty=getattr(user, "role", "general"),
                 max_workload=15,
@@ -1313,16 +1357,20 @@ class AIAssignmentEngine:
                         profile.current_workload = w.current_tickets
                     else:
                         # Simulate random workload for uncached agents
-                        profile.current_workload = random.randint(0, profile.max_workload // 2)
+                        profile.current_workload = random.randint(
+                            0, profile.max_workload // 2)
                 return profiles
             except Exception:
-                logger.debug("Redis workload fetch failed, using simulated values")
+                logger.debug(
+                    "Redis workload fetch failed, using simulated values")
 
-        # No Redis — simulate workload with deterministic seed based on company_id
+        # No Redis — simulate workload with deterministic seed based on
+        # company_id
         seed = int(hashlib.md5(company_id.encode()).hexdigest()[:8], 16)
         rng = random.Random(seed)
         for profile in profiles:
-            profile.current_workload = rng.randint(0, max(1, profile.max_workload // 2))
+            profile.current_workload = rng.randint(
+                0, max(1, profile.max_workload // 2))
 
         return profiles
 
@@ -1339,7 +1387,8 @@ class AIAssignmentEngine:
                     Ticket.company_id == company_id,
                 ).first()
                 if ticket:
-                    return str(ticket.assigned_to) if ticket.assigned_to else None
+                    return str(
+                        ticket.assigned_to) if ticket.assigned_to else None
             except Exception as exc:
                 logger.debug("Could not fetch current assignee: %s", exc)
         return None
@@ -1386,7 +1435,8 @@ class AIAssignmentEngine:
         parts.append(f"Priority: {request.priority}")
 
         if best.skills_match:
-            parts.append(f"Matching skills: {', '.join(best.skills_match[:3])}")
+            parts.append(
+                f"Matching skills: {', '.join(best.skills_match[:3])}")
 
         parts.append(
             f"Agent workload: {best.current_workload}/{best.max_workload}"
@@ -1509,7 +1559,8 @@ class AIAssignmentEngine:
             else:
                 adjustments["accuracy"] = -learning_rate
 
-            # Workload: if lower workload correlated with positive outcomes → boost
+            # Workload: if lower workload correlated with positive outcomes →
+            # boost
             if avg_wl_pos < avg_wl_neg:
                 adjustments["workload"] = learning_rate
             else:
@@ -1587,8 +1638,12 @@ class AIAssignmentEngine:
         cache_key = f"workload:{company_id}"
         try:
             await self.redis.delete(cache_key)
-            logger.debug("Invalidated workload cache for company=%s", company_id)
+            logger.debug(
+                "Invalidated workload cache for company=%s",
+                company_id)
             return True
         except Exception:
-            logger.warning("Failed to invalidate workload cache for company=%s", company_id)
+            logger.warning(
+                "Failed to invalidate workload cache for company=%s",
+                company_id)
             return False

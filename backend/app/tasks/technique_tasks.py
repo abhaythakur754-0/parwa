@@ -11,10 +11,9 @@ BC-004: All tasks inherit from ParwaBaseTask.
 
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from app.tasks.base import ParwaBaseTask  # noqa: F401
-from app.tasks.celery_app import app
 
 logger = logging.getLogger("parwa.tasks.technique")
 
@@ -138,9 +137,15 @@ class LogTechniqueExecutionTask(ParwaBaseTask):
                 extra={
                     "company_id": company_id,
                     "technique_id": execution_data.get("technique_id"),
-                    "tokens_overhead": execution_data.get("tokens_overhead", 0),
-                    "latency_ms": execution_data.get("latency_ms", 0),
-                    "result_status": execution_data.get("result_status", "unknown"),
+                    "tokens_overhead": execution_data.get(
+                        "tokens_overhead",
+                        0),
+                    "latency_ms": execution_data.get(
+                        "latency_ms",
+                        0),
+                    "result_status": execution_data.get(
+                        "result_status",
+                        "unknown"),
                 },
             )
             return True

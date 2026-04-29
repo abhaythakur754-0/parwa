@@ -11,13 +11,12 @@ BC-002: All money calculations use Decimal
 """
 
 import logging
-import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import and_, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database.base import SessionLocal
@@ -44,22 +43,18 @@ ANOMALY_MIN_VOLUME: int = 100
 
 class FinancialSafetyError(Exception):
     """Base exception for financial safety errors."""
-    pass
 
 
 class GlobalCapExceededError(FinancialSafetyError):
     """Raised when the global overage cap is exceeded."""
-    pass
 
 
 class AnomalyDetectedError(FinancialSafetyError):
     """Raised when a spending anomaly is detected."""
-    pass
 
 
 class InvoiceAuditError(FinancialSafetyError):
     """Raised when an invoice audit fails."""
-    pass
 
 
 # ── Service Implementation ───────────────────────────────────────────────
@@ -88,7 +83,6 @@ class FinancialSafetyService:
 
     def __init__(self) -> None:
         """Initialize the financial safety service."""
-        pass
 
     # ── Validation Helpers ───────────────────────────────────────────────
 
@@ -163,14 +157,13 @@ class FinancialSafetyService:
 
         total = (
             db.query(
-                func.coalesce(func.sum(UsageRecord.overage_charges), Decimal("0.00"))
-            )
-            .filter(
+                func.coalesce(
+                    func.sum(
+                        UsageRecord.overage_charges),
+                    Decimal("0.00"))) .filter(
                 UsageRecord.company_id == company_id,
                 UsageRecord.record_month == current_month,
-            )
-            .scalar()
-        )
+            ) .scalar())
 
         return Decimal(str(total or 0))
 
@@ -217,7 +210,8 @@ class FinancialSafetyService:
             )
 
         if overage_decimal < Decimal("0"):
-            raise FinancialSafetyError("current_overage_amount must be non-negative")
+            raise FinancialSafetyError(
+                "current_overage_amount must be non-negative")
 
         remaining = GLOBAL_OVERAGE_MAX - overage_decimal
 
@@ -551,7 +545,8 @@ class FinancialSafetyService:
                             paddle.get("total", paddle.get("amount", "0"))
                         ))
 
-                        if self._round_money(local.amount) == self._round_money(paddle_amount):
+                        if self._round_money(
+                                local.amount) == self._round_money(paddle_amount):
                             results["matched"] += 1
                         else:
                             results["mismatched"] += 1
@@ -755,15 +750,15 @@ class FinancialSafetyService:
                             try:
                                 loop.run_until_complete(
                                     emit_billing_event(
-                                        company_id=str(company.id),
+                                        company_id=str(
+                                            company.id),
                                         event_type="invoice_audit_issue",
                                         data={
                                             "mismatched": audit["mismatched"],
                                             "missing_local": audit["missing_local"],
                                             "missing_paddle": audit["missing_paddle"],
                                         },
-                                    )
-                                )
+                                    ))
                             finally:
                                 loop.close()
                         except Exception:
@@ -848,7 +843,10 @@ class FinancialSafetyService:
                 except Exception as exc:
                     logger.error(
                         "auto_sync_invoice_failed company_id=%s inv_id=%s error=%s",
-                        company_id, invoice_id, str(exc)[:200],
+                        company_id,
+                        invoice_id,
+                        str(exc)[
+                            :200],
                     )
 
             if synced > 0:

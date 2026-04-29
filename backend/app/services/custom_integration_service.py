@@ -70,13 +70,13 @@ def validate_encryption_key() -> None:
         logger.warning(
             "encryption_key_using_dev_fallback",
             message="Using hardcoded development encryption key. "
-                   "Set PARWA_ENCRYPTION_KEY to a strong, unique value in production.",
+            "Set PARWA_ENCRYPTION_KEY to a strong, unique value in production.",
         )
     elif len(key) < 32:
         logger.warning(
             "encryption_key_too_short",
             message=f"PARWA_ENCRYPTION_KEY is only {len(key)} chars. "
-                   f"Recommend at least 32 characters for security.",
+            f"Recommend at least 32 characters for security.",
         )
     else:
         logger.info(
@@ -86,9 +86,22 @@ def validate_encryption_key() -> None:
 
 # ── Constants ───────────────────────────────────────────────────────
 
-VALID_INTEGRATION_TYPES = {"rest", "graphql", "webhook_in", "webhook_out", "database"}
+
+VALID_INTEGRATION_TYPES = {
+    "rest",
+    "graphql",
+    "webhook_in",
+    "webhook_out",
+    "database"}
 VALID_AUTH_TYPES = {"bearer", "basic", "api_key", "oauth2", "none"}
-VALID_HTTP_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
+VALID_HTTP_METHODS = {
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "HEAD",
+    "OPTIONS"}
 VALID_STATUSES = {"draft", "active", "disabled", "error"}
 
 # Plan limits for custom integrations per tenant
@@ -127,7 +140,7 @@ def _get_encryption_key() -> Tuple[bytes, str]:
         logger.warning(
             "encrypt_using_dev_key",
             message="Encryption is using the hardcoded dev fallback key. "
-                   "Data will NOT be readable with a different key.",
+            "Data will NOT be readable with a different key.",
         )
     return hashlib.sha256(key_str.encode()).digest(), key_str
 
@@ -208,8 +221,8 @@ def _decrypt_config(encrypted: str) -> Dict[str, Any]:
             logger.critical(
                 "config_decryption_hmac_mismatch",
                 message="HMAC integrity check FAILED on decrypted config. "
-                       "This likely means the encryption key has changed "
-                       "and existing encrypted data cannot be recovered.",
+                "This likely means the encryption key has changed "
+                "and existing encrypted data cannot be recovered.",
             )
             return {}
 
@@ -293,7 +306,8 @@ def _validate_url(url: str) -> Optional[str]:
                 details={"hostname": hostname},
             )
         # Resolve and check against private ranges
-        addr_infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+        addr_infos = socket.getaddrinfo(
+            hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
         resolved_ip: Optional[str] = None
         for family, _, _, _, sockaddr in addr_infos:
             ip = ipaddress.ip_address(sockaddr[0])
@@ -329,9 +343,8 @@ def _validate_connection_string(conn_str: str) -> None:
             parsed = urlparse(conn_str)
             if parsed.hostname and parsed.hostname in _CLOUD_METADATA_HOSTNAMES:
                 raise ValidationError(
-                    message="Database connection hostname is not allowed",
-                    details={"hostname": parsed.hostname, "reason": "blocked_hostname"},
-                )
+                    message="Database connection hostname is not allowed", details={
+                        "hostname": parsed.hostname, "reason": "blocked_hostname"}, )
         return
 
     try:
@@ -356,14 +369,17 @@ def _validate_connection_string(conn_str: str) -> None:
 
         # Resolve DNS and check against private ranges
         import socket
-        addr_infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+        addr_infos = socket.getaddrinfo(
+            hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
         for family, _, _, _, sockaddr in addr_infos:
             ip = ipaddress.ip_address(sockaddr[0])
             for cidr in _PRIVATE_CIDRS:
                 if ip in cidr:
                     raise ValidationError(
                         message="Database connection string points to a private/internal IP address",
-                        details={"hostname": hostname, "ip": str(ip)},
+                        details={
+                            "hostname": hostname,
+                            "ip": str(ip)},
                     )
     except ValidationError:
         raise
@@ -418,9 +434,9 @@ class CustomIntegrationService:
         missing = [f for f in required if not config.get(f)]
         if missing:
             raise ValidationError(
-                message=f"Missing required config fields: {', '.join(missing)}",
-                details={"missing_fields": missing, "integration_type": integration_type},
-            )
+                message=f"Missing required config fields: {
+                    ', '.join(missing)}", details={
+                    "missing_fields": missing, "integration_type": integration_type}, )
 
         # Validate auth_type for rest/graphql
         if integration_type in ("rest", "graphql"):
@@ -452,14 +468,16 @@ class CustomIntegrationService:
         # Check plan limits
         self._check_plan_limit(company_id)
 
-        # Generate webhook_id and secret for webhook_in (D12-P4: respect user-provided secret)
+        # Generate webhook_id and secret for webhook_in (D12-P4: respect
+        # user-provided secret)
         webhook_id = None
         webhook_secret = None
         if integration_type == "webhook_in":
             webhook_id = str(secrets.token_urlsafe(32))
             # Use user-provided secret if present; otherwise generate one
             user_secret = config.get("secret")
-            if user_secret and isinstance(user_secret, str) and user_secret.strip():
+            if user_secret and isinstance(
+                    user_secret, str) and user_secret.strip():
                 webhook_secret = user_secret.strip()
             else:
                 webhook_secret = secrets.token_urlsafe(48)
@@ -501,7 +519,8 @@ class CustomIntegrationService:
 
         return result
 
-    def get(self, integration_id: str, company_id: str) -> Optional[Dict[str, Any]]:
+    def get(self, integration_id: str,
+            company_id: str) -> Optional[Dict[str, Any]]:
         """Get a single custom integration, scoped to company."""
         integration = self._get_by_id(integration_id, company_id)
         if not integration:
@@ -525,7 +544,8 @@ class CustomIntegrationService:
                     message=f"Invalid integration type: {integration_type}",
                     details={"valid_types": sorted(VALID_INTEGRATION_TYPES)},
                 )
-            query = query.filter(CustomIntegration.integration_type == integration_type)
+            query = query.filter(
+                CustomIntegration.integration_type == integration_type)
 
         if status:
             if status not in VALID_STATUSES:
@@ -535,7 +555,8 @@ class CustomIntegrationService:
                 )
             query = query.filter(CustomIntegration.status == status)
 
-        integrations = query.order_by(CustomIntegration.created_at.desc()).all()
+        integrations = query.order_by(
+            CustomIntegration.created_at.desc()).all()
         return [self._to_dict(i, mask_credentials=True) for i in integrations]
 
     def update(
@@ -567,9 +588,9 @@ class CustomIntegrationService:
 
         if integration.status not in ("draft", "active"):
             raise ValidationError(
-                message=f"Cannot update integration in '{integration.status}' status",
-                details={"current_status": integration.status},
-            )
+                message=f"Cannot update integration in '{
+                    integration.status}' status", details={
+                    "current_status": integration.status}, )
 
         now = datetime.now(timezone.utc)
 
@@ -638,9 +659,10 @@ class CustomIntegrationService:
 
         if integration.status != "draft":
             raise ValidationError(
-                message=f"Cannot activate integration in '{integration.status}' status. "
-                       f"Only draft integrations can be activated.",
-                details={"current_status": integration.status},
+                message=f"Cannot activate integration in '{
+                    integration.status}' status. " f"Only draft integrations can be activated.",
+                details={
+                    "current_status": integration.status},
             )
 
         now = datetime.now(timezone.utc)
@@ -658,7 +680,8 @@ class CustomIntegrationService:
 
         return self._to_dict(integration, mask_credentials=True)
 
-    def reactivate(self, integration_id: str, company_id: str) -> Dict[str, Any]:
+    def reactivate(self, integration_id: str,
+                   company_id: str) -> Dict[str, Any]:
         """Reactivate a disabled integration (resets to draft).
 
         Clears error count and resets status to draft so the integration
@@ -674,7 +697,7 @@ class CustomIntegrationService:
         if integration.status != "disabled":
             raise ValidationError(
                 message=f"Cannot reactivate integration in '{integration.status}' status. "
-                       f"Only disabled integrations can be reactivated.",
+                f"Only disabled integrations can be reactivated.",
                 details={"current_status": integration.status},
             )
 
@@ -762,7 +785,8 @@ class CustomIntegrationService:
             integration.consecutive_error_count = 0
             integration.last_error_message = None
         elif not is_manual_test:
-            # D12-P5: Only increment error count for automated tests, not manual ones
+            # D12-P5: Only increment error count for automated tests, not
+            # manual ones
             integration.consecutive_error_count += 1
             integration.last_error_message = result["message"]
             # Auto-disable at 3 consecutive errors
@@ -776,7 +800,8 @@ class CustomIntegrationService:
                     error_count=integration.consecutive_error_count,
                 )
         else:
-            # Manual test failure — record the error message but don't increment
+            # Manual test failure — record the error message but don't
+            # increment
             integration.last_error_message = result["message"]
 
         self.db.flush()
@@ -842,7 +867,9 @@ class CustomIntegrationService:
         self.db.flush()
         return auto_disabled
 
-    def get_by_webhook_id(self, webhook_id: str) -> Optional[CustomIntegration]:
+    def get_by_webhook_id(
+            self,
+            webhook_id: str) -> Optional[CustomIntegration]:
         """Look up a custom integration by webhook_id (for incoming webhooks)."""
         return (
             self.db.query(CustomIntegration)
@@ -904,20 +931,23 @@ class CustomIntegrationService:
                 if response.status_code < 400:
                     return {
                         "success": True,
-                        "message": f"Connected successfully (HTTP {response.status_code})",
+                        "message": f"Connected successfully (HTTP {
+                            response.status_code})",
                         "latency_ms": latency,
                     }
                 else:
                     return {
                         "success": False,
-                        "message": f"Client error HTTP {response.status_code}: authentication or configuration issue",
+                        "message": f"Client error HTTP {
+                            response.status_code}: authentication or configuration issue",
                         "latency_ms": latency,
                     }
         except httpx.TimeoutException:
             return {
                 "success": False,
                 "message": f"Connection timed out after {REST_TIMEOUT_SECONDS}s",
-                "latency_ms": round((time.monotonic() - start) * 1000),
+                "latency_ms": round(
+                    (time.monotonic() - start) * 1000),
             }
         except httpx.ConnectError as e:
             return {
@@ -964,7 +994,8 @@ class CustomIntegrationService:
         try:
             # D12-P9: Disable redirect following to prevent redirect-based SSRF
             with httpx.Client(timeout=REST_TIMEOUT_SECONDS, follow_redirects=False) as client:
-                response = client.post(request_url, json=payload, headers=headers)
+                response = client.post(
+                    request_url, json=payload, headers=headers)
                 latency = round((time.monotonic() - start) * 1000)
 
                 if response.status_code < 400:
@@ -972,28 +1003,31 @@ class CustomIntegrationService:
                         data = response.json()
                         if "errors" in data:
                             return {
-                                "success": False,
-                                "message": f"GraphQL error: {data['errors'][0].get('message', 'unknown')[:200]}",
-                                "latency_ms": latency,
-                            }
+                                "success": False, "message": f"GraphQL error: {
+                                    data['errors'][0].get(
+                                        'message', 'unknown')[
+                                        :200]}", "latency_ms": latency, }
                     except Exception:
                         pass
                     return {
                         "success": True,
-                        "message": f"Connected successfully (HTTP {response.status_code})",
+                        "message": f"Connected successfully (HTTP {
+                            response.status_code})",
                         "latency_ms": latency,
                     }
                 else:
                     return {
                         "success": False,
-                        "message": f"Client error HTTP {response.status_code}: authentication or configuration issue",
+                        "message": f"Client error HTTP {
+                            response.status_code}: authentication or configuration issue",
                         "latency_ms": latency,
                     }
         except httpx.TimeoutException:
             return {
                 "success": False,
                 "message": f"Connection timed out after {REST_TIMEOUT_SECONDS}s",
-                "latency_ms": round((time.monotonic() - start) * 1000),
+                "latency_ms": round(
+                    (time.monotonic() - start) * 1000),
             }
         except httpx.ConnectError as e:
             return {
@@ -1001,10 +1035,13 @@ class CustomIntegrationService:
                 "message": f"Connection failed: {str(e)[:200]}",
             }
 
-    def _test_webhook_in(self, config: Dict[str, Any], webhook_id: Optional[str]) -> Dict[str, Any]:
+    def _test_webhook_in(
+            self, config: Dict[str, Any], webhook_id: Optional[str]) -> Dict[str, Any]:
         """Validate webhook_in configuration."""
         if not webhook_id:
-            return {"success": False, "message": "Webhook endpoint ID not generated"}
+            return {
+                "success": False,
+                "message": "Webhook endpoint ID not generated"}
 
         secret = config.get("secret")
         if not secret:
@@ -1012,7 +1049,9 @@ class CustomIntegrationService:
 
         schema = config.get("expected_payload_schema")
         if not schema:
-            return {"success": False, "message": "Expected payload schema is required"}
+            return {
+                "success": False,
+                "message": "Expected payload schema is required"}
 
         return {
             "success": True,
@@ -1037,7 +1076,8 @@ class CustomIntegrationService:
 
         _validate_url(url)
 
-        payload = test_payload or config.get("payload_template") or {"test": True}
+        payload = test_payload or config.get(
+            "payload_template") or {"test": True}
         headers["Content-Type"] = "application/json"
 
         start = time.monotonic()
@@ -1046,26 +1086,30 @@ class CustomIntegrationService:
                 if method == "GET":
                     response = client.get(url, headers=headers, params=payload)
                 else:
-                    response = client.request(method=method, url=url, json=payload, headers=headers)
+                    response = client.request(
+                        method=method, url=url, json=payload, headers=headers)
                 latency = round((time.monotonic() - start) * 1000)
 
                 if response.status_code < 500:
                     return {
                         "success": True,
-                        "message": f"Test webhook delivered (HTTP {response.status_code})",
+                        "message": f"Test webhook delivered (HTTP {
+                            response.status_code})",
                         "latency_ms": latency,
                     }
                 else:
                     return {
                         "success": False,
-                        "message": f"Target returned HTTP {response.status_code}",
+                        "message": f"Target returned HTTP {
+                            response.status_code}",
                         "latency_ms": latency,
                     }
         except httpx.TimeoutException:
             return {
                 "success": False,
                 "message": f"Connection timed out after {REST_TIMEOUT_SECONDS}s",
-                "latency_ms": round((time.monotonic() - start) * 1000),
+                "latency_ms": round(
+                    (time.monotonic() - start) * 1000),
             }
         except httpx.ConnectError as e:
             return {
@@ -1084,10 +1128,14 @@ class CustomIntegrationService:
         connection_string = config.get("connection_string", "")
 
         if not connection_string:
-            return {"success": False, "message": "Connection string is required"}
+            return {
+                "success": False,
+                "message": "Connection string is required"}
 
         if db_type not in ("postgresql", "mysql", "sqlite", "mongodb"):
-            return {"success": False, "message": f"Unsupported db_type: {db_type}"}
+            return {
+                "success": False,
+                "message": f"Unsupported db_type: {db_type}"}
 
         # D12-P3: Validate connection string for SSRF before connecting
         _validate_connection_string(connection_string)
@@ -1103,10 +1151,8 @@ class CustomIntegrationService:
             # Mask password for logging
             log_conn = self._mask_connection_string(connection_string)
             engine = create_engine(
-                connection_string,
-                pool_pre_ping=True,
-                connect_args={"connect_timeout": DB_TIMEOUT_SECONDS} if db_type == "postgresql" else {},
-            )
+                connection_string, pool_pre_ping=True, connect_args={
+                    "connect_timeout": DB_TIMEOUT_SECONDS} if db_type == "postgresql" else {}, )
 
             with engine.connect() as conn:
                 if db_type == "postgresql":
@@ -1128,7 +1174,10 @@ class CustomIntegrationService:
             latency = round((time.monotonic() - start) * 1000)
             return {
                 "success": False,
-                "message": f"{db_type.capitalize()} connection failed: {str(e)[:200]}",
+                "message": f"{
+                    db_type.capitalize()} connection failed: {
+                    str(e)[
+                        :200]}",
                 "latency_ms": latency,
             }
 
@@ -1141,7 +1190,9 @@ class CustomIntegrationService:
             from pymongo import MongoClient
             from pymongo.errors import ServerSelectionTimeoutError
 
-            client = MongoClient(connection_string, serverSelectionTimeoutMS=DB_TIMEOUT_SECONDS * 1000)
+            client = MongoClient(
+                connection_string,
+                serverSelectionTimeoutMS=DB_TIMEOUT_SECONDS * 1000)
             # Force connection
             client.admin.command("ping")
             client.close()
@@ -1156,7 +1207,8 @@ class CustomIntegrationService:
             return {
                 "success": False,
                 "message": f"MongoDB connection timed out after {DB_TIMEOUT_SECONDS}s",
-                "latency_ms": round((time.monotonic() - start) * 1000),
+                "latency_ms": round(
+                    (time.monotonic() - start) * 1000),
             }
         except ImportError:
             return {"success": False, "message": "pymongo is not installed"}
@@ -1196,7 +1248,8 @@ class CustomIntegrationService:
 
         try:
             from database.models.core import Company
-            company = self.db.query(Company).filter(Company.id == company_id).first()
+            company = self.db.query(Company).filter(
+                Company.id == company_id).first()
             if company and hasattr(company, "plan"):
                 limit = PLAN_LIMITS.get(company.plan, limit)
         except Exception:
@@ -1270,7 +1323,8 @@ class CustomIntegrationService:
         # Build webhook endpoint URL for webhook_in type
         webhook_url = None
         if integration.integration_type == "webhook_in" and integration.webhook_id:
-            webhook_url = f"/api/integrations/webhooks/incoming/{integration.webhook_id}"
+            webhook_url = f"/api/integrations/webhooks/incoming/{
+                integration.webhook_id}"
 
         return {
             "id": integration.id,

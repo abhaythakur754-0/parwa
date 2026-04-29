@@ -24,8 +24,6 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import and_, or_
-from sqlalchemy.orm import Session
 
 from database.base import SessionLocal
 from database.models.billing import Subscription
@@ -37,12 +35,10 @@ logger = logging.getLogger("parwa.services.payment_failure")
 
 class PaymentFailureError(Exception):
     """Base exception for payment failure errors."""
-    pass
 
 
 class ServiceStoppedError(PaymentFailureError):
     """Company service is stopped due to payment failure."""
-    pass
 
 
 class PaymentFailureService:
@@ -196,7 +192,8 @@ class PaymentFailureService:
 
             # Trigger side-effects: notifications (but NOT full service stop)
             try:
-                # Send payment failure notification email with grace period info
+                # Send payment failure notification email with grace period
+                # info
                 from app.services.email_service import send_email
                 from database.models.core import User
                 company_owner = db.query(User).filter(
@@ -273,8 +270,7 @@ class PaymentFailureService:
                                     "grace_period_days": self.GRACE_PERIOD_DAYS,
                                     "message": "Payment failed. 7-day grace period started.",
                                 },
-                            )
-                        )
+                            ))
                     finally:
                         loop.close()
                 except Exception as socket_err:
@@ -341,7 +337,8 @@ class PaymentFailureService:
                 PaymentFailure.resolved == False,
                 PaymentFailure.grace_period_ends_at.isnot(None),
                 PaymentFailure.grace_period_ends_at < now,
-                PaymentFailure.service_stopped_at.isnot(None),  # has been escalated
+                PaymentFailure.service_stopped_at.isnot(
+                    None),  # has been escalated
             ).all()
 
             for failure in expired_failures:
@@ -402,7 +399,8 @@ class PaymentFailureService:
                         logger.error(
                             "grace_period_suspension_task_failed company_id=%s error=%s",
                             failure.company_id,
-                            str(task_err)[:200],
+                            str(task_err)[
+                                :200],
                         )
 
                     # Send final suspension email
@@ -434,14 +432,16 @@ class PaymentFailureService:
                         logger.error(
                             "grace_period_suspension_email_failed company_id=%s error=%s",
                             failure.company_id,
-                            str(email_err)[:200],
+                            str(email_err)[
+                                :200],
                         )
 
                 except Exception as e:
                     logger.error(
                         "grace_period_suspension_failed company_id=%s error=%s",
                         failure.company_id,
-                        str(e)[:200],
+                        str(e)[
+                            :200],
                     )
                     results["errors"].append({
                         "failure_id": failure.id,
@@ -495,14 +495,18 @@ class PaymentFailureService:
 
             return {
                 "failure_id": failure.id,
-                "status": "grace_period" if is_in_grace_period else ("expired" if is_expired else "unknown"),
+                "status": "grace_period" if is_in_grace_period else (
+                    "expired" if is_expired else "unknown"),
                 "grace_period_ends_at": grace_ends.isoformat() if grace_ends else None,
                 "is_expired": is_expired,
                 "is_in_grace_period": is_in_grace_period,
-                "days_remaining": round(days_remaining, 1) if days_remaining is not None else None,
+                "days_remaining": round(
+                    days_remaining,
+                    1) if days_remaining is not None else None,
                 "failure_code": failure.failure_code,
                 "failure_reason": failure.failure_reason,
-                "amount_attempted": str(failure.amount_attempted) if failure.amount_attempted else None,
+                "amount_attempted": str(
+                    failure.amount_attempted) if failure.amount_attempted else None,
                 "created_at": failure.created_at.isoformat() if failure.created_at else None,
             }
 
@@ -658,11 +662,13 @@ class PaymentFailureService:
                     from app.services.notification_service import NotificationService
                     notif_svc = NotificationService(db)
                     notif_svc.create_notification(
-                        user_id=str(company_owner.id) if company_owner else None,
+                        user_id=str(
+                            company_owner.id) if company_owner else None,
                         company_id=str(company_id),
                         event_type="payment_failed",
                         title="Payment Failed",
-                        message=f"Payment processing failed for {company.name}. Please update your billing information.",
+                        message=f"Payment processing failed for {
+                            company.name}. Please update your billing information.",
                         priority="high",
                     )
                 except Exception as notif_err:
@@ -707,7 +713,8 @@ class PaymentFailureService:
             True if service is fully stopped, False otherwise
         """
         with SessionLocal() as db:
-            # Check company subscription status - only payment_failed = full stop
+            # Check company subscription status - only payment_failed = full
+            # stop
             company = db.query(Company).filter(
                 Company.id == str(company_id)
             ).first()
@@ -715,8 +722,8 @@ class PaymentFailureService:
             if company and company.subscription_status == self.PAYMENT_FAILED_STATUS:
                 return True
 
-            # Also check for unresolved payment failures that have expired grace period
-            from sqlalchemy import and_
+            # Also check for unresolved payment failures that have expired
+            # grace period
             failure = db.query(PaymentFailure).filter(
                 PaymentFailure.company_id == str(company_id),
                 PaymentFailure.resolved == False,
@@ -875,7 +882,8 @@ class PaymentFailureService:
                     db.commit()
                     logger.info(
                         "payment_resume_tickets_unfrozen company_id=%s count=%d",
-                        company_id, unfrozen_count,
+                        company_id,
+                        unfrozen_count,
                     )
                 except Exception as ticket_err:
                     logger.warning(
@@ -944,7 +952,9 @@ class PaymentFailureService:
             except Exception as side_err:
                 logger.error(
                     "payment_resume_side_effects_failed company_id=%s error=%s",
-                    company_id, str(side_err)[:200],
+                    company_id,
+                    str(side_err)[
+                        :200],
                 )
 
             return {
@@ -1029,7 +1039,8 @@ class PaymentFailureService:
                 "paddle_transaction_id": failure.paddle_transaction_id,
                 "failure_code": failure.failure_code,
                 "failure_reason": failure.failure_reason,
-                "amount_attempted": str(failure.amount_attempted) if failure.amount_attempted else None,
+                "amount_attempted": str(
+                    failure.amount_attempted) if failure.amount_attempted else None,
                 "currency": failure.currency,
                 "service_stopped_at": failure.service_stopped_at.isoformat() if failure.service_stopped_at else None,
                 "resolved": failure.resolved,

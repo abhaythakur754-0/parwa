@@ -33,7 +33,6 @@ from app.schemas.onboarding import (
     UserDetailsResponse,
     OnboardingStateResponse,
 )
-from database.models.core import User, Company
 from database.models.user_details import UserDetails
 from database.models.onboarding import OnboardingSession, KnowledgeDocument
 from app.services.email_service import send_verification_email
@@ -53,13 +52,13 @@ _VERIFICATION_RATE_LIMIT_SECONDS = 60
 def sanitize_text_input(text: str, max_length: int = 100) -> str:
     """
     Sanitize text input to prevent XSS attacks.
-    
+
     Removes:
     - HTML tags
     - JavaScript protocol
     - Event handlers
     - Dangerous characters
-    
+
     P13 FIX: Uses html.escape() instead of regex tag stripping.
     The old regex `re.sub(r'<[^>]*>', '', text)` silently removed legitimate
     content like "AT&T < Wireless" → "AT&T ". Now we escape HTML entities
@@ -67,9 +66,9 @@ def sanitize_text_input(text: str, max_length: int = 100) -> str:
     """
     if not text or not isinstance(text, str):
         return ''
-    
+
     sanitized = text.strip()
-    
+
     # P13: Escape HTML entities instead of stripping them.
     # This preserves content like "AT&T < Partner >" as
     # "AT&T &lt; Partner &gt;" instead of destroying it.
@@ -78,16 +77,16 @@ def sanitize_text_input(text: str, max_length: int = 100) -> str:
     sanitized = sanitized.replace('>', '&gt;')
     sanitized = sanitized.replace('"', '&quot;')
     sanitized = sanitized.replace("'", '&#x27;')
-    
+
     # Remove javascript: protocol (after escaping, look for the escaped form)
     sanitized = re.sub(r'javascript\s*:', '', sanitized, flags=re.IGNORECASE)
-    
+
     # Remove event handlers (onclick, onerror, etc.)
     sanitized = re.sub(r'on\w+\s*=', '', sanitized, flags=re.IGNORECASE)
-    
+
     # Remove data: URLs
     sanitized = re.sub(r'data\s*:', '', sanitized, flags=re.IGNORECASE)
-    
+
     # Truncate to max length
     return sanitized[:max_length]
 
@@ -95,27 +94,27 @@ def sanitize_text_input(text: str, max_length: int = 100) -> str:
 def sanitize_url_input(url: str) -> str:
     """
     Sanitize URL input to prevent XSS via URL schemes.
-    
+
     Only allows http:// and https:// protocols.
     """
     if not url or not isinstance(url, str):
         return ''
-    
+
     url = url.strip()
     url_lower = url.lower()
-    
+
     # Block dangerous protocols
     dangerous_protocols = ['javascript:', 'data:', 'vbscript:', 'file:']
     for protocol in dangerous_protocols:
         if url_lower.startswith(protocol):
             return ''
-    
+
     # Only allow http/https
     if url and not url_lower.startswith(('http://', 'https://')):
         # Don't add protocol - just return empty for safety
         # Frontend should handle URL normalization
         pass
-    
+
     return url[:255]
 
 
@@ -123,11 +122,11 @@ def sanitize_email(email: str) -> str:
     """Sanitize email input."""
     if not email or not isinstance(email, str):
         return ''
-    
+
     # Check for XSS attempts
     if '<' in email or '>' in email or 'javascript:' in email.lower():
         return ''
-    
+
     return email.strip().lower()[:255]
 
 
@@ -210,23 +209,24 @@ def create_or_update_user_details(
     full_name = sanitize_text_input(full_name, max_length=100)
     company_name = sanitize_text_input(company_name, max_length=100)
     industry = sanitize_text_input(industry, max_length=50)
-    company_size = sanitize_text_input(company_size, max_length=20) if company_size else None
+    company_size = sanitize_text_input(
+        company_size, max_length=20) if company_size else None
     work_email = sanitize_email(work_email) if work_email else None
     website = sanitize_url_input(website) if website else None
-    
+
     # Validate required fields after sanitization
     if not full_name or len(full_name) < 2:
         raise ValidationError(
             message="Full name must be at least 2 characters.",
             details={"field": "full_name"},
         )
-    
+
     if not company_name or len(company_name) < 2:
         raise ValidationError(
             message="Company name must be at least 2 characters.",
             details={"field": "company_name"},
         )
-    
+
     if not industry:
         raise ValidationError(
             message="Industry is required.",
@@ -337,13 +337,13 @@ def send_work_email_verification(
     """
     # Sanitize email
     work_email = sanitize_email(work_email)
-    
+
     if not work_email:
         raise ValidationError(
             message="Invalid email address.",
             details={"work_email": work_email},
         )
-    
+
     details = db.query(UserDetails).filter(
         UserDetails.user_id == user_id,
         UserDetails.company_id == company_id,
@@ -375,13 +375,15 @@ def send_work_email_verification(
         sent_at = details.work_email_verification_sent_at
         if sent_at.tzinfo is None:
             sent_at = sent_at.replace(tzinfo=timezone.utc)
-        
+
         time_since_last = datetime.now(timezone.utc) - sent_at
         if time_since_last.total_seconds() < _VERIFICATION_RATE_LIMIT_SECONDS:
-            remaining = _VERIFICATION_RATE_LIMIT_SECONDS - int(time_since_last.total_seconds())
+            remaining = _VERIFICATION_RATE_LIMIT_SECONDS - \
+                int(time_since_last.total_seconds())
             raise ValidationError(
                 message=f"Please wait {remaining} seconds before requesting another verification email.",
-                details={"retry_after_seconds": remaining},
+                details={
+                    "retry_after_seconds": remaining},
             )
 
     # Generate verification token (plaintext — only exists in email link)
@@ -395,7 +397,8 @@ def send_work_email_verification(
     # Send verification email via Brevo (URL contains plaintext token)
     try:
         settings = get_settings()
-        verification_url = f"{settings.FRONTEND_URL}/verify-email?token={token}"
+        verification_url = f"{
+            settings.FRONTEND_URL}/verify-email?token={token}"
         send_verification_email(
             user_email=work_email,
             user_name=details.full_name or "User",
@@ -438,13 +441,13 @@ def verify_work_email(
     """
     # Sanitize token - allow reasonable length for test tokens
     token = token.strip()[:64] if token else ''
-    
+
     if not token or len(token) < 8:
         raise ValidationError(
             message="Invalid verification token.",
             details={"token": "Token too short"},
         )
-    
+
     # P10 FIX: Compare hashed token (DB stores hashes, not plaintext)
     token_hash = _hash_verification_token(token)
     details = db.query(UserDetails).filter(
@@ -468,9 +471,8 @@ def verify_work_email(
             details.work_email_verification_token = None
             db.commit()
             raise ValidationError(
-                message="Verification token expired. Please request a new one.",
-                details={"expired_at": expiry.isoformat()},
-            )
+                message="Verification token expired. Please request a new one.", details={
+                    "expired_at": expiry.isoformat()}, )
 
     # Mark as verified
     details.work_email_verified = True
@@ -560,52 +562,52 @@ def check_ai_activation_prerequisites(
 ) -> dict:
     """
     Check if user can activate AI.
-    
+
     GAP-003: Email verification required if work email provided.
-    
+
     Prerequisites:
     1. Legal consents accepted
     2. If work_email provided, it must be verified
     3. At least one integration configured OR one KB document uploaded
-    
+
     Returns:
         dict with 'can_activate' bool and 'missing' list of requirements
     """
     missing = []
-    
+
     # Get user details
     details = db.query(UserDetails).filter(
         UserDetails.user_id == user_id,
         UserDetails.company_id == company_id,
     ).first()
-    
+
     # Get onboarding session
     session = db.query(OnboardingSession).filter(
         OnboardingSession.user_id == user_id,
         OnboardingSession.company_id == company_id,
     ).first()
-    
+
     if not session:
         missing.append("onboarding_not_started")
         return {"can_activate": False, "missing": missing}
-    
+
     # Check legal consents
     if not session.legal_accepted:
         missing.append("legal_consent_required")
-    
+
     # GAP-003: Check email verification if work email provided
     if details and details.work_email and not details.work_email_verified:
         missing.append("work_email_verification_required")
-    
-    # Check integrations or KB — query actual Integration table (not stale session.integrations)
-    import json
+
+    # Check integrations or KB — query actual Integration table (not stale
+    # session.integrations)
     from database.models.integration import Integration
     integration_count = db.query(Integration).filter(
         Integration.company_id == company_id,
         Integration.status.in_(["active", "pending"]),
     ).count()
     has_integrations = integration_count > 0
-    
+
     # P22 FIX: Only count "completed" KB documents as valid.
     # Previously "processing" documents counted too — a doc that just
     # started processing but will fail in 10 seconds was treated as valid.
@@ -615,10 +617,10 @@ def check_ai_activation_prerequisites(
         KnowledgeDocument.status == "completed",  # P22: Only completed, not processing
     ).count()
     has_kb = kb_doc_count > 0
-    
+
     if not has_integrations and not has_kb:
         missing.append("integration_or_kb_required")
-    
+
     return {
         "can_activate": len(missing) == 0,
         "missing": missing,

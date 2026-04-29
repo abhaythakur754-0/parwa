@@ -4,6 +4,7 @@ PARWA Template API - Response Template Endpoints (Day 33: MF07)
 Endpoints for managing response templates/macros.
 """
 
+import json
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -143,10 +144,6 @@ def list_templates(
         "page": page,
         "page_size": page_size,
     }
-
-
-from datetime import datetime
-import json
 
 
 @router.get("/{template_id}", response_model=TemplateResponse)

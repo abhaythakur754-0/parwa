@@ -17,12 +17,10 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.orm import Session
 
 from app.exceptions import (
     NotFoundError,
-    AuthorizationError,
     ValidationError,
 )
 from database.models.tickets import (
@@ -39,7 +37,7 @@ DEFAULT_CHANNELS = [
     {"name": "chat", "channel_type": "chat", "description": "Live chat widget"},
     {"name": "sms", "channel_type": "sms", "description": "SMS/Messaging"},
     {"name": "voice", "channel_type": "voice", "description": "Voice/Phone calls"},
-    {"name": "slack",  "channel_type": "chat", "description": "Slack integration"},
+    {"name": "slack", "channel_type": "chat", "description": "Slack integration"},
     {"name": "webchat", "channel_type": "chat", "description": "Web chat widget"},
 ]
 
@@ -55,8 +53,17 @@ CHANNEL_CHAR_LIMITS = {
 
 # Default file types per channel
 DEFAULT_ALLOWED_FILE_TYPES = [
-    "pdf", "doc", "docx", "txt", "png", "jpg", "jpeg", "gif", "csv", "xls", "xlsx"
-]
+    "pdf",
+    "doc",
+    "docx",
+    "txt",
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "csv",
+    "xls",
+    "xlsx"]
 
 
 class ChannelService:
@@ -81,7 +88,7 @@ class ChannelService:
         """
         # Check database for any custom channels
         db_channels = self.db.query(Channel).filter(
-            Channel.is_active == True
+            Channel.is_active
         ).all()
 
         # Merge with defaults
@@ -181,17 +188,22 @@ class ChannelService:
 
         if not config:
             config = ChannelConfig(
-                id=str(uuid.uuid4()),
+                id=str(
+                    uuid.uuid4()),
                 company_id=self.company_id,
                 channel_type=channel_type,
                 is_enabled=is_enabled if is_enabled is not None else True,
-                config_json=json.dumps(config_json or {}),
+                config_json=json.dumps(
+                    config_json or {}),
                 auto_create_ticket=auto_create_ticket if auto_create_ticket is not None else True,
                 char_limit=char_limit,
-                allowed_file_types=json.dumps(allowed_file_types or DEFAULT_ALLOWED_FILE_TYPES),
+                allowed_file_types=json.dumps(
+                    allowed_file_types or DEFAULT_ALLOWED_FILE_TYPES),
                 max_file_size=max_file_size,
-                created_at=datetime.now(timezone.utc),
-                updated_at=datetime.now(timezone.utc),
+                created_at=datetime.now(
+                    timezone.utc),
+                updated_at=datetime.now(
+                    timezone.utc),
             )
             self.db.add(config)
         else:
@@ -230,7 +242,8 @@ class ChannelService:
         """
         # Get config
         config = self.get_channel_config(channel_type)
-        config_data = test_config or (json.loads(config.config_json) if config and config.config_json else {})
+        config_data = test_config or (json.loads(
+            config.config_json) if config and config.config_json else {})
 
         # Simulate connectivity test (in production, this would actually test)
         # For now, return success if config has required fields
@@ -243,23 +256,26 @@ class ChannelService:
 
         # Channel-specific validation
         if channel_type == "email":
-            if not config_data.get("smtp_host") and not config_data.get("provider"):
+            if not config_data.get(
+                    "smtp_host") and not config_data.get("provider"):
                 result["success"] = False
                 result["message"] = "Email configuration incomplete: missing SMTP or provider settings"
 
         elif channel_type == "sms":
-            if not config_data.get("provider") and not config_data.get("twilio_sid"):
+            if not config_data.get(
+                    "provider") and not config_data.get("twilio_sid"):
                 result["success"] = False
                 result["message"] = "SMS configuration incomplete: missing provider settings"
 
         elif channel_type == "slack":
-            if not config_data.get("bot_token") and not config_data.get("webhook_url"):
+            if not config_data.get(
+                    "bot_token") and not config_data.get("webhook_url"):
                 result["success"] = False
                 result["message"] = "Slack configuration incomplete: missing bot token or webhook"
 
         return result
 
-    # ── CHANNEL ROUTING ───────────────────────────────────────────────────────
+    # ── CHANNEL ROUTING ─────────────────────────────────────────────────────
 
     def is_channel_enabled(self, channel_type: str) -> bool:
         """Check if a channel is enabled for the company.
@@ -342,11 +358,13 @@ class ChannelService:
 
         # Check file size
         if file_size > max_size:
-            return False, f"File size exceeds {max_size // (1024*1024)}MB limit"
+            return False, f"File size exceeds {
+                max_size // (
+                    1024 * 1024)}MB limit"
 
         return True, None
 
-    # ── PS13: VARIANT DOWN HANDLING ───────────────────────────────────────────
+    # ── PS13: VARIANT DOWN HANDLING ─────────────────────────────────────────
 
     def handle_variant_down(
         self,
@@ -391,10 +409,15 @@ class ChannelService:
         # Store variant failure metadata
         metadata = json.loads(ticket.metadata_json or "{}")
         metadata["variant_failure"] = {
-            "queued_at": datetime.now(timezone.utc).isoformat(),
+            "queued_at": datetime.now(
+                timezone.utc).isoformat(),
             "channel_type": channel_type,
             "retry_count": 0,
-            "next_retry_at": (datetime.now(timezone.utc) + timedelta(minutes=self.VARIANT_RETRY_DELAY_MINUTES)).isoformat(),
+            "next_retry_at": (
+                datetime.now(
+                    timezone.utc) +
+                timedelta(
+                    minutes=self.VARIANT_RETRY_DELAY_MINUTES)).isoformat(),
         }
         ticket.metadata_json = json.dumps(metadata)
 
@@ -417,8 +440,10 @@ class ChannelService:
             List of tickets requiring action
         """
         now = datetime.now(timezone.utc)
-        retry_threshold = now - timedelta(minutes=self.VARIANT_RETRY_DELAY_MINUTES)
-        fallback_threshold = now - timedelta(minutes=self.HUMAN_FALLBACK_THRESHOLD_MINUTES)
+        retry_threshold = now - \
+            timedelta(minutes=self.VARIANT_RETRY_DELAY_MINUTES)
+        fallback_threshold = now - \
+            timedelta(minutes=self.HUMAN_FALLBACK_THRESHOLD_MINUTES)
 
         # Find queued tickets
         queued_tickets = self.db.query(Ticket).filter(
@@ -494,8 +519,13 @@ class ChannelService:
             del metadata["variant_failure"]
         else:
             # Increment retry count
-            failure_info["retry_count"] = failure_info.get("retry_count", 0) + 1
-            failure_info["next_retry_at"] = (datetime.now(timezone.utc) + timedelta(minutes=self.VARIANT_RETRY_DELAY_MINUTES)).isoformat()
+            failure_info["retry_count"] = failure_info.get(
+                "retry_count", 0) + 1
+            failure_info["next_retry_at"] = (
+                datetime.now(
+                    timezone.utc) +
+                timedelta(
+                    minutes=self.VARIANT_RETRY_DELAY_MINUTES)).isoformat()
             metadata["variant_failure"] = failure_info
 
         ticket.metadata_json = json.dumps(metadata)

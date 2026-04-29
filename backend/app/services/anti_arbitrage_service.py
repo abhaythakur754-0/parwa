@@ -141,7 +141,6 @@ class AntiArbitrageConfig:
 
 class AntiArbitrageError(ParwaBaseError):
     """Raised when an anti-arbitrage policy is violated."""
-    pass
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -535,16 +534,14 @@ class AntiArbitrageService:
                             instance_count=new_cnt,
                             max_instances=self.config.max_instances_per_variant,
                             utilization_pct=(
-                                new_cap / self.config.max_weighted_capacity * 100
-                                if self.config.max_weighted_capacity > 0
-                                else 0.0
-                            ),
+                                new_cap /
+                                self.config.max_weighted_capacity *
+                                100 if self.config.max_weighted_capacity > 0 else 0.0),
                             action=InstanceAction.BLOCKED,
                             reason=(
-                                f"Rapid instance creation rate exceeded: "
-                                f"{rapid_cnt} in last "
-                                f"{_RAPID_CREATION_WINDOW_SECONDS // 60} min"
-                            ),
+                                f"Rapid instance creation rate exceeded: " f"{rapid_cnt} in last " f"{
+                                    _RAPID_CREATION_WINDOW_SECONDS //
+                                    60} min"),
                         )
 
                     if status_code == 1:
@@ -581,9 +578,8 @@ class AntiArbitrageService:
                     if utilisation >= threshold_pct:
                         action = InstanceAction.FLAGGED
                         reason = (
-                            f"Allowed but flagged — capacity at "
-                            f"{utilisation:.1f}% (>= {threshold_pct}% threshold)"
-                        )
+                            f"Allowed but flagged — capacity at " f"{
+                                utilisation:.1f}% (>= {threshold_pct}% threshold)")
                         self._create_alert(
                             company_id=company_id,
                             level=ArbitrageAlertLevel.MEDIUM,
@@ -634,15 +630,12 @@ class AntiArbitrageService:
                         instance_count=len(instances),
                         max_instances=self.config.max_instances_per_variant,
                         utilization_pct=(
-                            current_cap / self.config.max_weighted_capacity * 100
-                            if self.config.max_weighted_capacity > 0
-                            else 0.0
-                        ),
+                            current_cap /
+                            self.config.max_weighted_capacity *
+                            100 if self.config.max_weighted_capacity > 0 else 0.0),
                         action=InstanceAction.BLOCKED,
                         reason=(
-                            f"Rapid instance creation rate exceeded "
-                            f"(in-memory fallback)"
-                        ),
+                            f"Rapid instance creation rate exceeded " f"(in-memory fallback)"),
                     )
 
                 if new_capacity > self.config.max_weighted_capacity:
@@ -679,7 +672,8 @@ class AntiArbitrageService:
                 threshold_pct = self.config.alert_thresholds["capacity_threshold_pct"]
                 if utilisation >= threshold_pct:
                     action = InstanceAction.FLAGGED
-                    reason = f"Allowed but flagged — capacity at {utilisation:.1f}%"
+                    reason = f"Allowed but flagged — capacity at {
+                        utilisation:.1f}%"
 
                 return CapacityCheck(
                     company_id=company_id,
@@ -958,21 +952,24 @@ class AntiArbitrageService:
                 )
             for vtype, count in variant_counts.items():
                 if count >= 5 and vtype == "mini_parwa":
-                    alerts.append(ArbitrageAlert(
-                        alert_id=str(uuid.uuid4()),
-                        company_id=company_id,
-                        level=ArbitrageAlertLevel.HIGH,
-                        alert_type="single_variant_hoarding",
-                        description=(
-                            f"{count} mini_parwa instances detected — "
-                            f"potential capacity gaming"
-                        ),
-                        details={
-                            "variant_type": vtype,
-                            "count": count,
-                            "combined_weight": count * self.config.capacity_weights.get(vtype, 1.0),
-                        },
-                    ))
+                    alerts.append(
+                        ArbitrageAlert(
+                            alert_id=str(
+                                uuid.uuid4()),
+                            company_id=company_id,
+                            level=ArbitrageAlertLevel.HIGH,
+                            alert_type="single_variant_hoarding",
+                            description=(
+                                f"{count} mini_parwa instances detected — " f"potential capacity gaming"),
+                            details={
+                                "variant_type": vtype,
+                                "count": count,
+                                "combined_weight": count *
+                                self.config.capacity_weights.get(
+                                    vtype,
+                                    1.0),
+                            },
+                        ))
 
             # Store alerts
             for alert in alerts:
@@ -1138,9 +1135,12 @@ class AntiArbitrageService:
             return {
                 "max_instances_per_variant": self.config.max_instances_per_variant,
                 "max_weighted_capacity": self.config.max_weighted_capacity,
-                "capacity_weights": dict(self.config.capacity_weights),
-                "ticket_limits": dict(self.config.ticket_limits),
-                "alert_thresholds": dict(self.config.alert_thresholds),
+                "capacity_weights": dict(
+                    self.config.capacity_weights),
+                "ticket_limits": dict(
+                    self.config.ticket_limits),
+                "alert_thresholds": dict(
+                    self.config.alert_thresholds),
                 "valid_variant_types": sorted(VALID_VARIANT_TYPES),
             }
         except Exception as exc:

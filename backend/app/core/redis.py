@@ -23,7 +23,6 @@ Usage:
 """
 
 import asyncio
-import fnmatch
 import json
 import re
 import threading
@@ -53,7 +52,8 @@ _pubsub_client: Optional[aioredis.Redis] = None
 _pubsub_thread: Optional[threading.Thread] = None
 _pubsub_running = False
 _pubsub_lock = threading.Lock()
-_invalidation_callbacks: List[Callable[[str, str], Coroutine[Any, Any, None]]] = []
+_invalidation_callbacks: List[Callable[[
+    str, str], Coroutine[Any, Any, None]]] = []
 
 # NOTE: No sync get_redis() or get_redis_sync() exists in this module.
 # If one is added in the future, it MUST acquire _redis_thread_lock

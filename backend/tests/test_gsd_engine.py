@@ -7,7 +7,6 @@ GSDEngine class methods, and module-level convenience functions.
 Uses unittest.mock for all external dependencies. No real API calls.
 """
 
-import time
 from datetime import datetime, timezone
 
 import pytest
@@ -370,7 +369,10 @@ class TestTransitionRecord:
     """Tests for TransitionRecord dataclass."""
 
     def test_basic_construction(self):
-        rec = TransitionRecord(state="greeting", timestamp="2025-01-01T00:00:00+00:00", trigger="test")
+        rec = TransitionRecord(
+            state="greeting",
+            timestamp="2025-01-01T00:00:00+00:00",
+            trigger="test")
         assert rec.state == "greeting"
         assert rec.timestamp == "2025-01-01T00:00:00+00:00"
         assert rec.trigger == "test"
@@ -1473,7 +1475,8 @@ class TestResetConversation:
         engine = GSDEngine()
         state = make_state(gsd_state=GSDState.FOLLOW_UP)
         await engine.reset_conversation(state)
-        # previous_state stores str(GSDState.FOLLOW_UP) which is "GSDState.FOLLOW_UP"
+        # previous_state stores str(GSDState.FOLLOW_UP) which is
+        # "GSDState.FOLLOW_UP"
         assert "FOLLOW_UP" in state.gsd_history[0]["metadata"]["previous_state"]
 
     @pytest.mark.asyncio
@@ -1657,8 +1660,14 @@ class TestEstimateResolutionTime:
     @pytest.mark.asyncio
     async def test_resolution_state_reduces_time(self):
         engine = GSDEngine()
-        new_state = make_state(gsd_state=GSDState.NEW, intent="general", complexity=0.3)
-        res_state = make_state(gsd_state=GSDState.RESOLUTION, intent="general", complexity=0.3)
+        new_state = make_state(
+            gsd_state=GSDState.NEW,
+            intent="general",
+            complexity=0.3)
+        res_state = make_state(
+            gsd_state=GSDState.RESOLUTION,
+            intent="general",
+            complexity=0.3)
         new_time = await engine.estimate_resolution_time(new_state)
         res_time = await engine.estimate_resolution_time(res_state)
         assert res_time < new_time
@@ -1666,8 +1675,14 @@ class TestEstimateResolutionTime:
     @pytest.mark.asyncio
     async def test_follow_up_reduces_time_more(self):
         engine = GSDEngine()
-        res_state = make_state(gsd_state=GSDState.RESOLUTION, intent="general", complexity=0.3)
-        fu_state = make_state(gsd_state=GSDState.FOLLOW_UP, intent="general", complexity=0.3)
+        res_state = make_state(
+            gsd_state=GSDState.RESOLUTION,
+            intent="general",
+            complexity=0.3)
+        fu_state = make_state(
+            gsd_state=GSDState.FOLLOW_UP,
+            intent="general",
+            complexity=0.3)
         res_time = await engine.estimate_resolution_time(res_state)
         fu_time = await engine.estimate_resolution_time(fu_state)
         assert fu_time < res_time
@@ -1675,7 +1690,10 @@ class TestEstimateResolutionTime:
     @pytest.mark.asyncio
     async def test_closed_state_minimal(self):
         engine = GSDEngine()
-        state = make_state(gsd_state=GSDState.CLOSED, intent="general", complexity=0.3)
+        state = make_state(
+            gsd_state=GSDState.CLOSED,
+            intent="general",
+            complexity=0.3)
         result = await engine.estimate_resolution_time(state)
         # closed state adjustment is 0 but base_minutes=3 for general/medium
         # adjustment = 0 (closed) + 0 (no frustration) = 0
@@ -1694,8 +1712,14 @@ class TestEstimateResolutionTime:
     @pytest.mark.asyncio
     async def test_escalate_state_adds_time(self):
         engine = GSDEngine()
-        diag_state = make_state(gsd_state=GSDState.DIAGNOSIS, intent="general", complexity=0.3)
-        esc_state = make_state(gsd_state=GSDState.ESCALATE, intent="general", complexity=0.3)
+        diag_state = make_state(
+            gsd_state=GSDState.DIAGNOSIS,
+            intent="general",
+            complexity=0.3)
+        esc_state = make_state(
+            gsd_state=GSDState.ESCALATE,
+            intent="general",
+            complexity=0.3)
         diag_time = await engine.estimate_resolution_time(diag_state)
         esc_time = await engine.estimate_resolution_time(esc_state)
         assert esc_time > diag_time
@@ -1848,7 +1872,9 @@ class TestGetDiagnosticQuestions:
     @pytest.mark.asyncio
     async def test_unknown_intent_falls_back_to_general(self):
         engine = GSDEngine()
-        state = make_state(gsd_state=GSDState.DIAGNOSIS, intent="unknown_type_xyz")
+        state = make_state(
+            gsd_state=GSDState.DIAGNOSIS,
+            intent="unknown_type_xyz")
         result = await engine.get_diagnostic_questions(state)
         assert len(result) > 0
 
@@ -1921,11 +1947,16 @@ class TestGetTransitionReason:
     @pytest.mark.asyncio
     async def test_diagnosis_has_confidence_evaluation(self):
         engine = GSDEngine()
-        state = make_state(gsd_state=GSDState.DIAGNOSIS, confidence=0.9, frustration=0)
+        state = make_state(
+            gsd_state=GSDState.DIAGNOSIS,
+            confidence=0.9,
+            frustration=0)
         result = await engine.get_transition_reason(state)
         # The reasoning_chain may contain escalation checks (dicts with 'condition' key)
-        # and the current_state_check. The confidence_evaluation is added when in diagnosis.
-        steps = [r.get("step", r.get("condition", "")) for r in result["reasoning_chain"]]
+        # and the current_state_check. The confidence_evaluation is added when
+        # in diagnosis.
+        steps = [r.get("step", r.get("condition", ""))
+                 for r in result["reasoning_chain"]]
         assert "confidence_evaluation" in steps
 
     @pytest.mark.asyncio
@@ -1980,7 +2011,10 @@ class TestVariantBehavior:
     async def test_parwa_can_escalate(self):
         engine = GSDEngine()
         engine.update_config("co_parwa", GSDConfig(variant="parwa"))
-        state = make_state(company_id="co_parwa", gsd_state=GSDState.DIAGNOSIS, frustration=0)
+        state = make_state(
+            company_id="co_parwa",
+            gsd_state=GSDState.DIAGNOSIS,
+            frustration=0)
         result = await engine.transition(state, GSDState.ESCALATE)
         assert result.gsd_state == GSDState.ESCALATE
 
@@ -1988,7 +2022,10 @@ class TestVariantBehavior:
     async def test_parwa_high_can_escalate(self):
         engine = GSDEngine()
         engine.update_config("co_high", GSDConfig(variant="parwa_high"))
-        state = make_state(company_id="co_high", gsd_state=GSDState.DIAGNOSIS, frustration=0)
+        state = make_state(
+            company_id="co_high",
+            gsd_state=GSDState.DIAGNOSIS,
+            frustration=0)
         result = await engine.transition(state, GSDState.ESCALATE)
         assert result.gsd_state == GSDState.ESCALATE
 
@@ -2045,8 +2082,14 @@ class TestEscalationCooldown:
     @pytest.mark.asyncio
     async def test_cooldown_per_company(self):
         engine = GSDEngine()
-        state1 = make_state(company_id="co_1", gsd_state=GSDState.DIAGNOSIS, frustration=90.0)
-        state2 = make_state(company_id="co_2", gsd_state=GSDState.DIAGNOSIS, frustration=90.0)
+        state1 = make_state(
+            company_id="co_1",
+            gsd_state=GSDState.DIAGNOSIS,
+            frustration=90.0)
+        state2 = make_state(
+            company_id="co_2",
+            gsd_state=GSDState.DIAGNOSIS,
+            frustration=90.0)
 
         await engine.transition(state1, GSDState.ESCALATE)
         # co_2 should still be able to escalate
@@ -2658,7 +2701,8 @@ class TestAnalyticsHelpers:
 
     def test_calculate_time_bad_timestamp(self):
         engine = GSDEngine()
-        history = [{"state": "x", "timestamp": "bad", "trigger": "t", "metadata": {}}]
+        history = [{"state": "x", "timestamp": "bad",
+                    "trigger": "t", "metadata": {}}]
         result = engine._calculate_time_in_current_state(history)
         assert result == 0.0
 
@@ -2683,7 +2727,8 @@ class TestDefaultTrigger:
 
     def test_diagnosis_to_resolution(self):
         engine = GSDEngine()
-        assert engine._default_trigger("diagnosis", "resolution") == "intent_classified"
+        assert engine._default_trigger(
+            "diagnosis", "resolution") == "intent_classified"
 
     def test_unknown_pair(self):
         engine = GSDEngine()
@@ -2758,7 +2803,11 @@ class TestComprehensiveFlows:
         engine = GSDEngine()
         state = make_state()
         # Close the ticket
-        for target in [GSDState.GREETING, GSDState.DIAGNOSIS, GSDState.RESOLUTION, GSDState.CLOSED]:
+        for target in [
+                GSDState.GREETING,
+                GSDState.DIAGNOSIS,
+                GSDState.RESOLUTION,
+                GSDState.CLOSED]:
             state = await engine.transition(state, target)
         assert state.gsd_state == GSDState.CLOSED
         # Reopen

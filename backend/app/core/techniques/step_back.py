@@ -143,7 +143,9 @@ class StepBackResult:
             "analysis_result": self.analysis_result,
             "refined_response": self.refined_response,
             "steps_applied": self.steps_applied,
-            "context_score": round(self.context_score, 4),
+            "context_score": round(
+                self.context_score,
+                4),
         }
 
 
@@ -187,7 +189,9 @@ class StepBackProcessor:
             try:
                 patterns.append(re.compile(pattern_str, re.I))
             except re.error:
-                logger.warning("step_back_invalid_entity_pattern", pattern=pattern_str)
+                logger.warning(
+                    "step_back_invalid_entity_pattern",
+                    pattern=pattern_str)
         return patterns
 
     # ── Step 1: Detection ──────────────────────────────────────────
@@ -286,7 +290,10 @@ class StepBackProcessor:
         loop_words = [w for w, c in word_counts.items() if c >= 3]
         if loop_words:
             top_word = loop_words[0]
-            confidence = min(1.0, word_counts[top_word] / len(reasoning_thread))
+            confidence = min(
+                1.0,
+                word_counts[top_word] /
+                len(reasoning_thread))
             return NarrowQueryDetector(
                 is_narrow=True,
                 narrow_type="stuck_reasoning",
@@ -413,14 +420,16 @@ class StepBackProcessor:
             return []
 
         broadened: List[str] = []
-        entity = self._extract_entity(query) if narrow_type == "entity_specific" else None
+        entity = self._extract_entity(
+            query) if narrow_type == "entity_specific" else None
 
         for i, template in enumerate(templates):
             if i >= self.config.max_broadening_levels:
                 break
             try:
                 if entity:
-                    broadened_query = template.format(entity=entity, query=query)
+                    broadened_query = template.format(
+                        entity=entity, query=query)
                 else:
                     broadened_query = template.format(query=query)
                 broadened.append(broadened_query)
@@ -471,11 +480,13 @@ class StepBackProcessor:
         scores.append(breadth)
 
         # 2. Coverage score: how many broadened queries were generated
-        coverage = min(1.0, len(broadened_queries) / max(self.config.max_broadening_levels, 1))
+        coverage = min(1.0, len(broadened_queries) /
+                       max(self.config.max_broadening_levels, 1))
         scores.append(coverage)
 
         # 3. Clarity score: broadened queries are longer and more specific
-        avg_broadened_len = sum(len(bq.split()) for bq in broadened_queries) / len(broadened_queries)
+        avg_broadened_len = sum(len(bq.split())
+                                for bq in broadened_queries) / len(broadened_queries)
         original_len = max(1, len(query.split()))
         clarity = min(1.0, avg_broadened_len / original_len)
         scores.append(clarity)
@@ -489,7 +500,8 @@ class StepBackProcessor:
         context_words_found = sum(
             1 for w in all_broadened_words if w in contextual_words
         )
-        context_injection = min(1.0, context_words_found / max(len(broadened_queries), 1))
+        context_injection = min(
+            1.0, context_words_found / max(len(broadened_queries), 1))
         scores.append(context_injection)
 
         # Weighted average
@@ -499,10 +511,16 @@ class StepBackProcessor:
 
         # Generate analysis summary
         analysis_parts = [
-            f"Original query: {len(original_words)} unique words",
-            f"Broadened: {len(broadened_queries)} questions with {len(new_words)} new terms",
-            f"Breadth: {breadth:.2f}, Coverage: {coverage:.2f}, "
-            f"Clarity: {clarity:.2f}, Context: {context_injection:.2f}",
+            f"Original query: {
+                len(original_words)} unique words",
+            f"Broadened: {
+                len(broadened_queries)} questions with {
+                len(new_words)} new terms",
+            f"Breadth: {
+                breadth:.2f}, Coverage: {
+                coverage:.2f}, " f"Clarity: {
+                clarity:.2f}, Context: {
+                context_injection:.2f}",
         ]
         analysis_summary = "; ".join(analysis_parts)
 
@@ -642,7 +660,8 @@ class StepBackNode(BaseTechniqueNode):
         self._config = config or StepBackConfig()
         self._processor = StepBackProcessor(config=self._config)
         # Initialize technique_info from registry
-        self.technique_info = TECHNIQUE_REGISTRY[TechniqueID.STEP_BACK]  # type: ignore[assignment]
+        # type: ignore[assignment]
+        self.technique_info = TECHNIQUE_REGISTRY[TechniqueID.STEP_BACK]
 
     @property
     def technique_id(self) -> TechniqueID:

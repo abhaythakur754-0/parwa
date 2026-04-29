@@ -38,7 +38,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from app.core.techniques.base import (
     ConversationState,
@@ -362,7 +362,9 @@ def _json_default(obj: Any) -> Any:
         return obj.isoformat()
     if isinstance(obj, Enum):
         return obj.value
-    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+    raise TypeError(
+        f"Object of type {
+            type(obj).__name__} is not JSON serializable")
 
 
 def _safe_json_dumps(obj: Any, max_size: int = 5 * 1024 * 1024) -> str:
@@ -470,8 +472,10 @@ class StateSerializer:
         # Use direct method references — no unittest.mock in production code.
         # Tests that need to mock these should patch them via unittest.mock.patch
         # at the test level, not in production __init__.
-        self._load_checkpoint_from_redis = self._load_checkpoint_from_redis_impl  # type: ignore[method-assign]
-        self._load_checkpoint_from_postgresql = self._load_checkpoint_from_postgresql_impl  # type: ignore[method-assign]
+        # type: ignore[method-assign]
+        self._load_checkpoint_from_redis = self._load_checkpoint_from_redis_impl
+        # type: ignore[method-assign]
+        self._load_checkpoint_from_postgresql = self._load_checkpoint_from_postgresql_impl
 
         # File-based tertiary persistence (BC-008: graceful degradation).
         # Reads STATE_SERIALIZATION_PATH and STATE_SERIALIZATION_ENABLED from
@@ -550,8 +554,9 @@ class StateSerializer:
             # GAP 1 FIX: Serialize signals with explicit handling
             signals_dict = None
             if conversation_state.signals is not None:
-                signals_dict = _serialize_enum(asdict(conversation_state.signals))
-            
+                signals_dict = _serialize_enum(
+                    asdict(conversation_state.signals))
+
             # GAP 1 FIX: Serialize gsd_history with explicit handling
             gsd_history_list = []
             if conversation_state.gsd_history is not None:
@@ -560,21 +565,25 @@ class StateSerializer:
                         gsd_history_list.append(s.value)
                     else:
                         gsd_history_list.append(str(s))
-            
+
             # GAP 1 FIX: Serialize technique_results with explicit handling
             technique_results_dict = {}
             if conversation_state.technique_results is not None:
-                technique_results_dict = _serialize_enum(conversation_state.technique_results)
-            
+                technique_results_dict = _serialize_enum(
+                    conversation_state.technique_results)
+
             # GAP 1 FIX: Serialize reflexion_trace with explicit handling
             reflexion_trace_dict = None
             if conversation_state.reflexion_trace is not None:
-                reflexion_trace_dict = _serialize_enum(conversation_state.reflexion_trace)
-            
+                reflexion_trace_dict = _serialize_enum(
+                    conversation_state.reflexion_trace)
+
             # GAP 1 FIX: Deep copy lists to prevent reference issues
-            response_parts_list = list(conversation_state.response_parts) if conversation_state.response_parts else []
-            reasoning_thread_list = list(conversation_state.reasoning_thread) if conversation_state.reasoning_thread else []
-            
+            response_parts_list = list(
+                conversation_state.response_parts) if conversation_state.response_parts else []
+            reasoning_thread_list = list(
+                conversation_state.reasoning_thread) if conversation_state.reasoning_thread else []
+
             state_dict: Dict[str, Any] = {
                 "query": conversation_state.query,
                 "signals": signals_dict,
@@ -657,18 +666,22 @@ class StateSerializer:
             meta = data.get("_meta", {})
             if meta:
                 expected_gsd_history_count = meta.get("gsd_history_count")
-                expected_response_parts_count = meta.get("response_parts_count")
-                expected_reasoning_thread_count = meta.get("reasoning_thread_count")
-                expected_technique_results_keys = set(meta.get("technique_results_keys", []))
-                
+                expected_response_parts_count = meta.get(
+                    "response_parts_count")
+                expected_reasoning_thread_count = meta.get(
+                    "reasoning_thread_count")
+                expected_technique_results_keys = set(
+                    meta.get("technique_results_keys", []))
+
                 gsd_history_raw = data.get("gsd_history", [])
                 response_parts_raw = data.get("response_parts", [])
                 reasoning_thread_raw = data.get("reasoning_thread", [])
                 technique_results_raw = data.get("technique_results", {})
-                
+
                 # Validate counts match
                 if expected_gsd_history_count is not None:
-                    actual_count = len(gsd_history_raw) if isinstance(gsd_history_raw, list) else 0
+                    actual_count = len(gsd_history_raw) if isinstance(
+                        gsd_history_raw, list) else 0
                     if actual_count != expected_gsd_history_count:
                         logger.warning(
                             "deserialize_checksum_mismatch_gsd_history",
@@ -677,9 +690,10 @@ class StateSerializer:
                                 "actual": actual_count,
                             },
                         )
-                
+
                 if expected_response_parts_count is not None:
-                    actual_count = len(response_parts_raw) if isinstance(response_parts_raw, list) else 0
+                    actual_count = len(response_parts_raw) if isinstance(
+                        response_parts_raw, list) else 0
                     if actual_count != expected_response_parts_count:
                         logger.warning(
                             "deserialize_checksum_mismatch_response_parts",
@@ -688,9 +702,10 @@ class StateSerializer:
                                 "actual": actual_count,
                             },
                         )
-                
+
                 if expected_reasoning_thread_count is not None:
-                    actual_count = len(reasoning_thread_raw) if isinstance(reasoning_thread_raw, list) else 0
+                    actual_count = len(reasoning_thread_raw) if isinstance(
+                        reasoning_thread_raw, list) else 0
                     if actual_count != expected_reasoning_thread_count:
                         logger.warning(
                             "deserialize_checksum_mismatch_reasoning_thread",
@@ -699,10 +714,12 @@ class StateSerializer:
                                 "actual": actual_count,
                             },
                         )
-                
+
                 # Validate technique_results keys match
                 if expected_technique_results_keys:
-                    actual_keys = set(technique_results_raw.keys()) if isinstance(technique_results_raw, dict) else set()
+                    actual_keys = set(
+                        technique_results_raw.keys()) if isinstance(
+                        technique_results_raw, dict) else set()
                     missing_keys = expected_technique_results_keys - actual_keys
                     if missing_keys:
                         logger.warning(
@@ -771,16 +788,21 @@ class StateSerializer:
                 signals = QuerySignals()
 
             # Deserialize technique_results
-            technique_results = technique_results_raw if isinstance(technique_results_raw, dict) else {}
+            technique_results = technique_results_raw if isinstance(
+                technique_results_raw, dict) else {}
 
             # Deserialize reflexion_trace
             reflexion_trace = data.get("reflexion_trace")
-            if not isinstance(reflexion_trace, dict) and reflexion_trace is not None:
+            if not isinstance(
+                    reflexion_trace,
+                    dict) and reflexion_trace is not None:
                 reflexion_trace = None
 
             # GAP 1 FIX: Ensure lists are properly copied
-            response_parts = list(response_parts_raw) if isinstance(response_parts_raw, list) else []
-            reasoning_thread = list(reasoning_thread_raw) if isinstance(reasoning_thread_raw, list) else []
+            response_parts = list(response_parts_raw) if isinstance(
+                response_parts_raw, list) else []
+            reasoning_thread = list(reasoning_thread_raw) if isinstance(
+                reasoning_thread_raw, list) else []
 
             return ConversationState(
                 query=data.get("query", ""),
@@ -855,7 +877,10 @@ class StateSerializer:
 
         # 2. Simulate JSON round-trip (same as Redis/PG storage)
         try:
-            state_json = json.dumps(state_data, default=_json_default, ensure_ascii=False)
+            state_json = json.dumps(
+                state_data,
+                default=_json_default,
+                ensure_ascii=False)
         except (TypeError, ValueError) as exc:
             return {
                 "success": False,
@@ -1833,7 +1858,10 @@ class StateSerializer:
             if not dir_path.is_dir():
                 return None
             # Find the most recent snapshot file.
-            json_files = sorted(dir_path.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True)
+            json_files = sorted(
+                dir_path.glob("*.json"),
+                key=lambda f: f.stat().st_mtime,
+                reverse=True)
             if not json_files:
                 return None
             latest = json_files[0]
@@ -2563,7 +2591,8 @@ class StateSerializer:
                             return self.deserialize_state(state_dict)
 
                         # Also check if checkpoint_name is in state_data
-                        if state_dict.get("_checkpoint_name") == checkpoint_name:
+                        if state_dict.get(
+                                "_checkpoint_name") == checkpoint_name:
                             return self.deserialize_state(state_dict)
 
                     except (json.JSONDecodeError, TypeError):
@@ -2941,8 +2970,10 @@ class StateSerializer:
                             "ticket_id": ticket_id,
                             "attempt": attempt,
                             "elapsed_ms": int(
-                                (time.monotonic() - deadline + self._config.lock_timeout_seconds) * 1000
-                            ),
+                                (time.monotonic() -
+                                 deadline +
+                                 self._config.lock_timeout_seconds) *
+                                1000),
                         },
                     )
                     return lock_token

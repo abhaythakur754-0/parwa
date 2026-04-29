@@ -10,16 +10,15 @@ Tests:
 """
 
 import pytest
-import json
 import os
-import tempfile
 from datetime import datetime, timezone
-from unittest.mock import Mock, patch, MagicMock, AsyncMock
+from unittest.mock import Mock, patch, MagicMock
 from uuid import uuid4
 
 # ══════════════════════════════════════════════════════════════════════════
 # F-103: Dataset Preparation Service Tests
 # ══════════════════════════════════════════════════════════════════════════
+
 
 class TestDatasetPreparationService:
     """Tests for DatasetPreparationService (F-103)."""
@@ -98,7 +97,7 @@ class TestDatasetPreparationService:
 
         # Mock data collection
         samples = [{"id": "1", "input": "test", "expected_output": "response"}]
-        
+
         with patch.object(service, '_collect_from_mistakes', return_value=samples):
             with patch.object(service, '_store_dataset', return_value="/path/to/dataset"):
                 result = service.prepare_dataset(
@@ -234,7 +233,7 @@ class TestGPUProviderService:
         )
 
         assert result["provider"] == "runpod"
-        assert result["simulated"] == True
+        assert result["simulated"]
         assert result["cost_per_hour"] > 0  # A100 costs money
 
     def test_get_instance_status(self, service):
@@ -391,7 +390,8 @@ class TestDay4Integration:
         assert instance["status"] == "running"
 
         # Step 3: Cleanup
-        result = gpu_service.terminate_instance(instance["instance_id"], "local")
+        result = gpu_service.terminate_instance(
+            instance["instance_id"], "local")
         assert result["status"] == "stopped"
 
     def test_error_handling_in_gpu_provisioning(self):

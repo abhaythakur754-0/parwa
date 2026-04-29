@@ -401,7 +401,8 @@ class GracefulEscalationManager:
         # Company escalation index: {company_id: [escalation_ids]}
         self._company_escalations: Dict[str, List[str]] = defaultdict(list)
         # Ticket escalation index: {(company_id, ticket_id): [escalation_ids]}
-        self._ticket_escalations: Dict[Tuple[str, str], List[str]] = defaultdict(list)
+        self._ticket_escalations: Dict[Tuple[str,
+                                             str], List[str]] = defaultdict(list)
         # Escalation rules: {rule_name: EscalationRule}
         self._rules: Dict[str, EscalationRule] = {}
         # Company configs: {company_id: EscalationConfig}
@@ -411,7 +412,8 @@ class GracefulEscalationManager:
         # Cooldown tracking: {(company_id, ticket_id, trigger): expires_at}
         self._cooldowns: Dict[Tuple[str, str, str], str] = {}
         # Notification dispatch log: {company_id: [notification dicts]}
-        self._notification_log: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        self._notification_log: Dict[str,
+                                     List[Dict[str, Any]]] = defaultdict(list)
         # Event listeners
         self._listeners: List[Callable] = []
         # Max notification log entries
@@ -1631,7 +1633,8 @@ class GracefulEscalationManager:
                 for key, expires_at_str in self._cooldowns.items():
                     if key[0] == company_id:
                         expires_at = _parse_iso(expires_at_str)
-                        if expires_at and expires_at > datetime.now(timezone.utc):
+                        if expires_at and expires_at > datetime.now(
+                                timezone.utc):
                             cooldown_count += 1
 
             # Current rate limit count
@@ -1735,15 +1738,13 @@ class GracefulEscalationManager:
             channel_label = record.channel.replace("_", " ").title()
 
             lines: List[str] = [
-                f"{severity_emoji} Escalation Alert [{record.severity.upper()}]",
-                f"",
-                f"Trigger: {trigger_label}",
-                f"Ticket: {record.ticket_id}",
-                f"Escalation ID: {record.escalation_id}",
-                f"Channel: {channel_label}",
-                f"Status: {record.status.replace('_', ' ').title()}",
-                f"Created: {record.created_at}",
-            ]
+                f"{severity_emoji} Escalation Alert [{
+                    record.severity.upper()}]", f"", f"Trigger: {trigger_label}", f"Ticket: {
+                    record.ticket_id}", f"Escalation ID: {
+                    record.escalation_id}", f"Channel: {channel_label}", f"Status: {
+                    record.status.replace(
+                        '_', ' ').title()}", f"Created: {
+                            record.created_at}", ]
 
             # Add context details if available
             if ctx:
@@ -1796,10 +1797,19 @@ class GracefulEscalationManager:
                 escalation_id=getattr(record, "escalation_id", ""),
             )
             return (
-                f"Escalation Alert: {getattr(record, 'escalation_id', 'unknown')} "
-                f"| Severity: {getattr(record, 'severity', 'unknown')} "
-                f"| Ticket: {getattr(record, 'ticket_id', 'unknown')}"
-            )
+                f"Escalation Alert: {
+                    getattr(
+                        record,
+                        'escalation_id',
+                        'unknown')} " f"| Severity: {
+                    getattr(
+                        record,
+                        'severity',
+                        'unknown')} " f"| Ticket: {
+                    getattr(
+                        record,
+                        'ticket_id',
+                        'unknown')}")
 
     def _log_notification(
         self,

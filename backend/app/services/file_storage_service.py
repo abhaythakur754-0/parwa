@@ -18,14 +18,10 @@ Security measures:
 
 import logging
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from app.core.storage import (
-    ALLOWED_EXTENSIONS,
-    FileMetadata,
-    LocalStorageBackend,
     StorageBackend,
     UPLOAD_SUBDIR,
     validate_file_upload,

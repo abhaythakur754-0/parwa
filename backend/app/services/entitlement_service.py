@@ -21,9 +21,8 @@ BC-001: All operations validate company_id
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -108,11 +107,11 @@ TIER_PRICING = {
 
 class EntitlementError(Exception):
     """Base exception for entitlement errors."""
-    pass
 
 
 class ResourceLimitExceededError(EntitlementError):
     """Raised when resource limit is exceeded."""
+
     def __init__(self, result: EntitlementCheckResult):
         self.result = result
         super().__init__(result.reason)
@@ -195,15 +194,18 @@ class EntitlementService:
             limits = {}
 
         return PlanLimits(
-            monthly_tickets=limits.get("monthly_tickets", self.DEFAULT_LIMITS.monthly_tickets),
-            ai_agents=limits.get("ai_agents", self.DEFAULT_LIMITS.ai_agents),
-            team_members=limits.get("team_members", self.DEFAULT_LIMITS.team_members),
-            voice_slots=limits.get("voice_slots", self.DEFAULT_LIMITS.voice_slots),
-            kb_docs=limits.get("kb_docs", self.DEFAULT_LIMITS.kb_docs),
-            ai_technique_tier=limits.get("ai_technique_tier", self.DEFAULT_LIMITS.ai_technique_tier),
-        )
+            monthly_tickets=limits.get(
+                "monthly_tickets", self.DEFAULT_LIMITS.monthly_tickets), ai_agents=limits.get(
+                "ai_agents", self.DEFAULT_LIMITS.ai_agents), team_members=limits.get(
+                "team_members", self.DEFAULT_LIMITS.team_members), voice_slots=limits.get(
+                    "voice_slots", self.DEFAULT_LIMITS.voice_slots), kb_docs=limits.get(
+                        "kb_docs", self.DEFAULT_LIMITS.kb_docs), ai_technique_tier=limits.get(
+                            "ai_technique_tier", self.DEFAULT_LIMITS.ai_technique_tier), )
 
-    def _get_company_variant(self, db: Session, company_id: str) -> Optional[str]:
+    def _get_company_variant(
+            self,
+            db: Session,
+            company_id: str) -> Optional[str]:
         """Get company's current variant tier."""
         subscription = (
             db.query(Subscription)
@@ -308,7 +310,8 @@ class EntitlementService:
                 )
 
             limits = self._get_plan_limits(variant_tier)
-            current_usage = self._get_current_usage(db, company_id_str, resource_type)
+            current_usage = self._get_current_usage(
+                db, company_id_str, resource_type)
 
             # Get limit based on resource type
             limit_map = {
@@ -384,7 +387,7 @@ class EntitlementService:
             # Count active team members
             count = db.query(User).filter(
                 User.company_id == company_id,
-                User.is_active == True,
+                User.is_active,
             ).count()
             return count
 
@@ -454,43 +457,92 @@ class EntitlementService:
 
         try:
             variant_tier = self._get_company_variant(db, company_id_str)
-            limits = self._get_plan_limits(variant_tier) if variant_tier else self.DEFAULT_LIMITS
+            limits = self._get_plan_limits(
+                variant_tier) if variant_tier else self.DEFAULT_LIMITS
 
             return {
                 "company_id": company_id_str,
                 "variant_tier": variant_tier,
-                "variant_display": TIER_DISPLAY_NAMES.get(variant_tier, variant_tier),
+                "variant_display": TIER_DISPLAY_NAMES.get(
+                    variant_tier,
+                    variant_tier),
                 "limits": {
                     "tickets": {
                         "limit": limits.monthly_tickets,
-                        "usage": self._get_current_usage(db, company_id_str, ResourceType.TICKETS),
-                        "remaining": max(0, limits.monthly_tickets - self._get_current_usage(db, company_id_str, ResourceType.TICKETS)),
+                        "usage": self._get_current_usage(
+                            db,
+                            company_id_str,
+                            ResourceType.TICKETS),
+                        "remaining": max(
+                            0,
+                            limits.monthly_tickets -
+                            self._get_current_usage(
+                                db,
+                                company_id_str,
+                                ResourceType.TICKETS)),
                     },
                     "agents": {
                         "limit": limits.ai_agents,
-                        "usage": self._get_current_usage(db, company_id_str, ResourceType.AGENTS),
-                        "remaining": max(0, limits.ai_agents - self._get_current_usage(db, company_id_str, ResourceType.AGENTS)),
+                        "usage": self._get_current_usage(
+                            db,
+                            company_id_str,
+                            ResourceType.AGENTS),
+                        "remaining": max(
+                            0,
+                            limits.ai_agents -
+                            self._get_current_usage(
+                                db,
+                                company_id_str,
+                                ResourceType.AGENTS)),
                     },
                     "team_members": {
                         "limit": limits.team_members,
-                        "usage": self._get_current_usage(db, company_id_str, ResourceType.TEAM_MEMBERS),
-                        "remaining": max(0, limits.team_members - self._get_current_usage(db, company_id_str, ResourceType.TEAM_MEMBERS)),
+                        "usage": self._get_current_usage(
+                            db,
+                            company_id_str,
+                            ResourceType.TEAM_MEMBERS),
+                        "remaining": max(
+                            0,
+                            limits.team_members -
+                            self._get_current_usage(
+                                db,
+                                company_id_str,
+                                ResourceType.TEAM_MEMBERS)),
                     },
                     "voice_channels": {
                         "limit": limits.voice_slots,
-                        "usage": self._get_current_usage(db, company_id_str, ResourceType.VOICE_CHANNELS),
-                        "remaining": max(0, limits.voice_slots - self._get_current_usage(db, company_id_str, ResourceType.VOICE_CHANNELS)),
+                        "usage": self._get_current_usage(
+                            db,
+                            company_id_str,
+                            ResourceType.VOICE_CHANNELS),
+                        "remaining": max(
+                            0,
+                            limits.voice_slots -
+                            self._get_current_usage(
+                                db,
+                                company_id_str,
+                                ResourceType.VOICE_CHANNELS)),
                     },
                     "kb_docs": {
                         "limit": limits.kb_docs,
-                        "usage": self._get_current_usage(db, company_id_str, ResourceType.KB_DOCS),
-                        "remaining": max(0, limits.kb_docs - self._get_current_usage(db, company_id_str, ResourceType.KB_DOCS)),
+                        "usage": self._get_current_usage(
+                            db,
+                            company_id_str,
+                            ResourceType.KB_DOCS),
+                        "remaining": max(
+                            0,
+                            limits.kb_docs -
+                            self._get_current_usage(
+                                db,
+                                company_id_str,
+                                ResourceType.KB_DOCS)),
                     },
                     "ai_techniques": {
                         "tier": limits.ai_technique_tier,
                     },
                 },
-                "checked_at": datetime.now(timezone.utc).isoformat(),
+                "checked_at": datetime.now(
+                    timezone.utc).isoformat(),
             }
 
         finally:

@@ -42,7 +42,6 @@ from sqlalchemy.orm import Session
 from app.api.deps import (
     get_current_user,
     get_company_id,
-    require_roles,
 )
 from app.exceptions import (
     AuthorizationError,
@@ -652,10 +651,12 @@ async def review_training_point(
     action = body.get("action", "")
     review_notes = body.get("review_notes")
 
-    if not action or action.strip() not in ("approved", "rejected", "needs_revision"):
+    if not action or action.strip() not in (
+            "approved", "rejected", "needs_revision"):
         raise ValidationError(
             message="action is required and must be one of: approved, rejected, needs_revision",
-            details={"field": "action"},
+            details={
+                "field": "action"},
         )
 
     try:
@@ -899,7 +900,11 @@ async def trigger_healing_action(
 
     except (AuthorizationError, ValidationError, Exception) as exc:
         from app.exceptions import NotFoundError
-        if isinstance(exc, (AuthorizationError, ValidationError, NotFoundError)):
+        if isinstance(
+            exc,
+            (AuthorizationError,
+             ValidationError,
+             NotFoundError)):
             raise
         logger.error(
             "self_healing_trigger_error",

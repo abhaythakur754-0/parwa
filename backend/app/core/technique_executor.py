@@ -19,19 +19,15 @@ import hashlib
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from app.core.technique_router import (
     FALLBACK_MAP,
-    ExecutionResultStatus,
-    QuerySignals,
-    RouterResult,
     TechniqueActivation,
     TechniqueID,
     TechniqueRouter,
     TechniqueTier,
     TECHNIQUE_REGISTRY,
-    TOKEN_BUDGETS,
 )
 from app.core.technique_caching import TechniqueCache
 from app.core.technique_metrics import TechniqueMetricsCollector
@@ -376,7 +372,9 @@ class TechniqueExecutor:
 
                 detail.fallback_applied = True
                 detail.status = "success"
-                detail.error = f"fallback_from_{technique_id.value}_to_{fb_id.value}"
+                detail.error = f"fallback_from_{
+                    technique_id.value}_to_{
+                    fb_id.value}"
 
                 fb_info = TECHNIQUE_REGISTRY.get(fb_id)
                 detail.tokens_used = (

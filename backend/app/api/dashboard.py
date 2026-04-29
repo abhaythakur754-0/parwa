@@ -13,10 +13,9 @@ Building Codes: BC-001 (tenant isolation), BC-011 (auth),
                BC-012 (error handling, structured responses)
 """
 
-from datetime import datetime, timezone
-from typing import Dict, Optional
+from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -155,7 +154,8 @@ async def activity_feed(
         # Parse event type filter
         event_types = None
         if event_type:
-            event_types = [t.strip() for t in event_type.split(",") if t.strip()]
+            event_types = [t.strip()
+                           for t in event_type.split(",") if t.strip()]
 
         result = get_activity_feed(
             company_id, db,
@@ -213,9 +213,10 @@ async def key_metrics(
     valid_periods = {"last_7d", "last_30d", "last_90d"}
     if period not in valid_periods:
         raise ValidationError(
-            message=f"Invalid period '{period}'. Must be one of: {', '.join(sorted(valid_periods))}",
-            details={"field": "period", "allowed": sorted(valid_periods)},
-        )
+            message=f"Invalid period '{period}'. Must be one of: {
+                ', '.join(
+                    sorted(valid_periods))}", details={
+                "field": "period", "allowed": sorted(valid_periods)}, )
 
     try:
         from app.services.dashboard_service import get_key_metrics

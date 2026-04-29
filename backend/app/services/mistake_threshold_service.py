@@ -15,14 +15,11 @@ Building Codes:
 """
 
 import logging
-import os
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
-from decimal import Decimal
+from typing import Optional, Dict
 
-from sqlalchemy import and_, func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
 
 logger = logging.getLogger("parwa.mistake_threshold")
 
@@ -40,7 +37,7 @@ assert MISTAKE_THRESHOLD == 50, (
     "This violates BC-007 rule 10 and will cause CI failure."
 )
 
-# ── Mistake types for categorization ─────────────────────────────────────────────
+# ── Mistake types for categorization ────────────────────────────────────
 
 MISTAKE_TYPE_INCORRECT_RESPONSE = "incorrect_response"
 MISTAKE_TYPE_HALLUCINATION = "hallucination"
@@ -50,7 +47,7 @@ MISTAKE_TYPE_POLICY_VIOLATION = "policy_violation"
 MISTAKE_TYPE_ESCALATION_NEEDED = "escalation_needed"
 MISTAKE_TYPE_OTHER = "other"
 
-# ── Severity levels ───────────────────────────────────────────────────────────
+# ── Severity levels ─────────────────────────────────────────────────────
 
 SEVERITY_LOW = "low"
 SEVERITY_MEDIUM = "medium"
@@ -157,8 +154,7 @@ class MistakeThresholdService:
 
         if current_count >= MISTAKE_THRESHOLD:
             training_triggered, training_run_id = self._trigger_training_if_needed(
-                company_id, agent_id
-            )
+                company_id, agent_id)
 
         return {
             "status": "reported",
@@ -314,7 +310,7 @@ class MistakeThresholdService:
             .filter(
                 AgentMistake.company_id == company_id,
                 AgentMistake.agent_id == agent_id,
-                AgentMistake.used_in_training == True,
+                AgentMistake.used_in_training,
             )
             .scalar()
         ) or 0
@@ -322,14 +318,20 @@ class MistakeThresholdService:
         return {
             "total_mistakes": total,
             "threshold": MISTAKE_THRESHOLD,
-            "percentage_to_threshold": round((total / MISTAKE_THRESHOLD) * 100, 1),
+            "percentage_to_threshold": round(
+                (total / MISTAKE_THRESHOLD) * 100,
+                1),
             "by_type": by_type,
             "by_severity": by_severity,
             "used_in_training": used_in_training,
             "available_for_training": total - used_in_training,
         }
 
-    def reset_mistake_count(self, company_id: str, agent_id: str, reason: str = "training_completed") -> Dict:
+    def reset_mistake_count(
+            self,
+            company_id: str,
+            agent_id: str,
+            reason: str = "training_completed") -> Dict:
         """Reset the mistake count for an agent.
 
         This should only be called after a successful training run deployment.
@@ -403,7 +405,10 @@ class MistakeThresholdService:
             .scalar()
         ) or 0
 
-    def _trigger_training_if_needed(self, company_id: str, agent_id: str) -> tuple:
+    def _trigger_training_if_needed(
+            self,
+            company_id: str,
+            agent_id: str) -> tuple:
         """Trigger training if threshold is reached and not already training.
 
         Args:
@@ -413,7 +418,7 @@ class MistakeThresholdService:
         Returns:
             Tuple of (training_triggered: bool, training_run_id: Optional[str]).
         """
-        from database.models.training import TrainingRun, TrainingDataset
+        from database.models.training import TrainingRun
         from app.services.agent_training_service import (
             AgentTrainingService,
             TRAINING_STATUS_QUEUED,
@@ -484,7 +489,8 @@ class MistakeThresholdService:
             )
 
             # Send notification
-            self._send_threshold_notification(company_id, agent_id, result.get("run_id"))
+            self._send_threshold_notification(
+                company_id, agent_id, result.get("run_id"))
 
             return (True, result.get("run_id"))
         else:
@@ -498,7 +504,10 @@ class MistakeThresholdService:
             )
             return (False, None)
 
-    def _create_dataset_from_mistakes(self, company_id: str, agent_id: str) -> Optional[Dict]:
+    def _create_dataset_from_mistakes(
+            self,
+            company_id: str,
+            agent_id: str) -> Optional[Dict]:
         """Create a training dataset from agent mistakes.
 
         Args:
@@ -560,7 +569,6 @@ class MistakeThresholdService:
             threshold: Threshold that was reached.
         """
         try:
-            from database.models.core import AuditTrail
             from app.services.audit_service import AuditService
 
             audit = AuditService(self.db)

@@ -5,8 +5,8 @@ PolicyComplianceGuard, ToneValidationGuard, LengthControlGuard, PIILeakGuard,
 ConfidenceGateGuard, GuardrailsEngine, _build_config merging.
 """
 
+import importlib
 import pytest
-from unittest.mock import MagicMock, patch
 
 # ── Fixtures ────────────────────────────────────────────────────
 
@@ -229,7 +229,8 @@ class TestTopicRelevanceGuard:
         )
         assert result.passed is False
 
-    def test_no_meaningful_tokens_passes(self, topic_relevance, default_config):
+    def test_no_meaningful_tokens_passes(
+            self, topic_relevance, default_config):
         result = topic_relevance.check(
             "aa bb cc",
             "response text here",
@@ -237,7 +238,8 @@ class TestTopicRelevanceGuard:
         )
         assert result.passed is True  # No tokens >= 3 chars
 
-    def test_metadata_includes_overlap_ratio(self, topic_relevance, default_config):
+    def test_metadata_includes_overlap_ratio(
+            self, topic_relevance, default_config):
         result = topic_relevance.check(
             "password reset instructions",
             "resetting password is done here",
@@ -353,7 +355,8 @@ class TestToneValidationGuard:
         )
         assert result.passed is False
 
-    def test_casual_tone_serious_context(self, tone_validation, default_config):
+    def test_casual_tone_serious_context(
+            self, tone_validation, default_config):
         """Casual language in serious tone requirements should be blocked."""
         result = tone_validation.check(
             "lol yeah that's the answer bruh", default_config,
@@ -459,7 +462,8 @@ class TestPIILeakGuard:
             "Email john.doe@company.com here", default_config,
         )
         if not result.passed:
-            assert result.metadata.get("pii_types_found") is not None or result.blocked_content is not None
+            assert result.metadata.get(
+                "pii_types_found") is not None or result.blocked_content is not None
 
 
 # ── ConfidenceGateGuard Tests ──────────────────────────────
@@ -489,7 +493,7 @@ class TestConfidenceGateGuard:
 class TestBuildConfig:
     def test_default_config_no_override(self):
         from app.core.guardrails_engine import (
-            _build_config, GuardrailConfig, StrictnessLevel,
+            _build_config, StrictnessLevel,
         )
         config = _build_config("co1", "parwa")
         assert config.company_id == "co1"
@@ -574,7 +578,6 @@ class TestGuardrailsEngine:
         assert report.passed is True
 
     def test_full_check_content_block(self, engine):
-        from app.core.guardrails_engine import GuardrailsReport
         report = engine.run_full_check(
             query="hello",
             response="hate speech content here",
@@ -592,7 +595,7 @@ class TestGuardrailsEngine:
 
     def test_config_for_variant(self, engine):
         from app.core.guardrails_engine import (
-            GuardrailConfig, StrictnessLevel,
+            StrictnessLevel,
         )
         config = engine.get_config_for_variant("test_co", "mini_parwa")
         assert config.strictness_level == StrictnessLevel.HIGH.value
@@ -602,7 +605,6 @@ class TestGuardrailsEngine:
 # ── Import for tests ──────────────────────────────────────────
 
 # Fix import in PolicyComplianceGuard fixture
-import importlib
 _backend = importlib.import_module("app.core.guardrails_engine")
 # Patch the fixture
 pytest.fixture = pytest.fixture

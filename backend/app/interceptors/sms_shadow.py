@@ -21,7 +21,7 @@ logger = logging.getLogger("parwa.interceptors.sms_shadow")
 @dataclass
 class SMSShadowResult:
     """Result of SMS shadow evaluation."""
-    
+
     requires_approval: bool
     auto_execute: bool
     mode: str
@@ -29,7 +29,7 @@ class SMSShadowResult:
     reason: str
     shadow_log_id: Optional[str] = None
     layers: Optional[Dict[str, Any]] = None
-    
+
     # Additional context
     company_mode: str = "supervised"
     stage_0: bool = False
@@ -43,7 +43,7 @@ def evaluate_sms_shadow(
 ) -> SMSShadowResult:
     """
     Evaluate an outbound SMS against shadow mode rules.
-    
+
     Args:
         company_id: Company UUID (BC-001).
         sms_payload: Dict with SMS details:
@@ -54,10 +54,10 @@ def evaluate_sms_shadow(
             - ticket_id: Optional ticket UUID
             - sender_role: Sender role (agent/bot/system)
         shadow_service: Optional ShadowModeService instance (created if not provided)
-    
+
     Returns:
         SMSShadowResult with evaluation outcome.
-    
+
     When auto_execute=True, the SMS is sent immediately and logged
     to the undo queue for potential reversal.
     """
@@ -65,22 +65,22 @@ def evaluate_sms_shadow(
         # Lazy import to avoid circular dependencies
         from app.services.shadow_mode_service import ShadowModeService
         from app.interceptors.base_interceptor import ShadowInterceptor
-        
+
         service = shadow_service or ShadowModeService()
         interceptor = ShadowInterceptor()
-        
+
         # Evaluate using the 4-layer system
         evaluation = service.evaluate_action_risk(
             company_id=company_id,
             action_type="sms_reply",
             action_payload=sms_payload,
         )
-        
+
         auto_execute = evaluation.get("auto_execute", False)
         requires_approval = evaluation.get("requires_approval", True)
         risk_score = evaluation.get("risk_score", 0.5)
         mode = evaluation.get("mode", "supervised")
-        
+
         # Always log the action to shadow_log for audit trail
         log_entry = service.log_shadow_action(
             company_id=company_id,
@@ -90,7 +90,7 @@ def evaluate_sms_shadow(
             mode=mode,
         )
         shadow_log_id = log_entry.get("id")
-        
+
         # Auto-execute: send the SMS immediately
         if auto_execute and not requires_approval:
             _execute_sms_action(
@@ -109,7 +109,7 @@ def evaluate_sms_shadow(
                 "sms_auto_executed company_id=%s log_id=%s risk=%.2f",
                 company_id, shadow_log_id, risk_score,
             )
-        
+
         return SMSShadowResult(
             requires_approval=requires_approval,
             auto_execute=auto_execute,
@@ -122,7 +122,7 @@ def evaluate_sms_shadow(
             stage_0=evaluation.get("stage_0", False),
             shadow_actions_remaining=evaluation.get("shadow_actions_remaining"),
         )
-        
+
     except Exception as e:
         logger.error(
             "sms_shadow_evaluation_failed company_id=%s error=%s",
@@ -145,22 +145,22 @@ def _execute_sms_action(
 ) -> Dict[str, Any]:
     """
     Execute an SMS send action that was auto-approved.
-    
+
     Delegates to the SMS channel service for actual sending.
-    
+
     Args:
         company_id: Company UUID (BC-001).
         sms_payload: Dict with SMS details.
         shadow_log_id: Optional shadow log ID for audit trail.
-    
+
     Returns:
         Dict with execution result.
     """
     try:
         from app.services.sms_channel_service import SMSChannelService
-        
+
         sms_service = SMSChannelService()
-        
+
         result = sms_service.send_sms(
             to_number=sms_payload.get("to_number"),
             body=sms_payload.get("body"),
@@ -168,12 +168,12 @@ def _execute_sms_action(
             conversation_id=sms_payload.get("conversation_id"),
             company_id=company_id,
         )
-        
+
         logger.info(
             "sms_executed company_id=%s to=%s shadow_id=%s",
             company_id, sms_payload.get("to_number"), shadow_log_id,
         )
-        
+
         return {
             "status": "sent",
             "shadow_log_id": shadow_log_id,
@@ -199,50 +199,50 @@ def process_sms_after_approval(
 ) -> Dict[str, Any]:
     """
     Process an SMS that was held in shadow queue after approval.
-    
+
     This should be called when a manager approves an SMS action
     from the shadow queue.
-    
+
     Args:
         company_id: Company UUID (BC-001).
         shadow_log_id: Shadow log entry UUID.
         sms_service: Optional SMS service instance.
-    
+
     Returns:
         Dict with processing result.
     """
     try:
-        from app.services.shadow_mode_service import ShadowModeService
-        
+        pass
+
         with SessionLocal() as db:
             # Get the shadow log entry
             shadow_entry = db.query(ShadowLog).filter(
                 ShadowLog.id == shadow_log_id,
                 ShadowLog.company_id == company_id,
             ).first()
-            
+
             if not shadow_entry:
                 return {
                     "status": "error",
                     "error": "Shadow log entry not found",
                 }
-            
+
             sms_payload = shadow_entry.action_payload or {}
-            
+
             # Here you would integrate with your SMS sending service
             # For now, we return the payload for the caller to process
             logger.info(
                 "sms_shadow_approved shadow_id=%s company_id=%s",
                 shadow_log_id, company_id,
             )
-            
+
             return {
                 "status": "ready_to_send",
                 "shadow_log_id": shadow_log_id,
                 "sms_payload": sms_payload,
                 "approved_at": datetime.utcnow().isoformat(),
             }
-            
+
     except Exception as e:
         logger.error(
             "sms_shadow_approval_processing_failed shadow_id=%s error=%s",

@@ -263,7 +263,8 @@ class ConflictCheckResult:
     has_conflict: bool = False
     conflict_id: str = ""
     severity: ConflictSeverity = ConflictSeverity.LOW
-    conflicting_responses: List[RegisteredResponse] = field(default_factory=list)
+    conflicting_responses: List[RegisteredResponse] = field(
+        default_factory=list)
     customer_id: str = ""
 
 
@@ -400,11 +401,14 @@ class CrossVariantInteractionService:
         self._active_handoff_keys: Dict[str, List[str]] = {}
 
         # ── Conflict resolution state ─────────────────────────
-        # Per-company customer interactions: {company_id: {customer_id: [RegisteredResponse]}}
-        self._customer_interactions: Dict[str, Dict[str, List[RegisteredResponse]]] = {}
+        # Per-company customer interactions: {company_id: {customer_id:
+        # [RegisteredResponse]}}
+        self._customer_interactions: Dict[str,
+                                          Dict[str, List[RegisteredResponse]]] = {}
         # Detected conflicts: {conflict_id: ConflictResult}
         self._conflicts: Dict[str, ConflictResult] = {}
-        # Per-customer active conflict IDs: {company_id: {customer_id: [conflict_id, ...]}}
+        # Per-customer active conflict IDs: {company_id: {customer_id:
+        # [conflict_id, ...]}}
         self._customer_conflicts: Dict[str, Dict[str, List[str]]] = {}
 
         self._lock = threading.Lock()
@@ -1275,11 +1279,14 @@ class CrossVariantInteractionService:
             conf_delta = max_conf - min_conf
 
             # Extract variant tiers
-            tiers = [self._variant_tier_rank(r.variant_type) for r in responses]
+            tiers = [
+                self._variant_tier_rank(
+                    r.variant_type) for r in responses]
             tier_delta = max(tiers) - min(tiers) if tiers else 0
 
             # Check for near-identical content (simple heuristic)
-            content_set = set(r.response_content.strip().lower() for r in responses)
+            content_set = set(r.response_content.strip().lower()
+                              for r in responses)
             content_identical = len(content_set) <= 1
 
             if content_identical:
@@ -1476,7 +1483,9 @@ class CrossVariantInteractionService:
                 logger.warning(
                     "resolve_conflict: unknown strategy '%s' for "
                     "conflict_id=%s — using first response as default",
-                    strategy.value if isinstance(strategy, ResolutionStrategy) else strategy,
+                    strategy.value if isinstance(
+                        strategy,
+                        ResolutionStrategy) else strategy,
                     conflict_id,
                 )
 

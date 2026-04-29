@@ -14,7 +14,6 @@ Plus edge cases for BC-008 (never crash) and thread-safety.
 """
 
 import threading
-import time
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -880,7 +879,8 @@ class TestEdgeCases:
         assert isinstance(r1, ConfidenceEscalationResult)
 
         # get_confidence_history with None
-        r2 = self.svc.get_confidence_history(None, None)  # type: ignore[arg-type]
+        r2 = self.svc.get_confidence_history(
+            None, None)  # type: ignore[arg-type]
         assert isinstance(r2, list)
 
         # initiate_handoff with bad input
@@ -894,12 +894,14 @@ class TestEdgeCases:
         assert isinstance(r3, HandoffResult)
 
         # get_handoff_context with None
-        r4 = self.svc.get_handoff_context(None, None, None)  # type: ignore[arg-type]
+        r4 = self.svc.get_handoff_context(
+            None, None, None)  # type: ignore[arg-type]
         # Should return None or HandoffContext, not crash
         assert r4 is None or isinstance(r4, HandoffContext)
 
         # acknowledge_handoff with None
-        r5 = self.svc.acknowledge_handoff(None, None, None)  # type: ignore[arg-type]
+        r5 = self.svc.acknowledge_handoff(
+            None, None, None)  # type: ignore[arg-type]
         assert isinstance(r5, bool)
 
         # get_active_handoffs with None

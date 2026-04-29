@@ -31,9 +31,9 @@ from __future__ import annotations
 
 import asyncio
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from app.logger import get_logger
 
@@ -102,19 +102,23 @@ class ResponseGenerationRequest:
     conversation_history: Optional[List[dict]] = None
     customer_metadata: Optional[dict] = None
     language: str = "en"
-    force_template_response: bool = False  # fallback to template if AI budget exhausted
+    # fallback to template if AI budget exhausted
+    force_template_response: bool = False
     ticket_id: Optional[str] = None  # for GAP-028 draft check
     intent_type: str = "general"  # for template matching and formatting
-    system_prompt: Optional[str] = None  # Override system prompt with context-aware prompt
+    # Override system prompt with context-aware prompt
+    system_prompt: Optional[str] = None
 
     # D5-1 FIX: Pre-computed sentiment fields from pipeline Stage 5.
     # When provided, generate() skips its internal sentiment analysis
     # (saves ~1-2s latency per request by avoiding duplicate work).
     frustration_score: float = 0.0          # 0-100 from SentimentAnalyzer
     sentiment_score: float = 0.5            # 0.0-1.0 from SentimentAnalyzer
-    emotion: str = "neutral"               # angry/frustrated/disappointed/neutral/happy/delighted
+    # angry/frustrated/disappointed/neutral/happy/delighted
+    emotion: str = "neutral"
     urgency_level: str = "low"              # low/medium/high/critical
-    tone_recommendation: str = "standard"  # empathetic/urgent/de-escalation/standard
+    # empathetic/urgent/de-escalation/standard
+    tone_recommendation: str = "standard"
     selected_model: Optional[str] = None    # from Smart Router Stage 6
     selected_technique: Optional[str] = None  # from Technique Router Stage 7
 
@@ -499,7 +503,8 @@ class ResponseGenerator:
 
         try:
             # If an override system_prompt was provided (from build_system_prompt
-            # with user journey context), use it as the base; otherwise build one.
+            # with user journey context), use it as the base; otherwise build
+            # one.
             if request.system_prompt:
                 system_prompt = request.system_prompt
             else:
@@ -520,7 +525,6 @@ class ResponseGenerator:
 
             from app.core.smart_router import (
                 AtomicStepType,
-                ModelTier,
             )
 
             # Route to Medium tier for response generation
@@ -641,7 +645,11 @@ class ResponseGenerator:
 
             # Collect quality issues from failed stages
             for stage_output in clara_result.stages:
-                if hasattr(stage_output, "result") and hasattr(stage_output, "issues"):
+                if hasattr(
+                        stage_output,
+                        "result") and hasattr(
+                        stage_output,
+                        "issues"):
                     if stage_output.result.value in ("fail", "error"):
                         quality_issues.extend(stage_output.issues)
 
@@ -869,12 +877,10 @@ class ResponseGenerator:
             reason: str = ""
             if not hourly_allowed:
                 reason = (
-                    f"Hourly limit exceeded: {hourly_count}/{RATE_LIMIT_HOURLY_MAX}"
-                )
+                    f"Hourly limit exceeded: {hourly_count}/{RATE_LIMIT_HOURLY_MAX}")
             elif not daily_allowed:
                 reason = (
-                    f"Daily limit exceeded: {daily_count}/{RATE_LIMIT_DAILY_MAX}"
-                )
+                    f"Daily limit exceeded: {daily_count}/{RATE_LIMIT_DAILY_MAX}")
 
             if not allowed:
                 logger.info(
@@ -1185,7 +1191,8 @@ class ResponseGenerator:
         messages.append({"role": "system", "content": system_prompt})
 
         # Conversation history (last 10 messages)
-        history_to_include = conversation_history[-10:] if conversation_history else []
+        history_to_include = conversation_history[-10:] if conversation_history else [
+        ]
         for msg in history_to_include:
             if not isinstance(msg, dict):
                 continue
@@ -1261,7 +1268,10 @@ class ResponseGenerator:
                     brand_config, "brand_name", company_name,
                 )
             except Exception as exc:
-                logger.debug("brand_config_fetch_failed", error=str(exc), company_id=request.company_id)
+                logger.debug(
+                    "brand_config_fetch_failed",
+                    error=str(exc),
+                    company_id=request.company_id)
 
             variables = {
                 "customer_name": customer_name,

@@ -17,14 +17,10 @@ Building Codes:
 - BC-012: Error handling (structured errors)
 """
 
-import json
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any, List
-from decimal import Decimal
-from enum import Enum
+from datetime import datetime, timezone
+from typing import Optional, Dict, List
 
-from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger("parwa.peer_review")
@@ -592,84 +588,91 @@ def run_full_training_pipeline_test(company_id: str, db: Session) -> Dict:
 
     # Test 2: Mistake Threshold
     try:
-        from app.services.mistake_threshold_service import MistakeThresholdService, MISTAKE_THRESHOLD
+        from app.services.mistake_threshold_service import MISTAKE_THRESHOLD
         assert MISTAKE_THRESHOLD == 50, "Threshold should be 50"
-        results["tests"]["mistake_threshold"] = {"status": "passed", "threshold": MISTAKE_THRESHOLD}
+        results["tests"]["mistake_threshold"] = {
+            "status": "passed", "threshold": MISTAKE_THRESHOLD}
         results["passed"] += 1
     except Exception as e:
-        results["tests"]["mistake_threshold"] = {"status": "failed", "error": str(e)}
+        results["tests"]["mistake_threshold"] = {
+            "status": "failed", "error": str(e)}
         results["failed"] += 1
         results["errors"].append(f"Mistake threshold: {str(e)}")
 
     # Test 3: Training Service
     try:
-        from app.services.agent_training_service import AgentTrainingService
         results["tests"]["training_service"] = {"status": "passed"}
         results["passed"] += 1
     except Exception as e:
-        results["tests"]["training_service"] = {"status": "failed", "error": str(e)}
+        results["tests"]["training_service"] = {
+            "status": "failed", "error": str(e)}
         results["failed"] += 1
         results["errors"].append(f"Training service: {str(e)}")
 
     # Test 4: Dataset Preparation
     try:
-        from app.services.dataset_preparation_service import DatasetPreparationService
         results["tests"]["dataset_preparation"] = {"status": "passed"}
         results["passed"] += 1
     except Exception as e:
-        results["tests"]["dataset_preparation"] = {"status": "failed", "error": str(e)}
+        results["tests"]["dataset_preparation"] = {
+            "status": "failed", "error": str(e)}
         results["failed"] += 1
         results["errors"].append(f"Dataset preparation: {str(e)}")
 
     # Test 5: GPU Provider
     try:
-        from app.services.gpu_provider_service import GPUProviderServiceSync
         results["tests"]["gpu_provider"] = {"status": "passed"}
         results["passed"] += 1
     except Exception as e:
-        results["tests"]["gpu_provider"] = {"status": "failed", "error": str(e)}
+        results["tests"]["gpu_provider"] = {
+            "status": "failed", "error": str(e)}
         results["failed"] += 1
         results["errors"].append(f"GPU provider: {str(e)}")
 
     # Test 6: Model Validation
     try:
-        from app.services.model_validation_service import ModelValidationService
         results["tests"]["model_validation"] = {"status": "passed"}
         results["passed"] += 1
     except Exception as e:
-        results["tests"]["model_validation"] = {"status": "failed", "error": str(e)}
+        results["tests"]["model_validation"] = {
+            "status": "failed", "error": str(e)}
         results["failed"] += 1
         results["errors"].append(f"Model validation: {str(e)}")
 
     # Test 7: Model Deployment
     try:
-        from app.services.model_deployment_service import ModelDeploymentService
         results["tests"]["model_deployment"] = {"status": "passed"}
         results["passed"] += 1
     except Exception as e:
-        results["tests"]["model_deployment"] = {"status": "failed", "error": str(e)}
+        results["tests"]["model_deployment"] = {
+            "status": "failed", "error": str(e)}
         results["failed"] += 1
         results["errors"].append(f"Model deployment: {str(e)}")
 
     # Test 8: Fallback Training
     try:
-        from app.services.fallback_training_service import FallbackTrainingService, RETRAINING_INTERVAL_DAYS
+        from app.services.fallback_training_service import RETRAINING_INTERVAL_DAYS
         assert RETRAINING_INTERVAL_DAYS == 14, "Retraining interval should be 14 days"
-        results["tests"]["fallback_training"] = {"status": "passed", "interval_days": RETRAINING_INTERVAL_DAYS}
+        results["tests"]["fallback_training"] = {
+            "status": "passed", "interval_days": RETRAINING_INTERVAL_DAYS}
         results["passed"] += 1
     except Exception as e:
-        results["tests"]["fallback_training"] = {"status": "failed", "error": str(e)}
+        results["tests"]["fallback_training"] = {
+            "status": "failed", "error": str(e)}
         results["failed"] += 1
         results["errors"].append(f"Fallback training: {str(e)}")
 
     # Test 9: Industry Templates
     try:
         from app.services.cold_start_service import INDUSTRY_TEMPLATES
-        assert len(INDUSTRY_TEMPLATES) >= 9, "Should have at least 9 industry templates"
-        results["tests"]["industry_templates"] = {"status": "passed", "count": len(INDUSTRY_TEMPLATES)}
+        assert len(
+            INDUSTRY_TEMPLATES) >= 9, "Should have at least 9 industry templates"
+        results["tests"]["industry_templates"] = {
+            "status": "passed", "count": len(INDUSTRY_TEMPLATES)}
         results["passed"] += 1
     except Exception as e:
-        results["tests"]["industry_templates"] = {"status": "failed", "error": str(e)}
+        results["tests"]["industry_templates"] = {
+            "status": "failed", "error": str(e)}
         results["failed"] += 1
         results["errors"].append(f"Industry templates: {str(e)}")
 

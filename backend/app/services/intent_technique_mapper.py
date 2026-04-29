@@ -174,7 +174,9 @@ class IntentTechniqueMapper:
                         TechniqueTier.TIER_2: 2,
                         TechniqueTier.TIER_3: 3,
                     }
-                    if tier_order.get(tier, 1) <= tier_order.get(tier_limit, 1):
+                    if tier_order.get(
+                            tier, 1) <= tier_order.get(
+                            tier_limit, 1):
                         filtered.append(tech.value)
                 variant_override[variant] = filtered
 
@@ -275,7 +277,8 @@ class IntentTechniqueMapper:
             else:
                 # Technique blocked — find T1 fallback
                 fallback = TECHNIQUE_TIER1_FALLBACKS.get(tech)
-                fallback_reason = f"Tier {tier_order} exceeds variant limit ({tier_limit.value})"
+                fallback_reason = f"Tier {tier_order} exceeds variant limit ({
+                    tier_limit.value})"
                 entry = {
                     "id": tech.value,
                     "reason": fallback_reason,

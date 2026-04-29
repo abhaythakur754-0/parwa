@@ -243,7 +243,8 @@ def validate_key(
     if record.expires_at and datetime.now(timezone.utc) > record.expires_at:
         return None
     # L18: Enforce grace period — rotated keys expire after grace_ends_at
-    if record.grace_ends_at and datetime.now(timezone.utc) > record.grace_ends_at:
+    if record.grace_ends_at and datetime.now(
+            timezone.utc) > record.grace_ends_at:
         return None
     return record
 

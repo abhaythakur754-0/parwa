@@ -1113,10 +1113,8 @@ class ReflexionProcessor:
 
         # Entry 2: Reflection questions
         failure_mode = reflection.failure_mode
-        reflection_questions = _REFLECTION_PROMPTS.get(
-            FailureMode(failure_mode) if failure_mode else FailureMode.MISUNDERSTOOD_QUERY,
-            [],
-        )
+        reflection_questions = _REFLECTION_PROMPTS.get(FailureMode(
+            failure_mode) if failure_mode else FailureMode.MISUNDERSTOOD_QUERY, [], )
         trace.append({
             "step": "self_reflection",
             "reflection_questions_asked": "; ".join(reflection_questions),

@@ -23,7 +23,6 @@ from app.api.deps import get_current_user, get_db, require_roles
 from app.schemas.bulk_action import (
     BulkActionRequest,
     BulkActionResponse,
-    BulkActionUndo,
     BulkActionType,
 )
 from app.services.bulk_action_service import (
@@ -55,22 +54,22 @@ async def execute_bulk_action(
 ) -> Any:
     """
     Execute a bulk action on multiple tickets.
-    
+
     Supports:
     - status_change: Change ticket status (requires new_status in params)
     - reassign: Reassign tickets (requires assignee_id in params)
     - tag: Add/remove/replace tags (requires tags in params)
     - priority: Change priority (requires priority in params)
     - close: Close tickets
-    
+
     Max 500 tickets per bulk action.
     Undo available within 24 hours.
     """
     company_id = current_user.get("company_id")
     user_id = current_user.get("user_id")
-    
+
     service = BulkActionService(db)
-    
+
     try:
         bulk_action, success_count, failure_count = service.execute_bulk_action(
             company_id=company_id,
@@ -79,7 +78,7 @@ async def execute_bulk_action(
             params=data.params,
             performed_by=user_id,
         )
-        
+
         return BulkActionResponse(
             id=bulk_action.id,
             action_type=data.action_type,
@@ -90,7 +89,7 @@ async def execute_bulk_action(
                 "created_at": bulk_action.created_at.isoformat(),
             },
         )
-        
+
     except BulkActionError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -113,14 +112,14 @@ async def bulk_status_change(
 ) -> Any:
     """
     Bulk change ticket status.
-    
+
     Convenience endpoint for status changes.
     """
     company_id = current_user.get("company_id")
     user_id = current_user.get("user_id")
-    
+
     service = BulkActionService(db)
-    
+
     try:
         bulk_action, success_count, failure_count = service.execute_bulk_action(
             company_id=company_id,
@@ -129,7 +128,7 @@ async def bulk_status_change(
             params={"new_status": new_status, "reason": reason},
             performed_by=user_id,
         )
-        
+
         return BulkActionResponse(
             id=bulk_action.id,
             action_type=BulkActionType.STATUS_CHANGE,
@@ -138,7 +137,7 @@ async def bulk_status_change(
             undo_token=bulk_action.undo_token,
             result_summary={},
         )
-        
+
     except BulkActionError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -162,14 +161,14 @@ async def bulk_assign(
 ) -> Any:
     """
     Bulk assign tickets to an agent.
-    
+
     Convenience endpoint for reassignment.
     """
     company_id = current_user.get("company_id")
     user_id = current_user.get("user_id")
-    
+
     service = BulkActionService(db)
-    
+
     try:
         bulk_action, success_count, failure_count = service.execute_bulk_action(
             company_id=company_id,
@@ -182,7 +181,7 @@ async def bulk_assign(
             },
             performed_by=user_id,
         )
-        
+
         return BulkActionResponse(
             id=bulk_action.id,
             action_type=BulkActionType.REASSIGN,
@@ -191,7 +190,7 @@ async def bulk_assign(
             undo_token=bulk_action.undo_token,
             result_summary={},
         )
-        
+
     except BulkActionError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -214,7 +213,7 @@ async def bulk_tags(
 ) -> Any:
     """
     Bulk add/remove/replace tags on tickets.
-    
+
     tag_action:
     - add: Add tags to existing tags
     - remove: Remove specified tags
@@ -222,9 +221,9 @@ async def bulk_tags(
     """
     company_id = current_user.get("company_id")
     user_id = current_user.get("user_id")
-    
+
     service = BulkActionService(db)
-    
+
     try:
         bulk_action, success_count, failure_count = service.execute_bulk_action(
             company_id=company_id,
@@ -233,7 +232,7 @@ async def bulk_tags(
             params={"tags": tags, "tag_action": tag_action},
             performed_by=user_id,
         )
-        
+
         return BulkActionResponse(
             id=bulk_action.id,
             action_type=BulkActionType.TAG,
@@ -242,7 +241,7 @@ async def bulk_tags(
             undo_token=bulk_action.undo_token,
             result_summary={},
         )
-        
+
     except BulkActionError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -267,9 +266,9 @@ async def bulk_priority(
     """
     company_id = current_user.get("company_id")
     user_id = current_user.get("user_id")
-    
+
     service = BulkActionService(db)
-    
+
     try:
         bulk_action, success_count, failure_count = service.execute_bulk_action(
             company_id=company_id,
@@ -278,7 +277,7 @@ async def bulk_priority(
             params={"priority": priority},
             performed_by=user_id,
         )
-        
+
         return BulkActionResponse(
             id=bulk_action.id,
             action_type=BulkActionType.PRIORITY,
@@ -287,7 +286,7 @@ async def bulk_priority(
             undo_token=bulk_action.undo_token,
             result_summary={},
         )
-        
+
     except BulkActionError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -312,9 +311,9 @@ async def bulk_close(
     """
     company_id = current_user.get("company_id")
     user_id = current_user.get("user_id")
-    
+
     service = BulkActionService(db)
-    
+
     try:
         bulk_action, success_count, failure_count = service.execute_bulk_action(
             company_id=company_id,
@@ -323,7 +322,7 @@ async def bulk_close(
             params={"reason": reason},
             performed_by=user_id,
         )
-        
+
         return BulkActionResponse(
             id=bulk_action.id,
             action_type=BulkActionType.CLOSE,
@@ -332,7 +331,7 @@ async def bulk_close(
             undo_token=bulk_action.undo_token,
             result_summary={},
         )
-        
+
     except BulkActionError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -351,25 +350,25 @@ async def undo_bulk_action(
 ) -> Any:
     """
     Undo a bulk action within 24 hours.
-    
+
     Uses the undo_token from the original bulk action response.
     """
     company_id = current_user.get("company_id")
-    
+
     service = BulkActionService(db)
-    
+
     try:
         bulk_action = service.undo_bulk_action(
             company_id=company_id,
             undo_token=undo_token,
         )
-        
+
         return {
             "undone": True,
             "bulk_action_id": bulk_action.id,
             "action_type": bulk_action.action_type,
         }
-        
+
     except BulkActionNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -403,28 +402,30 @@ async def list_bulk_actions(
     """
     company_id = current_user.get("company_id")
     user_id = current_user.get("user_id")
-    
+
     service = BulkActionService(db)
-    
+
     bulk_actions, total = service.list_bulk_actions(
         company_id=company_id,
         limit=limit,
         offset=offset,
         action_type=action_type,
     )
-    
+
     return {
         "items": [
             {
                 "id": ba.id,
                 "action_type": ba.action_type,
-                "ticket_count": len(ba.ticket_ids.split(",")) if isinstance(ba.ticket_ids, str) else len(ba.ticket_ids),
+                "ticket_count": len(
+                    ba.ticket_ids.split(",")) if isinstance(
+                    ba.ticket_ids,
+                    str) else len(
+                        ba.ticket_ids),
                 "performed_by": ba.performed_by,
                 "undone": ba.undone,
                 "created_at": ba.created_at,
-            }
-            for ba in bulk_actions
-        ],
+            } for ba in bulk_actions],
         "total": total,
         "limit": limit,
         "offset": offset,
@@ -444,22 +445,23 @@ async def get_bulk_action(
     Get detailed information about a bulk action including failures.
     """
     company_id = current_user.get("company_id")
-    
+
     service = BulkActionService(db)
-    
+
     bulk_action = service.get_bulk_action(company_id, bulk_action_id)
-    
+
     if not bulk_action:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Bulk action not found",
         )
-    
+
     failures = service.get_bulk_action_failures(company_id, bulk_action_id)
-    
+
     import json
-    ticket_ids = json.loads(bulk_action.ticket_ids) if bulk_action.ticket_ids else []
-    
+    ticket_ids = json.loads(
+        bulk_action.ticket_ids) if bulk_action.ticket_ids else []
+
     return {
         "id": bulk_action.id,
         "action_type": bulk_action.action_type,

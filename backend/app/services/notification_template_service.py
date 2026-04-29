@@ -8,13 +8,12 @@ Handles:
 - Template preview/rendering
 """
 
-import json
 import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
-from sqlalchemy import and_, desc, or_
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.exceptions import NotFoundError, ValidationError
@@ -24,14 +23,14 @@ from database.models.tickets import NotificationTemplate
 class NotificationTemplateService:
     """
     Service for managing notification templates.
-    
+
     Features:
     - Template CRUD
     - Variable extraction and validation
     - Template versioning
     - Preview rendering
     """
-    
+
     # Valid template variables by event type
     TEMPLATE_VARIABLES = {
         "ticket_created": [
@@ -87,7 +86,7 @@ class NotificationTemplateService:
             "resolved_at",
         ],
     }
-    
+
     # System default templates (cannot be deleted)
     SYSTEM_TEMPLATES = [
         "ticket_created",
@@ -98,11 +97,11 @@ class NotificationTemplateService:
         "sla_breached",
         "ticket_escalated",
     ]
-    
+
     def __init__(self, db: Session, company_id: str):
         self.db = db
         self.company_id = company_id
-    
+
     def create_template(
         self,
         event_type: str,
@@ -115,7 +114,7 @@ class NotificationTemplateService:
     ) -> NotificationTemplate:
         """
         Create a new notification template.
-        
+
         Args:
             event_type: Event type this template is for
             channel: Channel (email, in_app, push)
@@ -124,34 +123,35 @@ class NotificationTemplateService:
             name: Human-readable template name
             description: Template description
             is_active: Whether template is active
-            
+
         Returns:
             Created NotificationTemplate
         """
         # Validate event type
         if event_type not in self.TEMPLATE_VARIABLES:
             raise ValidationError(f"Invalid event type: {event_type}")
-        
+
         # Validate channel
         if channel not in ["email", "in_app", "push"]:
             raise ValidationError(f"Invalid channel: {channel}")
-        
+
         # Validate template variables
-        self._validate_template_variables(event_type, subject_template, "subject")
+        self._validate_template_variables(
+            event_type, subject_template, "subject")
         self._validate_template_variables(event_type, body_template, "body")
-        
+
         # Check for existing template
         existing = self.db.query(NotificationTemplate).filter(
             NotificationTemplate.company_id == self.company_id,
             NotificationTemplate.event_type == event_type,
             NotificationTemplate.channel == channel,
         ).first()
-        
+
         if existing:
             # Create new version
             existing.is_active = False
             existing.version += 1
-        
+
         template = NotificationTemplate(
             id=str(uuid4()),
             company_id=self.company_id,
@@ -166,25 +166,25 @@ class NotificationTemplateService:
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )
-        
+
         self.db.add(template)
         self.db.commit()
         self.db.refresh(template)
-        
+
         return template
-    
+
     def get_template(self, template_id: str) -> NotificationTemplate:
         """Get template by ID."""
         template = self.db.query(NotificationTemplate).filter(
             NotificationTemplate.id == template_id,
             NotificationTemplate.company_id == self.company_id,
         ).first()
-        
+
         if not template:
             raise NotFoundError(f"Template {template_id} not found")
-        
+
         return template
-    
+
     def get_template_by_event(
         self,
         event_type: str,
@@ -195,9 +195,9 @@ class NotificationTemplateService:
             NotificationTemplate.company_id == self.company_id,
             NotificationTemplate.event_type == event_type,
             NotificationTemplate.channel == channel,
-            NotificationTemplate.is_active == True,
+            NotificationTemplate.is_active,
         ).first()
-    
+
     def list_templates(
         self,
         event_type: Optional[str] = None,
@@ -208,38 +208,38 @@ class NotificationTemplateService:
     ) -> Tuple[List[NotificationTemplate], int]:
         """
         List templates with filters.
-        
+
         Args:
             event_type: Filter by event type
             channel: Filter by channel
             is_active: Filter by active status
             limit: Max results
             offset: Offset for pagination
-            
+
         Returns:
             Tuple of (templates, total count)
         """
         query = self.db.query(NotificationTemplate).filter(
             NotificationTemplate.company_id == self.company_id,
         )
-        
+
         if event_type:
             query = query.filter(NotificationTemplate.event_type == event_type)
-        
+
         if channel:
             query = query.filter(NotificationTemplate.channel == channel)
-        
+
         if is_active is not None:
             query = query.filter(NotificationTemplate.is_active == is_active)
-        
+
         total = query.count()
-        
+
         templates = query.order_by(
             desc(NotificationTemplate.updated_at)
         ).offset(offset).limit(limit).all()
-        
+
         return templates, total
-    
+
     def update_template(
         self,
         template_id: str,
@@ -251,39 +251,39 @@ class NotificationTemplateService:
     ) -> NotificationTemplate:
         """Update template."""
         template = self.get_template(template_id)
-        
+
         if subject_template is not None:
             self._validate_template_variables(
                 template.event_type, subject_template, "subject"
             )
             template.subject_template = subject_template
-        
+
         if body_template is not None:
             self._validate_template_variables(
                 template.event_type, body_template, "body"
             )
             template.body_template = body_template
-        
+
         if name is not None:
             template.name = name
-        
+
         if description is not None:
             template.description = description
-        
+
         if is_active is not None:
             template.is_active = is_active
-        
+
         template.updated_at = datetime.now(timezone.utc)
-        
+
         self.db.commit()
         self.db.refresh(template)
-        
+
         return template
-    
+
     def delete_template(self, template_id: str) -> bool:
         """Delete template (soft delete for system templates)."""
         template = self.get_template(template_id)
-        
+
         if template.event_type in self.SYSTEM_TEMPLATES:
             # Soft delete - just deactivate
             template.is_active = False
@@ -291,10 +291,10 @@ class NotificationTemplateService:
         else:
             # Hard delete for custom templates
             self.db.delete(template)
-        
+
         self.db.commit()
         return True
-    
+
     def preview_template(
         self,
         template_id: str,
@@ -302,31 +302,31 @@ class NotificationTemplateService:
     ) -> Dict[str, str]:
         """
         Preview rendered template with sample data.
-        
+
         Args:
             template_id: Template ID
             sample_data: Sample data for rendering
-            
+
         Returns:
             Dict with rendered subject and body
         """
         template = self.get_template(template_id)
-        
+
         # Generate sample data if not provided
         if not sample_data:
             sample_data = self._generate_sample_data(template.event_type)
-        
+
         return {
             "subject": self._render(template.subject_template, sample_data),
             "body": self._render(template.body_template, sample_data),
             "event_type": template.event_type,
             "channel": template.channel,
         }
-    
+
     def get_template_variables(self, event_type: str) -> List[str]:
         """Get valid variables for an event type."""
         return self.TEMPLATE_VARIABLES.get(event_type, [])
-    
+
     def get_template_versions(
         self,
         event_type: str,
@@ -338,28 +338,28 @@ class NotificationTemplateService:
             NotificationTemplate.event_type == event_type,
             NotificationTemplate.channel == channel,
         ).order_by(desc(NotificationTemplate.version)).all()
-    
+
     def restore_version(self, template_id: str) -> NotificationTemplate:
         """Restore a previous version as active."""
         template = self.get_template(template_id)
-        
+
         # Deactivate current active version
         self.db.query(NotificationTemplate).filter(
             NotificationTemplate.company_id == self.company_id,
             NotificationTemplate.event_type == template.event_type,
             NotificationTemplate.channel == template.channel,
-            NotificationTemplate.is_active == True,
+            NotificationTemplate.is_active,
         ).update({"is_active": False})
-        
+
         # Activate this version
         template.is_active = True
         template.updated_at = datetime.now(timezone.utc)
-        
+
         self.db.commit()
         self.db.refresh(template)
-        
+
         return template
-    
+
     def clone_template(
         self,
         template_id: str,
@@ -368,7 +368,7 @@ class NotificationTemplateService:
     ) -> NotificationTemplate:
         """Clone a template."""
         template = self.get_template(template_id)
-        
+
         return self.create_template(
             event_type=new_event_type or template.event_type,
             channel=new_channel or template.channel,
@@ -377,7 +377,7 @@ class NotificationTemplateService:
             name=f"Clone of {template.name}",
             description=template.description,
         )
-    
+
     def _validate_template_variables(
         self,
         event_type: str,
@@ -386,19 +386,19 @@ class NotificationTemplateService:
     ) -> None:
         """Validate that template only uses valid variables."""
         valid_vars = set(self.TEMPLATE_VARIABLES.get(event_type, []))
-        
+
         # Extract variables from template
         pattern = r'\{\{(\w+)\}\}'
         found_vars = set(re.findall(pattern, template))
-        
+
         invalid_vars = found_vars - valid_vars
-        
+
         if invalid_vars:
             raise ValidationError(
-                f"Invalid variables in {field_name}: {', '.join(invalid_vars)}. "
-                f"Valid variables: {', '.join(valid_vars)}"
-            )
-    
+                f"Invalid variables in {field_name}: {
+                    ', '.join(invalid_vars)}. " f"Valid variables: {
+                    ', '.join(valid_vars)}")
+
     def _render(self, template: str, data: Dict[str, Any]) -> str:
         """Render template with data."""
         result = template
@@ -406,7 +406,7 @@ class NotificationTemplateService:
             placeholder = "{{" + key + "}}"
             result = result.replace(placeholder, str(value) if value else "")
         return result
-    
+
     def _generate_sample_data(self, event_type: str) -> Dict[str, Any]:
         """Generate sample data for preview."""
         samples = {
@@ -477,13 +477,15 @@ class NotificationTemplateService:
                 "estimated_resolution": "1 hour",
             },
         }
-        
-        return samples.get(event_type, {"message": "Sample notification content"})
-    
+
+        return samples.get(
+            event_type, {
+                "message": "Sample notification content"})
+
     def seed_default_templates(self) -> int:
         """Seed default templates for all event types."""
         count = 0
-        
+
         default_templates = {
             "ticket_created": {
                 "subject": "New Ticket: {{ticket_subject}}",
@@ -605,7 +607,7 @@ Please take over this conversation.
 """.strip(),
             },
         }
-        
+
         for event_type, templates in default_templates.items():
             try:
                 self.create_template(
@@ -620,5 +622,5 @@ Please take over this conversation.
             except Exception:
                 # Template may already exist
                 pass
-        
+
         return count

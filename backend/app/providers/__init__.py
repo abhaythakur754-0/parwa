@@ -35,28 +35,28 @@ Supported Chat Providers:
 
 Usage:
     from app.providers import ProviderFactory, ProviderType
-    
+
     # Get email provider
     email_provider = ProviderFactory.get_provider(
         provider_type=ProviderType.EMAIL,
         provider_name="brevo",
         config={"api_key": "..."}
     )
-    
+
     # Send email
     result = email_provider.send_email(
         to="user@example.com",
         subject="Hello",
         html_content="<p>Hi!</p>"
     )
-    
+
     # Get SMS provider
     sms_provider = ProviderFactory.get_provider(
         provider_type=ProviderType.SMS,
         provider_name="twilio",
         config={"account_sid": "...", "auth_token": "..."}
     )
-    
+
     # Send SMS
     result = sms_provider.send_sms(
         to="+1234567890",

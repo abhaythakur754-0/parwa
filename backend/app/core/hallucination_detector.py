@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 from app.logger import get_logger
 
@@ -296,7 +296,8 @@ class HallucinationReport:
                 "HallucinationReport overall_confidence out of range: %.3f, clamping",
                 self.overall_confidence,
             )
-            self.overall_confidence = max(0.0, min(1.0, self.overall_confidence))
+            self.overall_confidence = max(
+                0.0, min(1.0, self.overall_confidence))
         valid_recommendations = {"safe", "review", "block"}
         if self.recommendation not in valid_recommendations:
             logger.warning(
@@ -453,9 +454,11 @@ class HallucinationDetector:
             recommendation = "safe"
 
         # Severity summary
-        severity_counts: Dict[str, int] = {"low": 0, "medium": 0, "high": 0, "critical": 0}
+        severity_counts: Dict[str, int] = {
+            "low": 0, "medium": 0, "high": 0, "critical": 0}
         for m in matches:
-            severity_counts[m.severity] = severity_counts.get(m.severity, 0) + 1
+            severity_counts[m.severity] = severity_counts.get(
+                m.severity, 0) + 1
 
         has_critical = severity_counts.get("critical", 0) > 0
 
@@ -504,7 +507,8 @@ class HallucinationDetector:
             return None
 
         # Extract key factual statements from KB context
-        kb_sentences: List[str] = re.split(r'[.!?]\s+', knowledge_context.strip())
+        kb_sentences: List[str] = re.split(
+            r'[.!?]\s+', knowledge_context.strip())
         kb_sentences = [s.strip() for s in kb_sentences if len(s.strip()) > 15]
 
         if not kb_sentences:
@@ -524,7 +528,8 @@ class HallucinationDetector:
                 # If >40% of KB sentence's significant words appear
                 # near a negation in the response, likely contradiction
                 if kb_words and len(overlap) / len(kb_words) >= 0.3:
-                    confidence = 0.7 + 0.2 * min(1.0, len(overlap) / len(kb_words))
+                    confidence = 0.7 + 0.2 * \
+                        min(1.0, len(overlap) / len(kb_words))
                     severity = "high" if confidence >= 0.85 else "medium"
                     return HallucinationMatch(
                         pattern_id="P01_kb_contradiction",
@@ -607,14 +612,17 @@ class HallucinationDetector:
         if not overconfident_matches:
             return None
 
-        # Even without speculative language, many overconfident phrases = suspicious
+        # Even without speculative language, many overconfident phrases =
+        # suspicious
         if len(overconfident_matches) >= 3 and confidence_score < 0.85:
             first = overconfident_matches[0]
             return HallucinationMatch(
                 pattern_id="P03_overconfident_claims",
                 pattern_name="Overconfident wrong answers",
                 confidence=0.55,
-                evidence=f"Multiple overconfident phrases ({len(overconfident_matches)}) with low system confidence ({confidence_score:.2f})",
+                evidence=f"Multiple overconfident phrases ({
+                    len(overconfident_matches)}) with low system confidence ({
+                    confidence_score:.2f})",
                 start=first.start(),
                 end=first.end(),
                 severity="low",
@@ -682,7 +690,8 @@ class HallucinationDetector:
             has_numbers = bool(re.search(r'\d', sentence))
 
             # High buzzword + no concrete data = suspicious
-            if buzz_density >= 0.15 and len(proper_nouns) == 0 and not has_numbers:
+            if buzz_density >= 0.15 and len(
+                    proper_nouns) == 0 and not has_numbers:
                 flagged_sentences.append(sentence)
 
         if not flagged_sentences:
@@ -728,7 +737,10 @@ class HallucinationDetector:
 
         # Check MM/DD/YYYY format dates
         for m in RE_DATE_MDY.finditer(response):
-            month, day, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            month, day, year = int(
+                m.group(1)), int(
+                m.group(2)), int(
+                m.group(3))
             if month < 1 or month > 12:
                 errors.append(f"Invalid month {month} in date {m.group(0)}")
                 error_positions.append((m.start(), m.end()))
@@ -739,7 +751,9 @@ class HallucinationDetector:
                         errors.append(f"Feb 29 in non-leap year {year}")
                         error_positions.append((m.start(), m.end()))
                 else:
-                    errors.append(f"Invalid day {day} for month {month} in date {m.group(0)}")
+                    errors.append(
+                        f"Invalid day {day} for month {month} in date {
+                            m.group(0)}")
                     error_positions.append((m.start(), m.end()))
 
         # Check text month dates (e.g., "February 30, 2024")
@@ -753,11 +767,18 @@ class HallucinationDetector:
                 re.IGNORECASE,
             )
             if month_name_match:
-                month_num = _MONTH_NAMES.get(month_name_match.group(1).lower(), 0)
-                if month_num and (day < 1 or day > _DAYS_IN_MONTH.get(month_num, 31)):
-                    if month_num == 2 and day == 29 and self._is_leap_year(year):
+                month_num = _MONTH_NAMES.get(
+                    month_name_match.group(1).lower(), 0)
+                if month_num and (
+                    day < 1 or day > _DAYS_IN_MONTH.get(
+                        month_num,
+                        31)):
+                    if month_num == 2 and day == 29 and self._is_leap_year(
+                            year):
                         continue
-                    errors.append(f"Invalid day {day} for {month_name_match.group(1)} {year}")
+                    errors.append(
+                        f"Invalid day {day} for {
+                            month_name_match.group(1)} {year}")
                     error_positions.append((m.start(), m.end()))
 
         # Check temporal arithmetic (e.g., "3 years from 2020")
@@ -822,12 +843,18 @@ class HallucinationDetector:
         # Sort plan names by length descending so we match the most
         # specific (longest) plan name first at each position.
         # This prevents "parwa" from matching inside "mini parwa".
-        sorted_plans = sorted(KNOWN_PLANS.items(), key=lambda x: len(x[0]), reverse=True)
-        matched_positions: List[Tuple[int, int, str]] = []  # (start, end, plan_name)
+        sorted_plans = sorted(
+            KNOWN_PLANS.items(),
+            key=lambda x: len(
+                x[0]),
+            reverse=True)
+        # (start, end, plan_name)
+        matched_positions: List[Tuple[int, int, str]] = []
 
         for plan_name, correct_price in sorted_plans:
             # Use regex with word boundaries to avoid substring matches
-            plan_pattern = re.compile(r'\b' + re.escape(plan_name) + r'\b', re.IGNORECASE)
+            plan_pattern = re.compile(
+                r'\b' + re.escape(plan_name) + r'\b', re.IGNORECASE)
             for m in plan_pattern.finditer(response_lower):
                 plan_start, plan_end = m.start(), m.end()
                 # Skip if this position overlaps with an already-matched
@@ -840,10 +867,12 @@ class HallucinationDetector:
                     continue
                 matched_positions.append((plan_start, plan_end, plan_name))
 
-                nearby = response[max(0, plan_start - 20):min(len(response), plan_end + 50)]
+                nearby = response[max(0, plan_start - 20)
+                                      :min(len(response), plan_end + 50)]
 
                 # Extract dollar amounts from nearby text
-                prices_nearby = re.findall(r'\$\s*([\d,]+(?:\.\d{1,2})?)', nearby)
+                prices_nearby = re.findall(
+                    r'\$\s*([\d,]+(?:\.\d{1,2})?)', nearby)
                 for price_str in prices_nearby:
                     price_str_clean = price_str.replace(",", "")
                     try:
@@ -854,11 +883,12 @@ class HallucinationDetector:
                     # Check if the mentioned price matches known plans
                     # but NOT the correct one
                     for other_plan, other_price in KNOWN_PLANS.items():
-                        if other_plan != plan_name and abs(mentioned_price - other_price) < 1:
+                        if other_plan != plan_name and abs(
+                                mentioned_price - other_price) < 1:
                             errors.append(
-                                f"Plan '{plan_name}' priced at ${mentioned_price:.0f}, "
-                                f"but that's the price of '{other_plan}' (${correct_price:.0f})"
-                            )
+                                f"Plan '{plan_name}' priced at ${
+                                    mentioned_price:.0f}, " f"but that's the price of '{other_plan}' (${
+                                    correct_price:.0f})")
                             error_positions.append((
                                 max(0, plan_start - 20),
                                 min(len(response), plan_end + 50),
@@ -886,10 +916,11 @@ class HallucinationDetector:
                 }
                 for other_plan, other_price in other_prices.items():
                     price_pattern = rf"\${other_price:,.0f}"
-                    if re.search(price_pattern, sentence) and other_plan not in sentence:
+                    if re.search(price_pattern,
+                                 sentence) and other_plan not in sentence:
                         errors.append(
-                            f"Price ${other_price:,.0f} associated with wrong plan '{variant}'"
-                        )
+                            f"Price ${
+                                other_price:,.0f} associated with wrong plan '{variant}'")
                         error_positions.append((sentence_start, sentence_end))
 
         if not errors:
@@ -954,7 +985,8 @@ class HallucinationDetector:
                 pattern_id="P07_policy_fabrication",
                 pattern_name="Policy fabrication",
                 confidence=0.60,
-                evidence=f"Multiple policy references ({len(policy_matches)}) without verifiable source",
+                evidence=f"Multiple policy references ({
+                    len(policy_matches)}) without verifiable source",
                 start=first.start(),
                 end=last.end(),
                 severity="medium",
@@ -1092,18 +1124,21 @@ class HallucinationDetector:
                         overlap = before_words & after_words
                         # Check pairwise overlap OR check if any word
                         # appears 2+ times across all parts (repetition)
-                        ratio = len(overlap) / min(len(before_words), len(after_words))
+                        ratio = len(overlap) / \
+                            min(len(before_words), len(after_words))
                         all_parts_words = re.findall(r'\b\w{4,}\b', sent_lower)
                         word_counts = {}
                         for w in all_parts_words:
                             word_counts[w] = word_counts.get(w, 0) + 1
-                        repeated_key_words = sum(1 for c in word_counts.values() if c >= 2)
+                        repeated_key_words = sum(
+                            1 for c in word_counts.values() if c >= 2)
                         if ratio >= 0.2 or repeated_key_words >= 2:
                             because_circular += 1
 
         # Combine signals
         if circular_count >= 2 or repeated_count >= 2 or because_circular >= 1:
-            confidence = 0.5 + min(0.2, (circular_count + repeated_count + because_circular) * 0.05)
+            confidence = 0.5 + \
+                min(0.2, (circular_count + repeated_count + because_circular) * 0.05)
             first_circular = circular_matches[0] if circular_matches else None
             start = first_circular.start() if first_circular else 0
             evidence_parts: List[str] = []
@@ -1112,7 +1147,8 @@ class HallucinationDetector:
             if repeated_count > 0:
                 evidence_parts.append(f"repeated sentences: {repeated_count}")
             if because_circular > 0:
-                evidence_parts.append(f"'because' circular: {because_circular}")
+                evidence_parts.append(
+                    f"'because' circular: {because_circular}")
 
             return HallucinationMatch(
                 pattern_id="P09_circular_reasoning",
@@ -1204,7 +1240,8 @@ class HallucinationDetector:
                 if len(words_after) < 3:
                     full_text = response[sm.start():sm.end() + 60].strip()
                     # Avoid duplicate from the loop above
-                    if full_text[:80] not in [a[:80] for a in suspicious_attributions]:
+                    if full_text[:80] not in [a[:80]
+                                              for a in suspicious_attributions]:
                         suspicious_attributions.append(full_text[:120])
                         attr_positions.append((sm.start(), sm.end() + 60))
 
@@ -1268,13 +1305,14 @@ class HallucinationDetector:
             flags.append(f"Suspiciously precise count: {m.group(0)}")
             flag_positions.append((m.start(), m.end()))
 
-        # Check for standalone precise decimals (not percentages, currency, or counts)
+        # Check for standalone precise decimals (not percentages, currency, or
+        # counts)
         for m in RE_PRECISE_DECIMAL.finditer(response):
             # Skip if this is part of a percentage (already caught above)
-            if response[m.end():m.end()+1] == '%':
+            if response[m.end():m.end() + 1] == '%':
                 continue
             # Skip if preceded by $ (currency)
-            if m.start() > 0 and response[m.start()-1] == '$':
+            if m.start() > 0 and response[m.start() - 1] == '$':
                 continue
             decimal_val = m.group(0)
             decimal_match = re.search(r'\.(\d+)', decimal_val)
@@ -1325,7 +1363,7 @@ class HallucinationDetector:
                     "month": int(m.group(1)),
                     "day": int(m.group(2)),
                     "year": int(m.group(3)),
-                    "context": content[max(0, m.start()-30):m.end()+10],
+                    "context": content[max(0, m.start() - 30):m.end() + 10],
                 })
             # Extract text month dates
             for m in RE_DATE_TEXT.finditer(content):
@@ -1335,14 +1373,15 @@ class HallucinationDetector:
                     m.group(0), re.IGNORECASE,
                 )
                 if month_name:
-                    month_num = _MONTH_NAMES.get(month_name.group(1).lower(), 0)
+                    month_num = _MONTH_NAMES.get(
+                        month_name.group(1).lower(), 0)
                     if month_num:
                         history_dates.append({
                             "raw": m.group(0),
                             "month": month_num,
                             "day": int(m.group(1)),
                             "year": int(m.group(2)),
-                            "context": content[max(0, m.start()-30):m.end()+10],
+                            "context": content[max(0, m.start() - 30):m.end() + 10],
                         })
 
         if not history_dates:
@@ -1382,12 +1421,15 @@ class HallucinationDetector:
                 # If month or year or day differ, it's a contradiction
                 if (hist_date["month"] != resp_date["month"] or
                     hist_date["day"] != resp_date["day"] or
-                    hist_date["year"] != resp_date["year"]):
+                        hist_date["year"] != resp_date["year"]):
                     # But only if they reference similar context
                     # (similar surrounding words indicate same entity)
                     hist_context_words = set(
-                        re.findall(r'\b\w{4,}\b', hist_date.get("context", "").lower())
-                    )
+                        re.findall(
+                            r'\b\w{4,}\b',
+                            hist_date.get(
+                                "context",
+                                "").lower()))
                     resp_nearby = response
                     resp_context_words = set(
                         re.findall(r'\b\w{4,}\b', resp_nearby.lower())
@@ -1399,9 +1441,9 @@ class HallucinationDetector:
                         # flag as temporal inconsistency
                         confidence = 0.75 if overlap else 0.60
                         evidence = (
-                            f"Date contradiction: history said '{hist_date['raw']}' "
-                            f"but response says '{resp_date['raw']}'"
-                        )
+                            f"Date contradiction: history said '{
+                                hist_date['raw']}' " f"but response says '{
+                                resp_date['raw']}'")
                         return HallucinationMatch(
                             pattern_id="P12_temporal_inconsistency",
                             pattern_name="Temporal inconsistency",

@@ -24,15 +24,20 @@ from database.models.core import User
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
-# ── Request/Response Schemas ───────────────────────────────────────────────────
+# ── Request/Response Schemas ────────────────────────────────────────────
 
 class NotificationSendRequest(BaseModel):
     """Request to send a notification."""
-    event_type: str = Field(..., description="Event type triggering notification")
+    event_type: str = Field(...,
+                            description="Event type triggering notification")
     recipient_ids: List[str] = Field(..., description="User IDs to notify")
-    data: Dict[str, Any] = Field(default_factory=dict, description="Event data")
-    channels: Optional[List[str]] = Field(None, description="Override channels")
-    priority: str = Field(default="medium", description="Notification priority")
+    data: Dict[str, Any] = Field(
+        default_factory=dict, description="Event data")
+    channels: Optional[List[str]] = Field(
+        None, description="Override channels")
+    priority: str = Field(
+        default="medium",
+        description="Notification priority")
     ticket_id: Optional[str] = Field(None, description="Related ticket ID")
     cc: Optional[List[str]] = Field(None, description="CC email addresses")
     bcc: Optional[List[str]] = Field(None, description="BCC email addresses")
@@ -40,26 +45,32 @@ class NotificationSendRequest(BaseModel):
 
 class NotificationMarkReadRequest(BaseModel):
     """Request to mark notifications as read."""
-    notification_ids: Optional[List[str]] = Field(None, description="Specific notification IDs")
+    notification_ids: Optional[List[str]] = Field(
+        None, description="Specific notification IDs")
     mark_all: bool = Field(default=False, description="Mark all as read")
 
 
 class PreferenceUpdateRequest(BaseModel):
     """Request to update notification preference."""
-    enabled: Optional[bool] = Field(None, description="Whether notifications enabled")
+    enabled: Optional[bool] = Field(
+        None, description="Whether notifications enabled")
     channels: Optional[List[str]] = Field(None, description="Channels to use")
-    priority_threshold: Optional[str] = Field(None, description="Minimum priority")
+    priority_threshold: Optional[str] = Field(
+        None, description="Minimum priority")
 
 
 class PreferencesBulkUpdateRequest(BaseModel):
     """Request to update multiple preferences."""
-    preferences: Dict[str, Dict[str, Any]] = Field(..., description="Event type -> settings")
+    preferences: Dict[str, Dict[str, Any]
+                      ] = Field(..., description="Event type -> settings")
 
 
 class DigestSettingsRequest(BaseModel):
     """Request to set digest settings."""
     frequency: str = Field(..., description="'none', 'daily', or 'weekly'")
-    digest_time: str = Field(default="09:00", description="Time for digest (HH:MM)")
+    digest_time: str = Field(
+        default="09:00",
+        description="Time for digest (HH:MM)")
 
 
 class TemplateCreateRequest(BaseModel):
@@ -69,8 +80,11 @@ class TemplateCreateRequest(BaseModel):
     subject_template: str = Field(..., description="Subject template")
     body_template: str = Field(..., description="Body template")
     name: Optional[str] = Field(None, description="Template name")
-    description: Optional[str] = Field(None, description="Template description")
-    is_active: bool = Field(default=True, description="Whether template is active")
+    description: Optional[str] = Field(
+        None, description="Template description")
+    is_active: bool = Field(
+        default=True,
+        description="Whether template is active")
 
 
 class TemplateUpdateRequest(BaseModel):
@@ -84,10 +98,11 @@ class TemplateUpdateRequest(BaseModel):
 
 class TemplatePreviewRequest(BaseModel):
     """Request to preview a template."""
-    sample_data: Optional[Dict[str, Any]] = Field(None, description="Sample data for preview")
+    sample_data: Optional[Dict[str, Any]] = Field(
+        None, description="Sample data for preview")
 
 
-# ── Notification Endpoints ─────────────────────────────────────────────────────
+# ── Notification Endpoints ──────────────────────────────────────────────
 
 @router.get("")
 async def list_notifications(
@@ -102,7 +117,7 @@ async def list_notifications(
 ):
     """List notifications for current user."""
     service = NotificationService(db, tenant["company_id"])
-    
+
     notifications, total = service.get_notifications(
         user_id=current_user.id,
         status=status,
@@ -111,7 +126,7 @@ async def list_notifications(
         limit=limit,
         offset=offset,
     )
-    
+
     return {
         "notifications": [
             {
@@ -140,7 +155,7 @@ async def get_unread_count(
 ):
     """Get unread notification count."""
     service = NotificationService(db, tenant["company_id"])
-    
+
     return {
         "unread_count": service.get_unread_count(current_user.id),
     }
@@ -155,25 +170,26 @@ async def mark_notifications_read(
 ):
     """Mark notifications as read."""
     service = NotificationService(db, tenant["company_id"])
-    
+
     if request.mark_all:
         count = service.mark_all_as_read(current_user.id)
         return {"marked_count": count, "marked_all": True}
-    
+
     if not request.notification_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Either notification_ids or mark_all required"
         )
-    
+
     marked = []
     for notification_id in request.notification_ids:
         try:
-            notification = service.mark_as_read(notification_id, current_user.id)
+            notification = service.mark_as_read(
+                notification_id, current_user.id)
             marked.append(notification.id)
         except Exception:
             pass
-    
+
     return {"marked_count": len(marked), "marked_ids": marked}
 
 
@@ -186,7 +202,7 @@ async def send_notification(
 ):
     """Manually trigger a notification."""
     service = NotificationService(db, tenant["company_id"])
-    
+
     result = service.send_notification(
         event_type=request.event_type,
         recipient_ids=request.recipient_ids,
@@ -198,7 +214,7 @@ async def send_notification(
         cc=request.cc,
         bcc=request.bcc,
     )
-    
+
     return result
 
 
@@ -211,16 +227,16 @@ async def create_digest(
 ):
     """Create notification digest for current user."""
     service = NotificationService(db, tenant["company_id"])
-    
+
     result = service.create_digest(
         user_id=current_user.id,
         period=period,
     )
-    
+
     return result
 
 
-# ── Template Endpoints ─────────────────────────────────────────────────────────
+# ── Template Endpoints ──────────────────────────────────────────────────
 
 @router.get("/templates")
 async def list_templates(
@@ -235,7 +251,7 @@ async def list_templates(
 ):
     """List notification templates."""
     service = NotificationTemplateService(db, tenant["company_id"])
-    
+
     templates, total = service.list_templates(
         event_type=event_type,
         channel=channel,
@@ -243,7 +259,7 @@ async def list_templates(
         limit=limit,
         offset=offset,
     )
-    
+
     return {
         "templates": [
             {
@@ -274,7 +290,7 @@ async def create_template(
 ):
     """Create a notification template."""
     service = NotificationTemplateService(db, tenant["company_id"])
-    
+
     try:
         template = service.create_template(
             event_type=request.event_type,
@@ -285,7 +301,7 @@ async def create_template(
             description=request.description,
             is_active=request.is_active,
         )
-        
+
         return {
             "id": template.id,
             "event_type": template.event_type,
@@ -310,10 +326,10 @@ async def get_template(
 ):
     """Get notification template by ID."""
     service = NotificationTemplateService(db, tenant["company_id"])
-    
+
     try:
         template = service.get_template(template_id)
-        
+
         return {
             "id": template.id,
             "event_type": template.event_type,
@@ -344,7 +360,7 @@ async def update_template(
 ):
     """Update notification template."""
     service = NotificationTemplateService(db, tenant["company_id"])
-    
+
     try:
         template = service.update_template(
             template_id=template_id,
@@ -354,7 +370,7 @@ async def update_template(
             description=request.description,
             is_active=request.is_active,
         )
-        
+
         return {
             "id": template.id,
             "name": template.name,
@@ -377,7 +393,7 @@ async def delete_template(
 ):
     """Delete notification template."""
     service = NotificationTemplateService(db, tenant["company_id"])
-    
+
     try:
         service.delete_template(template_id)
         return {"success": True}
@@ -398,13 +414,13 @@ async def preview_template(
 ):
     """Preview a template with sample data."""
     service = NotificationTemplateService(db, tenant["company_id"])
-    
+
     try:
         preview = service.preview_template(
             template_id=template_id,
             sample_data=request.sample_data,
         )
-        
+
         return preview
     except Exception as e:
         raise HTTPException(
@@ -422,16 +438,16 @@ async def get_template_variables(
 ):
     """Get valid variables for an event type."""
     service = NotificationTemplateService(db, tenant["company_id"])
-    
+
     variables = service.get_template_variables(event_type)
-    
+
     return {
         "event_type": event_type,
         "variables": variables,
     }
 
 
-# ── Preference Endpoints ───────────────────────────────────────────────────────
+# ── Preference Endpoints ────────────────────────────────────────────────
 
 @router.get("/preferences")
 async def get_preferences(
@@ -441,7 +457,7 @@ async def get_preferences(
 ):
     """Get notification preferences for current user."""
     service = NotificationPreferenceService(db, tenant["company_id"])
-    
+
     return service.get_user_preferences(current_user.id)
 
 
@@ -455,7 +471,7 @@ async def update_preference(
 ):
     """Update preference for an event type."""
     service = NotificationPreferenceService(db, tenant["company_id"])
-    
+
     try:
         preference = service.update_preference(
             user_id=current_user.id,
@@ -464,7 +480,7 @@ async def update_preference(
             channels=request.channels,
             priority_threshold=request.priority_threshold,
         )
-        
+
         return {
             "event_type": preference.event_type,
             "enabled": preference.enabled,
@@ -487,12 +503,12 @@ async def update_preferences_bulk(
 ):
     """Update multiple preferences at once."""
     service = NotificationPreferenceService(db, tenant["company_id"])
-    
+
     result = service.update_preferences_bulk(
         user_id=current_user.id,
         preferences=request.preferences,
     )
-    
+
     return result
 
 
@@ -505,14 +521,14 @@ async def set_digest_settings(
 ):
     """Set digest mode settings."""
     service = NotificationPreferenceService(db, tenant["company_id"])
-    
+
     try:
         result = service.set_digest_settings(
             user_id=current_user.id,
             frequency=request.frequency,
             digest_time=request.digest_time,
         )
-        
+
         return result
     except Exception as e:
         raise HTTPException(
@@ -529,9 +545,9 @@ async def reset_preferences(
 ):
     """Reset preferences to defaults."""
     service = NotificationPreferenceService(db, tenant["company_id"])
-    
+
     count = service.reset_to_defaults(current_user.id)
-    
+
     return {"reset_count": count}
 
 
@@ -543,9 +559,9 @@ async def disable_all_notifications(
 ):
     """Disable all notifications."""
     service = NotificationPreferenceService(db, tenant["company_id"])
-    
+
     count = service.disable_all_notifications(current_user.id)
-    
+
     return {"disabled_count": count}
 
 
@@ -557,7 +573,7 @@ async def enable_all_notifications(
 ):
     """Enable all notifications with defaults."""
     service = NotificationPreferenceService(db, tenant["company_id"])
-    
+
     count = service.enable_all_notifications(current_user.id)
-    
+
     return {"enabled_count": count}

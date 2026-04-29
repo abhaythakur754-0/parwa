@@ -241,7 +241,8 @@ async def update_note(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.delete("/{ticket_id}/notes/{note_id}", status_code=http_status.HTTP_204_NO_CONTENT)
+@router.delete("/{ticket_id}/notes/{note_id}",
+               status_code=http_status.HTTP_204_NO_CONTENT)
 async def delete_note(
     ticket_id: str,
     note_id: str,

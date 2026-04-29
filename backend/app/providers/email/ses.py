@@ -17,27 +17,27 @@ from app.providers.base import (
 
 class SESEmailProvider(EmailProvider):
     """AWS SES email provider.
-    
+
     Configuration:
         - access_key: AWS Access Key ID (required)
         - secret_key: AWS Secret Access Key (required)
         - region: AWS region (optional, default: us-east-1)
     """
-    
+
     provider_name = "ses"
     display_name = "AWS SES"
     description = "Amazon Simple Email Service"
     website = "https://aws.amazon.com/ses/"
-    
+
     required_config_fields = ["access_key", "secret_key"]
     optional_config_fields = ["region", "from_email"]
-    
+
     capabilities = [
         ProviderCapability.SEND_EMAIL,
         ProviderCapability.SEND_TEMPLATE_EMAIL,
         ProviderCapability.WEBHOOK_EVENTS,
     ]
-    
+
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
         self.access_key = config["access_key"]
@@ -45,7 +45,7 @@ class SESEmailProvider(EmailProvider):
         self.region = config.get("region", "us-east-1")
         self.from_email = config.get("from_email", "noreply@parwa.ai")
         self._status = ProviderStatus.ACTIVE
-    
+
     def test_connection(self) -> ProviderResult:
         try:
             import boto3
@@ -75,14 +75,14 @@ class SESEmailProvider(EmailProvider):
                 operation="test_connection",
                 error_message=str(e)[:200],
             )
-    
+
     def get_rate_limits(self) -> Dict[str, Any]:
         return {
             "emails_per_second": 14,  # Default sandbox limit
             "emails_per_day": 200,  # Default sandbox limit
             "note": "Production limits are higher. Request increase via AWS console.",
         }
-    
+
     def send_email(self, message: EmailMessage) -> ProviderResult:
         try:
             import boto3
@@ -92,7 +92,7 @@ class SESEmailProvider(EmailProvider):
                 aws_secret_access_key=self.secret_key,
                 region_name=self.region,
             )
-            
+
             response = client.send_email(
                 Source=message.from_email or self.from_email,
                 Destination={"ToAddresses": [message.to]},
@@ -104,7 +104,7 @@ class SESEmailProvider(EmailProvider):
                     },
                 },
             )
-            
+
             return ProviderResult(
                 success=True,
                 provider_name=self.provider_name,
@@ -125,8 +125,12 @@ class SESEmailProvider(EmailProvider):
                 operation="send_email",
                 error_message=str(e)[:200],
             )
-    
-    def send_template_email(self, template_id: str, to: str, variables: Dict[str, Any]) -> ProviderResult:
+
+    def send_template_email(self,
+                            template_id: str,
+                            to: str,
+                            variables: Dict[str,
+                                            Any]) -> ProviderResult:
         try:
             import boto3
             import json
@@ -136,14 +140,14 @@ class SESEmailProvider(EmailProvider):
                 aws_secret_access_key=self.secret_key,
                 region_name=self.region,
             )
-            
+
             response = client.send_templated_email(
                 Source=self.from_email,
                 Destination={"ToAddresses": [to]},
                 Template=template_id,
                 TemplateData=json.dumps(variables),
             )
-            
+
             return ProviderResult(
                 success=True,
                 provider_name=self.provider_name,

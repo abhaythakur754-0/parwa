@@ -13,7 +13,6 @@ All money calculations use Decimal (BC-002).
 """
 
 import logging
-import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
@@ -22,14 +21,11 @@ from uuid import UUID
 from database.base import SessionLocal
 from database.models.billing import Subscription
 from database.models.billing_extended import CompanyVariant, ProrationAudit
-from database.models.core import Company
 from app.schemas.billing import (
     INDUSTRY_ADD_ONS,
     VARIANT_LIMITS,
-    BillingFrequency,
     CompanyVariantInfo,
     EffectiveLimitsInfo,
-    IndustryAddOnStatus,
     VariantType,
 )
 from app.clients.paddle_client import PaddleClient, PaddleError
@@ -93,8 +89,10 @@ class VariantAddonService:
         normalized = variant_id.lower().strip()
         if normalized not in INDUSTRY_ADD_ONS:
             raise VariantAddonError(
-                f"Invalid variant_id '{variant_id}'. "
-                f"Must be one of: {', '.join(sorted(INDUSTRY_ADD_ONS.keys()))}",
+                f"Invalid variant_id '{variant_id}'. " f"Must be one of: {
+                    ', '.join(
+                        sorted(
+                            INDUSTRY_ADD_ONS.keys()))}",
                 code="INVALID_VARIANT",
             )
         return INDUSTRY_ADD_ONS[normalized]
@@ -171,8 +169,10 @@ class VariantAddonService:
 
             # Calculate proration
             now = datetime.now(timezone.utc)
-            days_remaining = max(0, (subscription.current_period_end - now).days) \
-                if subscription.current_period_end else period_days
+            days_remaining = max(
+                0,
+                (subscription.current_period_end -
+                 now).days) if subscription.current_period_end else period_days
             proration_amount = self._calculate_proration_amount(
                 price, days_remaining, period_days
             )
@@ -201,7 +201,7 @@ class VariantAddonService:
                     subscription.paddle_subscription_id,
                     items=[{
                         "price_id": f"addon_{variant_id}_"
-                                    f"{subscription.billing_frequency}",
+                        f"{subscription.billing_frequency}",
                         "quantity": 1,
                     }],
                 )
@@ -210,7 +210,9 @@ class VariantAddonService:
             except PaddleError as e:
                 logger.warning(
                     "variant_addon_paddle_failed company_id=%s variant=%s error=%s",
-                    company_id, variant_id, str(e),
+                    company_id,
+                    variant_id,
+                    str(e),
                 )
                 # Don't fail the whole operation — log and continue
 
@@ -456,34 +458,31 @@ class VariantAddonService:
                                 )
                         except PaddleError as e:
                             logger.warning(
-                                "variant_archive_paddle_error variant_id=%s error=%s",
-                                variant.id, str(e),
-                            )
+                                "variant_archive_paddle_error variant_id=%s error=%s", variant.id, str(e), )
                             errors.append(
-                                f"Paddle removal failed for {variant.variant_id}: {e}"
-                            )
+                                f"Paddle removal failed for {
+                                    variant.variant_id}: {e}")
 
                     # V8: Archive variant-specific KB documents (tag-based)
                     try:
                         from database.models.onboarding import KnowledgeDocument
                         kb_docs = (
-                            db.query(KnowledgeDocument)
-                            .filter(
+                            db.query(KnowledgeDocument) .filter(
                                 KnowledgeDocument.company_id == variant.company_id,
                                 KnowledgeDocument.is_archived == False,
-                            )
-                            .all()
-                        )
+                            ) .all())
                         for doc in kb_docs:
                             # V8 Fix: Only archive variant-specific docs
-                            # Check if doc has variant tag or metadata matching this variant
+                            # Check if doc has variant tag or metadata matching
+                            # this variant
                             doc_tags = getattr(doc, "tags", None) or []
                             doc_metadata = getattr(doc, "metadata_json", None)
                             is_variant_doc = False
 
                             # Check tags for variant reference
                             if isinstance(doc_tags, list):
-                                tag_str = " ".join(str(t) for t in doc_tags).lower()
+                                tag_str = " ".join(str(t)
+                                                   for t in doc_tags).lower()
                                 if variant.variant_id in tag_str or "addon" in tag_str:
                                     is_variant_doc = True
 
@@ -492,7 +491,8 @@ class VariantAddonService:
                                 if variant.variant_id in doc_metadata.lower():
                                     is_variant_doc = True
                             elif doc_metadata and isinstance(doc_metadata, dict):
-                                if doc_metadata.get("variant_id") == variant.variant_id:
+                                if doc_metadata.get(
+                                        "variant_id") == variant.variant_id:
                                     is_variant_doc = True
 
                             if is_variant_doc:
@@ -526,14 +526,14 @@ class VariantAddonService:
                                         "tickets_removed": variant.tickets_added,
                                         "kb_docs_removed": variant.kb_docs_added,
                                     },
-                                )
-                            )
+                                ))
                         finally:
                             loop.close()
                     except Exception as notify_err:
                         logger.warning(
                             "variant_archive_notification_failed variant_id=%s error=%s",
-                            variant.id, str(notify_err),
+                            variant.id,
+                            str(notify_err),
                         )
 
                 except Exception as e:
@@ -622,7 +622,7 @@ class VariantAddonService:
                         subscription.paddle_subscription_id,
                         items=[{
                             "price_id": f"addon_{variant_id}_"
-                                        f"{subscription.billing_frequency}",
+                            f"{subscription.billing_frequency}",
                             "quantity": 1,
                         }],
                     )
@@ -631,7 +631,9 @@ class VariantAddonService:
             except PaddleError as e:
                 logger.warning(
                     "variant_restore_paddle_error company_id=%s variant=%s error=%s",
-                    company_id, variant_id, str(e),
+                    company_id,
+                    variant_id,
+                    str(e),
                 )
 
             # Un-archive KB documents
@@ -641,7 +643,7 @@ class VariantAddonService:
                     db.query(KnowledgeDocument)
                     .filter(
                         KnowledgeDocument.company_id == str(company_id),
-                        KnowledgeDocument.is_archived == True,
+                        KnowledgeDocument.is_archived,
                     )
                     .all()
                 )
@@ -650,7 +652,9 @@ class VariantAddonService:
             except Exception as e:
                 logger.warning(
                     "variant_restore_kb_error company_id=%s variant=%s error=%s",
-                    company_id, variant_id, str(e),
+                    company_id,
+                    variant_id,
+                    str(e),
                 )
 
             db.commit()

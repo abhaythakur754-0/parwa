@@ -12,21 +12,18 @@ Building Codes: BC-001 (multi-tenant), BC-007 (AI model),
 
 from __future__ import annotations
 
-import math
 import statistics
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, desc, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.logger import get_logger
 from database.models.tickets import (
     Ticket,
     TicketFeedback,
-    TicketMessage,
-    TicketStatus,
     TicketAssignment,
     SLATimer,
 )
@@ -91,8 +88,17 @@ def get_growth_nudges(
             nudges.append(sla_nudge)
 
         # Sort by severity
-        severity_order = {"urgent": 0, "recommendation": 1, "suggestion": 2, "info": 3}
-        nudges.sort(key=lambda n: severity_order.get(n.get("severity", "info"), 4))
+        severity_order = {
+            "urgent": 0,
+            "recommendation": 1,
+            "suggestion": 2,
+            "info": 3}
+        nudges.sort(
+            key=lambda n: severity_order.get(
+                n.get(
+                    "severity",
+                    "info"),
+                4))
 
         return {
             "nudges": nudges,
@@ -388,7 +394,8 @@ def get_ticket_forecast(
 
         # Calculate forecast
         forecast_values = _moving_average_forecast(daily_counts, forecast_days)
-        linear_forecast = _linear_regression_forecast(daily_counts, forecast_days)
+        linear_forecast = _linear_regression_forecast(
+            daily_counts, forecast_days)
 
         # Use linear regression as primary, MA as secondary
         primary_forecast = linear_forecast
@@ -427,8 +434,10 @@ def get_ticket_forecast(
 
         # Trend direction
         if len(primary_forecast) > 1:
-            first_half = statistics.mean(primary_forecast[:len(primary_forecast) // 2])
-            second_half = statistics.mean(primary_forecast[len(primary_forecast) // 2:])
+            first_half = statistics.mean(
+                primary_forecast[:len(primary_forecast) // 2])
+            second_half = statistics.mean(
+                primary_forecast[len(primary_forecast) // 2:])
             if second_half > first_half * 1.05:
                 trend_direction = "increasing"
             elif second_half < first_half * 0.95:
@@ -438,7 +447,8 @@ def get_ticket_forecast(
         else:
             trend_direction = "stable"
 
-        avg_daily = statistics.mean([c for _, c in daily_counts]) if daily_counts else 0
+        avg_daily = statistics.mean(
+            [c for _, c in daily_counts]) if daily_counts else 0
 
         return {
             "historical": historical,
@@ -771,7 +781,8 @@ def _get_csat_by_agent(
         users = {}
         if agent_ids:
             user_list = db.query(User).filter(User.id.in_(agent_ids)).all()
-            users = {str(u.id): getattr(u, "name", None) or u.email for u in user_list}
+            users = {str(u.id): getattr(u, "name", None)
+                     or u.email for u in user_list}
 
         return [
             {
@@ -806,14 +817,11 @@ def _get_csat_by_category(
             func.avg(TicketFeedback.rating).desc(),
         ).limit(10).all()
 
-        return [
-            {
-                "dimension_name": r.category,
-                "avg_rating": round(float(r.avg_rating), 2) if r.avg_rating else 0,
-                "total_ratings": r.total_ratings,
-            }
-            for r in results
-        ]
+        return [{"dimension_name": r.category,
+                 "avg_rating": round(float(r.avg_rating),
+                                     2) if r.avg_rating else 0,
+                 "total_ratings": r.total_ratings,
+                 } for r in results]
 
     except Exception:
         return []
@@ -842,14 +850,11 @@ def _get_csat_by_channel(
             func.avg(TicketFeedback.rating).desc(),
         ).limit(10).all()
 
-        return [
-            {
-                "dimension_name": r.channel,
-                "avg_rating": round(float(r.avg_rating), 2) if r.avg_rating else 0,
-                "total_ratings": r.total_ratings,
-            }
-            for r in results
-        ]
+        return [{"dimension_name": r.channel,
+                 "avg_rating": round(float(r.avg_rating),
+                                     2) if r.avg_rating else 0,
+                 "total_ratings": r.total_ratings,
+                 } for r in results]
 
     except Exception:
         return []

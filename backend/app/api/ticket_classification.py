@@ -12,10 +12,9 @@ BC-001: All endpoints are tenant-isolated.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -25,7 +24,7 @@ from app.services.classification_service import (
     IntentCategory,
     UrgencyLevel,
 )
-from app.exceptions import NotFoundError, ValidationError
+from app.exceptions import NotFoundError
 
 
 router = APIRouter(
@@ -70,8 +69,10 @@ class TextClassificationResult(BaseModel):
 
 class CorrectionRequest(BaseModel):
     """Correction request."""
-    corrected_intent: str = Field(..., description="Correct intent classification")
-    corrected_urgency: Optional[str] = Field(None, description="Correct urgency level")
+    corrected_intent: str = Field(...,
+                                  description="Correct intent classification")
+    corrected_urgency: Optional[str] = Field(
+        None, description="Correct urgency level")
     reason: Optional[str] = Field(None, description="Reason for correction")
 
 

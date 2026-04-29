@@ -4,7 +4,6 @@ Bounce & Complaint Schemas — Week 13 Day 3 (F-124)
 Pydantic models for bounce/complaint API endpoints and service responses.
 """
 
-from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field

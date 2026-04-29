@@ -23,12 +23,18 @@ source module path so that no real service dependencies are needed.
 """
 
 from __future__ import annotations
+from app.core.response_generator import (
+    RATE_LIMIT_DAILY_MAX,
+    RATE_LIMIT_HOURLY_MAX,
+    ResponseGenerationRequest,
+    ResponseGenerationResult,
+    ResponseGenerator,
+)
 
-import asyncio
 import time
 from dataclasses import dataclass
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -41,16 +47,9 @@ os.environ.setdefault("SECRET_KEY", "test_secret")
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET_KEY", "test_jwt")
-os.environ.setdefault("DATA_ENCRYPTION_KEY", "12345678901234567890123456789012")
-
-from app.core.response_generator import (
-    RATE_LIMIT_DAILY_MAX,
-    RATE_LIMIT_HOURLY_MAX,
-    RateLimitCheck,
-    ResponseGenerationRequest,
-    ResponseGenerationResult,
-    ResponseGenerator,
-)
+os.environ.setdefault(
+    "DATA_ENCRYPTION_KEY",
+    "12345678901234567890123456789012")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -105,7 +104,7 @@ def _make_sentiment_result(
 
 
 def _make_rag_result(
-    chunks: Optional[List[ MagicMock]] = None,
+    chunks: Optional[List[MagicMock]] = None,
     total_found: int = 5,
 ) -> MagicMock:
     """Create a mock RAG result."""
@@ -237,8 +236,12 @@ def gen(mock_redis):
         _budget.finalize_tokens = AsyncMock()
         _budget.get_budget_status = AsyncMock(
             return_value=MagicMock(
-                max_tokens=10000, used_tokens=500, reserved_tokens=1000,
-                available_tokens=8500, percentage_used=5.0, warning_level="normal",
+                max_tokens=10000,
+                used_tokens=500,
+                reserved_tokens=1000,
+                available_tokens=8500,
+                percentage_used=5.0,
+                warning_level="normal",
             ),
         )
         generator.token_budget = _budget
@@ -269,28 +272,28 @@ class TestResponseGeneratorInit:
     def test_init_with_no_redis(self):
         """Generator initializes with None redis_client."""
         with patch("app.core.sentiment_engine.SentimentAnalyzer"), \
-             patch("app.core.rag_retrieval.RAGRetriever"), \
-             patch("app.core.rag_reranking.CrossEncoderReranker"), \
-             patch("app.core.rag_reranking.ContextWindowAssembler"), \
-             patch("app.core.clara_quality_gate.CLARAQualityGate"), \
-             patch("app.core.smart_router.SmartRouter"), \
-             patch("app.services.brand_voice_service.BrandVoiceService"), \
-             patch("app.services.token_budget_service.TokenBudgetService"), \
-             patch("app.services.response_template_service.ResponseTemplateService"):
+                patch("app.core.rag_retrieval.RAGRetriever"), \
+                patch("app.core.rag_reranking.CrossEncoderReranker"), \
+                patch("app.core.rag_reranking.ContextWindowAssembler"), \
+                patch("app.core.clara_quality_gate.CLARAQualityGate"), \
+                patch("app.core.smart_router.SmartRouter"), \
+                patch("app.services.brand_voice_service.BrandVoiceService"), \
+                patch("app.services.token_budget_service.TokenBudgetService"), \
+                patch("app.services.response_template_service.ResponseTemplateService"):
             g = ResponseGenerator()
             assert g.redis_client is None
 
     def test_init_with_redis(self, mock_redis):
         """Generator stores the provided redis_client."""
         with patch("app.core.sentiment_engine.SentimentAnalyzer"), \
-             patch("app.core.rag_retrieval.RAGRetriever"), \
-             patch("app.core.rag_reranking.CrossEncoderReranker"), \
-             patch("app.core.rag_reranking.ContextWindowAssembler"), \
-             patch("app.core.clara_quality_gate.CLARAQualityGate"), \
-             patch("app.core.smart_router.SmartRouter"), \
-             patch("app.services.brand_voice_service.BrandVoiceService"), \
-             patch("app.services.token_budget_service.TokenBudgetService"), \
-             patch("app.services.response_template_service.ResponseTemplateService"):
+                patch("app.core.rag_retrieval.RAGRetriever"), \
+                patch("app.core.rag_reranking.CrossEncoderReranker"), \
+                patch("app.core.rag_reranking.ContextWindowAssembler"), \
+                patch("app.core.clara_quality_gate.CLARAQualityGate"), \
+                patch("app.core.smart_router.SmartRouter"), \
+                patch("app.services.brand_voice_service.BrandVoiceService"), \
+                patch("app.services.token_budget_service.TokenBudgetService"), \
+                patch("app.services.response_template_service.ResponseTemplateService"):
             g = ResponseGenerator(redis_client=mock_redis)
             assert g.redis_client is mock_redis
 
@@ -411,7 +414,8 @@ class TestDraftInProgress:
         mock_redis.get.return_value = "agent-123"
         req = _make_request(ticket_id="tkt-001")
         result = await gen.generate(req)
-        assert any("draft_in_progress" in issue for issue in result.quality_issues)
+        assert any(
+            "draft_in_progress" in issue for issue in result.quality_issues)
 
     @pytest.mark.asyncio
     async def test_no_draft_allows_generation(self, gen, mock_redis):
@@ -583,7 +587,8 @@ class TestRateLimiting:
             return call_count
 
         mock_redis.incr.side_effect = _incr_side_effect
-        # First call returns 1 → hourly expire; second returns 2 → no daily expire
+        # First call returns 1 → hourly expire; second returns 2 → no daily
+        # expire
         await gen._check_rate_limit("co-1", "cust-1")
         assert mock_redis.expire.call_count == 1
 
@@ -619,8 +624,7 @@ class TestRateLimiting:
             return_value=mock_template
         )
         gen.template_service.render_template = AsyncMock(
-            return_value="We've received your message. An agent will respond shortly."
-        )
+            return_value="We've received your message. An agent will respond shortly.")
         with patch("app.core.response_formatters.create_default_registry"):
             req = _make_request(customer_id="cust-1")
             result = await gen.generate(req)
@@ -992,8 +996,8 @@ class TestTokenBudget:
         gen.rag_retriever.retrieve = AsyncMock(return_value=None)
         gen.token_budget.initialize_budget = AsyncMock()
         gen.token_budget.check_overflow = AsyncMock(
-            return_value=_MockOverflowResult(can_fit=False, overflow_amount=500)
-        )
+            return_value=_MockOverflowResult(
+                can_fit=False, overflow_amount=500))
         gen.token_budget.reserve_tokens = AsyncMock(
             return_value=_MockReserveResult(success=True)
         )
@@ -1023,8 +1027,8 @@ class TestTokenBudget:
             return_value=_MockOverflowResult()
         )
         gen.token_budget.reserve_tokens = AsyncMock(
-            return_value=_MockReserveResult(success=False, remaining_after_reserve=0)
-        )
+            return_value=_MockReserveResult(
+                success=False, remaining_after_reserve=0))
         mock_template = MagicMock()
         mock_template.id = "tpl-reserve"
         gen.template_service.find_best_template = AsyncMock(
@@ -1118,8 +1122,8 @@ class TestCLARAQualityGate:
             return_value={"content": "CLARA approved response"}
         )
         gen.clara_gate.evaluate = AsyncMock(
-            return_value=_make_clara_result(overall_pass=True, overall_score=0.9)
-        )
+            return_value=_make_clara_result(
+                overall_pass=True, overall_score=0.9))
         gen.brand_voice.validate_response = AsyncMock(
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
@@ -1860,7 +1864,9 @@ class TestUtilityMethods:
         )
         with patch("app.core.response_formatters.create_default_registry"):
             with patch("app.core.smart_router.AtomicStepType", MagicMock()):
-                reqs = [_make_request(conversation_id=f"conv-{i}") for i in range(3)]
+                reqs = [
+                    _make_request(
+                        conversation_id=f"conv-{i}") for i in range(3)]
                 results = await gen.generate_batch(reqs)
                 assert len(results) == 3
 
@@ -1903,7 +1909,8 @@ class TestUtilityMethods:
         assert status["daily_remaining"] == RATE_LIMIT_DAILY_MAX
 
     @pytest.mark.asyncio
-    async def test_get_customer_rate_limit_status_with_counts(self, gen, mock_redis):
+    async def test_get_customer_rate_limit_status_with_counts(
+            self, gen, mock_redis):
         """Rate limit status reflects actual Redis counts."""
         mock_redis.get.side_effect = ["5", "30"]
         status = await gen.get_customer_rate_limit_status("co-1", "cust-1")
@@ -1934,7 +1941,8 @@ class TestUtilityMethods:
         mock_status.available_tokens = 8500
         mock_status.percentage_used = 5.0
         mock_status.warning_level = "normal"
-        gen.token_budget.get_budget_status = AsyncMock(return_value=mock_status)
+        gen.token_budget.get_budget_status = AsyncMock(
+            return_value=mock_status)
         status = await gen.get_generation_status("conv-1", "co-1")
         assert status["max_tokens"] == 10000
         assert status["warning_level"] == "normal"
@@ -1991,7 +1999,11 @@ class TestFullPipeline:
         )
         assembled = MagicMock()
         assembled.context_string = "Assembled KB context."
-        assembled.citations = [MagicMock(to_dict=MagicMock(return_value={"source": "kb"}))]
+        assembled.citations = [
+            MagicMock(
+                to_dict=MagicMock(
+                    return_value={
+                        "source": "kb"}))]
         gen.assembler.assemble.return_value = assembled
         gen.token_budget.initialize_budget = AsyncMock()
         gen.token_budget.check_overflow = AsyncMock(
@@ -2011,8 +2023,7 @@ class TestFullPipeline:
                 "model": "gpt-4",
                 "provider": "openai",
                 "tier": "medium",
-            }
-        )
+            })
         gen.clara_gate.evaluate = AsyncMock(
             return_value=_make_clara_result(
                 overall_pass=True, overall_score=0.92

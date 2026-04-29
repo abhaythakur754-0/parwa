@@ -102,7 +102,9 @@ class ChannelDispatcher:
                 "dispatch_ticket_not_found",
                 extra={"company_id": company_id, "ticket_id": ticket_id},
             )
-            return {"status": "error", "error": f"Ticket {ticket_id} not found"}
+            return {
+                "status": "error",
+                "error": f"Ticket {ticket_id} not found"}
 
         channel = ticket.channel or "email"
 
@@ -299,7 +301,11 @@ class ChannelDispatcher:
                     "error": str(exc)[:200],
                 },
             )
-            return {"status": "error", "channel": "chat", "error": str(exc)[:200]}
+            return {
+                "status": "error",
+                "channel": "chat",
+                "error": str(exc)[
+                    :200]}
 
     def _dispatch_sms(
         self,

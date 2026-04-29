@@ -5,9 +5,9 @@ data class validation, and BC-012 graceful failure.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
 
 # ── Fixtures ────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def detector():
@@ -15,6 +15,7 @@ def detector():
     return HallucinationDetector()
 
 # ── HallucinationMatch Tests ───────────────────────────────────
+
 
 class TestHallucinationMatch:
     def test_valid_match_creation(self):
@@ -56,18 +57,27 @@ class TestHallucinationMatch:
 class TestHallucinationReport:
     def test_safe_report(self):
         from app.core.hallucination_detector import HallucinationReport
-        r = HallucinationReport(is_hallucination=False, overall_confidence=0.0, recommendation="safe")
+        r = HallucinationReport(
+            is_hallucination=False,
+            overall_confidence=0.0,
+            recommendation="safe")
         assert r.recommendation == "safe"
         assert r.is_hallucination is False
 
     def test_block_report(self):
         from app.core.hallucination_detector import HallucinationReport
-        r = HallucinationReport(is_hallucination=True, overall_confidence=0.90, recommendation="block")
+        r = HallucinationReport(
+            is_hallucination=True,
+            overall_confidence=0.90,
+            recommendation="block")
         assert r.recommendation == "block"
 
     def test_invalid_recommendation_defaults_review(self):
         from app.core.hallucination_detector import HallucinationReport
-        r = HallucinationReport(is_hallucination=True, overall_confidence=0.6, recommendation="invalid")
+        r = HallucinationReport(
+            is_hallucination=True,
+            overall_confidence=0.6,
+            recommendation="invalid")
         assert r.recommendation == "review"
 
     def test_confidence_clamped(self):
@@ -102,7 +112,10 @@ class TestDetectorFullDetect:
         assert report.summary["total_patterns"] == 12
 
     def test_summary_includes_patterns_run(self, detector):
-        report = detector.detect("Some response text here", "query", company_id="co1")
+        report = detector.detect(
+            "Some response text here",
+            "query",
+            company_id="co1")
         assert "patterns_run" in report.summary
 
     def test_company_id_recorded(self, detector):
@@ -147,17 +160,20 @@ class TestPatternFabricatedURLs:
         assert result is None
 
     def test_legitimate_url_returns_none(self, detector):
-        result = detector._detect_fabricated_urls("Visit https://www.google.com for more info")
+        result = detector._detect_fabricated_urls(
+            "Visit https://www.google.com for more info")
         assert result is None
 
     def test_placeholder_url_detected(self, detector):
-        result = detector._detect_fabricated_urls("Check https://example.com/docs for details")
+        result = detector._detect_fabricated_urls(
+            "Check https://example.com/docs for details")
         assert result is not None
         assert result.pattern_id == "P02_fabricated_urls"
         assert result.confidence >= 0.85
 
     def test_internal_path_detected(self, detector):
-        result = detector._detect_fabricated_urls("See https://parwa.ai/admin/settings for admin panel")
+        result = detector._detect_fabricated_urls(
+            "See https://parwa.ai/admin/settings for admin panel")
         assert result is not None
         assert result.pattern_id == "P02_fabricated_urls"
 
@@ -173,11 +189,13 @@ class TestPatternFabricatedURLs:
 
 class TestPatternOverconfidentClaims:
     def test_no_overconfident_returns_none(self, detector):
-        result = detector._detect_overconfident_claims("The answer might be yes", 0.7)
+        result = detector._detect_overconfident_claims(
+            "The answer might be yes", 0.7)
         assert result is None
 
     def test_overconfident_without_speculative_returns_none(self, detector):
-        result = detector._detect_overconfident_claims("This is definitely correct", 0.7)
+        result = detector._detect_overconfident_claims(
+            "This is definitely correct", 0.7)
         assert result is None
 
     def test_proximity_detected(self, detector):
@@ -209,15 +227,15 @@ class TestPatternPlausibleNonsense:
             "Our cutting-edge AI-powered platform leverages seamless machine learning "
             "to optimize scalable cloud-native predictive analytics and drive "
             "transformative data-driven innovation across the enterprise-grade "
-            "frictionless next-generation neural network ecosystem."
-        )
+            "frictionless next-generation neural network ecosystem.")
         result = detector._detect_plausible_nonsense(buzz_text)
         assert result is not None
         assert result.pattern_id == "P04_plausible_nonsense"
         assert result.severity == "low"
 
     def test_short_sentence_returns_none(self, detector):
-        result = detector._detect_plausible_nonsense("This is leverage optimize.")
+        result = detector._detect_plausible_nonsense(
+            "This is leverage optimize.")
         assert result is None
 
     def test_sentence_with_numbers_not_flagged(self, detector):
@@ -233,7 +251,8 @@ class TestPatternPlausibleNonsense:
 
 class TestPatternDateMathErrors:
     def test_valid_dates_returns_none(self, detector):
-        result = detector._detect_date_math_errors("The event was on 03/15/2024 and 01/20/2023.")
+        result = detector._detect_date_math_errors(
+            "The event was on 03/15/2024 and 01/20/2023.")
         assert result is None
 
     def test_invalid_month(self, detector):
@@ -258,16 +277,19 @@ class TestPatternDateMathErrors:
         assert "Invalid" in result.evidence or "Feb 29" in result.evidence or "02/29" in result.evidence
 
     def test_text_month_invalid_day(self, detector):
-        result = detector._detect_date_math_errors("The event was February 30, 2024.")
+        result = detector._detect_date_math_errors(
+            "The event was February 30, 2024.")
         assert result is not None
 
     def test_arithmetic_error(self, detector):
-        result = detector._detect_date_math_errors("3 years from 2020 equals 2025.")
+        result = detector._detect_date_math_errors(
+            "3 years from 2020 equals 2025.")
         assert result is not None
         assert "Arithmetic error" in result.evidence
 
     def test_arithmetic_correct_no_error(self, detector):
-        result = detector._detect_date_math_errors("3 years from 2020 equals 2023.")
+        result = detector._detect_date_math_errors(
+            "3 years from 2020 equals 2023.")
         assert result is None
 
 
@@ -275,21 +297,25 @@ class TestPatternDateMathErrors:
 
 class TestPatternEntityConfusion:
     def test_correct_plan_price_returns_none(self, detector):
-        result = detector._detect_entity_confusion("The PARWA plan costs $2,499 per month.")
+        result = detector._detect_entity_confusion(
+            "The PARWA plan costs $2,499 per month.")
         assert result is None
 
     def test_wrong_plan_price_detected(self, detector):
-        result = detector._detect_entity_confusion("The PARWA plan costs $999 per month.")
+        result = detector._detect_entity_confusion(
+            "The PARWA plan costs $999 per month.")
         assert result is not None
         assert result.pattern_id == "P06_entity_confusion"
         # $999 is Mini PARWA, not PARWA
 
     def test_mini_parwa_wrong_price(self, detector):
-        result = detector._detect_entity_confusion("Mini PARWA is $3,999 per month.")
+        result = detector._detect_entity_confusion(
+            "Mini PARWA is $3,999 per month.")
         assert result is not None
 
     def test_no_plan_mentioned_returns_none(self, detector):
-        result = detector._detect_entity_confusion("Our pricing starts at $50 per month.")
+        result = detector._detect_entity_confusion(
+            "Our pricing starts at $50 per month.")
         assert result is None
 
     def test_entity_confusion_severity(self, detector):
@@ -305,7 +331,8 @@ class TestPatternEntityConfusion:
 
 class TestPatternPolicyFabrication:
     def test_no_policy_language_returns_none(self, detector):
-        result = detector._detect_policy_fabrication("Here is your account info.")
+        result = detector._detect_policy_fabrication(
+            "Here is your account info.")
         assert result is None
 
     def test_policy_with_specific_claims(self, detector):
@@ -336,7 +363,8 @@ class TestPatternPolicyFabrication:
 
 class TestPatternFalseFeatureClaims:
     def test_no_feature_claims_returns_none(self, detector):
-        result = detector._detect_false_feature_claims("This is a helpful response.")
+        result = detector._detect_false_feature_claims(
+            "This is a helpful response.")
         assert result is None
 
     def test_known_feature_claim_returns_none(self, detector):
@@ -351,7 +379,8 @@ class TestPatternFalseFeatureClaims:
         )
         assert result is not None
         assert result.pattern_id == "P08_false_feature_claims"
-        assert "quantum teleportation" in result.evidence.lower() or "not in registry" in result.evidence.lower()
+        assert "quantum teleportation" in result.evidence.lower(
+        ) or "not in registry" in result.evidence.lower()
 
 
 # ── Pattern 9: Circular Reasoning ─────────────────────────────
@@ -366,8 +395,7 @@ class TestPatternCircularReasoning:
     def test_circular_detected(self, detector):
         result = detector._detect_circular_reasoning(
             "As mentioned, this system is reliable. This is because it is reliable, "
-            "as stated above. Therefore, because it is reliable, you can trust it."
-        )
+            "as stated above. Therefore, because it is reliable, you can trust it.")
         # Should detect circular reasoning patterns
         # (may or may not detect depending on overlap logic)
         # At minimum should not crash
@@ -429,7 +457,8 @@ class TestPatternNumericalPrecision:
 
 class TestPatternTemporalInconsistency:
     def test_no_history_returns_none(self, detector):
-        result = detector._detect_temporal_inconsistency("The sky is blue.", [])
+        result = detector._detect_temporal_inconsistency(
+            "The sky is blue.", [])
         assert result is None
 
     def test_contradicts_previous_turn(self, detector):
@@ -446,7 +475,6 @@ class TestPatternTemporalInconsistency:
 
 class TestReportBuilding:
     def test_no_matches_safe(self, detector):
-        from app.core.hallucination_detector import HallucinationMatch
         report = detector._build_report([], "query", "response")
         assert report.is_hallucination is False
         assert report.overall_confidence == 0.0
@@ -539,9 +567,11 @@ class TestGracefulFailure:
         """BC-012: If a pattern raises, detect() should still return a report."""
         # Patch one pattern method to raise
         original = detector._detect_date_math_errors
-        detector._detect_date_math_errors = lambda: (_ for _ in ()).throw(Exception("test error"))
+        detector._detect_date_math_errors = lambda: (
+            _ for _ in ()).throw(Exception("test error"))
         try:
-            report = detector.detect("Feb 30, 2023 is a date", "query", company_id="co1")
+            report = detector.detect(
+                "Feb 30, 2023 is a date", "query", company_id="co1")
             assert report is not None
             assert report.summary["patterns_failed"] >= 1
         finally:

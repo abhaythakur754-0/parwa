@@ -10,10 +10,9 @@ Tests cover:
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, MagicMock
 from datetime import datetime, timezone
 import io
-import json
 
 
 class TestTicketExportService:
@@ -46,11 +45,12 @@ class TestTicketExportService:
         ticket.metadata_json = None
         return ticket
 
-    # ── CSV EXPORT ────────────────────────────────────────────────────────────
+    # ── CSV EXPORT ──────────────────────────────────────────────────────────
 
     def test_csv_export_basic(self, mock_db, mock_ticket):
         """Test basic CSV export with tickets."""
-        mock_db.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [mock_ticket]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [
+            mock_ticket]
 
         # Simulate CSV generation
         output = io.StringIO()
@@ -81,7 +81,8 @@ class TestTicketExportService:
     def test_csv_export_with_filters(self, mock_db, mock_ticket):
         """Test CSV export with status filter."""
         # Set up query chain for filtering
-        mock_db.query.return_value.filter.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [mock_ticket]
+        mock_db.query.return_value.filter.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [
+            mock_ticket]
 
         # The query should be filtered by status
         # In real implementation, filters are applied from request body
@@ -103,11 +104,12 @@ class TestTicketExportService:
         lines = csv_content.strip().split('\n')
         assert len(lines) == 1  # Only header
 
-    # ── JSON EXPORT ────────────────────────────────────────────────────────────
+    # ── JSON EXPORT ─────────────────────────────────────────────────────────
 
     def test_json_export_structure(self, mock_db, mock_ticket):
         """Test JSON export has correct structure."""
-        mock_db.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [mock_ticket]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [
+            mock_ticket]
 
         # Build export data structure
         export_data = {
@@ -144,7 +146,8 @@ class TestTicketExportService:
         mock_message.is_internal = False
         mock_message.ai_confidence = None
 
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [mock_message]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [
+            mock_message]
 
         # Build message data
         messages_data = [
@@ -171,7 +174,8 @@ class TestDuplicateDetection:
         subject1 = "Unable to login to my account"
         subject2 = "Unable to login to my account"
 
-        similarity = SequenceMatcher(None, subject1.lower(), subject2.lower()).ratio()
+        similarity = SequenceMatcher(
+            None, subject1.lower(), subject2.lower()).ratio()
 
         assert similarity == 1.0  # Exact match
 
@@ -182,7 +186,8 @@ class TestDuplicateDetection:
         subject1 = "Cannot login to my account"
         subject2 = "Can't login to account"
 
-        similarity = SequenceMatcher(None, subject1.lower(), subject2.lower()).ratio()
+        similarity = SequenceMatcher(
+            None, subject1.lower(), subject2.lower()).ratio()
 
         # Should be fairly similar
         assert similarity > 0.5
@@ -194,7 +199,8 @@ class TestDuplicateDetection:
         subject1 = "Billing issue with invoice"
         subject2 = "Cannot login to account"
 
-        similarity = SequenceMatcher(None, subject1.lower(), subject2.lower()).ratio()
+        similarity = SequenceMatcher(
+            None, subject1.lower(), subject2.lower()).ratio()
 
         # Should be low similarity
         assert similarity < 0.5
@@ -336,7 +342,6 @@ class TestExportSecurity:
         # This is handled by the get_current_user dependency
 
         # The endpoint should verify user has access to the company's data
-        pass
 
     def test_export_no_sensitive_data_in_csv(self):
         """Test that sensitive fields are excluded from CSV export."""

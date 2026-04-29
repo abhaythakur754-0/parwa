@@ -37,12 +37,11 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from app.logger import get_logger
 
@@ -358,7 +357,8 @@ class DraftComposer:
             ``DraftComposerResponse`` with ranked drafts.
         """
         compose_start = time.monotonic()
-        request_id = hashlib.uuid4_hex() if hasattr(hashlib, 'uuid4_hex') else self._generate_uuid()
+        request_id = hashlib.uuid4_hex() if hasattr(
+            hashlib, 'uuid4_hex') else self._generate_uuid()
 
         # ── Validate request ──────────────────────────────────────
         if not request.query or not request.query.strip():
@@ -793,10 +793,11 @@ class DraftComposer:
             sentiment_bucket = "default"
 
         # Look up technique from map
-        intent_techniques = _TECHNIQUE_MAP.get(intent, _TECHNIQUE_MAP["general"])
+        intent_techniques = _TECHNIQUE_MAP.get(
+            intent, _TECHNIQUE_MAP["general"])
         technique = intent_techniques.get(
-            sentiment_bucket, intent_techniques.get("default", "standard_response"),
-        )
+            sentiment_bucket, intent_techniques.get(
+                "default", "standard_response"), )
 
         # mini_parwa always uses simpler techniques
         if variant_type == "mini_parwa":
@@ -939,7 +940,6 @@ class DraftComposer:
         # Route through Smart Router — Medium tier
         from app.core.smart_router import (
             AtomicStepType,
-            ModelTier,
         )
 
         routing_decision = self.smart_router.route(
@@ -1326,7 +1326,8 @@ class DraftComposer:
 
             try:
                 brand = {}
-                if draft.metadata.get("tone") or draft.metadata.get("brand_name"):
+                if draft.metadata.get(
+                        "tone") or draft.metadata.get("brand_name"):
                     brand = {
                         "brand_name": draft.metadata.get("brand_name", ""),
                     }

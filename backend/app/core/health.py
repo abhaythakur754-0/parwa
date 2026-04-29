@@ -161,7 +161,9 @@ async def check_postgresql() -> SubsystemHealth:
             pool_used = pool.checkedout()
             pool_max = pool.size()
         except Exception as _pool_exc:
-            logger.debug("health_postgresql_pool_stats_failed error=%s", _pool_exc)
+            logger.debug(
+                "health_postgresql_pool_stats_failed error=%s",
+                _pool_exc)
 
         pool_pct = (pool_used / pool_max * 100) if pool_max > 0 else 0
         status = HealthStatus.HEALTHY.value

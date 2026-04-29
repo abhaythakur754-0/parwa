@@ -152,8 +152,8 @@ class TicketCreate(BaseModel):
         """Validate priority is one of the allowed values."""
         if v not in TicketPriority.VALID_PRIORITIES:
             raise ValueError(
-                f"Invalid priority. Must be one of: {TicketPriority.VALID_PRIORITIES}"
-            )
+                f"Invalid priority. Must be one of: {
+                    TicketPriority.VALID_PRIORITIES}")
         return v
 
     @field_validator("category")
@@ -162,8 +162,8 @@ class TicketCreate(BaseModel):
         """Validate category is one of the allowed values if provided."""
         if v is not None and v not in TicketCategory.VALID_CATEGORIES:
             raise ValueError(
-                f"Invalid category. Must be one of: {TicketCategory.VALID_CATEGORIES}"
-            )
+                f"Invalid category. Must be one of: {
+                    TicketCategory.VALID_CATEGORIES}")
         return v
 
 
@@ -217,8 +217,8 @@ class TicketUpdate(BaseModel):
         """Validate priority is one of the allowed values if provided."""
         if v is not None and v not in TicketPriority.VALID_PRIORITIES:
             raise ValueError(
-                f"Invalid priority. Must be one of: {TicketPriority.VALID_PRIORITIES}"
-            )
+                f"Invalid priority. Must be one of: {
+                    TicketPriority.VALID_PRIORITIES}")
         return v
 
     @field_validator("category")
@@ -227,8 +227,8 @@ class TicketUpdate(BaseModel):
         """Validate category is one of the allowed values if provided."""
         if v is not None and v not in TicketCategory.VALID_CATEGORIES:
             raise ValueError(
-                f"Invalid category. Must be one of: {TicketCategory.VALID_CATEGORIES}"
-            )
+                f"Invalid category. Must be one of: {
+                    TicketCategory.VALID_CATEGORIES}")
         return v
 
     @field_validator("status")
@@ -237,8 +237,8 @@ class TicketUpdate(BaseModel):
         """Validate status is one of the allowed values if provided."""
         if v is not None and v not in TicketStatus.VALID_STATUSES:
             raise ValueError(
-                f"Invalid status. Must be one of: {TicketStatus.VALID_STATUSES}"
-            )
+                f"Invalid status. Must be one of: {
+                    TicketStatus.VALID_STATUSES}")
         return v
 
 
@@ -269,11 +269,15 @@ class TicketResponse(BaseModel):
     status: str = Field(description="Current ticket status")
     subject: Optional[str] = Field(default=None, description="Subject line")
     priority: str = Field(description="Priority level")
-    category: Optional[str] = Field(default=None, description="Classification category")
-    tags: List[str] = Field(default_factory=list, description="Tags for categorization")
+    category: Optional[str] = Field(
+        default=None, description="Classification category")
+    tags: List[str] = Field(
+        default_factory=list,
+        description="Tags for categorization")
 
     # Assignment fields
-    agent_id: Optional[str] = Field(default=None, description="AI agent ID if assigned")
+    agent_id: Optional[str] = Field(
+        default=None, description="AI agent ID if assigned")
     assigned_to: Optional[str] = Field(
         default=None,
         description="Human agent ID if assigned",
@@ -296,7 +300,8 @@ class TicketResponse(BaseModel):
     )
 
     # State tracking
-    reopen_count: int = Field(default=0, description="Number of times reopened")
+    reopen_count: int = Field(
+        default=0, description="Number of times reopened")
     frozen: bool = Field(default=False, description="Whether ticket is frozen")
     parent_ticket_id: Optional[str] = Field(
         default=None,
@@ -346,7 +351,8 @@ class TicketResponse(BaseModel):
     )
 
     # Timestamps
-    created_at: Optional[datetime] = Field(default=None, description="Creation timestamp")
+    created_at: Optional[datetime] = Field(
+        default=None, description="Creation timestamp")
     updated_at: Optional[datetime] = Field(
         default=None,
         description="Last update timestamp",
@@ -358,8 +364,10 @@ class TicketResponse(BaseModel):
 
     # Computed properties
     is_open: bool = Field(default=False, description="Whether ticket is open")
-    is_resolved: bool = Field(default=False, description="Whether ticket is resolved")
-    is_closed: bool = Field(default=False, description="Whether ticket is closed")
+    is_resolved: bool = Field(default=False,
+                              description="Whether ticket is resolved")
+    is_closed: bool = Field(default=False,
+                            description="Whether ticket is closed")
     time_since_created: Optional[str] = Field(
         default=None,
         description="Human-readable time since creation",
@@ -381,10 +389,12 @@ class TicketResponse(BaseModel):
         now = datetime.now(timezone.utc)
 
         if self.created_at:
-            self.time_since_created = self._format_timedelta(now - self.created_at)
+            self.time_since_created = self._format_timedelta(
+                now - self.created_at)
 
         if self.updated_at:
-            self.time_since_updated = self._format_timedelta(now - self.updated_at)
+            self.time_since_updated = self._format_timedelta(
+                now - self.updated_at)
 
         return self
 
@@ -430,8 +440,13 @@ class TicketListResponse(BaseModel):
         default_factory=list,
         description="List of ticket responses",
     )
-    total: int = Field(default=0, description="Total number of matching records")
-    page: int = Field(default=1, ge=1, description="Current page number (1-based)")
+    total: int = Field(
+        default=0,
+        description="Total number of matching records")
+    page: int = Field(
+        default=1,
+        ge=1,
+        description="Current page number (1-based)")
     page_size: int = Field(
         default=20,
         ge=1,
@@ -542,7 +557,8 @@ class TicketFilter(BaseModel):
     def validate_priority(cls, v: Optional[List[str]]) -> Optional[List[str]]:
         """Validate all priorities are valid."""
         if v is not None:
-            invalid = [p for p in v if p not in TicketPriority.VALID_PRIORITIES]
+            invalid = [
+                p for p in v if p not in TicketPriority.VALID_PRIORITIES]
             if invalid:
                 raise ValueError(
                     f"Invalid priority values: {invalid}. "
@@ -555,7 +571,8 @@ class TicketFilter(BaseModel):
     def validate_category(cls, v: Optional[List[str]]) -> Optional[List[str]]:
         """Validate all categories are valid."""
         if v is not None:
-            invalid = [c for c in v if c not in TicketCategory.VALID_CATEGORIES]
+            invalid = [
+                c for c in v if c not in TicketCategory.VALID_CATEGORIES]
             if invalid:
                 raise ValueError(
                     f"Invalid category values: {invalid}. "
@@ -599,8 +616,8 @@ class TicketStatusUpdate(BaseModel):
         """Validate status is one of the allowed values."""
         if v not in TicketStatus.VALID_STATUSES:
             raise ValueError(
-                f"Invalid status. Must be one of: {TicketStatus.VALID_STATUSES}"
-            )
+                f"Invalid status. Must be one of: {
+                    TicketStatus.VALID_STATUSES}")
         return v
 
 
@@ -637,8 +654,8 @@ class TicketAssign(BaseModel):
         """Validate assignee type is one of the allowed values."""
         if v not in AssigneeType.VALID_TYPES:
             raise ValueError(
-                f"Invalid assignee_type. Must be one of: {AssigneeType.VALID_TYPES}"
-            )
+                f"Invalid assignee_type. Must be one of: {
+                    AssigneeType.VALID_TYPES}")
         return v
 
 
@@ -676,8 +693,8 @@ class TicketBulkStatusUpdate(BaseModel):
         """Validate status is one of the allowed values."""
         if v not in TicketStatus.VALID_STATUSES:
             raise ValueError(
-                f"Invalid status. Must be one of: {TicketStatus.VALID_STATUSES}"
-            )
+                f"Invalid status. Must be one of: {
+                    TicketStatus.VALID_STATUSES}")
         return v
 
     @field_validator("ticket_ids")
@@ -735,8 +752,8 @@ class TicketBulkAssign(BaseModel):
         """Validate assignee type is one of the allowed values."""
         if v not in AssigneeType.VALID_TYPES:
             raise ValueError(
-                f"Invalid assignee_type. Must be one of: {AssigneeType.VALID_TYPES}"
-            )
+                f"Invalid assignee_type. Must be one of: {
+                    AssigneeType.VALID_TYPES}")
         return v
 
     @field_validator("ticket_ids")
@@ -793,7 +810,8 @@ class TicketBulkOperationResponse(BaseModel):
 
     success_count: int = Field(description="Number of successful operations")
     failure_count: int = Field(description="Number of failed operations")
-    total_requested: int = Field(description="Total number of tickets requested")
+    total_requested: int = Field(
+        description="Total number of tickets requested")
     successful_ids: List[str] = Field(
         default_factory=list,
         description="List of successfully processed ticket IDs",
@@ -809,7 +827,7 @@ class TicketBulkOperationResponse(BaseModel):
     message: str = Field(default="Bulk operation completed")
 
 
-# ── Shadow Mode Schemas (Day 3) ───────────────────────────────────────────────
+# ── Shadow Mode Schemas (Day 3) ─────────────────────────────────────────
 
 
 class ShadowStatus:

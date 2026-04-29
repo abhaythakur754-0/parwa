@@ -24,11 +24,10 @@ Parent: Week 9, Day 8 (Friday)
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -38,8 +37,10 @@ logger = logging.getLogger(__name__)
 
 class _CompatLogger:
     """Wrapper to support structlog-style kwargs on stdlib logging."""
+
     def __init__(self, base_logger):
         self._logger = base_logger
+
     def _call(self, _method, msg, *args, **kwargs):
         extra = kwargs.pop('extra', None)
         exc_info = kwargs.pop('exc_info', False)
@@ -47,11 +48,20 @@ class _CompatLogger:
         if kwargs:
             parts = [f"{k}={v}" for k, v in kwargs.items()]
             msg = msg + ' ' + ' '.join(parts)
-        getattr(self._logger, _method)(msg, *args, extra=extra, exc_info=exc_info, stack_info=stack_info)
+        getattr(
+            self._logger,
+            _method)(
+            msg,
+            *args,
+            extra=extra,
+            exc_info=exc_info,
+            stack_info=stack_info)
+
     def info(self, msg, *a, **kw): self._call('info', msg, *a, **kw)
     def warning(self, msg, *a, **kw): self._call('warning', msg, *a, **kw)
     def error(self, msg, *a, **kw): self._call('error', msg, *a, **kw)
     def debug(self, msg, *a, **kw): self._call('debug', msg, *a, **kw)
+
 
 logger = _CompatLogger(logger)
 
@@ -134,8 +144,12 @@ class CircuitBreaker:
         if (now - self.last_failure_time) >= self.recovery_timeout:
             self.state = CircuitState.HALF_OPEN.value
             self.half_open_success_count = 0
-            logger.info("circuit_half_open feature=%s elapsed_s=%s", self.feature, round(now - self.last_failure_time)
-            )
+            logger.info(
+                "circuit_half_open feature=%s elapsed_s=%s",
+                self.feature,
+                round(
+                    now -
+                    self.last_failure_time))
             return True
 
         return False
@@ -152,7 +166,10 @@ class CircuitBreaker:
             self.half_open_success_count += 1
             if self.half_open_success_count >= self.half_open_successes_needed:
                 self._close()
-            logger.info("circuit_closed_after_half_open feature=%s successes=%s", self.feature, self.half_open_success_count)
+            logger.info(
+                "circuit_closed_after_half_open feature=%s successes=%s",
+                self.feature,
+                self.half_open_success_count)
             return
 
         # closed or just recovered — reset failure counter
@@ -171,14 +188,21 @@ class CircuitBreaker:
 
         if self.state == CircuitState.HALF_OPEN.value:
             self._open()
-            logger.warning("circuit_reopened_from_half_open feature=%s failure_count=%s", self.feature, self.failure_count)
+            logger.warning(
+                "circuit_reopened_from_half_open feature=%s failure_count=%s",
+                self.feature,
+                self.failure_count)
             return
 
         # closed — count failures
         self.failure_count += 1
         if self.failure_count >= self.failure_threshold:
             self._open()
-            logger.warning("circuit_opened feature=%s failure_count=%s threshold=%s", self.feature, self.failure_count, self.failure_threshold)
+            logger.warning(
+                "circuit_opened feature=%s failure_count=%s threshold=%s",
+                self.feature,
+                self.failure_count,
+                self.failure_threshold)
 
     async def get_state(self) -> str:
         """Return the current state, potentially transitioning open→half_open."""
@@ -189,7 +213,10 @@ class CircuitBreaker:
         """Forcefully reset the breaker to *closed* (admin operation)."""
         prev = self.state
         self._close()
-        logger.info("circuit_reset feature=%s previous_state=%s", self.feature, prev)
+        logger.info(
+            "circuit_reset feature=%s previous_state=%s",
+            self.feature,
+            prev)
 
     # ── Serialisation helpers ─────────────────────────────────────
 
@@ -505,19 +532,23 @@ class RuleBasedAssigner:
                 rule = self.DEFAULT_RULES["critical"]
         else:
             # Match by intent, fall through to default
-            rule = self.DEFAULT_RULES.get(intent, self.DEFAULT_RULES["default"])
+            rule = self.DEFAULT_RULES.get(
+                intent, self.DEFAULT_RULES["default"])
 
         elapsed = round((time.monotonic() - start) * 1000, 2)
 
         return {
-            "agent_id": f"pool:{rule['pool']}",
+            "agent_id": f"pool:{
+                rule['pool']}",
             "agent_name": rule["agent_name"],
             "pool": rule["pool"],
             "method": "rule",
             "processing_time_ms": elapsed,
             "score_breakdown": {
                 "rule_match": 1.0,
-                "priority_boost": 0.3 if priority in ("critical", "high") else 0.0,
+                "priority_boost": 0.3 if priority in (
+                    "critical",
+                    "high") else 0.0,
                 "intent_match": 0.8 if intent in self.DEFAULT_RULES else 0.0,
                 "workload_balance": 0.0,
             },
@@ -629,7 +660,11 @@ class RuleAIMigrationEngine:
             logger.warning("redis_get_failed key=%s", key, exc_info=True)
             return None
 
-    async def _redis_set(self, key: str, value: str, ex: Optional[int] = None) -> bool:
+    async def _redis_set(
+            self,
+            key: str,
+            value: str,
+            ex: Optional[int] = None) -> bool:
         """Safe Redis SET that logs failures but never raises."""
         if self._redis is None:
             return False
@@ -640,16 +675,28 @@ class RuleAIMigrationEngine:
             logger.warning("redis_set_failed key=%s", key, exc_info=True)
             return False
 
-    async def _redis_hincrby(self, key: str, hash_field: str, amount: int = 1) -> None:
+    async def _redis_hincrby(
+            self,
+            key: str,
+            hash_field: str,
+            amount: int = 1) -> None:
         """Safe Redis HINCRBY."""
         if self._redis is None:
             return
         try:
             await self._redis.hincrby(key, hash_field, amount)
         except Exception:
-            logger.warning("redis_hincrby_failed key=%s field=%s", key, hash_field, exc_info=True)
+            logger.warning(
+                "redis_hincrby_failed key=%s field=%s",
+                key,
+                hash_field,
+                exc_info=True)
 
-    async def _redis_lpush(self, key: str, value: str, maxlen: int = _FALLBACK_LOG_MAX) -> None:
+    async def _redis_lpush(
+            self,
+            key: str,
+            value: str,
+            maxlen: int = _FALLBACK_LOG_MAX) -> None:
         """LPUSH with LTRIM to cap list length."""
         if self._redis is None:
             return
@@ -659,7 +706,12 @@ class RuleAIMigrationEngine:
         except Exception:
             logger.warning("redis_lpush_failed key=%s", key, exc_info=True)
 
-    async def _redis_lrange(self, key: str, start: int = 0, stop: int = -1) -> List[str]:
+    async def _redis_lrange(
+            self,
+            key: str,
+            start: int = 0,
+            stop: int = -
+            1) -> List[str]:
         """Safe Redis LRANGE."""
         if self._redis is None:
             return []
@@ -691,7 +743,8 @@ class RuleAIMigrationEngine:
                 self._breakers[feature] = cb
                 return cb
             except (json.JSONDecodeError, TypeError, ValueError):
-                logger.warning("circuit_deserialize_failed feature=%s", feature)
+                logger.warning(
+                    "circuit_deserialize_failed feature=%s", feature)
         return self._breakers[feature]
 
     async def _save_circuit_breaker(
@@ -741,7 +794,11 @@ class RuleAIMigrationEngine:
             "total_rule_fallbacks",
         )
 
-    async def _record_ai_call(self, company_id: str, feature: str, success: bool) -> None:
+    async def _record_ai_call(
+            self,
+            company_id: str,
+            feature: str,
+            success: bool) -> None:
         """Increment AI call / success counters."""
         await self._redis_hincrby(
             _stats_redis_key(company_id),
@@ -799,14 +856,14 @@ class RuleAIMigrationEngine:
 
         total_ms = round((time.monotonic() - total_start) * 1000, 2)
 
-        used_ai = (
-            classify_result.method == MigrationMethod.AI.value
-            and (assign_result is None or assign_result.method == MigrationMethod.AI.value)
-        )
+        used_ai = (classify_result.method == MigrationMethod.AI.value and (
+            assign_result is None or assign_result.method == MigrationMethod.AI.value))
 
         fallback_reasons: List[str] = []
         if classify_result.was_fallback:
-            fallback_reasons.append(f"classify: {classify_result.fallback_reason}")
+            fallback_reasons.append(
+                f"classify: {
+                    classify_result.fallback_reason}")
         if assign_result is not None and assign_result.was_fallback:
             fallback_reasons.append(f"assign: {assign_result.fallback_reason}")
 
@@ -857,7 +914,13 @@ class RuleAIMigrationEngine:
                 await self._save_circuit_breaker(company_id, "classification")
                 await self._record_ai_call(company_id, "classification", success=True)
 
-                logger.info("classify_ai_success company_id=%s intent=%s confidence=%s method=%s time_ms=%s", company_id, intent_result.primary_intent, intent_result.primary_confidence, intent_result.classification_method, intent_result.processing_time_ms)
+                logger.info(
+                    "classify_ai_success company_id=%s intent=%s confidence=%s method=%s time_ms=%s",
+                    company_id,
+                    intent_result.primary_intent,
+                    intent_result.primary_confidence,
+                    intent_result.classification_method,
+                    intent_result.processing_time_ms)
 
                 return MigrationClassifyResult(
                     intent=intent_result.primary_intent,
@@ -876,8 +939,8 @@ class RuleAIMigrationEngine:
 
                 fallback_reason = f"ai_error: {str(exc)[:120]}"
                 logger.warning("classify_ai_failed company_id=%s error=%s", company_id, str(exc),
-                    circuit_state=await cb.get_state(),
-                )
+                               circuit_state=await cb.get_state(),
+                               )
 
                 # Fall through to rule-based below
                 rule_result = await self._rule_classifier.classify(text)
@@ -912,7 +975,10 @@ class RuleAIMigrationEngine:
                 details={"intent": rule_result.get("intent")},
             )
 
-            logger.info("classify_rule_fallback company_id=%s intent=%s", company_id, rule_result.get("intent"),
+            logger.info(
+                "classify_rule_fallback company_id=%s intent=%s",
+                company_id,
+                rule_result.get("intent"),
                 reason=reason,
             )
 
@@ -961,18 +1027,36 @@ class RuleAIMigrationEngine:
                 await self._save_circuit_breaker(company_id, "assignment")
                 await self._record_ai_call(company_id, "assignment", success=True)
 
-                logger.info("assign_ai_success company_id=%s agent_id=%s", company_id, getattr(assign_result, "assigned_agent_id", ""),
+                logger.info(
+                    "assign_ai_success company_id=%s agent_id=%s",
+                    company_id,
+                    getattr(
+                        assign_result,
+                        "assigned_agent_id",
+                        ""),
                     method="ai",
                 )
 
                 return MigrationAssignResult(
-                    assigned_agent_id=getattr(assign_result, "assigned_agent_id", ""),
-                    assigned_agent_name=getattr(assign_result, "assigned_agent_name", "AI Agent"),
+                    assigned_agent_id=getattr(
+                        assign_result,
+                        "assigned_agent_id",
+                        ""),
+                    assigned_agent_name=getattr(
+                        assign_result,
+                        "assigned_agent_name",
+                        "AI Agent"),
                     method="ai",
                     was_fallback=False,
                     fallback_reason=None,
-                    score_breakdown=getattr(assign_result, "score_breakdown", None),
-                    processing_time_ms=getattr(assign_result, "processing_time_ms", 0.0),
+                    score_breakdown=getattr(
+                        assign_result,
+                        "score_breakdown",
+                        None),
+                    processing_time_ms=getattr(
+                        assign_result,
+                        "processing_time_ms",
+                        0.0),
                 )
 
             except Exception as exc:
@@ -982,8 +1066,8 @@ class RuleAIMigrationEngine:
 
                 fallback_reason = f"ai_error: {str(exc)[:120]}"
                 logger.warning("assign_ai_failed company_id=%s error=%s", company_id, str(exc),
-                    circuit_state=await cb.get_state(),
-                )
+                               circuit_state=await cb.get_state(),
+                               )
 
                 rule_result = await self._rule_assigner.assign(intent, priority)
 
@@ -1017,7 +1101,12 @@ class RuleAIMigrationEngine:
                 details={"intent": intent, "priority": priority},
             )
 
-            logger.info("assign_rule_fallback company_id=%s intent=%s priority=%s reason=%s", company_id, intent, priority, reason)
+            logger.info(
+                "assign_rule_fallback company_id=%s intent=%s priority=%s reason=%s",
+                company_id,
+                intent,
+                priority,
+                reason)
 
         return MigrationAssignResult(
             assigned_agent_id=rule_result["agent_id"],
@@ -1059,7 +1148,9 @@ class RuleAIMigrationEngine:
                         for k, v in raw.items()
                     }
             except Exception:
-                logger.warning("migration_stats_read_failed company=%s", company_id)
+                logger.warning(
+                    "migration_stats_read_failed company=%s",
+                    company_id)
 
         total_ai = stats.get("total_ai_calls", 0)
         total_successes = stats.get("total_ai_successes", 0)
@@ -1075,8 +1166,12 @@ class RuleAIMigrationEngine:
             assignment_method=assign_method,
             classification_circuit_state=classif_cb_state,
             assignment_circuit_state=assign_cb_state,
-            classification_fallback_count=stats.get("classification_fallbacks", 0),
-            assignment_fallback_count=stats.get("assignment_fallbacks", 0),
+            classification_fallback_count=stats.get(
+                "classification_fallbacks",
+                0),
+            assignment_fallback_count=stats.get(
+                "assignment_fallbacks",
+                0),
             total_ai_calls=total_ai,
             total_rule_fallbacks=total_fallbacks,
             ai_success_rate=ai_success_rate,
@@ -1090,8 +1185,8 @@ class RuleAIMigrationEngine:
         """
         if feature not in _FEATURES:
             raise ValueError(
-                f"Invalid feature '{feature}'. Must be one of: {', '.join(_FEATURES)}"
-            )
+                f"Invalid feature '{feature}'. Must be one of: {
+                    ', '.join(_FEATURES)}")
         key = _method_redis_key(company_id, feature)
         await self._redis_set(key, "ai")
         logger.info("ai_enabled company_id=%s feature=%s", company_id, feature)
@@ -1100,11 +1195,14 @@ class RuleAIMigrationEngine:
         """Disable AI for *feature*, forcing rule-based processing."""
         if feature not in _FEATURES:
             raise ValueError(
-                f"Invalid feature '{feature}'. Must be one of: {', '.join(_FEATURES)}"
-            )
+                f"Invalid feature '{feature}'. Must be one of: {
+                    ', '.join(_FEATURES)}")
         key = _method_redis_key(company_id, feature)
         await self._redis_set(key, "rule")
-        logger.info("ai_disabled company_id=%s feature=%s", company_id, feature)
+        logger.info(
+            "ai_disabled company_id=%s feature=%s",
+            company_id,
+            feature)
 
     async def get_fallback_stats(self, company_id: str) -> FallbackStats:
         """Return detailed fallback statistics for a company.
@@ -1125,7 +1223,9 @@ class RuleAIMigrationEngine:
                         for k, v in raw.items()
                     }
             except Exception:
-                logger.warning("fallback_stats_read_failed company=%s", company_id)
+                logger.warning(
+                    "fallback_stats_read_failed company=%s",
+                    company_id)
 
         classif_ai = stats.get("classification_ai_calls", 0)
         classif_success = stats.get("classification_ai_successes", 0)
@@ -1157,7 +1257,9 @@ class RuleAIMigrationEngine:
                 "ai_successes": classif_success,
                 "fallbacks": classif_fallbacks,
                 "success_rate": (
-                    round(classif_success / classif_ai, 4) if classif_ai > 0 else 1.0
+                    round(
+                        classif_success / classif_ai,
+                        4) if classif_ai > 0 else 1.0
                 ),
                 "avg_confidence": 0.0,  # not tracked without DB queries
             },
@@ -1166,7 +1268,9 @@ class RuleAIMigrationEngine:
                 "ai_successes": assign_success,
                 "fallbacks": assign_fallbacks,
                 "success_rate": (
-                    round(assign_success / assign_ai, 4) if assign_ai > 0 else 1.0
+                    round(
+                        assign_success / assign_ai,
+                        4) if assign_ai > 0 else 1.0
                 ),
             },
             recent_fallbacks=recent_fallbacks,
@@ -1180,19 +1284,23 @@ class RuleAIMigrationEngine:
         """
         if feature not in _FEATURES:
             raise ValueError(
-                f"Invalid feature '{feature}'. Must be one of: {', '.join(_FEATURES)}"
-            )
+                f"Invalid feature '{feature}'. Must be one of: {
+                    ', '.join(_FEATURES)}")
         cb = self._breakers[feature]
         await cb.reset()
         await self._save_circuit_breaker(company_id, feature)
-        logger.info("circuit_reset_by_admin company_id=%s feature=%s", company_id, feature)
+        logger.info(
+            "circuit_reset_by_admin company_id=%s feature=%s",
+            company_id,
+            feature)
 
-    async def get_circuit_state(self, company_id: str, feature: str) -> Dict[str, Any]:
+    async def get_circuit_state(
+            self, company_id: str, feature: str) -> Dict[str, Any]:
         """Return circuit breaker details for a feature."""
         if feature not in _FEATURES:
             raise ValueError(
-                f"Invalid feature '{feature}'. Must be one of: {', '.join(_FEATURES)}"
-            )
+                f"Invalid feature '{feature}'. Must be one of: {
+                    ', '.join(_FEATURES)}")
         cb = await self._load_circuit_breaker(company_id, feature)
         return cb.to_dict()
 
@@ -1223,7 +1331,9 @@ class RuleAIMigrationEngine:
             # If AI assignment engine doesn't exist yet, return the raw dict.
             # The assign() method's try/except will catch the resulting error
             # and fall back to rules.
-            logger.debug("ai_assignment_engine_not_available detail=%s", "Falling back to rule-based assignment")
+            logger.debug(
+                "ai_assignment_engine_not_available detail=%s",
+                "Falling back to rule-based assignment")
             return ticket_data
 
 
@@ -1246,6 +1356,3 @@ async def get_migration_engine(
             db=db,
         )
     return _default_engine
-
-
-

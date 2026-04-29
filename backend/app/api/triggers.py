@@ -4,7 +4,8 @@ PARWA Trigger API - Automated Trigger Endpoints (Day 33: MF08)
 Endpoints for managing automated trigger rules.
 """
 
-from typing import Any, Dict, List, Optional
+import json
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -61,9 +62,6 @@ class TriggerResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-import json
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────

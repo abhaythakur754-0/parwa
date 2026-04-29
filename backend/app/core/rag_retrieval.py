@@ -16,15 +16,13 @@ Parent: Week 9 Day 7 (Sunday)
 from __future__ import annotations
 
 import hashlib
-import math
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional
 
 from app.logger import get_logger
 from shared.knowledge_base.vector_search import (
-    EMBEDDING_DIMENSION,
     VectorStore,
     get_vector_store,
 )
@@ -195,7 +193,8 @@ class RAGRetriever:
             similarity_threshold = config["similarity_threshold"]
 
         # ── Step 1: Check cache ──────────────────────────────────
-        cache_key = self._build_cache_key(query, company_id, variant_type, filters)
+        cache_key = self._build_cache_key(
+            query, company_id, variant_type, filters)
         cached_result = await self._check_cache(company_id, cache_key)
         if cached_result is not None:
             cached_result.retrieval_time_ms = round(
@@ -234,7 +233,9 @@ class RAGRetriever:
         all_chunks: List[RAGChunk] = []
 
         # BC-008: Check store health before searching
-        if hasattr(self._store, "health_check") and not self._store.health_check():
+        if hasattr(
+                self._store,
+                "health_check") and not self._store.health_check():
             logger.warning(
                 "rag_vector_store_unhealthy_keyword_fallback",
                 company_id=company_id,
@@ -386,7 +387,8 @@ class RAGRetriever:
         query_words = set(re.findall(r"\b\w+\b", query_lower))
 
         config = VARIANT_CONFIG.get(variant_type, VARIANT_CONFIG["parwa"])
-        # G9-GAP-12 FIX: Log warning for unknown variant_type in keyword fallback
+        # G9-GAP-12 FIX: Log warning for unknown variant_type in keyword
+        # fallback
         if variant_type not in VARIANT_CONFIG:
             logger.warning(
                 "rag_unknown_variant_type_keyword_fallback",
@@ -406,7 +408,8 @@ class RAGRetriever:
                 company_docs = self._store._store.get(company_id, {})
             for doc_id, doc_data in company_docs.items():
                 for chunk in doc_data.get("chunks", []):
-                    # Score based on word overlap — handle both dict and StoredChunk
+                    # Score based on word overlap — handle both dict and
+                    # StoredChunk
                     if isinstance(chunk, dict):
                         content_lower = chunk.get("content", "").lower()
                         chunk_id = chunk.get("chunk_id", "")
@@ -509,7 +512,8 @@ class RAGRetriever:
             position_bonus = 0.01 * (1 - i / max(len(chunks), 1))
 
             # Combine original score with reranking signals
-            rerank_score = chunk.score * 0.6 + word_density * 0.3 + phrase_bonus + position_bonus
+            rerank_score = chunk.score * 0.6 + word_density * \
+                0.3 + phrase_bonus + position_bonus
 
             reranked.append(RAGChunk(
                 chunk_id=chunk.chunk_id,
@@ -554,7 +558,8 @@ class RAGRetriever:
         filters: Optional[Dict[str, Any]],
     ) -> str:
         """Build a deterministic cache key."""
-        query_hash = hashlib.sha256(query.lower().strip().encode("utf-8")).hexdigest()[:16]
+        query_hash = hashlib.sha256(
+            query.lower().strip().encode("utf-8")).hexdigest()[:16]
         filter_hash = ""
         if filters:
             import json
@@ -584,16 +589,17 @@ class RAGRetriever:
                     for c in cached.get("chunks", [])
                 ]
                 return RAGResult(
-                    chunks=chunks,
-                    total_found=cached.get("total_found", 0),
-                    retrieval_time_ms=cached.get("retrieval_time_ms", 0.0),
-                    query_embedding_time_ms=cached.get("query_embedding_time_ms", 0.0),
-                    filters_applied=cached.get("filters_applied", {}),
-                    variant_tier_used=cached.get("variant_tier_used", "parwa"),
-                    cached=True,
-                )
+                    chunks=chunks, total_found=cached.get(
+                        "total_found", 0), retrieval_time_ms=cached.get(
+                        "retrieval_time_ms", 0.0), query_embedding_time_ms=cached.get(
+                        "query_embedding_time_ms", 0.0), filters_applied=cached.get(
+                        "filters_applied", {}), variant_tier_used=cached.get(
+                        "variant_tier_used", "parwa"), cached=True, )
         except Exception as exc:
-            logger.warning("rag_cache_read_failed", error=str(exc), cache_key=cache_key)
+            logger.warning(
+                "rag_cache_read_failed",
+                error=str(exc),
+                cache_key=cache_key)
         return None
 
     async def _store_cache(
@@ -610,4 +616,7 @@ class RAGRetriever:
                 ttl_seconds=CACHE_TTL_SECONDS,
             )
         except Exception as exc:
-            logger.debug("rag_cache_write_failed", error=str(exc), cache_key=cache_key)
+            logger.debug(
+                "rag_cache_write_failed",
+                error=str(exc),
+                cache_key=cache_key)

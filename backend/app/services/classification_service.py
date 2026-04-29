@@ -13,13 +13,11 @@ BC-001: All queries are tenant-isolated via company_id.
 
 from __future__ import annotations
 
-import json
-import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, desc, func, or_
+from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import Session
 
 from database.models.tickets import (
@@ -29,7 +27,7 @@ from database.models.tickets import (
     ClassificationCorrection,
     TicketPriority,
 )
-from app.exceptions import NotFoundError, ValidationError
+from app.exceptions import NotFoundError
 
 
 class IntentCategory:
@@ -486,7 +484,8 @@ class ClassificationService:
 
         best_intent = max(scores, key=scores.get)
         total_score = sum(scores.values())
-        confidence = scores[best_intent] / total_score if total_score > 0 else 0.3
+        confidence = scores[best_intent] / \
+            total_score if total_score > 0 else 0.3
 
         # Cap confidence at 0.95 for rule-based (reserving 1.0 for human)
         confidence = min(confidence, 0.95)
@@ -519,7 +518,8 @@ class ClassificationService:
 
         best_urgency = max(scores, key=scores.get)
         total_score = sum(scores.values())
-        confidence = scores[best_urgency] / total_score if total_score > 0 else 0.5
+        confidence = scores[best_urgency] / \
+            total_score if total_score > 0 else 0.5
 
         return best_urgency, round(confidence, 4)
 

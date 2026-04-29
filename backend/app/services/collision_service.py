@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional, Set
 from sqlalchemy.orm import Session
 
 from app.core.redis import get_redis
-from app.exceptions import NotFoundError, ValidationError
+from app.exceptions import NotFoundError
 from database.models.tickets import TicketCollision, Ticket
 from database.models.core import User
 
@@ -48,7 +48,9 @@ class CollisionService:
 
     def _get_redis_key(self, ticket_id: str) -> str:
         """Get Redis key for ticket viewers."""
-        return f"{self.REDIS_KEY_PREFIX}:{self.company_id}:ticket_viewing:{ticket_id}"
+        return f"{
+            self.REDIS_KEY_PREFIX}:{
+            self.company_id}:ticket_viewing:{ticket_id}"
 
     # ── VIEWER TRACKING ──────────────────────────────────────────────────────
 
@@ -83,7 +85,8 @@ class CollisionService:
         current_viewers = self._get_viewers_from_redis(redis_key)
 
         # Check for collision
-        has_collision = len(current_viewers) > 0 and user_id not in current_viewers
+        has_collision = len(
+            current_viewers) > 0 and user_id not in current_viewers
 
         # Add user to viewers
         current_viewers.add(user_id)
@@ -251,7 +254,7 @@ class CollisionService:
             TicketCollision.company_id == self.company_id,
             TicketCollision.ticket_id == ticket_id,
             TicketCollision.user_id == user_id,
-            TicketCollision.is_active == True,
+            TicketCollision.is_active,
         ).first()
 
         if existing:
@@ -287,7 +290,7 @@ class CollisionService:
             TicketCollision.company_id == self.company_id,
             TicketCollision.ticket_id == ticket_id,
             TicketCollision.user_id == user_id,
-            TicketCollision.is_active == True,
+            TicketCollision.is_active,
         ).update({
             "is_active": False,
         })
@@ -350,7 +353,7 @@ class CollisionService:
             "page_size": page_size,
         }
 
-    # ── HEARTBEAT ─────────────────────────────────────────────────────────────
+    # ── HEARTBEAT ───────────────────────────────────────────────────────────
 
     def heartbeat(
         self,
@@ -390,8 +393,12 @@ class CollisionService:
         if session_data:
             try:
                 data = json.loads(session_data)
-                data["last_activity_at"] = datetime.now(timezone.utc).isoformat()
-                self.redis.setex(user_session_key, self.VIEWER_TTL, json.dumps(data))
+                data["last_activity_at"] = datetime.now(
+                    timezone.utc).isoformat()
+                self.redis.setex(
+                    user_session_key,
+                    self.VIEWER_TTL,
+                    json.dumps(data))
             except (json.JSONDecodeError, TypeError):
                 pass
 
@@ -400,7 +407,7 @@ class CollisionService:
             TicketCollision.company_id == self.company_id,
             TicketCollision.ticket_id == ticket_id,
             TicketCollision.user_id == user_id,
-            TicketCollision.is_active == True,
+            TicketCollision.is_active,
         ).update({
             "last_activity_at": datetime.now(timezone.utc),
         })
@@ -417,7 +424,7 @@ class CollisionService:
             "viewer_count": len(current_viewers),
         }
 
-    # ── CLEANUP ───────────────────────────────────────────────────────────────
+    # ── CLEANUP ─────────────────────────────────────────────────────────────
 
     def cleanup_expired_sessions(self) -> int:
         """Clean up expired collision sessions in database.
@@ -427,11 +434,12 @@ class CollisionService:
         """
         # Mark all active sessions as inactive
         # Redis handles the actual viewer tracking, DB is for history
-        cutoff = datetime.now(timezone.utc) - timedelta(seconds=self.VIEWER_TTL * 2)
+        cutoff = datetime.now(timezone.utc) - \
+            timedelta(seconds=self.VIEWER_TTL * 2)
 
         result = self.db.query(TicketCollision).filter(
             TicketCollision.company_id == self.company_id,
-            TicketCollision.is_active == True,
+            TicketCollision.is_active,
             TicketCollision.last_activity_at < cutoff,
         ).update({
             "is_active": False,

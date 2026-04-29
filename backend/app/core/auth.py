@@ -31,8 +31,7 @@ _REFRESH_TOKEN_PEPPER = os.getenv("REFRESH_TOKEN_PEPPER")
 if not _REFRESH_TOKEN_PEPPER:
     raise RuntimeError(
         "REFRESH_TOKEN_PEPPER environment variable is required. "
-        "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
-    )
+        "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'")
 
 
 def create_access_token(

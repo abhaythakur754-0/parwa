@@ -20,29 +20,22 @@ BC-008: Every method wrapped in try/except, never crashes.
 
 from __future__ import annotations
 
-import asyncio
 import json
-import re
-import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 # ── Smart Router imports ──────────────────────────────────────────
 from app.core.smart_router import (
     AtomicStepType,
-    ModelProvider,
     ModelTier,
     ProviderHealthTracker,
     RoutingDecision,
     SmartRouter,
-    VARIANT_MODEL_ACCESS,
     MODEL_REGISTRY,
-    STEP_TIER_MAPPING,
-    TIER_FALLBACK_ORDER,
 )
 
 # ── Prompt Template imports ───────────────────────────────────────
@@ -51,8 +44,6 @@ from app.core.prompt_templates import (
     PromptTemplateManager,
     _extract_variables,
     _render_variables,
-    _VARIABLE_PATTERN,
-    _DEFAULT_TEMPLATE,
 )
 
 # ── Technique Cache imports (deferred to avoid database import at
@@ -505,7 +496,8 @@ class TestCacheInvalidationRaceCondition:
         mock_db_base.init_db = MagicMock()
 
         # Also mock the TechniqueCache model it imports
-        mock_variant_engine = types.ModuleType("database.models.variant_engine")
+        mock_variant_engine = types.ModuleType(
+            "database.models.variant_engine")
         mock_variant_engine.TechniqueCache = MagicMock
 
         # Only patch if not already imported
@@ -838,7 +830,8 @@ class TestCacheInvalidationRaceCondition:
         """get_cached_result must return None for expired entries."""
         mock_entry = MagicMock()
         mock_entry.cached_result = json.dumps({"data": "old"})
-        mock_entry.ttl_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        mock_entry.ttl_expires_at = datetime.now(
+            timezone.utc) - timedelta(hours=1)
         mock_entry.hit_count = 5
 
         # Chain through MagicMock auto-attributes:
@@ -872,7 +865,8 @@ class TestCacheInvalidationRaceCondition:
                     company_id=COMPANY_A,
                     technique_id="technique_z",
                     query_hash="hash_bad_json",
-                    cached_result={"key": {1, 2, 3}},  # set is not serializable
+                    # set is not serializable
+                    cached_result={"key": {1, 2, 3}},
                 )
 
     def test_safe_parse_json_handles_null_and_empty(self):

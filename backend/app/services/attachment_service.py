@@ -18,12 +18,12 @@ except ImportError:
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple, BinaryIO
+from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
 from app.exceptions import ValidationError
-from database.models.tickets import Ticket, TicketAttachment
+from database.models.tickets import TicketAttachment
 
 
 class AttachmentService:
@@ -65,7 +65,7 @@ class AttachmentService:
         "mini_parwa": 5 * 1024 * 1024,      # 5 MB
         "parwa": 25 * 1024 * 1024,      # 25 MB
         "high": 100 * 1024 * 1024,       # 100 MB
-        "enterprise": 500 * 1024 * 1024, # 500 MB
+        "enterprise": 500 * 1024 * 1024,  # 500 MB
     }
 
     # Default size limit
@@ -81,7 +81,11 @@ class AttachmentService:
         "aspx", "jsp", "cgi", "dll", "so", "dylib",
     }
 
-    def __init__(self, db: Session, company_id: str, plan_tier: str = "mini_parwa"):
+    def __init__(
+            self,
+            db: Session,
+            company_id: str,
+            plan_tier: str = "mini_parwa"):
         self.db = db
         self.company_id = company_id
         self.plan_tier = plan_tier
@@ -125,7 +129,10 @@ class AttachmentService:
 
         # Check extension whitelist
         if ext not in self.ALLOWED_EXTENSIONS:
-            return False, f"File type '{ext}' is not allowed. Allowed types: {', '.join(sorted(self.ALLOWED_EXTENSIONS))}", metadata
+            return False, f"File type '{ext}' is not allowed. Allowed types: {
+                ', '.join(
+                    sorted(
+                        self.ALLOWED_EXTENSIONS))}", metadata
 
         # Check file size
         size_limit = self.PLAN_SIZE_LIMITS.get(
@@ -133,7 +140,9 @@ class AttachmentService:
             self.DEFAULT_SIZE_LIMIT
         )
         if len(file_content) > size_limit:
-            return False, f"File size exceeds {size_limit // (1024*1024)} MB limit for your plan", metadata
+            return False, f"File size exceeds {
+                size_limit // (
+                    1024 * 1024)} MB limit for your plan", metadata
 
         # Detect MIME type from content
         try:
@@ -183,7 +192,8 @@ class AttachmentService:
             ValidationError: If validation fails
         """
         # Validate file
-        is_valid, error_msg, metadata = self.validate_file(filename, file_content)
+        is_valid, error_msg, metadata = self.validate_file(
+            filename, file_content)
         if not is_valid:
             raise ValidationError(error_msg)
 
@@ -195,8 +205,8 @@ class AttachmentService:
 
         if existing_count >= self.MAX_ATTACHMENTS_PER_TICKET:
             raise ValidationError(
-                f"Maximum {self.MAX_ATTACHMENTS_PER_TICKET} attachments per ticket"
-            )
+                f"Maximum {
+                    self.MAX_ATTACHMENTS_PER_TICKET} attachments per ticket")
 
         # Store file (using storage service if available)
         file_url = None
@@ -209,7 +219,8 @@ class AttachmentService:
                 content_type=metadata["mime_type"],
             )
         else:
-            # Fallback: store as base64 data URL (not recommended for production)
+            # Fallback: store as base64 data URL (not recommended for
+            # production)
             import base64
             b64 = base64.b64encode(file_content).decode()
             file_url = f"data:{metadata['mime_type']};base64,{b64}"
@@ -313,10 +324,10 @@ class AttachmentService:
 
     def _get_mime_from_extension(self, extension: str) -> Optional[str]:
         """Get MIME type from extension when magic is not available.
-        
+
         Args:
             extension: File extension (without dot)
-            
+
         Returns:
             MIME type string or None
         """

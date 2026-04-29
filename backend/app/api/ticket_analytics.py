@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, require_roles
@@ -25,11 +25,6 @@ from app.services.ticket_analytics_service import (
     TicketAnalyticsService,
     DateRange,
     IntervalType,
-    TicketSummary,
-    TrendPoint,
-    CategoryDistribution,
-    SLAMetrics,
-    AgentMetrics,
 )
 
 
@@ -118,10 +113,15 @@ def parse_date_range(
     if start_date and end_date:
         return DateRange(start_date=start_date, end_date=end_date)
     elif start_date:
-        return DateRange(start_date=start_date, end_date=datetime.now(timezone.utc))
+        return DateRange(
+            start_date=start_date,
+            end_date=datetime.now(
+                timezone.utc))
     elif end_date:
         return DateRange(
-            start_date=end_date - __import__('datetime').timedelta(days=default_days),
+            start_date=end_date -
+            __import__('datetime').timedelta(
+                days=default_days),
             end_date=end_date,
         )
     else:
@@ -143,10 +143,14 @@ def get_company_id_from_user(current_user) -> str:
     summary="Get ticket summary statistics",
 )
 async def get_ticket_summary(
-    start_date: Optional[datetime] = Query(None, description="Start date for range"),
-    end_date: Optional[datetime] = Query(None, description="End date for range"),
-    db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+        start_date: Optional[datetime] = Query(
+            None,
+            description="Start date for range"),
+    end_date: Optional[datetime] = Query(
+            None,
+            description="End date for range"),
+        db: Session = Depends(get_db),
+        current_user: Dict = Depends(get_current_user),
 ) -> Any:
     """
     Get summary statistics for tickets.
@@ -202,11 +206,17 @@ async def get_ticket_summary(
     summary="Get ticket volume trends",
 )
 async def get_ticket_trends(
-    interval: str = Query("day", description="Interval: hour, day, week, month"),
-    start_date: Optional[datetime] = Query(None, description="Start date for range"),
-    end_date: Optional[datetime] = Query(None, description="End date for range"),
-    db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+        interval: str = Query(
+            "day",
+            description="Interval: hour, day, week, month"),
+    start_date: Optional[datetime] = Query(
+            None,
+            description="Start date for range"),
+        end_date: Optional[datetime] = Query(
+            None,
+            description="End date for range"),
+        db: Session = Depends(get_db),
+        current_user: Dict = Depends(get_current_user),
 ) -> Any:
     """
     Get ticket volume trends over time.
@@ -250,10 +260,14 @@ async def get_ticket_trends(
     summary="Get ticket distribution by category",
 )
 async def get_category_distribution(
-    start_date: Optional[datetime] = Query(None, description="Start date for range"),
-    end_date: Optional[datetime] = Query(None, description="End date for range"),
-    db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+        start_date: Optional[datetime] = Query(
+            None,
+            description="Start date for range"),
+    end_date: Optional[datetime] = Query(
+            None,
+            description="End date for range"),
+        db: Session = Depends(get_db),
+        current_user: Dict = Depends(get_current_user),
 ) -> Any:
     """
     Get distribution of tickets by category.
@@ -291,10 +305,14 @@ async def get_category_distribution(
     summary="Get SLA performance metrics",
 )
 async def get_sla_metrics(
-    start_date: Optional[datetime] = Query(None, description="Start date for range"),
-    end_date: Optional[datetime] = Query(None, description="End date for range"),
-    db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+        start_date: Optional[datetime] = Query(
+            None,
+            description="Start date for range"),
+    end_date: Optional[datetime] = Query(
+            None,
+            description="End date for range"),
+        db: Session = Depends(get_db),
+        current_user: Dict = Depends(get_current_user),
 ) -> Any:
     """
     Get SLA performance metrics.
@@ -343,11 +361,19 @@ async def get_sla_metrics(
     summary="Get per-agent performance metrics",
 )
 async def get_agent_metrics(
-    start_date: Optional[datetime] = Query(None, description="Start date for range"),
-    end_date: Optional[datetime] = Query(None, description="End date for range"),
-    limit: int = Query(50, ge=1, le=200, description="Max results to return"),
-    db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+        start_date: Optional[datetime] = Query(
+            None,
+            description="Start date for range"),
+    end_date: Optional[datetime] = Query(
+            None,
+            description="End date for range"),
+        limit: int = Query(
+            50,
+            ge=1,
+            le=200,
+            description="Max results to return"),
+        db: Session = Depends(get_db),
+        current_user: Dict = Depends(get_current_user),
 ) -> Any:
     """
     Get per-agent performance metrics.
@@ -393,7 +419,7 @@ async def get_agent_metrics(
     ]
 
 
-# ── Response Time Distribution Endpoint ────────────────────────────────────────
+# ── Response Time Distribution Endpoint ─────────────────────────────────
 
 class ResponseTimeBucketResponse(BaseModel):
     """Response schema for a single response-time bucket."""
@@ -416,11 +442,19 @@ class ResponseTimeDistributionResponse(BaseModel):
     summary="Get first-response time distribution",
 )
 async def get_response_time(
-    start_date: Optional[datetime] = Query(None, description="Start date for range"),
-    end_date: Optional[datetime] = Query(None, description="End date for range"),
-    days: int = Query(30, ge=1, le=365, description="Number of days (used when start_date is not provided)"),
-    db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+        start_date: Optional[datetime] = Query(
+            None,
+            description="Start date for range"),
+    end_date: Optional[datetime] = Query(
+            None,
+            description="End date for range"),
+        days: int = Query(
+            30,
+            ge=1,
+            le=365,
+            description="Number of days (used when start_date is not provided)"),
+        db: Session = Depends(get_db),
+        current_user: Dict = Depends(get_current_user),
 ) -> Any:
     """
     Get first-response time distribution bucketed by time ranges.
@@ -457,7 +491,9 @@ async def get_response_time(
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to compute response time distribution: {str(exc)[:200]}",
+            detail=f"Failed to compute response time distribution: {
+                str(exc)[
+                    :200]}",
         )
 
 
@@ -468,10 +504,14 @@ async def get_response_time(
     summary="Get combined analytics dashboard data",
 )
 async def get_analytics_dashboard(
-    start_date: Optional[datetime] = Query(None, description="Start date for range"),
-    end_date: Optional[datetime] = Query(None, description="End date for range"),
-    db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+        start_date: Optional[datetime] = Query(
+            None,
+            description="Start date for range"),
+    end_date: Optional[datetime] = Query(
+            None,
+            description="End date for range"),
+        db: Session = Depends(get_db),
+        current_user: Dict = Depends(get_current_user),
 ) -> Any:
     """
     Get combined analytics data for dashboard display.

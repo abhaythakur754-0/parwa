@@ -22,9 +22,10 @@ INTEGRATIONS:
 - AI: Personalized greetings via z-ai-web-dev-sdk
 """
 
+import os
 import json
 import threading
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
 from sqlalchemy.orm import Session
@@ -46,7 +47,7 @@ logger = get_logger("onboarding_service")
 
 def _send_welcome_email(user_email: str, user_name: str, ai_name: str) -> bool:
     """Send welcome email after onboarding completion.
-    
+
     Uses email_service.py which handles Brevo integration.
     All credentials loaded from environment variables.
     """
@@ -61,7 +62,7 @@ def _send_welcome_email(user_email: str, user_name: str, ai_name: str) -> bool:
 
 def _send_onboarding_sms(phone: str, company_name: str, ai_name: str) -> bool:
     """Send SMS notification after onboarding (optional).
-    
+
     Uses sms_channel_service.py which handles Twilio integration.
     All credentials loaded from environment variables.
     """
@@ -71,22 +72,23 @@ def _send_onboarding_sms(phone: str, company_name: str, ai_name: str) -> bool:
         twilio_phone = os.environ.get("TWILIO_PHONE_NUMBER", "")
         if not twilio_phone or not phone:
             return False
-        
+
         # Simple notification via environment Twilio config
         import httpx
         import base64
-        
+
         account_sid = os.environ.get("TWILIO_ACCOUNT_SID", "")
         auth_token = os.environ.get("TWILIO_AUTH_TOKEN", "")
-        
+
         if not all([account_sid, auth_token, twilio_phone]):
             return False
-        
+
         url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
-        auth = base64.b64encode(f"{account_sid}:{auth_token}".encode()).decode()
-        
+        auth = base64.b64encode(
+            f"{account_sid}:{auth_token}".encode()).decode()
+
         body = f"Welcome to {company_name}! Your AI assistant {ai_name} is now ready. Login at app.parwa.ai"
-        
+
         response = httpx.post(
             url,
             data={"From": twilio_phone, "To": phone, "Body": body},
@@ -99,22 +101,25 @@ def _send_onboarding_sms(phone: str, company_name: str, ai_name: str) -> bool:
         return False
 
 
-def _generate_ai_greeting(ai_name: str, ai_tone: str, company_name: str) -> str:
+def _generate_ai_greeting(
+        ai_name: str,
+        ai_tone: str,
+        company_name: str) -> str:
     """Generate personalized AI greeting using z-ai-web-dev-sdk.
-    
+
     Falls back to default greeting if AI generation fails.
     """
     try:
         # Use SDK for AI greeting generation
         import subprocess
         import json as json_mod
-        
+
         prompt = f"""Generate a warm, {ai_tone} greeting message for an AI assistant named {ai_name}.
 The assistant is joining a company called {company_name}.
 Keep it under 100 characters. Just the greeting message, no quotes or explanation.
 Example: "Hi! I'm Jarvis, your AI assistant. How can I help you today?"
 """
-        
+
         # Use CLI tool for quick AI generation
         result = subprocess.run(
             ["node", "-e", f"""
@@ -135,14 +140,14 @@ const ZAI = require('z-ai-web-dev-sdk').default;
             timeout=30,
             cwd="/home/z/my-project/parwa"
         )
-        
+
         if result.returncode == 0 and result.stdout.strip():
             greeting = result.stdout.strip()
             if len(greeting) <= 200:
                 return greeting
     except Exception as e:
         logger.warning("ai_greeting_generation_failed", error=str(e)[:100])
-    
+
     # Fallback greeting
     tone_greetings = {
         "professional": f"Hello! I'm {ai_name}, your AI assistant. How may I assist you today?",
@@ -151,8 +156,8 @@ const ZAI = require('z-ai-web-dev-sdk').default;
     }
     return tone_greetings.get(ai_tone, tone_greetings["professional"])
 
+
 # Consent timestamp tolerance (5 minutes) — P20: configurable via env
-import os
 _CONSENT_TIMESTAMP_TOLERANCE_SECONDS = int(
     os.environ.get("CONSENT_TIMESTAMP_TOLERANCE", "300")
 )
@@ -336,19 +341,17 @@ def complete_step(
     expected_step = session.current_step
     if step != expected_step and step in _OPTIONAL_STEPS:
         # Check that all required steps before this optional step are done
-        required_before = [s for s in range(1, step) if s not in _OPTIONAL_STEPS]
+        required_before = [
+            s for s in range(
+                1, step) if s not in _OPTIONAL_STEPS]
         if all(s in completed for s in required_before):
             # Allow skipping this optional step
             pass
         else:
             raise ValidationError(
-                message=f"Cannot skip to step {step}. Complete required steps first.",
-                details={
-                    "expected_step": expected_step,
-                    "actual_step": step,
-                    "missing_required": [s for s in required_before if s not in completed],
-                },
-            )
+                message=f"Cannot skip to step {step}. Complete required steps first.", details={
+                    "expected_step": expected_step, "actual_step": step, "missing_required": [
+                        s for s in required_before if s not in completed], }, )
     elif step != expected_step:
         raise ValidationError(
             message=f"Invalid step transition. Expected step {expected_step}, got {step}.",
@@ -607,18 +610,14 @@ def get_knowledge_documents(
 
     documents = query.all()
 
-    return [
-        {
-            "id": doc.id,
-            "filename": doc.filename,
-            "file_type": doc.file_type,
-            "file_size": doc.file_size,
-            "status": doc.status,
-            "chunk_count": doc.chunk_count,
-            "created_at": doc.created_at.isoformat() if doc.created_at else None,
-        }
-        for doc in documents
-    ]
+    return [{"id": doc.id,
+             "filename": doc.filename,
+             "file_type": doc.file_type,
+             "file_size": doc.file_size,
+             "status": doc.status,
+             "chunk_count": doc.chunk_count,
+             "created_at": doc.created_at.isoformat() if doc.created_at else None,
+             } for doc in documents]
 
 
 def remove_failed_document(
@@ -837,7 +836,10 @@ def activate_ai(
     if existing_ai:
         raise ValidationError(
             message=f"AI assistant name '{ai_name}' is already in use within your organization. Please choose a different name.",
-            details={"ai_name": ai_name, "existing_session_id": str(existing_ai.id)},
+            details={
+                "ai_name": ai_name,
+                "existing_session_id": str(
+                    existing_ai.id)},
         )
 
     # P4 FIX: Idempotency — if already activated, return existing config.
@@ -861,7 +863,8 @@ def activate_ai(
     user = db.query(User).filter(User.id == user_id).first()
     company = db.query(Company).filter(Company.id == company_id).first()
     user_email = user.email if user else None
-    user_name = user.full_name if user and user.full_name else user.email.split("@")[0] if user_email else "User"
+    user_name = user.full_name if user and user.full_name else user.email.split(
+        "@")[0] if user_email else "User"
     company_name = company.name if company else "Your Company"
     user_phone = user.phone if user else None
 
@@ -876,8 +879,10 @@ def activate_ai(
 
     # Update AI config
     session.ai_name = ai_name[:50] if ai_name else "Jarvis"
-    session.ai_tone = ai_tone if ai_tone in ["professional", "friendly", "casual"] else "professional"
-    session.ai_response_style = ai_response_style if ai_response_style in ["concise", "detailed"] else "concise"
+    session.ai_tone = ai_tone if ai_tone in [
+        "professional", "friendly", "casual"] else "professional"
+    session.ai_response_style = ai_response_style if ai_response_style in [
+        "concise", "detailed"] else "concise"
     session.ai_greeting = final_greeting[:500] if final_greeting else None
     session.status = "completed"
     session.completed_at = datetime.now(timezone.utc)
@@ -901,7 +906,8 @@ def activate_ai(
         try:
             # Send welcome email via Brevo
             if user_email:
-                email_sent = _send_welcome_email(user_email, user_name, session.ai_name)
+                email_sent = _send_welcome_email(
+                    user_email, user_name, session.ai_name)
                 logger.info(
                     "welcome_email_sent",
                     user_id=user_id,
@@ -914,7 +920,8 @@ def activate_ai(
         try:
             # Send welcome SMS via Twilio (optional)
             if user_phone:
-                sms_sent = _send_onboarding_sms(user_phone, company_name, session.ai_name)
+                sms_sent = _send_onboarding_sms(
+                    user_phone, company_name, session.ai_name)
                 logger.info(
                     "welcome_sms_sent",
                     user_id=user_id,
@@ -957,7 +964,8 @@ def activate_ai(
                     "501_1000": "high_parwa",
                     "1000_plus": "high_parwa",
                 }
-                variant_type = size_to_variant.get(details.company_size, "mini_parwa")
+                variant_type = size_to_variant.get(
+                    details.company_size, "mini_parwa")
 
             cold_start = get_cold_start_service()
             warmup_result = cold_start.warmup_tenant(cid, variant_type)

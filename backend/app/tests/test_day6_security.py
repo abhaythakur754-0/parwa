@@ -19,8 +19,7 @@ import math
 import os
 import sys
 import pytest
-from types import ModuleType
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 # Import vector_search.py by manipulating sys.path so that
 # "app.shared.knowledge_base.vector_search" resolves to the file
@@ -52,7 +51,8 @@ else:
     sys.modules["app"] = _pkg_app
 
 # Ensure "app.shared" exists
-if "app.shared" in sys.modules and hasattr(sys.modules["app.shared"], "__path__"):
+if "app.shared" in sys.modules and hasattr(
+        sys.modules["app.shared"], "__path__"):
     _pkg_shared = sys.modules["app.shared"]
 else:
     _pkg_shared = _types.ModuleType("app.shared")
@@ -62,7 +62,8 @@ else:
 
 # Ensure "app.shared.knowledge_base" exists (empty package to
 # bypass __init__.py which imports sqlalchemy)
-if "app.shared.knowledge_base" in sys.modules and hasattr(sys.modules["app.shared.knowledge_base"], "__path__"):
+if "app.shared.knowledge_base" in sys.modules and hasattr(
+        sys.modules["app.shared.knowledge_base"], "__path__"):
     _pkg_kb = sys.modules["app.shared.knowledge_base"]
 else:
     _pkg_kb = _types.ModuleType("app.shared.knowledge_base")
@@ -301,8 +302,16 @@ class TestInMemoryVectorStore:
     def test_multiple_companies(self):
         """Documents from multiple companies are isolated."""
         store = InMemoryVectorStore()
-        store.add_document("shared_name", [{"chunk_id": "a1", "content": "A data", "metadata": {}}], company_id="co_1")
-        store.add_document("shared_name", [{"chunk_id": "b1", "content": "B data", "metadata": {}}], company_id="co_2")
+        store.add_document("shared_name",
+                           [{"chunk_id": "a1",
+                             "content": "A data",
+                             "metadata": {}}],
+                           company_id="co_1")
+        store.add_document("shared_name",
+                           [{"chunk_id": "b1",
+                             "content": "B data",
+                             "metadata": {}}],
+                           company_id="co_2")
 
         results_a = store.search(_make_unit_vector(1), company_id="co_1")
         results_b = store.search(_make_unit_vector(1), company_id="co_2")

@@ -40,18 +40,16 @@ Observability
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import logging
-import math
 import time
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +92,7 @@ class CircuitState(Enum):
     """Circuit-breaker states."""
     CLOSED = "closed"       # normal operation
     OPEN = "open"           # failing, requests short-circuit to rule
-    HALF_OPEN = "half_open" # probing to see if AI has recovered
+    HALF_OPEN = "half_open"  # probing to see if AI has recovered
 
 
 # ---------------------------------------------------------------------------
@@ -220,7 +218,11 @@ class FeatureFlagBackend(ABC):
         ...
 
     @abstractmethod
-    async def set(self, key: str, value: str, ttl: Optional[int] = None) -> None:
+    async def set(
+            self,
+            key: str,
+            value: str,
+            ttl: Optional[int] = None) -> None:
         ...
 
     @abstractmethod
@@ -231,7 +233,10 @@ class FeatureFlagBackend(ABC):
 class RedisFeatureFlagBackend(FeatureFlagBackend):
     """Redis-backed implementation."""
 
-    def __init__(self, redis_client: Any, key_prefix: str = "migration") -> None:
+    def __init__(
+            self,
+            redis_client: Any,
+            key_prefix: str = "migration") -> None:
         self._redis = redis_client
         self._prefix = key_prefix
 
@@ -248,7 +253,11 @@ class RedisFeatureFlagBackend(FeatureFlagBackend):
             logger.warning("Redis GET failed for %s", key)
             return None
 
-    async def set(self, key: str, value: str, ttl: Optional[int] = None) -> None:
+    async def set(
+            self,
+            key: str,
+            value: str,
+            ttl: Optional[int] = None) -> None:
         try:
             kw: Dict[str, Any] = {}
             if ttl is not None:
@@ -273,7 +282,11 @@ class InMemoryFeatureFlagBackend(FeatureFlagBackend):
     async def get(self, key: str) -> Optional[str]:
         return self._store.get(key)
 
-    async def set(self, key: str, value: str, ttl: Optional[int] = None) -> None:
+    async def set(
+            self,
+            key: str,
+            value: str,
+            ttl: Optional[int] = None) -> None:
         self._store[key] = value
 
     async def delete(self, key: str) -> None:
@@ -336,7 +349,8 @@ class CircuitBreaker:
                 cb.state = CircuitState.CLOSED
                 cb.failure_count = 0
                 cb.half_open_calls = 0
-                logger.info("Circuit CLOSED for %s after successful probe", key)
+                logger.info(
+                    "Circuit CLOSED for %s after successful probe", key)
 
     def record_failure(self, key: str) -> None:
         cb = self._ensure(key)
@@ -348,7 +362,8 @@ class CircuitBreaker:
             cb.state = CircuitState.OPEN
             cb.opened_at = now
             cb.half_open_calls = 0
-            logger.warning("Circuit re-OPENED for %s during half-open probe", key)
+            logger.warning(
+                "Circuit re-OPENED for %s during half-open probe", key)
         elif cb.failure_count >= cb.error_threshold:
             cb.state = CircuitState.OPEN
             cb.opened_at = now
@@ -361,12 +376,14 @@ class CircuitBreaker:
         if self._should_transition_to_half_open(cb):
             cb.state = CircuitState.HALF_OPEN
             cb.half_open_calls = 0
-            logger.info("Circuit HALF_OPEN for %s (recovery timeout elapsed)", key)
+            logger.info(
+                "Circuit HALF_OPEN for %s (recovery timeout elapsed)", key)
         return cb.state
 
     def is_available(self, key: str) -> bool:
         """True when the circuit allows traffic (CLOSED or HALF_OPEN)."""
-        return self.get_state(key) in (CircuitState.CLOSED, CircuitState.HALF_OPEN)
+        return self.get_state(key) in (
+            CircuitState.CLOSED, CircuitState.HALF_OPEN)
 
     def get_state_detail(self, key: str) -> Dict[str, Any]:
         cb = self._ensure(key)
@@ -400,7 +417,10 @@ class RolloutEvaluator:
         if rollout_pct <= 0.0:
             return False
         seed = f"{tenant_id}:{ticket_id or ''}"
-        bucket = int(hashlib.sha256(seed.encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
+        bucket = int(
+            hashlib.sha256(
+                seed.encode()).hexdigest()[
+                :8], 16) / 0xFFFFFFFF
         return bucket < rollout_pct
 
     @staticmethod
@@ -477,7 +497,9 @@ class MigrationEventBus:
             try:
                 handler(event)
             except Exception:
-                logger.exception("Migration event handler error (%s)", event.event_type)
+                logger.exception(
+                    "Migration event handler error (%s)",
+                    event.event_type)
 
     def get_history(
         self, event_type: Optional[str] = None, limit: int = 100
@@ -564,7 +586,11 @@ class MigrationEngine:
             )
             return result
         except Exception as exc:
-            logger.error("Migration check error for %s:%s — %s", tenant_id, feature, exc)
+            logger.error(
+                "Migration check error for %s:%s — %s",
+                tenant_id,
+                feature,
+                exc)
             self._metrics["migration_errors"] += 1
             return True  # fail-open
 
@@ -592,7 +618,10 @@ class MigrationEngine:
         key = self._redis_key(tenant_id, feature)
         await self._backend.delete(key)
 
-    async def get_flag_value(self, tenant_id: str, feature: str) -> Optional[str]:
+    async def get_flag_value(
+            self,
+            tenant_id: str,
+            feature: str) -> Optional[str]:
         key = self._redis_key(tenant_id, feature)
         return await self._backend.get(key)
 
@@ -617,7 +646,8 @@ class MigrationEngine:
         key = self._redis_key(tenant_id, feature)
         self._configs.pop(key, None)
 
-    async def list_configs(self, tenant_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def list_configs(
+            self, tenant_id: Optional[str] = None) -> List[Dict[str, Any]]:
         configs = self._configs.values()
         if tenant_id:
             configs = [c for c in configs if c.tenant_id == tenant_id]
@@ -668,10 +698,16 @@ class MigrationEngine:
             self._metrics["circuit_blocked"] += 1
             self._bump_feature(tenant_id, feature, "circuit_blocked")
             return self._result(
-                tenant_id, feature, False,
-                f"Circuit breaker {circuit_state.value} — short-circuit to rules",
-                rollout_strategy, confidence, rollout_pct,
-                circuit_state.value, start,
+                tenant_id,
+                feature,
+                False,
+                f"Circuit breaker {
+                    circuit_state.value} — short-circuit to rules",
+                rollout_strategy,
+                confidence,
+                rollout_pct,
+                circuit_state.value,
+                start,
             )
 
         # Step 3: rollout
@@ -693,10 +729,17 @@ class MigrationEngine:
             self._metrics["confidence_blocked"] += 1
             self._bump_feature(tenant_id, feature, "confidence_blocked")
             return self._result(
-                tenant_id, feature, False,
-                f"Confidence {confidence:.2f} < threshold {confidence_threshold:.2f}",
-                rollout_strategy, confidence, rollout_pct,
-                circuit_state.value, start,
+                tenant_id,
+                feature,
+                False,
+                f"Confidence {
+                    confidence:.2f} < threshold {
+                    confidence_threshold:.2f}",
+                rollout_strategy,
+                confidence,
+                rollout_pct,
+                circuit_state.value,
+                start,
             )
 
         return self._result(
@@ -795,7 +838,8 @@ class MigrationEngine:
             "per_feature": dict(self._metrics.get("per_feature", {})),
         }
 
-    def get_circuit_state(self, tenant_id: str, feature: str) -> Dict[str, Any]:
+    def get_circuit_state(self, tenant_id: str,
+                          feature: str) -> Dict[str, Any]:
         key = self._redis_key(tenant_id, feature)
         return self._circuit.get_state_detail(key)
 
@@ -943,10 +987,14 @@ class MigrationPlanner:
         )
         await self._engine.set_config(config)
 
-        self._engine._event_bus.publish(MigrationEvent(
-            event_type="migration.rolled_back",
-            payload={"tenant_id": tenant_id, "feature": feature, "previous_stage": prev_stage},
-        ))
+        self._engine._event_bus.publish(
+            MigrationEvent(
+                event_type="migration.rolled_back",
+                payload={
+                    "tenant_id": tenant_id,
+                    "feature": feature,
+                    "previous_stage": prev_stage},
+            ))
 
         return {"status": "rolled_back", "previous_stage": prev_stage}
 

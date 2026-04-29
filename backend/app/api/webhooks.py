@@ -18,7 +18,7 @@ All endpoints:
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
 from app.api.deps import get_current_user

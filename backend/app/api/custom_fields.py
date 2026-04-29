@@ -4,6 +4,7 @@ PARWA Custom Field API - Custom Ticket Field Endpoints (Day 33: MF09)
 Endpoints for managing custom ticket fields.
 """
 
+import json
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -29,7 +30,8 @@ router = APIRouter(
 class CustomFieldCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     field_key: str = Field(..., min_length=1, max_length=100)
-    field_type: str = Field(..., description="text, number, dropdown, multi_select, date, checkbox")
+    field_type: str = Field(...,
+                            description="text, number, dropdown, multi_select, date, checkbox")
     config: Optional[Dict[str, Any]] = None
     applicable_categories: Optional[List[str]] = None
     is_required: bool = False
@@ -69,9 +71,6 @@ class FieldValidationRequest(BaseModel):
 class TicketFieldsValidationRequest(BaseModel):
     category: Optional[str] = None
     field_values: Dict[str, Any]
-
-
-import json
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────

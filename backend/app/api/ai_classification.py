@@ -29,8 +29,12 @@ router = APIRouter(
 class ClassifyRequest(BaseModel):
     text: str = Field(..., min_length=1, description="Text to classify")
     company_id: str = Field(..., description="Tenant company ID")
-    variant_type: str = Field(default="parwa", description="PARWA variant type")
-    use_ai: bool = Field(default=True, description="Use AI classification if available")
+    variant_type: str = Field(
+        default="parwa",
+        description="PARWA variant type")
+    use_ai: bool = Field(
+        default=True,
+        description="Use AI classification if available")
 
 
 class BatchClassifyRequest(BaseModel):
@@ -151,14 +155,21 @@ async def get_all_mappings(
     if variant_type:
         filtered = {}
         for intent, mapping in all_mappings.items():
-            result = mapper.map_intent(intent=intent, variant_type=variant_type)
+            result = mapper.map_intent(
+                intent=intent, variant_type=variant_type)
             filtered[intent] = {
-                "selected_techniques": [t.value for t in result.selected_techniques],
-                "selected_tiers": [t.value for t in result.selected_tiers],
+                "selected_techniques": [
+                    t.value for t in result.selected_techniques],
+                "selected_tiers": [
+                    t.value for t in result.selected_tiers],
                 "fallback_applied": result.fallback_applied,
-                "blocked_count": len(result.blocked_techniques),
+                "blocked_count": len(
+                    result.blocked_techniques),
             }
-        return {"mappings": filtered, "variant_type": variant_type, "count": len(filtered)}
+        return {
+            "mappings": filtered,
+            "variant_type": variant_type,
+            "count": len(filtered)}
 
     return {
         "mappings": {
@@ -185,7 +196,8 @@ async def list_prompt_templates(
     registry = PromptTemplateRegistry()
 
     if intent and response_type:
-        template = registry.get_template(intent, response_type, variant_type or "parwa")
+        template = registry.get_template(
+            intent, response_type, variant_type or "parwa")
         if not template:
             raise HTTPException(status_code=404, detail="Template not found")
         return {
@@ -203,7 +215,8 @@ async def list_prompt_templates(
     if intent:
         templates = [t for t in templates if t["intent"] == intent]
     if response_type:
-        templates = [t for t in templates if t["response_type"] == response_type]
+        templates = [
+            t for t in templates if t["response_type"] == response_type]
     if variant_type:
         templates = [
             t for t in templates

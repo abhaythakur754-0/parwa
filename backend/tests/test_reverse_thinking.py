@@ -9,13 +9,12 @@ Target: 60+ tests.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from app.core.technique_router import TechniqueID, QuerySignals
 from app.core.techniques.base import (
     BaseTechniqueNode,
     ConversationState,
-    GSDState,
 )
 from app.core.techniques.reverse_thinking import (
     ReverseThinkingConfig,
@@ -632,11 +631,13 @@ class TestInvertToCorrectAnswer:
     async def test_selects_best_answer(self, processor):
         hypotheses = [
             InversionHypothesis(
-                hypothesis_text="W1", error_type="e1",
+                hypothesis_text="W1",
+                error_type="e1",
                 inversion_result="Short.",
             ),
             InversionHypothesis(
-                hypothesis_text="W2", error_type="e2",
+                hypothesis_text="W2",
+                error_type="e2",
                 inversion_result="This is a much longer and more detailed answer that provides specific guidance to the customer about how to verify their billing issue.",
             ),
         ]
@@ -932,19 +933,19 @@ class TestScoreInversion:
         short = "Hello."
         long = "Let me verify your account details and review the transaction history to confirm the billing discrepancy."
         assert ReverseThinkingProcessor._score_inversion(long) > \
-               ReverseThinkingProcessor._score_inversion(short)
+            ReverseThinkingProcessor._score_inversion(short)
 
     def test_action_words_boost(self):
         plain = "Your issue will be addressed."
         with_actions = "Let me verify and review your account to confirm the details."
         assert ReverseThinkingProcessor._score_inversion(with_actions) > \
-               ReverseThinkingProcessor._score_inversion(plain)
+            ReverseThinkingProcessor._score_inversion(plain)
 
     def test_negative_absolutes_penalty(self):
         good = "I can check that for you."
         bad = "This can never be fixed and is always impossible."
         assert ReverseThinkingProcessor._score_inversion(good) > \
-               ReverseThinkingProcessor._score_inversion(bad)
+            ReverseThinkingProcessor._score_inversion(bad)
 
     def test_score_non_negative(self):
         score = ReverseThinkingProcessor._score_inversion(
@@ -973,7 +974,8 @@ class TestNodeExecute:
         assert "result" in record
 
     @pytest.mark.asyncio
-    async def test_execute_increases_confidence(self, node, low_confidence_state):
+    async def test_execute_increases_confidence(
+            self, node, low_confidence_state):
         original_confidence = low_confidence_state.signals.confidence_score
         result = await node.execute(low_confidence_state)
         assert result.signals.confidence_score >= original_confidence
@@ -1040,7 +1042,8 @@ class TestErrorFallback:
     """BC-008: Never crash — return original state on error."""
 
     @pytest.mark.asyncio
-    async def test_execute_returns_original_on_exception(self, node, low_confidence_state):
+    async def test_execute_returns_original_on_exception(
+            self, node, low_confidence_state):
         """Force an exception inside execute() and verify original state returned."""
         with patch.object(
             node._processor, 'process',

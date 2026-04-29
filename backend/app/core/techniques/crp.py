@@ -194,7 +194,9 @@ class CRPProcessor:
             try:
                 patterns.append(re.compile(pattern_str, re.I))
             except re.error:
-                logger.warning("crp_invalid_filler_pattern", pattern=pattern_str)
+                logger.warning(
+                    "crp_invalid_filler_pattern",
+                    pattern=pattern_str)
 
         # keep_empathy: when True, exclude empathy fillers so upset
         # customers still receive empathetic language.

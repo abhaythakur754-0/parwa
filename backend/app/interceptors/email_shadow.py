@@ -21,7 +21,7 @@ logger = logging.getLogger("parwa.interceptors.email_shadow")
 @dataclass
 class EmailShadowResult:
     """Result of email shadow evaluation."""
-    
+
     requires_approval: bool
     auto_execute: bool
     mode: str
@@ -29,7 +29,7 @@ class EmailShadowResult:
     reason: str
     shadow_log_id: Optional[str] = None
     layers: Optional[Dict[str, Any]] = None
-    
+
     # Additional context
     company_mode: str = "supervised"
     stage_0: bool = False
@@ -43,7 +43,7 @@ def evaluate_email_shadow(
 ) -> EmailShadowResult:
     """
     Evaluate an outbound email against shadow mode rules.
-    
+
     Args:
         company_id: Company UUID (BC-001).
         email_payload: Dict with email details:
@@ -55,10 +55,10 @@ def evaluate_email_shadow(
             - attachments: Optional list of attachment info
             - template_id: Optional template ID if using templates
         shadow_service: Optional ShadowModeService instance (created if not provided)
-    
+
     Returns:
         EmailShadowResult with evaluation outcome.
-    
+
     When auto_execute=True, the email is sent immediately and logged
     to the undo queue for potential reversal.
     """
@@ -66,22 +66,22 @@ def evaluate_email_shadow(
         # Lazy import to avoid circular dependencies
         from app.services.shadow_mode_service import ShadowModeService
         from app.interceptors.base_interceptor import ShadowInterceptor
-        
+
         service = shadow_service or ShadowModeService()
         interceptor = ShadowInterceptor()
-        
+
         # Evaluate using the 4-layer system
         evaluation = service.evaluate_action_risk(
             company_id=company_id,
             action_type="email_reply",
             action_payload=email_payload,
         )
-        
+
         auto_execute = evaluation.get("auto_execute", False)
         requires_approval = evaluation.get("requires_approval", True)
         risk_score = evaluation.get("risk_score", 0.5)
         mode = evaluation.get("mode", "supervised")
-        
+
         # Always log the action to shadow_log for audit trail
         log_entry = service.log_shadow_action(
             company_id=company_id,
@@ -91,7 +91,7 @@ def evaluate_email_shadow(
             mode=mode,
         )
         shadow_log_id = log_entry.get("id")
-        
+
         # Auto-execute: send the email immediately
         if auto_execute and not requires_approval:
             _execute_email_action(
@@ -110,7 +110,7 @@ def evaluate_email_shadow(
                 "email_auto_executed company_id=%s log_id=%s risk=%.2f",
                 company_id, shadow_log_id, risk_score,
             )
-        
+
         return EmailShadowResult(
             requires_approval=requires_approval,
             auto_execute=auto_execute,
@@ -123,7 +123,7 @@ def evaluate_email_shadow(
             stage_0=evaluation.get("stage_0", False),
             shadow_actions_remaining=evaluation.get("shadow_actions_remaining"),
         )
-        
+
     except Exception as e:
         logger.error(
             "email_shadow_evaluation_failed company_id=%s error=%s",
@@ -146,22 +146,22 @@ def _execute_email_action(
 ) -> Dict[str, Any]:
     """
     Execute an email send action that was auto-approved.
-    
+
     Delegates to the email service for actual sending.
-    
+
     Args:
         company_id: Company UUID (BC-001).
         email_payload: Dict with email details.
         shadow_log_id: Optional shadow log ID for audit trail.
-    
+
     Returns:
         Dict with execution result.
     """
     try:
         from app.services.email_service import EmailService
-        
+
         email_service = EmailService()
-        
+
         result = email_service.send_email(
             to=email_payload.get("to"),
             subject=email_payload.get("subject"),
@@ -170,12 +170,12 @@ def _execute_email_action(
             reply_to=email_payload.get("reply_to"),
             company_id=company_id,
         )
-        
+
         logger.info(
             "email_executed company_id=%s to=%s shadow_id=%s",
             company_id, email_payload.get("to"), shadow_log_id,
         )
-        
+
         return {
             "status": "sent",
             "shadow_log_id": shadow_log_id,
@@ -201,50 +201,50 @@ def process_email_after_approval(
 ) -> Dict[str, Any]:
     """
     Process an email that was held in shadow queue after approval.
-    
+
     This should be called when a manager approves an email action
     from the shadow queue.
-    
+
     Args:
         company_id: Company UUID (BC-001).
         shadow_log_id: Shadow log entry UUID.
         email_service: Optional email service instance.
-    
+
     Returns:
         Dict with processing result.
     """
     try:
-        from app.services.shadow_mode_service import ShadowModeService
-        
+        pass
+
         with SessionLocal() as db:
             # Get the shadow log entry
             shadow_entry = db.query(ShadowLog).filter(
                 ShadowLog.id == shadow_log_id,
                 ShadowLog.company_id == company_id,
             ).first()
-            
+
             if not shadow_entry:
                 return {
                     "status": "error",
                     "error": "Shadow log entry not found",
                 }
-            
+
             email_payload = shadow_entry.action_payload or {}
-            
+
             # Here you would integrate with your email sending service
             # For now, we return the payload for the caller to process
             logger.info(
                 "email_shadow_approved shadow_id=%s company_id=%s",
                 shadow_log_id, company_id,
             )
-            
+
             return {
                 "status": "ready_to_send",
                 "shadow_log_id": shadow_log_id,
                 "email_payload": email_payload,
                 "approved_at": datetime.utcnow().isoformat(),
             }
-            
+
     except Exception as e:
         logger.error(
             "email_shadow_approval_processing_failed shadow_id=%s error=%s",

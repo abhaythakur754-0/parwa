@@ -18,12 +18,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, desc, func, or_
+from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import Session
 
 from app.exceptions import (
     NotFoundError,
-    AuthorizationError,
     ValidationError,
 )
 from database.models.tickets import (
@@ -43,7 +42,7 @@ class CustomerService:
         self.db = db
         self.company_id = company_id
 
-    # ── CUSTOMER CRUD ─────────────────────────────────────────────────────────
+    # ── CUSTOMER CRUD ───────────────────────────────────────────────────────
 
     def create_customer(
         self,
@@ -79,8 +78,8 @@ class CustomerService:
         existing = self._find_existing_customer(email, phone)
         if existing:
             raise ValidationError(
-                f"Customer already exists with matching identifier (ID: {existing.id})"
-            )
+                f"Customer already exists with matching identifier (ID: {
+                    existing.id})")
 
         customer = Customer(
             id=str(uuid.uuid4()),
@@ -291,12 +290,14 @@ class CustomerService:
         if email is not None and email != customer.email:
             existing = self.get_customer_by_email(email)
             if existing and existing.id != customer_id:
-                raise ValidationError("Email already in use by another customer")
+                raise ValidationError(
+                    "Email already in use by another customer")
 
         if phone is not None and phone != customer.phone:
             existing = self.get_customer_by_phone(phone)
             if existing and existing.id != customer_id:
-                raise ValidationError("Phone already in use by another customer")
+                raise ValidationError(
+                    "Phone already in use by another customer")
 
         # Update fields
         if email is not None:
@@ -363,7 +364,7 @@ class CustomerService:
 
         return True
 
-    # ── CHANNEL LINKING ────────────────────────────────────────────────────────
+    # ── CHANNEL LINKING ─────────────────────────────────────────────────────
 
     def link_channel(
         self,
@@ -494,7 +495,7 @@ class CustomerService:
 
         return channel
 
-    # ── CUSTOMER TICKETS ───────────────────────────────────────────────────────
+    # ── CUSTOMER TICKETS ────────────────────────────────────────────────────
 
     def get_customer_tickets(
         self,
@@ -529,7 +530,7 @@ class CustomerService:
 
         return tickets, total
 
-    # ── CUSTOMER MERGE ─────────────────────────────────────────────────────────
+    # ── CUSTOMER MERGE ──────────────────────────────────────────────────────
 
     def merge_customers(
         self,
@@ -571,7 +572,8 @@ class CustomerService:
         # Collect all data to merge
         merged_emails = [c.email for c in merged_customers if c.email]
         merged_phones = [c.phone for c in merged_customers if c.phone]
-        merged_metadata = [json.loads(c.metadata_json or "{}") for c in merged_customers]
+        merged_metadata = [json.loads(c.metadata_json or "{}")
+                           for c in merged_customers]
 
         # Update primary with merged data
         primary_metadata = json.loads(primary.metadata_json or "{}")
@@ -625,7 +627,7 @@ class CustomerService:
 
         return primary
 
-    # ── PRIVATE HELPERS ────────────────────────────────────────────────────────
+    # ── PRIVATE HELPERS ─────────────────────────────────────────────────────
 
     def _find_existing_customer(
         self,

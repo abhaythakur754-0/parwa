@@ -2,7 +2,6 @@
 Tests for SG-13 AuditLogService — Comprehensive test suite
 """
 
-import threading
 from dataclasses import is_dataclass
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
@@ -291,79 +290,112 @@ class TestDataclasses:
 
     def test_entry_default_actor_type(self):
         entry = AuditLogEntry(
-            entry_id="e-1", company_id="co-1",
-            category=AuditCategory.SYSTEM, severity=AuditSeverity.INFO, action="ping",
+            entry_id="e-1",
+            company_id="co-1",
+            category=AuditCategory.SYSTEM,
+            severity=AuditSeverity.INFO,
+            action="ping",
         )
         assert entry.actor_type == "user"
 
     def test_entry_default_actor_id_none(self):
         entry = AuditLogEntry(
-            entry_id="e-1", company_id="co-1",
-            category=AuditCategory.SYSTEM, severity=AuditSeverity.INFO, action="ping",
+            entry_id="e-1",
+            company_id="co-1",
+            category=AuditCategory.SYSTEM,
+            severity=AuditSeverity.INFO,
+            action="ping",
         )
         assert entry.actor_id is None
 
     def test_entry_default_resource_type_none(self):
         entry = AuditLogEntry(
-            entry_id="e-1", company_id="co-1",
-            category=AuditCategory.SYSTEM, severity=AuditSeverity.INFO, action="ping",
+            entry_id="e-1",
+            company_id="co-1",
+            category=AuditCategory.SYSTEM,
+            severity=AuditSeverity.INFO,
+            action="ping",
         )
         assert entry.resource_type is None
 
     def test_entry_default_resource_id_none(self):
         entry = AuditLogEntry(
-            entry_id="e-1", company_id="co-1",
-            category=AuditCategory.SYSTEM, severity=AuditSeverity.INFO, action="ping",
+            entry_id="e-1",
+            company_id="co-1",
+            category=AuditCategory.SYSTEM,
+            severity=AuditSeverity.INFO,
+            action="ping",
         )
         assert entry.resource_id is None
 
     def test_entry_default_old_value_none(self):
         entry = AuditLogEntry(
-            entry_id="e-1", company_id="co-1",
-            category=AuditCategory.SYSTEM, severity=AuditSeverity.INFO, action="ping",
+            entry_id="e-1",
+            company_id="co-1",
+            category=AuditCategory.SYSTEM,
+            severity=AuditSeverity.INFO,
+            action="ping",
         )
         assert entry.old_value is None
 
     def test_entry_default_new_value_none(self):
         entry = AuditLogEntry(
-            entry_id="e-1", company_id="co-1",
-            category=AuditCategory.SYSTEM, severity=AuditSeverity.INFO, action="ping",
+            entry_id="e-1",
+            company_id="co-1",
+            category=AuditCategory.SYSTEM,
+            severity=AuditSeverity.INFO,
+            action="ping",
         )
         assert entry.new_value is None
 
     def test_entry_default_ip_address_none(self):
         entry = AuditLogEntry(
-            entry_id="e-1", company_id="co-1",
-            category=AuditCategory.SYSTEM, severity=AuditSeverity.INFO, action="ping",
+            entry_id="e-1",
+            company_id="co-1",
+            category=AuditCategory.SYSTEM,
+            severity=AuditSeverity.INFO,
+            action="ping",
         )
         assert entry.ip_address is None
 
     def test_entry_default_user_agent_none(self):
         entry = AuditLogEntry(
-            entry_id="e-1", company_id="co-1",
-            category=AuditCategory.SYSTEM, severity=AuditSeverity.INFO, action="ping",
+            entry_id="e-1",
+            company_id="co-1",
+            category=AuditCategory.SYSTEM,
+            severity=AuditSeverity.INFO,
+            action="ping",
         )
         assert entry.user_agent is None
 
     def test_entry_default_metadata_empty_dict(self):
         entry = AuditLogEntry(
-            entry_id="e-1", company_id="co-1",
-            category=AuditCategory.SYSTEM, severity=AuditSeverity.INFO, action="ping",
+            entry_id="e-1",
+            company_id="co-1",
+            category=AuditCategory.SYSTEM,
+            severity=AuditSeverity.INFO,
+            action="ping",
         )
         assert entry.metadata == {}
 
     def test_entry_default_checksum_empty(self):
         entry = AuditLogEntry(
-            entry_id="e-1", company_id="co-1",
-            category=AuditCategory.SYSTEM, severity=AuditSeverity.INFO, action="ping",
+            entry_id="e-1",
+            company_id="co-1",
+            category=AuditCategory.SYSTEM,
+            severity=AuditSeverity.INFO,
+            action="ping",
         )
         assert entry.checksum == ""
 
     def test_entry_default_created_at_utc(self):
         before = datetime.now(timezone.utc)
         entry = AuditLogEntry(
-            entry_id="e-1", company_id="co-1",
-            category=AuditCategory.SYSTEM, severity=AuditSeverity.INFO, action="ping",
+            entry_id="e-1",
+            company_id="co-1",
+            category=AuditCategory.SYSTEM,
+            severity=AuditSeverity.INFO,
+            action="ping",
         )
         after = datetime.now(timezone.utc)
         assert before <= entry.created_at <= after
@@ -428,7 +460,8 @@ class TestDataclasses:
             enable_auto_cleanup=False,
             cleanup_frequency_hours=12,
         )
-        assert p.category_retention_days == {"system": 30, "authentication": 2555}
+        assert p.category_retention_days == {
+            "system": 30, "authentication": 2555}
         assert p.max_entries_per_category == 100
         assert p.enable_auto_cleanup is False
         assert p.cleanup_frequency_hours == 12
@@ -655,7 +688,10 @@ class TestLogEvent:
     def test_log_with_enum_category(self):
         svc = self._make_svc()
         entry = svc.log_event(
-            "co-1", AuditCategory.BILLING, AuditSeverity.WARNING, "charge_failed",
+            "co-1",
+            AuditCategory.BILLING,
+            AuditSeverity.WARNING,
+            "charge_failed",
         )
         assert entry.category == AuditCategory.BILLING
 
@@ -813,12 +849,33 @@ class TestQueryEvents:
     def _seed_svc(self, company_id="co-1"):
         svc = AuditLogService()
         svc.reset(company_id)
-        svc.log_event(company_id, "authentication", "info", "login", actor_id="user-1")
-        svc.log_event(company_id, "billing", "warning", "charge", actor_id="user-2")
-        svc.log_event(company_id, "authentication", "critical", "login_failed", actor_id="user-1")
+        svc.log_event(
+            company_id,
+            "authentication",
+            "info",
+            "login",
+            actor_id="user-1")
+        svc.log_event(
+            company_id,
+            "billing",
+            "warning",
+            "charge",
+            actor_id="user-2")
+        svc.log_event(
+            company_id,
+            "authentication",
+            "critical",
+            "login_failed",
+            actor_id="user-1")
         svc.log_event(company_id, "system", "info", "ping", actor_id="user-3")
-        svc.log_event(company_id, "data_access", "info", "read_doc", actor_id="user-1",
-                      resource_type="document", resource_id="doc-1")
+        svc.log_event(
+            company_id,
+            "data_access",
+            "info",
+            "read_doc",
+            actor_id="user-1",
+            resource_type="document",
+            resource_id="doc-1")
         return svc
 
     def test_query_empty_company(self):
@@ -937,12 +994,30 @@ class TestStatistics:
     def _seed_svc(self):
         svc = AuditLogService()
         svc.reset("co-1")
-        svc.log_event("co-1", "authentication", "info", "login", actor_id="user-1",
-                      resource_type="session", resource_id="s-1")
-        svc.log_event("co-1", "billing", "warning", "charge", actor_id="user-2",
-                      resource_type="invoice", resource_id="inv-1")
-        svc.log_event("co-1", "authentication", "critical", "login_failed", actor_id="user-1",
-                      resource_type="session", resource_id="s-2")
+        svc.log_event(
+            "co-1",
+            "authentication",
+            "info",
+            "login",
+            actor_id="user-1",
+            resource_type="session",
+            resource_id="s-1")
+        svc.log_event(
+            "co-1",
+            "billing",
+            "warning",
+            "charge",
+            actor_id="user-2",
+            resource_type="invoice",
+            resource_id="inv-1")
+        svc.log_event(
+            "co-1",
+            "authentication",
+            "critical",
+            "login_failed",
+            actor_id="user-1",
+            resource_type="session",
+            resource_id="s-2")
         return svc
 
     def test_stats_empty_company(self):
@@ -1361,7 +1436,8 @@ class TestRetention:
 
     def test_set_policy_empty_company_id_raises(self):
         svc = AuditLogService()
-        custom = AuditRetentionPolicy(company_id="", category_retention_days={})
+        custom = AuditRetentionPolicy(
+            company_id="", category_retention_days={})
         with pytest.raises(AuditLogError):
             svc.set_retention_policy("", custom)
 
@@ -1888,7 +1964,8 @@ class TestSecurityRelevantActions:
         svc = self._make_svc()
         svc.log_event("co-1", "authorization", "warning", "permission_change")
         alerts = svc.get_alerts("co-1")
-        assert any(a["alert_type"] == "audit_permission_change" for a in alerts)
+        assert any(a["alert_type"] ==
+                   "audit_permission_change" for a in alerts)
 
     def test_api_key_revoke_creates_alert(self):
         svc = self._make_svc()

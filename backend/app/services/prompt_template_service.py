@@ -16,7 +16,6 @@ Singleton pattern: shared class-level state for in-memory storage.
 
 from __future__ import annotations
 
-import copy
 import re
 import uuid
 
@@ -238,7 +237,9 @@ def _validate_variant_type(variant_type: Optional[str]) -> None:
 
 def _validate_traffic_split(traffic_split: float) -> None:
     """Validate traffic_split is between 0.0 and 1.0."""
-    if not isinstance(traffic_split, (int, float)) or not (0.0 <= traffic_split <= 1.0):
+    if not isinstance(
+            traffic_split, (int, float)) or not (
+            0.0 <= traffic_split <= 1.0):
         from app.exceptions import ParwaBaseError
         raise ParwaBaseError(
             error_code="INVALID_TRAFFIC_SPLIT",
@@ -1751,7 +1752,9 @@ class PromptTemplateService:
                 # Probabilistic split — use hash of deterministic input
                 # to ensure the same conversation consistently gets A or B
                 import hashlib
-                deterministic_key = f"{company_id}:{name}:{variables.get('ticket_id', '')}"
+                deterministic_key = f"{company_id}:{name}:{
+                    variables.get(
+                        'ticket_id', '')}"
                 hash_val = int(
                     hashlib.md5(deterministic_key.encode()).hexdigest(), 16,
                 )

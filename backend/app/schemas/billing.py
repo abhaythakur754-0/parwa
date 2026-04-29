@@ -163,8 +163,9 @@ class CompanyVariantCreate(BaseModel):
         valid = {"ecommerce", "saas", "logistics", "others"}
         if v_lower not in valid:
             raise ValueError(
-                f"Invalid variant_id '{v}'. Must be one of: {', '.join(sorted(valid))}"
-            )
+                f"Invalid variant_id '{v}'. Must be one of: {
+                    ', '.join(
+                        sorted(valid))}")
         return v_lower
 
 
@@ -487,8 +488,12 @@ class EffectiveLimitsInfo(BaseModel):
 
 class CancelFeedbackRequest(BaseModel):
     """C1: Step 1 of cancel confirmation flow — feedback form."""
-    reason: Optional[str] = Field(None, max_length=500, description="Why are you leaving?")
-    feedback: Optional[str] = Field(None, max_length=1000, description="Additional feedback")
+    reason: Optional[str] = Field(
+        None,
+        max_length=500,
+        description="Why are you leaving?")
+    feedback: Optional[str] = Field(
+        None, max_length=1000, description="Additional feedback")
 
 
 class SaveOfferResponse(BaseModel):
@@ -555,7 +560,8 @@ class ResubscriptionResponse(BaseModel):
     subscription: SubscriptionInfo
     data_restored: bool
     message: str
-    retention_status: Optional[str] = None  # "within_retention" or "after_retention"
+    # "within_retention" or "after_retention"
+    retention_status: Optional[str] = None
 
 
 class PaymentMethodUpdateRequest(BaseModel):

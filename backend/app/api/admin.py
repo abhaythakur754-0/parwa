@@ -34,7 +34,6 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
-    require_roles,
     get_current_user,
 )
 from app.exceptions import AuthorizationError, NotFoundError

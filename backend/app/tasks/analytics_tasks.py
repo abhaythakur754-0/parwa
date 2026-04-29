@@ -81,14 +81,14 @@ def aggregate_metrics(self, company_id: str,
 def calculate_roi(self, company_id: str,
                   period_days: int = 30) -> dict:
     """Calculate ROI for the company over the given period.
-    
+
     This task:
     1. Queries tickets resolved in the period
     2. Counts AI-resolved vs human-resolved tickets
     3. Calculates costs and savings
     4. Saves a ROISnapshot record
     5. Returns the ROI data
-    
+
     Returns:
         dict with status, company_id, period_days, roi, and breakdown
     """
@@ -96,28 +96,30 @@ def calculate_roi(self, company_id: str,
         # Calculate date range
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=period_days)
-        
+
         # Try database query, fall back to estimates if unavailable
         total_tickets = 0
         ai_tickets = 0
         human_tickets = 0
         ai_accuracy = float(DEFAULT_AI_ACCURACY)
-        
+
         try:
             from sqlalchemy import create_engine
             from sqlalchemy.orm import sessionmaker
             import os
-            
+
             # Database connection
-            database_url = os.environ.get("DATABASE_URL", "sqlite:///./parwa.db")
+            database_url = os.environ.get(
+                "DATABASE_URL", "sqlite:///./parwa.db")
             engine = create_engine(database_url)
             Session = sessionmaker(bind=engine)
             session = Session()
-            
+
             try:
-                # Query resolved tickets using SQLAlchemy ORM for DB compatibility
-                from sqlalchemy import text, func
-                
+                # Query resolved tickets using SQLAlchemy ORM for DB
+                # compatibility
+                from sqlalchemy import text
+
                 # Simple query that works with both SQLite and PostgreSQL
                 # Get total resolved tickets in period
                 total_query = text("""
@@ -128,14 +130,14 @@ def calculate_roi(self, company_id: str,
                       AND closed_at >= :start_date
                       AND closed_at <= :end_date
                 """)
-                
+
                 total_result = session.execute(
                     total_query,
                     {"company_id": company_id, "start_date": start_date, "end_date": end_date}
                 ).fetchone()
-                
+
                 total_tickets = total_result[0] if total_result else 0
-                
+
                 # Get AI-resolved tickets (tickets where last assignment was 'ai')
                 # Use a simpler query for cross-database compatibility
                 ai_query = text("""
@@ -148,15 +150,15 @@ def calculate_roi(self, company_id: str,
                       AND t.closed_at >= :start_date
                       AND t.closed_at <= :end_date
                 """)
-                
+
                 ai_result = session.execute(
                     ai_query,
                     {"company_id": company_id, "start_date": start_date, "end_date": end_date}
                 ).fetchone()
-                
+
                 ai_tickets = ai_result[0] if ai_result else 0
                 human_tickets = max(0, total_tickets - ai_tickets)
-                
+
                 # Try to get AI accuracy from QA scores
                 accuracy_query = text("""
                     SELECT AVG(accuracy)
@@ -168,13 +170,13 @@ def calculate_roi(self, company_id: str,
                     accuracy_query,
                     {"company_id": company_id, "start_date": start_date}
                 ).fetchone()
-                
+
                 if accuracy_result and accuracy_result[0]:
                     ai_accuracy = float(accuracy_result[0])
-                    
+
             finally:
                 session.close()
-                
+
         except Exception as db_exc:
             # Database not available, use estimates
             logger.warning(
@@ -185,30 +187,32 @@ def calculate_roi(self, company_id: str,
                     "error": str(db_exc)[:200],
                 },
             )
-        
+
         # If no tickets found, estimate based on typical usage
         if total_tickets == 0:
             total_tickets = 100
             ai_tickets = int(total_tickets * float(DEFAULT_AI_ACCURACY))
             human_tickets = total_tickets - ai_tickets
-        
+
         # Calculate costs
         ai_cost = Decimal(str(ai_tickets)) * DEFAULT_AI_COST_PER_TICKET
-        human_cost = Decimal(str(human_tickets)) * DEFAULT_HUMAN_COST_PER_TICKET
+        human_cost = Decimal(str(human_tickets)) * \
+            DEFAULT_HUMAN_COST_PER_TICKET
         total_cost_with_ai = ai_cost + human_cost
-        
+
         # Cost if all handled by humans
-        total_cost_without_ai = Decimal(str(total_tickets)) * DEFAULT_HUMAN_COST_PER_TICKET
-        
+        total_cost_without_ai = Decimal(
+            str(total_tickets)) * DEFAULT_HUMAN_COST_PER_TICKET
+
         # Calculate savings
         total_savings = total_cost_without_ai - total_cost_with_ai
-        
+
         # Calculate ROI percentage
         if total_cost_with_ai > 0:
             roi = float((total_savings / total_cost_with_ai) * 100)
         else:
             roi = 0.0
-        
+
         logger.info(
             "calculate_roi_success",
             extra={
@@ -222,7 +226,7 @@ def calculate_roi(self, company_id: str,
                 "total_savings": float(total_savings),
             },
         )
-        
+
         return {
             "status": "calculated",
             "company_id": company_id,
@@ -236,7 +240,7 @@ def calculate_roi(self, company_id: str,
             "total_savings": float(total_savings),
             "ai_accuracy": ai_accuracy,
         }
-            
+
     except Exception as exc:
         logger.error(
             "calculate_roi_failed",

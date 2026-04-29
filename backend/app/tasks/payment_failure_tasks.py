@@ -14,8 +14,6 @@ BC-003: All tasks have proper error handling and retries
 
 import logging
 from datetime import datetime, timezone
-from decimal import Decimal
-from typing import Dict, Any, Optional
 
 from app.tasks.base import ParwaBaseTask, with_company_id
 from app.tasks.celery_app import app
@@ -104,10 +102,11 @@ def stop_service_immediately(
                 # Try alternate model path
                 try:
                     from sqlalchemy import text
-                    db.execute(text(
-                        "UPDATE ai_agents SET status = 'paused', paused_reason = 'payment_failed', paused_at = NOW() "
-                        "WHERE company_id = :cid AND status = 'active'"
-                    ), {"cid": company_id})
+                    db.execute(
+                        text(
+                            "UPDATE ai_agents SET status = 'paused', paused_reason = 'payment_failed', paused_at = NOW() "
+                            "WHERE company_id = :cid AND status = 'active'"), {
+                            "cid": company_id})
                     count_result = db.execute(text(
                         "SELECT COUNT(*) FROM ai_agents WHERE company_id = :cid AND status = 'paused' AND paused_reason = 'payment_failed'"
                     ), {"cid": company_id})
@@ -232,7 +231,9 @@ def resume_service(
                     results["agents_resumed"] += 1
                 logger.info(
                     "resumed_ai_agents company_id=%s count=%d transaction_id=%s",
-                    company_id, results["agents_resumed"], transaction_id,
+                    company_id,
+                    results["agents_resumed"],
+                    transaction_id,
                 )
             except Exception as agent_err:
                 logger.error(
@@ -263,10 +264,13 @@ def resume_service(
             ).all()
 
             for ticket in frozen_tickets:
-                # Restore to previous status (Bug B5 fix: use stored original status)
+                # Restore to previous status (Bug B5 fix: use stored original
+                # status)
                 ticket.metadata_json = ticket.metadata_json or {}
-                original_status = ticket.metadata_json.get("pre_freeze_status", "open")
-                # If original_status is still 'frozen' (shouldn't happen), fall back to 'open'
+                original_status = ticket.metadata_json.get(
+                    "pre_freeze_status", "open")
+                # If original_status is still 'frozen' (shouldn't happen), fall
+                # back to 'open'
                 if original_status == "frozen":
                     original_status = "open"
                 ticket.status = original_status
@@ -336,7 +340,6 @@ def send_payment_failed_notification(
         Dict with notification status
     """
     try:
-        from app.services.email_service import send_email
         from database.models.billing_extended import PaymentFailure
 
         with SessionLocal() as db:
@@ -360,7 +363,8 @@ def send_payment_failed_notification(
             ).order_by(Subscription.created_at.desc()).first()
 
             variant = subscription.tier if subscription else "unknown"
-            amount = float(failure.amount_attempted) if failure.amount_attempted else 0
+            amount = float(
+                failure.amount_attempted) if failure.amount_attempted else 0
 
             # Send email notification
             # In production, this would use the email service

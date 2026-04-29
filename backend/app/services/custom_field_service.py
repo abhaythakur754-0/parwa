@@ -18,7 +18,6 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, desc, or_
 from sqlalchemy.orm import Session
 
 from app.exceptions import NotFoundError, ValidationError
@@ -80,13 +79,13 @@ class CustomFieldService:
         # Check limit
         current_count = self.db.query(CustomField).filter(
             CustomField.company_id == self.company_id,
-            CustomField.is_active == True,
+            CustomField.is_active,
         ).count()
 
         if current_count >= self.MAX_FIELDS_PER_COMPANY:
             raise ValidationError(
-                f"Maximum {self.MAX_FIELDS_PER_COMPANY} custom fields per company"
-            )
+                f"Maximum {
+                    self.MAX_FIELDS_PER_COMPANY} custom fields per company")
 
         # Validate name
         if not name or len(name.strip()) == 0:
@@ -105,17 +104,19 @@ class CustomFieldService:
         existing = self.db.query(CustomField).filter(
             CustomField.company_id == self.company_id,
             CustomField.field_key == field_key,
-            CustomField.is_active == True,
+            CustomField.is_active,
         ).first()
 
         if existing:
-            raise ValidationError(f"Field with key '{field_key}' already exists")
+            raise ValidationError(
+                f"Field with key '{field_key}' already exists")
 
         # Validate field_type
         if field_type not in self.VALID_FIELD_TYPES:
             raise ValidationError(
-                f"Invalid field type: {field_type}. Valid types: {', '.join(self.VALID_FIELD_TYPES)}"
-            )
+                f"Invalid field type: {field_type}. Valid types: {
+                    ', '.join(
+                        self.VALID_FIELD_TYPES)}")
 
         # Validate config based on field_type
         config = config or {}
@@ -149,7 +150,8 @@ class CustomFieldService:
 
         return field
 
-    def _validate_config(self, field_type: str, config: Dict[str, Any]) -> None:
+    def _validate_config(self, field_type: str,
+                         config: Dict[str, Any]) -> None:
         """Validate field config based on type."""
         if field_type in ["dropdown", "multi_select"]:
             options = config.get("options", [])
@@ -212,7 +214,7 @@ class CustomFieldService:
         return self.db.query(CustomField).filter(
             CustomField.company_id == self.company_id,
             CustomField.field_key == field_key,
-            CustomField.is_active == True,
+            CustomField.is_active,
         ).first()
 
     def list_fields(
@@ -392,7 +394,8 @@ class CustomFieldService:
         elif field.field_type == "dropdown":
             options = config.get("options", [])
             if value not in options:
-                return False, f"Field '{field_key}' must be one of: {', '.join(options)}"
+                return False, f"Field '{field_key}' must be one of: {
+                    ', '.join(options)}"
 
         elif field.field_type == "multi_select":
             if not isinstance(value, list):
@@ -431,7 +434,7 @@ class CustomFieldService:
         """
         fields = self.db.query(CustomField).filter(
             CustomField.company_id == self.company_id,
-            CustomField.is_active == True,
+            CustomField.is_active,
         ).order_by(CustomField.sort_order).all()
 
         if not category:

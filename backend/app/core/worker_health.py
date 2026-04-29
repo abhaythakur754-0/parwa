@@ -12,7 +12,6 @@ Port: 8001 (configurable via WORKER_HEALTH_PORT env var)
 This enables proper health checks in docker-compose and Kubernetes.
 """
 
-import asyncio
 import json
 import logging
 import os
@@ -159,7 +158,8 @@ class WorkerHealthHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         logger.debug("%s - %s", self.address_string(), format % args)
 
-    def _send_json_response(self, data: Dict[str, Any], status: int = 200) -> None:
+    def _send_json_response(
+            self, data: Dict[str, Any], status: int = 200) -> None:
         """Send JSON response."""
         response = json.dumps(data)
         self.send_response(status)
@@ -235,8 +235,7 @@ parwa_worker_broker_connected {1 if status.broker_connected else 0}
 
 # HELP parwa_worker_heartbeat_active Heartbeat status
 # TYPE parwa_worker_heartbeat_active gauge
-parwa_worker_heartbeat_active {1 if status.heartbeat_active else 0}
-"""
+parwa_worker_heartbeat_active {1 if status.heartbeat_active else 0} """
 
         self.send_response(200)
         self.send_header("Content-Type", "text/plain")
@@ -252,7 +251,8 @@ class WorkerHealthServer:
     Runs in a background thread within the worker process.
     """
 
-    def __init__(self, port: int = WORKER_HEALTH_PORT, host: str = WORKER_HEALTH_HOST):
+    def __init__(self, port: int = WORKER_HEALTH_PORT,
+                 host: str = WORKER_HEALTH_HOST):
         """Initialize health server."""
         self._port = port
         self._host = host
@@ -266,8 +266,10 @@ class WorkerHealthServer:
             return
 
         try:
-            self._server = HTTPServer((self._host, self._port), WorkerHealthHandler)
-            self._thread = threading.Thread(target=self._run_server, daemon=True)
+            self._server = HTTPServer(
+                (self._host, self._port), WorkerHealthHandler)
+            self._thread = threading.Thread(
+                target=self._run_server, daemon=True)
             self._thread.start()
             self._running = True
 

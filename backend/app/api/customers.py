@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, require_roles
@@ -20,7 +20,6 @@ from app.schemas.customer import (
     CustomerResponse,
     CustomerMergeRequest,
     CustomerChannelCreate,
-    CustomerChannelResponse,
 )
 
 
@@ -49,7 +48,10 @@ def _customer_to_response(customer: Any) -> Dict[str, Any]:
         "name": customer.name,
         "external_id": customer.external_id,
         "company_id": customer.company_id,
-        "is_verified": customer.metadata_json and json.loads(customer.metadata_json).get("verified", False) if customer.metadata_json else False,
+        "is_verified": customer.metadata_json and json.loads(
+            customer.metadata_json).get(
+            "verified",
+            False) if customer.metadata_json else False,
         "metadata_json": metadata_json,
         "created_at": customer.created_at.isoformat() if customer.created_at else None,
         "updated_at": customer.updated_at.isoformat() if customer.updated_at else None,
@@ -288,18 +290,14 @@ async def get_customer_channels(
     try:
         channels = service.get_customer_channels(customer_id)
 
-        return [
-            {
-                "id": c.id,
-                "customer_id": c.customer_id,
-                "channel_type": c.channel_type,
-                "external_id": c.external_id,
-                "is_verified": c.is_verified,
-                "verified_at": c.verified_at.isoformat() if c.verified_at else None,
-                "created_at": c.created_at.isoformat() if c.created_at else None,
-            }
-            for c in channels
-        ]
+        return [{"id": c.id,
+                 "customer_id": c.customer_id,
+                 "channel_type": c.channel_type,
+                 "external_id": c.external_id,
+                 "is_verified": c.is_verified,
+                 "verified_at": c.verified_at.isoformat() if c.verified_at else None,
+                 "created_at": c.created_at.isoformat() if c.created_at else None,
+                 } for c in channels]
 
     except NotFoundError as e:
         raise HTTPException(

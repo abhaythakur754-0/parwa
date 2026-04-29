@@ -4,7 +4,6 @@ SMS Channel Schemas — Week 13 Day 5 (F-123: SMS Channel)
 Pydantic models for SMS channel API requests and responses.
 """
 
-from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
@@ -51,8 +50,10 @@ class SMSMessageListResponse(BaseModel):
 
 class SMSSendRequest(BaseModel):
     """Request to send an outbound SMS message."""
-    to_number: str = Field(..., min_length=1, max_length=30, description="Recipient phone in E.164")
-    body: str = Field(..., min_length=1, max_length=1600, description="SMS body text")
+    to_number: str = Field(..., min_length=1, max_length=30,
+                           description="Recipient phone in E.164")
+    body: str = Field(..., min_length=1, max_length=1600,
+                      description="SMS body text")
     conversation_id: Optional[str] = Field(None, max_length=36)
     ticket_id: Optional[str] = Field(None, max_length=36)
     sender_role: str = Field("agent", pattern="^(agent|bot|system)$")

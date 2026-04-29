@@ -9,7 +9,7 @@ Tests cover:
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, MagicMock
 from datetime import datetime, timezone
 
 
@@ -37,7 +37,7 @@ class TestTemplateService:
         template.updated_at = datetime.now(timezone.utc)
         return template
 
-    # ── VARIABLE EXTRACTION ───────────────────────────────────────────────────
+    # ── VARIABLE EXTRACTION ─────────────────────────────────────────────────
 
     def test_extract_variables(self):
         """Test extracting variables from template text."""
@@ -72,7 +72,7 @@ class TestTemplateService:
         assert len(variables) == 1
         assert variables[0] == "name"
 
-    # ── VARIABLE SUBSTITUTION ─────────────────────────────────────────────────
+    # ── VARIABLE SUBSTITUTION ───────────────────────────────────────────────
 
     def test_substitute_variables(self):
         """Test variable substitution in template."""
@@ -113,62 +113,75 @@ class TestTemplateService:
 
         assert result == "Hello !"
 
-    # ── XSS SANITIZATION ───────────────────────────────────────────────────────
+    # ── XSS SANITIZATION ────────────────────────────────────────────────────
 
     def test_sanitize_html_tags(self):
         """Test that dangerous HTML tags are removed."""
         # Simulate sanitization
         dangerous_input = '<script>alert("xss")</script>Hello'
-        
+
         # Simple sanitization (real implementation would be more thorough)
         import re
-        sanitized = re.sub(r'<script[^>]*>.*?</script>', '', dangerous_input, flags=re.DOTALL | re.IGNORECASE)
-        
+        sanitized = re.sub(
+            r'<script[^>]*>.*?</script>',
+            '',
+            dangerous_input,
+            flags=re.DOTALL | re.IGNORECASE)
+
         assert "<script>" not in sanitized
         assert "Hello" in sanitized
 
     def test_sanitize_event_handlers(self):
         """Test that inline event handlers are removed."""
         dangerous_input = '<img src="x" onerror="alert(1)">'
-        
+
         import re
-        sanitized = re.sub(r'on\w+\s*=\s*["\'][^"\']*["\']', '', dangerous_input, flags=re.IGNORECASE)
-        
+        sanitized = re.sub(
+            r'on\w+\s*=\s*["\'][^"\']*["\']',
+            '',
+            dangerous_input,
+            flags=re.IGNORECASE)
+
         assert "onerror" not in sanitized
 
     def test_sanitize_javascript_urls(self):
         """Test that javascript: URLs are removed."""
         dangerous_input = '<a href="javascript:alert(1)">Click</a>'
-        
+
         import re
-        sanitized = re.sub(r'javascript:', '', dangerous_input, flags=re.IGNORECASE)
-        
+        sanitized = re.sub(
+            r'javascript:',
+            '',
+            dangerous_input,
+            flags=re.IGNORECASE)
+
         assert "javascript:" not in sanitized
 
-    # ── TEMPLATE VALIDATION ────────────────────────────────────────────────────
+    # ── TEMPLATE VALIDATION ─────────────────────────────────────────────────
 
     def test_validate_template_name(self):
         """Test template name validation."""
         # Valid names
         valid_names = ["Greeting", "Refund Template", "Customer Reply v2"]
-        
+
         for name in valid_names:
             assert len(name.strip()) > 0
 
     def test_validate_template_variables(self):
         """Test that variable names are valid."""
         import re
-        
+
         valid_vars = ["customer_name", "ticket_id", "company_name"]
         invalid_vars = ["customer-name", "123var", "var!name", "__dunder__"]
-        
+
         pattern = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
-        
+
         for var in valid_vars:
             assert pattern.match(var) is not None, f"{var} should be valid"
-        
+
         for var in invalid_vars:
-            assert pattern.match(var) is None or '__' in var, f"{var} should be invalid"
+            assert pattern.match(
+                var) is None or '__' in var, f"{var} should be invalid"
 
     def test_validate_category(self):
         """Test category validation."""
@@ -176,7 +189,7 @@ class TestTemplateService:
             "greeting", "farewell", "apology", "escalation",
             "refund", "technical", "billing", "general", "custom"
         }
-        
+
         assert "greeting" in valid_categories
         assert "unknown" not in valid_categories
 
@@ -193,7 +206,7 @@ class TestTemplateAPI:
             "variables": ["name"],
             "language": "en"
         }
-        
+
         assert "name" in request_data
         assert "template_text" in request_data
         assert len(request_data["variables"]) == 1
@@ -206,7 +219,7 @@ class TestTemplateAPI:
                 "company_name": "PARWA"
             }
         }
-        
+
         assert "variables" in request_data
         assert request_data["variables"]["customer_name"] == "John"
 
@@ -219,7 +232,7 @@ class TestTemplateAPI:
             "is_active": True,
             "search": "hello"
         }
-        
+
         assert filters["intent_type"] == "greeting"
         assert filters["language"] == "en"
         assert filters["is_active"] is True
@@ -232,22 +245,21 @@ class TestTemplateRendering:
         """Test rendering a greeting template."""
         template = {
             "subject_template": "Welcome, {{customer_name}}!",
-            "body_template": "Hello {{customer_name}},\n\nWelcome to {{company_name}}!"
-        }
-        
+            "body_template": "Hello {{customer_name}},\n\nWelcome to {{company_name}}!"}
+
         variables = {
             "customer_name": "Alice",
             "company_name": "PARWA"
         }
-        
+
         # Render
         subject = template["subject_template"]
         body = template["body_template"]
-        
+
         for key, value in variables.items():
             subject = subject.replace(f"{{{{{key}}}}}", value)
             body = body.replace(f"{{{{{key}}}}}", value)
-        
+
         assert subject == "Welcome, Alice!"
         assert "Hello Alice" in body
         assert "Welcome to PARWA" in body
@@ -258,18 +270,18 @@ class TestTemplateRendering:
             "subject_template": "We're Sorry, {{customer_name}}",
             "body_template": "Dear {{customer_name}},\n\nWe apologise for {{issue_description}}.\n\nExpected resolution: {{resolution_time}}."
         }
-        
+
         variables = {
             "customer_name": "Bob",
             "issue_description": "the delayed shipment",
             "resolution_time": "24 hours"
         }
-        
+
         # Render
         result = template["body_template"]
         for key, value in variables.items():
             result = result.replace(f"{{{{{key}}}}}", value)
-        
+
         assert "Dear Bob" in result
         assert "the delayed shipment" in result
         assert "24 hours" in result
@@ -278,20 +290,19 @@ class TestTemplateRendering:
         """Test rendering a refund confirmation template."""
         template = {
             "subject_template": "Refund Confirmation — {{order_id}}",
-            "body_template": "Amount: {{refund_amount}}\nMethod: {{payment_method}}"
-        }
-        
+            "body_template": "Amount: {{refund_amount}}\nMethod: {{payment_method}}"}
+
         variables = {
             "order_id": "ORD-12345",
             "refund_amount": "$49.99",
             "payment_method": "Credit Card"
         }
-        
+
         # Render
         result = template["body_template"]
         for key, value in variables.items():
             result = result.replace(f"{{{{{key}}}}}", value)
-        
+
         assert "$49.99" in result
         assert "Credit Card" in result
 
@@ -303,17 +314,17 @@ Thank you for your order {{order_id}}.
 
 Best regards,
 {{company}}"""
-        
+
         variables = {
             "name": "Customer",
             "order_id": "123",
             "company": "Support Team"
         }
-        
+
         result = template
         for key, value in variables.items():
             result = result.replace(f"{{{{{key}}}}}", value)
-        
+
         assert "\n" in result
         assert "Hello Customer" in result
         assert "Support Team" in result

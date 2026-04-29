@@ -12,7 +12,6 @@ Parent: Week 9 Day 7 (Sunday)
 """
 
 import asyncio
-import hashlib
 import time
 from unittest.mock import AsyncMock, patch
 
@@ -38,7 +37,6 @@ from app.services.sentiment_technique_mapper import (
 )
 from app.core.technique_router import (
     TechniqueID,
-    TechniqueTier,
 )
 
 
@@ -58,7 +56,8 @@ class TestFrustrationDetector:
         assert score < 15
 
     def test_low_frustration(self):
-        score = self.detector.detect("I have a question about my account settings")
+        score = self.detector.detect(
+            "I have a question about my account settings")
         assert 0 <= score < 30
 
     def test_moderate_frustration(self):
@@ -67,15 +66,15 @@ class TestFrustrationDetector:
         assert score >= 10
 
     def test_high_frustration(self):
-        score = self.detector.detect("I am furious! This is unacceptable and terrible!")
+        score = self.detector.detect(
+            "I am furious! This is unacceptable and terrible!")
         # furious(12) + unacceptable(12) + terrible(5) + !(5) = 34+
         assert score >= 30
 
     def test_extreme_frustration(self):
         score = self.detector.detect(
             "I am FURIOUS and ENRAGED! This is UNACCEPTABLE! "
-            "OUTRAGEOUS! DISGUSTING! I hate this terrible awful horrible service!!!"
-        )
+            "OUTRAGEOUS! DISGUSTING! I hate this terrible awful horrible service!!!")
         assert score >= 60
 
     def test_all_caps_detection(self):
@@ -144,7 +143,8 @@ class TestEmotionClassifier:
         self.classifier = EmotionClassifier()
 
     def test_anger_classification(self):
-        emotion, breakdown = self.classifier.classify("I am furious and outraged")
+        emotion, breakdown = self.classifier.classify(
+            "I am furious and outraged")
         assert emotion in ("angry", "frustrated")
         assert "angry" in breakdown
 
@@ -162,7 +162,8 @@ class TestEmotionClassifier:
         assert emotion == "disappointed"
 
     def test_neutral_classification(self):
-        emotion, breakdown = self.classifier.classify("How do I update my settings?")
+        emotion, breakdown = self.classifier.classify(
+            "How do I update my settings?")
         assert emotion == "neutral"
 
     def test_happy_classification(self):
@@ -179,7 +180,13 @@ class TestEmotionClassifier:
 
     def test_breakdown_all_emotions_present(self):
         emotion, breakdown = self.classifier.classify("test message")
-        expected = {"angry", "frustrated", "disappointed", "neutral", "happy", "delighted"}
+        expected = {
+            "angry",
+            "frustrated",
+            "disappointed",
+            "neutral",
+            "happy",
+            "delighted"}
         assert set(breakdown.keys()) == expected
 
     def test_breakdown_values_bounded(self):
@@ -236,7 +243,10 @@ class TestUrgencyScorer:
             "This is urgent, the system is down and I am locked out"
         )
         # Multiple urgency keywords may push to critical
-        assert level in (UrgencyLevel.HIGH, UrgencyLevel.MEDIUM, UrgencyLevel.CRITICAL)
+        assert level in (
+            UrgencyLevel.HIGH,
+            UrgencyLevel.MEDIUM,
+            UrgencyLevel.CRITICAL)
 
     def test_critical_urgency(self):
         level = self.scorer.score(
@@ -336,29 +346,38 @@ class TestEmpathySignalDetector:
         assert len(signals) == 0
 
     def test_apology_expectation(self):
-        signals = self.detector.detect("You should be ashamed, I demand an apology!")
+        signals = self.detector.detect(
+            "You should be ashamed, I demand an apology!")
         assert "apology_expectation" in signals
 
     def test_timeline_pressure(self):
-        signals = self.detector.detect("I need this fixed immediately, it's urgent!")
+        signals = self.detector.detect(
+            "I need this fixed immediately, it's urgent!")
         assert "timeline_pressure" in signals
 
     def test_financial_impact(self):
-        signals = self.detector.detect("I was overcharged and lost money on this")
+        signals = self.detector.detect(
+            "I was overcharged and lost money on this")
         assert "financial_impact" in signals
 
     def test_personal_impact(self):
-        signals = self.detector.detect("This ruined my business and caused me stress")
+        signals = self.detector.detect(
+            "This ruined my business and caused me stress")
         assert "personal_impact" in signals
 
     def test_repeated_contacts_via_history(self):
-        history = ["refund my order", "please refund my order", "I need a refund"]
-        signals = self.detector.detect("refund my order", conversation_history=history)
+        history = [
+            "refund my order",
+            "please refund my order",
+            "I need a refund"]
+        signals = self.detector.detect(
+            "refund my order", conversation_history=history)
         assert "repeated_contacts" in signals
 
     def test_no_repeated_contacts_short_history(self):
         history = ["hello"]
-        signals = self.detector.detect("refund my order", conversation_history=history)
+        signals = self.detector.detect(
+            "refund my order", conversation_history=history)
         assert "repeated_contacts" not in signals
 
     def test_multiple_signals(self):
@@ -377,7 +396,8 @@ class TestEmpathySignalDetector:
 
     def test_none_history_items(self):
         history = [None, None, "refund my order"]
-        signals = self.detector.detect("refund my order", conversation_history=history)
+        signals = self.detector.detect(
+            "refund my order", conversation_history=history)
         assert isinstance(signals, list)
 
 
@@ -462,8 +482,13 @@ class TestSentimentResult:
             tone_recommendation="empathetic",
             empathy_signals=["timeline_pressure"],
             sentiment_score=0.5,
-            emotion_breakdown={"angry": 0.2, "frustrated": 0.5, "neutral": 0.3,
-                               "disappointed": 0.0, "happy": 0.0, "delighted": 0.0},
+            emotion_breakdown={
+                "angry": 0.2,
+                "frustrated": 0.5,
+                "neutral": 0.3,
+                "disappointed": 0.0,
+                "happy": 0.0,
+                "delighted": 0.0},
             processing_time_ms=5.0,
         )
         assert result.frustration_score == 50.0
@@ -564,7 +589,13 @@ class TestSentimentAnalyzer:
     @pytest.mark.asyncio
     async def test_emotion_breakdown_all_keys(self):
         result = await self.analyzer.analyze("test", company_id="c1")
-        expected = {"angry", "frustrated", "disappointed", "neutral", "happy", "delighted"}
+        expected = {
+            "angry",
+            "frustrated",
+            "disappointed",
+            "neutral",
+            "happy",
+            "delighted"}
         assert set(result.emotion_breakdown.keys()) == expected
 
     @pytest.mark.asyncio
@@ -667,8 +698,13 @@ class TestCacheBehavior:
             "tone_recommendation": "empathetic",
             "empathy_signals": ["timeline_pressure"],
             "sentiment_score": 0.58,
-            "emotion_breakdown": {"angry": 0.1, "frustrated": 0.5, "neutral": 0.3,
-                                   "disappointed": 0.05, "happy": 0.0, "delighted": 0.0},
+            "emotion_breakdown": {
+                "angry": 0.1,
+                "frustrated": 0.5,
+                "neutral": 0.3,
+                "disappointed": 0.05,
+                "happy": 0.0,
+                "delighted": 0.0},
             "processing_time_ms": 2.5,
             "conversation_trend": "stable",
         }
@@ -1019,7 +1055,9 @@ class TestSentimentTechniqueMapper:
         # Should have at least one Tier 2 technique
         tier2 = {"chain_of_thought", "reverse_thinking", "react",
                  "step_back", "thread_of_thought"}
-        assert any(t in tech_ids for t in tier2) or len(result.blocked_techniques) > 0
+        assert any(
+            t in tech_ids for t in tier2) or len(
+            result.blocked_techniques) > 0
 
     def test_high_parwa_allows_tier3(self):
         """Parwa High allows Tier 3 techniques."""

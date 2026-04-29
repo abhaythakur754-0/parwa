@@ -15,7 +15,7 @@ Tasks:
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from app.tasks.base import ParwaBaseTask, with_company_id
 from app.tasks.celery_app import app
@@ -74,7 +74,8 @@ def recover_missed_webhooks(self):
                     error_count += 1
                     logger.error(
                         "webhook_recovery_company_failed company_id=%s error=%s",
-                        company.id, str(e),
+                        company.id,
+                        str(e),
                     )
 
         finally:
@@ -101,13 +102,6 @@ def _recover_company_webhooks(company_id: str, subscription_id: str) -> int:
 
     Returns count of recovered events.
     """
-    from app.services.webhook_ordering_service import (
-        get_or_create_webhook_sequence,
-        get_pending_events_ordered,
-        mark_sequence_processing,
-        mark_sequence_processed,
-        mark_sequence_failed,
-    )
     from app.clients.paddle_client import get_paddle_client
     from database.base import SessionLocal
     from database.models.billing_extended import WebhookSequence
@@ -121,7 +115,8 @@ def _recover_company_webhooks(company_id: str, subscription_id: str) -> int:
 
         try:
             # Try to fetch events from Paddle API
-            # Note: This requires the Paddle client to have event listing capability
+            # Note: This requires the Paddle client to have event listing
+            # capability
             events = paddle.list_subscription_events(subscription_id)
         except Exception as e:
             logger.warning(
@@ -181,7 +176,8 @@ def _process_recovered_event(company_id: str, event: dict) -> None:
 
     # Parse occurred_at
     try:
-        occurred_at = datetime.fromisoformat(occurred_at_str.replace("Z", "+00:00"))
+        occurred_at = datetime.fromisoformat(
+            occurred_at_str.replace("Z", "+00:00"))
     except (ValueError, AttributeError):
         occurred_at = datetime.now(timezone.utc)
 
@@ -219,7 +215,9 @@ def _process_recovered_event(company_id: str, event: dict) -> None:
                 event_id, company_id,
             )
         else:
-            mark_sequence_failed(sequence.id, result.get("error", "Unknown error"))
+            mark_sequence_failed(
+                sequence.id, result.get(
+                    "error", "Unknown error"))
 
     except Exception as e:
         mark_sequence_failed(sequence.id, str(e))
@@ -378,7 +376,9 @@ def process_pending_events(self, company_id: str):
                 mark_sequence_processed(sequence.id, order)
                 processed_count += 1
             else:
-                mark_sequence_failed(sequence.id, result.get("error", "Unknown error"))
+                mark_sequence_failed(
+                    sequence.id, result.get(
+                        "error", "Unknown error"))
 
         except Exception as e:
             mark_sequence_failed(sequence.id, str(e))

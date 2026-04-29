@@ -28,9 +28,20 @@ logger = logging.getLogger(__name__)
 
 # ── Mock data factories ────────────────────────────────────────────
 
-_TICKET_STATUSES = ["open", "in_progress", "pending_customer", "resolved", "closed"]
+_TICKET_STATUSES = [
+    "open",
+    "in_progress",
+    "pending_customer",
+    "resolved",
+    "closed"]
 _PRIORITIES = ["low", "medium", "high", "urgent"]
-_CATEGORIES = ["billing", "technical", "account", "feature_request", "bug_report", "general"]
+_CATEGORIES = [
+    "billing",
+    "technical",
+    "account",
+    "feature_request",
+    "bug_report",
+    "general"]
 _SUBJECTS = [
     "Cannot access my account",
     "Billing charge discrepancy",
@@ -137,7 +148,8 @@ def _mock_comment(
         "author_type": "agent" if is_agent else "customer",
         "author_id": f"AGENT-{random.randint(1, 20):03d}" if is_agent else (customer_id or "unknown"),
         "content": random.choice(agent_responses if is_agent else customer_comments),
-        "internal": is_agent and random.random() > 0.7,  # Some agent comments are internal
+        # Some agent comments are internal
+        "internal": is_agent and random.random() > 0.7,
         "created_at": ts.isoformat(),
     }
 
@@ -147,7 +159,8 @@ def _mock_history_entry(
     field: str | None = None,
 ) -> dict[str, Any]:
     """Generate a mock ticket history / audit log entry."""
-    fields = field or random.choice(["status", "priority", "assignee", "category"])
+    fields = field or random.choice(
+        ["status", "priority", "assignee", "category"])
     transitions = {
         "status": (["open", "in_progress", "pending_customer", "resolved", "closed"]),
         "priority": (["low", "medium", "high", "urgent"]),
@@ -327,7 +340,9 @@ class TicketTool(BaseReactTool):
         await asyncio.sleep(random.uniform(0.02, 0.12))
 
         if action == "__health_check__":
-            return ToolResult(success=True, error=None, data={"status": "ok"}, execution_time_ms=0)
+            return ToolResult(
+                success=True, error=None, data={
+                    "status": "ok"}, execution_time_ms=0)
 
         handler = {
             "get_ticket": self._get_ticket,
@@ -341,7 +356,9 @@ class TicketTool(BaseReactTool):
         if handler is None:
             return ToolResult(
                 success=False,
-                error=f"Unknown action: {action}. Available: {', '.join(self.actions)}",
+                error=f"Unknown action: {action}. Available: {
+                    ', '.join(
+                        self.actions)}",
                 data=None,
                 execution_time_ms=0,
             )
@@ -365,15 +382,27 @@ class TicketTool(BaseReactTool):
                 )
             # Include comment count
             ticket_copy = {**ticket}
-            ticket_copy["comment_count"] = len(self._comments.get(ticket_id, []))
-            return ToolResult(success=True, error=None, data=ticket_copy, execution_time_ms=0)
+            ticket_copy["comment_count"] = len(
+                self._comments.get(ticket_id, []))
+            return ToolResult(
+                success=True,
+                error=None,
+                data=ticket_copy,
+                execution_time_ms=0)
 
         ticket = _mock_ticket(ticket_id=ticket_id, company_id=company_id)
         self._tickets[ticket_id] = ticket
         ticket["comment_count"] = 0
-        return ToolResult(success=True, error=None, data=ticket, execution_time_ms=0)
+        return ToolResult(
+            success=True,
+            error=None,
+            data=ticket,
+            execution_time_ms=0)
 
-    async def _create_ticket(self, company_id: str, **params: Any) -> ToolResult:
+    async def _create_ticket(
+            self,
+            company_id: str,
+            **params: Any) -> ToolResult:
         """Create a new support ticket."""
         subject: str = params.get("subject", "")
         description: str = params.get("description", "")
@@ -401,7 +430,8 @@ class TicketTool(BaseReactTool):
         if priority and priority not in _PRIORITIES:
             return ToolResult(
                 success=False,
-                error=f"Invalid priority '{priority}'. Must be one of: {', '.join(_PRIORITIES)}",
+                error=f"Invalid priority '{priority}'. Must be one of: {
+                    ', '.join(_PRIORITIES)}",
                 data=None,
                 execution_time_ms=0,
             )
@@ -409,12 +439,14 @@ class TicketTool(BaseReactTool):
         if category and category not in _CATEGORIES:
             return ToolResult(
                 success=False,
-                error=f"Invalid category '{category}'. Must be one of: {', '.join(_CATEGORIES)}",
+                error=f"Invalid category '{category}'. Must be one of: {
+                    ', '.join(_CATEGORIES)}",
                 data=None,
                 execution_time_ms=0,
             )
 
-        tags = [t.strip() for t in raw_tags.split(",") if t.strip()] if raw_tags else []
+        tags = [t.strip() for t in raw_tags.split(
+            ",") if t.strip()] if raw_tags else []
         now = datetime.now(timezone.utc).isoformat()
 
         ticket_id = f"TKT-{uuid.uuid4().hex[:8].upper()}"
@@ -458,7 +490,10 @@ class TicketTool(BaseReactTool):
             execution_time_ms=0,
         )
 
-    async def _update_ticket(self, company_id: str, **params: Any) -> ToolResult:
+    async def _update_ticket(
+            self,
+            company_id: str,
+            **params: Any) -> ToolResult:
         """Update ticket fields."""
         ticket_id: str = params.get("ticket_id", "")
 
@@ -624,7 +659,10 @@ class TicketTool(BaseReactTool):
             execution_time_ms=0,
         )
 
-    async def _list_tickets(self, company_id: str, **params: Any) -> ToolResult:
+    async def _list_tickets(
+            self,
+            company_id: str,
+            **params: Any) -> ToolResult:
         """List tickets with optional filtering."""
         status: str | None = params.get("status")
         priority: str | None = params.get("priority")
@@ -644,9 +682,11 @@ class TicketTool(BaseReactTool):
         if priority:
             tickets = [t for t in tickets if t["priority"] == priority]
         if assignee_id:
-            tickets = [t for t in tickets if t.get("assignee_id") == assignee_id]
+            tickets = [t for t in tickets if t.get(
+                "assignee_id") == assignee_id]
         if customer_id:
-            tickets = [t for t in tickets if t.get("customer_id") == customer_id]
+            tickets = [t for t in tickets if t.get(
+                "customer_id") == customer_id]
         if category:
             tickets = [t for t in tickets if t.get("category") == category]
 
@@ -665,7 +705,10 @@ class TicketTool(BaseReactTool):
             execution_time_ms=0,
         )
 
-    async def _get_ticket_history(self, company_id: str, **params: Any) -> ToolResult:
+    async def _get_ticket_history(
+            self,
+            company_id: str,
+            **params: Any) -> ToolResult:
         """Get full audit trail for a ticket."""
         ticket_id: str = params.get("ticket_id", "")
         limit: int = min(max(params.get("limit", 20), 1), 100)

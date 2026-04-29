@@ -111,7 +111,8 @@ async def send_sms(request: Request):
         )
 
         if result.get("status") == "error":
-            status_code = 429 if "rate" in result.get("error", "").lower() else 422
+            status_code = 429 if "rate" in result.get(
+                "error", "").lower() else 422
             return JSONResponse(
                 status_code=status_code,
                 content={
@@ -119,8 +120,7 @@ async def send_sms(request: Request):
                         "code": "RATE_LIMIT_EXCEEDED" if status_code == 429 else "VALIDATION_ERROR",
                         "message": result["error"],
                         "details": None,
-                    }
-                },
+                    }},
             )
 
         return result
@@ -388,7 +388,10 @@ async def create_sms_config(request: Request):
             },
         )
 
-    required_fields = ["twilio_account_sid", "twilio_auth_token", "twilio_phone_number"]
+    required_fields = [
+        "twilio_account_sid",
+        "twilio_auth_token",
+        "twilio_phone_number"]
     missing = [f for f in required_fields if not body.get(f)]
     if missing:
         return JSONResponse(
@@ -396,10 +399,10 @@ async def create_sms_config(request: Request):
             content={
                 "error": {
                     "code": "VALIDATION_ERROR",
-                    "message": f"Missing required fields: {', '.join(missing)}",
+                    "message": f"Missing required fields: {
+                        ', '.join(missing)}",
                     "details": None,
-                }
-            },
+                }},
         )
 
     try:

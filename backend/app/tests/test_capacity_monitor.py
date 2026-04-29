@@ -18,16 +18,12 @@ Target: 55+ tests
 
 from __future__ import annotations
 
-import time
 
 import pytest
 
 from app.core.capacity_monitor import (
     CapacityMonitor,
     QueueItem,
-    THRESHOLD_WARNING,
-    THRESHOLD_CRITICAL,
-    THRESHOLD_FULL,
     DEFAULT_MAX_CONCURRENT,
     ALL_VARIANTS,
 )

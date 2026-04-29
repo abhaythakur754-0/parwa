@@ -14,14 +14,11 @@ Building Codes:
 """
 
 import asyncio
-import json
 import logging
 import os
 import time
 import hashlib
-from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
-from decimal import Decimal
+from typing import Optional, Dict
 
 import httpx
 
@@ -120,7 +117,10 @@ class GPUProviderService:
         else:
             raise ValueError(f"Unknown provider: {provider}")
 
-    async def _provision_colab(self, gpu_type: str, run_id: Optional[str]) -> Dict:
+    async def _provision_colab(
+            self,
+            gpu_type: str,
+            run_id: Optional[str]) -> Dict:
         """Provision a Colab instance.
 
         Colab is free tier with T4 GPU. Limited to 12-hour sessions.
@@ -136,11 +136,16 @@ class GPUProviderService:
         actual_gpu = GPU_T4 if gpu_type in [GPU_T4, None] else gpu_type
 
         # Generate instance ID
-        instance_id = f"colab-{hashlib.md5((run_id or str(time.time())).encode()).hexdigest()[:12]}"
+        instance_id = f"colab-{
+            hashlib.md5(
+                (run_id or str(
+                    time.time())).encode()).hexdigest()[
+                :12]}"
 
         # For Colab, we generate a URL that the user needs to open
         # The actual training script runs in Colab and calls back to our API
-        colab_notebook_url = self._generate_colab_notebook_url(run_id, instance_id)
+        colab_notebook_url = self._generate_colab_notebook_url(
+            run_id, instance_id)
 
         return {
             "instance_id": instance_id,
@@ -152,7 +157,10 @@ class GPUProviderService:
             "instructions": "Open the notebook URL in Google Colab and run all cells. Training will start automatically.",
         }
 
-    async def _provision_runpod(self, gpu_type: str, run_id: Optional[str]) -> Dict:
+    async def _provision_runpod(
+            self,
+            gpu_type: str,
+            run_id: Optional[str]) -> Dict:
         """Provision a RunPod GPU instance.
 
         RunPod provides on-demand GPU rental.
@@ -222,7 +230,11 @@ class GPUProviderService:
         Returns:
             Dict with instance details.
         """
-        instance_id = f"local-{hashlib.md5((run_id or str(time.time())).encode()).hexdigest()[:12]}"
+        instance_id = f"local-{
+            hashlib.md5(
+                (run_id or str(
+                    time.time())).encode()).hexdigest()[
+                :12]}"
 
         return {
             "instance_id": instance_id,
@@ -233,7 +245,10 @@ class GPUProviderService:
             "note": "Local CPU instance - training will be slow",
         }
 
-    def _simulate_runpod_instance(self, gpu_type: str, run_id: Optional[str]) -> Dict:
+    def _simulate_runpod_instance(
+            self,
+            gpu_type: str,
+            run_id: Optional[str]) -> Dict:
         """Simulate a RunPod instance for development.
 
         Args:
@@ -243,7 +258,11 @@ class GPUProviderService:
         Returns:
             Dict with simulated instance details.
         """
-        instance_id = f"runpod-sim-{hashlib.md5((run_id or str(time.time())).encode()).hexdigest()[:12]}"
+        instance_id = f"runpod-sim-{
+            hashlib.md5(
+                (run_id or str(
+                    time.time())).encode()).hexdigest()[
+                :12]}"
 
         return {
             "instance_id": instance_id,
@@ -259,7 +278,10 @@ class GPUProviderService:
     # Instance Management
     # ══════════════════════════════════════════════════════════════════════════
 
-    async def get_instance_status(self, instance_id: str, provider: str) -> Dict:
+    async def get_instance_status(
+            self,
+            instance_id: str,
+            provider: str) -> Dict:
         """Get the status of a GPU instance.
 
         Args:
@@ -276,7 +298,9 @@ class GPUProviderService:
         elif provider == PROVIDER_LOCAL:
             return self._get_local_status(instance_id)
         else:
-            return {"status": INSTANCE_STATUS_ERROR, "error": "Unknown provider"}
+            return {
+                "status": INSTANCE_STATUS_ERROR,
+                "error": "Unknown provider"}
 
     async def _get_colab_status(self, instance_id: str) -> Dict:
         """Get Colab instance status.
@@ -331,7 +355,9 @@ class GPUProviderService:
                 "STOPPED": INSTANCE_STATUS_STOPPED,
                 "EXITED": INSTANCE_STATUS_STOPPED,
             }
-            status = status_map.get(data.get("status"), INSTANCE_STATUS_RUNNING)
+            status = status_map.get(
+                data.get("status"),
+                INSTANCE_STATUS_RUNNING)
 
             return {
                 "instance_id": instance_id,
@@ -368,7 +394,10 @@ class GPUProviderService:
             "status": INSTANCE_STATUS_RUNNING,
         }
 
-    async def terminate_instance(self, instance_id: str, provider: str) -> Dict:
+    async def terminate_instance(
+            self,
+            instance_id: str,
+            provider: str) -> Dict:
         """Terminate a GPU instance.
 
         Args:
@@ -393,7 +422,10 @@ class GPUProviderService:
             except Exception as exc:
                 logger.error(
                     "runpod_termination_failed",
-                    extra={"instance_id": instance_id, "error": str(exc)[:200]},
+                    extra={
+                        "instance_id": instance_id,
+                        "error": str(exc)[
+                            :200]},
                 )
 
         return {
@@ -506,7 +538,10 @@ class GPUProviderService:
     # Helper Methods
     # ══════════════════════════════════════════════════════════════════════════
 
-    def _generate_colab_notebook_url(self, run_id: Optional[str], instance_id: str) -> str:
+    def _generate_colab_notebook_url(
+            self,
+            run_id: Optional[str],
+            instance_id: str) -> str:
         """Generate a Colab notebook URL for training.
 
         Args:
@@ -518,10 +553,10 @@ class GPUProviderService:
         """
         # Base Colab URL with our training notebook template
         base_url = "https://colab.research.google.com/github/parwa-ai/training/blob/main/parwa_train.ipynb"
-        
+
         # Add query parameters
         params = f"?run_id={run_id}&instance_id={instance_id}"
-        
+
         return base_url + params
 
     def _map_gpu_to_runpod_type(self, gpu_type: str) -> str:
@@ -577,18 +612,24 @@ class GPUProviderServiceSync:
         Returns:
             Dict with instance details.
         """
-        import httpx
 
         logger.info(
             "provisioning_gpu_instance_sync",
-            extra={"provider": provider, "gpu_type": gpu_type, "run_id": run_id},
+            extra={
+                "provider": provider,
+                "gpu_type": gpu_type,
+                "run_id": run_id},
         )
 
         if provider == PROVIDER_LOCAL:
             return self._provision_local(gpu_type, run_id)
 
         # For RunPod/Colab in sync mode, use simulation
-        instance_id = f"{provider}-{hashlib.md5((run_id or str(time.time())).encode()).hexdigest()[:12]}"
+        instance_id = f"{provider}-{
+            hashlib.md5(
+                (run_id or str(
+                    time.time())).encode()).hexdigest()[
+                :12]}"
 
         return {
             "instance_id": instance_id,
@@ -601,7 +642,11 @@ class GPUProviderServiceSync:
 
     def _provision_local(self, gpu_type: str, run_id: Optional[str]) -> Dict:
         """Provision local instance."""
-        instance_id = f"local-{hashlib.md5((run_id or str(time.time())).encode()).hexdigest()[:12]}"
+        instance_id = f"local-{
+            hashlib.md5(
+                (run_id or str(
+                    time.time())).encode()).hexdigest()[
+                :12]}"
         return {
             "instance_id": instance_id,
             "provider": PROVIDER_LOCAL,

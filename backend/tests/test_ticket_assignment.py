@@ -14,23 +14,6 @@ Covers:
 """
 
 from __future__ import annotations
-
-import os
-import time
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
-
-# ── Environment bootstrap ──────────────────────────────────────────
-os.environ.setdefault("ENVIRONMENT", "test")
-os.environ.setdefault("SECRET_KEY", "test_secret")
-os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
-os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
-os.environ.setdefault("JWT_SECRET_KEY", "test_jwt")
-os.environ.setdefault("DATA_ENCRYPTION_KEY", "12345678901234567890123456789012")
-
 from app.core.ticket_assignment import (
     AgentProfile,
     AgentStatus,
@@ -39,7 +22,6 @@ from app.core.ticket_assignment import (
     AssignmentEventBus,
     AssignmentResult,
     AssignmentStrategy,
-    BaseAssigner,
     CapacityManager,
     ChannelType,
     HybridAssigner,
@@ -53,6 +35,23 @@ from app.core.ticket_assignment import (
     create_tickets,
     deterministic_jitter,
 )
+
+import os
+from datetime import datetime, timedelta, timezone
+from typing import List, Optional
+from unittest.mock import AsyncMock
+
+import pytest
+
+# ── Environment bootstrap ──────────────────────────────────────────
+os.environ.setdefault("ENVIRONMENT", "test")
+os.environ.setdefault("SECRET_KEY", "test_secret")
+os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault("JWT_SECRET_KEY", "test_jwt")
+os.environ.setdefault(
+    "DATA_ENCRYPTION_KEY",
+    "12345678901234567890123456789012")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -88,7 +87,10 @@ def _make_agent(
         assigned_count=assigned_count,
         seniority_years=seniority_years,
         languages=languages or ["en"],
-        customer_tier_access=customer_tier_access or ["standard", "premium", "enterprise"],
+        customer_tier_access=customer_tier_access or [
+            "standard",
+            "premium",
+            "enterprise"],
     )
 
 
@@ -256,11 +258,17 @@ class TestTicketContext:
 
 class TestAssignmentResult:
     def test_is_unassigned_true(self):
-        r = AssignmentResult(ticket_id="t1", assigned_to="unassigned", strategy="test")
+        r = AssignmentResult(
+            ticket_id="t1",
+            assigned_to="unassigned",
+            strategy="test")
         assert r.is_unassigned is True
 
     def test_is_unassigned_false(self):
-        r = AssignmentResult(ticket_id="t1", assigned_to="agent_001", strategy="test")
+        r = AssignmentResult(
+            ticket_id="t1",
+            assigned_to="agent_001",
+            strategy="test")
         assert r.is_unassigned is False
 
     def test_timestamp_auto_set(self):
@@ -316,14 +324,18 @@ class TestScoreBasedAssigner:
     def test_specialty_score_multiple_matches(self):
         a = ScoreBasedAssigner()
         agent = _make_agent(specialties=["billing", "technical"])
-        ticket = _make_ticket(subject="billing technical issue", tags=["billing", "technical"])
+        ticket = _make_ticket(
+            subject="billing technical issue", tags=[
+                "billing", "technical"])
         score = a._specialty_score(agent, ticket)
         assert score > 0.65  # multiple matches
 
     def test_specialty_score_clamped_at_1(self):
         a = ScoreBasedAssigner()
         agent = _make_agent(specialties=["a", "b", "c", "d", "e"])
-        ticket = _make_ticket(subject="a b c d e", tags=["a", "b", "c", "d", "e"])
+        ticket = _make_ticket(
+            subject="a b c d e", tags=[
+                "a", "b", "c", "d", "e"])
         score = a._specialty_score(agent, ticket)
         assert score <= 1.0
 
@@ -434,7 +446,10 @@ class TestScoreBasedAssigner:
 
     def test_calculate_score_clamped_at_1(self):
         a = ScoreBasedAssigner()
-        agent = _make_agent(accuracy_score=1.0, current_load=0, seniority_years=10.0)
+        agent = _make_agent(
+            accuracy_score=1.0,
+            current_load=0,
+            seniority_years=10.0)
         ticket = _make_ticket(estimated_complexity=1.0)
         score, _ = a._calculate_score(agent, ticket)
         assert score <= 1.0
@@ -530,7 +545,11 @@ class TestScoreBasedAssigner:
 class TestRuleBasedAssigner:
     def test_available_agents_filters_online(self):
         a = RuleBasedAssigner()
-        online = _make_agent(agent_id="on", is_online=True, max_concurrent=5, current_load=0)
+        online = _make_agent(
+            agent_id="on",
+            is_online=True,
+            max_concurrent=5,
+            current_load=0)
         offline = _make_agent(agent_id="off", is_online=False)
         ticket = _make_ticket()
         avail = a._available_agents([online, offline], ticket)
@@ -539,8 +558,16 @@ class TestRuleBasedAssigner:
 
     def test_available_agents_filters_capacity(self):
         a = RuleBasedAssigner()
-        full = _make_agent(agent_id="full", is_online=True, max_concurrent=5, current_load=5)
-        free = _make_agent(agent_id="free", is_online=True, max_concurrent=5, current_load=2)
+        full = _make_agent(
+            agent_id="full",
+            is_online=True,
+            max_concurrent=5,
+            current_load=5)
+        free = _make_agent(
+            agent_id="free",
+            is_online=True,
+            max_concurrent=5,
+            current_load=2)
         ticket = _make_ticket()
         avail = a._available_agents([full, free], ticket)
         assert len(avail) == 1
@@ -628,7 +655,10 @@ class TestRuleBasedAssigner:
     @pytest.mark.asyncio
     async def test_follow_up_routing(self):
         a = RuleBasedAssigner()
-        agent = _make_agent(agent_id="prev_agent", current_load=1, max_concurrent=5)
+        agent = _make_agent(
+            agent_id="prev_agent",
+            current_load=1,
+            max_concurrent=5)
         ticket = _make_ticket(previous_agent_id="prev_agent")
         result = await a.assign(ticket, [agent])
         assert result.assigned_to == "prev_agent"
@@ -637,7 +667,10 @@ class TestRuleBasedAssigner:
     @pytest.mark.asyncio
     async def test_follow_up_routing_agent_full_falls_through(self):
         a = RuleBasedAssigner()
-        prev = _make_agent(agent_id="prev_agent", current_load=5, max_concurrent=5)
+        prev = _make_agent(
+            agent_id="prev_agent",
+            current_load=5,
+            max_concurrent=5)
         other = _make_agent(agent_id="other", current_load=0)
         ticket = _make_ticket(previous_agent_id="prev_agent")
         result = await a.assign(ticket, [prev, other])
@@ -654,7 +687,10 @@ class TestRuleBasedAssigner:
     @pytest.mark.asyncio
     async def test_all_offline_falls_back(self):
         a = RuleBasedAssigner()
-        agents = [_make_agent(agent_id=f"off{i}", is_online=False) for i in range(3)]
+        agents = [
+            _make_agent(
+                agent_id=f"off{i}",
+                is_online=False) for i in range(3)]
         ticket = _make_ticket()
         result = await a.assign(ticket, agents)
         # Falls back to all agents, should still assign via round-robin
@@ -701,7 +737,10 @@ class TestHybridAssigner:
     @pytest.mark.asyncio
     async def test_score_above_threshold_uses_score(self):
         h = HybridAssigner(min_score_threshold=0.10)
-        agent = _make_agent(specialties=["billing"], current_load=0, accuracy_score=0.99)
+        agent = _make_agent(
+            specialties=["billing"],
+            current_load=0,
+            accuracy_score=0.99)
         ticket = _make_ticket(subject="billing problem", category="billing")
         result = await h.assign(ticket, [agent])
         assert result.strategy == "hybrid"
@@ -729,7 +768,9 @@ class TestHybridAssigner:
 
     def test_stats_initial(self):
         h = HybridAssigner()
-        assert h.stats == {"direct_score_assignments": 0, "rule_fallback_assignments": 0}
+        assert h.stats == {
+            "direct_score_assignments": 0,
+            "rule_fallback_assignments": 0}
 
     @pytest.mark.asyncio
     async def test_stats_track_direct(self):
@@ -830,7 +871,8 @@ class TestCapacityManager:
 
 class TestSLAHelper:
     def test_response_target_critical_enterprise(self):
-        assert SLAHelper.response_target_seconds("critical", "enterprise") == 300
+        assert SLAHelper.response_target_seconds(
+            "critical", "enterprise") == 300
 
     def test_response_target_high_standard(self):
         assert SLAHelper.response_target_seconds("high", "standard") == 1800
@@ -856,15 +898,18 @@ class TestSLAHelper:
     def test_is_within_sla_true(self):
         assigned = "2024-01-01T12:00:00+00:00"
         responded = "2024-01-01T12:04:00+00:00"  # 4 min < 5 min threshold
-        assert SLAHelper.is_within_sla(assigned, responded, "critical", "enterprise") is True
+        assert SLAHelper.is_within_sla(
+            assigned, responded, "critical", "enterprise") is True
 
     def test_is_within_sla_false(self):
         assigned = "2024-01-01T12:00:00+00:00"
         responded = "2024-01-01T13:00:00+00:00"
-        assert SLAHelper.is_within_sla(assigned, responded, "critical", "enterprise") is False
+        assert SLAHelper.is_within_sla(
+            assigned, responded, "critical", "enterprise") is False
 
     def test_is_within_sla_invalid_date(self):
-        assert SLAHelper.is_within_sla("not-a-date", "also-bad", "medium", "standard") is False
+        assert SLAHelper.is_within_sla(
+            "not-a-date", "also-bad", "medium", "standard") is False
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -876,14 +921,16 @@ class TestAssignmentEventBus:
         bus = AssignmentEventBus()
         received = []
         bus.subscribe("test.event", lambda e: received.append(e))
-        event = AssignmentEvent(event_type="test.event", payload={"key": "val"})
+        event = AssignmentEvent(
+            event_type="test.event", payload={
+                "key": "val"})
         bus.publish(event)
         assert len(received) == 1
         assert received[0].payload["key"] == "val"
 
     def test_unsubscribe(self):
         bus = AssignmentEventBus()
-        handler = lambda e: None
+        def handler(e): return None
         bus.subscribe("test", handler)
         bus.unsubscribe("test", handler)
         assert bus._subscribers.get("test") == []
@@ -1084,7 +1131,8 @@ class TestAssignmentEngine:
         engine = AssignmentEngine()
         ticket = _make_ticket()
         # Force an error by mocking assigner to raise
-        engine._assigners["hybrid"].assign = AsyncMock(side_effect=RuntimeError("boom"))
+        engine._assigners["hybrid"].assign = AsyncMock(
+            side_effect=RuntimeError("boom"))
         result = await engine.assign(ticket, [])
         assert result.is_unassigned is True
         assert "Error" in result.reason
@@ -1093,7 +1141,8 @@ class TestAssignmentEngine:
     async def test_assign_error_increments_error_metric(self):
         engine = AssignmentEngine()
         ticket = _make_ticket()
-        engine._assigners["hybrid"].assign = AsyncMock(side_effect=RuntimeError("boom"))
+        engine._assigners["hybrid"].assign = AsyncMock(
+            side_effect=RuntimeError("boom"))
         await engine.assign(ticket, [])
         m = engine.get_metrics()
         assert m["errors"] == 1
@@ -1115,7 +1164,7 @@ class TestAssignmentEngine:
 
     def test_subscribe(self):
         engine = AssignmentEngine()
-        handler = lambda e: None
+        def handler(e): return None
         engine.subscribe("test", handler)
         assert handler in engine._event_bus._subscribers.get("test", [])
 
@@ -1177,7 +1226,11 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_all_agents_offline_rule_based(self):
         a = RuleBasedAssigner()
-        agents = [_make_agent(agent_id=f"off{i}", is_online=False, current_load=0) for i in range(3)]
+        agents = [
+            _make_agent(
+                agent_id=f"off{i}",
+                is_online=False,
+                current_load=0) for i in range(3)]
         ticket = _make_ticket()
         result = await a.assign(ticket, agents)
         # Falls back to all agents pool
@@ -1186,7 +1239,11 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_all_agents_at_capacity(self):
         a = ScoreBasedAssigner()
-        agents = [_make_agent(agent_id=f"full{i}", max_concurrent=5, current_load=5) for i in range(3)]
+        agents = [
+            _make_agent(
+                agent_id=f"full{i}",
+                max_concurrent=5,
+                current_load=5) for i in range(3)]
         ticket = _make_ticket()
         result = await a.assign(ticket, agents)
         # Score assigner still assigns (doesn't check capacity)

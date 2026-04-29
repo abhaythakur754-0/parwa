@@ -14,11 +14,7 @@ This file tests:
 7. Before/After comparison of pipeline behavior
 """
 
-import asyncio
-import json
-import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
-from typing import Any, Dict
+from unittest.mock import MagicMock, patch
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -79,22 +75,36 @@ class TestFullPipelineWithAllServices:
         from app.services.jarvis_service import _call_ai_provider
 
         # Setup all mocks
-        mock_injection.return_value = {"is_injection": False, "action": "allow"}
+        mock_injection.return_value = {
+            "is_injection": False, "action": "allow"}
         mock_spam.return_value = {"is_spam": False}
         mock_pii.return_value = None  # No PII
-        mock_language.return_value = {"detected_language": "en", "translation_performed": False}
-        mock_signals.return_value = {"intent": "pricing_inquiry", "sentiment": 0.7, "complexity": 0.5, "monetary_value": 0.0}
-        mock_gsd.return_value = {"current_state": "DIAGNOSIS", "confidence": 0.85}
+        mock_language.return_value = {
+            "detected_language": "en",
+            "translation_performed": False}
+        mock_signals.return_value = {
+            "intent": "pricing_inquiry",
+            "sentiment": 0.7,
+            "complexity": 0.5,
+            "monetary_value": 0.0}
+        mock_gsd.return_value = {
+            "current_state": "DIAGNOSIS",
+            "confidence": 0.85}
         mock_prompt_template.return_value = "System prompt with template"
-        mock_brand_voice.return_value = {"tone": "professional", "formality": 0.7}
+        mock_brand_voice.return_value = {
+            "tone": "professional", "formality": 0.7}
         mock_rag.return_value = (
             [{"file": "pricing.json", "content": "PARWA pricing starts at $99/month", "score": 0.95}],
             ["PARWA pricing starts at $99/month"],
         )
         mock_trained_lookup.return_value = None
-        mock_classify.return_value = {"intent": "pricing", "urgency": "medium", "confidence": 0.88}
+        mock_classify.return_value = {
+            "intent": "pricing",
+            "urgency": "medium",
+            "confidence": 0.88}
         mock_compress.return_value = None  # No compression needed
-        mock_context_health.return_value = {"overall_score": 0.95, "status": "HEALTHY"}
+        mock_context_health.return_value = {
+            "overall_score": 0.95, "status": "HEALTHY"}
         mock_token_budget.return_value = True  # Within budget
         mock_sentiment.return_value = {
             "frustration_score": 10,
@@ -104,8 +114,14 @@ class TestFullPipelineWithAllServices:
             "conversation_trend": "stable",
         }
         mock_escalation.return_value = None  # No escalation needed
-        mock_clara.return_value = {"overall_pass": True, "overall_score": 0.92, "final_response": None}
-        mock_guardrails.return_value = {"passed": True, "overall_action": "allow", "blocked_count": 0}
+        mock_clara.return_value = {
+            "overall_pass": True,
+            "overall_score": 0.92,
+            "final_response": None}
+        mock_guardrails.return_value = {
+            "passed": True,
+            "overall_action": "allow",
+            "blocked_count": 0}
         mock_confidence.return_value = 0.88
         mock_hallucination.return_value = {"detected": False, "flags": []}
         mock_formatters.return_value = "PARWA offers great AI-powered customer support features."
@@ -125,7 +141,12 @@ class TestFullPipelineWithAllServices:
         # Verify core response
         assert content is not None
         assert len(content) > 10
-        assert msg_type in ("text", "bill_summary", "payment_card", "otp_card", "handoff_card")
+        assert msg_type in (
+            "text",
+            "bill_summary",
+            "payment_card",
+            "otp_card",
+            "handoff_card")
 
         # Verify all services were called
         mock_injection.assert_called_once()
@@ -274,7 +295,8 @@ class TestFullPipelineWithAllServices:
         """Pipeline should block spam messages."""
         from app.services.jarvis_service import _call_ai_provider
 
-        mock_injection.return_value = {"is_injection": False, "action": "allow"}
+        mock_injection.return_value = {
+            "is_injection": False, "action": "allow"}
         mock_spam.return_value = {"is_spam": True, "reason": "spam_patterns"}
 
         content, msg_type, metadata, knowledge = _call_ai_provider(
@@ -331,7 +353,8 @@ class TestFullPipelineWithAllServices:
         """Pipeline should redact PII before sending to AI."""
         from app.services.jarvis_service import _call_ai_provider
 
-        mock_injection.return_value = {"is_injection": False, "action": "allow"}
+        mock_injection.return_value = {
+            "is_injection": False, "action": "allow"}
         mock_spam.return_value = {"is_spam": False}
         mock_pii.return_value = {
             "pii_found": True,
@@ -397,7 +420,8 @@ class TestFullPipelineWithAllServices:
         """Pipeline should trigger escalation for highly frustrated user."""
         from app.services.jarvis_service import _call_ai_provider
 
-        mock_injection.return_value = {"is_injection": False, "action": "allow"}
+        mock_injection.return_value = {
+            "is_injection": False, "action": "allow"}
         mock_spam.return_value = {"is_spam": False}
         mock_pii.return_value = None
         mock_sentiment.return_value = {
@@ -473,7 +497,8 @@ class TestFullPipelineWithAllServices:
         """Pipeline should use stage-based fallback when all AI providers fail."""
         from app.services.jarvis_service import _call_ai_provider
 
-        mock_injection.return_value = {"is_injection": False, "action": "allow"}
+        mock_injection.return_value = {
+            "is_injection": False, "action": "allow"}
         mock_spam.return_value = {"is_spam": False}
         mock_pii.return_value = None
         mock_sentiment.return_value = None
@@ -581,8 +606,8 @@ class TestBeforeAfterBehavioralComparison:
             "clara",               # from CLARA Quality Gate
             "guardrails",          # from Guardrails Engine
             "sentiment",           # from SentimentAnalyzer
-            "tone_recommendation", # from sentiment analysis
-            "escalation_triggered",# from GracefulEscalationManager
+            "tone_recommendation",  # from sentiment analysis
+            "escalation_triggered",  # from GracefulEscalationManager
             "knowledge_sources",   # from RAG Retrieval
             "confidence_score",    # from Confidence Scorer
         ]
@@ -619,7 +644,6 @@ class TestSessionLifecycle:
 
     def test_welcome_messages_for_all_sources(self):
         """Verify all entry sources have welcome messages."""
-        from app.services.jarvis_service import build_context_aware_welcome
 
         # We can't easily test without a DB session, but we can verify
         # the default welcome exists

@@ -23,7 +23,6 @@ import pytest
 
 from app.core.technique_caching import (
     CacheEntry,
-    CacheStats,
     TechniqueCache,
     DEFAULT_MAX_SIZE,
     DEFAULT_TTL_BY_TIER,

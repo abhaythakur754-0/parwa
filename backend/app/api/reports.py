@@ -13,11 +13,9 @@ Building Codes: BC-001 (tenant isolation), BC-010 (GDPR),
                BC-011 (auth), BC-012 (error handling)
 """
 
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -66,7 +64,10 @@ async def create_export(
     except Exception:
         raise ValidationError(
             message="Invalid JSON body",
-            details={"expected": {"report_type": "string", "format": "string"}},
+            details={
+                "expected": {
+                    "report_type": "string",
+                    "format": "string"}},
         )
 
     report_type = body.get("report_type", "summary")
@@ -209,7 +210,8 @@ async def download_report(
         if result.get("status") != "completed":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Report is not ready. Current status: {result.get('status')}",
+                detail=f"Report is not ready. Current status: {
+                    result.get('status')}",
             )
 
         # Find the file

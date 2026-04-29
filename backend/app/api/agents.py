@@ -37,7 +37,6 @@ from sqlalchemy.orm import Session
 from app.api.deps import (
     get_current_user,
     get_company_id,
-    require_roles,
 )
 from app.exceptions import (
     AuthorizationError,
@@ -126,7 +125,9 @@ async def create_agent(
     if permission_level not in valid_levels:
         raise ValidationError(
             message=f"Invalid permission level: {permission_level}",
-            details={"field": "permission_level", "valid_levels": list(valid_levels)},
+            details={
+                "field": "permission_level",
+                "valid_levels": list(valid_levels)},
         )
 
     # Validate channels
@@ -479,15 +480,20 @@ async def create_instruction_set(
                     "agent_id": "string (required)",
                     "instructions": {
                         "behavioral_rules": ["string array"],
-                        "tone_guidelines": {"formality": "string", "empathy_level": "string"},
+                        "tone_guidelines": {
+                            "formality": "string",
+                            "empathy_level": "string"},
                         "escalation_triggers": ["string array"],
-                        "response_templates": {"greeting": "string", "closing": "string"},
+                        "response_templates": {
+                            "greeting": "string",
+                            "closing": "string"},
                         "prohibited_actions": ["string array"],
-                        "confidence_thresholds": {"auto_approve": 90, "require_review": 70},
+                        "confidence_thresholds": {
+                            "auto_approve": 90,
+                            "require_review": 70},
                     },
                     "is_default": "boolean (optional, default: false)",
-                }
-            },
+                }},
         )
 
     name = body.get("name", "").strip()
@@ -807,8 +813,7 @@ async def create_ab_test(
                     "traffic_split": "integer 0-100 (optional, default: 50)",
                     "success_metric": "string (optional: csat, resolution_rate, both)",
                     "duration_days": "integer 1-90 (optional, default: 14)",
-                }
-            },
+                }},
         )
 
     agent_id = body.get("agent_id", "").strip()

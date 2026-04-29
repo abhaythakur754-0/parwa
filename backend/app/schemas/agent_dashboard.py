@@ -112,8 +112,7 @@ class AgentCardResponse(BaseModel):
     id: str
     name: str
     status: str = Field(
-        description="Current agent status: active/training/paused/error/cold_start",
-    )
+        description="Current agent status: active/training/paused/error/cold_start", )
     specialty: str
     description: Optional[str] = None
     base_model: Optional[str] = None

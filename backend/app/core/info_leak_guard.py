@@ -17,7 +17,7 @@ BC-012: Never crashes — returns pass on error.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set
 
 from app.logger import get_logger
@@ -58,9 +58,7 @@ _RE_ROUTING_STRATEGY = re.compile(
     r"|(?:model (?:selection|routing|switching|fallback) (?:is|was|happens))"
     r"|(?:we (?:use|employ|have) a (?:smart|intelligent|tiered) (?:router|routing))"
     r"|(?:GPT-\d|Claude|Llama)\b.*?(?:based on|chosen|selected|routed)\b"
-    r"|(?:chosen|selected|routed)\s+(?:GPT-\d|Claude|Llama)\b",
-    re.IGNORECASE,
-)
+    r"|(?:chosen|selected|routed)\s+(?:GPT-\d|Claude|Llama)\b", re.IGNORECASE, )
 
 # ── Category 3: Internal Workflow Disclosure ──
 _RE_WORKFLOW_DETAILS = re.compile(
@@ -69,9 +67,7 @@ _RE_WORKFLOW_DETAILS = re.compile(
     r"|(?:we process your (?:request|query|message) (?:through|via|using))"
     r"|(?:our (?:prompt|system) (?:template|chain|engineering|architecture))"
     r"|(?:RAG|retrieval.augmented|knowledge base|vector (?:search|store|database))"
-    r"|(?:our (?:guardrails?|safety (?:layer|check|system)))\b",
-    re.IGNORECASE,
-)
+    r"|(?:our (?:guardrails?|safety (?:layer|check|system)))\b", re.IGNORECASE, )
 
 # ── Category 4: System Prompt Disclosure ──
 _RE_SYSTEM_PROMPT = re.compile(

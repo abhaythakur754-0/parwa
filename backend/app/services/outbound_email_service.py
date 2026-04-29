@@ -25,16 +25,15 @@ import logging
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from uuid import uuid4
 
-from sqlalchemy import and_, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database.models.email_channel import EmailThread, InboundEmail
 from database.models.outbound_email import OutboundEmail
 from database.models.tickets import Ticket, TicketMessage, Customer
 
-from app.core.email_utils import strip_html, run_async_coro, validate_email_address
+from app.core.email_utils import strip_html, run_async_coro
 
 logger = logging.getLogger("parwa.outbound_email")
 
@@ -102,7 +101,9 @@ class OutboundEmailService:
         # Step 1: Load ticket + customer
         ticket = self._get_ticket(company_id, ticket_id)
         if not ticket:
-            return {"status": "error", "error": f"Ticket {ticket_id} not found"}
+            return {
+                "status": "error",
+                "error": f"Ticket {ticket_id} not found"}
 
         if ticket.channel != "email":
             return {
@@ -140,7 +141,9 @@ class OutboundEmailService:
                     "customer_email": customer.email,
                 },
             )
-            return {"status": "skipped", "error": "Customer has opted out of emails"}
+            return {
+                "status": "skipped",
+                "error": "Customer has opted out of emails"}
 
         # Step 3b: Check suppression list (F-124 — bounced/complained emails)
         if self._is_email_suppressed(company_id, customer.email):
@@ -152,7 +155,9 @@ class OutboundEmailService:
                     "customer_email": customer.email,
                 },
             )
-            return {"status": "skipped", "error": "Customer email is suppressed (bounced/complained)"}
+            return {
+                "status": "skipped",
+                "error": "Customer email is suppressed (bounced/complained)"}
 
         # Step 3c: Check OOO status — don't send if customer is OOO (F-122)
         if self._is_customer_ooo(company_id, customer.email):
@@ -164,7 +169,9 @@ class OutboundEmailService:
                     "customer_email": customer.email,
                 },
             )
-            return {"status": "skipped", "error": "Customer has active out-of-office status"}
+            return {
+                "status": "skipped",
+                "error": "Customer has active out-of-office status"}
 
         # Step 4: Check BC-003 idempotency (G-13)
         dedup_id = f"outbound:{ticket_id}:{hash(ai_response_html) % 100000}"
@@ -177,7 +184,9 @@ class OutboundEmailService:
                     "dedup_id": dedup_id,
                 },
             )
-            return {"status": "duplicate", "error": "Idempotent: reply already sent"}
+            return {
+                "status": "duplicate",
+                "error": "Idempotent: reply already sent"}
 
         # Step 5: Build threading headers (G-09: full chain)
         email_thread = self._get_email_thread(company_id, ticket_id)
@@ -207,7 +216,8 @@ class OutboundEmailService:
         # Step 9: Generate plain-text fallback (G-14)
         text_content = ai_response_text or strip_html(ai_response_html)
         if original_quote_html:
-            text_content += "\n\n--- Original Message ---\n" + strip_html(original_quote_html)
+            text_content += "\n\n--- Original Message ---\n" + \
+                strip_html(original_quote_html)
 
         # Step 10: Create DB records BEFORE dispatching (G-03 race fix)
         message = TicketMessage(
@@ -309,7 +319,8 @@ class OutboundEmailService:
                     outbound.delivery_status = "failed"
                     outbound.error_message = send_error
                     self.db.commit()
-                    return {"status": "error", "error": f"Email send failed: {send_error}"}
+                    return {"status": "error",
+                            "error": f"Email send failed: {send_error}"}
                 else:
                     # Update outbound with tracking info
                     outbound.delivery_status = "sent"
@@ -446,7 +457,8 @@ class OutboundEmailService:
                 f"{BC006_RATE_LIMIT_WINDOW_HOURS}h (max {BC006_MAX_OUTBOUND_REPLIES_24H})"
             )
 
-        # Fallback: count TicketMessages (for threads without OutboundEmail records)
+        # Fallback: count TicketMessages (for threads without OutboundEmail
+        # records)
         msg_count = (
             self.db.query(func.count(TicketMessage.id))
             .filter(
@@ -485,7 +497,11 @@ class OutboundEmailService:
         # Check notification preferences if available
         if hasattr(customer, "notification_preferences"):
             prefs = customer.notification_preferences
-            if isinstance(prefs, dict) and prefs.get("email", {}).get("opted_out"):
+            if isinstance(
+                    prefs,
+                    dict) and prefs.get(
+                    "email",
+                    {}).get("opted_out"):
                 return True
             if isinstance(prefs, str):
                 try:
@@ -570,7 +586,8 @@ class OutboundEmailService:
             ids.append(email_thread.latest_message_id)
         if not ids:
             return None
-        return " ".join(f"<{mid}>" if not mid.startswith("<") else mid for mid in ids)
+        return " ".join(f"<{mid}>" if not mid.startswith(
+            "<") else mid for mid in ids)
 
     def _build_reply_subject(self, original_subject: str) -> str:
         """Build reply subject with Re: prefix.

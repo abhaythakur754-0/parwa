@@ -12,11 +12,10 @@ Building Codes: BC-001 (multi-tenant), BC-002 (financial),
 
 from __future__ import annotations
 
-import math
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 
-from sqlalchemy import and_, case, desc, func
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
 from app.logger import get_logger
@@ -24,10 +23,7 @@ from database.models.tickets import (
     Ticket,
     TicketFeedback,
     TicketStatus,
-    TicketPriority,
     TicketAssignment,
-    SLATimer,
-    TicketMessage,
 )
 
 logger = get_logger("analytics_advanced_service")
@@ -93,9 +89,7 @@ def get_adaptation_tracker(
         overall_improvement = 0.0
         if starting_accuracy > 0 and current_accuracy > 0:
             overall_improvement = round(
-                ((current_accuracy - starting_accuracy) / starting_accuracy) * 100,
-                1,
-            )
+                ((current_accuracy - starting_accuracy) / starting_accuracy) * 100, 1, )
 
         # Best and worst days
         best_day = None
@@ -283,12 +277,22 @@ def get_savings_counter(
         all_time_savings = 0.0
 
         for i in range(months):
-            month_start = (now.replace(day=1) - timedelta(days=30 * i)).replace(
-                day=1, hour=0, minute=0, second=0, microsecond=0,
+            month_start = (
+                now.replace(
+                    day=1) -
+                timedelta(
+                    days=30 *
+                    i)).replace(
+                day=1,
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
             )
             # Calculate next month start
             if month_start.month == 12:
-                month_end = month_start.replace(year=month_start.year + 1, month=1)
+                month_end = month_start.replace(
+                    year=month_start.year + 1, month=1)
             else:
                 month_end = month_start.replace(month=month_start.month + 1)
 
@@ -307,14 +311,18 @@ def get_savings_counter(
             all_time_savings = cumulative
 
         # Current and previous month
-        current_month = monthly_trend[0] if monthly_trend else _empty_snapshot()
-        previous_month = monthly_trend[1] if len(monthly_trend) > 1 else _empty_snapshot()
+        current_month = monthly_trend[0] if monthly_trend else _empty_snapshot(
+        )
+        previous_month = monthly_trend[1] if len(
+            monthly_trend) > 1 else _empty_snapshot()
 
         # Calculate averages
         total_ai = max(all_time_ai, 1)
         total_human = max(all_time_human, 1)
-        avg_ai_cost = _get_avg_ai_cost(db, company_id, now - timedelta(days=30), now)
-        avg_human_cost = _get_avg_human_cost(db, company_id, now - timedelta(days=30), now)
+        avg_ai_cost = _get_avg_ai_cost(
+            db, company_id, now - timedelta(days=30), now)
+        avg_human_cost = _get_avg_human_cost(
+            db, company_id, now - timedelta(days=30), now)
 
         savings_pct = 0.0
         if avg_human_cost > 0:
@@ -367,8 +375,22 @@ def _get_monthly_savings(
         TicketAssignment.assignee_type == "human",
     ).scalar() or 0
 
-    ai_cost = round(ai_tickets * _get_avg_ai_cost(db, company_id, month_start, month_end), 2)
-    human_cost = round(human_tickets * _get_avg_human_cost(db, company_id, month_start, month_end), 2)
+    ai_cost = round(
+        ai_tickets *
+        _get_avg_ai_cost(
+            db,
+            company_id,
+            month_start,
+            month_end),
+        2)
+    human_cost = round(
+        human_tickets *
+        _get_avg_human_cost(
+            db,
+            company_id,
+            month_start,
+            month_end),
+        2)
     savings = round(human_cost - ai_cost, 2)
 
     return {
@@ -491,8 +513,10 @@ def get_workforce_allocation(
         by_category = _get_category_split(db, company_id, start, now)
 
         # Resolution rates
-        ai_resolution = _get_resolution_rate_by_type(db, company_id, start, now, "ai")
-        human_resolution = _get_resolution_rate_by_type(db, company_id, start, now, "human")
+        ai_resolution = _get_resolution_rate_by_type(
+            db, company_id, start, now, "ai")
+        human_resolution = _get_resolution_rate_by_type(
+            db, company_id, start, now, "human")
 
         return {
             "current_split": current_split,
@@ -574,7 +598,12 @@ def _get_channel_type_split(
     ticket_ids = [t.id for t in channel_tickets.limit(1000).all()]
 
     if not ticket_ids:
-        return {"ai_tickets": 0, "human_tickets": 0, "ai_pct": 0, "human_pct": 0, "total": 0}
+        return {
+            "ai_tickets": 0,
+            "human_tickets": 0,
+            "ai_pct": 0,
+            "human_pct": 0,
+            "total": 0}
 
     ai = db.query(func.count(TicketAssignment.id)).filter(
         TicketAssignment.company_id == company_id,

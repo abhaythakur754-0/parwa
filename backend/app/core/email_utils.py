@@ -8,7 +8,6 @@ and email tasks. Avoids code duplication.
 import asyncio
 import logging
 import re
-from typing import Optional
 
 logger = logging.getLogger("parwa.email_utils")
 

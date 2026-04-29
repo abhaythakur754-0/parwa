@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.exceptions import ValidationError, NotFoundError
+from app.exceptions import ValidationError
 from app.services.brand_voice_service import (
     VALID_APOLOGY_STYLES,
     VALID_EMOJI_USAGE,
@@ -30,7 +30,6 @@ from app.services.brand_voice_service import (
     _AVOID_PHRASES_BY_EMPATHY,
     _EMPATHY_CLOSINGS,
     _EMPATHY_OPENINGS,
-    _INDUSTRY_DEFAULTS,
     _RESPONSE_LENGTH_BOUNDS,
     _count_sentences,
     _estimate_formality,
@@ -417,7 +416,8 @@ class TestGetConfig:
         assert result.tone == "friendly"
 
     @pytest.mark.asyncio
-    async def test_get_config_redis_miss_falls_to_memory(self, service_with_redis, mock_redis):
+    async def test_get_config_redis_miss_falls_to_memory(
+            self, service_with_redis, mock_redis):
         mock_redis.get.return_value = None
         config = _make_config(company_id="corp-mem")
         service_with_redis._in_memory_store["corp-mem"] = config
@@ -465,7 +465,8 @@ class TestCreateConfig:
         assert service._in_memory_store["corp-002"] is config
 
     @pytest.mark.asyncio
-    async def test_create_empty_company_raises(self, service, sample_config_data):
+    async def test_create_empty_company_raises(
+            self, service, sample_config_data):
         with pytest.raises(ValidationError):
             await service.create_config("", sample_config_data)
 
@@ -515,7 +516,8 @@ class TestUpdateConfig:
         assert updated.company_id == "corp-001"
 
     @pytest.mark.asyncio
-    async def test_update_invalid_tone_raises(self, service, sample_config_data):
+    async def test_update_invalid_tone_raises(
+            self, service, sample_config_data):
         await service.create_config("corp-001", sample_config_data)
         with pytest.raises(ValidationError, match="tone"):
             await service.update_config("corp-001", {"tone": "angry"})
@@ -527,7 +529,8 @@ class TestUpdateConfig:
         assert updated.formality_level == 0.9
 
     @pytest.mark.asyncio
-    async def test_update_response_length_auto_adjusts_bounds(self, service, sample_config_data):
+    async def test_update_response_length_auto_adjusts_bounds(
+            self, service, sample_config_data):
         await service.create_config("corp-001", sample_config_data)
         updated = await service.update_config(
             "corp-001", {"response_length_preference": "detailed"},
@@ -537,7 +540,8 @@ class TestUpdateConfig:
         assert updated.min_response_sentences == _RESPONSE_LENGTH_BOUNDS["detailed"]["min"]
 
     @pytest.mark.asyncio
-    async def test_update_sentence_bounds_inverted_raises(self, service, sample_config_data):
+    async def test_update_sentence_bounds_inverted_raises(
+            self, service, sample_config_data):
         await service.create_config("corp-001", sample_config_data)
         with pytest.raises(ValidationError, match="min_response_sentences"):
             await service.update_config("corp-001", {
@@ -546,7 +550,8 @@ class TestUpdateConfig:
             })
 
     @pytest.mark.asyncio
-    async def test_update_empty_company_raises(self, service, sample_config_data):
+    async def test_update_empty_company_raises(
+            self, service, sample_config_data):
         with pytest.raises(ValidationError):
             await service.update_config("", {"tone": "friendly"})
 
@@ -567,7 +572,8 @@ class TestUpdateConfig:
 class TestDeleteConfig:
 
     @pytest.mark.asyncio
-    async def test_delete_existing_returns_true(self, service, sample_config_data):
+    async def test_delete_existing_returns_true(
+            self, service, sample_config_data):
         await service.create_config("corp-001", sample_config_data)
         result = await service.delete_config("corp-001")
         assert result is True
@@ -593,7 +599,8 @@ class TestDeleteConfig:
         # But empty company_id triggers ValidationError which also gets caught.
         # The test above already covers the ValidationError case via the
         # re-raise path. Let's test a different scenario.
-        result = await service.delete_config("valid-id")  # doesn't exist, returns False
+        # doesn't exist, returns False
+        result = await service.delete_config("valid-id")
         assert result is False
 
 
@@ -788,7 +795,9 @@ class TestValidateResponse:
 
     @pytest.mark.asyncio
     async def test_suggested_fixes_provided(self, service):
-        config = _make_config(prohibited_words=["damn"], min_response_sentences=5)
+        config = _make_config(
+            prohibited_words=["damn"],
+            min_response_sentences=5)
         service._in_memory_store["corp-001"] = config
         result = await service.validate_response("Damn!", "corp-001")
         assert len(result.suggested_fixes) > 0
@@ -950,20 +959,23 @@ class TestTextTransformations:
 class TestRedisCacheOps:
 
     @pytest.mark.asyncio
-    async def test_set_cache_called_on_create(self, service_with_redis, mock_redis, sample_config_data):
+    async def test_set_cache_called_on_create(
+            self, service_with_redis, mock_redis, sample_config_data):
         await service_with_redis.create_config("corp-redis", sample_config_data)
         mock_redis.set.assert_called_once()
         call_args = mock_redis.set.call_args
         assert "brand_voice:corp-redis" in call_args[0][0]
 
     @pytest.mark.asyncio
-    async def test_cache_miss_returns_none(self, service_with_redis, mock_redis):
+    async def test_cache_miss_returns_none(
+            self, service_with_redis, mock_redis):
         mock_redis.get.return_value = None
         result = await service_with_redis._get_from_cache("corp-001")
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_cache_hit_deserializes(self, service_with_redis, mock_redis):
+    async def test_cache_hit_deserializes(
+            self, service_with_redis, mock_redis):
         now = datetime.now(timezone.utc)
         cache_data = {
             "company_id": "corp-001",
@@ -990,7 +1002,8 @@ class TestRedisCacheOps:
         assert result.tone == "friendly"
 
     @pytest.mark.asyncio
-    async def test_delete_cache_called_on_delete(self, service_with_redis, mock_redis, sample_config_data):
+    async def test_delete_cache_called_on_delete(
+            self, service_with_redis, mock_redis, sample_config_data):
         await service_with_redis.create_config("corp-del", sample_config_data)
         mock_redis.reset_mock()
         await service_with_redis.delete_config("corp-del")
@@ -1017,7 +1030,9 @@ class TestTenantIsolation:
 
     @pytest.mark.asyncio
     async def test_prohibited_words_per_tenant(self, service):
-        config_a = _make_config(company_id="tenant-a", prohibited_words=["damn"])
+        config_a = _make_config(
+            company_id="tenant-a",
+            prohibited_words=["damn"])
         config_b = _make_config(company_id="tenant-b", prohibited_words=[])
         service._in_memory_store["tenant-a"] = config_a
         service._in_memory_store["tenant-b"] = config_b
@@ -1096,13 +1111,15 @@ class TestEmpathyTables:
         for level in ["critical", "high", "medium", "low"]:
             assert level in _EMPATHY_OPENINGS
             for tone in VALID_TONES:
-                assert tone in _EMPATHY_OPENINGS[level], f"Missing tone '{tone}' in openings for '{level}'"
+                assert tone in _EMPATHY_OPENINGS[
+                    level], f"Missing tone '{tone}' in openings for '{level}'"
 
     def test_all_empathy_levels_have_closings(self):
         for level in ["critical", "high", "medium", "low"]:
             assert level in _EMPATHY_CLOSINGS
             for tone in VALID_TONES:
-                assert tone in _EMPATHY_CLOSINGS[level], f"Missing tone '{tone}' in closings for '{level}'"
+                assert tone in _EMPATHY_CLOSINGS[
+                    level], f"Missing tone '{tone}' in closings for '{level}'"
 
     def test_all_empathy_levels_have_avoid_phrases(self):
         for level in ["critical", "high", "medium", "low"]:
@@ -1197,14 +1214,18 @@ class TestAdditionalScenarios:
 
     @pytest.mark.asyncio
     async def test_guidelines_critical_increases_max_sentences(self, service):
-        config = _make_config(max_response_sentences=3, min_response_sentences=1)
+        config = _make_config(
+            max_response_sentences=3,
+            min_response_sentences=1)
         service._in_memory_store["corp-001"] = config
         guidelines = await service.get_response_guidelines("corp-001", sentiment_score=0.1)
         assert guidelines.max_sentences >= 5  # critical adds +2, max with 8
 
     @pytest.mark.asyncio
     async def test_guidelines_high_increases_max_sentences(self, service):
-        config = _make_config(max_response_sentences=3, min_response_sentences=1)
+        config = _make_config(
+            max_response_sentences=3,
+            min_response_sentences=1)
         service._in_memory_store["corp-001"] = config
         guidelines = await service.get_response_guidelines("corp-001", sentiment_score=0.3)
         assert guidelines.max_sentences >= 4  # high adds +1, max with 5
@@ -1264,7 +1285,8 @@ class TestMultiWordProhibitedPhrases:
             "We offer guaranteed returns on investment.", "corp-001",
         )
         assert result.has_violations is True
-        assert any(v["normalized_form"] == "guaranteed returns" for v in result.violations)
+        assert any(v["normalized_form"] ==
+                   "guaranteed returns" for v in result.violations)
 
     @pytest.mark.asyncio
     async def test_multi_word_phrase_not_partial_match(self, service):
@@ -1284,13 +1306,15 @@ class TestMultiWordProhibitedPhrases:
 class TestRedisFailureResilience:
 
     @pytest.mark.asyncio
-    async def test_redis_get_failure_returns_none(self, service_with_redis, mock_redis):
+    async def test_redis_get_failure_returns_none(
+            self, service_with_redis, mock_redis):
         mock_redis.get.side_effect = Exception("Connection refused")
         result = await service_with_redis._get_from_cache("corp-001")
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_redis_set_failure_silently_ignored(self, service_with_redis, mock_redis, sample_config_data):
+    async def test_redis_set_failure_silently_ignored(
+            self, service_with_redis, mock_redis, sample_config_data):
         mock_redis.set.side_effect = Exception("Connection refused")
         # Should not raise
         config = await service_with_redis.create_config("corp-001", sample_config_data)

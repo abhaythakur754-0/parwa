@@ -61,12 +61,20 @@ class TestUndoHistoryEndpoint:
 
     @patch("app.api.shadow.get_current_user")
     @patch("database.base.SessionLocal")
-    def test_get_undo_history_empty(self, mock_session_local, mock_get_user, client, mock_user, mock_db_session):
+    def test_get_undo_history_empty(
+            self,
+            mock_session_local,
+            mock_get_user,
+            client,
+            mock_user,
+            mock_db_session):
         """Test getting undo history when empty."""
         mock_get_user.return_value = mock_user
-        mock_session_local.return_value.__enter__ = MagicMock(return_value=mock_db_session)
-        mock_session_local.return_value.__exit__ = MagicMock(return_value=False)
-        
+        mock_session_local.return_value.__enter__ = MagicMock(
+            return_value=mock_db_session)
+        mock_session_local.return_value.__exit__ = MagicMock(
+            return_value=False)
+
         # Mock query chain
         mock_query = MagicMock()
         mock_db_session.query.return_value = mock_query
@@ -86,10 +94,16 @@ class TestUndoHistoryEndpoint:
 
     @patch("app.api.shadow.get_current_user")
     @patch("database.base.SessionLocal")
-    def test_get_undo_history_with_entries(self, mock_session_local, mock_get_user, client, mock_user, mock_db_session):
+    def test_get_undo_history_with_entries(
+            self,
+            mock_session_local,
+            mock_get_user,
+            client,
+            mock_user,
+            mock_db_session):
         """Test getting undo history with entries."""
         mock_get_user.return_value = mock_user
-        
+
         # Create mock undo log entry
         mock_undo_log = MagicMock(spec=UndoLog)
         mock_undo_log.id = "undo-123"
@@ -114,7 +128,7 @@ class TestUndoHistoryEndpoint:
         # Mock executed action query
         mock_executed_action = MagicMock(spec=ExecutedAction)
         mock_executed_action.action_type = "refund"
-        
+
         def mock_query_side_effect(model):
             if model == UndoLog:
                 return mock_query
@@ -129,10 +143,12 @@ class TestUndoHistoryEndpoint:
                 inner_query.first.return_value = mock_user
                 return inner_query
             return mock_query
-        
+
         mock_db_session.query.side_effect = mock_query_side_effect
-        mock_session_local.return_value.__enter__ = MagicMock(return_value=mock_db_session)
-        mock_session_local.return_value.__exit__ = MagicMock(return_value=False)
+        mock_session_local.return_value.__enter__ = MagicMock(
+            return_value=mock_db_session)
+        mock_session_local.return_value.__exit__ = MagicMock(
+            return_value=False)
 
         response = client.get("/api/shadow/undo-history")
 
@@ -140,7 +156,7 @@ class TestUndoHistoryEndpoint:
         data = response.json()
         assert "entries" in data
         assert len(data["entries"]) == 1
-        
+
         entry = data["entries"][0]
         assert entry["id"] == "undo-123"
         assert entry["undo_type"] == "reversal"
@@ -160,15 +176,18 @@ class TestUndoHistoryEndpoint:
         assert response.status_code == 403
 
     @patch("app.api.shadow.get_current_user")
-    def test_get_undo_history_limit_parameter(self, mock_get_user, client, mock_user):
+    def test_get_undo_history_limit_parameter(
+            self, mock_get_user, client, mock_user):
         """Test that limit parameter is respected."""
         mock_get_user.return_value = mock_user
 
         with patch("database.base.SessionLocal") as mock_session_local:
             mock_db = MagicMock()
-            mock_session_local.return_value.__enter__ = MagicMock(return_value=mock_db)
-            mock_session_local.return_value.__exit__ = MagicMock(return_value=False)
-            
+            mock_session_local.return_value.__enter__ = MagicMock(
+                return_value=mock_db)
+            mock_session_local.return_value.__exit__ = MagicMock(
+                return_value=False)
+
             mock_query = MagicMock()
             mock_db.query.return_value = mock_query
             mock_query.filter.return_value = mock_query
@@ -183,7 +202,7 @@ class TestUndoHistoryEndpoint:
             assert response.status_code == 200
 
 
-# ── B5.2 Settings Mode Change Tests ───────────────────────────────────────────
+# ── B5.2 Settings Mode Change Tests ─────────────────────────────────────
 
 class TestSettingsModeChange:
     """Tests for PUT /api/shadow/mode endpoint."""
@@ -191,7 +210,13 @@ class TestSettingsModeChange:
     @patch("app.api.shadow.get_current_user")
     @patch("app.services.shadow_mode_service.ShadowModeService")
     @patch("app.core.event_emitter.emit_shadow_event")
-    def test_set_mode_to_shadow(self, mock_emit, mock_service_class, mock_get_user, client, mock_user):
+    def test_set_mode_to_shadow(
+            self,
+            mock_emit,
+            mock_service_class,
+            mock_get_user,
+            client,
+            mock_user):
         """Test setting mode to shadow."""
         mock_get_user.return_value = mock_user
         mock_service = MagicMock()
@@ -241,7 +266,12 @@ class TestSettingsModeChange:
 
     @patch("app.api.shadow.get_current_user")
     @patch("app.services.shadow_mode_service.ShadowModeService")
-    def test_set_mode_via_jarvis(self, mock_service_class, mock_get_user, client, mock_user):
+    def test_set_mode_via_jarvis(
+            self,
+            mock_service_class,
+            mock_get_user,
+            client,
+            mock_user):
         """Test setting mode via Jarvis (conversational)."""
         mock_get_user.return_value = mock_user
         mock_service = MagicMock()
@@ -264,14 +294,19 @@ class TestSettingsModeChange:
         )
 
 
-# ── B5.3 Preferences CRUD Tests ───────────────────────────────────────────────
+# ── B5.3 Preferences CRUD Tests ─────────────────────────────────────────
 
 class TestPreferencesCRUD:
     """Tests for shadow mode preferences endpoints."""
 
     @patch("app.api.shadow.get_current_user")
     @patch("app.services.shadow_mode_service.ShadowModeService")
-    def test_get_preferences(self, mock_service_class, mock_get_user, client, mock_user):
+    def test_get_preferences(
+            self,
+            mock_service_class,
+            mock_get_user,
+            client,
+            mock_user):
         """Test getting preferences."""
         mock_get_user.return_value = mock_user
         mock_service = MagicMock()
@@ -294,7 +329,12 @@ class TestPreferencesCRUD:
 
     @patch("app.api.shadow.get_current_user")
     @patch("app.services.shadow_mode_service.ShadowModeService")
-    def test_set_preference(self, mock_service_class, mock_get_user, client, mock_user):
+    def test_set_preference(
+            self,
+            mock_service_class,
+            mock_get_user,
+            client,
+            mock_user):
         """Test setting a preference."""
         mock_get_user.return_value = mock_user
         mock_service = MagicMock()
@@ -317,7 +357,8 @@ class TestPreferencesCRUD:
         assert data["action_category"] == "email_reply"
 
     @patch("app.api.shadow.get_current_user")
-    def test_set_preference_invalid_mode(self, mock_get_user, client, mock_user):
+    def test_set_preference_invalid_mode(
+            self, mock_get_user, client, mock_user):
         """Test setting a preference with invalid mode."""
         mock_get_user.return_value = mock_user
 
@@ -331,7 +372,12 @@ class TestPreferencesCRUD:
 
     @patch("app.api.shadow.get_current_user")
     @patch("app.services.shadow_mode_service.ShadowModeService")
-    def test_delete_preference(self, mock_service_class, mock_get_user, client, mock_user):
+    def test_delete_preference(
+            self,
+            mock_service_class,
+            mock_get_user,
+            client,
+            mock_user):
         """Test deleting a preference."""
         mock_get_user.return_value = mock_user
         mock_service = MagicMock()
@@ -347,14 +393,19 @@ class TestPreferencesCRUD:
         )
 
 
-# ── B5.4 What-If Simulator Tests ───────────────────────────────────────────────
+# ── B5.4 What-If Simulator Tests ────────────────────────────────────────
 
 class TestWhatIfSimulator:
     """Tests for POST /api/shadow/evaluate endpoint."""
 
     @patch("app.api.shadow.get_current_user")
     @patch("app.services.shadow_mode_service.ShadowModeService")
-    def test_evaluate_refund_action(self, mock_service_class, mock_get_user, client, mock_user):
+    def test_evaluate_refund_action(
+            self,
+            mock_service_class,
+            mock_get_user,
+            client,
+            mock_user):
         """Test evaluating a refund action."""
         mock_get_user.return_value = mock_user
         mock_service = MagicMock()
@@ -366,10 +417,18 @@ class TestWhatIfSimulator:
             "requires_approval": True,
             "auto_execute": False,
             "layers": {
-                "layer1_heuristic": {"score": 0.65, "reason": "Refund amount is high"},
-                "layer2_preference": {"mode": "shadow", "reason": "Refund preference set"},
-                "layer3_historical": {"avg_risk": 0.5, "reason": "Average risk for refunds"},
-                "layer4_safety_floor": {"hard_safety": False, "reason": "No safety floor triggered"},
+                "layer1_heuristic": {
+                    "score": 0.65,
+                    "reason": "Refund amount is high"},
+                "layer2_preference": {
+                    "mode": "shadow",
+                    "reason": "Refund preference set"},
+                "layer3_historical": {
+                    "avg_risk": 0.5,
+                    "reason": "Average risk for refunds"},
+                "layer4_safety_floor": {
+                    "hard_safety": False,
+                    "reason": "No safety floor triggered"},
             },
             "company_mode": "shadow",
         }
@@ -388,7 +447,12 @@ class TestWhatIfSimulator:
 
     @patch("app.api.shadow.get_current_user")
     @patch("app.services.shadow_mode_service.ShadowModeService")
-    def test_evaluate_low_risk_action(self, mock_service_class, mock_get_user, client, mock_user):
+    def test_evaluate_low_risk_action(
+            self,
+            mock_service_class,
+            mock_get_user,
+            client,
+            mock_user):
         """Test evaluating a low risk action that auto-executes."""
         mock_get_user.return_value = mock_user
         mock_service = MagicMock()
@@ -400,10 +464,18 @@ class TestWhatIfSimulator:
             "requires_approval": False,
             "auto_execute": True,
             "layers": {
-                "layer1_heuristic": {"score": 0.15, "reason": "Simple SMS reply"},
-                "layer2_preference": {"mode": None, "reason": "No preference set"},
-                "layer3_historical": {"avg_risk": 0.2, "reason": "Low historical risk"},
-                "layer4_safety_floor": {"hard_safety": False, "reason": "No safety floor"},
+                "layer1_heuristic": {
+                    "score": 0.15,
+                    "reason": "Simple SMS reply"},
+                "layer2_preference": {
+                    "mode": None,
+                    "reason": "No preference set"},
+                "layer3_historical": {
+                    "avg_risk": 0.2,
+                    "reason": "Low historical risk"},
+                "layer4_safety_floor": {
+                    "hard_safety": False,
+                    "reason": "No safety floor"},
             },
             "company_mode": "graduated",
         }
@@ -420,7 +492,12 @@ class TestWhatIfSimulator:
 
     @patch("app.api.shadow.get_current_user")
     @patch("app.services.shadow_mode_service.ShadowModeService")
-    def test_evaluate_with_stage_zero(self, mock_service_class, mock_get_user, client, mock_user):
+    def test_evaluate_with_stage_zero(
+            self,
+            mock_service_class,
+            mock_get_user,
+            client,
+            mock_user):
         """Test evaluation for new client in Stage 0 (mandatory shadow)."""
         mock_get_user.return_value = mock_user
         mock_service = MagicMock()
@@ -434,10 +511,18 @@ class TestWhatIfSimulator:
             "stage_0": True,
             "shadow_actions_remaining": 8,
             "layers": {
-                "layer1_heuristic": {"score": 0.2, "reason": "Low risk"},
-                "layer2_preference": {"mode": None, "reason": "No preference"},
-                "layer3_historical": {"avg_risk": None, "reason": "No history"},
-                "layer4_safety_floor": {"hard_safety": False, "reason": "No safety floor"},
+                "layer1_heuristic": {
+                    "score": 0.2,
+                    "reason": "Low risk"},
+                "layer2_preference": {
+                    "mode": None,
+                    "reason": "No preference"},
+                "layer3_historical": {
+                    "avg_risk": None,
+                    "reason": "No history"},
+                "layer4_safety_floor": {
+                    "hard_safety": False,
+                    "reason": "No safety floor"},
             },
             "company_mode": "shadow",
         }
@@ -453,7 +538,7 @@ class TestWhatIfSimulator:
         assert data.get("shadow_actions_remaining") == 8
 
 
-# ── B5.5 Socket Event Emission Tests ──────────────────────────────────────────
+# ── B5.5 Socket Event Emission Tests ────────────────────────────────────
 
 class TestSocketEventEmission:
     """Tests for Socket.io event emission on shadow mode actions."""
@@ -462,7 +547,14 @@ class TestSocketEventEmission:
     @patch("app.services.shadow_mode_service.ShadowModeService")
     @patch("app.core.event_emitter.emit_shadow_event")
     @patch("asyncio.get_event_loop")
-    def test_mode_change_emits_event(self, mock_loop, mock_emit, mock_service_class, mock_get_user, client, mock_user):
+    def test_mode_change_emits_event(
+            self,
+            mock_loop,
+            mock_emit,
+            mock_service_class,
+            mock_get_user,
+            client,
+            mock_user):
         """Test that mode change emits socket event."""
         mock_get_user.return_value = mock_user
         mock_service = MagicMock()
@@ -487,7 +579,13 @@ class TestSocketEventEmission:
     @patch("app.api.shadow.get_current_user")
     @patch("app.services.shadow_mode_service.ShadowModeService")
     @patch("asyncio.get_event_loop")
-    def test_approval_emits_event(self, mock_loop, mock_service_class, mock_get_user, client, mock_user):
+    def test_approval_emits_event(
+            self,
+            mock_loop,
+            mock_service_class,
+            mock_get_user,
+            client,
+            mock_user):
         """Test that approval emits socket event."""
         mock_get_user.return_value = mock_user
         mock_service = MagicMock()
@@ -506,7 +604,7 @@ class TestSocketEventEmission:
         assert response.status_code == 200
 
 
-# ── B5.6 Integration Tests ─────────────────────────────────────────────────────
+# ── B5.6 Integration Tests ──────────────────────────────────────────────
 
 class TestDay5Integration:
     """Integration tests for Day 5 functionality."""
@@ -519,7 +617,7 @@ class TestDay5Integration:
         with patch("app.services.shadow_mode_service.ShadowModeService") as mock_service_class:
             mock_service = MagicMock()
             mock_service_class.return_value = mock_service
-            
+
             # Mock all the getters
             mock_service.get_company_mode.return_value = "shadow"
             mock_service.get_shadow_preferences.return_value = []

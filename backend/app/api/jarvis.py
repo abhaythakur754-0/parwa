@@ -41,7 +41,6 @@ from app.schemas.jarvis import (
     JarvisOtpRequest,
     JarvisOtpVerify,
     JarvisOtpResponse,
-    JarvisDemoPackPurchase,
     JarvisDemoPackStatusResponse,
     JarvisPaymentCreate,
     JarvisPaymentStatusResponse,
@@ -347,9 +346,14 @@ async def payment_webhook(
         event_type = body.get("event_type", "")
         event_data = body.get("data", {})
     except Exception:
-        return {"error": {"code": "INVALID_PAYLOAD", "message": "Invalid webhook payload", "details": None}}
+        return {
+            "error": {
+                "code": "INVALID_PAYLOAD",
+                "message": "Invalid webhook payload",
+                "details": None}}
 
-    # Pass request headers for Paddle signature verification in the service layer
+    # Pass request headers for Paddle signature verification in the service
+    # layer
     webhook_headers = dict(request.headers)
 
     try:

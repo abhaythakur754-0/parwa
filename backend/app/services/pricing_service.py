@@ -206,7 +206,9 @@ def validate_variant_selection(
             "validated": [],
         }
 
-    industry_variants = {v["id"]: v for v in INDUSTRY_VARIANTS.get(industry, [])}
+    industry_variants = {
+        v["id"]: v for v in INDUSTRY_VARIANTS.get(
+            industry, [])}
 
     for selection in selections:
         variant_id = selection.get("id")
@@ -214,16 +216,19 @@ def validate_variant_selection(
 
         # Validate variant exists
         if variant_id not in industry_variants:
-            errors.append(f"Variant '{variant_id}' not found in industry '{industry}'")
+            errors.append(
+                f"Variant '{variant_id}' not found in industry '{industry}'")
             continue
 
         # Validate quantity
         if not isinstance(quantity, int) or quantity < 0:
-            errors.append(f"Invalid quantity for variant '{variant_id}': {quantity}")
+            errors.append(
+                f"Invalid quantity for variant '{variant_id}': {quantity}")
             continue
 
         if quantity > 10:
-            errors.append(f"Quantity for variant '{variant_id}' exceeds maximum (10)")
+            errors.append(
+                f"Quantity for variant '{variant_id}' exceeds maximum (10)")
             continue
 
         if quantity > 0:

@@ -13,7 +13,7 @@ Endpoints:
 Building Codes: BC-001 (tenant isolation), BC-011 (auth), BC-012 (errors)
 """
 
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
@@ -41,10 +41,14 @@ router = APIRouter(prefix="/api/agents", tags=["Agent Metrics (F-098)"])
 class UpdateThresholdsRequest(BaseModel):
     """Request body for updating agent metric thresholds."""
 
-    resolution_rate_min: Optional[float] = Field(None, description="Minimum resolution rate (%)")
-    confidence_min: Optional[float] = Field(None, description="Minimum avg confidence (%)")
-    csat_min: Optional[float] = Field(None, description="Minimum avg CSAT (1-5 scale)")
-    escalation_max_pct: Optional[float] = Field(None, description="Maximum escalation rate (%)")
+    resolution_rate_min: Optional[float] = Field(
+        None, description="Minimum resolution rate (%)")
+    confidence_min: Optional[float] = Field(
+        None, description="Minimum avg confidence (%)")
+    csat_min: Optional[float] = Field(
+        None, description="Minimum avg CSAT (1-5 scale)")
+    escalation_max_pct: Optional[float] = Field(
+        None, description="Maximum escalation rate (%)")
 
 
 # ══════════════════════════════════════════════════════════════════

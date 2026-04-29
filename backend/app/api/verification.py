@@ -35,7 +35,7 @@ router = APIRouter(prefix="/api/verification", tags=["Verification"])
 class SendOTPRequest(BaseModel):
     """Request to send OTP to business email."""
     email: str = Field(..., description="Business email address to verify")
-    
+
     @validator("email")
     def validate_email(cls, v: str) -> str:
         v = v.lower().strip()
@@ -55,14 +55,14 @@ class VerifyOTPRequest(BaseModel):
     """Request to verify OTP code."""
     email: str = Field(..., description="Business email being verified")
     otp_code: str = Field(..., description="6-digit OTP code")
-    
+
     @validator("email")
     def validate_email(cls, v: str) -> str:
         v = v.lower().strip()
         if not v or "@" not in v:
             raise ValueError("Invalid email address")
         return v
-    
+
     @validator("otp_code")
     def validate_otp(cls, v: str) -> str:
         v = v.strip()
@@ -97,20 +97,20 @@ def send_otp(
     db: Session = Depends(get_db),
 ) -> SendOTPResponse:
     """Send an OTP code to verify business email.
-    
+
     Week 6 Day 10-11: Anti-scam verification step.
-    
+
     Rate limited to 3 requests per hour per email.
     OTP expires in 10 minutes.
-    
+
     Args:
         body: Email address to verify.
         user: Authenticated user.
         db: Database session.
-        
+
     Returns:
         SendOTPResponse with message and expiry time.
-        
+
     Raises:
         ValidationError: If email is not a business email.
         RateLimitError: If rate limited.
@@ -148,19 +148,19 @@ def verify_otp(
     db: Session = Depends(get_db),
 ) -> VerifyOTPResponse:
     """Verify the OTP code for business email.
-    
+
     Week 6 Day 10-11: Completes business email verification.
-    
+
     Max 5 verification attempts per OTP.
-    
+
     Args:
         body: Email and OTP code.
         user: Authenticated user.
         db: Database session.
-        
+
     Returns:
         VerifyOTPResponse with verification status.
-        
+
     Raises:
         ValidationError: If OTP is invalid/expired.
     """
@@ -196,23 +196,23 @@ def get_verification_status(
     db: Session = Depends(get_db),
 ) -> VerificationStatusResponse:
     """Check if a business email has been verified.
-    
+
     Args:
         email: Email address to check.
         user: Authenticated user.
         db: Database session.
-        
+
     Returns:
         VerificationStatusResponse with verified status.
     """
     email = email.lower().strip()
-    
+
     verified = check_business_email_verified(
         db=db,
         email=email,
         company_id=user.company_id,
     )
-    
+
     return VerificationStatusResponse(
         email=email,
         verified=verified,

@@ -12,15 +12,14 @@ BC-001: All endpoints are tenant-isolated.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, require_roles
 from app.schemas.bulk_action import (
     TicketMergeRequest,
-    TicketUnmergeRequest,
     TicketMergeResponse,
 )
 from app.services.ticket_merge_service import (
@@ -53,17 +52,17 @@ async def merge_tickets(
 ) -> Any:
     """
     Merge multiple tickets into a primary ticket.
-    
+
     The primary ticket will retain all messages from merged tickets.
     Merged tickets will be closed with a reference to the merge.
-    
+
     An undo_token is returned for unmerge capability within 24 hours.
     """
     company_id = current_user.get("company_id")
     user_id = current_user.get("user_id")
-    
+
     service = TicketMergeService(db)
-    
+
     try:
         merge_record, primary_ticket = service.merge_tickets(
             company_id=company_id,
@@ -72,7 +71,7 @@ async def merge_tickets(
             merged_by=user_id,
             reason=data.reason,
         )
-        
+
         return TicketMergeResponse(
             id=merge_record.id,
             primary_ticket_id=merge_record.primary_ticket_id,
@@ -81,7 +80,7 @@ async def merge_tickets(
             undone=merge_record.undone,
             merged_at=merge_record.created_at,
         )
-        
+
     except TicketNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -115,27 +114,27 @@ async def unmerge_tickets(
 ) -> Any:
     """
     Unmerge previously merged tickets.
-    
+
     PS26: Unmerge preserves message history.
     Restores merged tickets to reopened status.
     """
     company_id = current_user.get("company_id")
-    
+
     service = TicketMergeService(db)
-    
+
     try:
         merge_record, restored_tickets = service.unmerge_tickets(
             company_id=company_id,
             merge_id=merge_id,
         )
-        
+
         return {
             "unmerged": True,
             "merge_id": merge_id,
             "restored_ticket_ids": [t.id for t in restored_tickets],
             "restored_count": len(restored_tickets),
         }
-        
+
     except TicketNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -164,17 +163,17 @@ async def get_merge_history(
 ) -> Any:
     """
     Get all merge operations involving a ticket.
-    
+
     Returns both merges where ticket is primary and where it was merged.
     """
     company_id = current_user.get("company_id")
-    
+
     service = TicketMergeService(db)
-    
+
     merges = service.get_merge_history(company_id, ticket_id)
-    
+
     import json
-    
+
     return {
         "ticket_id": ticket_id,
         "merges": [
@@ -204,15 +203,15 @@ async def check_merge_eligibility(
 ) -> Any:
     """
     Check if a set of tickets can be merged.
-    
+
     Returns list of any issues that would prevent merging.
     """
     company_id = current_user.get("company_id")
-    
+
     service = TicketMergeService(db)
-    
+
     can_merge, reasons = service.can_merge_tickets(company_id, ticket_ids)
-    
+
     return {
         "can_merge": can_merge,
         "issues": reasons,
@@ -232,19 +231,19 @@ async def get_merge_details(
     Get detailed information about a merge operation.
     """
     company_id = current_user.get("company_id")
-    
+
     service = TicketMergeService(db)
-    
+
     merge = service.get_merge_by_id(company_id, merge_id)
-    
+
     if not merge:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Merge record not found",
         )
-    
+
     import json
-    
+
     return {
         "id": merge.id,
         "primary_ticket_id": merge.primary_ticket_id,

@@ -19,8 +19,6 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.encoders import jsonable_encoder
-from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, require_roles
@@ -28,7 +26,6 @@ from app.exceptions import NotFoundError, AuthorizationError, ValidationError
 from app.services.ticket_service import TicketService
 from app.services.priority_service import PriorityService
 from app.services.category_service import CategoryService
-from app.services.tag_service import TagService
 from app.services.attachment_service import AttachmentService
 from app.services.pii_scan_service import PIIScanService
 from app.schemas.ticket import (
@@ -36,7 +33,6 @@ from app.schemas.ticket import (
     TicketUpdate,
     TicketResponse,
     TicketListResponse,
-    TicketFilter,
     TicketStatusUpdate,
     TicketAssign,
     TicketStatusUpdateResponse,
@@ -51,7 +47,6 @@ from app.schemas.ticket import (
     TicketUndoResolutionRequest,
     TicketUndoResolutionResponse,
     TicketShadowDetailsResponse,
-    ShadowStatus,
 )
 
 
@@ -173,7 +168,11 @@ async def list_tickets(
 
     # Filter by shadow_status in Python since it's not in the service method
     if shadow_status:
-        tickets = [t for t in tickets if getattr(t, 'shadow_status', 'none') == shadow_status]
+        tickets = [
+            t for t in tickets if getattr(
+                t,
+                'shadow_status',
+                'none') == shadow_status]
         total = len(tickets)
 
     return TicketListResponse(
@@ -184,7 +183,7 @@ async def list_tickets(
     )
 
 
-# ── BULK OPERATIONS (must come BEFORE /{ticket_id} routes) ────────────────────
+# ── BULK OPERATIONS (must come BEFORE /{ticket_id} routes) ──────────────
 
 @router.post(
     "/bulk/status",
@@ -721,7 +720,7 @@ async def list_attachments(
     ]
 
 
-# ── SHADOW MODE ENDPOINTS (Day 3) ─────────────────────────────────────────────
+# ── SHADOW MODE ENDPOINTS (Day 3) ───────────────────────────────────────
 
 @router.post(
     "/{ticket_id}/resolve-with-shadow",

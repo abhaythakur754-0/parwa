@@ -16,12 +16,11 @@ import hashlib
 import hmac
 import json
 import logging
-from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Request, BackgroundTasks
 from pydantic import BaseModel, Field
 
 from app.config import get_settings
@@ -42,7 +41,8 @@ class PaddleWebhookPayload(BaseModel):
     event_type: str = Field(..., description="Paddle event type")
     event_id: str = Field(..., description="Unique event ID from Paddle")
     occurred_at: Optional[str] = Field(None, description="Event timestamp")
-    data: Dict[str, Any] = Field(default_factory=dict, description="Event data")
+    data: Dict[str, Any] = Field(
+        default_factory=dict, description="Event data")
 
 
 class PaymentFailedWebhook(BaseModel):
@@ -158,7 +158,7 @@ def extract_company_id_from_event(data: Dict[str, Any]) -> Optional[str]:
     - custom_data.company_id
     - passthrough.company_id
     - metadata.company_id
-    
+
     This is also used as a standalone function for tests.
     """
     # Try custom_data first
@@ -209,7 +209,8 @@ async def handle_paddle_webhook(
     signature = request.headers.get("paddle_signature", "")
     webhook_secret = getattr(settings, "PADDLE_WEBHOOK_SECRET", "")
 
-    if webhook_secret and not verify_paddle_signature(body, signature, webhook_secret):
+    if webhook_secret and not verify_paddle_signature(
+            body, signature, webhook_secret):
         logger.warning(
             "paddle_webhook_invalid_signature signature=%s",
             signature[:20] + "..." if signature else "missing",
@@ -305,7 +306,8 @@ async def handle_payment_failed_webhook(
     signature = request.headers.get("paddle_signature", "")
     webhook_secret = getattr(settings, "PADDLE_WEBHOOK_SECRET", "")
 
-    if webhook_secret and not verify_paddle_signature(body, signature, webhook_secret):
+    if webhook_secret and not verify_paddle_signature(
+            body, signature, webhook_secret):
         logger.warning(
             "payment_failed_webhook_invalid_signature signature=%s",
             signature[:20] + "..." if signature else "missing",
@@ -318,8 +320,13 @@ async def handle_payment_failed_webhook(
         payload = json.loads(body)
         webhook = PaymentFailedWebhook(**payload)
     except Exception as exc:
-        logger.warning("payment_failed_webhook_invalid_payload error=%s", str(exc))
-        raise HTTPException(status_code=400, detail=f"Invalid payload: {str(exc)}")
+        logger.warning(
+            "payment_failed_webhook_invalid_payload error=%s",
+            str(exc))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid payload: {
+                str(exc)}")
     logger.warning(
         "payment_failed_webhook company_id=%s transaction_id=%s code=%s",
         webhook.company_id,
@@ -366,7 +373,8 @@ async def handle_payment_succeeded_webhook(
     signature = request.headers.get("paddle_signature", "")
     webhook_secret = getattr(settings, "PADDLE_WEBHOOK_SECRET", "")
 
-    if webhook_secret and not verify_paddle_signature(body, signature, webhook_secret):
+    if webhook_secret and not verify_paddle_signature(
+            body, signature, webhook_secret):
         logger.warning(
             "payment_succeeded_webhook_invalid_signature signature=%s",
             signature[:20] + "..." if signature else "missing",
@@ -379,8 +387,13 @@ async def handle_payment_succeeded_webhook(
         payload = json.loads(body)
         webhook = PaymentSucceededWebhook(**payload)
     except Exception as exc:
-        logger.warning("payment_succeeded_webhook_invalid_payload error=%s", str(exc))
-        raise HTTPException(status_code=400, detail=f"Invalid payload: {str(exc)}")
+        logger.warning(
+            "payment_succeeded_webhook_invalid_payload error=%s",
+            str(exc))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid payload: {
+                str(exc)}")
     logger.info(
         "payment_succeeded_webhook company_id=%s transaction_id=%s",
         webhook.company_id,
@@ -412,7 +425,8 @@ async def handle_payment_succeeded_webhook(
     return {"status": "no_action", "message": "Service was not stopped"}
 
 
-@router.get("/billing/status/{company_id}", response_model=BillingStatusResponse)
+@router.get("/billing/status/{company_id}",
+            response_model=BillingStatusResponse)
 async def get_billing_status(company_id: str):
     """
     Get billing status for a company.
@@ -421,7 +435,6 @@ async def get_billing_status(company_id: str):
     """
     from database.base import SessionLocal
     from database.models.core import Company
-    from database.models.billing import Subscription
 
     with SessionLocal() as db:
         company = db.query(Company).filter(
@@ -441,7 +454,8 @@ async def get_billing_status(company_id: str):
     return BillingStatusResponse(
         company_id=company_id,
         subscription_status=company.subscription_status or "none",
-        service_stopped=service_stopped or in_grace,  # Also consider grace period as "not fully operational"
+        service_stopped=service_stopped or in_grace,
+        # Also consider grace period as "not fully operational"
         active_failure=grace_status or active_failure,
         last_payment_failure=history[0] if history else None,
     )
@@ -465,8 +479,12 @@ async def _process_payment_failed(
         # Extract payment data
         transaction_id = data.get("transaction_id", data.get("id", event_id))
         subscription_id = data.get("subscription_id")
-        failure_code = data.get("error_code", data.get("failure_code", "unknown"))
-        failure_reason = data.get("error_message", data.get("failure_reason", "Unknown error"))
+        failure_code = data.get(
+            "error_code", data.get(
+                "failure_code", "unknown"))
+        failure_reason = data.get(
+            "error_message", data.get(
+                "failure_reason", "Unknown error"))
 
         # Get amount from various possible locations
         amount = Decimal("0")
@@ -497,7 +515,8 @@ async def _process_payment_failed(
             "payment_failed_processing_error company_id=%s event_id=%s error=%s",
             company_id,
             event_id,
-            str(e)[:200],
+            str(e)[
+                :200],
         )
 
 
@@ -512,7 +531,9 @@ async def _process_payment_succeeded(
         is_stopped = await service.is_service_stopped(UUID(company_id))
 
         if is_stopped:
-            transaction_id = data.get("transaction_id", data.get("id", event_id))
+            transaction_id = data.get(
+                "transaction_id", data.get(
+                    "id", event_id))
 
             result = await service.resume_service(
                 company_id=UUID(company_id),
@@ -537,5 +558,6 @@ async def _process_payment_succeeded(
             "payment_succeeded_processing_error company_id=%s event_id=%s error=%s",
             company_id,
             event_id,
-            str(e)[:200],
+            str(e)[
+                :200],
         )

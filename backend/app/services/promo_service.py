@@ -12,9 +12,7 @@ import logging
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 
-from sqlalchemy import and_
 
 from database.base import SessionLocal
 from database.models.billing import Subscription
@@ -25,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 class PromoError(Exception):
     """Base error for promo operations."""
-    pass
 
 
 class PromoNotFoundError(PromoError):
@@ -150,7 +147,7 @@ class _PromoService:
         with SessionLocal() as db:
             promo = db.query(PromoCode).filter(
                 PromoCode.code == code.upper().strip(),
-                PromoCode.is_active == True,
+                PromoCode.is_active,
             ).first()
 
             if not promo:
@@ -184,9 +181,8 @@ class _PromoService:
             if promo.applies_to_tiers and tier:
                 if tier not in promo.applies_to_tiers:
                     raise PromoTierMismatchError(
-                        f"Promo code '{code}' does not apply to tier '{tier}'. "
-                        f"Valid tiers: {promo.applies_to_tiers} (PROMO-009)"
-                    )
+                        f"Promo code '{code}' does not apply to tier '{tier}'. " f"Valid tiers: {
+                            promo.applies_to_tiers} (PROMO-009)")
 
             # Check company hasn't used before
             prev_use = db.query(CompanyPromoUse).filter(
@@ -250,13 +246,15 @@ class _PromoService:
                     from database.models.billing_extended import get_variant_limits
                     limits = get_variant_limits(tier)
                     if limits:
-                        base_amount = limits.get("price_monthly", Decimal("0.00"))
+                        base_amount = limits.get(
+                            "price_monthly", Decimal("0.00"))
                 except Exception:
                     pass
 
             # Calculate discount
             if promo.discount_type == "percentage":
-                discount_amount = base_amount * (promo.discount_value / Decimal("100"))
+                discount_amount = base_amount * \
+                    (promo.discount_value / Decimal("100"))
             else:
                 discount_amount = promo.discount_value
 

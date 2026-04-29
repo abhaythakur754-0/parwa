@@ -15,7 +15,6 @@ import hashlib
 import re
 import threading
 import uuid
-from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -32,20 +31,20 @@ logger = get_logger("production_gaps")
 class PaymentFailureLock:
     """
     Distributed lock for payment failure state transitions.
-    
+
     Ensures that only one payment failure processing can happen at a time
     for a given company, preventing race conditions during state transitions.
-    
+
     Usage:
         async with PaymentFailureLock(redis, company_id, timeout=30) as acquired:
             if acquired:
                 # Process payment failure atomically
                 await process_failure(company_id)
     """
-    
+
     LOCK_PREFIX = "parwa:payment_failure_lock:"
     DEFAULT_TIMEOUT = 30  # seconds
-    
+
     def __init__(self, redis_client, company_id: str, timeout: int = None):
         self.redis = redis_client
         self.company_id = company_id
@@ -53,7 +52,7 @@ class PaymentFailureLock:
         self.lock_key = f"{self.LOCK_PREFIX}{company_id}"
         self.lock_value = str(uuid.uuid4())
         self._acquired = False
-    
+
     async def acquire(self) -> bool:
         """Try to acquire the lock. Returns True if successful."""
         try:
@@ -82,19 +81,20 @@ class PaymentFailureLock:
                 self.company_id, str(e),
             )
             return False
-    
+
     async def release(self) -> bool:
         """Release the lock if we own it."""
         if not self._acquired:
             return True
-        
+
         try:
             # Only delete if we own the lock (check value)
             current_value = await self.redis.get(self.lock_key)
             if current_value and current_value.decode() == self.lock_value:
                 await self.redis.delete(self.lock_key)
                 logger.info(
-                    "payment_failure_lock_released company_id=%s", self.company_id,
+                    "payment_failure_lock_released company_id=%s",
+                    self.company_id,
                 )
             self._acquired = False
             return True
@@ -104,10 +104,10 @@ class PaymentFailureLock:
                 self.company_id, str(e),
             )
             return False
-    
+
     async def __aenter__(self) -> bool:
         return await self.acquire()
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.release()
 
@@ -129,18 +129,18 @@ class PIIChunkResult:
 class ChunkAwarePIIDetector:
     """
     PII detector that handles content split into chunks.
-    
+
     Uses sliding window approach to detect PII that spans chunk boundaries.
-    
+
     Usage:
         detector = ChunkAwarePIIDetector(overlap_size=50)
         results = detector.detect_chunks(chunks)
         if results.has_pii:
             print(f"Found {results.pii_types}")
     """
-    
+
     DEFAULT_OVERLAP_SIZE = 50
-    
+
     # PII patterns
     PATTERNS = {
         "ssn": re.compile(r'\b\d{3}[-\s]\d{2}[-\s]\d{4}\b'),
@@ -151,39 +151,39 @@ class ChunkAwarePIIDetector:
         ),
         "ip_address": re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b'),
     }
-    
+
     def __init__(self, overlap_size: int = None):
         self.overlap_size = overlap_size or self.DEFAULT_OVERLAP_SIZE
-    
+
     def detect_chunks(
         self,
         chunks: List[str],
     ) -> PIIChunkResult:
         """
         Detect PII across multiple chunks using sliding window.
-        
+
         Args:
             chunks: List of text chunks to analyze
-            
+
         Returns:
             PIIChunkResult with detection information
         """
         all_pii_types = set()
         all_locations = []
-        
+
         previous_tail = ""
-        
+
         for i, chunk in enumerate(chunks):
             # Combine with overlap from previous chunk
             combined = previous_tail + chunk
-            
+
             # Detect PII in combined text
             for pii_type, pattern in self.PATTERNS.items():
                 matches = list(pattern.finditer(combined))
                 for match in matches:
                     # Check if match is in the overlap region (cross-boundary)
                     is_cross_boundary = match.start() < len(previous_tail)
-                    
+
                     all_pii_types.add(pii_type)
                     all_locations.append({
                         "type": pii_type,
@@ -193,16 +193,17 @@ class ChunkAwarePIIDetector:
                         "start": match.start(),
                         "end": match.end(),
                     })
-            
+
             # Store tail for next iteration
-            previous_tail = chunk[-self.overlap_size:] if len(chunk) >= self.overlap_size else chunk
-        
+            previous_tail = chunk[-self.overlap_size:] if len(
+                chunk) >= self.overlap_size else chunk
+
         return PIIChunkResult(
             has_pii=len(all_pii_types) > 0,
             pii_types=list(all_pii_types),
             locations=all_locations,
         )
-    
+
     def detect_single(self, text: str) -> PIIChunkResult:
         """Detect PII in a single text string."""
         return self.detect_chunks([text])
@@ -216,7 +217,7 @@ class ChunkAwarePIIDetector:
 class ConfidenceScore:
     """
     Confidence score with optimistic locking support.
-    
+
     Includes version field for detecting concurrent modifications.
     """
     score: float
@@ -230,15 +231,15 @@ class ConfidenceScore:
 class ConfidenceScoreManager:
     """
     Manager for confidence scores with optimistic locking.
-    
+
     Prevents lost updates when multiple agents update the same score.
-    
+
     Usage:
         manager = ConfidenceScoreManager()
-        
+
         # Get current score with version
         current = manager.get_score(ticket_id)
-        
+
         # Try to update (fails if version mismatch)
         success = manager.update_score(
             ticket_id,
@@ -246,16 +247,16 @@ class ConfidenceScoreManager:
             expected_version=current.version,
         )
     """
-    
+
     # In-memory store (replace with Redis/DB in production)
     _store: Dict[str, ConfidenceScore] = {}
     _lock = threading.Lock()
-    
+
     def get_score(self, entity_id: str) -> Optional[ConfidenceScore]:
         """Get current confidence score with version."""
         with self._lock:
             return self._store.get(entity_id)
-    
+
     def update_score(
         self,
         entity_id: str,
@@ -265,13 +266,13 @@ class ConfidenceScoreManager:
     ) -> Tuple[bool, Optional[ConfidenceScore]]:
         """
         Update score with optimistic locking.
-        
+
         Returns:
             Tuple of (success, new_score_if_successful)
         """
         with self._lock:
             current = self._store.get(entity_id)
-            
+
             # Check version
             if current and current.version != expected_version:
                 logger.warning(
@@ -280,7 +281,7 @@ class ConfidenceScoreManager:
                     entity_id, expected_version, current.version,
                 )
                 return False, current
-            
+
             # Create new score with incremented version
             new_version = (current.version + 1) if current else 1
             new_confidence = ConfidenceScore(
@@ -288,16 +289,16 @@ class ConfidenceScoreManager:
                 version=new_version,
                 components=components or {},
             )
-            
+
             self._store[entity_id] = new_confidence
-            
+
             logger.info(
                 "confidence_score_updated entity_id=%s score=%s version=%s",
                 entity_id, new_score, new_version,
             )
-            
+
             return True, new_confidence
-    
+
     def init_score(
         self,
         entity_id: str,
@@ -323,13 +324,13 @@ class ConfidenceScoreManager:
 class VectorSearchFilters:
     """
     Mandatory filters for vector search queries.
-    
+
     Ensures tenant and variant isolation in vector index queries.
     """
     company_id: str
     variant_id: Optional[str] = None
     additional_filters: Dict[str, Any] = field(default_factory=dict)
-    
+
     def to_metadata_filter(self) -> Dict[str, Any]:
         """Convert to metadata filter dict for vector search."""
         filters = {
@@ -339,7 +340,7 @@ class VectorSearchFilters:
             filters["variant_id"] = self.variant_id
         filters.update(self.additional_filters)
         return filters
-    
+
     def validate(self) -> bool:
         """Validate that required filters are present."""
         if not self.company_id:
@@ -356,7 +357,7 @@ def build_training_record(
 ) -> Dict[str, Any]:
     """
     Build a training record with mandatory isolation metadata.
-    
+
     Ensures all training data includes company_id and variant_id
     for proper isolation in vector index.
     """
@@ -371,10 +372,10 @@ def build_training_record(
             "content_hash": hashlib.sha256(content.encode()).hexdigest()[:16],
         },
     }
-    
+
     if metadata:
         record["metadata"].update(metadata)
-    
+
     return record
 
 
@@ -385,26 +386,26 @@ def build_training_record(
 class TierTransitionLock:
     """
     Lock for tier transitions to freeze usage counting during upgrade/downgrade.
-    
+
     Prevents race conditions where tickets could be counted against wrong tier.
-    
+
     Usage:
         async with TierTransitionLock(redis, company_id) as lock:
             # Usage counting is frozen
             await upgrade_tier(company_id, new_tier)
             # Lock releases, usage counting resumes with new tier
     """
-    
+
     LOCK_PREFIX = "parwa:tier_transition_lock:"
     DEFAULT_TIMEOUT = 60  # seconds
-    
+
     def __init__(self, redis_client, company_id: str, timeout: int = None):
         self.redis = redis_client
         self.company_id = company_id
         self.timeout = timeout or self.DEFAULT_TIMEOUT
         self.lock_key = f"{self.LOCK_PREFIX}{company_id}"
         self._acquired = False
-    
+
     async def is_locked(self) -> bool:
         """Check if tier transition is in progress."""
         try:
@@ -412,7 +413,7 @@ class TierTransitionLock:
             return value is not None
         except Exception:
             return False
-    
+
     async def acquire(self) -> bool:
         """Acquire the tier transition lock."""
         try:
@@ -423,12 +424,13 @@ class TierTransitionLock:
                 ex=self.timeout,
             )
             self._acquired = result is not None
-            
+
             if self._acquired:
                 logger.info(
-                    "tier_transition_lock_acquired company_id=%s", self.company_id,
+                    "tier_transition_lock_acquired company_id=%s",
+                    self.company_id,
                 )
-            
+
             return self._acquired
         except Exception as e:
             logger.error(
@@ -436,12 +438,12 @@ class TierTransitionLock:
                 self.company_id, str(e),
             )
             return False
-    
+
     async def release(self) -> bool:
         """Release the tier transition lock."""
         if not self._acquired:
             return True
-        
+
         try:
             await self.redis.delete(self.lock_key)
             self._acquired = False
@@ -455,19 +457,20 @@ class TierTransitionLock:
                 self.company_id, str(e),
             )
             return False
-    
+
     async def __aenter__(self) -> "TierTransitionLock":
         await self.acquire()
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.release()
 
 
-async def check_usage_allowed_during_transition(redis_client, company_id: str) -> bool:
+async def check_usage_allowed_during_transition(
+        redis_client, company_id: str) -> bool:
     """
     Check if usage operations are allowed (not frozen during tier transition).
-    
+
     Returns:
         True if usage operations are allowed, False if frozen.
     """
@@ -482,19 +485,19 @@ async def check_usage_allowed_during_transition(redis_client, company_id: str) -
 async def delete_all_tenant_redis_keys(redis_client, company_id: str) -> int:
     """
     Delete all Redis keys for a tenant.
-    
+
     Called when a tenant account is deleted to ensure no cached data remains.
-    
+
     Args:
         redis_client: Redis client instance
         company_id: Tenant ID to delete keys for
-        
+
     Returns:
         Number of keys deleted
     """
     pattern = f"parwa:{company_id}:*"
     deleted_count = 0
-    
+
     try:
         # SCAN for keys matching pattern
         cursor = 0
@@ -504,21 +507,21 @@ async def delete_all_tenant_redis_keys(redis_client, company_id: str) -> int:
                 match=pattern,
                 count=100,
             )
-            
+
             if keys:
                 await redis_client.delete(*keys)
                 deleted_count += len(keys)
-            
+
             if cursor == 0:
                 break
-        
+
         logger.info(
             "tenant_cache_invalidated company_id=%s keys_deleted=%s",
             company_id, deleted_count,
         )
-        
+
         return deleted_count
-        
+
     except Exception as e:
         logger.error(
             "tenant_cache_invalidation_error company_id=%s error=%s",

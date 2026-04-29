@@ -18,7 +18,6 @@ import pytest
 
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from backend.tests.conftest import _mock_db, _AttrChainer
 
 
 # ═══════════════════════════════════════════════════════════
@@ -125,12 +124,12 @@ class TestProcessInboundSMS:
         mock_db.refresh = MagicMock(side_effect=_refresh)
 
         with patch.object(sms_service, "get_sms_config", return_value=config), \
-             patch.object(sms_service, "_get_or_create_conversation", return_value=conv), \
-             patch.object(sms_service, "_check_inbound_rate_limit", return_value=None), \
-             patch.object(sms_service, "_get_message_by_twilio_sid", return_value=None), \
-             patch.object(sms_service, "_link_to_ticket", return_value=None), \
-             patch("app.services.sms_channel_service.SMSMessage", return_value=mock_message), \
-             patch.object(sms_service, "_schedule_auto_reply", return_value=None):
+                patch.object(sms_service, "_get_or_create_conversation", return_value=conv), \
+                patch.object(sms_service, "_check_inbound_rate_limit", return_value=None), \
+                patch.object(sms_service, "_get_message_by_twilio_sid", return_value=None), \
+                patch.object(sms_service, "_link_to_ticket", return_value=None), \
+                patch("app.services.sms_channel_service.SMSMessage", return_value=mock_message), \
+                patch.object(sms_service, "_schedule_auto_reply", return_value=None):
 
             result = sms_service.process_inbound_sms(company_id, {
                 "message_sid": "SM-inbound-001",
@@ -182,8 +181,8 @@ class TestProcessInboundSMS:
         existing_msg.ticket_id = "ticket-001"
 
         with patch.object(sms_service, "get_sms_config", return_value=config), \
-             patch.object(sms_service, "_get_or_create_conversation", return_value=conv), \
-             patch.object(sms_service, "_get_message_by_twilio_sid",
+            patch.object(sms_service, "_get_or_create_conversation", return_value=conv), \
+            patch.object(sms_service, "_get_message_by_twilio_sid",
                          return_value=existing_msg):
 
             result = sms_service.process_inbound_sms(company_id, {
@@ -202,7 +201,7 @@ class TestProcessInboundSMS:
         conv = _mock_conversation(is_opted_out=True)
 
         with patch.object(sms_service, "get_sms_config", return_value=config), \
-             patch.object(sms_service, "_get_or_create_conversation", return_value=conv):
+                patch.object(sms_service, "_get_or_create_conversation", return_value=conv):
 
             result = sms_service.process_inbound_sms(company_id, {
                 "message_sid": "SM-optout-001",
@@ -223,8 +222,8 @@ class TestOptOutOptIn:
         conv = _mock_conversation(is_opted_out=False)
 
         with patch.object(sms_service, "get_sms_config", return_value=config), \
-             patch.object(sms_service, "_get_or_create_conversation", return_value=conv), \
-             patch.object(sms_service, "_send_sms_via_twilio") as mock_twilio:
+                patch.object(sms_service, "_get_or_create_conversation", return_value=conv), \
+                patch.object(sms_service, "_send_sms_via_twilio") as mock_twilio:
 
             result = sms_service.process_inbound_sms(company_id, {
                 "message_sid": "SM-stop-001",
@@ -239,14 +238,15 @@ class TestOptOutOptIn:
         assert conv.opt_out_at is not None
         mock_twilio.assert_called_once()
 
-    def test_inbound_opt_in_after_opt_out(self, sms_service, mock_db, company_id):
+    def test_inbound_opt_in_after_opt_out(
+            self, sms_service, mock_db, company_id):
         """Test START keyword opts back in."""
         config = _mock_config()
         conv = _mock_conversation(is_opted_out=True)
 
         with patch.object(sms_service, "get_sms_config", return_value=config), \
-             patch.object(sms_service, "_get_or_create_conversation", return_value=conv), \
-             patch.object(sms_service, "_send_opt_in_confirmation") as mock_confirm:
+                patch.object(sms_service, "_get_or_create_conversation", return_value=conv), \
+                patch.object(sms_service, "_send_opt_in_confirmation") as mock_confirm:
 
             result = sms_service.process_inbound_sms(company_id, {
                 "message_sid": "SM-start-001",
@@ -265,9 +265,9 @@ class TestOptOutOptIn:
         conv = _mock_conversation()
 
         with patch.object(sms_service, "get_sms_config", return_value=config), \
-             patch.object(sms_service, "_get_or_create_conversation", return_value=conv), \
-             patch.object(sms_service, "_get_message_by_twilio_sid", return_value=None), \
-             patch.object(sms_service, "_check_inbound_rate_limit",
+            patch.object(sms_service, "_get_or_create_conversation", return_value=conv), \
+            patch.object(sms_service, "_get_message_by_twilio_sid", return_value=None), \
+            patch.object(sms_service, "_check_inbound_rate_limit",
                          return_value="BC-006: Inbound rate limit exceeded"):
 
             result = sms_service.process_inbound_sms(company_id, {
@@ -293,9 +293,9 @@ class TestSendSMS:
         conv = _mock_conversation()
 
         with patch.object(sms_service, "get_sms_config", return_value=config), \
-             patch.object(sms_service, "_normalize_phone", return_value="+15551234567"), \
-             patch.object(sms_service, "_get_conversation_by_numbers", return_value=conv), \
-             patch.object(sms_service, "_check_outbound_rate_limit", return_value=None):
+                patch.object(sms_service, "_normalize_phone", return_value="+15551234567"), \
+                patch.object(sms_service, "_get_conversation_by_numbers", return_value=conv), \
+                patch.object(sms_service, "_check_outbound_rate_limit", return_value=None):
 
             mock_message = MagicMock()
             mock_message.id = "sms-out-001"
@@ -328,8 +328,8 @@ class TestSendSMS:
         conv = _mock_conversation(is_opted_out=True)
 
         with patch.object(sms_service, "get_sms_config", return_value=config), \
-             patch.object(sms_service, "_normalize_phone", return_value="+15551234567"), \
-             patch.object(sms_service, "_get_conversation_by_numbers", return_value=conv):
+                patch.object(sms_service, "_normalize_phone", return_value="+15551234567"), \
+                patch.object(sms_service, "_get_conversation_by_numbers", return_value=conv):
 
             result = sms_service.send_sms(
                 company_id=company_id,
@@ -346,9 +346,9 @@ class TestSendSMS:
         conv = _mock_conversation()
 
         with patch.object(sms_service, "get_sms_config", return_value=config), \
-             patch.object(sms_service, "_normalize_phone", return_value="+15551234567"), \
-             patch.object(sms_service, "_get_conversation_by_numbers", return_value=conv), \
-             patch.object(sms_service, "_check_outbound_rate_limit",
+            patch.object(sms_service, "_normalize_phone", return_value="+15551234567"), \
+            patch.object(sms_service, "_get_conversation_by_numbers", return_value=conv), \
+            patch.object(sms_service, "_check_outbound_rate_limit",
                          return_value="BC-006: Hourly limit exceeded"):
 
             result = sms_service.send_sms(
@@ -368,7 +368,8 @@ class TestSendSMS:
 class TestDeliveryStatus:
     """Tests for delivery status updates."""
 
-    def test_update_delivery_status_delivered(self, sms_service, mock_db, company_id):
+    def test_update_delivery_status_delivered(
+            self, sms_service, mock_db, company_id):
         """Test successful delivery status update."""
         mock_message = MagicMock()
         mock_message.twilio_status = "sent"
@@ -388,7 +389,8 @@ class TestDeliveryStatus:
         assert mock_message.twilio_status == "delivered"
         assert mock_message.delivered_at is not None
 
-    def test_update_delivery_status_not_found(self, sms_service, mock_db, company_id):
+    def test_update_delivery_status_not_found(
+            self, sms_service, mock_db, company_id):
         """Test status update for unknown message."""
         mock_query = MagicMock()
         mock_query.filter = MagicMock(return_value=mock_query)
@@ -414,7 +416,7 @@ class TestSMSConfig:
     def test_create_sms_config_success(self, sms_service, mock_db, company_id):
         """Test creating SMS config."""
         with patch.object(sms_service, "get_sms_config", return_value=None), \
-             patch.object(sms_service, "_encrypt_credential", return_value="encrypted"):
+                patch.object(sms_service, "_encrypt_credential", return_value="encrypted"):
 
             mock_config = MagicMock()
             mock_config.to_dict.return_value = {"id": "cfg-001"}
@@ -431,7 +433,7 @@ class TestSMSConfig:
     def test_create_sms_config_already_exists(self, sms_service, company_id):
         """Test creating config when one already exists."""
         with patch.object(sms_service, "get_sms_config",
-                         return_value=MagicMock()):
+                          return_value=MagicMock()):
             result = sms_service.create_sms_config(company_id, {
                 "twilio_account_sid": "AC123",
                 "twilio_auth_token": "token123",
@@ -504,7 +506,8 @@ class TestTCPAConsent:
 
     def test_get_consent_status(self, sms_service, mock_db, company_id):
         """Test getting consent status."""
-        mock_conv = _mock_conversation(is_opted_out=True, opt_out_keyword="stop")
+        mock_conv = _mock_conversation(
+            is_opted_out=True, opt_out_keyword="stop")
         mock_query = MagicMock()
         mock_query.filter = MagicMock(return_value=mock_query)
         mock_query.all = MagicMock(return_value=[mock_conv])
@@ -515,7 +518,8 @@ class TestTCPAConsent:
         assert result["status"] == "opted_out"
         assert result["is_opted_out"] is True
 
-    def test_get_consent_status_unknown(self, sms_service, mock_db, company_id):
+    def test_get_consent_status_unknown(
+            self, sms_service, mock_db, company_id):
         """Test consent status for unknown number."""
         mock_query = MagicMock()
         mock_query.filter = MagicMock(return_value=mock_query)

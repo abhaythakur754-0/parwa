@@ -50,4 +50,5 @@ def test_no_version_conflicts():
     }
     for name, ver in versions.items():
         print(f"  {name}: {ver}")
-    assert all(v for v in versions.values()), "All packages should have version info"
+    assert all(v for v in versions.values()
+               ), "All packages should have version info"

@@ -10,7 +10,8 @@ import pytest
 
 
 # Runtime-injected by _mock_logger fixture — satisfies flake8 F821
-ContextCompressor = CompressionConfig = CompressionInput = CompressionOutput = CompressionStrategy = CompressionLevel = ContextCompressionError = _COMPRESSION_TTL_SECONDS = _VARIANT_COMPRESSION_LEVELS = None  # type: ignore[assignment,misc]
+# type: ignore[assignment,misc]
+ContextCompressor = CompressionConfig = CompressionInput = CompressionOutput = CompressionStrategy = CompressionLevel = ContextCompressionError = _COMPRESSION_TTL_SECONDS = _VARIANT_COMPRESSION_LEVELS = None
 
 
 @pytest.fixture(autouse=True)
@@ -194,7 +195,10 @@ class TestExtractiveStrategy:
             level=CompressionLevel.LIGHT,
             priority_threshold=0.3,
         ))
-        content = ["low priority item", "high priority item", "medium priority item"]
+        content = [
+            "low priority item",
+            "high priority item",
+            "medium priority item"]
         priorities = [0.1, 0.9, 0.5]
         inp = CompressionInput(content=content, priorities=priorities)
         result = await comp.compress("c1", inp)
@@ -347,7 +351,10 @@ class TestPriorityBasedStrategy:
             priority_threshold=0.3,
         ))
         # All high priority — should retain most given LIGHT budget
-        content = ["alpha beta gamma delta epsilon", "zeta eta theta iota kappa", "lambda mu nu xi omicron"]
+        content = [
+            "alpha beta gamma delta epsilon",
+            "zeta eta theta iota kappa",
+            "lambda mu nu xi omicron"]
         priorities = [0.9, 0.9, 0.9]
         inp = CompressionInput(content=content, priorities=priorities)
         result = await comp.compress("c1", inp)
@@ -398,7 +405,8 @@ class TestAbstractiveStrategy:
             level=CompressionLevel.LIGHT,
             priority_threshold=0.5,
         ))
-        # Use longer strings so budget accommodates at least the high-priority chunk
+        # Use longer strings so budget accommodates at least the high-priority
+        # chunk
         content = [
             "low priority background context information that is not critical",
             "high priority critical information that must be preserved always",
@@ -436,7 +444,10 @@ class TestAbstractiveStrategy:
             level=CompressionLevel.LIGHT,
             priority_threshold=0.8,
         ))
-        content = ["First item of interest", "Second item of interest", "Third item"]
+        content = [
+            "First item of interest",
+            "Second item of interest",
+            "Third item"]
         priorities = [0.1, 0.1, 0.9]
         inp = CompressionInput(content=content, priorities=priorities)
         result = await comp.compress("c1", inp)
@@ -507,7 +518,8 @@ class TestHybridStrategy:
         result = await comp.compress("c1", inp)
         assert result.strategy_used == "hybrid"
         # High priority chunk should fit in the high-priority budget (70%)
-        assert any("high priority chunk" in c for c in result.compressed_content)
+        assert any(
+            "high priority chunk" in c for c in result.compressed_content)
 
     @pytest.mark.asyncio
     async def test_low_priority_condensed(self):
@@ -599,7 +611,14 @@ class TestCompressMain:
         comp = ContextCompressor()
         result = await comp.compress("c1", _make_input())
         assert isinstance(result, CompressionOutput)
-        assert result.strategy_used in ("hybrid", "extractive", "sliding_window", "priority_based", "abstractive", "none", "fallback")
+        assert result.strategy_used in (
+            "hybrid",
+            "extractive",
+            "sliding_window",
+            "priority_based",
+            "abstractive",
+            "none",
+            "fallback")
 
     @pytest.mark.asyncio
     async def test_empty_input_returns_empty_output(self):

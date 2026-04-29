@@ -700,7 +700,8 @@ class TestABTesting:
         # With traffic_split=1.0, B should always be selected.
         # The name could be either response_simple or response_moderate
         # depending on which the test matched. But it should be one of the two.
-        assert rendered.template_name in ("response_simple", "response_moderate")
+        assert rendered.template_name in (
+            "response_simple", "response_moderate")
 
     def test_render_with_ab_test_returns_one_of_two(self, svc):
         """A/B test should return one of the two template names."""
@@ -937,7 +938,8 @@ class TestEdgeCases:
     """Long content, unicode, empty inputs, service reset."""
 
     def test_very_long_template_content(self, svc):
-        long_content = "This is a very long template. " * 500 + "End with {{var}}."
+        long_content = "This is a very long template. " * \
+            500 + "End with {{var}}."
         tmpl = svc.create_template(
             company_id=COMPANY_ID,
             name="long_template",
@@ -1090,7 +1092,8 @@ class TestAdditionalCoverage:
         templates = svc.list_templates(company_id=COMPANY_ID)
         # Should have 10 entries (custom replaces default by name)
         assert len(templates) == 10
-        cs_templates = [t for t in templates if t.name == "customer_support_system"]
+        cs_templates = [t for t in templates if t.name ==
+                        "customer_support_system"]
         assert len(cs_templates) == 1
         assert cs_templates[0].is_default is False
 

@@ -19,13 +19,12 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, case, desc, func, or_
+from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from app.logger import get_logger
 from database.models.tickets import (
     Ticket,
-    TicketMessage,
     TicketFeedback,
     TicketStatus,
     TicketStatusChange,
@@ -325,7 +324,8 @@ def get_key_metrics(
 
         # ── KPI 1: Total Tickets ──
         current_total = _count_tickets(db, company_id, current_start, now)
-        previous_total = _count_tickets(db, company_id, previous_start, current_start)
+        previous_total = _count_tickets(
+            db, company_id, previous_start, current_start)
         sparkline = _get_daily_counts(db, company_id, period_days)
         kpis.append(_build_kpi(
             key="total_tickets",
@@ -354,12 +354,18 @@ def get_key_metrics(
             db, company_id, current_start, now,
             [TicketStatus.resolved.value, TicketStatus.closed.value],
         )
-        current_rate = (resolved / current_total * 100) if current_total > 0 else 0
+        current_rate = (
+            resolved /
+            current_total *
+            100) if current_total > 0 else 0
         prev_resolved = _count_tickets_by_status(
             db, company_id, previous_start, current_start,
             [TicketStatus.resolved.value, TicketStatus.closed.value],
         )
-        prev_rate = (prev_resolved / previous_total * 100) if previous_total > 0 else 0
+        prev_rate = (
+            prev_resolved /
+            previous_total *
+            100) if previous_total > 0 else 0
         kpis.append(_build_kpi(
             key="resolution_rate",
             label="Resolution Rate",
@@ -370,8 +376,10 @@ def get_key_metrics(
         ))
 
         # ── KPI 4: Avg First Response Time ──
-        current_frt = _get_avg_first_response_time(db, company_id, current_start, now)
-        previous_frt = _get_avg_first_response_time(db, company_id, previous_start, current_start)
+        current_frt = _get_avg_first_response_time(
+            db, company_id, current_start, now)
+        previous_frt = _get_avg_first_response_time(
+            db, company_id, previous_start, current_start)
         kpis.append(_build_kpi(
             key="avg_first_response_time",
             label="Avg First Response",
@@ -381,8 +389,10 @@ def get_key_metrics(
         ))
 
         # ── KPI 5: Avg Resolution Time ──
-        current_art = _get_avg_resolution_time(db, company_id, current_start, now)
-        previous_art = _get_avg_resolution_time(db, company_id, previous_start, current_start)
+        current_art = _get_avg_resolution_time(
+            db, company_id, current_start, now)
+        previous_art = _get_avg_resolution_time(
+            db, company_id, previous_start, current_start)
         kpis.append(_build_kpi(
             key="avg_resolution_time",
             label="Avg Resolution Time",
@@ -392,19 +402,27 @@ def get_key_metrics(
         ))
 
         # ── KPI 6: SLA Compliance ──
-        current_sla = _get_sla_compliance_rate(db, company_id, current_start, now)
-        previous_sla = _get_sla_compliance_rate(db, company_id, previous_start, current_start)
-        kpis.append(_build_kpi(
-            key="sla_compliance",
-            label="SLA Compliance",
-            value=round(current_sla * 100, 1) if current_sla is not None else 0,
-            previous_value=round(previous_sla * 100, 1) if previous_sla is not None else None,
-            unit="%",
-        ))
+        current_sla = _get_sla_compliance_rate(
+            db, company_id, current_start, now)
+        previous_sla = _get_sla_compliance_rate(
+            db, company_id, previous_start, current_start)
+        kpis.append(
+            _build_kpi(
+                key="sla_compliance",
+                label="SLA Compliance",
+                value=round(
+                    current_sla * 100,
+                    1) if current_sla is not None else 0,
+                previous_value=round(
+                    previous_sla * 100,
+                    1) if previous_sla is not None else None,
+                unit="%",
+            ))
 
         # ── KPI 7: CSAT Score ──
         current_csat = _get_avg_csat(db, company_id, current_start, now)
-        previous_csat = _get_avg_csat(db, company_id, previous_start, current_start)
+        previous_csat = _get_avg_csat(
+            db, company_id, previous_start, current_start)
         kpis.append(_build_kpi(
             key="csat_score",
             label="Customer Satisfaction",
@@ -577,12 +595,13 @@ def _get_volume_trend(
         trends = svc.get_trends(IntervalType.DAY, dr)
         return [
             {
-                "timestamp": t.timestamp.isoformat() if hasattr(t.timestamp, "isoformat") else str(t.timestamp),
+                "timestamp": t.timestamp.isoformat() if hasattr(
+                    t.timestamp,
+                    "isoformat") else str(
+                    t.timestamp),
                 "count": t.count,
                 "label": t.label,
-            }
-            for t in trends
-        ]
+            } for t in trends]
     except Exception:
         return []
 
@@ -596,7 +615,8 @@ def _get_category_breakdown(
             TicketAnalyticsService, DateRange,
         )
         svc = TicketAnalyticsService(db, company_id)
-        cats = svc.get_category_distribution(DateRange(start_date=start, end_date=end))
+        cats = svc.get_category_distribution(
+            DateRange(start_date=start, end_date=end))
         return [
             {"category": c.category, "count": c.count, "percentage": c.percentage}
             for c in cats[:10]
@@ -649,14 +669,20 @@ def _get_workforce_summary(
     db: Session, company_id: str, start: datetime, end: datetime,
 ) -> Dict[str, Any]:
     """Get workforce allocation summary for dashboard."""
-    ai_tickets = _count_tickets_by_assignee_type(db, company_id, start, end, "ai")
-    human_tickets = _count_tickets_by_assignee_type(db, company_id, start, end, "human")
+    ai_tickets = _count_tickets_by_assignee_type(
+        db, company_id, start, end, "ai")
+    human_tickets = _count_tickets_by_assignee_type(
+        db, company_id, start, end, "human")
     total = ai_tickets + human_tickets
     return {
         "ai_tickets": ai_tickets,
         "human_tickets": human_tickets,
-        "ai_pct": round((ai_tickets / total * 100), 1) if total > 0 else 0,
-        "human_pct": round((human_tickets / total * 100), 1) if total > 0 else 0,
+        "ai_pct": round(
+            (ai_tickets / total * 100),
+            1) if total > 0 else 0,
+        "human_pct": round(
+            (human_tickets / total * 100),
+            1) if total > 0 else 0,
         "total": total,
     }
 
@@ -673,20 +699,35 @@ def _detect_anomalies(
     try:
         # Check for volume spike: compare last 24h avg vs previous 24h
         now = datetime.now(timezone.utc)
-        last_24h = _count_tickets(db, company_id, now - timedelta(hours=24), now)
-        prev_24h = _count_tickets(db, company_id, now - timedelta(hours=48), now - timedelta(hours=24))
+        last_24h = _count_tickets(
+            db,
+            company_id,
+            now -
+            timedelta(
+                hours=24),
+            now)
+        prev_24h = _count_tickets(
+            db,
+            company_id,
+            now -
+            timedelta(
+                hours=48),
+            now -
+            timedelta(
+                hours=24))
 
         if prev_24h > 0 and last_24h >= prev_24h * ANOMALY_THRESHOLD:
             anomalies.append({
                 "type": "volume_spike",
                 "severity": "high",
                 "message": f"Ticket volume spike: {last_24h} tickets in last 24h "
-                          f"({round(last_24h / max(prev_24h, 1), 1)}x normal)",
+                f"({round(last_24h / max(prev_24h, 1), 1)}x normal)",
                 "detected_at": now.isoformat(),
             })
 
         # Check for SLA breach rate
-        breached = _count_breached_sla(db, company_id, now - timedelta(hours=24), now)
+        breached = _count_breached_sla(
+            db, company_id, now - timedelta(hours=24), now)
         if breached > 10:
             anomalies.append({
                 "type": "sla_breach_cluster",
@@ -734,7 +775,8 @@ def _enrich_actor_names(
     try:
         from database.models.core import User
         users = db.query(User).filter(User.id.in_(list(actor_ids))).all()
-        name_map = {str(u.id): getattr(u, "name", None) or u.email for u in users}
+        name_map = {str(u.id): getattr(u, "name", None)
+                    or u.email for u in users}
 
         for e in events:
             if e.get("actor_id"):
@@ -968,7 +1010,9 @@ def _build_kpi(
     }
 
     # Calculate change percentage
-    if previous_value is not None and isinstance(previous_value, (int, float)) and isinstance(value, (int, float)):
+    if previous_value is not None and isinstance(
+            previous_value, (int, float)) and isinstance(
+            value, (int, float)):
         if previous_value != 0:
             change = ((value - previous_value) / abs(previous_value)) * 100
             kpi["change_pct"] = round(change, 1)
@@ -996,7 +1040,15 @@ def _flag_anomalies(
     # Check for ticket volume anomaly
     now = datetime.now(timezone.utc)
     last_24h = _count_tickets(db, company_id, now - timedelta(hours=24), now)
-    prev_24h = _count_tickets(db, company_id, now - timedelta(hours=48), now - timedelta(hours=24))
+    prev_24h = _count_tickets(
+        db,
+        company_id,
+        now -
+        timedelta(
+            hours=48),
+        now -
+        timedelta(
+            hours=24))
 
     if prev_24h > 0 and last_24h >= prev_24h * ANOMALY_THRESHOLD:
         for kpi in kpis:
@@ -1012,12 +1064,12 @@ def _flag_anomalies(
 
 # Bucket definitions: (upper_bound_minutes, bucket_key, display_label)
 _RESPONSE_TIME_BUCKETS: List[Tuple[int, str, str]] = [
-    (15,    "0-15m",   "<15m"),
-    (30,    "15-30m",  "15-30m"),
-    (60,    "30m-1h",  "30m-1h"),
-    (120,   "1-2h",    "1-2h"),
-    (240,   "2-4h",    "2-4h"),
-    (480,   "4-8h",    "4-8h"),
+    (15, "0-15m", "<15m"),
+    (30, "15-30m", "15-30m"),
+    (60, "30m-1h", "30m-1h"),
+    (120, "1-2h", "1-2h"),
+    (240, "2-4h", "2-4h"),
+    (480, "4-8h", "4-8h"),
     (float("inf"), "8h+", "8h+"),
 ]
 

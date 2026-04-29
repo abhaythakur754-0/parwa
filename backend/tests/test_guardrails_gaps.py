@@ -16,8 +16,7 @@ Follows BC-001 (company_id always first parameter) and BC-008 (never crash).
 """
 
 import threading
-import time
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -51,6 +50,7 @@ PromptInjectionDetector = None  # type: ignore[assignment,misc]
 InjectionScanResult = None  # type: ignore[assignment,misc]
 InjectionMatch = None  # type: ignore[assignment,misc]
 sanitize_query = None  # type: ignore[assignment,misc]
+
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
@@ -483,7 +483,8 @@ class TestConfidenceThresholdCascadingFailure:
         """A confidence of 0 (worst case) should still produce a report
         without hanging or crashing (BC-008). The pipeline may short-circuit
         on earlier guards before reaching the confidence gate."""
-        # Use a response that passes topic relevance (must share keywords with query)
+        # Use a response that passes topic relevance (must share keywords with
+        # query)
         report = self.engine.run_full_check(
             query="refund policy return money",
             response="Our refund policy allows returns within 30 days for a full refund of your money.",

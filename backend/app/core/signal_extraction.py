@@ -25,7 +25,7 @@ from __future__ import annotations
 import hashlib
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -43,7 +43,8 @@ CURRENCY_TO_USD: Dict[str, float] = {
     "JPY": 0.0067, "¥": 0.0067,
 }
 
-# Multi-currency regex (W9-GAP-017): matches $500, £1,200.50, €99, ₹50000, 500 USD, etc.
+# Multi-currency regex (W9-GAP-017): matches $500, £1,200.50, €99, ₹50000,
+# 500 USD, etc.
 MONETARY_REGEX = re.compile(
     r"(?:(?:\$|£|€|¥|₹)\s?\d{1,3}(?:,\d{3})*(?:\.\d{2})?)"
     r"|(?:\d{1,3}(?:,\d{3})*(?:\.\d{2})?\s*(?:USD|EUR|GBP|INR|JPY))",
@@ -79,63 +80,269 @@ POSITIVE_WORDS = {
 # ── Topic Clusters for Breadth Detection ─────────────────────────────
 
 TOPIC_CLUSTERS = {
-    "billing": {"refund", "bill", "invoice", "charge", "payment", "subscription",
-                "price", "cost", "fee", "money", "credit", "debit", "overcharge",
-                "discount", "coupon", "plan", "upgrade", "cancel", "renewal"},
-    "technical": {"error", "bug", "crash", "not working", "broken", "glitch",
-                  "slow", "timeout", "offline", "down", "loading", "connection",
-                  "install", "update", "configure", "sync", "login", "password",
-                  "api", "integration", "database", "server", "code", "deploy"},
-    "shipping": {"ship", "deliver", "track", "package", "order", "courier",
-                 "address", "delivery", "dispatch", "transit", "logistics",
-                 "parcel", "box", "warehouse", "express", "overnight"},
-    "account": {"account", "profile", "settings", "email", "username",
-                "password", "verify", "mfa", "login", "signup", "register",
-                " deactivate", "delete account", "privacy", "security"},
-    "product": {"feature", "suggestion", "improve", "wish", "request",
-                "enhancement", " roadmap", "missing", "add", "functionality",
-                "capability", "option", "setting", "customization"},
-    "support": {"help", "support", "agent", "representative", "manager",
-                "escalate", "priority", "urgent", "ticket", "chat", "call",
-                "contact", "reach", "response", "follow up", "status"},
-    "content": {"documentation", "guide", "tutorial", "article", "faq",
-                "knowledge", "base", "instructions", "how to", "explain",
-                "understand", "learn", "training", "video", "resource"},
+    "billing": {
+        "refund",
+        "bill",
+        "invoice",
+        "charge",
+        "payment",
+        "subscription",
+        "price",
+        "cost",
+        "fee",
+        "money",
+        "credit",
+        "debit",
+        "overcharge",
+        "discount",
+        "coupon",
+        "plan",
+        "upgrade",
+        "cancel",
+        "renewal"},
+    "technical": {
+        "error",
+        "bug",
+        "crash",
+        "not working",
+        "broken",
+        "glitch",
+        "slow",
+        "timeout",
+        "offline",
+        "down",
+        "loading",
+        "connection",
+        "install",
+        "update",
+        "configure",
+        "sync",
+        "login",
+        "password",
+        "api",
+        "integration",
+        "database",
+        "server",
+        "code",
+        "deploy"},
+    "shipping": {
+        "ship",
+        "deliver",
+        "track",
+        "package",
+        "order",
+        "courier",
+        "address",
+        "delivery",
+        "dispatch",
+        "transit",
+        "logistics",
+        "parcel",
+        "box",
+        "warehouse",
+        "express",
+        "overnight"},
+    "account": {
+        "account",
+        "profile",
+        "settings",
+        "email",
+        "username",
+        "password",
+        "verify",
+        "mfa",
+        "login",
+        "signup",
+        "register",
+        " deactivate",
+        "delete account",
+        "privacy",
+        "security"},
+    "product": {
+        "feature",
+        "suggestion",
+        "improve",
+        "wish",
+        "request",
+        "enhancement",
+        " roadmap",
+        "missing",
+        "add",
+        "functionality",
+        "capability",
+        "option",
+        "setting",
+        "customization"},
+    "support": {
+        "help",
+        "support",
+        "agent",
+        "representative",
+        "manager",
+        "escalate",
+        "priority",
+        "urgent",
+        "ticket",
+        "chat",
+        "call",
+        "contact",
+        "reach",
+        "response",
+        "follow up",
+        "status"},
+    "content": {
+        "documentation",
+        "guide",
+        "tutorial",
+        "article",
+        "faq",
+        "knowledge",
+        "base",
+        "instructions",
+        "how to",
+        "explain",
+        "understand",
+        "learn",
+        "training",
+        "video",
+        "resource"},
 }
 
 # ── Intent Keywords ──────────────────────────────────────────────────
 
 INTENT_KEYWORDS = {
-    "refund": ["refund", "money back", "return", "reimburse", "credit back",
-               "chargeback", "cancel order", "get my money"],
-    "technical": ["error", "bug", "not working", "broken", "crash", "issue",
-                  "doesn't work", "failed", "glitch", "not loading", "slow",
-                  "connection", "timeout", "offline", "down"],
-    "billing": ["bill", "invoice", "charge", "payment", "subscription",
-                "price", "cost", "fee", "overcharge", "duplicate charge",
-                "unauthorized charge", "renewal"],
-    "complaint": ["complaint", "unhappy", "disappointed", "frustrated", "angry",
-                  "terrible", "awful", "worst", "horrible", "unacceptable",
-                  "speak to manager", "escalate", "formal complaint"],
-    "feature_request": ["feature", "suggestion", "would be great", "wish",
-                        "please add", "would like", "enhancement", "improve",
-                        "new functionality", "missing feature"],
+    "refund": [
+        "refund",
+        "money back",
+        "return",
+        "reimburse",
+        "credit back",
+        "chargeback",
+        "cancel order",
+        "get my money"],
+    "technical": [
+        "error",
+        "bug",
+        "not working",
+        "broken",
+        "crash",
+        "issue",
+        "doesn't work",
+        "failed",
+        "glitch",
+        "not loading",
+        "slow",
+        "connection",
+        "timeout",
+        "offline",
+        "down"],
+    "billing": [
+        "bill",
+        "invoice",
+        "charge",
+        "payment",
+        "subscription",
+        "price",
+        "cost",
+        "fee",
+        "overcharge",
+        "duplicate charge",
+        "unauthorized charge",
+        "renewal"],
+    "complaint": [
+        "complaint",
+        "unhappy",
+        "disappointed",
+        "frustrated",
+        "angry",
+        "terrible",
+        "awful",
+        "worst",
+        "horrible",
+        "unacceptable",
+        "speak to manager",
+        "escalate",
+        "formal complaint"],
+    "feature_request": [
+        "feature",
+        "suggestion",
+        "would be great",
+        "wish",
+        "please add",
+        "would like",
+        "enhancement",
+        "improve",
+        "new functionality",
+        "missing feature"],
     "general": [],
-    "cancellation": ["cancel subscription", "unsubscribe", "stop service", "terminate",
-                     "close account", "end subscription", "deactivate", "cancel my",
-                     "cancel immediately", "cancel right now"],
-    "shipping": ["ship", "deliver", "track", "package", "delivery", "order status",
-                 "courier", "transit", "parcel", "address"],
-    "inquiry": ["question", "how do i", "what is", "can you explain", "information",
-                "help me understand", "guide", "wondering", "curious"],
-    "escalation": ["escalate", "manager", "supervisor", "senior", "higher up",
-                   "speak to someone", "not resolved", "still waiting"],
-    "account": ["account", "profile", "login", "password", "reset password",
-                "reset my password", "verify", "mfa", "email change",
-                "username", "settings", "deactivate"],
-    "feedback": ["feedback", "suggestion", "opinion", "thought", "experience",
-                 "rating", "review", "improve", "better", "amazing", "great job",
-                 "keep it up", "love your"],
+    "cancellation": [
+        "cancel subscription",
+        "unsubscribe",
+        "stop service",
+        "terminate",
+        "close account",
+        "end subscription",
+        "deactivate",
+        "cancel my",
+        "cancel immediately",
+        "cancel right now"],
+    "shipping": [
+        "ship",
+        "deliver",
+        "track",
+        "package",
+        "delivery",
+        "order status",
+        "courier",
+        "transit",
+        "parcel",
+        "address"],
+    "inquiry": [
+        "question",
+        "how do i",
+        "what is",
+        "can you explain",
+        "information",
+        "help me understand",
+        "guide",
+        "wondering",
+        "curious"],
+    "escalation": [
+        "escalate",
+        "manager",
+        "supervisor",
+        "senior",
+        "higher up",
+        "speak to someone",
+        "not resolved",
+        "still waiting"],
+    "account": [
+        "account",
+        "profile",
+        "login",
+        "password",
+        "reset password",
+        "reset my password",
+        "verify",
+        "mfa",
+        "email change",
+        "username",
+        "settings",
+        "deactivate"],
+    "feedback": [
+        "feedback",
+        "suggestion",
+        "opinion",
+        "thought",
+        "experience",
+        "rating",
+        "review",
+        "improve",
+        "better",
+        "amazing",
+        "great job",
+        "keep it up",
+        "love your"],
 }
 
 # ── Data Classes ──────────────────────────────────────────────────────
@@ -214,7 +421,9 @@ class SignalExtractor:
     def __init__(self):
         pass
 
-    async def extract(self, request: SignalExtractionRequest) -> ExtractedSignals:
+    async def extract(
+            self,
+            request: SignalExtractionRequest) -> ExtractedSignals:
         """Extract all 10 signals from a query.
 
         GAP-007 FIX: Cache key format is
@@ -223,7 +432,9 @@ class SignalExtractor:
         """
         # Compute query hash for caching
         query_hash = self._compute_query_hash(request.query)
-        cache_key = f"signal_cache:{request.company_id}:{request.variant_type}:{query_hash}"
+        cache_key = f"signal_cache:{
+            request.company_id}:{
+            request.variant_type}:{query_hash}"
 
         # Check cache (fail-open — never crash on Redis errors)
         try:
@@ -254,9 +465,11 @@ class SignalExtractor:
 
         intent = self._extract_intent(request.query)
         sentiment = self._extract_sentiment(request.query)
-        weights = self.VARIANT_WEIGHTS.get(request.variant_type, self.VARIANT_WEIGHTS["parwa"])
+        weights = self.VARIANT_WEIGHTS.get(
+            request.variant_type, self.VARIANT_WEIGHTS["parwa"])
         complexity = self._extract_complexity(request.query, weights)
-        monetary_value, monetary_currency = self._extract_monetary_value(request.query)
+        monetary_value, monetary_currency = self._extract_monetary_value(
+            request.query)
         customer_tier = self._resolve_customer_tier(request)
         reasoning_loop = self._detect_reasoning_loop(
             request.query, request.conversation_history or [],
@@ -313,7 +526,8 @@ class SignalExtractor:
             if intent == "general":
                 continue
             # Score by keyword length (longer = more specific = better match)
-            score = sum(len(kw.split()) for kw in keywords if kw in query_lower)
+            score = sum(len(kw.split())
+                        for kw in keywords if kw in query_lower)
             if score > best_score:
                 best_score = score
                 best_intent = intent
@@ -354,7 +568,8 @@ class SignalExtractor:
 
     # ── Signal 3: Complexity ─────────────────────────────────────────
 
-    def _extract_complexity(self, query: str, weights: Dict[str, float]) -> float:
+    def _extract_complexity(
+            self, query: str, weights: Dict[str, float]) -> float:
         """Multi-factor complexity scoring (0.0-1.0).
 
         Factors:
@@ -371,17 +586,41 @@ class SignalExtractor:
 
         # Question factor: each ? adds complexity
         question_marks = query.count("?")
-        question_words = sum(1 for w in words if w in {"how", "why", "what", "when", "where", "which"})
-        question_factor = min(1.0, (question_marks + question_words * 0.5) / 5.0)
+        question_words = sum(
+            1 for w in words if w in {
+                "how",
+                "why",
+                "what",
+                "when",
+                "where",
+                "which"})
+        question_factor = min(
+            1.0, (question_marks + question_words * 0.5) / 5.0)
 
         # Technical density
         technical_words = sum(
-            1 for w in words
-            if w in {"api", "database", "server", "integration", "configuration",
-                     "deployment", "endpoint", "webhook", "authentication",
-                     "ssl", "tls", "dns", "http", "https", "json", "xml",
-                     "docker", "kubernetes", "lambda", "function", "script"}
-        )
+            1 for w in words if w in {
+                "api",
+                "database",
+                "server",
+                "integration",
+                "configuration",
+                "deployment",
+                "endpoint",
+                "webhook",
+                "authentication",
+                "ssl",
+                "tls",
+                "dns",
+                "http",
+                "https",
+                "json",
+                "xml",
+                "docker",
+                "kubernetes",
+                "lambda",
+                "function",
+                "script"})
         tech_factor = min(1.0, technical_words / 5.0) if words else 0.0
 
         # Multi-topic factor (uses query_breadth internally)
@@ -400,7 +639,8 @@ class SignalExtractor:
 
     # ── Signal 4: Monetary Value (W9-GAP-017) ────────────────────────
 
-    def _extract_monetary_value(self, query: str) -> Tuple[float, Optional[str]]:
+    def _extract_monetary_value(
+            self, query: str) -> Tuple[float, Optional[str]]:
         """Extract monetary value with multi-currency support.
 
         W9-GAP-017 FIX: Supports $ £ € ¥ ₹ and USD/EUR/GBP/INR/JPY codes.
@@ -484,7 +724,8 @@ class SignalExtractor:
             if not past_msg or not past_msg.strip():
                 continue
             past_normalized = past_msg.lower().strip()
-            ratio = SequenceMatcher(None, query_normalized, past_normalized).ratio()
+            ratio = SequenceMatcher(
+                None, query_normalized, past_normalized).ratio()
             if ratio >= 0.85:
                 similar_count += 1
 
@@ -573,9 +814,15 @@ class SignalExtractor:
             previous_response_status=extracted.previous_response_status,
             reasoning_loop_detected=extracted.reasoning_loop_detected,
             resolution_path_count=extracted.resolution_path_count,
-            external_data_required=extracted.intent in ("technical", "shipping", "account"),
+            external_data_required=extracted.intent in (
+                "technical",
+                "shipping",
+                "account"),
         )
 
     def get_variant_weights(self, variant_type: str) -> Dict[str, float]:
         """Get configurable weights for a variant type."""
-        return dict(self.VARIANT_WEIGHTS.get(variant_type, self.VARIANT_WEIGHTS["parwa"]))
+        return dict(
+            self.VARIANT_WEIGHTS.get(
+                variant_type,
+                self.VARIANT_WEIGHTS["parwa"]))

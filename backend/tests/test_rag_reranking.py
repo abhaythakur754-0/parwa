@@ -6,13 +6,9 @@ CitationTracker, CrossEncoderReranker, and full pipeline behavior.
 """
 
 import asyncio
-import math
-import re
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-import pytest_asyncio
 
 # ── Mock external dependencies before importing source ────────────
 with patch("app.logger.get_logger", return_value=MagicMock()):
@@ -28,9 +24,6 @@ with patch("app.logger.get_logger", return_value=MagicMock()):
         RerankStrategy,
         VARIANT_RERANK_CONFIG,
         _CHARS_PER_TOKEN,
-        _MAX_RETRIES,
-        _RERANK_CONCURRENCY_LIMIT,
-        _STOP_WORDS,
     )
 
 
@@ -285,7 +278,8 @@ class TestQueryRewriter:
     @pytest.mark.asyncio
     async def test_rewrite_adds_expansion_terms(self):
         chunks = [
-            make_chunk(content="Machine learning algorithms process data structures and neural networks for classification tasks"),
+            make_chunk(
+                content="Machine learning algorithms process data structures and neural networks for classification tasks"),
         ]
         result = await QueryRewriter.rewrite("data algorithms", chunks, "co1")
         assert "data algorithms" in result
@@ -294,7 +288,9 @@ class TestQueryRewriter:
 
     @pytest.mark.asyncio
     async def test_rewrite_respects_max_expansion_terms(self):
-        chunks = [make_chunk(content="alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma tau")]
+        chunks = [
+            make_chunk(
+                content="alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma tau")]
         result = await QueryRewriter.rewrite("alpha", chunks, "co1")
         added = result.replace("alpha", "").strip()
         added_terms = added.split() if added else []
@@ -303,7 +299,9 @@ class TestQueryRewriter:
     @pytest.mark.asyncio
     async def test_rewrite_does_not_duplicate_query_terms(self):
         query = "specific_keyword"
-        chunks = [make_chunk(content="specific_keyword appears multiple times specific_keyword")]
+        chunks = [
+            make_chunk(
+                content="specific_keyword appears multiple times specific_keyword")]
         result = await QueryRewriter.rewrite(query, chunks, "co1")
         # Count occurrences of the query term
         count = result.lower().split().count("specific_keyword")
@@ -377,7 +375,9 @@ class TestQueryRewriter:
     @pytest.mark.asyncio
     async def test_rewrite_chunks_limited_to_5(self):
         """Only first 5 chunks are used for corpus."""
-        chunks = [make_chunk(content=f"unique_word_{i} content here") for i in range(10)]
+        chunks = [
+            make_chunk(
+                content=f"unique_word_{i} content here") for i in range(10)]
         result = await QueryRewriter.rewrite("query", chunks, "co1")
         # Should still work with 10 chunks but only use first 5
         assert "query" in result
@@ -385,7 +385,9 @@ class TestQueryRewriter:
     @pytest.mark.asyncio
     async def test_min_term_score_threshold(self):
         """Terms below _MIN_TERM_SCORE are not added."""
-        chunks = [make_chunk(content="common word appears many times common word")]
+        chunks = [
+            make_chunk(
+                content="common word appears many times common word")]
         result = await QueryRewriter.rewrite("appears", chunks, "co1")
         added = result.replace("appears", "").strip()
         added_terms = added.split() if added else []
@@ -616,8 +618,16 @@ class TestCitationTracker:
     def test_citation_deduplication(self):
         """Duplicate chunk_ids in citations are deduplicated."""
         chunk = make_chunk("c1")
-        c1 = Citation(chunk_id="c1", document_id="d1", relevance_score=0.9, position_in_context=0)
-        c2 = Citation(chunk_id="c1", document_id="d1", relevance_score=0.8, position_in_context=10)
+        c1 = Citation(
+            chunk_id="c1",
+            document_id="d1",
+            relevance_score=0.9,
+            position_in_context=0)
+        c2 = Citation(
+            chunk_id="c1",
+            document_id="d1",
+            relevance_score=0.8,
+            position_in_context=10)
         ctx = AssembledContext(
             chunks_used=[chunk], citations=[c1, c2]
         )
@@ -630,7 +640,8 @@ class TestCitationTracker:
             chunk_id="missing", document_id="d1",
             relevance_score=0.8, position_in_context=0, excerpt="test"
         )
-        # Need a chunk in chunks_used so track_citations doesn't short-circuit to []
+        # Need a chunk in chunks_used so track_citations doesn't short-circuit
+        # to []
         chunk = make_chunk("other_chunk", metadata={"source": "Doc"})
         ctx = AssembledContext(
             chunks_used=[chunk], citations=[citation]
@@ -641,7 +652,12 @@ class TestCitationTracker:
         assert result[0].chunk_id == "missing"
 
     def test_citation_with_page_and_section(self):
-        chunk = make_chunk("c1", metadata={"source": "Doc", "page": 10, "section": "Chapter 1"})
+        chunk = make_chunk(
+            "c1",
+            metadata={
+                "source": "Doc",
+                "page": 10,
+                "section": "Chapter 1"})
         citation = Citation(
             chunk_id="c1", document_id="d1",
             relevance_score=0.9, position_in_context=0, excerpt="content"
@@ -695,8 +711,14 @@ class TestCrossEncoderReranker:
     async def test_parwa_cross_encoder_reranking(self):
         """parwa variant applies cross-encoder reranking."""
         chunks = [
-            make_chunk("c1", content="database query optimization indexing", score=0.6),
-            make_chunk("c2", content="query optimization techniques for databases", score=0.8),
+            make_chunk(
+                "c1",
+                content="database query optimization indexing",
+                score=0.6),
+            make_chunk(
+                "c2",
+                content="query optimization techniques for databases",
+                score=0.8),
         ]
         result = await self.reranker.rerank(
             chunks, "database query", "co1", variant_type="parwa"
@@ -709,8 +731,12 @@ class TestCrossEncoderReranker:
     async def test_parwa_high_rewrite_rerank_pipeline(self):
         """parwa_high uses 3-step pipeline."""
         chunks = [
-            make_chunk("c1", content="machine learning neural networks deep learning algorithms"),
-            make_chunk("c2", content="neural network training data processing"),
+            make_chunk(
+                "c1",
+                content="machine learning neural networks deep learning algorithms"),
+            make_chunk(
+                "c2",
+                content="neural network training data processing"),
         ]
         result = await self.reranker.rerank(
             chunks, "ML algorithms", "co1", variant_type="parwa_high"
@@ -785,7 +811,8 @@ class TestCrossEncoderReranker:
 
     def test_cross_encoder_score_only_stop_words(self):
         chunks = [make_chunk()]
-        result = self.reranker._cross_encoder_score(chunks, "the a an is", "co1")
+        result = self.reranker._cross_encoder_score(
+            chunks, "the a an is", "co1")
         assert len(result) == 1
 
     def test_cross_encoder_score_sorted_descending(self):
@@ -803,7 +830,8 @@ class TestCrossEncoderReranker:
             make_chunk("c1", content="database query optimization"),
             make_chunk("c2", content="completely different topic"),
         ]
-        result = self.reranker._cross_encoder_score(chunks, "database query optimization", "co1")
+        result = self.reranker._cross_encoder_score(
+            chunks, "database query optimization", "co1")
         c1_score = next((c.score for c in result if c.chunk_id == "c1"), 0)
         c2_score = next((c.score for c in result if c.chunk_id == "c2"), 0)
         assert c1_score > c2_score

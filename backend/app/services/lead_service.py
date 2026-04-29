@@ -19,8 +19,6 @@ Integrates with:
 
 from __future__ import annotations
 
-import json
-import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -177,7 +175,10 @@ def get_lead(user_id: str) -> Optional[LeadData]:
     return None
 
 
-def update_lead_status(user_id: str, status: str, **kwargs) -> Optional[LeadData]:
+def update_lead_status(
+        user_id: str,
+        status: str,
+        **kwargs) -> Optional[LeadData]:
     """Update a lead's status and optional fields."""
     lead = get_lead(user_id)
     if not lead:
@@ -202,7 +203,8 @@ def update_lead_status(user_id: str, status: str, **kwargs) -> Optional[LeadData
         lead.industry = kwargs["industry"]
 
     # Recalculate value and status
-    lead.estimated_monthly_value = _estimate_monthly_value(lead.selected_variants)
+    lead.estimated_monthly_value = _estimate_monthly_value(
+        lead.selected_variants)
     if status not in ("converted", "lost"):
         lead.lead_status = _determine_lead_status({
             "business_email": lead.business_email,

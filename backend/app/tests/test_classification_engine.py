@@ -5,15 +5,13 @@ Covers: GAP-008 (empty input), all 12 intents, multi-label,
 confidence scoring, AI path, variant gating.
 """
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from app.core.classification_engine import (
     ClassificationEngine,
     IntentType,
-    IntentResult,
     KeywordClassifier,
 )
 
@@ -80,11 +78,23 @@ class TestIntentTypeEnum:
         assert len(IntentType) == 12
 
     def test_core_intents(self):
-        core = {"refund", "technical", "billing", "complaint", "feature_request", "general"}
+        core = {
+            "refund",
+            "technical",
+            "billing",
+            "complaint",
+            "feature_request",
+            "general"}
         assert core.issubset({t.value for t in IntentType})
 
     def test_extended_intents(self):
-        extended = {"cancellation", "shipping", "inquiry", "escalation", "account", "feedback"}
+        extended = {
+            "cancellation",
+            "shipping",
+            "inquiry",
+            "escalation",
+            "account",
+            "feedback"}
         assert extended.issubset({t.value for t in IntentType})
 
     def test_string_values(self):
@@ -261,8 +271,7 @@ class TestVariantGating:
             return_value={
                 "content": '{"primary": "refund", "secondary": [], "confidences": {"refund": 0.9}}',
                 "model_used": "test-model",
-            }
-        )
+            })
         engine = ClassificationEngine(smart_router=mock_router)
         result = await engine.classify(
             "refund my order",
@@ -278,8 +287,7 @@ class TestVariantGating:
             return_value={
                 "content": '{"primary": "billing", "secondary": [], "confidences": {"billing": 0.8}}',
                 "model_used": "test-model",
-            }
-        )
+            })
         engine = ClassificationEngine(smart_router=mock_router)
         result = await engine.classify(
             "bill issue", variant_type="high_parwa", use_ai=True,
@@ -298,8 +306,7 @@ class TestAIClassificationPath:
             return_value={
                 "content": '{"primary": "refund", "secondary": [{"intent": "billing", "confidence": 0.3}], "confidences": {"refund": 0.85, "billing": 0.3, "general": 0.1}}',
                 "model_used": "gemma-3-27b-it",
-            }
-        )
+            })
         engine = ClassificationEngine(smart_router=mock_router)
         result = await engine.classify(
             "I want a refund", variant_type="parwa", use_ai=True,
@@ -310,7 +317,8 @@ class TestAIClassificationPath:
     @pytest.mark.asyncio
     async def test_ai_fallback_on_exception(self):
         mock_router = MagicMock()
-        mock_router.async_execute_llm_call = AsyncMock(side_effect=Exception("API down"))
+        mock_router.async_execute_llm_call = AsyncMock(
+            side_effect=Exception("API down"))
         engine = ClassificationEngine(smart_router=mock_router)
         result = await engine.classify(
             "refund my order", variant_type="parwa", use_ai=True,
@@ -394,17 +402,22 @@ class TestAIParseResponse:
 
 class TestSafeIntentFromString:
     def test_valid_intent(self):
-        assert ClassificationEngine._safe_intent_from_string("refund") == "refund"
+        assert ClassificationEngine._safe_intent_from_string(
+            "refund") == "refund"
 
     def test_case_insensitive(self):
-        assert ClassificationEngine._safe_intent_from_string("REFUND") == "refund"
-        assert ClassificationEngine._safe_intent_from_string("Billing") == "billing"
+        assert ClassificationEngine._safe_intent_from_string(
+            "REFUND") == "refund"
+        assert ClassificationEngine._safe_intent_from_string(
+            "Billing") == "billing"
 
     def test_invalid_returns_general(self):
-        assert ClassificationEngine._safe_intent_from_string("xyz") == "general"
+        assert ClassificationEngine._safe_intent_from_string(
+            "xyz") == "general"
 
     def test_empty_returns_general(self):
         assert ClassificationEngine._safe_intent_from_string("") == "general"
 
     def test_whitespace_returns_general(self):
-        assert ClassificationEngine._safe_intent_from_string("   ") == "general"
+        assert ClassificationEngine._safe_intent_from_string(
+            "   ") == "general"

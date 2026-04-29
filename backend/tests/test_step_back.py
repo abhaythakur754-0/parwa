@@ -7,7 +7,7 @@ isolation, and error fallback (BC-008).
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from app.core.technique_router import TechniqueID, QuerySignals
 from app.core.techniques.base import ConversationState, GSDState
@@ -555,7 +555,8 @@ class TestBroadening:
             "order #12345", detection,
         )
         assert len(queries) >= 1
-        assert any("order" in q.lower() or "#12345" in q.lower() for q in queries)
+        assert any("order" in q.lower() or "#12345" in q.lower()
+                   for q in queries)
 
     @pytest.mark.asyncio
     async def test_broaden_single_word(self, processor):
@@ -1006,7 +1007,8 @@ class TestStepBackNodeIntegration:
         result_state = await node.execute(state)
         # Should have response_parts with refined response
         if result_state.response_parts:
-            assert any("Step-Back Context" in p for p in result_state.response_parts)
+            assert any(
+                "Step-Back Context" in p for p in result_state.response_parts)
 
     @pytest.mark.asyncio
     async def test_execute_no_context_injection(self):

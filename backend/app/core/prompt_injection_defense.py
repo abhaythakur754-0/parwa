@@ -19,14 +19,13 @@ BC-012: Never crashes — fail-open with logging on Redis/DB failure.
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import json
 import math
 import re
 import unicodedata
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -621,72 +620,55 @@ _JAILBREAK_RULES: List[Dict[str, Any]] = [
 ]
 
 # ── Category 6: Encoding Tricks ──
-_ENCODING_TRICK_RULES: List[Dict[str, Any]] = [
-    {
-        "pattern": re.compile(
-            r"(?:^|\s)[A-Za-z0-9+/]{20,}={0,2}(?:\s|$)",
-        ),
-        "rule_id": "ENC-001",
-        "severity": "high",
-        "confidence": 0.85,
-        "description": "Suspicious Base64-encoded content (20+ chars)",
-    },
-    {
-        "pattern": re.compile(
-            r"[\u0400-\u04ff]",
-        ),
-        "rule_id": "ENC-002",
-        "severity": "medium",
-        "confidence": 0.70,
-        "description": "Cyrillic characters — possible Unicode homoglyph attack",
-    },
-    {
-        "pattern": re.compile(
-            r"[\u200b\u200c\u200d\u200e\u200f\ufeff\u2060\u2061\u2062"
-            r"\u2063\u2064]",
-        ),
-        "rule_id": "ENC-003",
-        "severity": "medium",
-        "confidence": 0.80,
-        "description": "Zero-width / invisible Unicode characters detected",
-    },
-    {
-        "pattern": re.compile(
-            r"(.)\1{10,}",
-        ),
-        "rule_id": "ENC-004",
-        "severity": "low",
-        "confidence": 0.60,
-        "description": "Excessive repeated characters (11+ same in a row)",
-    },
-    {
-        "pattern": re.compile(
-            r"[\u202a\u202b\u202c\u202d\u202e]"
-        ),
-        "rule_id": "ENC-005",
-        "severity": "high",
-        "confidence": 0.85,
-        "description": "Bidirectional text override characters (RTL/LTR) detected",
-    },
-    {
-        "pattern": re.compile(
-            r"%[0-9a-fA-F]{2}(?:[^%]*%[0-9a-fA-F]{2}){2,}"
-        ),
-        "rule_id": "ENC-006",
-        "severity": "high",
-        "confidence": 0.80,
-        "description": "URL-encoded payload detected (3+ percent-encoded bytes in query)",
-    },
-    {
-        "pattern": re.compile(
-            r"(?:^|\s)(?:\\x[0-9a-fA-F]{2}){3,}"
-        ),
-        "rule_id": "ENC-007",
-        "severity": "high",
-        "confidence": 0.80,
-        "description": "Hex-escaped payload detected (3+ consecutive \\xNN sequences)",
-    },
-]
+_ENCODING_TRICK_RULES: List[Dict[str,
+                                 Any]] = [{"pattern": re.compile(r"(?:^|\s)[A-Za-z0-9+/]{20,}={0,2}(?:\s|$)",
+                                                                 ),
+                                           "rule_id": "ENC-001",
+                                           "severity": "high",
+                                           "confidence": 0.85,
+                                           "description": "Suspicious Base64-encoded content (20+ chars)",
+                                           },
+                                          {"pattern": re.compile(r"[\u0400-\u04ff]",
+                                                                 ),
+                                           "rule_id": "ENC-002",
+                                           "severity": "medium",
+                                           "confidence": 0.70,
+                                           "description": "Cyrillic characters — possible Unicode homoglyph attack",
+                                           },
+                                          {"pattern": re.compile(r"[\u200b\u200c\u200d\u200e\u200f\ufeff\u2060\u2061\u2062"
+                                                                 r"\u2063\u2064]",
+                                                                 ),
+                                           "rule_id": "ENC-003",
+                                           "severity": "medium",
+                                           "confidence": 0.80,
+                                           "description": "Zero-width / invisible Unicode characters detected",
+                                           },
+                                          {"pattern": re.compile(r"(.)\1{10,}",
+                                                                 ),
+                                           "rule_id": "ENC-004",
+                                           "severity": "low",
+                                           "confidence": 0.60,
+                                           "description": "Excessive repeated characters (11+ same in a row)",
+                                           },
+                                          {"pattern": re.compile(r"[\u202a\u202b\u202c\u202d\u202e]"),
+                                           "rule_id": "ENC-005",
+                                           "severity": "high",
+                                           "confidence": 0.85,
+                                           "description": "Bidirectional text override characters (RTL/LTR) detected",
+                                           },
+                                          {"pattern": re.compile(r"%[0-9a-fA-F]{2}(?:[^%]*%[0-9a-fA-F]{2}){2,}"),
+                                           "rule_id": "ENC-006",
+                                           "severity": "high",
+                                           "confidence": 0.80,
+                                           "description": "URL-encoded payload detected (3+ percent-encoded bytes in query)",
+                                           },
+                                          {"pattern": re.compile(r"(?:^|\s)(?:\\x[0-9a-fA-F]{2}){3,}"),
+                                           "rule_id": "ENC-007",
+                                           "severity": "high",
+                                           "confidence": 0.80,
+                                           "description": "Hex-escaped payload detected (3+ consecutive \\xNN sequences)",
+                                           },
+                                          ]
 
 # ── Category 7: Social Engineering ──
 _SOCIAL_ENGINEERING_RULES: List[Dict[str, Any]] = [
@@ -888,55 +870,45 @@ _XSS_RULES: List[Dict[str, Any]] = [
 ]
 
 # ── Category 10: Token Smuggling (Day 4 additions) ──
-_TOKEN_SMUGGLING_RULES: List[Dict[str, Any]] = [
-    {
-        "pattern": re.compile(
-            r"\bROT13\b|\brot13\b",
-            re.IGNORECASE,
-        ),
-        "rule_id": "TSM-001",
-        "severity": "high",
-        "confidence": 0.85,
-        "description": "ROT13 encoding reference — possible token smuggling",
-    },
-    {
-        "pattern": re.compile(
-            r"(?:\\u[0-9a-fA-F]{4}){3,}",
-        ),
-        "rule_id": "TSM-002",
-        "severity": "high",
-        "confidence": 0.88,
-        "description": "Unicode escape sequences (3+ consecutive \\uXXXX) — possible token smuggling",
-    },
-    {
-        "pattern": re.compile(
-            r"&#x?[0-9a-fA-F]{2,4};(?:&#x?[0-9a-fA-F]{2,4};){2,}",
-        ),
-        "rule_id": "TSM-003",
-        "severity": "high",
-        "confidence": 0.85,
-        "description": "HTML numeric character references (3+ consecutive) — possible token smuggling",
-    },
-    {
-        "pattern": re.compile(
-            r"\b(?:base64|b64|decode|encode)\s+(?:decode|encode|it|this|the)\b",
-            re.IGNORECASE,
-        ),
-        "rule_id": "TSM-004",
-        "severity": "high",
-        "confidence": 0.82,
-        "description": "Explicit base64 decode/encode instruction — likely smuggling attempt",
-    },
-    {
-        "pattern": re.compile(
-            r"\\U[0-9a-fA-F]{8}",
-        ),
-        "rule_id": "TSM-005",
-        "severity": "high",
-        "confidence": 0.85,
-        "description": "Extended Unicode escape (\\UXXXXXXXX) — possible token smuggling",
-    },
-]
+_TOKEN_SMUGGLING_RULES: List[Dict[str,
+                                  Any]] = [{"pattern": re.compile(r"\bROT13\b|\brot13\b",
+                                                                  re.IGNORECASE,
+                                                                  ),
+                                            "rule_id": "TSM-001",
+                                            "severity": "high",
+                                            "confidence": 0.85,
+                                            "description": "ROT13 encoding reference — possible token smuggling",
+                                            },
+                                           {"pattern": re.compile(r"(?:\\u[0-9a-fA-F]{4}){3,}",
+                                                                  ),
+                                            "rule_id": "TSM-002",
+                                            "severity": "high",
+                                            "confidence": 0.88,
+                                            "description": "Unicode escape sequences (3+ consecutive \\uXXXX) — possible token smuggling",
+                                            },
+                                           {"pattern": re.compile(r"&#x?[0-9a-fA-F]{2,4};(?:&#x?[0-9a-fA-F]{2,4};){2,}",
+                                                                  ),
+                                            "rule_id": "TSM-003",
+                                            "severity": "high",
+                                            "confidence": 0.85,
+                                            "description": "HTML numeric character references (3+ consecutive) — possible token smuggling",
+                                            },
+                                           {"pattern": re.compile(r"\b(?:base64|b64|decode|encode)\s+(?:decode|encode|it|this|the)\b",
+                                                                  re.IGNORECASE,
+                                                                  ),
+                                            "rule_id": "TSM-004",
+                                            "severity": "high",
+                                            "confidence": 0.82,
+                                            "description": "Explicit base64 decode/encode instruction — likely smuggling attempt",
+                                            },
+                                           {"pattern": re.compile(r"\\U[0-9a-fA-F]{8}",
+                                                                  ),
+                                            "rule_id": "TSM-005",
+                                            "severity": "high",
+                                            "confidence": 0.85,
+                                            "description": "Extended Unicode escape (\\UXXXXXXXX) — possible token smuggling",
+                                            },
+                                           ]
 
 # ── Category 11: Role-Play Attack Expansions (Day 4 additions) ──
 _ROLEPLAY_ADVANCED_RULES: List[Dict[str, Any]] = [
@@ -1163,7 +1135,8 @@ _ALL_RULES: List[Dict[str, Any]] = (
 _ANOMALY_QUERY_LENGTH_THRESHOLD = 2000
 _ANOMALY_SPECIAL_CHAR_RATIO = 0.4
 _ANOMALY_UPPERCASE_RATIO = 0.6
-_ANOMALY_ENTROPY_THRESHOLD = 4.5  # Increased from 4.2 to reduce false positives on code snippets
+# Increased from 4.2 to reduce false positives on code snippets
+_ANOMALY_ENTROPY_THRESHOLD = 4.5
 
 # Rate limiting thresholds
 _RATE_LIMIT_WINDOW_SECONDS = 3600  # 1 hour
@@ -1545,7 +1518,7 @@ class PromptInjectionDetector:
                 matched_text=query[:100] + ("..." if len(query) > 100 else ""),
                 rule_id="ANOM-001",
                 description=f"Anomalous query characteristics: "
-                           f"{'; '.join(anomalies)}",
+                f"{'; '.join(anomalies)}",
             )
 
         return None
@@ -2421,7 +2394,8 @@ class InjectionDefenseService:
 
         db = SessionLocal()
         try:
-            cutoff = datetime.now(timezone.utc) - timedelta(days=older_than_days)
+            cutoff = datetime.now(timezone.utc) - \
+                timedelta(days=older_than_days)
             deleted = (
                 db.query(PromptInjectionAttempt)
                 .filter(

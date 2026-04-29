@@ -23,7 +23,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.exceptions import NotFoundError, ValidationError
+from app.exceptions import NotFoundError
 from app.shared.knowledge_base.chunker import DocumentChunker
 from app.shared.knowledge_base.retriever import KnowledgeRetriever
 from database.models.onboarding import DocumentChunk, KnowledgeDocument
@@ -379,7 +379,10 @@ class KnowledgeBaseManager:
             if not embedding or not isinstance(embedding, list):
                 logger.warning(
                     "embedding_response_missing_values",
-                    response_keys=list(data.keys()) if isinstance(data, dict) else "non-dict",
+                    response_keys=list(
+                        data.keys()) if isinstance(
+                        data,
+                        dict) else "non-dict",
                 )
                 return None
 

@@ -22,14 +22,8 @@ Covers 15 test areas:
  15. BC-008 — graceful degradation
 """
 
-import asyncio
-import hashlib
-import json
 import os
 import sys
-import time
-from dataclasses import dataclass
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -53,6 +47,7 @@ class TestSignalExtraction:
     @pytest.fixture
     def make_request(self):
         from app.core.signal_extraction import SignalExtractionRequest
+
         def _req(query, **kwargs):
             return SignalExtractionRequest(
                 query=query,
@@ -69,7 +64,8 @@ class TestSignalExtraction:
     @pytest.mark.asyncio
     async def test_refund_intent_detected(self, extractor, make_request):
         """Refund keywords should trigger 'refund' intent."""
-        req = make_request("I want a refund for my order, this is unacceptable")
+        req = make_request(
+            "I want a refund for my order, this is unacceptable")
         signals = await extractor.extract(req)
         assert signals.intent == "refund"
         assert 0.0 <= signals.sentiment <= 1.0
@@ -78,7 +74,8 @@ class TestSignalExtraction:
     @pytest.mark.asyncio
     async def test_technical_intent_detected(self, extractor, make_request):
         """Technical keywords should trigger 'technical' intent."""
-        req = make_request("The API endpoint keeps returning a 500 error and crashing")
+        req = make_request(
+            "The API endpoint keeps returning a 500 error and crashing")
         signals = await extractor.extract(req)
         assert signals.intent == "technical"
         assert signals.complexity > 0.05  # Technical terms boost complexity
@@ -86,16 +83,20 @@ class TestSignalExtraction:
     @pytest.mark.asyncio
     async def test_negative_sentiment(self, extractor, make_request):
         """Negative words should lower sentiment score."""
-        req = make_request("This is terrible and horrible, I am very angry and frustrated")
+        req = make_request(
+            "This is terrible and horrible, I am very angry and frustrated")
         signals = await extractor.extract(req)
-        assert signals.sentiment < 0.3, f"Expected negative sentiment, got {signals.sentiment}"
+        assert signals.sentiment < 0.3, f"Expected negative sentiment, got {
+            signals.sentiment}"
 
     @pytest.mark.asyncio
     async def test_positive_sentiment(self, extractor, make_request):
         """Positive words should raise sentiment score."""
-        req = make_request("This is amazing and excellent, very helpful and awesome!")
+        req = make_request(
+            "This is amazing and excellent, very helpful and awesome!")
         signals = await extractor.extract(req)
-        assert signals.sentiment > 0.7, f"Expected positive sentiment, got {signals.sentiment}"
+        assert signals.sentiment > 0.7, f"Expected positive sentiment, got {
+            signals.sentiment}"
 
     @pytest.mark.asyncio
     async def test_multi_currency_usd(self, extractor, make_request):
@@ -147,7 +148,9 @@ class TestSignalExtraction:
             "I want a refund for my order",
             "I want a refund for my order",
         ]
-        req = make_request("I want a refund for my order", conversation_history=history)
+        req = make_request(
+            "I want a refund for my order",
+            conversation_history=history)
         signals = await extractor.extract(req)
         # 0.85 threshold: need 2+ messages with >= 85% similarity
         assert signals.reasoning_loop_detected is True
@@ -155,7 +158,6 @@ class TestSignalExtraction:
     @pytest.mark.asyncio
     async def test_cache_key_includes_variant_type(self, extractor):
         """GAP-007: Cache key should include variant_type for isolation."""
-        from app.core.signal_extraction import SignalExtractor
         q1_hash = extractor._compute_query_hash("test query")
         # Different variant types should produce different cache keys
         key_parwa = f"signal_cache:co1:parwa:{q1_hash}"
@@ -467,7 +469,7 @@ class TestSmartRouter:
 
     def test_bc008_unknown_variant_safe_fallback(self, router):
         """BC-008: Unknown variant should default to mini_parwa (safest)."""
-        from app.core.smart_router import AtomicStepType, ModelTier
+        from app.core.smart_router import AtomicStepType
         decision = router.route(
             company_id="test-co",
             variant_type="unknown_variant_xyz",
@@ -631,7 +633,8 @@ class TestPackageCompatibility:
         }
         for name, ver in versions.items():
             assert ver, f"{name} should have version info"
-            assert len(ver.split(".")) >= 2, f"{name} version should be semantic"
+            assert len(
+                ver.split(".")) >= 2, f"{name} version should be semantic"
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -862,7 +865,6 @@ class TestFullPipelineIntegration:
     async def test_smart_router_to_workflow_integration(self):
         """Smart Router decisions should be compatible with workflow steps."""
         from app.core.smart_router import SmartRouter, AtomicStepType
-        from app.core.langgraph_workflow import WORKFLOW_STEP_DEFINITIONS
 
         router = SmartRouter()
 

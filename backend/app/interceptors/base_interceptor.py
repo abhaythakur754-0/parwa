@@ -111,7 +111,12 @@ class ShadowInterceptor:
 
             logger.info(
                 "shadow_evaluated company_id=%s action=%s mode=%s risk=%.2f hold=%s log_id=%s",
-                company_id, action_type, mode, risk_score, requires_hold, shadow_log_id,
+                company_id,
+                action_type,
+                mode,
+                risk_score,
+                requires_hold,
+                shadow_log_id,
             )
 
             return {
@@ -227,7 +232,8 @@ class ShadowInterceptor:
                 db.add(executed)
                 db.flush()
 
-                # Create undo log entry (empty undo_data, to be filled if undone)
+                # Create undo log entry (empty undo_data, to be filled if
+                # undone)
                 undo_log = UndoLog(
                     company_id=company_id,
                     executed_action_id=executed.id,

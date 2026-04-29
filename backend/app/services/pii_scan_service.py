@@ -15,7 +15,6 @@ import hashlib
 import json
 import re
 import uuid
-from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Any
 
 from sqlalchemy.orm import Session
@@ -28,7 +27,8 @@ class PIIScanService:
     PATTERNS = {
         # Credit cards (various formats)
         "credit_card": [
-            r"\b(?:\d{4}[-\s]?){3}\d{4}\b",  # 16 digits with optional dashes/spaces
+            r"\b(?:\d{4}[-\s]?){3}\d{4}\b",
+            # 16 digits with optional dashes/spaces
             r"\b\d{13,16}\b",  # 13-16 consecutive digits
         ],
 
@@ -44,7 +44,8 @@ class PIIScanService:
 
         # Phone numbers (various formats - US and International)
         "phone": [
-            # US formats: 555-123-4567, (555) 123-4567, +1 555 123 4567, 1-800-555-1234
+            # US formats: 555-123-4567, (555) 123-4567, +1 555 123 4567,
+            # 1-800-555-1234
             r"\b\+?1?[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b",
             # International phone with country code (no word boundary for +)
             # Matches +CC followed by groups of digits with spaces/dashes
@@ -175,19 +176,21 @@ class PIIScanService:
         if not scan_result["detected"]:
             return text, {}
 
-        # Deduplicate overlapping findings (keep first match for each position range)
+        # Deduplicate overlapping findings (keep first match for each position
+        # range)
         all_findings = sorted(
             scan_result["findings"],
             key=lambda x: (x["start"], x["end"]),
         )
-        
+
         deduplicated = []
         for finding in all_findings:
             # Check if this finding overlaps with any already-added finding
             overlaps = False
             for existing in deduplicated:
                 # Check for overlap: [start1, end1) overlaps [start2, end2)
-                if not (finding["end"] <= existing["start"] or finding["start"] >= existing["end"]):
+                if not (finding["end"] <= existing["start"]
+                        or finding["start"] >= existing["end"]):
                     overlaps = True
                     break
             if not overlaps:
@@ -223,7 +226,9 @@ class PIIScanService:
             redaction_map[redaction_token] = {
                 "type": pii_type,
                 "original": original_value,
-                "hash": hashlib.sha256(original_value.encode()).hexdigest()[:16],
+                "hash": hashlib.sha256(
+                    original_value.encode()).hexdigest()[
+                    :16],
             }
 
         # Store map in Redis if available

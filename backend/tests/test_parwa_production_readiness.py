@@ -17,8 +17,6 @@ Run with: pytest tests/test_parwa_production_readiness.py -v --tb=short
 import pytest
 from datetime import datetime, timedelta
 from decimal import Decimal
-from unittest.mock import Mock, patch, MagicMock, AsyncMock
-import asyncio
 import json
 import uuid
 import os
@@ -53,7 +51,7 @@ class TestVariantConfiguration:
             "escalation_enabled": True,
             "training_enabled": False
         }
-        
+
         # Verify Mini PARWA limits
         assert variant_config["price_monthly"] == 999
         assert variant_config["tickets_per_month"] == 2000
@@ -89,7 +87,7 @@ class TestVariantConfiguration:
             "recommendation_types": ["APPROVE", "REVIEW", "DENY"],
             "training_enabled": True
         }
-        
+
         # Verify PARWA limits
         assert variant_config["price_monthly"] == 2499
         assert variant_config["tickets_per_month"] == 5000
@@ -125,7 +123,7 @@ class TestVariantConfiguration:
             "training_enabled": True,
             "priority_support": True
         }
-        
+
         # Verify PARWA High limits
         assert variant_config["price_monthly"] == 3999
         assert variant_config["tickets_per_month"] == 15000
@@ -150,14 +148,14 @@ class TestBuildingCodesCompliance:
         # Simulated query check
         query_with_tenant = "SELECT * FROM tickets WHERE company_id = :company_id AND id = :ticket_id"
         query_without_tenant = "SELECT * FROM tickets WHERE id = :ticket_id"
-        
+
         # Verify tenant isolation
         assert "company_id" in query_with_tenant
         assert "WHERE" in query_with_tenant
-        
+
         # Query without company_id should be flagged
         assert "company_id" not in query_without_tenant
-        
+
         # Zero cross-tenant data leakage requirement
         cross_tenant_leak_detected = False
         assert cross_tenant_leak_detected is False
@@ -169,7 +167,7 @@ class TestBuildingCodesCompliance:
             "user_id": "user_456",
             "variant": "parwa"
         }
-        
+
         # Every service call should have company_id
         assert tenant_context["company_id"] is not None
         assert tenant_context["company_id"].startswith("comp_")
@@ -179,14 +177,18 @@ class TestBuildingCodesCompliance:
         """BC-002: DECIMAL(10,2) for money, atomic transactions."""
         # Test Decimal precision
         refund_amount = Decimal("12345678.99")  # Max 8 digits before decimal
-        assert len(str(refund_amount).split('.')[1]) == 2  # Exactly 2 decimal places
-        
+        # Exactly 2 decimal places
+        assert len(str(refund_amount).split('.')[1]) == 2
+
         # Test atomic transaction simulation
         transaction_log = []
-        transaction_log.append({"action": "BEGIN", "timestamp": datetime.utcnow()})
-        transaction_log.append({"action": "DEBIT", "amount": str(refund_amount)})
-        transaction_log.append({"action": "COMMIT", "timestamp": datetime.utcnow()})
-        
+        transaction_log.append(
+            {"action": "BEGIN", "timestamp": datetime.utcnow()})
+        transaction_log.append(
+            {"action": "DEBIT", "amount": str(refund_amount)})
+        transaction_log.append(
+            {"action": "COMMIT", "timestamp": datetime.utcnow()})
+
         assert transaction_log[0]["action"] == "BEGIN"
         assert transaction_log[-1]["action"] == "COMMIT"
 
@@ -194,7 +196,7 @@ class TestBuildingCodesCompliance:
         """Financial actions must have idempotency keys."""
         idempotency_key = f"refund_{uuid.uuid4()}"
         assert idempotency_key.startswith("refund_")
-        
+
         # Same idempotency key should return same result
         first_result = {"status": "processed", "key": idempotency_key}
         second_result = {"status": "processed", "key": idempotency_key}
@@ -213,10 +215,10 @@ class TestBuildingCodesCompliance:
             "timestamp": datetime.utcnow(),
             "approved_by": "manager_001"
         }
-        
-        required_fields = ["action_type", "amount", "company_id", "user_id", 
-                          "confidence_score", "reasoning", "approved_by"]
-        
+
+        required_fields = ["action_type", "amount", "company_id", "user_id",
+                           "confidence_score", "reasoning", "approved_by"]
+
         for field in required_fields:
             assert field in audit_entry, f"Missing required audit field: {field}"
 
@@ -225,15 +227,16 @@ class TestBuildingCodesCompliance:
         """BC-003: Webhooks must use HMAC verification."""
         import hmac
         import hashlib
-        
+
         secret = "webhook_secret_123"
-        payload = json.dumps({"event": "refund.created", "data": {"id": "123"}})
+        payload = json.dumps(
+            {"event": "refund.created", "data": {"id": "123"}})
         expected_signature = hmac.new(
-            secret.encode(), 
-            payload.encode(), 
+            secret.encode(),
+            payload.encode(),
             hashlib.sha256
         ).hexdigest()
-        
+
         # Verify signature exists and is correct length
         assert len(expected_signature) == 64  # SHA-256 hex digest
         assert expected_signature is not None
@@ -242,17 +245,17 @@ class TestBuildingCodesCompliance:
         """Webhooks must handle idempotency via event_id."""
         event_id = f"evt_{uuid.uuid4()}"
         processed_events = set()
-        
+
         # First processing
         processed_events.add(event_id)
         first_result = {"status": "processed", "event_id": event_id}
-        
+
         # Duplicate processing attempt
         if event_id in processed_events:
             second_result = {"status": "duplicate", "event_id": event_id}
         else:
             second_result = {"status": "processed", "event_id": event_id}
-        
+
         assert second_result["status"] == "duplicate"
 
     def test_bc003_webhook_response_time(self):
@@ -265,10 +268,13 @@ class TestBuildingCodesCompliance:
     def test_bc004_celery_task_structure(self):
         """BC-004: Celery tasks with company_id first param."""
         # Simulated task signature
-        def process_refund_task(company_id: str, ticket_id: str, amount: Decimal):
+        def process_refund_task(
+                company_id: str,
+                ticket_id: str,
+                amount: Decimal):
             """Task must have company_id as first parameter."""
             return {"company_id": company_id, "ticket_id": ticket_id}
-        
+
         # Verify company_id is first
         import inspect
         sig = inspect.signature(process_refund_task)
@@ -283,7 +289,7 @@ class TestBuildingCodesCompliance:
             "retry_backoff_max": 600,
             "retry_jitter": True
         }
-        
+
         assert task_config["max_retries"] == 3
         assert task_config["retry_backoff"] is True
 
@@ -296,7 +302,7 @@ class TestBuildingCodesCompliance:
             "payload": {"ticket_id": "ticket_456"},
             "timestamp": datetime.utcnow()
         }
-        
+
         assert dlq_entry["task_name"] is not None
         assert dlq_entry["error"] == "Max retries exceeded"
 
@@ -305,7 +311,7 @@ class TestBuildingCodesCompliance:
         """BC-005: Socket.io rooms named tenant_{company_id}."""
         company_id = "comp_123"
         room_name = f"tenant_{company_id}"
-        
+
         assert room_name == "tenant_comp_123"
         assert room_name.startswith("tenant_")
 
@@ -320,7 +326,7 @@ class TestBuildingCodesCompliance:
             "max_events": 100,
             "ttl_seconds": 300
         }
-        
+
         assert len(event_buffer["events"]) > 0
         assert event_buffer["max_events"] == 100
 
@@ -332,17 +338,17 @@ class TestBuildingCodesCompliance:
             "variables": {"customer_name": "John", "company": "ACME"},
             "reply_to": "support@acme.com"
         }
-        
+
         assert "template_id" in email_config
         assert email_config["template_id"] is not None
 
     def test_bc006_email_rate_limit(self):
         """Email rate limit: 5 replies/thread/24h."""
         thread_replies = [
-            {"sent_at": datetime.utcnow() - timedelta(hours=i)} 
+            {"sent_at": datetime.utcnow() - timedelta(hours=i)}
             for i in range(4)
         ]
-        
+
         assert len(thread_replies) < 5, "Max 5 replies per thread per 24h"
 
     def test_bc006_ooo_detection(self):
@@ -353,10 +359,11 @@ class TestBuildingCodesCompliance:
             "Auto-reply:",
             "Out of the office until"
         ]
-        
+
         email_body = "I am out of office until Monday. Please contact support."
-        detected = any(pattern.lower() in email_body.lower() for pattern in ooo_patterns)
-        
+        detected = any(pattern.lower() in email_body.lower()
+                       for pattern in ooo_patterns)
+
         assert detected is True
 
     # BC-007: AI Model (Smart Router)
@@ -365,24 +372,34 @@ class TestBuildingCodesCompliance:
         router_config = {
             "tiers": {
                 "light": {
-                    "models": ["gpt-4o-mini", "claude-haiku"],
-                    "use_cases": ["faq", "greetings", "order_status"],
-                    "max_tokens": 1000
-                },
+                    "models": [
+                        "gpt-4o-mini",
+                        "claude-haiku"],
+                    "use_cases": [
+                        "faq",
+                        "greetings",
+                        "order_status"],
+                    "max_tokens": 1000},
                 "medium": {
-                    "models": ["gpt-4o", "claude-sonnet"],
-                    "use_cases": ["drafting", "summarization", "analysis"],
-                    "max_tokens": 4000
-                },
+                    "models": [
+                        "gpt-4o",
+                        "claude-sonnet"],
+                    "use_cases": [
+                        "drafting",
+                        "summarization",
+                        "analysis"],
+                    "max_tokens": 4000},
                 "heavy": {
-                    "models": ["gpt-4", "claude-opus"],
-                    "use_cases": ["refunds", "fraud_detection", "complex_logic"],
-                    "max_tokens": 8000
-                }
-            },
-            "auto_fallback": True
-        }
-        
+                    "models": [
+                        "gpt-4",
+                        "claude-opus"],
+                    "use_cases": [
+                        "refunds",
+                        "fraud_detection",
+                        "complex_logic"],
+                    "max_tokens": 8000}},
+            "auto_fallback": True}
+
         assert "light" in router_config["tiers"]
         assert "medium" in router_config["tiers"]
         assert "heavy" in router_config["tiers"]
@@ -395,10 +412,10 @@ class TestBuildingCodesCompliance:
             "phone": r"\+?[0-9]{10,15}",
             "credit_card": r"\b[0-9]{13,16}\b"
         }
-        
+
         original_text = "My email is john@example.com and phone is 1234567890"
         redacted_text = "My email is [EMAIL_REDACTED] and phone is [PHONE_REDACTED]"
-        
+
         # Verify redaction occurs
         assert "john@example.com" not in redacted_text
         assert "[EMAIL_REDACTED]" in redacted_text
@@ -412,7 +429,7 @@ class TestBuildingCodesCompliance:
                 "refund_approval_min": 0.90
             }
         }
-        
+
         threshold = company_thresholds["comp_123"]
         assert 0 <= threshold["auto_approve_min"] <= 1
         assert threshold["auto_approve_min"] > threshold["escalation_max"]
@@ -420,13 +437,13 @@ class TestBuildingCodesCompliance:
     def test_bc007_50_mistake_threshold_locked(self):
         """LOCKED: 50-mistake threshold for auto-retraining is hard-coded."""
         MISTAKE_THRESHOLD = 50  # This is LOCKED per decision #20
-        
+
         mistake_count = 48
         should_trigger_training = mistake_count >= MISTAKE_THRESHOLD
-        
+
         assert MISTAKE_THRESHOLD == 50
         assert should_trigger_training is False  # 48 < 50
-        
+
         mistake_count = 50
         should_trigger_training = mistake_count >= MISTAKE_THRESHOLD
         assert should_trigger_training is True  # 50 >= 50
@@ -449,7 +466,7 @@ class TestBuildingCodesCompliance:
                 {"state": "policy_checked", "timestamp": datetime.utcnow()}
             ]
         }
-        
+
         assert gsd_state["ticket_id"] is not None
         assert gsd_state["company_id"] is not None
         assert len(gsd_state["state_history"]) > 0
@@ -462,7 +479,7 @@ class TestBuildingCodesCompliance:
             "redis_key": "parwa:comp_456:gsd:ticket_123",
             "postgres_table": "gsd_sessions"
         }
-        
+
         assert state_storage["primary"] == "redis"
         assert state_storage["fallback"] == "postgresql"
 
@@ -476,10 +493,12 @@ class TestBuildingCodesCompliance:
             "required_role": "supervisor",
             "confidence_score": 0.92
         }
-        
+
         # Financial actions require supervisor
-        assert approval_request["required_role"] in ["supervisor", "admin", "owner"]
-        assert approval_request["action_type"] in ["REFUND", "CHARGEBACK", "CREDIT"]
+        assert approval_request["required_role"] in [
+            "supervisor", "admin", "owner"]
+        assert approval_request["action_type"] in [
+            "REFUND", "CHARGEBACK", "CREDIT"]
 
     def test_bc009_jarvis_consequences_before_auto_approve(self):
         """LOCKED: Jarvis must show consequences before auto-approve."""
@@ -492,7 +511,7 @@ class TestBuildingCodesCompliance:
             "risks": ["delivery_delay_risk"],
             "user_confirmation_required": True
         }
-        
+
         # Decision #22: Must show consequences
         assert auto_approve_preview["user_confirmation_required"] is True
         assert len(auto_approve_preview["potential_actions"]) > 0
@@ -506,7 +525,7 @@ class TestBuildingCodesCompliance:
             "customer_data": {"retention_days": 730, "gdpr_subject": True},
             "training_data": {"retention_days": 1095, "anonymize_after_days": 365}
         }
-        
+
         assert retention_config["tickets"]["retention_days"] == 365
         assert retention_config["customer_data"]["gdpr_subject"] is True
 
@@ -520,7 +539,7 @@ class TestBuildingCodesCompliance:
             "status": "pending",
             "data_types": ["tickets", "messages", "customer_profile"]
         }
-        
+
         assert erasure_request["status"] == "pending"
         assert len(erasure_request["data_types"]) > 0
 
@@ -533,7 +552,7 @@ class TestBuildingCodesCompliance:
             "mfa_method": "totp",
             "backup_codes_count": 8
         }
-        
+
         assert user_security["mfa_enabled"] is True
 
     def test_bc011_jwt_expiration(self):
@@ -543,7 +562,7 @@ class TestBuildingCodesCompliance:
             "refresh_token_expires_days": 7,
             "refresh_token_rotation": True
         }
-        
+
         assert token_config["access_token_expires_minutes"] == 15
         assert token_config["refresh_token_expires_days"] == 7
 
@@ -553,7 +572,7 @@ class TestBuildingCodesCompliance:
             {"session_id": f"sess_{i}", "created_at": datetime.utcnow()}
             for i in range(5)
         ]
-        
+
         assert len(user_sessions) <= 5
 
     # BC-012: Error Handling
@@ -566,9 +585,10 @@ class TestBuildingCodesCompliance:
             "request_id": f"req_{uuid.uuid4()}",
             "timestamp": datetime.utcnow().isoformat()
         }
-        
+
         assert "stack_trace" not in error_response
-        assert error_response["details"] is None or isinstance(error_response["details"], str)
+        assert error_response["details"] is None or isinstance(
+            error_response["details"], str)
 
     def test_bc012_graceful_degradation(self):
         """System must gracefully degrade on failures."""
@@ -577,7 +597,7 @@ class TestBuildingCodesCompliance:
             "fallback_mode": "rule_based",
             "message": "AI temporarily unavailable, using fallback system"
         }
-        
+
         assert degraded_state["ai_available"] is False
         assert degraded_state["fallback_mode"] is not None
 
@@ -590,7 +610,7 @@ class TestBuildingCodesCompliance:
             "failure_threshold": 3,
             "reset_timeout_seconds": 30
         }
-        
+
         assert circuit_state["state"] in ["open", "half_open", "closed"]
         assert circuit_state["failure_count"] >= circuit_state["failure_threshold"]
 
@@ -609,7 +629,7 @@ class TestAICoreEngine:
             {"input": "I want a refund for my damaged product", "expected_tier": "medium"},
             {"input": "This is fraud! I never ordered this!", "expected_tier": "heavy"},
         ]
-        
+
         for case in classification_cases:
             # Simulated routing logic
             if "fraud" in case["input"].lower():
@@ -618,7 +638,7 @@ class TestAICoreEngine:
                 tier = "medium"
             else:
                 tier = "light"
-            
+
             assert tier == case["expected_tier"]
 
     def test_confidence_scoring(self):
@@ -635,7 +655,7 @@ class TestAICoreEngine:
                 "escalation": 0.60
             }
         }
-        
+
         assert 0 <= confidence_result["score"] <= 1
         assert confidence_result["score"] > confidence_result["threshold"]["escalation"]
 
@@ -651,7 +671,7 @@ class TestAICoreEngine:
             "hallucination_score": 0.75,
             "flagged": True
         }
-        
+
         # High hallucination score when facts can't be verified
         assert hallucination_check["flagged"] is True
         assert hallucination_check["hallucination_score"] > 0.5
@@ -664,7 +684,7 @@ class TestAICoreEngine:
             "reason": "prompt_injection_attempt",
             "category": "security"
         }
-        
+
         assert guardrails_result["blocked"] is True
         assert guardrails_result["reason"] == "prompt_injection_attempt"
 
@@ -675,7 +695,7 @@ class TestAICoreEngine:
             {"text": "This is acceptable.", "sentiment": "neutral", "score": 0.55},
             {"text": "I HATE THIS! GIVE ME A REFUND NOW!!!", "sentiment": "negative", "score": 0.95},
         ]
-        
+
         for result in sentiment_results:
             if result["sentiment"] == "negative" and result["score"] > 0.80:
                 assert result["sentiment"] == "negative"
@@ -691,7 +711,7 @@ class TestAICoreEngine:
             ],
             "context_used": "Returns accepted within 30 days with original receipt"
         }
-        
+
         assert len(rag_result["retrieved_docs"]) > 0
         assert rag_result["retrieved_docs"][0]["relevance"] > 0.5
 
@@ -712,7 +732,7 @@ class TestApprovalWorkflow:
             "requires_approval": True,
             "approval_status": "pending"
         }
-        
+
         assert refund_request["requires_approval"] is True
         assert refund_request["auto_approved"] is False
 
@@ -728,7 +748,7 @@ class TestApprovalWorkflow:
             "confidence_range": "92-97%",
             "risk_level": "low"
         }
-        
+
         assert len(batch["requests"]) == 3
         assert batch["risk_level"] == "low"
 
@@ -742,7 +762,7 @@ class TestApprovalWorkflow:
             "auto_approve_eligible": False,
             "routing": "human_immediate"
         }
-        
+
         assert emergency_ticket["auto_approve_eligible"] is False
         assert emergency_ticket["routing"] == "human_immediate"
 
@@ -760,10 +780,15 @@ class TestApprovalWorkflow:
             "approved_at": datetime.utcnow(),
             "ip_address": "192.168.1.1"
         }
-        
-        required_fields = ["approval_id", "ticket_id", "action_type", 
-                          "confidence_score", "ai_recommendation", "approved_by"]
-        
+
+        required_fields = [
+            "approval_id",
+            "ticket_id",
+            "action_type",
+            "confidence_score",
+            "ai_recommendation",
+            "approved_by"]
+
         for field in required_fields:
             assert field in approval_audit
 
@@ -785,7 +810,7 @@ class TestChannels:
             "email_sent": False,
             "preview_content": "We received your request..."
         }
-        
+
         assert email_shadow["email_sent"] is False
         assert email_shadow["preview_generated"] is True
 
@@ -799,7 +824,7 @@ class TestChannels:
             "escalation": True,
             "opt_out_handling": True
         }
-        
+
         for cap, enabled in sms_capabilities.items():
             assert enabled is True, f"SMS capability {cap} should be enabled"
 
@@ -810,7 +835,7 @@ class TestChannels:
             "parwa": 3,
             "parwa_high": 5
         }
-        
+
         for variant, limit in voice_limits.items():
             assert limit > 0
             assert isinstance(limit, int)
@@ -830,7 +855,7 @@ class TestChannels:
                 "sentiment": "frustrated"
             }
         }
-        
+
         assert len(omnichannel_session["sessions"]) == 3
         assert omnichannel_session["unified_context"]["order_id"] is not None
 
@@ -849,10 +874,11 @@ class TestJarvisCommandCenter:
             {"input": "Show me tickets from today", "expected_action": "show_tickets"},
             {"input": "What's the system status?", "expected_action": "system_status"},
         ]
-        
+
         for cmd in commands:
             # Simulated command parsing
-            if "pause" in cmd["input"].lower() and "refund" in cmd["input"].lower():
+            if "pause" in cmd["input"].lower(
+            ) and "refund" in cmd["input"].lower():
                 action = "pause_refunds"
             elif "show" in cmd["input"].lower() and "ticket" in cmd["input"].lower():
                 action = "show_tickets"
@@ -860,7 +886,7 @@ class TestJarvisCommandCenter:
                 action = "system_status"
             else:
                 action = "unknown"
-            
+
             assert action == cmd["expected_action"]
 
     def test_jarvis_system_state_awareness(self):
@@ -874,7 +900,7 @@ class TestJarvisCommandCenter:
             "ai_health": "healthy",
             "last_training": "2026-04-18"
         }
-        
+
         assert system_state["mode"] in ["shadow", "supervised", "graduated"]
         assert system_state["ai_health"] == "healthy"
 
@@ -885,9 +911,10 @@ class TestJarvisCommandCenter:
             "draft": "Dear customer, thank you for reaching out. I understand your concern about...",
             "confidence": 0.88,
             "requires_edit": True,
-            "suggested_edits": ["Add order number", "Personalize greeting"]
-        }
-        
+            "suggested_edits": [
+                "Add order number",
+                "Personalize greeting"]}
+
         assert co_pilot_result["draft"] is not None
         assert co_pilot_result["requires_edit"] is True
 
@@ -910,14 +937,14 @@ class TestTrainingPipeline:
             "mistake_type": "policy_misapplication",
             "timestamp": datetime.utcnow()
         }
-        
+
         assert mistake_entry["ai_response"] != mistake_entry["human_correction"]
 
     def test_training_trigger_at_50_mistakes(self):
         """Training triggers at exactly 50 mistakes."""
         mistake_count = 50
         training_triggered = mistake_count >= 50
-        
+
         assert training_triggered is True
 
     def test_training_data_isolation(self):
@@ -928,7 +955,7 @@ class TestTrainingPipeline:
             "cross_company_learning": False,
             "data_source": "own_interactions_only"
         }
-        
+
         assert training_config["isolated"] is True
         assert training_config["cross_company_learning"] is False
 
@@ -951,7 +978,7 @@ class TestIntegrations:
             },
             "processed": True
         }
-        
+
         assert shopify_webhook["processed"] is True
 
     def test_paddle_billing_webhook(self):
@@ -962,7 +989,7 @@ class TestIntegrations:
             "plan_id": "plan_parwa_growth",
             "status": "active"
         }
-        
+
         assert paddle_event["status"] == "active"
 
 
@@ -982,7 +1009,7 @@ class TestSecurity:
             "current_count": 95,
             "blocked": False
         }
-        
+
         assert rate_limit["current_count"] < rate_limit["limit"]
 
     def test_api_key_authentication(self):
@@ -994,7 +1021,7 @@ class TestSecurity:
             "expires_at": datetime.utcnow() + timedelta(days=365),
             "last_used": datetime.utcnow()
         }
-        
+
         assert len(api_key["scopes"]) > 0
 
     def test_no_sensitive_data_in_logs(self):
@@ -1009,10 +1036,10 @@ class TestSecurity:
             # - API keys
             # - PII
         }
-        
+
         sensitive_patterns = ["password", "credit_card", "api_key", "ssn"]
         log_str = json.dumps(log_entry).lower()
-        
+
         for pattern in sensitive_patterns:
             assert pattern not in log_str
 
@@ -1033,7 +1060,7 @@ class TestCrossVariantInteraction:
             "ticket_id": "ticket_123",
             "escalation_tier": "ai_upgrade"
         }
-        
+
         assert escalation["from_variant"] == "mini_parwa"
         assert escalation["to_variant"] == "parwa"
 
@@ -1046,7 +1073,7 @@ class TestCrossVariantInteraction:
             "ticket_id": "ticket_456",
             "escalation_tier": "senior_agent"
         }
-        
+
         assert escalation["from_variant"] == "parwa"
         assert escalation["to_variant"] == "parwa_high"
 
@@ -1057,10 +1084,10 @@ class TestCrossVariantInteraction:
             "parwa": ["faq", "routing", "sentiment", "refund_verify", "policy_check"],
             "parwa_high": ["all_techniques", "churn_prediction", "video_support"]
         }
-        
+
         # Mini PARWA cannot do churn prediction
         assert "churn_prediction" not in capabilities["mini_parwa"]
-        
+
         # PARWA High has all techniques
         assert "all_techniques" in capabilities["parwa_high"]
 
@@ -1084,7 +1111,7 @@ class TestProductionReadinessChecklist:
             "007_training",
             "008_integration"
         ]
-        
+
         assert len(migrations) == 8
         for migration in migrations:
             assert migration is not None
@@ -1101,7 +1128,7 @@ class TestProductionReadinessChecklist:
             "parwa:health:{subsystem}",
             "parwa:health:global"
         ]
-        
+
         assert len(redis_keys) == 8
 
     def test_celery_queues_defined(self):
@@ -1115,7 +1142,7 @@ class TestProductionReadinessChecklist:
             "analytics",
             "training"
         ]
-        
+
         assert len(queues) == 7
 
     def test_error_codes_defined(self):
@@ -1128,7 +1155,7 @@ class TestProductionReadinessChecklist:
             "RATE_LIMIT_001",  # Rate limit exceeded
             "VALIDATION_001",  # Validation error
         ]
-        
+
         assert len(error_codes) >= 6
 
     def test_health_check_endpoints(self):
@@ -1140,7 +1167,7 @@ class TestProductionReadinessChecklist:
             "/health/ai",
             "/health/celery"
         ]
-        
+
         assert len(health_endpoints) == 5
 
     def test_graceful_shutdown(self):
@@ -1151,7 +1178,7 @@ class TestProductionReadinessChecklist:
             "finish_in_flight_requests": True,
             "notify_monitoring": True
         }
-        
+
         assert shutdown_config["timeout_seconds"] >= 30
 
     def test_monitoring_configured(self):
@@ -1163,7 +1190,7 @@ class TestProductionReadinessChecklist:
             "log_aggregation": True,
             "alerting_configured": True
         }
-        
+
         for key, value in monitoring.items():
             assert value is True, f"Monitoring {key} should be enabled"
 

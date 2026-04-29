@@ -366,7 +366,8 @@ class BlockedResponseManager:
     # Class-level in-memory store: {company_id: {response_id: BlockedResponse}}
     _queue: Dict[str, Dict[str, BlockedResponse]] = {}
 
-    # Track reviewer assignments per company: {company_id: {reviewer_id: ReviewerAssignment}}
+    # Track reviewer assignments per company: {company_id: {reviewer_id:
+    # ReviewerAssignment}}
     _reviewers: Dict[str, Dict[str, ReviewerAssignment]] = {}
 
     # ── Create / Block ─────────────────────────────────────────
@@ -529,7 +530,7 @@ class BlockedResponseManager:
             )
 
             # Paginate.
-            return results[offset : offset + limit]
+            return results[offset: offset + limit]
 
         except Exception:
             logger.error(

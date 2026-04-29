@@ -21,6 +21,7 @@ import pytest
 # Runtime-injected by _mock_logger fixture — satisfies flake8 F821
 CACHE_TTL_SECONDS = QUERY_SYNONYMS = RAGChunk = RAGResult = RAGRetriever = VARIANT_CONFIG = MockVectorStore = SearchResult = StoredChunk = VectorStore = None
 
+
 @pytest.fixture(autouse=True)
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
@@ -325,7 +326,8 @@ class TestKeywordFallback:
         store = MockVectorStore()
         store.set_healthy(True)
         # Override search to raise exception
-        store.search = MagicMock(side_effect=RuntimeError("vector search failed"))
+        store.search = MagicMock(
+            side_effect=RuntimeError("vector search failed"))
         retriever = RAGRetriever(vector_store=store)
         with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
@@ -429,7 +431,8 @@ class TestQueryExpansion:
         assert len(expanded) >= 2
 
     def test_expand_max_3(self):
-        expanded = self.retriever._expand_query("refund error billing password")
+        expanded = self.retriever._expand_query(
+            "refund error billing password")
         assert len(expanded) <= 3  # max 3 total (original + 2 expansions)
 
     def test_expand_no_synonyms(self):
@@ -452,17 +455,37 @@ class TestReranking:
 
     def test_rerank_returns_same_count(self):
         chunks = [
-            RAGChunk(chunk_id="c1", document_id="d1", content="refund help", score=0.8),
-            RAGChunk(chunk_id="c2", document_id="d2", content="billing issue", score=0.7),
-            RAGChunk(chunk_id="c3", document_id="d3", content="password reset", score=0.6),
+            RAGChunk(
+                chunk_id="c1",
+                document_id="d1",
+                content="refund help",
+                score=0.8),
+            RAGChunk(
+                chunk_id="c2",
+                document_id="d2",
+                content="billing issue",
+                score=0.7),
+            RAGChunk(
+                chunk_id="c3",
+                document_id="d3",
+                content="password reset",
+                score=0.6),
         ]
         reranked = self.retriever._rerank("refund help", chunks)
         assert len(reranked) == 3
 
     def test_rerank_sorted_descending(self):
         chunks = [
-            RAGChunk(chunk_id="c1", document_id="d1", content="unrelated topic", score=0.9),
-            RAGChunk(chunk_id="c2", document_id="d2", content="refund help needed", score=0.5),
+            RAGChunk(
+                chunk_id="c1",
+                document_id="d1",
+                content="unrelated topic",
+                score=0.9),
+            RAGChunk(
+                chunk_id="c2",
+                document_id="d2",
+                content="refund help needed",
+                score=0.5),
         ]
         reranked = self.retriever._rerank("refund help", chunks)
         scores = [c.score for c in reranked]
@@ -470,8 +493,16 @@ class TestReranking:
 
     def test_rerank_phrase_bonus(self):
         chunks = [
-            RAGChunk(chunk_id="c1", document_id="d1", content="refund help", score=0.5),
-            RAGChunk(chunk_id="c2", document_id="d2", content="related but different text", score=0.5),
+            RAGChunk(
+                chunk_id="c1",
+                document_id="d1",
+                content="refund help",
+                score=0.5),
+            RAGChunk(
+                chunk_id="c2",
+                document_id="d2",
+                content="related but different text",
+                score=0.5),
         ]
         reranked = self.retriever._rerank("refund help", chunks)
         # First chunk should have higher score due to exact phrase match
@@ -479,8 +510,16 @@ class TestReranking:
 
     def test_rerank_word_overlap(self):
         chunks = [
-            RAGChunk(chunk_id="c1", document_id="d1", content="refund billing account", score=0.5),
-            RAGChunk(chunk_id="c2", document_id="d2", content="shipping package delivery", score=0.5),
+            RAGChunk(
+                chunk_id="c1",
+                document_id="d1",
+                content="refund billing account",
+                score=0.5),
+            RAGChunk(
+                chunk_id="c2",
+                document_id="d2",
+                content="shipping package delivery",
+                score=0.5),
         ]
         reranked = self.retriever._rerank("refund billing", chunks)
         # First chunk should score higher (more word overlap)
@@ -488,7 +527,11 @@ class TestReranking:
 
     def test_rerank_empty_query(self):
         chunks = [
-            RAGChunk(chunk_id="c1", document_id="d1", content="test", score=0.5),
+            RAGChunk(
+                chunk_id="c1",
+                document_id="d1",
+                content="test",
+                score=0.5),
         ]
         reranked = self.retriever._rerank("", chunks)
         assert len(reranked) == 1
@@ -536,15 +579,31 @@ class TestCitationTracking:
 
     def test_citation_default_source(self):
         chunks = [
-            RAGChunk(chunk_id="c1", document_id="d1", content="test", score=0.8),
+            RAGChunk(
+                chunk_id="c1",
+                document_id="d1",
+                content="test",
+                score=0.8),
         ]
         result = self.retriever._add_citations(chunks)
         assert "Knowledge Base" in result[0].citation
 
     def test_citation_multiple_chunks(self):
         chunks = [
-            RAGChunk(chunk_id="c1", document_id="d1", content="test", score=0.8, metadata={"source": "A"}),
-            RAGChunk(chunk_id="c2", document_id="d2", content="test2", score=0.7, metadata={"source": "B"}),
+            RAGChunk(
+                chunk_id="c1",
+                document_id="d1",
+                content="test",
+                score=0.8,
+                metadata={
+                    "source": "A"}),
+            RAGChunk(
+                chunk_id="c2",
+                document_id="d2",
+                content="test2",
+                score=0.7,
+                metadata={
+                    "source": "B"}),
         ]
         result = self.retriever._add_citations(chunks)
         assert len(result) == 2
@@ -564,8 +623,10 @@ class TestDedupLimit:
         # Add same chunk twice
         for _ in range(2):
             chunk = StoredChunk(
-                chunk_id="same_chunk", document_id="d1",
-                content="refund help", embedding=store._generate_embedding("refund"),
+                chunk_id="same_chunk",
+                document_id="d1",
+                content="refund help",
+                embedding=store._generate_embedding("refund"),
             )
             store.add_chunks([chunk], "c1")
         retriever = RAGRetriever(vector_store=store)
@@ -631,7 +692,7 @@ class TestCache:
         retriever = RAGRetriever(vector_store=store)
         cached_data = {
             "chunks": [{"chunk_id": "c1", "document_id": "d1", "content": "test",
-                         "score": 0.9, "metadata": {}, "citation": None}],
+                        "score": 0.9, "metadata": {}, "citation": None}],
             "total_found": 1,
             "retrieval_time_ms": 5.0,
             "query_embedding_time_ms": 2.0,
@@ -689,7 +750,8 @@ class TestCache:
 
     def test_cache_key_with_filters(self):
         key_no_filter = RAGRetriever._build_cache_key("q", "c1", "parwa", None)
-        key_filter = RAGRetriever._build_cache_key("q", "c1", "parwa", {"type": "faq"})
+        key_filter = RAGRetriever._build_cache_key(
+            "q", "c1", "parwa", {"type": "faq"})
         assert key_no_filter != key_filter
 
 
@@ -732,7 +794,8 @@ class TestUnknownVariant:
                 with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
                     with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                         await retriever.retrieve("test", company_id="c1", variant_type="bogus")
-                        # Should log warning for unknown variant in keyword fallback
+                        # Should log warning for unknown variant in keyword
+                        # fallback
                         call_strs = [str(c) for c in mock_warn.call_args_list]
                         assert any("unknown_variant" in s for s in call_strs)
 
@@ -756,12 +819,20 @@ class TestRAGDataClasses:
         assert d["citation"] == "[Source: KB]"
 
     def test_rag_chunk_defaults(self):
-        chunk = RAGChunk(chunk_id="c1", document_id="d1", content="test", score=0.5)
+        chunk = RAGChunk(
+            chunk_id="c1",
+            document_id="d1",
+            content="test",
+            score=0.5)
         assert chunk.metadata == {}
         assert chunk.citation is None
 
     def test_rag_result_to_dict(self):
-        chunk = RAGChunk(chunk_id="c1", document_id="d1", content="test", score=0.8)
+        chunk = RAGChunk(
+            chunk_id="c1",
+            document_id="d1",
+            content="test",
+            score=0.8)
         result = RAGResult(
             chunks=[chunk], total_found=1, retrieval_time_ms=10.5,
             query_embedding_time_ms=3.2, filters_applied={"type": "faq"},
@@ -1014,7 +1085,12 @@ class TestRerankingAdditional:
         self.retriever = RAGRetriever(vector_store=store)
 
     def test_rerank_single_chunk(self):
-        chunks = [RAGChunk(chunk_id="c1", document_id="d1", content="test", score=0.5)]
+        chunks = [
+            RAGChunk(
+                chunk_id="c1",
+                document_id="d1",
+                content="test",
+                score=0.5)]
         reranked = self.retriever._rerank("test", chunks)
         assert len(reranked) == 1
 
@@ -1024,7 +1100,11 @@ class TestRerankingAdditional:
 
     def test_rerank_score_capped_at_1(self):
         chunks = [
-            RAGChunk(chunk_id="c1", document_id="d1", content="test query words", score=0.99),
+            RAGChunk(
+                chunk_id="c1",
+                document_id="d1",
+                content="test query words",
+                score=0.99),
         ]
         reranked = self.retriever._rerank("test query words", chunks)
         assert reranked[0].score <= 1.0
@@ -1032,8 +1112,16 @@ class TestRerankingAdditional:
     def test_rerank_position_bonus(self):
         """Earlier chunks should get position bonus."""
         chunks = [
-            RAGChunk(chunk_id="c1", document_id="d1", content="query words", score=0.5),
-            RAGChunk(chunk_id="c2", document_id="d2", content="query words", score=0.5),
+            RAGChunk(
+                chunk_id="c1",
+                document_id="d1",
+                content="query words",
+                score=0.5),
+            RAGChunk(
+                chunk_id="c2",
+                document_id="d2",
+                content="query words",
+                score=0.5),
         ]
         reranked = self.retriever._rerank("query words", chunks)
         # First chunk should have slightly higher score due to position bonus
@@ -1050,10 +1138,17 @@ class TestCitationAdditional:
         assert result == []
 
     def test_citation_with_page_and_section(self):
-        chunks = [RAGChunk(
-            chunk_id="c1", document_id="d1", content="test", score=0.8,
-            metadata={"source": "Manual", "page": 10, "section": "Troubleshooting"},
-        )]
+        chunks = [
+            RAGChunk(
+                chunk_id="c1",
+                document_id="d1",
+                content="test",
+                score=0.8,
+                metadata={
+                    "source": "Manual",
+                    "page": 10,
+                    "section": "Troubleshooting"},
+            )]
         result = self.retriever._add_citations(chunks)
         assert "p. 10" in result[0].citation
         assert "Troubleshooting" in result[0].citation

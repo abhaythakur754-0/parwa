@@ -81,7 +81,9 @@ def _load_price_ids() -> Dict[str, str]:
         if env_json:
             overrides = json.loads(env_json)
             merged = {**_DEFAULT_PRICE_IDS, **overrides}
-            logger.info("paddle_price_ids_loaded_from_env count=%d", len(merged))
+            logger.info(
+                "paddle_price_ids_loaded_from_env count=%d",
+                len(merged))
             return merged
     except Exception as e:
         logger.warning("paddle_price_ids_env_parse_failed error=%s", str(e))
@@ -109,7 +111,12 @@ VARIANT_PRICE_IDS: Dict[str, str] = {
 
 class PaddleServiceError(Exception):
     """Base exception for Paddle service errors."""
-    def __init__(self, message: str, code: str = "paddle_service_error", details: Any = None):
+
+    def __init__(
+            self,
+            message: str,
+            code: str = "paddle_service_error",
+            details: Any = None):
         self.message = message
         self.code = code
         self.details = details
@@ -118,25 +125,35 @@ class PaddleServiceError(Exception):
 
 class DemoPackAlreadyActiveError(PaddleServiceError):
     """Raised when user tries to purchase demo pack while one is active."""
+
     def __init__(self, message: str = "Demo pack is already active"):
         super().__init__(message, code="demo_pack_already_active")
 
 
 class CheckoutCreationError(PaddleServiceError):
     """Raised when Paddle checkout creation fails."""
-    def __init__(self, message: str = "Failed to create checkout", details: Any = None):
+
+    def __init__(
+            self,
+            message: str = "Failed to create checkout",
+            details: Any = None):
         super().__init__(message, code="checkout_creation_failed", details=details)
 
 
 class PaymentNotFoundError(PaddleServiceError):
     """Raised when payment/session not found."""
+
     def __init__(self, message: str = "Payment not found"):
         super().__init__(message, code="payment_not_found")
 
 
 class WebhookProcessingError(PaddleServiceError):
     """Raised when webhook processing fails."""
-    def __init__(self, message: str = "Webhook processing failed", details: Any = None):
+
+    def __init__(
+            self,
+            message: str = "Webhook processing failed",
+            details: Any = None):
         super().__init__(message, code="webhook_processing_failed", details=details)
 
 
@@ -296,7 +313,8 @@ class PaddleService:
                 f"Unexpected error: {str(e)}",
             ) from e
 
-    async def handle_demo_pack_webhook(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def handle_demo_pack_webhook(
+            self, event_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process a demo pack payment success webhook event.
 
@@ -349,10 +367,12 @@ class PaddleService:
         )
 
         # Calculate pack expiry (24 hours from now)
-        expiry = datetime.now(timezone.utc) + timedelta(hours=DEMO_PACK_DURATION_HOURS)
+        expiry = datetime.now(timezone.utc) + \
+            timedelta(hours=DEMO_PACK_DURATION_HOURS)
 
         # Return the data that should be applied to the session
-        # The actual session update is done by the caller (JarvisService or API handler)
+        # The actual session update is done by the caller (JarvisService or API
+        # handler)
         result = {
             "status": "processed",
             "action": "demo_pack_activated",
@@ -457,7 +477,8 @@ class PaddleService:
                 total_monthly += Decimal(str(price)) * int(quantity)
 
             if not items:
-                raise CheckoutCreationError("No variants selected for checkout")
+                raise CheckoutCreationError(
+                    "No variants selected for checkout")
 
             # Build custom data
             custom_data = {
@@ -465,8 +486,16 @@ class PaddleService:
                 "pack_type": "subscription",
                 "source": "jarvis_onboarding",
                 "industry": industry,
-                "variant_ids": [v.get("id", "") for v in variants],
-                "variant_quantities": {v.get("id", ""): v.get("quantity", 1) for v in variants},
+                "variant_ids": [
+                    v.get(
+                        "id",
+                        "") for v in variants],
+                "variant_quantities": {
+                    v.get(
+                        "id",
+                        ""): v.get(
+                        "quantity",
+                        1) for v in variants},
             }
 
             # Create customer data
@@ -547,7 +576,8 @@ class PaddleService:
                 f"Unexpected error: {str(e)}",
             ) from e
 
-    async def handle_subscription_webhook(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def handle_subscription_webhook(
+            self, event_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process a variant subscription success webhook event.
 
@@ -662,7 +692,9 @@ class PaddleService:
                 "session_id": str,
             }
         """
-        logger.info("paddle_service_get_payment_status session_id=%s", session_id)
+        logger.info(
+            "paddle_service_get_payment_status session_id=%s",
+            session_id)
 
         # Default result when nothing is found
         result: Dict[str, Any] = {

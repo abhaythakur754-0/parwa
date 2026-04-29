@@ -17,7 +17,7 @@ BC-003: Webhook actions are idempotent.
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 logger = logging.getLogger("parwa.webhook_action_processor")
 
@@ -109,7 +109,8 @@ def _process_brevo_inbound_email(
             result = service.process_inbound_email(
                 company_id=company_id, email_data=email_data,
             )
-            ticket_id = result.get("ticket_id") if isinstance(result, dict) else result
+            ticket_id = result.get("ticket_id") if isinstance(
+                result, dict) else result
 
             if ticket_id:
                 logger.info(

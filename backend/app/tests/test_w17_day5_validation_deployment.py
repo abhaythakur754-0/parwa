@@ -8,8 +8,6 @@ Tests:
 """
 
 import pytest
-import os
-from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
@@ -61,8 +59,8 @@ class TestModelValidationService:
             "safety_score": 0.98,
         }
         gates = service._check_quality_gates(metrics)
-        assert gates["accuracy"]["passed"] == True
-        assert gates["f1_score"]["passed"] == True
+        assert gates["accuracy"]["passed"]
+        assert gates["f1_score"]["passed"]
 
     def test_quality_gates_check_fail(self, service):
         """Test quality gates failing."""
@@ -86,7 +84,7 @@ class TestModelValidationService:
                 "f1_score": {"passed": True},
             },
         }
-        assert service.is_model_deployable(passed_result) == True
+        assert service.is_model_deployable(passed_result)
 
         failed_result = {
             "status": "failed",
@@ -181,36 +179,36 @@ class TestModelDeploymentService:
     def test_auto_rollback_on_high_error_rate(self, service, deployment):
         """Test auto-rollback on high error rate."""
         deployment = service.start_deployment(deployment, canary_percentage=5)
-        
+
         with patch.object(service, '_collect_deployment_metrics') as mock_metrics:
             mock_metrics.return_value = {
                 "error_rate": 0.10,
                 "latency_p95_ms": 500,
             }
             result = service.check_and_auto_rollback(deployment)
-        
+
         assert result["action"] == "rollback"
 
     def test_no_rollback_when_healthy(self, service, deployment):
         """Test no rollback when deployment is healthy."""
         deployment = service.start_deployment(deployment, canary_percentage=5)
-        
+
         with patch.object(service, '_collect_deployment_metrics') as mock_metrics:
             mock_metrics.return_value = {
                 "error_rate": 0.01,
                 "latency_p95_ms": 500,
             }
             result = service.check_and_auto_rollback(deployment)
-        
+
         assert result["action"] == "continue"
 
     def test_pause_and_resume_deployment(self, service, deployment):
         """Test pausing and resuming deployment."""
         deployment = service.start_deployment(deployment, canary_percentage=5)
-        
+
         paused = service.pause_deployment(deployment)
         assert paused["status"] == "paused"
-        
+
         resumed = service.resume_deployment(paused)
         assert resumed["status"] == "rolling_out"
 
@@ -240,7 +238,7 @@ class TestValidationDeploymentIntegration:
 
         # Check deployable
         is_deployable = validation_service.is_model_deployable(validation)
-        
+
         if is_deployable:
             deployment = deployment_service.create_deployment(
                 company_id=str(uuid4()),

@@ -18,9 +18,8 @@ Tests the AgentDashboardService covering:
 Building Codes: BC-001, BC-005, BC-007, BC-012
 """
 
-import json
 import pytest
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from app.exceptions import ValidationError, NotFoundError
@@ -340,7 +339,8 @@ class TestPauseAgent:
         mock_db.query.return_value.filter.return_value.first.return_value = agent
 
         with patch.object(service, "_emit_status_change"):
-            result = service.pause_agent("agent-123", mock_db, user_id="user-1")
+            result = service.pause_agent(
+                "agent-123", mock_db, user_id="user-1")
 
         assert result["previous_status"] == "active"
         assert result["new_status"] == "paused"
@@ -394,7 +394,8 @@ class TestResumeAgent:
         mock_db.query.return_value.filter.return_value.first.return_value = agent
 
         with patch.object(service, "_emit_status_change"):
-            result = service.resume_agent("agent-123", mock_db, user_id="user-1")
+            result = service.resume_agent(
+                "agent-123", mock_db, user_id="user-1")
 
         assert result["previous_status"] == "paused"
         assert result["new_status"] == "active"
@@ -562,7 +563,9 @@ class TestQuickActions:
         assert resume["allowed"] is False
 
     def test_retrain_allowed_with_checkpoint(self, service):
-        agent = _make_mock_agent(status="active", model_checkpoint_id="ckpt-abc")
+        agent = _make_mock_agent(
+            status="active",
+            model_checkpoint_id="ckpt-abc")
         actions = service._compute_quick_actions(agent)
 
         retrain = next(a for a in actions if a["action"] == "retrain")
@@ -653,7 +656,8 @@ class TestCardBuilder:
 
 class TestJsonParser:
     def test_valid_json(self):
-        assert AgentDashboardService._parse_json('{"key": "value"}') == {"key": "value"}
+        assert AgentDashboardService._parse_json(
+            '{"key": "value"}') == {"key": "value"}
 
     def test_none_returns_empty(self):
         assert AgentDashboardService._parse_json(None) == {}

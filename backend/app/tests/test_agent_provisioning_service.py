@@ -15,9 +15,8 @@ Test classes:
 - TestValidation: Specialty, channel, name validation
 """
 
-import json
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 

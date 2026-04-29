@@ -10,7 +10,6 @@ Run:  pytest tests/test_jarvis_pipeline_integration.py -v
 import ast
 import os
 import re
-import pytest
 
 
 # Path to the jarvis_service.py file
@@ -30,7 +29,8 @@ def _get_jarvis_source():
 def _get_function_names(source):
     """Extract all function names from source."""
     tree = ast.parse(source)
-    return [node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
+    return [node.name for node in ast.walk(
+        tree) if isinstance(node, ast.FunctionDef)]
 
 
 def _get_function_source(source, func_name):
@@ -98,7 +98,7 @@ class TestIntegrationPipelineStructure:
         # Verify increasing order
         for i in range(len(positions) - 1):
             assert positions[i] < positions[i + 1], (
-                f"Wrong order: {functions[i]} should come before {functions[i+1]}"
+                f"Wrong order: {functions[i]} should come before {functions[i + 1]}"
             )
 
     def test_postprocessing_phase_has_correct_order(self):
@@ -137,7 +137,7 @@ class TestIntegrationPipelineStructure:
 
         for i in range(len(positions) - 1):
             assert positions[i] < positions[i + 1], (
-                f"Wrong order: {functions[i]} before {functions[i+1]}"
+                f"Wrong order: {functions[i]} before {functions[i + 1]}"
             )
 
     def test_operations_fire_and_forget(self):
@@ -148,7 +148,8 @@ class TestIntegrationPipelineStructure:
         source = _get_jarvis_source()
         func_src = _get_function_source(source, "_call_ai_provider")
 
-        # Extract operations section (everything after OPERATIONS comment to return)
+        # Extract operations section (everything after OPERATIONS comment to
+        # return)
         ops_match = re.search(
             r"# ═+.*?OPERATIONS.*?═+(.*?)(?:\n    # Determine|\n    return )",
             func_src, re.DOTALL,
@@ -294,8 +295,7 @@ class TestIntegrationMetadataFlow:
             # Each key should appear in a metadata assignment
             pattern = f'metadata["{key}"]'
             assert pattern in func_src or f'metadata.get("{key}"' in func_src, (
-                f"Missing metadata key: {key}"
-            )
+                f"Missing metadata key: {key}")
 
 
 class TestIntegrationGSDStateMapping:
@@ -336,7 +336,8 @@ class TestIntegrationBeforeVsAfterComparison:
         all_functions = _get_function_names(source)
 
         pipeline_prefix = "_"
-        pipeline_functions = [f for f in all_functions if f.startswith(pipeline_prefix)]
+        pipeline_functions = [
+            f for f in all_functions if f.startswith(pipeline_prefix)]
         assert len(pipeline_functions) >= 32
 
     def test_before_no_service_imports_after_has_all(self):
@@ -412,7 +413,8 @@ class TestIntegrationFileMetrics:
         """AFTER: jarvis_service.py defines 50+ functions."""
         source = _get_jarvis_source()
         functions = _get_function_names(source)
-        assert len(functions) >= 50, f"Expected 50+ functions, got {len(functions)}"
+        assert len(
+            functions) >= 50, f"Expected 50+ functions, got {len(functions)}"
 
     def test_pipeline_helpers_section_size(self):
         """AFTER: Pipeline helpers section is 900+ lines."""

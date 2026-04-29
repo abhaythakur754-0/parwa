@@ -15,11 +15,9 @@ Features:
 
 from __future__ import annotations
 
-import json
-import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

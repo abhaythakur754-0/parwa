@@ -23,7 +23,7 @@ BC-012: Structured JSON error responses.
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request, Path, HTTPException
+from fastapi import APIRouter, Depends, Query, Request, Path
 from fastapi.responses import JSONResponse
 
 from app.api.deps import require_roles
@@ -65,7 +65,10 @@ async def get_retraining_schedule(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -82,7 +85,10 @@ async def get_retraining_schedule(
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get retraining schedule"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get retraining schedule"}},
         )
 
 
@@ -91,15 +97,17 @@ async def get_retraining_schedule(
     summary="Get agents due for retraining (F-106)",
 )
 async def get_agents_due_for_retraining(
-    request: Request,
-    include_force: bool = Query(False, description="Include all agents regardless of timing"),
-):
+    request: Request, include_force: bool = Query(
+        False, description="Include all agents regardless of timing"), ):
     """Get list of agents that are due for bi-weekly retraining."""
     company_id = _get_company_id(request)
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -107,7 +115,8 @@ async def get_agents_due_for_retraining(
         from app.services.fallback_training_service import FallbackTrainingService
 
         service = FallbackTrainingService(db)
-        agents = service.get_agents_due_for_retraining(company_id, include_force)
+        agents = service.get_agents_due_for_retraining(
+            company_id, include_force)
 
         return {
             "company_id": company_id,
@@ -124,7 +133,10 @@ async def get_agents_due_for_retraining(
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get due agents"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get due agents"}},
         )
 
 
@@ -143,7 +155,10 @@ async def schedule_retraining(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -161,7 +176,10 @@ async def schedule_retraining(
         if result.get("status") == "error":
             return JSONResponse(
                 status_code=400,
-                content={"error": {"code": "SCHEDULE_ERROR", "message": result.get("error")}},
+                content={
+                    "error": {
+                        "code": "SCHEDULE_ERROR",
+                        "message": result.get("error")}},
             )
 
         return result
@@ -169,11 +187,18 @@ async def schedule_retraining(
     except Exception as exc:
         logger.error(
             "schedule_retraining_error",
-            extra={"company_id": company_id, "agent_id": agent_id, "error": str(exc)[:200]},
+            extra={
+                "company_id": company_id,
+                "agent_id": agent_id,
+                "error": str(exc)[
+                    :200]},
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to schedule retraining"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to schedule retraining"}},
         )
 
 
@@ -187,7 +212,10 @@ async def schedule_all_retraining(request: Request):
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -204,7 +232,10 @@ async def schedule_all_retraining(request: Request):
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to schedule all retraining"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to schedule all retraining"}},
         )
 
 
@@ -222,7 +253,10 @@ async def get_training_effectiveness(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -239,7 +273,10 @@ async def get_training_effectiveness(
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get training effectiveness"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get training effectiveness"}},
         )
 
 
@@ -253,7 +290,10 @@ async def get_retraining_stats(request: Request):
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -270,7 +310,10 @@ async def get_retraining_stats(request: Request):
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get retraining stats"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get retraining stats"}},
         )
 
 
@@ -291,7 +334,10 @@ async def get_cold_start_status(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -304,11 +350,18 @@ async def get_cold_start_status(
     except Exception as exc:
         logger.error(
             "get_cold_start_status_error",
-            extra={"company_id": company_id, "agent_id": agent_id, "error": str(exc)[:200]},
+            extra={
+                "company_id": company_id,
+                "agent_id": agent_id,
+                "error": str(exc)[
+                    :200]},
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get cold start status"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get cold start status"}},
         )
 
 
@@ -322,7 +375,10 @@ async def get_agents_needing_cold_start(request: Request):
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -345,7 +401,10 @@ async def get_agents_needing_cold_start(request: Request):
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get agents needing cold start"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get agents needing cold start"}},
         )
 
 
@@ -365,7 +424,10 @@ async def initialize_cold_start(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -384,7 +446,10 @@ async def initialize_cold_start(
         if result.get("status") == "error":
             return JSONResponse(
                 status_code=400,
-                content={"error": {"code": "INIT_ERROR", "message": result.get("error")}},
+                content={
+                    "error": {
+                        "code": "INIT_ERROR",
+                        "message": result.get("error")}},
             )
 
         return result
@@ -392,11 +457,18 @@ async def initialize_cold_start(
     except Exception as exc:
         logger.error(
             "initialize_cold_start_error",
-            extra={"company_id": company_id, "agent_id": agent_id, "error": str(exc)[:200]},
+            extra={
+                "company_id": company_id,
+                "agent_id": agent_id,
+                "error": str(exc)[
+                    :200]},
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to initialize cold start"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to initialize cold start"}},
         )
 
 
@@ -406,14 +478,19 @@ async def initialize_cold_start(
 )
 async def initialize_all_cold_start(
     request: Request,
-    default_industry: str = Query("generic", description="Default industry template"),
+    default_industry: str = Query(
+        "generic",
+        description="Default industry template"),
 ):
     """Initialize cold start for all agents that need it."""
     company_id = _get_company_id(request)
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -421,7 +498,8 @@ async def initialize_all_cold_start(
         from app.services.cold_start_service import ColdStartService
 
         service = ColdStartService(db)
-        return service.initialize_all_cold_start_agents(company_id, default_industry)
+        return service.initialize_all_cold_start_agents(
+            company_id, default_industry)
 
     except Exception as exc:
         logger.error(
@@ -430,7 +508,10 @@ async def initialize_all_cold_start(
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to initialize all cold start agents"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to initialize all cold start agents"}},
         )
 
 
@@ -459,7 +540,10 @@ async def list_industry_templates(request: Request):
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to list industry templates"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to list industry templates"}},
         )
 
 
@@ -482,7 +566,10 @@ async def get_industry_template(
         if result.get("template") is None:
             return JSONResponse(
                 status_code=404,
-                content={"error": {"code": "NOT_FOUND", "message": f"Industry template '{industry}' not found"}},
+                content={
+                    "error": {
+                        "code": "NOT_FOUND",
+                        "message": f"Industry template '{industry}' not found"}},
             )
 
         return result
@@ -494,7 +581,10 @@ async def get_industry_template(
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get industry template"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get industry template"}},
         )
 
 
@@ -508,7 +598,10 @@ async def get_cold_start_stats(request: Request):
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -525,5 +618,8 @@ async def get_cold_start_stats(request: Request):
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get cold start stats"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get cold start stats"}},
         )

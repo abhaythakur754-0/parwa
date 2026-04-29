@@ -27,7 +27,7 @@ Building Codes: BC-011 (auth), BC-012 (error handling)
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from app.logger import get_logger
 
@@ -253,21 +253,26 @@ _register_command(CommandDefinition(
     examples=["restart agent jarvis-primary", "restart agent X"],
 ))
 
-_register_command(CommandDefinition(
-    command_type="assign_agent",
-    description="Assign an agent to handle a ticket",
-    category="agents",
-    patterns=[
-        r"^assign\s+(?:agent\s+)?" + _AGENT_ID_PATTERN + r"\s+to\s+(?:ticket\s+)?" + _TICKET_ID_PATTERN + r"$",
-    ],
-    aliases=["assign agent"],
-    requires_confirmation=False,
-    params={
-        "agent_id": _AGENT_ID_PATTERN,
-        "ticket_id": _TICKET_ID_PATTERN,
-    },
-    examples=["assign agent jarvis-primary to ticket TKT-123"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="assign_agent",
+        description="Assign an agent to handle a ticket",
+        category="agents",
+        patterns=[
+            r"^assign\s+(?:agent\s+)?" +
+            _AGENT_ID_PATTERN +
+            r"\s+to\s+(?:ticket\s+)?" +
+            _TICKET_ID_PATTERN +
+            r"$",
+        ],
+        aliases=["assign agent"],
+        requires_confirmation=False,
+        params={
+            "agent_id": _AGENT_ID_PATTERN,
+            "ticket_id": _TICKET_ID_PATTERN,
+        },
+        examples=["assign agent jarvis-primary to ticket TKT-123"],
+    ))
 
 # ── Ticket Operations ────────────────────────────────────────────
 
@@ -287,47 +292,76 @@ _register_command(CommandDefinition(
     examples=["list tickets", "list open tickets", "show last 20 tickets"],
 ))
 
-_register_command(CommandDefinition(
-    command_type="get_ticket",
-    description="Get details of a specific ticket",
-    category="tickets",
-    patterns=[
-        r"^(?:show|get|view|details?\s+(?:of\s+)?)ticket\s+" + _TICKET_ID_PATTERN + r"$",
-        r"^ticket\s+" + _TICKET_ID_PATTERN + r"$",
-    ],
-    aliases=["ticket details", "show ticket"],
-    params={"ticket_id": _TICKET_ID_PATTERN},
-    examples=["get ticket TKT-123", "show ticket TKT-456"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="get_ticket",
+        description="Get details of a specific ticket",
+        category="tickets",
+        patterns=[
+            r"^(?:show|get|view|details?\s+(?:of\s+)?)ticket\s+" +
+            _TICKET_ID_PATTERN +
+            r"$",
+            r"^ticket\s+" +
+            _TICKET_ID_PATTERN +
+            r"$",
+        ],
+        aliases=[
+            "ticket details",
+            "show ticket"],
+        params={
+            "ticket_id": _TICKET_ID_PATTERN},
+        examples=[
+            "get ticket TKT-123",
+            "show ticket TKT-456"],
+    ))
 
-_register_command(CommandDefinition(
-    command_type="escalate_ticket",
-    description="Escalate a ticket to a human agent",
-    category="tickets",
-    patterns=[
-        r"^escalate\s+(?:ticket\s+)?" + _TICKET_ID_PATTERN + r"$",
-        r"^(?:assign|handoff)\s+(?:ticket\s+)?" + _TICKET_ID_PATTERN + r"\s+to\s+human$",
-    ],
-    aliases=["escalate", "escalate ticket", "handoff to human"],
-    params={"ticket_id": _TICKET_ID_PATTERN},
-    requires_confirmation=True,
-    examples=["escalate ticket TKT-123", "escalate TKT-456"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="escalate_ticket",
+        description="Escalate a ticket to a human agent",
+        category="tickets",
+        patterns=[
+            r"^escalate\s+(?:ticket\s+)?" +
+            _TICKET_ID_PATTERN +
+            r"$",
+            r"^(?:assign|handoff)\s+(?:ticket\s+)?" +
+            _TICKET_ID_PATTERN +
+            r"\s+to\s+human$",
+        ],
+        aliases=[
+            "escalate",
+            "escalate ticket",
+            "handoff to human"],
+        params={
+            "ticket_id": _TICKET_ID_PATTERN},
+        requires_confirmation=True,
+        examples=[
+            "escalate ticket TKT-123",
+            "escalate TKT-456"],
+    ))
 
-_register_command(CommandDefinition(
-    command_type="close_ticket",
-    description="Close a ticket",
-    category="tickets",
-    patterns=[
-        r"^close\s+(?:ticket\s+)?" + _TICKET_ID_PATTERN + r"$",
-        r"^(?:resolve|mark\s+as\s+resolved)\s+(?:ticket\s+)?" + _TICKET_ID_PATTERN + r"$",
-    ],
-    aliases=["close ticket", "resolve ticket"],
-    params={"ticket_id": _TICKET_ID_PATTERN},
-    requires_confirmation=True,
-    is_destructive=True,
-    examples=["close ticket TKT-123"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="close_ticket",
+        description="Close a ticket",
+        category="tickets",
+        patterns=[
+            r"^close\s+(?:ticket\s+)?" +
+            _TICKET_ID_PATTERN +
+            r"$",
+            r"^(?:resolve|mark\s+as\s+resolved)\s+(?:ticket\s+)?" +
+            _TICKET_ID_PATTERN +
+            r"$",
+        ],
+        aliases=[
+            "close ticket",
+            "resolve ticket"],
+        params={
+            "ticket_id": _TICKET_ID_PATTERN},
+        requires_confirmation=True,
+        is_destructive=True,
+        examples=["close ticket TKT-123"],
+    ))
 
 _register_command(CommandDefinition(
     command_type="reopen_ticket",
@@ -344,20 +378,27 @@ _register_command(CommandDefinition(
 
 # ── Analytics ────────────────────────────────────────────────────
 
-_register_command(CommandDefinition(
-    command_type="show_analytics",
-    description="Show analytics dashboard summary",
-    category="analytics",
-    patterns=[
-        r"^(?:show|get|display)\s+(?:the\s+)?analytics?$",
-        r"^analytics?(?:\s+dashboard)?$",
-    ],
-    aliases=["analytics", "dashboard", "show analytics"],
-    params={
-        "period": r"(?:for\s+(?:the\s+)?)?(?:last|past)\s+" + _DURATION_PATTERN,
-    },
-    examples=["show analytics", "analytics for last 7 days"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="show_analytics",
+        description="Show analytics dashboard summary",
+        category="analytics",
+        patterns=[
+            r"^(?:show|get|display)\s+(?:the\s+)?analytics?$",
+            r"^analytics?(?:\s+dashboard)?$",
+        ],
+        aliases=[
+            "analytics",
+            "dashboard",
+            "show analytics"],
+        params={
+            "period": r"(?:for\s+(?:the\s+)?)?(?:last|past)\s+" +
+            _DURATION_PATTERN,
+        },
+        examples=[
+            "show analytics",
+            "analytics for last 7 days"],
+    ))
 
 _register_command(CommandDefinition(
     command_type="query_analytics",
@@ -377,20 +418,30 @@ _register_command(CommandDefinition(
 
 # ── Usage & Cost ────────────────────────────────────────────────
 
-_register_command(CommandDefinition(
-    command_type="show_usage",
-    description="Show usage and cost summary",
-    category="usage",
-    patterns=[
-        r"^(?:show|get|display)\s+(?:current\s+)?(?:usage|cost)s?$",
-        r"^(?:usage|cost)\s+(?:summary|report|dashboard)?$",
-    ],
-    aliases=["usage", "cost", "show usage", "cost report", "usage summary"],
-    params={
-        "period": r"(?:for\s+(?:the\s+)?)?(?:last|past|this)\s+" + _DURATION_PATTERN,
-    },
-    examples=["show usage", "cost report", "show usage for last 7 days"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="show_usage",
+        description="Show usage and cost summary",
+        category="usage",
+        patterns=[
+            r"^(?:show|get|display)\s+(?:current\s+)?(?:usage|cost)s?$",
+            r"^(?:usage|cost)\s+(?:summary|report|dashboard)?$",
+        ],
+        aliases=[
+            "usage",
+            "cost",
+            "show usage",
+            "cost report",
+            "usage summary"],
+        params={
+            "period": r"(?:for\s+(?:the\s+)?)?(?:last|past|this)\s+" +
+            _DURATION_PATTERN,
+        },
+        examples=[
+            "show usage",
+            "cost report",
+            "show usage for last 7 days"],
+    ))
 
 # ── Integrations ────────────────────────────────────────────────
 
@@ -406,17 +457,25 @@ _register_command(CommandDefinition(
     examples=["list integrations", "show integrations"],
 ))
 
-_register_command(CommandDefinition(
-    command_type="check_integration",
-    description="Check health of a specific integration",
-    category="integrations",
-    patterns=[
-        r"^check\s+(?:integration\s+)?" + _INTEGRATION_PATTERN + r"\s*(?:health|status)?$",
-    ],
-    aliases=["check integration", "integration health"],
-    params={"name": _INTEGRATION_PATTERN},
-    examples=["check integration paddle", "check brevo health"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="check_integration",
+        description="Check health of a specific integration",
+        category="integrations",
+        patterns=[
+            r"^check\s+(?:integration\s+)?" +
+            _INTEGRATION_PATTERN +
+            r"\s*(?:health|status)?$",
+        ],
+        aliases=[
+            "check integration",
+            "integration health"],
+        params={
+            "name": _INTEGRATION_PATTERN},
+        examples=[
+            "check integration paddle",
+            "check brevo health"],
+    ))
 
 _register_command(CommandDefinition(
     command_type="enable_integration",
@@ -503,18 +562,28 @@ _register_command(CommandDefinition(
 
 # ── Training ─────────────────────────────────────────────────────
 
-_register_command(CommandDefinition(
-    command_type="train_model",
-    description="Trigger model training from recent error data",
-    category="training",
-    patterns=[
-        r"^train\s+(?:model\s+)?(?:from\s+)?(?:last\s+)?errors?$",
-        r"^(?:retrain|fine[\s-]?tune)\s+(?:model)?$",
-        r"^(?:trigger|start)\s+(?:model\s+)?training$",
-    ],
-    aliases=["train", "train model", "retrain", "fine-tune", "train from error", "train from errors"],
-    examples=["train from errors", "retrain model", "fine-tune"],
-))
+_register_command(
+    CommandDefinition(
+        command_type="train_model",
+        description="Trigger model training from recent error data",
+        category="training",
+        patterns=[
+            r"^train\s+(?:model\s+)?(?:from\s+)?(?:last\s+)?errors?$",
+            r"^(?:retrain|fine[\s-]?tune)\s+(?:model)?$",
+            r"^(?:trigger|start)\s+(?:model\s+)?training$",
+        ],
+        aliases=[
+            "train",
+            "train model",
+            "retrain",
+            "fine-tune",
+            "train from error",
+            "train from errors"],
+        examples=[
+            "train from errors",
+            "retrain model",
+            "fine-tune"],
+    ))
 
 _register_command(CommandDefinition(
     command_type="evaluate_model",
@@ -645,7 +714,8 @@ class JarvisCommandParser:
             alias_count=len(self._alias_index),
         )
 
-    def parse(self, command: str, context: Optional[Dict[str, Any]] = None) -> ParsedCommand:
+    def parse(self, command: str,
+              context: Optional[Dict[str, Any]] = None) -> ParsedCommand:
         """Parse a natural language command into a structured action.
 
         Resolution order:
@@ -729,7 +799,10 @@ class JarvisCommandParser:
         # Flatten into sorted list
         result = []
         for cat in sorted(categories.keys()):
-            result.extend(sorted(categories[cat], key=lambda x: x["command_type"]))
+            result.extend(
+                sorted(
+                    categories[cat],
+                    key=lambda x: x["command_type"]))
 
         return result
 
@@ -771,11 +844,14 @@ class JarvisCommandParser:
                 command_type=cmd_type,
                 original_command=original,
                 params=self._extract_params_from_context(
-                    cmd_def, original, None,
+                    cmd_def,
+                    original,
+                    None,
                 ),
                 confidence=1.0,
                 requires_confirmation=cmd_def.requires_confirmation or cmd_def.is_destructive,
-                execution_summary=f"Execute: {cmd_def.description}",
+                execution_summary=f"Execute: {
+                    cmd_def.description}",
                 aliases_matched=[normalized],
             )
 
@@ -820,7 +896,8 @@ class JarvisCommandParser:
                             params=params,
                             confidence=confidence,
                             requires_confirmation=cmd_def.requires_confirmation or cmd_def.is_destructive,
-                            execution_summary=f"Execute: {cmd_def.description}",
+                            execution_summary=f"Execute: {
+                                cmd_def.description}",
                         )
 
         return best_match
@@ -874,7 +951,8 @@ class JarvisCommandParser:
             try:
                 p = re.compile(param_pattern, re.IGNORECASE)
                 m = p.search(command)
-                if m and param_name in m.groupdict() and m.groupdict()[param_name]:
+                if m and param_name in m.groupdict() and m.groupdict()[
+                        param_name]:
                     params.append({
                         "name": param_name,
                         "value": m.groupdict()[param_name].strip(),

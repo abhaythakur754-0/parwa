@@ -21,16 +21,14 @@ Based on: JARVIS_Production_Documentation.md
 """
 
 import json
-import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, Query, Request, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 
 from app.api.deps import get_current_user, get_company_id
-from app.exceptions import ValidationError, NotFoundError
 from app.logger import get_logger
 from database.base import get_db
 from database.models.core import User
@@ -86,20 +84,20 @@ async def jarvis_production_chat(
     db: Session = Depends(get_db),
 ):
     """Main Production Jarvis chat endpoint.
-    
+
     Handles all user messages and returns Jarvis responses.
     Can execute actions directly or create drafts for review.
-    
+
     Jarvis responds with:
     - Natural language response
     - Optional action draft (for complex actions)
     - Context awareness (what Jarvis knows)
     """
-    
+
     user_id = str(user.id)
     message = body.message.strip()
     context = body.context or {}
-    
+
     # Get or create session
     session = jps.get_or_create_session(
         db=db,
@@ -107,7 +105,7 @@ async def jarvis_production_chat(
         company_id=company_id,
         variant_tier=_get_user_variant_tier(db, user),
     )
-    
+
     # Track this message
     jps.track_activity(
         db=db,
@@ -120,20 +118,20 @@ async def jarvis_production_chat(
         description=message[:200],
         metadata={"auto_execute": body.auto_execute},
     )
-    
+
     # Get system context for AI
     system_context = jps.get_system_overview(db, company_id, user_id)
-    
+
     # Get recent memories
     memories = jps.recall_memory(db, company_id, user_id, limit=5)
     memory_context = [
         {"key": m.memory_key, "value": m.memory_value, "category": m.category}
         for m in memories
     ]
-    
+
     # Get today's tasks
     today_tasks = json.loads(session.today_tasks_json or "[]")
-    
+
     # Build AI context
     ai_context = {
         "system_overview": system_context,
@@ -143,7 +141,7 @@ async def jarvis_production_chat(
         "variant_tier": session.variant_tier,
         "features": json.loads(session.features_enabled_json or "{}"),
     }
-    
+
     # Process message with AI
     try:
         ai_response, action_result = await _process_message_with_ai(
@@ -160,12 +158,12 @@ async def jarvis_production_chat(
         logger.error(f"jarvis_ai_error: {e}")
         ai_response = _get_fallback_response()
         action_result = None
-    
+
     # Update session
     session.last_interaction_at = datetime.now(timezone.utc)
     session.updated_at = datetime.now(timezone.utc)
     db.flush()
-    
+
     response = {
         "response": ai_response,
         "context": {
@@ -175,14 +173,15 @@ async def jarvis_production_chat(
         },
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
-    
+
     # Include draft if created
     if action_result and action_result.get("draft"):
         response["draft"] = action_result["draft"]
-    
+
     # Include alert if any critical
     if system_context.get("alerts_by_severity", {}).get("critical", 0) > 0:
-        alerts = jps.get_active_alerts(db, company_id, user_id, min_severity="critical")
+        alerts = jps.get_active_alerts(
+            db, company_id, user_id, min_severity="critical")
         if alerts:
             response["alert"] = {
                 "id": str(alerts[0].id),
@@ -190,7 +189,7 @@ async def jarvis_production_chat(
                 "message": alerts[0].message,
                 "severity": alerts[0].severity,
             }
-    
+
     return response
 
 
@@ -205,7 +204,7 @@ async def get_jarvis_context(
     db: Session = Depends(get_db),
 ):
     """Get current Jarvis context and awareness.
-    
+
     Returns what Jarvis knows about:
     - Today's activities
     - Active alerts
@@ -213,13 +212,13 @@ async def get_jarvis_context(
     - System status
     - Recent errors
     """
-    
+
     user_id = str(user.id)
     overview = jps.get_system_overview(db, company_id, user_id)
-    
+
     # Get recent activities
     activities = jps.get_recent_activities(db, company_id, user_id, limit=10)
-    
+
     return {
         **overview,
         "recent_activities": [
@@ -235,16 +234,27 @@ async def get_jarvis_context(
 
 @router.get("/api/jarvis/prod/history")
 async def get_jarvis_history(
-    user_filter: Optional[str] = Query(None, description="Filter by user ID"),
-    event_type: Optional[str] = Query(None, description="Filter by event type"),
-    hours: int = Query(24, ge=1, le=168, description="Hours to look back"),
-    limit: int = Query(50, ge=1, le=200),
-    company_id: str = Depends(get_company_id),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+        user_filter: Optional[str] = Query(
+            None,
+            description="Filter by user ID"),
+    event_type: Optional[str] = Query(
+            None,
+            description="Filter by event type"),
+        hours: int = Query(
+            24,
+            ge=1,
+            le=168,
+            description="Hours to look back"),
+        limit: int = Query(
+            50,
+            ge=1,
+            le=200),
+        company_id: str = Depends(get_company_id),
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
 ):
     """Get activity history for awareness queries."""
-    
+
     activities = jps.get_recent_activities(
         db=db,
         company_id=company_id,
@@ -253,7 +263,7 @@ async def get_jarvis_history(
         hours=hours,
         limit=limit,
     )
-    
+
     return {
         "total": len(activities),
         "activities": [
@@ -286,7 +296,7 @@ async def get_jarvis_memory(
     db: Session = Depends(get_db),
 ):
     """Get stored memories."""
-    
+
     user_id = str(user.id)
     memories = jps.recall_memory(
         db=db,
@@ -296,7 +306,7 @@ async def get_jarvis_memory(
         key=key,
         limit=limit,
     )
-    
+
     return {
         "total": len(memories),
         "memories": [
@@ -323,16 +333,16 @@ async def store_jarvis_memory(
     db: Session = Depends(get_db),
 ):
     """Store a memory for later recall."""
-    
+
     user_id = str(user.id)
-    
+
     # Get session
     session = jps.get_or_create_session(
         db=db,
         user_id=user_id,
         company_id=company_id,
     )
-    
+
     memory = jps.store_memory(
         db=db,
         session_id=str(session.id),
@@ -343,7 +353,7 @@ async def store_jarvis_memory(
         value=body.value,
         importance=body.importance,
     )
-    
+
     return {
         "success": True,
         "memory_id": str(memory.id),
@@ -364,30 +374,30 @@ async def execute_jarvis_action(
     db: Session = Depends(get_db),
 ):
     """Execute or draft an action.
-    
+
     If action is simple/reversible: execute directly
     If action is complex/bulk: create draft for review
-    
+
     Returns:
     - Direct execution: result
     - Draft creation: draft details for approval
     """
-    
+
     user_id = str(user.id)
-    
+
     # Get session
     session = jps.get_or_create_session(
         db=db,
         user_id=user_id,
         company_id=company_id,
     )
-    
+
     # Determine execution mode
     use_draft = body.force_draft or jps.should_use_draft(
         action_type=body.action_type,
         params=body.params,
     )
-    
+
     if use_draft:
         # Create draft for review
         draft = jps.create_draft(
@@ -400,20 +410,22 @@ async def execute_jarvis_action(
             recipients=body.params.get("recipients"),
             subject=body.params.get("subject"),
         )
-        
+
         return {
             "mode": "draft",
             "draft": {
-                "id": str(draft.id),
+                "id": str(
+                    draft.id),
                 "type": draft.draft_type,
                 "subject": draft.subject,
                 "recipient_count": draft.recipient_count,
-                "content": json.loads(draft.content_json),
+                "content": json.loads(
+                    draft.content_json),
                 "expires_at": draft.expires_at.isoformat() if draft.expires_at else None,
             },
             "message": "Action requires review. Draft created for approval.",
         }
-    
+
     else:
         # Execute directly
         success, result, error = jps.execute_direct_action(
@@ -424,7 +436,7 @@ async def execute_jarvis_action(
             action_type=body.action_type,
             params=body.params,
         )
-        
+
         if success:
             return {
                 "mode": "direct",
@@ -448,15 +460,15 @@ async def list_pending_drafts(
     db: Session = Depends(get_db),
 ):
     """List pending drafts awaiting approval."""
-    
+
     from database.models.jarvis_production import JarvisDraft
-    
+
     drafts = db.query(JarvisDraft).filter(
         JarvisDraft.company_id == company_id,
         JarvisDraft.user_id == str(user.id),
         JarvisDraft.status == status,
     ).order_by(JarvisDraft.created_at.desc()).limit(limit).all()
-    
+
     return {
         "total": len(drafts),
         "drafts": [
@@ -483,13 +495,13 @@ async def approve_draft(
     db: Session = Depends(get_db),
 ):
     """Approve and execute a pending draft."""
-    
+
     success, result, error = jps.approve_and_execute_draft(
         db=db,
         draft_id=draft_id,
         user_id=str(user.id),
     )
-    
+
     if success:
         return {
             "success": True,
@@ -510,13 +522,13 @@ async def cancel_draft(
     db: Session = Depends(get_db),
 ):
     """Cancel a pending draft."""
-    
+
     success = jps.cancel_draft(
         db=db,
         draft_id=draft_id,
         user_id=str(user.id),
     )
-    
+
     return {
         "success": success,
         "draft_id": draft_id,
@@ -535,28 +547,28 @@ async def list_active_alerts(
     db: Session = Depends(get_db),
 ):
     """Get active alerts for this user/company."""
-    
+
     alerts = jps.get_active_alerts(
         db=db,
         company_id=company_id,
         user_id=str(user.id),
         min_severity=min_severity,
     )
-    
+
     return {
         "total": len(alerts),
         "alerts": [
             {
-                "id": str(a.id),
+                "id": str(
+                    a.id),
                 "type": a.alert_type,
                 "severity": a.severity,
                 "title": a.title,
                 "message": a.message,
-                "suggested_action": json.loads(a.suggested_action_json) if a.suggested_action_json else None,
+                "suggested_action": json.loads(
+                    a.suggested_action_json) if a.suggested_action_json else None,
                 "created_at": a.created_at.isoformat() if a.created_at else None,
-            }
-            for a in alerts
-        ],
+            } for a in alerts],
     }
 
 
@@ -568,16 +580,16 @@ async def acknowledge_alert(
     db: Session = Depends(get_db),
 ):
     """Acknowledge an alert."""
-    
+
     alert = jps.acknowledge_alert(
         db=db,
         alert_id=alert_id,
         user_id=str(user.id),
     )
-    
+
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
-    
+
     return {
         "success": True,
         "alert_id": alert_id,
@@ -593,16 +605,16 @@ async def dismiss_alert(
     db: Session = Depends(get_db),
 ):
     """Dismiss an alert."""
-    
+
     alert = jps.dismiss_alert(
         db=db,
         alert_id=alert_id,
         user_id=str(user.id),
     )
-    
+
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
-    
+
     return {
         "success": True,
         "alert_id": alert_id,
@@ -622,23 +634,23 @@ async def track_user_activity(
     db: Session = Depends(get_db),
 ):
     """Track user activity for Jarvis awareness.
-    
+
     Called by frontend to track:
     - Page visits
     - Button clicks
     - Form submissions
     - Any user interaction
     """
-    
+
     user_id = str(user.id)
-    
+
     # Get session
     session = jps.get_or_create_session(
         db=db,
         user_id=user_id,
         company_id=company_id,
     )
-    
+
     # Track the activity
     jps.track_activity(
         db=db,
@@ -653,7 +665,7 @@ async def track_user_activity(
         page_url=body.page_url,
         page_name=body.page_name,
     )
-    
+
     return {
         "success": True,
         "tracked": body.event_name,
@@ -672,18 +684,18 @@ async def get_user_activity(
     db: Session = Depends(get_db),
 ):
     """Get activity summary for a specific user.
-    
+
     Used when user asks: "What did John do today?"
     """
-    
+
     # TODO: Add permission check
-    
+
     summary = jps.get_user_activity_summary(
         db=db,
         company_id=company_id,
         user_id=target_user_id,
     )
-    
+
     return summary
 
 
@@ -693,7 +705,7 @@ async def get_user_activity(
 
 def _get_user_variant_tier(db: Session, user: User) -> str:
     """Get user's variant tier from their subscription."""
-    
+
     try:
         # Check company subscription
         if user.company:
@@ -706,11 +718,12 @@ def _get_user_variant_tier(db: Session, user: User) -> str:
                 "parwa": "growth",
                 "parwa_high": "high",
             }
-            subscription_tier = getattr(company, "subscription_tier", "starter")
+            subscription_tier = getattr(
+                company, "subscription_tier", "starter")
             return tier_map.get(subscription_tier, "starter")
     except Exception:
         pass
-    
+
     return "starter"
 
 
@@ -725,17 +738,17 @@ async def _process_message_with_ai(
     variant_tier: str,
 ) -> tuple:
     """Process message with AI and return response + optional action."""
-    
+
     import asyncio
     import concurrent.futures
-    
+
     # Build system prompt
     system_prompt = _build_jarvis_system_prompt(context, variant_tier)
-    
+
     # Call AI
     try:
         from app.core.ai_pipeline import process_ai_message
-        
+
         try:
             result = asyncio.run(process_ai_message(
                 query=message,
@@ -758,20 +771,20 @@ async def _process_message_with_ai(
                         system_prompt=system_prompt,
                     )
                 ).result(timeout=60)
-        
+
         response = result.response
-        
+
         # Check if AI wants to execute an action
         action_result = None
         if result.auto_action and auto_execute:
             # Parse action from AI response
             action_type = result.auto_action.get("type")
             action_params = result.auto_action.get("params", {})
-            
+
             if action_type:
                 # Execute or draft based on complexity
                 use_draft = jps.should_use_draft(action_type, action_params)
-                
+
                 if use_draft:
                     draft = jps.create_draft(
                         db=db,
@@ -802,19 +815,20 @@ async def _process_message_with_ai(
                         "result": result_data if success else None,
                         "error": error,
                     }
-        
+
         return response, action_result
-        
+
     except Exception as e:
         logger.error(f"AI processing error: {e}")
         return _get_fallback_response(), None
 
 
-def _build_jarvis_system_prompt(context: Dict[str, Any], variant_tier: str) -> str:
+def _build_jarvis_system_prompt(
+        context: Dict[str, Any], variant_tier: str) -> str:
     """Build system prompt for Jarvis AI."""
-    
+
     features = jps.TIER_FEATURES.get(jps.VariantTier(variant_tier), {})
-    
+
     prompt = f"""You are Jarvis, PARWA's AI assistant. You are:
 - Friendly and professional (like Iron Man's Jarvis)
 - Human-like in conversation, not robotic
@@ -849,7 +863,7 @@ When user asks to do something:
 1. Simple actions (pause AI, send single SMS): Execute directly
 2. Complex actions (bulk email, settings changes): Create draft for approval
 
-Always be helpful and provide clear, concise responses. If something important 
+Always be helpful and provide clear, concise responses. If something important
 has happened (alerts, errors), mention it proactively but don't be annoying.
 """
     return prompt
@@ -860,5 +874,4 @@ def _get_fallback_response() -> str:
     return (
         "Hey! I'm here, but I'm having a bit of trouble processing that right now. "
         "Could you try again? If this keeps happening, there might be a brief "
-        "connectivity issue I'm working through."
-    )
+        "connectivity issue I'm working through.")

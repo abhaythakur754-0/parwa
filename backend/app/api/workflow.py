@@ -408,7 +408,6 @@ def force_state_transition(
             )
 
         # Persist updated state
-        import asyncio as aio
 
         try:
             serializer.save_state(
@@ -483,7 +482,6 @@ def get_context_health(
     try:
         from app.core.context_health import (
             ContextHealthMeter,
-            HealthMetrics,
         )
 
         meter = ContextHealthMeter()
@@ -985,7 +983,9 @@ def configure_capacity(
     except ValueError as exc:
         raise ValidationError(
             message=str(exc),
-            details={"variant": body.variant, "max_concurrent": body.max_concurrent},
+            details={
+                "variant": body.variant,
+                "max_concurrent": body.max_concurrent},
         )
     except Exception as exc:
         from app.logger import get_logger
@@ -1147,7 +1147,6 @@ def get_gsd_transitions(
     """
     try:
         from app.core.state_serialization import StateSerializer
-        from app.core.gsd_engine import GSDEngine
         from app.core.shared_gsd import SharedGSDManager
 
         serializer = StateSerializer()

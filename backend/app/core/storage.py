@@ -17,7 +17,6 @@ import logging
 import os
 import re
 import unicodedata
-import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
@@ -56,7 +55,8 @@ EXTENSION_TO_CONTENT_TYPE: dict = {
 }
 
 """Mapping from MIME type to canonical extension."""
-CONTENT_TYPE_TO_EXTENSION: dict = {v: k for k, v in EXTENSION_TO_CONTENT_TYPE.items()}
+CONTENT_TYPE_TO_EXTENSION: dict = {
+    v: k for k, v in EXTENSION_TO_CONTENT_TYPE.items()}
 
 """Default maximum file size: 50 MB."""
 MAX_FILE_SIZE: int = 50 * 1024 * 1024
@@ -283,7 +283,8 @@ def _validate_company_id(company_id: str) -> None:
         ValueError: If company_id contains traversal characters.
     """
     if not company_id or not isinstance(company_id, str):
-        raise ValueError("company_id is required and must be a non-empty string")
+        raise ValueError(
+            "company_id is required and must be a non-empty string")
     if ".." in company_id:
         raise ValueError("company_id must not contain '..'")
     if "/" in company_id:
@@ -291,7 +292,8 @@ def _validate_company_id(company_id: str) -> None:
     if "\\" in company_id:
         raise ValueError("company_id must not contain backslash")
     if company_id.strip() != company_id:
-        raise ValueError("company_id must not have leading/trailing whitespace")
+        raise ValueError(
+            "company_id must not have leading/trailing whitespace")
 
 
 def _validate_file_path(file_path: str) -> None:
@@ -304,11 +306,14 @@ def _validate_file_path(file_path: str) -> None:
         ValueError: If file_path is dangerous or malformed.
     """
     if not file_path or not isinstance(file_path, str):
-        raise ValueError("file_path is required and must be a non-empty string")
+        raise ValueError(
+            "file_path is required and must be a non-empty string")
     if file_path.startswith("/"):
-        raise ValueError("file_path must not start with '/' (use relative paths)")
+        raise ValueError(
+            "file_path must not start with '/' (use relative paths)")
     if ".." in file_path:
-        raise ValueError("file_path must not contain '..' (directory traversal)")
+        raise ValueError(
+            "file_path must not contain '..' (directory traversal)")
     if "\\" in file_path:
         raise ValueError("file_path must not contain backslash")
     # Null bytes are a known attack vector

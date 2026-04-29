@@ -21,7 +21,6 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from celery import shared_task
-from sqlalchemy.orm import Session
 
 from app.exceptions import ValidationError
 from database.base import get_db_context
@@ -107,7 +106,9 @@ def process_knowledge_document(
             try:
                 from app.services.file_storage_service import FileStorageService
                 storage_svc = FileStorageService()
-                file_id = getattr(doc, 'storage_file_id', None) or getattr(doc, 'file_path', None)
+                file_id = getattr(
+                    doc, 'storage_file_id', None) or getattr(
+                    doc, 'file_path', None)
                 if file_id:
                     storage_result = storage_svc.download_file(
                         company_id=company_id,
@@ -141,7 +142,8 @@ def process_knowledge_document(
             # Store chunks with embeddings (GAP 2: tenant isolation)
             chunk_count = 0
             for i, chunk_text in enumerate(chunk_texts):
-                embedding_vector = embeddings[i] if i < len(embeddings) else None
+                embedding_vector = embeddings[i] if i < len(
+                    embeddings) else None
                 chunk = DocumentChunk(
                     document_id=document_id,
                     company_id=company_id,  # CRITICAL: Tenant isolation for embeddings

@@ -11,24 +11,18 @@ Covers:
 7. Distributed lock contention (state_serialization)
 """
 
-import asyncio
-import json
 import pytest
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import datetime, timezone
+from unittest.mock import patch
 
 # ── Imports under test ─────────────────────────────────────────────
 
 from app.core.signal_extraction import (
     SignalExtractor,
     SignalExtractionRequest,
-    ExtractedSignals,
 )
 from app.core.classification_engine import (
     ClassificationEngine,
-    KeywordClassifier,
-    IntentType,
-    IntentResult,
 )
 from app.core.technique_tier_access import (
     TechniqueTierAccessChecker,
@@ -38,16 +32,8 @@ from app.core.technique_router import TechniqueID
 from app.core.edge_case_handlers import (
     EdgeCaseRegistry,
     EdgeCaseAction,
-    EdgeCaseSeverity,
-    EdgeCaseHandler,
-    EdgeCaseResult,
     EmptyQueryHandler,
-    MaliciousHTMLHandler,
-    BlockedUserHandler,
     SystemCommandsHandler,
-    LegalTerminologyHandler,
-    CodeBlocksHandler,
-    CompetitorMentionHandler,
     VARIANT_HANDLER_WHITELIST,
     CHAIN_TIMEOUT_SECONDS,
 )
@@ -56,25 +42,19 @@ from app.core.cross_variant_routing import (
     ChannelType,
     RoutingDecisionType,
     EscalationReason,
-    CAPACITY_THRESHOLD_PCT,
-    AI_OVERLOAD_FLAG,
     ESCALATION_CHAIN,
 )
 from app.core.langgraph_workflow import (
     LangGraphWorkflow,
     WorkflowConfig,
     WorkflowResult,
-    WorkflowStepResult,
-    VARIANT_PIPELINE_CONFIG,
 )
 from app.core.gsd_engine import (
     GSDEngine,
     GSDConfig,
-    GSDVariant,
     InvalidTransitionError,
     EscalationCooldownError,
     FULL_TRANSITION_TABLE,
-    MINI_TRANSITION_TABLE,
     ESCALATION_ELIGIBLE_STATES,
 )
 from app.core.state_serialization import (
@@ -110,7 +90,8 @@ class TestIntentClassificationAmbiguity:
     async def test_none_input_returns_safe_default(self):
         """ClassificationEngine handles None input gracefully."""
         engine = ClassificationEngine()
-        result = await engine.classify(None, company_id="test_co")  # type: ignore[arg-type]
+        # type: ignore[arg-type]
+        result = await engine.classify(None, company_id="test_co")
         assert result.primary_intent == "general"
         assert result.primary_confidence == 0.0
 
@@ -141,7 +122,11 @@ class TestIntentClassificationAmbiguity:
     async def test_signal_extractor_returns_valid_sentiment_range(self):
         """Sentiment is always 0.0-1.0 regardless of input."""
         extractor = SignalExtractor()
-        for query in ["", "   ", "xyzzy nonsense", "I am very happy and great"]:
+        for query in [
+            "",
+            "   ",
+            "xyzzy nonsense",
+                "I am very happy and great"]:
             req = SignalExtractionRequest(query=query, company_id="c")
             result = await extractor.extract(req)
             assert 0.0 <= result.sentiment <= 1.0
@@ -150,7 +135,8 @@ class TestIntentClassificationAmbiguity:
     async def test_non_string_company_id_handled(self):
         """D6-GAP-07: Non-string company_id does not crash."""
         engine = ClassificationEngine()
-        result = await engine.classify("refund my order", company_id=12345)  # type: ignore[arg-type]
+        # type: ignore[arg-type]
+        result = await engine.classify("refund my order", company_id=12345)
         assert result.primary_intent == "refund"
         assert result.primary_confidence > 0.0
 
@@ -170,7 +156,9 @@ class TestTechniqueTierBypass:
             TechniqueID.CHAIN_OF_THOUGHT.value,
             "mini_parwa",
         )
-        assert result.decision in (TierAccessDecision.BLOCKED, TierAccessDecision.DOWNGRADED)
+        assert result.decision in (
+            TierAccessDecision.BLOCKED,
+            TierAccessDecision.DOWNGRADED)
 
     def test_mini_parwa_cannot_access_tier3(self):
         """mini_parwa blocked from gst (Tier 3)."""
@@ -179,7 +167,9 @@ class TestTechniqueTierBypass:
             TechniqueID.GST.value,
             "mini_parwa",
         )
-        assert result.decision in (TierAccessDecision.BLOCKED, TierAccessDecision.DOWNGRADED)
+        assert result.decision in (
+            TierAccessDecision.BLOCKED,
+            TierAccessDecision.DOWNGRADED)
 
     def test_parwa_allowed_tier2_blocked_tier3(self):
         """parwa can use Tier 2 but not Tier 3."""
@@ -300,7 +290,10 @@ class TestEdgeCaseHandlerOrdering:
         registry = EdgeCaseRegistry(variant="parwa")
         result = registry.process(
             "hello",
-            context={"_processing_elapsed_ms": CHAIN_TIMEOUT_SECONDS * 1000 + 1},
+            context={
+                "_processing_elapsed_ms": CHAIN_TIMEOUT_SECONDS *
+                1000 +
+                1},
         )
         handler_types = [r.handler_type for r in result.results]
         assert "timeout" in handler_types

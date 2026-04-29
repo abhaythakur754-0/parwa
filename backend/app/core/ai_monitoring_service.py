@@ -20,9 +20,9 @@ import threading
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from app.logger import get_logger
 
@@ -163,9 +163,11 @@ class AlertCondition:
 class DashboardSnapshot:
     """Complete dashboard data for one company."""
     latency: Dict[str, LatencyStats] = field(default_factory=dict)
-    confidence: ConfidenceDistribution = field(default_factory=ConfidenceDistribution)
+    confidence: ConfidenceDistribution = field(
+        default_factory=ConfidenceDistribution)
     guardrails: GuardrailStats = field(default_factory=GuardrailStats)
-    blocked_responses: BlockedResponseMetrics = field(default_factory=BlockedResponseMetrics)
+    blocked_responses: BlockedResponseMetrics = field(
+        default_factory=BlockedResponseMetrics)
     token_usage: TokenUsageMetrics = field(default_factory=TokenUsageMetrics)
     errors: ErrorMetrics = field(default_factory=ErrorMetrics)
     alerts: List[AlertCondition] = field(default_factory=list)

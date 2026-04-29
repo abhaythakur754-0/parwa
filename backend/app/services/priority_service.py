@@ -9,8 +9,7 @@ Implements MF01: Priority system with:
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
-from datetime import timedelta
+from typing import Dict, Optional, Tuple
 
 from sqlalchemy.orm import Session
 

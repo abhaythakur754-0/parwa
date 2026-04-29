@@ -72,7 +72,10 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if not csrf_cookie or not csrf_header:
             logger.warning(
                 "CSRF missing token: path=%s method=%s has_cookie=%s has_header=%s",
-                path, request.method, bool(csrf_cookie), bool(csrf_header),
+                path,
+                request.method,
+                bool(csrf_cookie),
+                bool(csrf_header),
             )
             return JSONResponse(
                 status_code=403,

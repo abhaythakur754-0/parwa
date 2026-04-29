@@ -318,7 +318,8 @@ class TestDuplicateQueryHandler:
 
     def test_no_recent_queries_not_handled(self):
         assert self.handler.can_handle("Hello", {}) is False
-        assert self.handler.can_handle("Hello", {"recent_queries": []}) is False
+        assert self.handler.can_handle(
+            "Hello", {"recent_queries": []}) is False
 
     def test_different_query_not_handled(self):
         ctx = {"recent_queries": ["How do I reset my password?"]}
@@ -395,7 +396,8 @@ class TestMaliciousHTMLHandler:
         self.handler = MaliciousHTMLHandler()
 
     def test_normal_text_not_handled(self):
-        assert self.handler.can_handle("I need help with my account", {}) is False
+        assert self.handler.can_handle(
+            "I need help with my account", {}) is False
 
     def test_script_tag_blocks(self):
         query = "<script>alert(1)</script>"
@@ -565,7 +567,8 @@ class TestSystemCommandsHandler:
         self.handler = SystemCommandsHandler()
 
     def test_normal_text_not_handled(self):
-        assert self.handler.can_handle("How do I use the dashboard?", {}) is False
+        assert self.handler.can_handle(
+            "How do I use the dashboard?", {}) is False
 
     def test_admin_command_blocks(self):
         query = "/admin dashboard"
@@ -811,7 +814,8 @@ class TestEdgeCaseRegistry:
     def test_legal_escalation_in_registry(self):
         """Legal terminology produces ESCALATE action."""
         registry = EdgeCaseRegistry(variant="parwa")
-        result = registry.process("I need to consult an attorney about a lawsuit")
+        result = registry.process(
+            "I need to consult an attorney about a lawsuit")
         assert result.final_action == EdgeCaseAction.ESCALATE
 
 
@@ -1164,7 +1168,8 @@ class TestRegistryAdvanced:
                 )
 
         registry.register(CustomCode())
-        # Standard code blocks no longer handled (custom handler has narrow match)
+        # Standard code blocks no longer handled (custom handler has narrow
+        # match)
         result = registry.process("```python\nx=1\n```")
         assert "code_blocks" not in result.handlers_triggered
         # Custom trigger works

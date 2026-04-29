@@ -22,7 +22,6 @@ BC-007: Feature gating per variant tier
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
-from uuid import UUID
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -36,7 +35,12 @@ logger = logging.getLogger("parwa.services.variant_limit")
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
-VALID_LIMIT_TYPES = {"tickets", "team_members", "ai_agents", "voice_slots", "kb_docs"}
+VALID_LIMIT_TYPES = {
+    "tickets",
+    "team_members",
+    "ai_agents",
+    "voice_slots",
+    "kb_docs"}
 
 _LIMIT_KEY_MAP = {
     "tickets": "monthly_tickets",
@@ -249,7 +253,10 @@ class VariantLimitService:
             "variant_limits_fallback variant=%s source=hardcoded",
             variant_key,
         )
-        return dict(_HARDCODED_LIMITS.get(variant_key, _HARDCODED_LIMITS["mini_parwa"]))
+        return dict(
+            _HARDCODED_LIMITS.get(
+                variant_key,
+                _HARDCODED_LIMITS["mini_parwa"]))
 
     def get_company_limits(self, company_id: Any) -> Dict[str, Any]:
         """Get effective limits for a company based on their subscription tier."""
@@ -388,7 +395,12 @@ class VariantLimitService:
         logger.info(
             "ticket_limit_checked company_id=%s variant=%s "
             "usage=%s limit=%s addon_tickets=%s allowed=%s",
-            company_id_str, variant, usage, ticket_limit, addon_tickets, allowed,
+            company_id_str,
+            variant,
+            usage,
+            ticket_limit,
+            addon_tickets,
+            allowed,
         )
         return result
 
@@ -396,7 +408,8 @@ class VariantLimitService:
         self, company_id: Any, current_count: int
     ) -> Dict[str, Any]:
         """Check if a company can add more team members."""
-        return self._check_count_limit(company_id, "team_members", current_count)
+        return self._check_count_limit(
+            company_id, "team_members", current_count)
 
     def check_ai_agent_limit(
         self, company_id: Any, current_count: int
@@ -408,7 +421,8 @@ class VariantLimitService:
         self, company_id: Any, current_count: int
     ) -> Dict[str, Any]:
         """Check if a company can provision more voice slots."""
-        return self._check_count_limit(company_id, "voice_slots", current_count)
+        return self._check_count_limit(
+            company_id, "voice_slots", current_count)
 
     def check_kb_doc_limit(
         self, company_id: Any, current_count: int
@@ -519,15 +533,24 @@ class VariantLimitService:
             "all_limit_checks company_id=%s variant=%s "
             "tickets=%s/%s team=%s/%s agents=%s/%s "
             "voice=%s/%s kb=%s/%s",
-            company_id_str, variant,
-            checks["tickets"]["current_usage"], checks["tickets"]["limit"],
-            checks["team_members"]["current_usage"], checks["team_members"]["limit"],
-            checks["ai_agents"]["current_usage"], checks["ai_agents"]["limit"],
-            checks["voice_slots"]["current_usage"], checks["voice_slots"]["limit"],
-            checks["kb_docs"]["current_usage"], checks["kb_docs"]["limit"],
+            company_id_str,
+            variant,
+            checks["tickets"]["current_usage"],
+            checks["tickets"]["limit"],
+            checks["team_members"]["current_usage"],
+            checks["team_members"]["limit"],
+            checks["ai_agents"]["current_usage"],
+            checks["ai_agents"]["limit"],
+            checks["voice_slots"]["current_usage"],
+            checks["voice_slots"]["limit"],
+            checks["kb_docs"]["current_usage"],
+            checks["kb_docs"]["limit"],
         )
 
-        return {"company_id": company_id_str, "variant": variant, "checks": checks}
+        return {
+            "company_id": company_id_str,
+            "variant": variant,
+            "checks": checks}
 
     # ── Private Helpers ─────────────────────────────────────────────
 
@@ -581,7 +604,14 @@ class VariantLimitService:
         logger.info(
             "count_limit_checked company_id=%s variant=%s "
             "limit_type=%s usage=%s limit=%s base=%s addon=%s allowed=%s",
-            company_id_str, variant, lt, usage, plan_limit, base_limit, addon_amount, allowed,
+            company_id_str,
+            variant,
+            lt,
+            usage,
+            plan_limit,
+            base_limit,
+            addon_amount,
+            allowed,
         )
         return result
 

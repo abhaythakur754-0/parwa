@@ -27,14 +27,13 @@ import json
 import logging
 import re
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 from app.exceptions import (
     InternalError,
     NotFoundError,
-    ParwaBaseError,
     ValidationError,
 )
 
@@ -182,7 +181,9 @@ _ALLOWED_TAGS: Set[str] = {
 _ALLOWED_ATTRS: Set[str] = {"href", "class", "style", "title"}
 
 # Regex for stripping dangerous content
-_RE_SCRIPT = re.compile(r"<script[^>]*>.*?</script>", re.DOTALL | re.IGNORECASE)
+_RE_SCRIPT = re.compile(
+    r"<script[^>]*>.*?</script>",
+    re.DOTALL | re.IGNORECASE)
 _RE_EVENT_HANDLER = re.compile(r"on\w+\s*=\s*[\"'][^\"']*[\"']", re.IGNORECASE)
 _RE_JAVASCRIPT = re.compile(r"javascript:", re.IGNORECASE)
 _RE_HTML_TAG = re.compile(r"<(/?)(\w+)([^>]*)>")
@@ -210,7 +211,9 @@ def _clean_tag(
 
     # Filter attributes
     clean_attrs: list[str] = []
-    for attr_match in re.finditer(r'(\w+)\s*=\s*(["\'][^"\']*["\']|\S+)', attr_string):
+    for attr_match in re.finditer(
+        r'(\w+)\s*=\s*(["\'][^"\']*["\']|\S+)',
+            attr_string):
         attr_name = attr_match.group(1).lower()
         if attr_name in allowed_attrs:
             # Only allow safe attribute values (no javascript: etc.)
@@ -520,10 +523,15 @@ class ResponseTemplateService:
         self.__class__._defaults_loaded[company_id] = True
         logger.info(
             "response_template_defaults_loaded",
-            extra={"company_id": company_id, "defaults_count": len(_DEFAULT_TEMPLATES)},
+            extra={
+                "company_id": company_id,
+                "defaults_count": len(_DEFAULT_TEMPLATES)},
         )
 
-    async def _cache_get(self, company_id: str, template_id: str) -> Optional[ResponseTemplate]:
+    async def _cache_get(
+            self,
+            company_id: str,
+            template_id: str) -> Optional[ResponseTemplate]:
         """Try to fetch a template from Redis cache."""
         if self.redis_client is None:
             return None
@@ -535,7 +543,10 @@ class ResponseTemplateService:
         except Exception as exc:
             logger.warning(
                 "response_template_cache_get_failed",
-                extra={"company_id": company_id, "template_id": template_id, "error": str(exc)},
+                extra={
+                    "company_id": company_id,
+                    "template_id": template_id,
+                    "error": str(exc)},
             )
         return None
 
@@ -566,7 +577,10 @@ class ResponseTemplateService:
         except Exception as exc:
             logger.warning(
                 "response_template_cache_delete_failed",
-                extra={"company_id": company_id, "template_id": template_id, "error": str(exc)},
+                extra={
+                    "company_id": company_id,
+                    "template_id": template_id,
+                    "error": str(exc)},
             )
 
     def _get_store(self, company_id: str) -> Dict[str, ResponseTemplate]:
@@ -618,8 +632,7 @@ class ResponseTemplateService:
             body_template = template_data.get("body_template", "")
             if not subject_template and not body_template:
                 raise ValidationError(
-                    message="At least one of subject_template or body_template is required",
-                )
+                    message="At least one of subject_template or body_template is required", )
 
             language = template_data.get("language", "en").strip().lower()
             if language not in VALID_LANGUAGES:
@@ -678,7 +691,10 @@ class ResponseTemplateService:
                 "response_template_create_failed",
                 extra={"company_id": company_id, "error": str(exc)},
             )
-            raise InternalError(message="Failed to create response template", details={"error": str(exc)})
+            raise InternalError(
+                message="Failed to create response template",
+                details={
+                    "error": str(exc)})
 
     async def get_template(
         self,
@@ -723,9 +739,15 @@ class ResponseTemplateService:
         except Exception as exc:
             logger.error(
                 "response_template_get_failed",
-                extra={"template_id": template_id, "company_id": company_id, "error": str(exc)},
+                extra={
+                    "template_id": template_id,
+                    "company_id": company_id,
+                    "error": str(exc)},
             )
-            raise InternalError(message="Failed to retrieve response template", details={"error": str(exc)})
+            raise InternalError(
+                message="Failed to retrieve response template",
+                details={
+                    "error": str(exc)})
 
     async def list_templates(
         self,
@@ -811,9 +833,9 @@ class ResponseTemplateService:
                 cat = str(updates["category"]).strip().lower()
                 if cat not in VALID_CATEGORIES:
                     raise ValidationError(
-                        message=f"Invalid category '{cat}'. "
-                        f"Must be one of: {', '.join(sorted(VALID_CATEGORIES))}",
-                    )
+                        message=f"Invalid category '{cat}'. " f"Must be one of: {
+                            ', '.join(
+                                sorted(VALID_CATEGORIES))}", )
                 template.category = cat
                 modified = True
 
@@ -866,9 +888,15 @@ class ResponseTemplateService:
         except Exception as exc:
             logger.error(
                 "response_template_update_failed",
-                extra={"template_id": template_id, "company_id": company_id, "error": str(exc)},
+                extra={
+                    "template_id": template_id,
+                    "company_id": company_id,
+                    "error": str(exc)},
             )
-            raise InternalError(message="Failed to update response template", details={"error": str(exc)})
+            raise InternalError(
+                message="Failed to update response template",
+                details={
+                    "error": str(exc)})
 
     async def delete_template(
         self,
@@ -891,7 +919,9 @@ class ResponseTemplateService:
                 await self._cache_delete(company_id, template_id)
                 logger.info(
                     "response_template_deleted",
-                    extra={"template_id": template_id, "company_id": company_id},
+                    extra={
+                        "template_id": template_id,
+                        "company_id": company_id},
                 )
                 return True
             return False
@@ -899,7 +929,10 @@ class ResponseTemplateService:
         except Exception as exc:
             logger.error(
                 "response_template_delete_failed",
-                extra={"template_id": template_id, "company_id": company_id, "error": str(exc)},
+                extra={
+                    "template_id": template_id,
+                    "company_id": company_id,
+                    "error": str(exc)},
             )
             return False
 
@@ -965,9 +998,15 @@ class ResponseTemplateService:
         except Exception as exc:
             logger.error(
                 "response_template_duplicate_failed",
-                extra={"template_id": template_id, "company_id": company_id, "error": str(exc)},
+                extra={
+                    "template_id": template_id,
+                    "company_id": company_id,
+                    "error": str(exc)},
             )
-            raise InternalError(message="Failed to duplicate response template", details={"error": str(exc)})
+            raise InternalError(
+                message="Failed to duplicate response template",
+                details={
+                    "error": str(exc)})
 
     # ──────────────────────────────────────────────────────────────
     # Template operations
@@ -1001,7 +1040,8 @@ class ResponseTemplateService:
             # Sanitise all variable values (GAP-010 FIX)
             safe_vars: Dict[str, str] = {}
             for key, value in variables.items():
-                safe_vars[key] = sanitize_template_variable(str(value) if value is not None else "", content_type)
+                safe_vars[key] = sanitize_template_variable(
+                    str(value) if value is not None else "", content_type)
 
             def _replacer(match: re.Match) -> str:
                 var_name = match.group(1)
@@ -1010,8 +1050,10 @@ class ResponseTemplateService:
                 # Leave missing variable as-is
                 return match.group(0)
 
-            rendered_subject = _VARIABLE_PATTERN.sub(_replacer, template.subject_template)
-            rendered_body = _VARIABLE_PATTERN.sub(_replacer, template.body_template)
+            rendered_subject = _VARIABLE_PATTERN.sub(
+                _replacer, template.subject_template)
+            rendered_body = _VARIABLE_PATTERN.sub(
+                _replacer, template.body_template)
 
             # Increment usage
             await self.increment_usage(template_id)
@@ -1021,7 +1063,10 @@ class ResponseTemplateService:
         except Exception as exc:
             logger.error(
                 "response_template_render_failed",
-                extra={"template_id": template_id, "company_id": company_id, "error": str(exc)},
+                extra={
+                    "template_id": template_id,
+                    "company_id": company_id,
+                    "error": str(exc)},
             )
             # BC-008: Return a safe fallback rather than crashing
             return ""
@@ -1084,12 +1129,15 @@ class ResponseTemplateService:
                     score += 30.0
 
                 # 3. Sentiment-appropriate category boost (up to 20 points)
-                category_score = sentiment_category_boost.get(template.category, 0.0)
+                category_score = sentiment_category_boost.get(
+                    template.category, 0.0)
                 score += category_score * 10.0
 
                 # 4. Recency bonus (up to 5 points for very recent updates)
-                age_hours = (_now() - template.updated_at).total_seconds() / 3600
-                recency = max(0.0, 5.0 - (age_hours / 720))  # Decays over 30 days
+                age_hours = (
+                    _now() - template.updated_at).total_seconds() / 3600
+                # Decays over 30 days
+                recency = max(0.0, 5.0 - (age_hours / 720))
                 score += recency
 
                 if score > best_score:
@@ -1114,7 +1162,10 @@ class ResponseTemplateService:
         except Exception as exc:
             logger.error(
                 "response_template_find_best_failed",
-                extra={"company_id": company_id, "intent_type": intent_type, "error": str(exc)},
+                extra={
+                    "company_id": company_id,
+                    "intent_type": intent_type,
+                    "error": str(exc)},
             )
             return None
 
@@ -1157,7 +1208,10 @@ class ResponseTemplateService:
         except Exception as exc:
             logger.error(
                 "response_template_get_variables_failed",
-                extra={"template_id": template_id, "company_id": company_id, "error": str(exc)},
+                extra={
+                    "template_id": template_id,
+                    "company_id": company_id,
+                    "error": str(exc)},
             )
             return []
 
@@ -1204,15 +1258,17 @@ class ResponseTemplateService:
                         unclosed.append("{{")
                 else:
                     errors.append(
-                        f"Orphan closing braces detected: "
-                        f"{close_count - open_count} more closing braces than opening"
-                    )
+                        f"Orphan closing braces detected: " f"{
+                            close_count -
+                            open_count} more closing braces than opening")
 
             # Check for whitespace or special chars inside braces
             for m in re.finditer(r"\{\{([^}]*)\}\}", template_content):
                 inner = m.group(1).strip()
                 if not inner:
-                    errors.append(f"Empty variable tag at position {m.start()}")
+                    errors.append(
+                        f"Empty variable tag at position {
+                            m.start()}")
                 elif not re.match(r"^\w+$", inner):
                     warnings.append(
                         f"Variable '{inner}' contains non-word characters; "
@@ -1223,7 +1279,8 @@ class ResponseTemplateService:
             known_var_names = set(_KNOWN_VARIABLES.keys())
             for var_name in variables_found:
                 if var_name not in known_var_names:
-                    warnings.append(f"Unknown variable: '{var_name}' — not in the standard variable registry")
+                    warnings.append(
+                        f"Unknown variable: '{var_name}' — not in the standard variable registry")
 
             is_valid = len(errors) == 0
 

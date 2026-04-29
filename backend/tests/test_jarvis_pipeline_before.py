@@ -9,9 +9,6 @@ Run:  pytest tests/test_jarvis_pipeline_before.py -v
 """
 
 import pytest
-import sys
-import types
-from unittest import mock
 
 
 class TestBeforeStatePipelineFunctionsMissing:
@@ -45,7 +42,8 @@ class TestBeforeStatePipelineFunctionsMissing:
     def test_deredact_pii_missing_before(self):
         """BEFORE: _deredact_pii did not exist."""
         with pytest.raises(NameError):
-            eval("_deredact_pii('response with [REDACTED_EMAIL_1]', 'company', 'id')")
+            eval(
+                "_deredact_pii('response with [REDACTED_EMAIL_1]', 'company', 'id')")
 
     def test_process_language_missing_before(self):
         """BEFORE: _process_language did not exist."""
@@ -255,7 +253,8 @@ class TestBeforeStatePipelineBehavior:
         - Get truncated brutally (just cut last N messages)
         - Lose important context from earlier messages
         """
-        history = [{"role": "user", "content": f"Message {i}"} for i in range(100)]
+        history = [{"role": "user", "content": f"Message {i}"}
+                   for i in range(100)]
         # BEFORE: Simple truncation: history[-20:]
         truncated = history[-20:]
         assert len(truncated) == 20
@@ -315,7 +314,8 @@ class TestBeforeStatePipelineBehavior:
             "SentimentAnalyzer", "GracefulEscalationManager",
         ]
         assert len(before_connected) == 8
-        # 32 helper functions were missing = 0 connected from Week 8-11 pipeline
+        # 32 helper functions were missing = 0 connected from Week 8-11
+        # pipeline
         missing_helpers = 32
         assert missing_helpers == 32
 

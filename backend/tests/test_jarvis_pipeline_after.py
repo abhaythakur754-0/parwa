@@ -10,8 +10,6 @@ Run:  pytest tests/test_jarvis_pipeline_after.py -v
 
 import ast
 import os
-import textwrap
-import pytest
 
 
 # Path to the jarvis_service.py file
@@ -82,7 +80,8 @@ class TestAfterStateAllFunctionsExist:
         """AFTER: jarvis_service.py defines 50+ functions total."""
         source = _get_jarvis_source()
         functions = _get_function_names(source)
-        assert len(functions) >= 50, f"Expected 50+ functions, got {len(functions)}"
+        assert len(
+            functions) >= 50, f"Expected 50+ functions, got {len(functions)}"
 
     def test_scan_prompt_injection_defined(self):
         """AFTER: _scan_prompt_injection is defined."""
@@ -300,7 +299,8 @@ class TestAfterStateP0ServiceConnections:
     def test_injection_blocked_message_returns_string(self):
         """AFTER: _get_injection_blocked_message returns a user-friendly string."""
         source = _get_jarvis_source()
-        func_src = _get_function_source(source, "_get_injection_blocked_message")
+        func_src = _get_function_source(
+            source, "_get_injection_blocked_message")
         assert func_src is not None
         assert 'return (' in func_src
         assert "unusual" in func_src.lower()
@@ -683,7 +683,9 @@ class TestAfterStateDocstrings:
         ]
 
         for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef) and node.name in pipeline_functions:
+            if isinstance(
+                    node,
+                    ast.FunctionDef) and node.name in pipeline_functions:
                 docstring = ast.get_docstring(node)
                 assert docstring is not None, f"{node.name} missing docstring"
                 assert len(docstring) > 20, f"{node.name} docstring too short"

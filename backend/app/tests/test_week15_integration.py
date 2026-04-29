@@ -120,10 +120,19 @@ class TestExportReports(unittest.TestCase):
         """All 7 report types can be exported."""
         from app.services.export_service import create_export_job
 
-        report_types = ["summary", "tickets", "agents", "sla", "csat", "forecast", "full"]
+        report_types = [
+            "summary",
+            "tickets",
+            "agents",
+            "sla",
+            "csat",
+            "forecast",
+            "full"]
         for rt in report_types:
             result = create_export_job("test-company", rt, "csv")
-            self.assertIsNone(result.get("error"), f"Report type {rt} should not error")
+            self.assertIsNone(
+                result.get("error"),
+                f"Report type {rt} should not error")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -158,8 +167,13 @@ class TestDashboardSchemas(unittest.TestCase):
     def test_adaptation_day_data(self):
         from app.schemas.dashboard import AdaptationDayData
         day = AdaptationDayData(
-            date="2025-01-01", ai_accuracy=4.2, human_accuracy=4.5,
-            gap=-0.3, tickets_processed=100, mistakes_count=5, mistake_rate=5.0,
+            date="2025-01-01",
+            ai_accuracy=4.2,
+            human_accuracy=4.5,
+            gap=-0.3,
+            tickets_processed=100,
+            mistakes_count=5,
+            mistake_rate=5.0,
         )
         self.assertEqual(day.ai_accuracy, 4.2)
 
@@ -357,7 +371,8 @@ class TestDashboardServiceWithMock(unittest.TestCase):
         self.assertIn("activity_feed", result)
         self.assertIn("generated_at", result)
 
-    @patch("app.services.dashboard_service._get_ticket_summary", side_effect=Exception("DB down"))
+    @patch("app.services.dashboard_service._get_ticket_summary",
+           side_effect=Exception("DB down"))
     @patch("app.services.dashboard_service._get_kpi_cards", return_value={})
     @patch("app.services.dashboard_service._get_sla_summary", return_value={})
     @patch("app.services.dashboard_service._get_volume_trend", return_value=[])
@@ -377,7 +392,8 @@ class TestDashboardServiceWithMock(unittest.TestCase):
 class TestActivityFeedWithMock(unittest.TestCase):
     """Test activity feed with mocked DB queries."""
 
-    @patch("app.services.dashboard_service._enrich_actor_names", side_effect=lambda e, db: e)
+    @patch("app.services.dashboard_service._enrich_actor_names",
+           side_effect=lambda e, db: e)
     def test_activity_feed_empty(self, mock_enrich):
         from app.services.dashboard_service import get_activity_feed
 
@@ -396,16 +412,21 @@ class TestKeyMetricsWithMock(unittest.TestCase):
 
     @patch("app.services.dashboard_service._count_tickets", return_value=100)
     @patch("app.services.dashboard_service._count_tickets_by_status", return_value=40)
-    @patch("app.services.dashboard_service._get_avg_first_response_time", return_value=2.5)
+    @patch("app.services.dashboard_service._get_avg_first_response_time",
+           return_value=2.5)
     @patch("app.services.dashboard_service._get_avg_resolution_time", return_value=8.0)
-    @patch("app.services.dashboard_service._get_sla_compliance_rate", return_value=0.95)
+    @patch("app.services.dashboard_service._get_sla_compliance_rate",
+           return_value=0.95)
     @patch("app.services.dashboard_service._get_avg_csat", return_value=4.2)
     @patch("app.services.dashboard_service._count_tickets_by_assignee_type", return_value=30)
     @patch("app.services.dashboard_service._count_breached_sla", return_value=3)
     @patch("app.services.dashboard_service._count_tickets_by_priority", return_value=5)
-    @patch("app.services.dashboard_service._get_daily_counts", return_value=[10.0] * 30)
-    @patch("app.services.dashboard_service._get_daily_resolution_rate", return_value=[40.0] * 30)
-    @patch("app.services.dashboard_service._flag_anomalies", side_effect=lambda k, db, c, s, e: k)
+    @patch("app.services.dashboard_service._get_daily_counts",
+           return_value=[10.0] * 30)
+    @patch("app.services.dashboard_service._get_daily_resolution_rate",
+           return_value=[40.0] * 30)
+    @patch("app.services.dashboard_service._flag_anomalies",
+           side_effect=lambda k, db, c, s, e: k)
     def test_key_metrics_structure(self, *mocks):
         from app.services.dashboard_service import get_key_metrics
 

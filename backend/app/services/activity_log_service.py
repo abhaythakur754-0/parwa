@@ -23,22 +23,19 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, desc, or_
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from database.models.tickets import (
-    Ticket,
     TicketStatusChange,
     TicketAssignment,
     TicketMessage,
     TicketInternalNote,
     TicketAttachment,
     TicketMerge,
-    BulkActionLog,
-    SLATimer,
 )
 
 
@@ -347,7 +344,8 @@ class ActivityLogService:
 
         for event in reversed(timeline):  # Oldest first
             if event["type"] == self.ACTIVITY_MESSAGE_ADDED:
-                if event.get("metadata", {}).get("actor_type") in ["agent", "ai"]:
+                if event.get("metadata", {}).get(
+                        "actor_type") in ["agent", "ai"]:
                     if not first_response:
                         first_response = event["timestamp"]
 
@@ -366,9 +364,15 @@ class ActivityLogService:
             "first_response_at": first_response.isoformat() if first_response else None,
             "first_assignment_at": first_assignment.isoformat() if first_assignment else None,
             "resolved_at": resolution.isoformat() if resolution else None,
-            "message_count": type_counts.get(self.ACTIVITY_MESSAGE_ADDED, 0),
-            "note_count": type_counts.get(self.ACTIVITY_NOTE_ADDED, 0),
-            "status_change_count": type_counts.get(self.ACTIVITY_STATUS_CHANGE, 0),
+            "message_count": type_counts.get(
+                self.ACTIVITY_MESSAGE_ADDED,
+                0),
+            "note_count": type_counts.get(
+                self.ACTIVITY_NOTE_ADDED,
+                0),
+            "status_change_count": type_counts.get(
+                self.ACTIVITY_STATUS_CHANGE,
+                0),
         }
 
     # ── HELPER METHODS FOR RECORDING ─────────────────────────────────────

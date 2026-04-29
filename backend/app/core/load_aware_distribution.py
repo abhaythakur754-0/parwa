@@ -38,8 +38,10 @@ DEFAULT_MAX_CONCURRENT_TICKETS: int = 50
 DEFAULT_TOKEN_BUDGET_SHARE: int = 1_000_000  # 1M tokens
 DEFAULT_INSTANCE_WEIGHT: float = 1.0
 OVERLOAD_THRESHOLD_PCT: float = 0.90  # 90 % utilisation triggers OVERLOADED
-QUEUE_PRESSURE_WEIGHT_FACTOR: float = 0.5  # How much queued count affects effective load
-REBALANCE_MIN_DIFFERENCE: float = 0.1  # Minimum weight delta to trigger rebalance
+# How much queued count affects effective load
+QUEUE_PRESSURE_WEIGHT_FACTOR: float = 0.5
+# Minimum weight delta to trigger rebalance
+REBALANCE_MIN_DIFFERENCE: float = 0.1
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -435,7 +437,8 @@ class LoadAwareDistributor:
                     instance.tokens_used_today = 0
             logger.info(
                 "Daily token counters reset for company_id=%s (new UTC day: %s)",
-                company_id, today,
+                company_id,
+                today,
             )
 
     # ── Helper: Eligible instances ───────────────────────────────
@@ -529,7 +532,9 @@ class LoadAwareDistributor:
                 logger.warning(
                     "register_instance: invalid max_concurrent_tickets=%s "
                     "for instance_id=%s — using default %d",
-                    max_concurrent, instance_id, DEFAULT_MAX_CONCURRENT_TICKETS,
+                    max_concurrent,
+                    instance_id,
+                    DEFAULT_MAX_CONCURRENT_TICKETS,
                 )
                 config["max_concurrent_tickets"] = DEFAULT_MAX_CONCURRENT_TICKETS
 
@@ -558,9 +563,15 @@ class LoadAwareDistributor:
             logger.info(
                 "Instance %s: company_id=%s, instance_id=%s, variant=%s, "
                 "channels=%s, weight=%.2f, capacity=%d, status=%s",
-                action, company_id, instance_id, variant_type,
-                channel_assignment, weight,
-                config.get("max_concurrent_tickets", DEFAULT_MAX_CONCURRENT_TICKETS),
+                action,
+                company_id,
+                instance_id,
+                variant_type,
+                channel_assignment,
+                weight,
+                config.get(
+                    "max_concurrent_tickets",
+                    DEFAULT_MAX_CONCURRENT_TICKETS),
                 status.value,
             )
             return instance
@@ -609,10 +620,8 @@ class LoadAwareDistributor:
 
                 # Clean up round-robin counter if this was the only instance
                 variant_key = (company_id, instance.variant_type)
-                remaining = [
-                    inst for (cid, _), inst in self._instances.items()
-                    if cid == company_id and inst.variant_type == instance.variant_type
-                ]
+                remaining = [inst for (cid, _), inst in self._instances.items(
+                ) if cid == company_id and inst.variant_type == instance.variant_type]
                 if not remaining:
                     self._rr_counter.pop(variant_key, None)
 
@@ -626,7 +635,10 @@ class LoadAwareDistributor:
             logger.info(
                 "Instance deregistered: company_id=%s, instance_id=%s, "
                 "variant=%s, sticky_sessions_cleared=%d",
-                company_id, instance_id, instance.variant_type, len(session_keys),
+                company_id,
+                instance_id,
+                instance.variant_type,
+                len(session_keys),
             )
             return True
         except Exception:
@@ -705,7 +717,8 @@ class LoadAwareDistributor:
         except Exception:
             logger.exception(
                 "update_instance_load failed for company_id=%s, instance_id=%s",
-                company_id, instance_id,
+                company_id,
+                instance_id,
             )
             return False
 
@@ -870,8 +883,7 @@ class LoadAwareDistributor:
                         reason=(
                             "No eligible instances available. All instances "
                             "may be unhealthy, inactive, or filtered out by "
-                            "channel assignment."
-                        ),
+                            "channel assignment."),
                     )
 
                 # ── Step 3: Weighted round-robin ──────────────────
@@ -1135,7 +1147,8 @@ class LoadAwareDistributor:
         if not eligible:
             return None
 
-        # Sort by effective_load ascending, then by available_capacity descending
+        # Sort by effective_load ascending, then by available_capacity
+        # descending
         sorted_instances = sorted(
             eligible,
             key=lambda inst: (inst.effective_load, -inst.available_capacity),

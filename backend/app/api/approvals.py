@@ -10,7 +10,6 @@ BC-001: All endpoints scoped by company_id from authenticated user.
 BC-011: All endpoints require authentication.
 """
 
-import logging
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -30,17 +29,21 @@ router = APIRouter(prefix="/api/approvals", tags=["approvals"])
 
 
 class ApproveRejectRequest(BaseModel):
-    note: Optional[str] = Field(default=None, description="Manager note for the decision")
+    note: Optional[str] = Field(default=None,
+                                description="Manager note for the decision")
 
 
 class EscalateRequest(BaseModel):
-    reason: Optional[str] = Field(default=None, description="Reason for escalation")
+    reason: Optional[str] = Field(
+        default=None, description="Reason for escalation")
 
 
 class BatchRequest(BaseModel):
     ids: list[str] = Field(..., description="List of shadow log IDs")
-    decision: str = Field(..., description="Batch decision: approved or rejected")
-    note: Optional[str] = Field(default=None, description="Optional note for all entries")
+    decision: str = Field(...,
+                          description="Batch decision: approved or rejected")
+    note: Optional[str] = Field(default=None,
+                                description="Optional note for all entries")
 
 
 # ── Endpoints ─────────────────────────────────────────────────
@@ -48,13 +51,20 @@ class BatchRequest(BaseModel):
 
 @router.get("")
 def list_approvals(
-    user: User = Depends(get_current_user),
-    status: Optional[str] = Query(None, description="Filter by decision status: approved, rejected, or null for pending"),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    action_type: Optional[str] = Query(None),
-    date_from: Optional[str] = Query(None),
-    date_to: Optional[str] = Query(None),
+        user: User = Depends(get_current_user),
+        status: Optional[str] = Query(
+            None,
+            description="Filter by decision status: approved, rejected, or null for pending"),
+    page: int = Query(
+            1,
+            ge=1),
+        page_size: int = Query(
+            20,
+            ge=1,
+            le=100),
+        action_type: Optional[str] = Query(None),
+        date_from: Optional[str] = Query(None),
+        date_to: Optional[str] = Query(None),
 ):
     """
     List approvals (maps to shadow log with pending/approved/rejected statuses).
@@ -275,7 +285,10 @@ def batch_resolve(
     if body.decision not in VALID_DECISIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid decision: {body.decision}. Must be one of: {', '.join(sorted(VALID_DECISIONS))}",
+            detail=f"Invalid decision: {
+                body.decision}. Must be one of: {
+                ', '.join(
+                    sorted(VALID_DECISIONS))}",
         )
 
     svc = ShadowModeService()

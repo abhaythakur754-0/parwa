@@ -90,7 +90,8 @@ def fanout_event_task(
             event_type=event_type,
             error=str(exc),
         )
-        raise fanout_event_task.retry(exc=exc, countdown=2 ** fanout_event_task.request.retries)
+        raise fanout_event_task.retry(
+            exc=exc, countdown=2 ** fanout_event_task.request.retries)
 
 
 @celery_app.task(

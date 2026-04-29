@@ -16,8 +16,6 @@ BC-004: All tasks use ParwaBaseTask with retry config
 import logging
 from datetime import datetime, timedelta, timezone, date
 from decimal import Decimal
-from typing import Dict, List, Any
-from uuid import UUID
 
 from sqlalchemy import func
 
@@ -51,7 +49,10 @@ DEFAULT_MONTHLY_TICKET_LIMIT = 2000
     retry_jitter=True,
 )
 @with_company_id
-def aggregate_daily_usage(self, company_id: str, target_date: str = None) -> dict:
+def aggregate_daily_usage(
+        self,
+        company_id: str,
+        target_date: str = None) -> dict:
     """
     Aggregate ticket usage for a single company for yesterday.
 
@@ -86,7 +87,9 @@ def aggregate_daily_usage(self, company_id: str, target_date: str = None) -> dic
                 logger.warning(
                     "aggregate_daily_usage_skipped company_id=%s reason=not_found",
                     company_id,
-                    extra={"task": self.name, "company_id": company_id},
+                    extra={
+                        "task": self.name,
+                        "company_id": company_id},
                 )
                 return {
                     "company_id": company_id,
@@ -250,7 +253,11 @@ def aggregate_all_usage(self, target_date: str = None) -> dict:
         if target_date:
             process_date = date.fromisoformat(target_date)
         else:
-            process_date = (datetime.now(timezone.utc) - timedelta(days=1)).date()
+            process_date = (
+                datetime.now(
+                    timezone.utc) -
+                timedelta(
+                    days=1)).date()
 
         results = {
             "date": process_date.isoformat(),
@@ -358,7 +365,9 @@ def check_usage_limits(self, company_id: str) -> dict:
                 logger.info(
                     "check_usage_limits_skipped company_id=%s reason=no_subscription",
                     company_id,
-                    extra={"task": self.name, "company_id": company_id},
+                    extra={
+                        "task": self.name,
+                        "company_id": company_id},
                 )
                 return {
                     "company_id": company_id,
@@ -612,7 +621,8 @@ def reset_monthly_usage(self) -> dict:
 
                 total_tickets = int(monthly_summary.total_tickets or 0)
                 total_overage = int(monthly_summary.total_overage or 0)
-                total_charges = Decimal(str(monthly_summary.total_charges or 0))
+                total_charges = Decimal(
+                    str(monthly_summary.total_charges or 0))
 
                 results["companies_logged"] += 1
 

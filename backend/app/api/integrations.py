@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_roles
+from app.api.deps import require_roles
 from app.services.integration_service import (
     INTEGRATION_TYPES,
     IntegrationService,
@@ -39,10 +39,15 @@ router = APIRouter(prefix="/api/integrations", tags=["Integrations"])
 class CreateIntegrationRequest(BaseModel):
     """Request to create a new integration."""
 
-    integration_type: str = Field(..., description="Type: zendesk, shopify, slack, gmail")
-    name: str = Field(..., min_length=1, max_length=100, description="Display name")
-    config: Dict[str, Any] = Field(default_factory=dict, description="Integration config with credentials")
-    validate: bool = Field(default=True, description="Whether to validate credentials before saving")
+    integration_type: str = Field(...,
+                                  description="Type: zendesk, shopify, slack, gmail")
+    name: str = Field(..., min_length=1, max_length=100,
+                      description="Display name")
+    config: Dict[str, Any] = Field(
+        default_factory=dict, description="Integration config with credentials")
+    validate: bool = Field(
+        default=True,
+        description="Whether to validate credentials before saving")
 
 
 class IntegrationResponse(BaseModel):
@@ -103,8 +108,11 @@ def list_available_integrations() -> List[Dict[str, Any]]:
 class TestCredentialsRequest(BaseModel):
     """Request to test credentials without saving."""
 
-    integration_type: str = Field(..., description="Type: zendesk, shopify, slack, gmail, freshdesk, intercom")
-    config: Dict[str, Any] = Field(..., description="Integration config with credentials")
+    integration_type: str = Field(
+        ..., description="Type: zendesk, shopify, slack, gmail, freshdesk, intercom")
+    config: Dict[str,
+                 Any] = Field(...,
+                              description="Integration config with credentials")
 
 
 @router.post(

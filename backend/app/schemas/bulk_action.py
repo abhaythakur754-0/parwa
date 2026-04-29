@@ -59,13 +59,15 @@ class BulkActionRequest(BaseModel):
                 )
         elif self.action_type == BulkActionType.REASSIGN:
             if "assignee_id" not in self.params:
-                raise ValueError("reassign action requires 'assignee_id' in params")
+                raise ValueError(
+                    "reassign action requires 'assignee_id' in params")
         elif self.action_type == BulkActionType.TAG:
             if "tags" not in self.params:
                 raise ValueError("tag action requires 'tags' in params")
         elif self.action_type == BulkActionType.PRIORITY:
             if "priority" not in self.params:
-                raise ValueError("priority action requires 'priority' in params")
+                raise ValueError(
+                    "priority action requires 'priority' in params")
         return self
 
 
@@ -133,7 +135,8 @@ class TicketMergeRequest(BaseModel):
 
     @field_validator("merged_ticket_ids")
     @classmethod
-    def merged_tickets_must_not_include_primary(cls, v: List[str], info) -> List[str]:
+    def merged_tickets_must_not_include_primary(
+            cls, v: List[str], info) -> List[str]:
         # Access primary_ticket_id via info.data since we're in field_validator
         primary_id = info.data.get("primary_ticket_id")
         if primary_id and primary_id in v:

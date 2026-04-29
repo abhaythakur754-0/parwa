@@ -9,7 +9,7 @@ Run: cd backend && python -m pytest app/tests/test_week14_integration.py -v
 
 import hashlib
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -37,13 +37,15 @@ class TestJarvisCommandParser:
         parser = self._get_parser()
         result = parser.parse("create agent returns specialist for email")
         assert result is not None
-        assert "agent" in result.command_type.lower() or "create" in result.command_type.lower()
+        assert "agent" in result.command_type.lower(
+        ) or "create" in result.command_type.lower()
 
     def test_parse_escalate_ticket(self):
         parser = self._get_parser()
         result = parser.parse("escalate ticket TKT-123")
         assert result is not None
-        assert "ticket" in result.command_type.lower() or "escalate" in result.command_type.lower()
+        assert "ticket" in result.command_type.lower(
+        ) or "escalate" in result.command_type.lower()
 
     def test_parse_list_errors(self):
         parser = self._get_parser()
@@ -138,7 +140,8 @@ class TestSystemStatusService:
 
     @patch('app.services.system_status_service.redis_client')
     @patch('app.services.system_status_service.get_db')
-    def test_get_system_status_returns_subsystems(self, mock_get_db, mock_redis):
+    def test_get_system_status_returns_subsystems(
+            self, mock_get_db, mock_redis):
         mock_redis.get.return_value = None
         mock_redis.set.return_value = True
         mock_db = MagicMock()
@@ -368,7 +371,8 @@ class TestGSDTerminalService:
         from app.services.gsd_terminal_service import GSDTerminalService
         svc = GSDTerminalService(company_id="test-co")
         # 30 min threshold for stuck detection
-        assert hasattr(svc, 'STUCK_THRESHOLD_MINUTES') or True  # Service exists
+        # Service exists
+        assert hasattr(svc, 'STUCK_THRESHOLD_MINUTES') or True
 
     @patch('app.services.gsd_terminal_service.get_db')
     def test_gsd_state_nonexistent_ticket(self, mock_get_db):
@@ -464,7 +468,9 @@ class TestQuickCommandService:
         if commands:
             # Try to execute the first command
             try:
-                result = svc.execute_quick_command(commands[0].id if hasattr(commands[0], 'id') else "test")
+                result = svc.execute_quick_command(
+                    commands[0].id if hasattr(
+                        commands[0], 'id') else "test")
             except Exception:
                 pass  # May fail without DB, that's ok
 
@@ -716,7 +722,11 @@ class TestTrainFromErrorService:
         from app.services.train_from_error_service import TrainFromErrorService
         svc = TrainFromErrorService(company_id="test-co")
         # Verify valid status values
-        valid_statuses = ['queued_for_review', 'approved', 'rejected', 'in_dataset']
+        valid_statuses = [
+            'queued_for_review',
+            'approved',
+            'rejected',
+            'in_dataset']
         for status in valid_statuses:
             assert isinstance(status, str)
 
@@ -741,7 +751,8 @@ class TestSelfHealingOrchestrator:
         actions = svc.get_registered_actions()
         for action in actions:
             if hasattr(action, 'risk_level'):
-                assert action.risk_level in ('low', 'medium', 'high', 'critical')
+                assert action.risk_level in (
+                    'low', 'medium', 'high', 'critical')
 
     def test_actions_have_names(self):
         from app.services.self_healing_orchestrator import SelfHealingOrchestrator
@@ -869,7 +880,8 @@ class TestTrustPreservationProtocol:
 
     @patch('app.services.trust_preservation_service.redis_client')
     def test_recovery_estimate(self, mock_redis):
-        mock_redis.get.return_value = json.dumps({"mode": "amber", "since": datetime.now(timezone.utc).isoformat()})
+        mock_redis.get.return_value = json.dumps(
+            {"mode": "amber", "since": datetime.now(timezone.utc).isoformat()})
         mock_redis.set.return_value = True
 
         from app.services.trust_preservation_service import TrustPreservationService
@@ -996,10 +1008,13 @@ class TestAgentProvisioningService:
 
     @patch('app.services.agent_provisioning_service.get_db')
     def test_agent_statuses(self, mock_get_db):
-        from app.services.agent_provisioning_service import AgentProvisioningService
         valid_statuses = [
-            'initializing', 'training', 'active', 'paused', 'deprovisioned', 'error'
-        ]
+            'initializing',
+            'training',
+            'active',
+            'paused',
+            'deprovisioned',
+            'error']
         for status in valid_statuses:
             assert isinstance(status, str)
 
@@ -1021,7 +1036,6 @@ class TestAgentProvisioningService:
 
     @patch('app.services.agent_provisioning_service.get_db')
     def test_channels_validation(self, mock_get_db):
-        from app.services.agent_provisioning_service import AgentProvisioningService
         valid_channels = ['email', 'chat', 'sms', 'voice']
         for ch in valid_channels:
             assert isinstance(ch, str)
@@ -1052,7 +1066,9 @@ class TestInstructionWorkflowService:
             result = svc.create_instruction_set(
                 agent_id="agent-001",
                 name="Standard Instructions",
-                instructions={"behavioral_rules": ["Greet warmly"], "tone": "professional"},
+                instructions={
+                    "behavioral_rules": ["Greet warmly"],
+                    "tone": "professional"},
             )
             assert result is not None
         except Exception:
@@ -1201,7 +1217,6 @@ class TestInstructionWorkflowService:
 
     @patch('app.services.instruction_workflow_service.get_db')
     def test_instruction_set_statuses(self, mock_get_db):
-        from app.services.instruction_workflow_service import InstructionWorkflowService
         valid_statuses = ['draft', 'active', 'archived']
         for status in valid_statuses:
             assert isinstance(status, str)

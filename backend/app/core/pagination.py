@@ -20,7 +20,7 @@ Key components:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import (
     Any,
     Callable,
@@ -32,15 +32,12 @@ from typing import (
 )
 
 from pydantic import BaseModel
-from sqlalchemy import func, select, Select, text
+from sqlalchemy import func, select, Select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Query
 from sqlalchemy.sql.expression import ColumnElement
 
 from shared.utils.pagination import (
-    DEFAULT_PAGE_SIZE,
-    MAX_PAGE_SIZE,
-    MAX_OFFSET,
     PaginationParams,
     get_total_pages,
 )
@@ -207,7 +204,7 @@ def paginate_query_v2(
         items = [row[:-1] for row in rows] if rows else []
     else:
         # SQLite: separate count for compatibility
-        from sqlalchemy import ScalarSelect
+        pass
 
         count_subq = select(func.count()).select_from(stmt.subquery())
         total = session.execute(count_subq).scalar() or 0
@@ -487,6 +484,7 @@ def apply_filters(
             )
 
         expression: ColumnElement = op_func(column, f.value)
-        query = query.filter(expression) if isinstance(query, Query) else query.where(expression)  # type: ignore[union-attr]
+        query = query.filter(expression) if isinstance(
+            query, Query) else query.where(expression)  # type: ignore[union-attr]
 
     return query

@@ -17,11 +17,11 @@ Covers:
 """
 
 from __future__ import annotations
+from app.exceptions import ValidationError
 
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from unittest.mock import MagicMock, patch, call
-from typing import List
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -38,8 +38,6 @@ with patch.dict("sys.modules", {"structlog": MagicMock(), "app.logger": MagicMoc
         VALID_GRANULARITIES,
         METRIC_BELOW_CHECKS,
     )
-
-from app.exceptions import ValidationError
 
 
 # ── Fixtures ─────────────────────────────────────────────────────
@@ -291,7 +289,8 @@ class TestGetMetrics:
         for dp in result["data_points"]:
             assert "W" in dp["date"]
 
-    def test_empty_data_returns_safe_default(self, service, mock_db, company_id):
+    def test_empty_data_returns_safe_default(
+            self, service, mock_db, company_id):
         """Should return safe defaults when no data."""
         mock_query = MagicMock()
         mock_db.query.return_value = mock_query
@@ -673,7 +672,8 @@ class TestEvaluateAlerts:
         assert len(updated) >= 1
         assert existing_alert.consecutive_days_below == 2
 
-    def test_alert_resolved_when_metric_recovers(self, service, mock_db, company_id):
+    def test_alert_resolved_when_metric_recovers(
+            self, service, mock_db, company_id):
         """Should resolve active alert when metric recovers."""
         agent = _make_agent(agent_id="agent-001", status="active")
         threshold = _make_threshold(agent_id="agent-001")

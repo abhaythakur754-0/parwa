@@ -23,7 +23,11 @@ logger = logging.getLogger("parwa.webhooks.brevo")
 MAX_EMAIL_BODY_SIZE = 1 * 1024 * 1024
 
 # Required fields for inbound email
-REQUIRED_INBOUND_FIELDS = ["sender_email", "subject", "body_html", "recipient_email"]
+REQUIRED_INBOUND_FIELDS = [
+    "sender_email",
+    "subject",
+    "body_html",
+    "recipient_email"]
 
 
 def _sanitize_email_field(value: str, max_length: int = 500) -> str:
@@ -58,7 +62,8 @@ def _extract_inbound_email_data(payload: dict) -> dict:
     sender = payload.get("sender", {}) or {}
     recipient = payload.get("recipient", {}) or {}
 
-    # Brevo may deliver threading headers at top-level or nested under "headers"
+    # Brevo may deliver threading headers at top-level or nested under
+    # "headers"
     headers_block = payload.get("headers", {}) or {}
 
     return {
@@ -93,15 +98,28 @@ def _extract_attachments(attachments: list) -> list:
         if not isinstance(att, dict):
             continue
         attachment_info = {
-            "filename": _sanitize_email_field(att.get("filename", ""), 255),
-            "content_type": _sanitize_email_field(att.get("content-type", ""), 100),
-            "size": att.get("size", 0),
+            "filename": _sanitize_email_field(
+                att.get(
+                    "filename",
+                    ""),
+                255),
+            "content_type": _sanitize_email_field(
+                att.get(
+                    "content-type",
+                    ""),
+                100),
+            "size": att.get(
+                "size",
+                0),
         }
-        # Store actual file content if available (Brevo provides base64 content)
+        # Store actual file content if available (Brevo provides base64
+        # content)
         content = att.get("content", "")
-        if content and att.get("size", 0) < 10 * 1024 * 1024:  # Max 10MB per attachment
+        if content and att.get("size", 0) < 10 * 1024 * \
+                1024:  # Max 10MB per attachment
             attachment_info["has_content"] = True
-            attachment_info["content_b64"] = content[:100]  # Store preview only
+            # Store preview only
+            attachment_info["content_b64"] = content[:100]
             try:
                 import base64
                 # Validate it's valid base64

@@ -18,7 +18,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
-from sqlalchemy import and_, asc, desc, or_
+from sqlalchemy import and_, asc, desc
 from sqlalchemy.orm import Session
 
 from database.base import SessionLocal
@@ -46,10 +46,18 @@ ORDERED_EVENT_TYPES = {
 
 # Events that must come before others (dependency map)
 EVENT_DEPENDENCIES = {
-    "subscription.updated": ["subscription.created", "subscription.activated"],
-    "subscription.canceled": ["subscription.created", "subscription.activated"],
-    "subscription.past_due": ["subscription.created", "subscription.activated"],
-    "subscription.paused": ["subscription.created", "subscription.activated"],
+    "subscription.updated": [
+        "subscription.created",
+        "subscription.activated"],
+    "subscription.canceled": [
+        "subscription.created",
+        "subscription.activated"],
+    "subscription.past_due": [
+        "subscription.created",
+        "subscription.activated"],
+    "subscription.paused": [
+        "subscription.created",
+        "subscription.activated"],
     "subscription.resumed": ["subscription.paused"],
     "transaction.completed": ["transaction.paid"],
 }
@@ -215,7 +223,8 @@ def mark_sequence_failed(
 
         if record:
             record.status = "failed"
-            record.error_message = error_message[:500] if error_message else None
+            record.error_message = error_message[:
+                                                 500] if error_message else None
             record.retry_count = (record.retry_count or 0) + 1
             db.commit()
 
@@ -365,7 +374,8 @@ def get_stuck_events(
     """
     db: Session = SessionLocal()
     try:
-        cutoff = datetime.now(timezone.utc) - __import__('datetime').timedelta(hours=max_age_hours)
+        cutoff = datetime.now(
+            timezone.utc) - __import__('datetime').timedelta(hours=max_age_hours)
 
         query = db.query(WebhookSequence).filter(
             and_(
@@ -456,7 +466,8 @@ def cleanup_old_sequences(days: int = 30) -> int:
     """
     db: Session = SessionLocal()
     try:
-        cutoff = datetime.now(timezone.utc) - __import__('datetime').timedelta(days=days)
+        cutoff = datetime.now(timezone.utc) - \
+            __import__('datetime').timedelta(days=days)
 
         deleted = db.query(WebhookSequence).filter(
             and_(

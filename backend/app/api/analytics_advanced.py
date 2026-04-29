@@ -15,8 +15,6 @@ Building Codes: BC-001 (tenant isolation), BC-002 (financial),
                BC-007 (AI model), BC-011 (auth), BC-012 (error handling)
 """
 
-from datetime import datetime, timezone
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session

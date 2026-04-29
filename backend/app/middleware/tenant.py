@@ -96,7 +96,10 @@ class TenantMiddleware(BaseHTTPMiddleware):
 
         # BC-001: Validate company_id length and format
         if len(company_id) > MAX_COMPANY_ID_LENGTH:
-            logger.warning("tenant_blocked_id_too_long path=%s company_id_len=%d", path, len(company_id))
+            logger.warning(
+                "tenant_blocked_id_too_long path=%s company_id_len=%d",
+                path,
+                len(company_id))
             return Response(
                 content=(
                     '{"error":{"code":"BAD_REQUEST",'

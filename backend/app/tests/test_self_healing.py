@@ -24,16 +24,8 @@ Comprehensive tests covering:
 """
 
 from __future__ import annotations
-
-import os
-
-os.environ["ENVIRONMENT"] = "test"
-
-import pytest
-
 from app.core.self_healing_engine import (
     ActionType,
-    ConditionType,
     HealingAction,
     HealingRule,
     HealingStatus,
@@ -49,6 +41,11 @@ from app.core.self_healing_engine import (
     _provider_key,
     _seconds_since,
 )
+import pytest
+
+import os
+
+os.environ["ENVIRONMENT"] = "test"
 
 
 COMPANY_ID = "test-company-healing"
@@ -183,10 +180,12 @@ class TestHealingRules:
         assert rules[0].rule_id == "custom_rule"
 
     def test_enable_rule(self, engine):
-        result = engine.enable_rule(COMPANY_ID, "consecutive_failures_disable", False)
+        result = engine.enable_rule(
+            COMPANY_ID, "consecutive_failures_disable", False)
         assert result is True
         rules = engine.get_rules(COMPANY_ID)
-        rule = [r for r in rules if r.rule_id == "consecutive_failures_disable"][0]
+        rule = [r for r in rules if r.rule_id ==
+                "consecutive_failures_disable"][0]
         assert rule.enabled is False
 
     def test_enable_nonexistent_rule(self, engine):
@@ -196,7 +195,8 @@ class TestHealingRules:
     def test_rules_isolated_per_company(self, engine):
         engine.enable_rule(COMPANY_ID, "consecutive_failures_disable", False)
         rules_other = engine.get_rules(ANOTHER_COMPANY)
-        rule = [r for r in rules_other if r.rule_id == "consecutive_failures_disable"][0]
+        rule = [r for r in rules_other if r.rule_id ==
+                "consecutive_failures_disable"][0]
         assert rule.enabled is True  # Still enabled for other company
 
 
@@ -225,7 +225,8 @@ class TestRecordQueryResult:
             COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
             confidence_score=85.0, latency_ms=100.0,
         )
-        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(
+            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps is not None
         assert ps.provider == PROVIDER
 
@@ -238,7 +239,8 @@ class TestRecordQueryResult:
             COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
             confidence_score=85.0, latency_ms=100.0,
         )
-        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(
+            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.consecutive_failures == 0
 
     def test_record_failure_increments_failures(self, engine):
@@ -247,7 +249,8 @@ class TestRecordQueryResult:
                 COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
                 confidence_score=50.0, latency_ms=100.0, error="timeout",
             )
-        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(
+            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.consecutive_failures == 3
 
     def test_record_updates_last_success(self, engine):
@@ -255,7 +258,8 @@ class TestRecordQueryResult:
             COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
             confidence_score=85.0, latency_ms=100.0,
         )
-        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(
+            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.last_success is not None
         assert _parse_iso(ps.last_success) is not None
 
@@ -264,7 +268,8 @@ class TestRecordQueryResult:
             COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
             confidence_score=50.0, latency_ms=100.0, error="timeout",
         )
-        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(
+            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.last_failure is not None
 
 
@@ -280,7 +285,8 @@ class TestConsecutiveFailures:
                 COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
                 confidence_score=50.0, latency_ms=100.0, error="fail",
             )
-        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(
+            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.status != "disabled"
 
     def test_disable_at_limit(self, engine):
@@ -289,7 +295,8 @@ class TestConsecutiveFailures:
                 COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
                 confidence_score=50.0, latency_ms=100.0, error="fail",
             )
-        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(
+            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.status == "disabled"
         assert ps.traffic_percentage == 0
         assert ps.disabled_at is not None
@@ -339,7 +346,8 @@ class TestErrorSpike:
                 COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
                 confidence_score=50.0, latency_ms=100.0, error="fail",
             )
-        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(
+            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         # Should be disabled due to both consecutive failures AND error spike
         assert ps.status == "disabled"
 
@@ -511,7 +519,8 @@ class TestProviderRecovery:
                 COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
                 confidence_score=50.0, latency_ms=100.0, error="fail",
             )
-        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(
+            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.status == "disabled"
 
         # Now succeed — should start recovery
@@ -519,7 +528,8 @@ class TestProviderRecovery:
             COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
             confidence_score=85.0, latency_ms=100.0,
         )
-        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(
+            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.status == "recovering"
         assert ps.traffic_percentage > 0
 
@@ -536,7 +546,8 @@ class TestProviderRecovery:
             COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, TIER,
             confidence_score=85.0, latency_ms=100.0,
         )
-        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(
+            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.recovery_stage >= 1
         assert ps.traffic_percentage > 0
 
@@ -570,7 +581,8 @@ class TestManualEnableDisable:
             reason="admin_maintenance",
         )
         assert result is True
-        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(
+            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.status == "disabled"
         assert ps.disabled_reason == "admin_maintenance"
         assert ps.traffic_percentage == 0
@@ -583,7 +595,8 @@ class TestManualEnableDisable:
             COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID,
         )
         assert result is True
-        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(
+            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.status == "healthy"
         assert ps.traffic_percentage == 100
         assert ps.consecutive_failures == 0
@@ -826,14 +839,16 @@ class TestRecordProviderStatus:
         engine.record_provider_status(
             COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID, "unhealthy",
         )
-        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
+        ps = engine.get_provider_state(
+            COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID)
         assert ps.status == "unhealthy"
 
     def test_record_creates_provider_if_missing(self, engine):
         engine.record_provider_status(
             COMPANY_ID, VARIANT_PARWA, "cerebras", "llama-8b", "degraded",
         )
-        ps = engine.get_provider_state(COMPANY_ID, VARIANT_PARWA, "cerebras", "llama-8b")
+        ps = engine.get_provider_state(
+            COMPANY_ID, VARIANT_PARWA, "cerebras", "llama-8b")
         assert ps is not None
         assert ps.provider == "cerebras"
 
@@ -1093,9 +1108,12 @@ class TestMidRecoveryFailure:
         # The design: failures during recovery don't revert to disabled;
         # they only increment consecutive_failures. Provider stays recovering
         # until explicitly disabled by a rule check.
-        assert parwa.provider_status["google:gemini-pro"] in ("recovering", "disabled")
+        assert parwa.provider_status["google:gemini-pro"] in (
+            "recovering", "disabled")
 
-    def test_failure_mid_recovery_accumulates_consecutive_failures(self, engine):
+    def test_failure_mid_recovery_accumulates_consecutive_failures(
+            self,
+            engine):
         """Consecutive failures during recovery should keep incrementing."""
         import unittest.mock
 
@@ -1272,7 +1290,9 @@ class TestCooldownEnforcement:
 class TestVariantIsolationAdvanced:
     """Gap 14: Same provider disabled in one variant, healthy in another."""
 
-    def test_same_provider_disabled_in_parwa_healthy_in_mini_parwa(self, engine):
+    def test_same_provider_disabled_in_parwa_healthy_in_mini_parwa(
+            self,
+            engine):
         """Same provider disabled in parwa should be healthy in mini_parwa."""
         # Disable google in parwa
         for i in range(5):

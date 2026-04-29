@@ -22,7 +22,7 @@ BC-008: Graceful degradation.
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import Any
 
 import sqlalchemy as sa
 
@@ -162,7 +162,9 @@ class LeastLoadedStrategy:
         # Check capacity constraint
         for inst in sorted_instances:
             cap = _parse_capacity(inst.capacity_config)
-            max_conc = cap.get("max_concurrent_tickets", DEFAULT_MAX_CONCURRENT)
+            max_conc = cap.get(
+                "max_concurrent_tickets",
+                DEFAULT_MAX_CONCURRENT)
             if inst.active_tickets_count < max_conc:
                 return inst
         # All at capacity — return least loaded anyway (graceful)
@@ -578,20 +580,18 @@ def rebalance_workload(
                         "WHEN active_tickets_count > 0 "
                         "THEN active_tickets_count - 1 ELSE 0 END, "
                         "updated_at = :now_ts "
-                        "WHERE id = :inst_id AND company_id = :comp_id"
-                    ),
-                    {"inst_id": over_inst.id, "comp_id": company_id, "now_ts": datetime.now(timezone.utc)},
-                )
+                        "WHERE id = :inst_id AND company_id = :comp_id"), {
+                        "inst_id": over_inst.id, "comp_id": company_id, "now_ts": datetime.now(
+                            timezone.utc)}, )
                 db.execute(
                     sa.text(
                         "UPDATE variant_instances SET "
                         "active_tickets_count = active_tickets_count + 1, "
                         "total_tickets_handled = total_tickets_handled + 1, "
                         "updated_at = :now_ts "
-                        "WHERE id = :inst_id AND company_id = :comp_id"
-                    ),
-                    {"inst_id": under_inst.id, "comp_id": company_id, "now_ts": datetime.now(timezone.utc)},
-                )
+                        "WHERE id = :inst_id AND company_id = :comp_id"), {
+                        "inst_id": under_inst.id, "comp_id": company_id, "now_ts": datetime.now(
+                            timezone.utc)}, )
                 migrated += 1
 
         if over_inst.active_tickets_count > 0:
@@ -806,10 +806,9 @@ def complete_ticket_assignment(
             "THEN active_tickets_count - 1 ELSE 0 END, "
             "last_activity_at = :now_ts, "
             "updated_at = :now_ts "
-            "WHERE id = :inst_id AND company_id = :comp_id"
-        ),
-        {"inst_id": dist.instance_id, "comp_id": company_id, "now_ts": datetime.now(timezone.utc)},
-    )
+            "WHERE id = :inst_id AND company_id = :comp_id"), {
+            "inst_id": dist.instance_id, "comp_id": company_id, "now_ts": datetime.now(
+                timezone.utc)}, )
 
     db.commit()
     db.refresh(dist)

@@ -13,7 +13,6 @@ BC-001: All responses include company_id for tenant context.
 """
 
 import re
-from datetime import datetime
 from typing import Optional, List
 
 from pydantic import BaseModel, Field, field_validator
@@ -90,8 +89,8 @@ class UserDetailsRequest(BaseModel):
     def industry_must_be_valid(cls, v: str) -> str:
         if v not in INDUSTRY_OPTIONS:
             raise ValueError(
-                f"Invalid industry. Must be one of: {', '.join(INDUSTRY_OPTIONS)}"
-            )
+                f"Invalid industry. Must be one of: {
+                    ', '.join(INDUSTRY_OPTIONS)}")
         return v
 
     @field_validator("company_size")
@@ -101,8 +100,8 @@ class UserDetailsRequest(BaseModel):
             return None
         if v not in COMPANY_SIZE_OPTIONS:
             raise ValueError(
-                f"Invalid company_size. Must be one of: {', '.join(COMPANY_SIZE_OPTIONS)}"
-            )
+                f"Invalid company_size. Must be one of: {
+                    ', '.join(COMPANY_SIZE_OPTIONS)}")
         return v
 
     @field_validator("website")
@@ -271,8 +270,8 @@ class AIConfigRequest(BaseModel):
         valid_styles = ["concise", "detailed"]
         if v not in valid_styles:
             raise ValueError(
-                f"Invalid ai_response_style. Must be one of: {', '.join(valid_styles)}"
-            )
+                f"Invalid ai_response_style. Must be one of: {
+                    ', '.join(valid_styles)}")
         return v
 
 

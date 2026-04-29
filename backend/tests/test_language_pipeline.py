@@ -21,6 +21,7 @@ import pytest
 # Runtime-injected by _mock_logger fixture — satisfies flake8 F821
 Language = LanguageDetector = LanguagePipeline = PipelineResult = PipelineStepResult = StepStatus = TranslationQualityChecker = TranslationSimulator = None
 
+
 @pytest.fixture(autouse=True)
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
@@ -60,17 +61,20 @@ class TestLanguageDetector:
         assert conf > 0
 
     def test_detect_spanish(self):
-        lang, conf = self.detector.detect("Hola, gracias por favor, necesito ayuda con mi problema")
+        lang, conf = self.detector.detect(
+            "Hola, gracias por favor, necesito ayuda con mi problema")
         assert lang == Language.SPANISH
         assert conf > 0
 
     def test_detect_french(self):
-        lang, conf = self.detector.detect("Bonjour, merci beaucoup, je peux vous aider")
+        lang, conf = self.detector.detect(
+            "Bonjour, merci beaucoup, je peux vous aider")
         assert lang == Language.FRENCH
         assert conf > 0
 
     def test_detect_german(self):
-        lang, conf = self.detector.detect("Hallo, danke, ich brauche Hilfe mit meinem Problem")
+        lang, conf = self.detector.detect(
+            "Hallo, danke, ich brauche Hilfe mit meinem Problem")
         assert lang == Language.GERMAN
         assert conf > 0
 
@@ -115,7 +119,8 @@ class TestLanguageDetector:
         assert conf > 0
 
     def test_detect_portuguese(self):
-        lang, conf = self.detector.detect("Olá, obrigado, por favor, preciso de ajuda")
+        lang, conf = self.detector.detect(
+            "Olá, obrigado, por favor, preciso de ajuda")
         assert lang == Language.PORTUGUESE
         assert conf > 0
 
@@ -138,22 +143,26 @@ class TestTranslationSimulator:
         self.translator = TranslationSimulator()
 
     def test_translate_spanish_to_english(self):
-        text, success = self.translator.translate("hola", Language.SPANISH, Language.ENGLISH)
+        text, success = self.translator.translate(
+            "hola", Language.SPANISH, Language.ENGLISH)
         assert text == "hello"
         assert success is True
 
     def test_translate_same_language(self):
-        text, success = self.translator.translate("hello", Language.ENGLISH, Language.ENGLISH)
+        text, success = self.translator.translate(
+            "hello", Language.ENGLISH, Language.ENGLISH)
         assert text == "hello"
         assert success is True
 
     def test_translate_unknown_language(self):
-        text, success = self.translator.translate("some text", "xx", Language.ENGLISH)
+        text, success = self.translator.translate(
+            "some text", "xx", Language.ENGLISH)
         assert success is True
         assert "Translation simulated" in text
 
     def test_translate_empty(self):
-        text, success = self.translator.translate("", Language.SPANISH, Language.ENGLISH)
+        text, success = self.translator.translate(
+            "", Language.SPANISH, Language.ENGLISH)
         assert text == ""
         assert success is True
 
@@ -173,17 +182,20 @@ class TestTranslationSimulator:
         assert "thank" in text.lower()
 
     def test_translate_french(self):
-        text, success = self.translator.translate("bonjour", Language.FRENCH, Language.ENGLISH)
+        text, success = self.translator.translate(
+            "bonjour", Language.FRENCH, Language.ENGLISH)
         assert text == "hello"
         assert success is True
 
     def test_translate_german(self):
-        text, success = self.translator.translate("danke", Language.GERMAN, Language.ENGLISH)
+        text, success = self.translator.translate(
+            "danke", Language.GERMAN, Language.ENGLISH)
         assert text == "thank you"
         assert success is True
 
     def test_translate_chinese_prefix(self):
-        text, success = self.translator.translate("你好", Language.CHINESE, Language.ENGLISH)
+        text, success = self.translator.translate(
+            "你好", Language.CHINESE, Language.ENGLISH)
         assert success is True
         assert "Translated from Chinese" in text
 
@@ -203,7 +215,8 @@ class TestTranslationSimulator:
         assert success is True
 
     def test_translate_back_empty(self):
-        text, success = self.translator.translate_back("", Language.SPANISH, Language.ENGLISH)
+        text, success = self.translator.translate_back(
+            "", Language.SPANISH, Language.ENGLISH)
         assert text == ""
         assert success is True
 
@@ -217,7 +230,8 @@ class TestTranslationQualityChecker:
         self.checker = TranslationQualityChecker()
 
     def test_good_quality_translation(self):
-        score, issues = self.checker.check("Hello, thank you for your help", "es", "en")
+        score, issues = self.checker.check(
+            "Hello, thank you for your help", "es", "en")
         assert score > 0.7
         assert len(issues) == 0
 
@@ -232,7 +246,8 @@ class TestTranslationQualityChecker:
         assert "empty_translation" in issues
 
     def test_garbled_repeated_chars(self):
-        score, issues = self.checker.check("aaaaaaaaaaaaa translation", "es", "en")
+        score, issues = self.checker.check(
+            "aaaaaaaaaaaaa translation", "es", "en")
         assert score < 1.0
         assert any("repeated" in i for i in issues)
 
@@ -247,7 +262,8 @@ class TestTranslationQualityChecker:
         assert score < 1.0
 
     def test_placeholder_detected(self):
-        score, issues = self.checker.check("[translation failed] some text", "es", "en")
+        score, issues = self.checker.check(
+            "[translation failed] some text", "es", "en")
         assert any("placeholder" in i.lower() for i in issues)
 
     def test_score_bounded(self):
@@ -262,7 +278,8 @@ class TestTranslationQualityChecker:
 
     def test_untranslated_segments(self):
         # Spanish word left in English translation
-        score, issues = self.checker.check("I need the gracias for this", "es", "en")
+        score, issues = self.checker.check(
+            "I need the gracias for this", "es", "en")
         assert any("untranslated" in i.lower() for i in issues)
 
     def test_suspicious_single_word(self):
@@ -317,7 +334,10 @@ class TestLanguagePipeline:
         for step in result.pipeline_steps:
             assert isinstance(step, PipelineStepResult)
             assert step.step_name
-            assert step.status in (StepStatus.SUCCESS, StepStatus.SKIPPED, StepStatus.FAILED)
+            assert step.status in (
+                StepStatus.SUCCESS,
+                StepStatus.SKIPPED,
+                StepStatus.FAILED)
             assert step.duration_ms >= 0
 
     @pytest.mark.asyncio
@@ -398,8 +418,7 @@ class TestLanguagePipeline:
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola, necesito ayuda", company_id="c1")
         quality_step = next(
-            (s for s in result.pipeline_steps if s.step_name == "quality_check"), None
-        )
+            (s for s in result.pipeline_steps if s.step_name == "quality_check"), None)
         assert quality_step is not None
         assert quality_step.status == StepStatus.SUCCESS
 
@@ -409,8 +428,8 @@ class TestLanguagePipeline:
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola", company_id="c1")
         back_step = next(
-            (s for s in result.pipeline_steps if s.step_name == "translate_back"), None
-        )
+            (s for s in result.pipeline_steps if s.step_name == "translate_back"),
+            None)
         assert back_step is not None
         assert back_step.status == StepStatus.SUCCESS
 
@@ -420,8 +439,8 @@ class TestLanguagePipeline:
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hello", company_id="c1")
         back_step = next(
-            (s for s in result.pipeline_steps if s.step_name == "translate_back"), None
-        )
+            (s for s in result.pipeline_steps if s.step_name == "translate_back"),
+            None)
         assert back_step is not None
         assert back_step.status == StepStatus.SKIPPED
 
@@ -432,11 +451,21 @@ class TestLanguagePipeline:
 
 class TestPipelineResult:
     def test_to_dict_keys(self):
-        steps = [PipelineStepResult(step_name="detection", status=StepStatus.SUCCESS, duration_ms=1.0)]
+        steps = [
+            PipelineStepResult(
+                step_name="detection",
+                status=StepStatus.SUCCESS,
+                duration_ms=1.0)]
         result = PipelineResult(
-            original_text="test", detected_language="en", detection_confidence=0.9,
-            translated_text="test", tenant_language=None, translation_performed=False,
-            quality_score=1.0, quality_issues=[], processing_time_ms=5.0,
+            original_text="test",
+            detected_language="en",
+            detection_confidence=0.9,
+            translated_text="test",
+            tenant_language=None,
+            translation_performed=False,
+            quality_score=1.0,
+            quality_issues=[],
+            processing_time_ms=5.0,
             pipeline_steps=steps,
         )
         d = result.to_dict()
@@ -449,11 +478,21 @@ class TestPipelineResult:
         assert "fallback_used" in d
 
     def test_to_dict_step_values(self):
-        steps = [PipelineStepResult(step_name="detection", status=StepStatus.SUCCESS, duration_ms=1.5)]
+        steps = [
+            PipelineStepResult(
+                step_name="detection",
+                status=StepStatus.SUCCESS,
+                duration_ms=1.5)]
         result = PipelineResult(
-            original_text="test", detected_language="en", detection_confidence=0.9,
-            translated_text="test", tenant_language=None, translation_performed=False,
-            quality_score=1.0, quality_issues=[], processing_time_ms=5.0,
+            original_text="test",
+            detected_language="en",
+            detection_confidence=0.9,
+            translated_text="test",
+            tenant_language=None,
+            translation_performed=False,
+            quality_score=1.0,
+            quality_issues=[],
+            processing_time_ms=5.0,
             pipeline_steps=steps,
         )
         d = result.to_dict()
@@ -463,9 +502,15 @@ class TestPipelineResult:
 
     def test_defaults(self):
         result = PipelineResult(
-            original_text="", detected_language="unknown", detection_confidence=0.0,
-            translated_text="", tenant_language=None, translation_performed=False,
-            quality_score=0.0, quality_issues=[], processing_time_ms=0.0,
+            original_text="",
+            detected_language="unknown",
+            detection_confidence=0.0,
+            translated_text="",
+            tenant_language=None,
+            translation_performed=False,
+            quality_score=0.0,
+            quality_issues=[],
+            processing_time_ms=0.0,
             pipeline_steps=[],
         )
         assert result.fallback_used is False
@@ -474,9 +519,15 @@ class TestPipelineResult:
     def test_rounded_values(self):
         steps = []
         result = PipelineResult(
-            original_text="test", detected_language="en", detection_confidence=0.12345678,
-            translated_text="test", tenant_language=None, translation_performed=False,
-            quality_score=0.98765432, quality_issues=[], processing_time_ms=5.123456,
+            original_text="test",
+            detected_language="en",
+            detection_confidence=0.12345678,
+            translated_text="test",
+            tenant_language=None,
+            translation_performed=False,
+            quality_score=0.98765432,
+            quality_issues=[],
+            processing_time_ms=5.123456,
             pipeline_steps=steps,
         )
         d = result.to_dict()
@@ -506,7 +557,8 @@ class TestConfidence:
         with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola, gracias por favor, necesito ayuda con mi problema", company_id="c1")
-        conf_step = next(s for s in result.pipeline_steps if s.step_name == "confidence")
+        conf_step = next(
+            s for s in result.pipeline_steps if s.step_name == "confidence")
         assert conf_step.status == StepStatus.SUCCESS
         assert conf_step.metadata["is_confident"] is True
 
@@ -515,7 +567,8 @@ class TestConfidence:
         with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("hi", company_id="c1")
-        conf_step = next(s for s in result.pipeline_steps if s.step_name == "confidence")
+        conf_step = next(
+            s for s in result.pipeline_steps if s.step_name == "confidence")
         # Low confidence → SKIPPED
         assert conf_step.status in (StepStatus.SKIPPED, StepStatus.SUCCESS)
         assert "confidence" in conf_step.metadata
@@ -525,7 +578,8 @@ class TestConfidence:
         with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("test", company_id="c1")
-        conf_step = next(s for s in result.pipeline_steps if s.step_name == "confidence")
+        conf_step = next(
+            s for s in result.pipeline_steps if s.step_name == "confidence")
         assert conf_step.metadata["threshold"] == 0.5
 
     @pytest.mark.asyncio
@@ -547,7 +601,8 @@ class TestConfidence:
         with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("你好世界这是一个测试", company_id="c1")
-        conf_step = next(s for s in result.pipeline_steps if s.step_name == "confidence")
+        conf_step = next(
+            s for s in result.pipeline_steps if s.step_name == "confidence")
         # Chinese script-based detection should be confident
         assert conf_step.metadata["is_confident"] is True
 
@@ -556,7 +611,8 @@ class TestConfidence:
         with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("こんにちは、ありがとうございます", company_id="c1")
-        conf_step = next(s for s in result.pipeline_steps if s.step_name == "confidence")
+        conf_step = next(
+            s for s in result.pipeline_steps if s.step_name == "confidence")
         assert conf_step.metadata["is_confident"] is True
 
     @pytest.mark.asyncio
@@ -580,7 +636,8 @@ class TestTenantLanguage:
         with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola", company_id="c1", tenant_language="en")
-        tenant_step = next(s for s in result.pipeline_steps if s.step_name == "tenant_language")
+        tenant_step = next(
+            s for s in result.pipeline_steps if s.step_name == "tenant_language")
         assert tenant_step.metadata["tenant_language"] == "en"
         assert tenant_step.metadata["needs_translation"] is True
 
@@ -589,7 +646,8 @@ class TestTenantLanguage:
         with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola", company_id="c1")
-        tenant_step = next(s for s in result.pipeline_steps if s.step_name == "tenant_language")
+        tenant_step = next(
+            s for s in result.pipeline_steps if s.step_name == "tenant_language")
         assert tenant_step.metadata["tenant_language"] is None
 
     @pytest.mark.asyncio
@@ -597,7 +655,8 @@ class TestTenantLanguage:
         with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola", company_id="c1", tenant_language="es")
-        tenant_step = next(s for s in result.pipeline_steps if s.step_name == "tenant_language")
+        tenant_step = next(
+            s for s in result.pipeline_steps if s.step_name == "tenant_language")
         assert tenant_step.metadata["effective_language"] == "es"
         assert tenant_step.metadata["needs_translation"] is False
 
@@ -606,7 +665,8 @@ class TestTenantLanguage:
         """G9-GAP-10: Different tenant_language produces different cache keys."""
         import hashlib
         text = "Hola"
-        qh = hashlib.sha256(text.lower().strip().encode("utf-8")).hexdigest()[:16]
+        qh = hashlib.sha256(
+            text.lower().strip().encode("utf-8")).hexdigest()[:16]
         key_en = f"lang_pipeline:c1:{qh}:en"
         key_es = f"lang_pipeline:c1:{qh}:es"
         key_none = f"lang_pipeline:c1:{qh}:none"
@@ -634,7 +694,8 @@ class TestQualityCheck:
         with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola, necesito ayuda", company_id="c1")
-        quality_step = next(s for s in result.pipeline_steps if s.step_name == "quality_check")
+        quality_step = next(
+            s for s in result.pipeline_steps if s.step_name == "quality_check")
         assert quality_step.status == StepStatus.SUCCESS
         assert result.quality_score > 0
 
@@ -643,7 +704,8 @@ class TestQualityCheck:
         with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hello", company_id="c1")
-        quality_step = next(s for s in result.pipeline_steps if s.step_name == "quality_check")
+        quality_step = next(
+            s for s in result.pipeline_steps if s.step_name == "quality_check")
         assert quality_step.status == StepStatus.SKIPPED
 
     @pytest.mark.asyncio
@@ -651,7 +713,8 @@ class TestQualityCheck:
         with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola, necesito ayuda", company_id="c1")
-        quality_step = next(s for s in result.pipeline_steps if s.step_name == "quality_check")
+        quality_step = next(
+            s for s in result.pipeline_steps if s.step_name == "quality_check")
         assert "quality_score" in quality_step.metadata
         assert "issues_count" in quality_step.metadata
 
@@ -670,7 +733,8 @@ class TestQualityCheck:
             with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
                 with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                     result = await pipeline.process("Hola", company_id="c1")
-        quality_step = next(s for s in result.pipeline_steps if s.step_name == "quality_check")
+        quality_step = next(
+            s for s in result.pipeline_steps if s.step_name == "quality_check")
         assert quality_step.status == StepStatus.FAILED
         assert result.quality_score == 0.5
 
@@ -715,7 +779,8 @@ class TestFallback:
         with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hello", company_id="c1")
-        fallback_step = next(s for s in result.pipeline_steps if s.step_name == "fallback")
+        fallback_step = next(
+            s for s in result.pipeline_steps if s.step_name == "fallback")
         assert fallback_step.status == StepStatus.SUCCESS
 
     @pytest.mark.asyncio
@@ -767,7 +832,8 @@ class TestErrorHandling:
             with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
                 with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                     result = await pipeline.process("Hola", company_id="c1")
-        translate_step = next(s for s in result.pipeline_steps if s.step_name == "translate")
+        translate_step = next(
+            s for s in result.pipeline_steps if s.step_name == "translate")
         assert translate_step.status == StepStatus.FAILED
 
     @pytest.mark.asyncio
@@ -855,7 +921,8 @@ class TestLanguageDetectorAdditional:
         self.detector = LanguageDetector()
 
     def test_detect_mixed_latin_english_dominant(self):
-        lang, conf = self.detector.detect("The quick brown fox jumps over the lazy dog")
+        lang, conf = self.detector.detect(
+            "The quick brown fox jumps over the lazy dog")
         assert lang == Language.ENGLISH
 
     def test_detect_return_types(self):
@@ -893,7 +960,8 @@ class TestLanguageDetectorAdditional:
         assert conf > 0.5
 
     def test_detect_portuguese(self):
-        lang, conf = self.detector.detect("Olá obrigado por favor preciso ajuda")
+        lang, conf = self.detector.detect(
+            "Olá obrigado por favor preciso ajuda")
         assert lang == Language.PORTUGUESE
 
     def test_detect_german_high_confidence(self):
@@ -913,7 +981,8 @@ class TestTranslationAdditional:
         self.translator = TranslationSimulator()
 
     def test_translate_portuguese_to_english(self):
-        text, success = self.translator.translate("olá", Language.PORTUGUESE, Language.ENGLISH)
+        text, success = self.translator.translate(
+            "olá", Language.PORTUGUESE, Language.ENGLISH)
         assert text == "hello"
         assert success is True
 
@@ -925,17 +994,20 @@ class TestTranslationAdditional:
         assert "thank" in text.lower()
 
     def test_translate_korean_prefix(self):
-        text, success = self.translator.translate("안녕", Language.KOREAN, Language.ENGLISH)
+        text, success = self.translator.translate(
+            "안녕", Language.KOREAN, Language.ENGLISH)
         assert success is True
         assert "Translated from Korean" in text
 
     def test_translate_hindi_prefix(self):
-        text, success = self.translator.translate("नमस्ते", Language.HINDI, Language.ENGLISH)
+        text, success = self.translator.translate(
+            "नमस्ते", Language.HINDI, Language.ENGLISH)
         assert success is True
         assert "Translated from Hindi" in text
 
     def test_translate_arabic_prefix(self):
-        text, success = self.translator.translate("مرحبا", Language.ARABIC, Language.ENGLISH)
+        text, success = self.translator.translate(
+            "مرحبا", Language.ARABIC, Language.ENGLISH)
         assert success is True
         assert "Translated from Arabic" in text
 
@@ -961,12 +1033,14 @@ class TestTranslationAdditional:
         assert "한국어" in text
 
     def test_translate_whitespace_only(self):
-        text, success = self.translator.translate("   ", Language.SPANISH, Language.ENGLISH)
+        text, success = self.translator.translate(
+            "   ", Language.SPANISH, Language.ENGLISH)
         assert text == ""
         assert success is True
 
     def test_translate_unknown_target(self):
-        text, success = self.translator.translate("hello", Language.ENGLISH, "xx")
+        text, success = self.translator.translate(
+            "hello", Language.ENGLISH, "xx")
         assert success is True
         assert "Translation simulated" in text
 
@@ -1000,7 +1074,8 @@ class TestQualityCheckerAdditional:
         assert any("placeholder" in i.lower() for i in issues)
 
     def test_placeholder_template_var(self):
-        score, issues = self.checker.check("{{untranslated_var}} some text", "es", "en")
+        score, issues = self.checker.check(
+            "{{untranslated_var}} some text", "es", "en")
         assert any("placeholder" in i.lower() for i in issues)
 
     def test_non_latin_script_translation(self):
@@ -1063,7 +1138,8 @@ class TestPipelineIntegrationAdditional:
         with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("test", company_id="c1")
-        ai_step = next(s for s in result.pipeline_steps if s.step_name == "ai_process")
+        ai_step = next(
+            s for s in result.pipeline_steps if s.step_name == "ai_process")
         assert ai_step.status == StepStatus.SUCCESS
 
     @pytest.mark.asyncio
@@ -1071,7 +1147,8 @@ class TestPipelineIntegrationAdditional:
         with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hello world", company_id="c1")
-        quality_step = next(s for s in result.pipeline_steps if s.step_name == "quality_check")
+        quality_step = next(
+            s for s in result.pipeline_steps if s.step_name == "quality_check")
         assert quality_step.status == StepStatus.SKIPPED
 
     @pytest.mark.asyncio

@@ -25,15 +25,13 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.schemas.billing import (
     OverageChargeInfo,
     UsageInfo,
     VariantType,
     VARIANT_LIMITS,
-    INDUSTRY_ADD_ONS,
 )
 from app.clients.paddle_client import (
     PaddleClient,
@@ -70,7 +68,6 @@ MINIMUM_OVERAGE_CHARGE = Decimal("1.00")
 
 class OverageError(Exception):
     """Base exception for overage errors."""
-    pass
 
 
 class OverageService:
@@ -126,7 +123,11 @@ class OverageService:
             Dict with overage details and charge status
         """
         if target_date is None:
-            target_date = (datetime.now(timezone.utc) - timedelta(days=1)).date()
+            target_date = (
+                datetime.now(
+                    timezone.utc) -
+                timedelta(
+                    days=1)).date()
 
         with SessionLocal() as db:
             # Get company with subscription
@@ -178,7 +179,8 @@ class OverageService:
             ).first()
 
             if not usage_record:
-                # Create usage record (ticket count would come from ticket system)
+                # Create usage record (ticket count would come from ticket
+                # system)
                 usage_record = UsageRecord(
                     company_id=str(company_id),
                     record_date=target_date,
@@ -190,7 +192,8 @@ class OverageService:
                 db.refresh(usage_record)
 
             # Get month-to-date usage (current day's record is already included
-            # because it was committed before this query and has same record_month)
+            # because it was committed before this query and has same
+            # record_month)
             month_usage = db.query(
                 func.sum(UsageRecord.tickets_used).label("total_tickets")
             ).filter(
@@ -201,7 +204,8 @@ class OverageService:
             total_tickets = int(month_usage)
 
             # Calculate overage
-            overage_result = self._calculate_overage(total_tickets, ticket_limit)
+            overage_result = self._calculate_overage(
+                total_tickets, ticket_limit)
 
             # Check if there's actual overage
             if overage_result["overage_tickets"] <= 0:
@@ -268,7 +272,8 @@ class OverageService:
                 )
 
                 overage_charge.status = "charged"
-                overage_charge.paddle_charge_id = charge_result.get("charge_id")
+                overage_charge.paddle_charge_id = charge_result.get(
+                    "charge_id")
                 db.commit()
 
                 logger.info(
@@ -336,7 +341,8 @@ class OverageService:
             Dict with overage_tickets, overage_charges, overage_rate
         """
         overage_tickets = max(0, tickets_used - ticket_limit)
-        overage_charges = Decimal(str(overage_tickets)) * OVERAGE_RATE_PER_TICKET
+        overage_charges = Decimal(
+            str(overage_tickets)) * OVERAGE_RATE_PER_TICKET
 
         # Round to 2 decimal places
         overage_charges = overage_charges.quantize(
@@ -374,7 +380,8 @@ class OverageService:
         """
         try:
             # Validate overage price ID before submitting to Paddle
-            if not OVERAGE_PRICE_ID or OVERAGE_PRICE_ID.startswith("pri_overage"):
+            if not OVERAGE_PRICE_ID or OVERAGE_PRICE_ID.startswith(
+                    "pri_overage"):
                 raise OverageError(
                     f"Invalid overage price ID '{OVERAGE_PRICE_ID}'. "
                     "Set PADDLE_OVERAGE_PRICE_ID environment variable to a valid Paddle price ID."
@@ -546,7 +553,10 @@ class OverageService:
             overage_charges = month_usage.total_charges or Decimal("0.00")
 
             # Calculate percentage
-            usage_percentage = (tickets_used / ticket_limit * 100) if ticket_limit > 0 else 0.0
+            usage_percentage = (
+                tickets_used /
+                ticket_limit *
+                100) if ticket_limit > 0 else 0.0
 
             return UsageInfo(
                 company_id=company_id,
@@ -626,7 +636,8 @@ class OverageService:
 
             if usage_record:
                 # Increment existing record (not replace)
-                usage_record.tickets_used = (usage_record.tickets_used or 0) + ticket_count
+                usage_record.tickets_used = (
+                    usage_record.tickets_used or 0) + ticket_count
             else:
                 # Create new record
                 usage_record = UsageRecord(
@@ -665,10 +676,12 @@ class OverageService:
             "usage_percentage": usage.usage_percentage,
             "tickets_used": usage.tickets_used,
             "ticket_limit": usage.ticket_limit,
-            "tickets_remaining": max(0, usage.ticket_limit - usage.tickets_used),
+            "tickets_remaining": max(
+                0,
+                usage.ticket_limit -
+                usage.tickets_used),
             "threshold": threshold,
         }
-
 
     async def get_ticket_limit(
         self,

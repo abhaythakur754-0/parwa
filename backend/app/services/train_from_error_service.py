@@ -33,7 +33,7 @@ Building Codes: BC-001 (multi-tenant), BC-007 (AI model),
 import json
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from app.logger import get_logger
 
@@ -169,7 +169,8 @@ def create_training_point(
         if existing:
             return {
                 "message": "Training point already exists for this error+ticket combination",
-                "training_point_id": str(existing.id),
+                "training_point_id": str(
+                    existing.id),
                 "status": existing.status,
                 "error_id": error_id,
                 "ticket_id": ticket_id,
@@ -195,8 +196,10 @@ def create_training_point(
         # 4. PII-redact all text fields (BC-010)
         safe_input_context = _redact_pii(input_context)
         safe_ai_response = _redact_pii(ai_response) if ai_response else None
-        safe_expected_response = _redact_pii(expected_response) if expected_response else None
-        safe_correction_notes = _redact_pii(correction_notes) if correction_notes else None
+        safe_expected_response = _redact_pii(
+            expected_response) if expected_response else None
+        safe_correction_notes = _redact_pii(
+            correction_notes) if correction_notes else None
 
         # 5. Determine intent label from error type
         intent_label = _infer_intent_label(error.error_type, error.message)
@@ -369,7 +372,9 @@ def review_training_point(
     """
     if action not in VALID_REVIEW_ACTIONS:
         return {
-            "error": f"Invalid action '{action}'. Must be one of: {', '.join(sorted(VALID_REVIEW_ACTIONS))}",
+            "error": f"Invalid action '{action}'. Must be one of: {
+                ', '.join(
+                    sorted(VALID_REVIEW_ACTIONS))}",
             "training_point_id": training_point_id,
         }
 
@@ -389,7 +394,8 @@ def review_training_point(
 
         if tp.status not in ("queued_for_review", "needs_revision"):
             return {
-                "error": f"Cannot review training point in status '{tp.status}'",
+                "error": f"Cannot review training point in status '{
+                    tp.status}'",
                 "training_point_id": training_point_id,
                 "current_status": tp.status,
             }
@@ -558,7 +564,6 @@ def _extract_ai_response(
     Tries to find the most recent AI-generated message for the ticket.
     """
     try:
-        from database.models.tickets import Ticket
         from database.models.tickets import TicketMessage
 
         # Check if TicketMessage model exists
@@ -593,11 +598,22 @@ def _infer_intent_label(error_type: str, message: str) -> str:
         return "classification_error"
 
     # Response generation errors
-    if any(kw in text for kw in ("generation", "response", "ai_response", "llm")):
+    if any(
+        kw in text for kw in (
+            "generation",
+            "response",
+            "ai_response",
+            "llm")):
         return "response_generation_error"
 
     # Integration errors
-    if any(kw in text for kw in ("integration", "webhook", "api", "paddle", "brevo")):
+    if any(
+        kw in text for kw in (
+            "integration",
+            "webhook",
+            "api",
+            "paddle",
+            "brevo")):
         return "integration_error"
 
     # Auth errors
@@ -605,7 +621,13 @@ def _infer_intent_label(error_type: str, message: str) -> str:
         return "authentication_error"
 
     # Database errors
-    if any(kw in text for kw in ("database", "db", "sql", "query", "postgres")):
+    if any(
+        kw in text for kw in (
+            "database",
+            "db",
+            "sql",
+            "query",
+            "postgres")):
         return "database_error"
 
     # Timeout errors

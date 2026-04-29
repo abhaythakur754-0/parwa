@@ -8,16 +8,12 @@ statistics, data cleanup, and enum completeness.
 
 import time
 import unittest
-from unittest.mock import patch
 
 from app.core.session_continuity import (
     CollisionAction,
     ContinuityConfig,
-    HandoffRecord,
     LockStatus,
     SessionContinuityManager,
-    SessionLock,
-    SessionRecord,
     SessionStatus,
 )
 
@@ -64,8 +60,12 @@ class TestContinuityConfig(unittest.TestCase):
     def test_config_isolation(self):
         """Company A config doesn't affect B."""
         mgr = _mgr()
-        cfg_a = ContinuityConfig(lock_timeout_seconds=10.0, collision_strategy="reject")
-        cfg_b = ContinuityConfig(lock_timeout_seconds=999.0, collision_strategy="queue")
+        cfg_a = ContinuityConfig(
+            lock_timeout_seconds=10.0,
+            collision_strategy="reject")
+        cfg_b = ContinuityConfig(
+            lock_timeout_seconds=999.0,
+            collision_strategy="queue")
         mgr.configure("co-a", cfg_a)
         mgr.configure("co-b", cfg_b)
         self.assertEqual(mgr.get_config("co-a").lock_timeout_seconds, 10.0)
@@ -267,7 +267,12 @@ class TestCollisionStrategies(unittest.TestCase):
         mgr = _mgr()
         mgr.configure("co1", ContinuityConfig(collision_strategy="preempt"))
         mgr.acquire_lock("co1", "tkt1", "agent-A", metadata={"priority": 1})
-        result = mgr.acquire_lock("co1", "tkt1", "agent-B", metadata={"priority": 10})
+        result = mgr.acquire_lock(
+            "co1",
+            "tkt1",
+            "agent-B",
+            metadata={
+                "priority": 10})
         self.assertTrue(result["success"])
         self.assertEqual(result["action"], "acquired")
         self.assertEqual(mgr.get_ticket_owner("co1", "tkt1"), "agent-B")
@@ -441,7 +446,8 @@ class TestStaleDetection(unittest.TestCase):
         mgr.acquire_lock("co1", "tkt1", "agent-A")
         reg = mgr.register_session("co1", "tkt1", "agent-A", "standard")
         time.sleep(0.02)
-        self.assertEqual(len(mgr.detect_stale_sessions("co1")["stale_sessions"]), 0)
+        self.assertEqual(
+            len(mgr.detect_stale_sessions("co1")["stale_sessions"]), 0)
         time.sleep(0.02)
         stale = mgr.detect_stale_sessions("co1")["stale_sessions"]
         self.assertTrue(len(stale) > 0)
@@ -456,7 +462,8 @@ class TestHandoff(unittest.TestCase):
         mgr = _mgr()
         mgr.acquire_lock("co1", "tkt1", "agent-A")
         mgr.register_session("co1", "tkt1", "agent-A", "standard")
-        result = mgr.initiate_handoff("co1", "tkt1", "agent-A", "agent-B", "escalation")
+        result = mgr.initiate_handoff(
+            "co1", "tkt1", "agent-A", "agent-B", "escalation")
         self.assertTrue(result["success"])
         self.assertEqual(mgr.get_ticket_owner("co1", "tkt1"), "agent-B")
 
@@ -477,7 +484,8 @@ class TestHandoff(unittest.TestCase):
         """Fails gracefully."""
         mgr = _mgr()
         mgr.acquire_lock("co1", "tkt1", "agent-A")
-        result = mgr.initiate_handoff("co1", "tkt1", "agent-C", "agent-B", "escalation")
+        result = mgr.initiate_handoff(
+            "co1", "tkt1", "agent-C", "agent-B", "escalation")
         self.assertFalse(result["success"])
         self.assertIn("error", result)
 
@@ -487,7 +495,13 @@ class TestHandoff(unittest.TestCase):
         mgr.acquire_lock("co1", "tkt1", "agent-A")
         mgr.register_session("co1", "tkt1", "agent-A", "standard")
         ctx = {"summary": "Customer upset", "notes": "Follow up required"}
-        mgr.initiate_handoff("co1", "tkt1", "agent-A", "agent-B", "escalation", context=ctx)
+        mgr.initiate_handoff(
+            "co1",
+            "tkt1",
+            "agent-A",
+            "agent-B",
+            "escalation",
+            context=ctx)
         history = mgr.get_handoff_history("co1", "tkt1")
         self.assertEqual(history[0]["context_transferred"], ctx)
 
@@ -497,7 +511,8 @@ class TestHandoff(unittest.TestCase):
         mgr.acquire_lock("co1", "tkt1", "agent-A")
         mgr.register_session("co1", "tkt1", "agent-A", "standard")
         mgr.initiate_handoff("co1", "tkt1", "agent-A", "agent-B", "escalation")
-        reg = mgr.register_session("co1", "tkt1", "agent-B", "escalation-variant")
+        reg = mgr.register_session(
+            "co1", "tkt1", "agent-B", "escalation-variant")
         self.assertTrue(reg["success"])
 
     def test_handoff_history_retrieved(self):
@@ -603,7 +618,7 @@ class TestContinuityEvents(unittest.TestCase):
         """Stops receiving after removal."""
         mgr = _mgr()
         received = []
-        cb = lambda et, pl: received.append((et, pl))
+        def cb(et, pl): return received.append((et, pl))
         mgr.add_event_listener(cb)
         mgr.acquire_lock("co1", "tkt1", "agent-A")
         count_after_add = len(received)
@@ -740,7 +755,13 @@ class TestEnumValues(unittest.TestCase):
 
     def test_session_status_values(self):
         """Key SessionStatus values exist."""
-        expected = {"active", "completed", "failed", "handoff", "preempted", "expired"}
+        expected = {
+            "active",
+            "completed",
+            "failed",
+            "handoff",
+            "preempted",
+            "expired"}
         actual = {s.value for s in SessionStatus}
         self.assertEqual(actual, expected)
 
@@ -752,7 +773,12 @@ class TestEnumValues(unittest.TestCase):
 
     def test_lock_status_values(self):
         """Key LockStatus values exist."""
-        expected = {"acquired", "contested", "released", "expired", "not_found"}
+        expected = {
+            "acquired",
+            "contested",
+            "released",
+            "expired",
+            "not_found"}
         actual = {l.value for l in LockStatus}
         self.assertEqual(actual, expected)
 

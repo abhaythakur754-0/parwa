@@ -5,17 +5,12 @@ Covers: 10 signal extraction, GAP-007 (cache variant isolation),
 GAP-017 (multi-currency), edge cases.
 """
 
-import asyncio
-import hashlib
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.core.signal_extraction import (
-    CURRENCY_TO_USD,
     ExtractedSignals,
-    INTENT_KEYWORDS,
-    MONETARY_REGEX,
     SignalExtractionRequest,
     SignalExtractor,
 )
@@ -55,7 +50,8 @@ class TestExtractIntent:
         result = self.extractor._extract_intent(
             "I want a refund for the charge on my bill"
         )
-        assert result in ("refund", "billing")  # Both valid for billing+refund query
+        # Both valid for billing+refund query
+        assert result in ("refund", "billing")
 
     def test_case_insensitive(self):
         assert self.extractor._extract_intent("REFUND MY ORDER") == "refund"
@@ -69,7 +65,8 @@ class TestExtractSentiment:
         self.extractor = SignalExtractor()
 
     def test_positive_sentiment(self):
-        score = self.extractor._extract_sentiment("This is amazing and wonderful!")
+        score = self.extractor._extract_sentiment(
+            "This is amazing and wonderful!")
         assert score > 0.7
 
     def test_negative_sentiment(self):
@@ -79,7 +76,8 @@ class TestExtractSentiment:
         assert score < 0.3
 
     def test_neutral_sentiment(self):
-        score = self.extractor._extract_sentiment("How do I update my settings?")
+        score = self.extractor._extract_sentiment(
+            "How do I update my settings?")
         assert 0.3 <= score <= 0.7
 
     def test_mixed_sentiment(self):
@@ -94,7 +92,8 @@ class TestExtractSentiment:
 
     def test_intensifiers_boost(self):
         normal = self.extractor._extract_sentiment("This is bad and terrible")
-        intensified = self.extractor._extract_sentiment("This is very very bad and extremely terrible")
+        intensified = self.extractor._extract_sentiment(
+            "This is very very bad and extremely terrible")
         assert intensified <= normal
 
     def test_score_bounded(self):
@@ -128,7 +127,8 @@ class TestExtractComplexity:
         assert questions > simple
 
     def test_technical_terms_increase(self):
-        normal = self.extractor._extract_complexity("My thing is broken", self.weights)
+        normal = self.extractor._extract_complexity(
+            "My thing is broken", self.weights)
         techy = self.extractor._extract_complexity(
             "The API endpoint has a 500 error and the database server is down",
             self.weights,
@@ -153,36 +153,43 @@ class TestExtractMonetaryValue:
         assert currency == "$"
 
     def test_gbp_pound(self):
-        value, currency = self.extractor._extract_monetary_value("Costs £1,200.50")
+        value, currency = self.extractor._extract_monetary_value(
+            "Costs £1,200.50")
         assert value > 1300  # converted to USD
         assert currency == "£"
 
     def test_euro(self):
-        value, currency = self.extractor._extract_monetary_value("Price is €99")
+        value, currency = self.extractor._extract_monetary_value(
+            "Price is €99")
         assert value > 90  # converted to USD
         assert currency == "€"
 
     def test_inr_rupee(self):
-        value, currency = self.extractor._extract_monetary_value("I paid ₹50000")
+        value, currency = self.extractor._extract_monetary_value(
+            "I paid ₹50000")
         assert 0 < value < 1000  # INR to USD
         assert currency == "₹"
 
     def test_jpy_yen(self):
-        value, currency = self.extractor._extract_monetary_value("Price ¥10000")
+        value, currency = self.extractor._extract_monetary_value(
+            "Price ¥10000")
         assert 0 < value < 200  # JPY to USD
         assert currency == "¥"
 
     def test_currency_code_usd(self):
-        value, currency = self.extractor._extract_monetary_value("Total 500 USD")
+        value, currency = self.extractor._extract_monetary_value(
+            "Total 500 USD")
         assert value == 500.0
         assert currency == "USD"
 
     def test_currency_code_eur(self):
-        value, currency = self.extractor._extract_monetary_value("Costs 250 EUR")
+        value, currency = self.extractor._extract_monetary_value(
+            "Costs 250 EUR")
         assert value > 250  # converted
 
     def test_no_monetary_value(self):
-        value, currency = self.extractor._extract_monetary_value("No money mentioned")
+        value, currency = self.extractor._extract_monetary_value(
+            "No money mentioned")
         assert value == 0.0
         assert currency is None
 
@@ -251,11 +258,16 @@ class TestReasoningLoopDetection:
 
     def test_no_loop(self):
         history = ["How do I reset?", "Where is settings?", "Thanks"]
-        assert not self.extractor._detect_reasoning_loop("New question here", history)
+        assert not self.extractor._detect_reasoning_loop(
+            "New question here", history)
 
     def test_loop_detected(self):
-        history = ["refund my order now", "I need a refund please", "refund my order now"]
-        assert self.extractor._detect_reasoning_loop("refund my order now", history)
+        history = [
+            "refund my order now",
+            "I need a refund please",
+            "refund my order now"]
+        assert self.extractor._detect_reasoning_loop(
+            "refund my order now", history)
 
     def test_empty_history_items(self):
         history = ["", None, "refund"]
@@ -264,7 +276,8 @@ class TestReasoningLoopDetection:
     def test_similar_threshold(self):
         """Queries must be very similar (>=0.85) to trigger loop."""
         history = ["I have a billing problem", "I have a shipping problem"]
-        assert not self.extractor._detect_reasoning_loop("I have a refund problem", history)
+        assert not self.extractor._detect_reasoning_loop(
+            "I have a refund problem", history)
 
 
 # ── Resolution Path Count ────────────────────────────────────────────
@@ -279,16 +292,20 @@ class TestResolutionPathCount:
         assert paths == 1
 
     def test_technical_intent(self):
-        paths = self.extractor._count_resolution_paths("bug in api", "technical")
+        paths = self.extractor._count_resolution_paths(
+            "bug in api", "technical")
         assert paths >= 2
 
     def test_complaint_high_paths(self):
-        paths = self.extractor._count_resolution_paths("terrible service", "complaint")
+        paths = self.extractor._count_resolution_paths(
+            "terrible service", "complaint")
         assert paths >= 3
 
     def test_monetary_boost(self):
-        normal = self.extractor._count_resolution_paths("I want a refund", "refund")
-        with_money = self.extractor._count_resolution_paths("I want a $500 refund", "refund")
+        normal = self.extractor._count_resolution_paths(
+            "I want a refund", "refund")
+        with_money = self.extractor._count_resolution_paths(
+            "I want a $500 refund", "refund")
         assert with_money > normal
 
 
@@ -444,8 +461,12 @@ class TestFullPipeline:
         h1 = self.extractor._compute_query_hash(req_mini.query)
         h2 = self.extractor._compute_query_hash(req_parwa.query)
         # Same query hash but different cache keys due to variant
-        key1 = f"signal_cache:{req_mini.company_id}:{req_mini.variant_type}:{h1}"
-        key2 = f"signal_cache:{req_parwa.company_id}:{req_parwa.variant_type}:{h2}"
+        key1 = f"signal_cache:{
+            req_mini.company_id}:{
+            req_mini.variant_type}:{h1}"
+        key2 = f"signal_cache:{
+            req_parwa.company_id}:{
+            req_parwa.variant_type}:{h2}"
         assert key1 != key2
 
     @pytest.mark.asyncio

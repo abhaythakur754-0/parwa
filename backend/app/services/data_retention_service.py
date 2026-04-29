@@ -14,15 +14,11 @@ BC-002: All money calculations use Decimal (not used here)
 import io
 import json
 import logging
-import os
-import tempfile
 import zipfile
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import and_
 
 from database.base import SessionLocal
 # Lazy imports to avoid DB connection at module load time in tests
@@ -45,27 +41,22 @@ BILLING_RETENTION_YEARS = 7
 
 class DataRetentionError(Exception):
     """Base exception for data retention errors."""
-    pass
 
 
 class DataExportNotFoundError(DataRetentionError):
     """Data export not found."""
-    pass
 
 
 class DataRetentionExpiredError(DataRetentionError):
     """Retention period has expired, data may be deleted."""
-    pass
 
 
 class DataExportError(DataRetentionError):
     """Raised when a data export operation fails validation."""
-    pass
 
 
 class DataExportInProgressError(DataRetentionError):
     """Data export is already in progress."""
-    pass
 
 
 class DataRetentionService:
@@ -100,7 +91,8 @@ class DataRetentionService:
                 return {"status": "no_subscription"}
 
             # Check if service has been stopped
-            service_stopped_at = getattr(subscription, "service_stopped_at", None)
+            service_stopped_at = getattr(
+                subscription, "service_stopped_at", None)
             if not service_stopped_at:
                 # Check if canceled immediately
                 if subscription.status == "canceled":
@@ -113,10 +105,12 @@ class DataRetentionService:
 
             # Calculate retention countdown
             if service_stopped_at.tzinfo is None:
-                service_stopped_at = service_stopped_at.replace(tzinfo=timezone.utc)
+                service_stopped_at = service_stopped_at.replace(
+                    tzinfo=timezone.utc)
 
             now = datetime.now(timezone.utc)
-            deletion_date = service_stopped_at + timedelta(days=RETENTION_PERIOD_DAYS)
+            deletion_date = service_stopped_at + \
+                timedelta(days=RETENTION_PERIOD_DAYS)
             days_remaining = (deletion_date - now).days
 
             if days_remaining <= 0:
@@ -199,7 +193,8 @@ class DataRetentionService:
             try:
                 export_data = self._generate_export_data(str(company_id))
                 export.status = "completed"
-                export.file_size_bytes = len(json.dumps(export_data).encode("utf-8"))
+                export.file_size_bytes = len(
+                    json.dumps(export_data).encode("utf-8"))
                 export.completed_at = datetime.now(timezone.utc)
                 # Store the export data temporarily
                 export.export_data_json = json.dumps(export_data)
@@ -273,7 +268,8 @@ class DataRetentionService:
                     )
 
             # Generate ZIP
-            export_data = json.loads(export.export_data_json) if export.export_data_json else {}
+            export_data = json.loads(
+                export.export_data_json) if export.export_data_json else {}
             return self._generate_zip(export_data, str(company_id))
 
     def _generate_export_data(self, company_id: str) -> Dict[str, Any]:
@@ -346,11 +342,11 @@ class DataRetentionService:
 
                 if company:
                     export_data["settings"] = {
-                        "name": getattr(company, "name", None),
-                        "subscription_tier": getattr(company, "subscription_tier", None),
-                        "subscription_status": getattr(company, "subscription_status", None),
-                        "created_at": getattr(company, "created_at", None),
-                    }
+                        "name": getattr(
+                            company, "name", None), "subscription_tier": getattr(
+                            company, "subscription_tier", None), "subscription_status": getattr(
+                            company, "subscription_status", None), "created_at": getattr(
+                            company, "created_at", None), }
 
         except Exception as e:
             logger.warning(
@@ -382,7 +378,11 @@ class DataRetentionService:
             zf.writestr("parwa_export.json", json_content)
 
             # Add CSV files for main entities
-            for section in ["subscription", "invoices", "tickets", "customers"]:
+            for section in [
+                "subscription",
+                "invoices",
+                "tickets",
+                    "customers"]:
                 items = export_data.get(section, [])
                 if items:
                     csv_content = self._dicts_to_csv(items)
@@ -420,7 +420,9 @@ class DataRetentionService:
         writer = csv.DictWriter(buf, fieldnames=dicts[0].keys())
         writer.writeheader()
         for d in dicts:
-            row = {k: v if not isinstance(v, (list, dict)) else json.dumps(v) for k, v in d.items()}
+            row = {
+                k: v if not isinstance(
+                    v, (list, dict)) else json.dumps(v) for k, v in d.items()}
             writer.writerow(row)
 
         return buf.getvalue()
@@ -521,7 +523,8 @@ class DataRetentionService:
                 ticket.status = "deleted"
                 ticket.metadata_json = ticket.metadata_json or {}
                 ticket.metadata_json["deleted_by_retention"] = True
-                ticket.metadata_json["deleted_at"] = datetime.now(timezone.utc).isoformat()
+                ticket.metadata_json["deleted_at"] = datetime.now(
+                    timezone.utc).isoformat()
         except Exception as e:
             logger.warning(
                 "ticket_cleanup_failed company_id=%s error=%s",
@@ -542,7 +545,8 @@ class DataRetentionService:
                 if hasattr(customer, "metadata_json"):
                     customer.metadata_json = customer.metadata_json or {}
                     customer.metadata_json["anonymized_by_retention"] = True
-                    customer.metadata_json["anonymized_at"] = datetime.now(timezone.utc).isoformat()
+                    customer.metadata_json["anonymized_at"] = datetime.now(
+                        timezone.utc).isoformat()
         except Exception as e:
             logger.warning(
                 "customer_anonymization_failed company_id=%s error=%s",

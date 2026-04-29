@@ -47,11 +47,11 @@ VARIANT_FEATURES: Dict[str, Set[str]] = {
         "ticket_assign",
         "ticket_merge",
         "ticket_bulk_actions",
-        
+
         # Channels
         "email_channel",
         "chat_widget",
-        
+
         # AI Pipeline (Light model only)
         "ai_resolution",
         "ai_classification",
@@ -59,16 +59,16 @@ VARIANT_FEATURES: Dict[str, Set[str]] = {
         "ai_intent_detection",
         "ai_suggested_responses",
         "ai_kb_search",
-        
+
         # AI Techniques (Tier 1 only)
         "technique_chain_of_thought",
         "technique_basic_react",
-        
+
         # Knowledge Base
         "kb_upload",
         "kb_search",
         "kb_categories",
-        
+
         # Authentication & Security
         "email_password_auth",
         "email_verification",
@@ -77,14 +77,14 @@ VARIANT_FEATURES: Dict[str, Set[str]] = {
         "api_keys_readonly",
         "audit_logs",
         "rate_limiting",
-        
+
         # Shadow Mode
         "shadow_mode",
         "shadow_preview",
         "shadow_approve_reject",
         "shadow_auto_execute",
         "shadow_log",
-        
+
         # Billing
         "billing_monthly",
         "billing_yearly",
@@ -92,19 +92,19 @@ VARIANT_FEATURES: Dict[str, Set[str]] = {
         "billing_downgrade",
         "billing_cancel",
         "billing_invoices",
-        
+
         # Analytics (Basic)
         "analytics_dashboard",
         "analytics_ticket_volume",
         "analytics_response_time",
         "analytics_agent_performance",
-        
+
         # Settings
         "settings_company",
         "settings_user_management",
         "settings_notifications",
         "settings_branding_basic",
-        
+
         # Industry Add-ons (optional)
         "industry_addons",
         "industry_ecommerce",
@@ -112,73 +112,73 @@ VARIANT_FEATURES: Dict[str, Set[str]] = {
         "industry_logistics",
         "industry_others",
     },
-    
+
     "parwa": {
         # Inherits all Mini Parwa features PLUS:
-        
+
         # Additional Channels
         "sms_channel",
-        
+
         # AI Pipeline (Light + Medium models)
         "ai_model_medium",
-        
+
         # AI Techniques (Tier 1 + 2)
         "technique_tree_of_thoughts",
         "technique_least_to_most",
         "technique_step_back",
-        
+
         # RAG Advanced
         "rag_reranking",
         "rag_deep_search",
-        
+
         # Custom Prompts
         "custom_system_prompts",
         "brand_voice",
-        
+
         # API
         "api_readwrite",
-        
+
         # Analytics (Advanced)
         "analytics_export",
         "analytics_reports",
-        
+
         # Training
         "agent_training",
         "lightning_training",
-        
+
         # Integrations
         "custom_integrations",
         "incoming_webhooks",
     },
-    
+
     "high_parwa": {
         # Inherits all Parwa features PLUS:
-        
+
         # Additional Channels
         "voice_ai_channel",
-        
+
         # AI Pipeline (Light + Medium + Heavy models)
         "ai_model_heavy",
-        
+
         # AI Techniques (All tiers)
         "technique_self_consistency",
         "technique_reflexion",
         "technique_universe_of_thoughts",
         "technique_crp",
-        
+
         # Quality
         "quality_coach",
         "custom_guardrails",
         "ai_guardrails",
-        
+
         # API
         "api_full",
         "outgoing_webhooks",
-        
+
         # Analytics (Enterprise)
         "analytics_custom",
         "analytics_realtime",
-        
+
         # Support
         "dedicated_csm",
         "premium_sla",
@@ -253,19 +253,21 @@ def get_blocked_features(variant_type: str) -> Set[str]:
     return BLOCKED_FEATURES.get(variant_type, set())
 
 
-def get_upgrade_required_for_feature(variant_type: str, feature: str) -> List[str]:
+def get_upgrade_required_for_feature(
+        variant_type: str,
+        feature: str) -> List[str]:
     """Get list of variants that have access to a blocked feature."""
     if not is_feature_blocked(variant_type, feature):
         return []
-    
+
     upgrade_options = []
     tier_order = ["mini_parwa", "parwa", "high_parwa"]
     current_idx = tier_order.index(variant_type)
-    
+
     for tier in tier_order[current_idx + 1:]:
         if is_feature_available(tier, feature):
             upgrade_options.append(tier)
-    
+
     return upgrade_options
 
 
@@ -314,7 +316,10 @@ def get_variant_limit(variant_type: str, limit_name: str) -> int:
     return limits.get(limit_name, 0)
 
 
-def check_resource_limit(variant_type: str, resource: str, current_usage: int) -> dict:
+def check_resource_limit(
+        variant_type: str,
+        resource: str,
+        current_usage: int) -> dict:
     """Check if current usage is within limits for a resource."""
     limit = get_variant_limit(variant_type, resource)
     if limit == 0:
@@ -324,11 +329,15 @@ def check_resource_limit(variant_type: str, resource: str, current_usage: int) -
             "limit": 0,
             "current_usage": current_usage,
         }
-    
+
     return {
         "allowed": current_usage < limit,
         "limit": limit,
         "current_usage": current_usage,
-        "remaining": max(0, limit - current_usage),
-        "utilization_pct": round((current_usage / limit) * 100, 2) if limit > 0 else 0,
+        "remaining": max(
+            0,
+            limit - current_usage),
+        "utilization_pct": round(
+            (current_usage / limit) * 100,
+            2) if limit > 0 else 0,
     }

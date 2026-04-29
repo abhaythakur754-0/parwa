@@ -123,7 +123,9 @@ class TokenLimitFormatter(BaseFormatter):
         if not response:
             return response
 
-        limit = self.TIER_LIMITS.get(context.model_tier, self.TIER_LIMITS["standard"])
+        limit = self.TIER_LIMITS.get(
+            context.model_tier,
+            self.TIER_LIMITS["standard"])
         max_chars = limit * self.CHARS_PER_TOKEN
 
         if len(response) <= max_chars:
@@ -162,7 +164,11 @@ class MarkdownFormatter(BaseFormatter):
         text = response
 
         # Fix headers without space after # (e.g., "##Header" → "## Header")
-        text = re.sub(r"^(#{1,6})([^ #\n])", r"\1 \2", text, flags=re.MULTILINE)
+        text = re.sub(
+            r"^(#{1,6})([^ #\n])",
+            r"\1 \2",
+            text,
+            flags=re.MULTILINE)
 
         # Fix broken list items (e.g., "-item" → "- item", "*item" → "* item")
         text = re.sub(r"^(\s*[-*+])(\S)", r"\1 \2", text, flags=re.MULTILINE)
@@ -454,7 +460,10 @@ class BoldFormatter(BaseFormatter):
         # Remove excessive italic (> 3 italic sections)
         if italic_pairs > 3:
             # Remove remaining italic markers (avoid removing bold markers)
-            text = re.sub(r"(?<!\*)\*(?!\*)([^*]+)(?<!\*)\*(?!\*)", r"\1", text)
+            text = re.sub(
+                r"(?<!\*)\*(?!\*)([^*]+)(?<!\*)\*(?!\*)",
+                r"\1",
+                text)
 
         # Remove consecutive bold/italic on same text (e.g., ***text***)
         text = re.sub(r"\*\*\*(.+?)\*\*\*", r"\1", text)
@@ -602,7 +611,8 @@ class SignatureFormatter(BaseFormatter):
         ]
         last_lines = response.lower().split("\n")[-3:]
         # G5 FIX: Check if indicator appears as a word in last lines, not substring
-        # Prevents false positive: "thanks" in "Thanksgiving" or "support" in "supportive"
+        # Prevents false positive: "thanks" in "Thanksgiving" or "support" in
+        # "supportive"
         has_sign_off = any(
             any(
                 indicator == line.strip().lower()
@@ -736,8 +746,11 @@ class EscalationFormatter(BaseFormatter):
 
         intent = context.intent_type.lower()
 
-        # G11 FIX: Also escalate for very frustrated customers regardless of intent
-        if intent not in ("escalation", "complaint") and context.sentiment_score >= 0.3:
+        # G11 FIX: Also escalate for very frustrated customers regardless of
+        # intent
+        if intent not in (
+            "escalation",
+                "complaint") and context.sentiment_score >= 0.3:
             return response  # Only format escalation for high-frustration or specific intents
 
         # Only format escalation-related responses
@@ -887,8 +900,9 @@ class FormatterRegistry:
             List of formatter names.
         """
         return list(
-            self.VARIANT_DEFAULTS.get(variant_type, self.VARIANT_DEFAULTS["parwa"])
-        )
+            self.VARIANT_DEFAULTS.get(
+                variant_type,
+                self.VARIANT_DEFAULTS["parwa"]))
 
     def list_registered(self) -> List[str]:
         """List all registered formatter names."""

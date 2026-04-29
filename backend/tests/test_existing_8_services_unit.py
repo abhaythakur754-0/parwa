@@ -19,6 +19,7 @@ and verifying the jarvis helper function interacts with it correctly.
 Run:  pytest tests/test_existing_8_services_unit.py -v
 """
 
+import json
 import concurrent.futures
 import os
 import sys
@@ -45,7 +46,8 @@ _mock_db_jarvis.JarvisMessage = mock.MagicMock
 _mock_db_jarvis.JarvisKnowledgeUsed = mock.MagicMock
 _mock_db_jarvis.JarvisActionTicket = mock.MagicMock
 _mock_app_exceptions.NotFoundError = type("NotFoundError", (Exception,), {})
-_mock_app_exceptions.ValidationError = type("ValidationError", (Exception,), {})
+_mock_app_exceptions.ValidationError = type(
+    "ValidationError", (Exception,), {})
 _mock_app_exceptions.RateLimitError = type("RateLimitError", (Exception,), {})
 _mock_app_exceptions.InternalError = type("InternalError", (Exception,), {})
 
@@ -60,6 +62,7 @@ for mod_name, mod_obj in [
 
 class _DynamicModule(types.ModuleType):
     """Module that auto-creates submodules and registers them in sys.modules."""
+
     def __getattr__(self, name):
         full_name = f"{self.__name__}.{name}"
         if full_name in sys.modules:
@@ -121,7 +124,8 @@ class TestAIServiceUnit:
         """AIService enrich_system_prompt is imported inside _call_ai_provider."""
         source = jarvis._call_ai_provider.__code__.co_names
         # The function uses 'enrich_system_prompt' as a local import
-        assert "enrich_system_prompt" in source or hasattr(jarvis, "_call_ai_provider")
+        assert "enrich_system_prompt" in source or hasattr(
+            jarvis, "_call_ai_provider")
 
     def test_ai_service_is_called_with_correct_params(self):
         """When AIService works, it receives all required parameters."""
@@ -201,7 +205,8 @@ class TestAIServiceUnit:
 
     def test_ai_service_enrichment_changes_system_prompt(self):
         """When AIService works, the system_prompt is modified."""
-        mock_enrich = mock.MagicMock(return_value="ENRICHED_WITH_SENTIMENT_AND_KB")
+        mock_enrich = mock.MagicMock(
+            return_value="ENRICHED_WITH_SENTIMENT_AND_KB")
 
         with mock.patch.dict(
             sys.modules,
@@ -259,7 +264,8 @@ class TestKnowledgeBaseUnit:
 
     def test_kb_adds_content_to_prompt(self):
         """When KB service works, it adds content to the system prompt."""
-        mock_build_kb = mock.MagicMock(return_value="## KB: PARWA pricing starts at $49/mo")
+        mock_build_kb = mock.MagicMock(
+            return_value="## KB: PARWA pricing starts at $49/mo")
 
         # We need to patch JarvisSession.id at the class level
         # since build_system_prompt uses it as a filter column
@@ -284,7 +290,8 @@ class TestKnowledgeBaseUnit:
         """KB service failure is caught silently — doesn't crash build_system_prompt."""
         # Make the import raise an exception
         mock_kb_module = mock.MagicMock()
-        mock_kb_module.build_context_knowledge.side_effect = Exception("KB service down")
+        mock_kb_module.build_context_knowledge.side_effect = Exception(
+            "KB service down")
 
         with mock.patch.dict(
             sys.modules,
@@ -292,7 +299,8 @@ class TestKnowledgeBaseUnit:
         ), mock.patch.object(_mock_db_jarvis.JarvisSession, "id", mock.MagicMock(), create=True):
             mock_db = mock.MagicMock()
             mock_session = mock.MagicMock()
-            mock_session.context_json = json.dumps({"detected_stage": "welcome"})
+            mock_session.context_json = json.dumps(
+                {"detected_stage": "welcome"})
             mock_db.query.return_value.filter.return_value.first.return_value = mock_session
 
             # Should NOT raise
@@ -341,7 +349,8 @@ class TestTrainingDataUnit:
             "response": "To reset your password, go to Settings > Security.",
         }
 
-        # Verify the matching logic directly (same algorithm as in the function)
+        # Verify the matching logic directly (same algorithm as in the
+        # function)
         user_words = set("how do I reset my password".lower().split())
         query_words = set("how to reset password".lower().split())
         overlap = len(user_words & query_words) / len(user_words)
@@ -368,7 +377,6 @@ class TestTrainingDataUnit:
         mock_svc.get_records = mock.AsyncMock(return_value=[mock_record])
 
         # Replace the function's inner service import directly
-        import types as _types
         _orig_func = jarvis._lookup_trained_response
 
         async def _mock_search():
@@ -400,7 +408,10 @@ class TestTrainingDataUnit:
             result = asyncio.run(_mock_search())
         except RuntimeError:
             with concurrent.futures.ThreadPoolExecutor() as pool:
-                result = pool.submit(asyncio.run, _mock_search()).result(timeout=3)
+                result = pool.submit(
+                    asyncio.run,
+                    _mock_search()).result(
+                    timeout=3)
 
         assert result is not None, f"Expected trained response, got: {result}"
         assert "reset" in result.lower()
@@ -658,13 +669,16 @@ class TestAnalyticsServiceUnit:
         assert jarvis._get_analytics_category("variants_selected") == "funnel"
         assert jarvis._get_analytics_category("email_provided") == "funnel"
         assert jarvis._get_analytics_category("email_verified") == "funnel"
-        assert jarvis._get_analytics_category("demo_pack_purchased") == "payment"
+        assert jarvis._get_analytics_category(
+            "demo_pack_purchased") == "payment"
         assert jarvis._get_analytics_category("payment_initiated") == "payment"
         assert jarvis._get_analytics_category("payment_completed") == "payment"
         assert jarvis._get_analytics_category("handoff_completed") == "session"
         assert jarvis._get_analytics_category("lead_captured") == "lead"
-        assert jarvis._get_analytics_category("sentiment_analyzed") == "sentiment"
-        assert jarvis._get_analytics_category("escalation_triggered") == "escalation"
+        assert jarvis._get_analytics_category(
+            "sentiment_analyzed") == "sentiment"
+        assert jarvis._get_analytics_category(
+            "escalation_triggered") == "escalation"
         assert jarvis._get_analytics_category("unknown_event") == "general"
 
     def test_track_event_silent_failure(self):
@@ -752,7 +766,9 @@ class TestLeadServiceUnit:
             mock_db = mock.MagicMock()
             mock_session = mock.MagicMock()
             mock_session.company_id = "co1"
-            ctx = {"business_email": "test@example.com", "email_verified": True}
+            ctx = {
+                "business_email": "test@example.com",
+                "email_verified": True}
 
             jarvis._capture_lead_from_session(
                 db=mock_db,
@@ -812,7 +828,8 @@ class TestLeadServiceUnit:
 
         # Should track variants_selected event
         analytics_calls = [c for c in mock_track.call_args_list]
-        event_types = [c[1]["event_type"] if c[1].get("event_type") else None for c in analytics_calls]
+        event_types = [c[1]["event_type"] if c[1].get(
+            "event_type") else None for c in analytics_calls]
         assert "variants_selected" in event_types
 
 
@@ -882,7 +899,7 @@ class TestSentimentAnalyzerUnit:
         mock_analyzer.analyze = mock.AsyncMock(return_value=mock_result)
 
         history = [
-            {"role": "user", "content": "Hi"} ,
+            {"role": "user", "content": "Hi"},
             {"role": "jarvis", "content": "Hello!"},
             {"role": "user", "content": "I have a question"},
             {"role": "jarvis", "content": "Sure, ask away"},
@@ -932,7 +949,8 @@ class TestSentimentAnalyzerUnit:
     def test_sentiment_silent_failure(self):
         """_run_sentiment_analysis doesn't crash when service raises."""
         mock_analyzer = mock.MagicMock()
-        mock_analyzer.analyze = mock.AsyncMock(side_effect=RuntimeError("async issue"))
+        mock_analyzer.analyze = mock.AsyncMock(
+            side_effect=RuntimeError("async issue"))
 
         with mock.patch.dict(
             sys.modules,
@@ -958,7 +976,10 @@ class TestGracefulEscalationUnit:
 
     def test_escalation_returns_none_when_low_frustration(self):
         """_evaluate_escalation returns None when frustration < 60."""
-        sentiment = {"frustration_score": 30, "emotion": "calm", "urgency_level": "low"}
+        sentiment = {
+            "frustration_score": 30,
+            "emotion": "calm",
+            "urgency_level": "low"}
 
         result = jarvis._evaluate_escalation(
             session_id="s1",
@@ -1029,17 +1050,16 @@ class TestGracefulEscalationUnit:
 
         # The function checks: frustration >= 60 before calling escalation
         # This is the gating condition
-        assert 'frustration_score' in source and ('60' in source or '>= 60' in source)
+        assert 'frustration_score' in source and (
+            '60' in source or '>= 60' in source)
 
     def test_escalation_silent_failure(self):
         """_evaluate_escalation returns None when service is missing."""
         sys.modules.pop("app.core.graceful_escalation", None)
         try:
             result = jarvis._evaluate_escalation(
-                "s1", "u1", "co1", "msg",
-                {"frustration_score": 90, "emotion": "furious", "urgency_level": "high"},
-                {},
-            )
+                "s1", "u1", "co1", "msg", {
+                    "frustration_score": 90, "emotion": "furious", "urgency_level": "high"}, {}, )
             assert result is None
         except Exception:
             pytest.fail("_evaluate_escalation should not raise")
@@ -1087,7 +1107,8 @@ class TestDiagnosticWhyNoVisibleChange:
 
     def test_all_8_services_use_try_except_pass(self):
         """All 8 service connections use try/except: pass — silent failure."""
-        # Verify each helper function has a try/except that catches all exceptions
+        # Verify each helper function has a try/except that catches all
+        # exceptions
         service_functions = [
             ("_init_conversation_context", "ConversationService"),
             ("_track_conversation_message", "ConversationService"),
@@ -1141,7 +1162,8 @@ class TestDiagnosticWhyNoVisibleChange:
         Additionally, if _run_sentiment_analysis fails silently (returns None),
         no sentiment injection happens at all.
         """
-        # Verify sentiment injection only happens when sentiment_data is not None
+        # Verify sentiment injection only happens when sentiment_data is not
+        # None
         import inspect
         source = inspect.getsource(jarvis._call_ai_provider)
         # The code should check "if sentiment_data:" before injecting
@@ -1191,4 +1213,3 @@ class TestDiagnosticWhyNoVisibleChange:
 
 
 # We need json for the KB tests
-import json

@@ -11,12 +11,11 @@ BC-001: All queries are tenant-isolated via company_id.
 
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
-from sqlalchemy import and_, desc
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.exceptions import (
@@ -84,7 +83,7 @@ class InternalNoteService:
             pinned_count = self.db.query(TicketInternalNote).filter(
                 TicketInternalNote.ticket_id == ticket_id,
                 TicketInternalNote.company_id == self.company_id,
-                TicketInternalNote.is_pinned == True,
+                TicketInternalNote.is_pinned,
             ).count()
 
             if pinned_count >= self.MAX_PINNED_NOTES:
@@ -166,7 +165,7 @@ class InternalNoteService:
 
         # Filter pinned
         if pinned_only:
-            query = query.filter(TicketInternalNote.is_pinned == True)
+            query = query.filter(TicketInternalNote.is_pinned)
 
         # Count total
         total = query.count()
@@ -311,7 +310,7 @@ class InternalNoteService:
         pinned_count = self.db.query(TicketInternalNote).filter(
             TicketInternalNote.ticket_id == ticket_id,
             TicketInternalNote.company_id == self.company_id,
-            TicketInternalNote.is_pinned == True,
+            TicketInternalNote.is_pinned,
         ).count()
 
         if pinned_count >= self.MAX_PINNED_NOTES:
@@ -421,7 +420,7 @@ class InternalNoteService:
         return self.db.query(TicketInternalNote).filter(
             TicketInternalNote.ticket_id == ticket_id,
             TicketInternalNote.company_id == self.company_id,
-            TicketInternalNote.is_pinned == True,
+            TicketInternalNote.is_pinned,
         ).order_by(TicketInternalNote.created_at).all()
 
     def clear_all_pins(
@@ -439,7 +438,7 @@ class InternalNoteService:
         result = self.db.query(TicketInternalNote).filter(
             TicketInternalNote.ticket_id == ticket_id,
             TicketInternalNote.company_id == self.company_id,
-            TicketInternalNote.is_pinned == True,
+            TicketInternalNote.is_pinned,
         ).update({"is_pinned": False})
 
         self.db.commit()

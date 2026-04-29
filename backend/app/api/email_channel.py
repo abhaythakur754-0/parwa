@@ -134,8 +134,7 @@ async def get_inbound_email(
                         "code": "NOT_FOUND",
                         "message": f"Inbound email {inbound_email_id} not found",
                         "details": None,
-                    }
-                },
+                    }},
             )
         return email
     except Exception as exc:

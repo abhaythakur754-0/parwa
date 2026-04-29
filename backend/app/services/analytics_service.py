@@ -77,17 +77,25 @@ class BillingAnalyticsService:
             return {
                 "month": current_month,
                 "channels": {
-                    "email": {"tickets": usage.tickets_used if usage else 0, "cost": "included"},
-                    "chat": {"tickets": 0, "cost": "included"},
+                    "email": {
+                        "tickets": usage.tickets_used if usage else 0,
+                        "cost": "included"},
+                    "chat": {
+                        "tickets": 0,
+                        "cost": "included"},
                     "voice": {
-                        "minutes": float(usage.voice_minutes_used) if usage and usage.voice_minutes_used else 0.0,
+                        "minutes": float(
+                            usage.voice_minutes_used) if usage and usage.voice_minutes_used else 0.0,
                         "cost": "0.00",
                     },
-                    "sms": {"count": 0, "cost": "0.00"},
+                    "sms": {
+                        "count": 0,
+                        "cost": "0.00"},
                 },
             }
 
-    def get_spending_trend(self, company_id: str, months: int = 6) -> List[Dict[str, Any]]:
+    def get_spending_trend(self, company_id: str,
+                           months: int = 6) -> List[Dict[str, Any]]:
         """6 month trend data."""
         with SessionLocal() as db:
             now = datetime.now(timezone.utc)
@@ -144,7 +152,10 @@ class BillingAnalyticsService:
             )
 
             tickets_used = usage.tickets_used if usage else 0
-            percentage = (tickets_used / ticket_limit * 100) if ticket_limit > 0 else 0
+            percentage = (
+                tickets_used /
+                ticket_limit *
+                100) if ticket_limit > 0 else 0
 
             thresholds = [50, 75, 90, 100]
             alerts = []

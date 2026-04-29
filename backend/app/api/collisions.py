@@ -4,14 +4,14 @@ PARWA Collision API - Concurrent Editing Detection Endpoints (Day 33: MF11)
 Endpoints for tracking ticket viewers and collision detection.
 """
 
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
-from app.exceptions import NotFoundError, ValidationError
+from app.exceptions import NotFoundError
 from app.services.collision_service import CollisionService
 from database.models.core import User
 

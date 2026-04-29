@@ -16,9 +16,7 @@ Building Codes tested:
 
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch, PropertyMock
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -37,10 +35,15 @@ def _mock_db():
     return db
 
 
-def _make_mock_filter_chain(query_result=None, scalar_result=None, all_result=None, first_result=None):
+def _make_mock_filter_chain(
+        query_result=None,
+        scalar_result=None,
+        all_result=None,
+        first_result=None):
     """Create a properly chained mock filter query."""
     f = MagicMock()
-    f.first.return_value = first_result if first_result is not None else (query_result if query_result else None)
+    f.first.return_value = first_result if first_result is not None else (
+        query_result if query_result else None)
     f.scalar.return_value = scalar_result if scalar_result is not None else 0
     f.order_by.return_value = f
     f.group_by.return_value = f
@@ -93,7 +96,7 @@ class TestMistakeThreshold:
 
     def test_threshold_not_triggered_below_50(self):
         """Below 50 mistakes should not trigger training."""
-        from app.services.mistake_threshold_service import MistakeThresholdService, MISTAKE_THRESHOLD
+        from app.services.mistake_threshold_service import MistakeThresholdService
 
         db = _mock_db()
         service = MistakeThresholdService(db)
@@ -113,13 +116,14 @@ class TestMistakeThreshold:
 
     def test_threshold_triggered_at_50(self):
         """At exactly 50 mistakes, training should be triggered."""
-        from app.services.mistake_threshold_service import MistakeThresholdService, MISTAKE_THRESHOLD
+        from app.services.mistake_threshold_service import MistakeThresholdService
 
         db = _mock_db()
         service = MistakeThresholdService(db)
 
         # Mock mistake count at 50
         call_count = [0]
+
         def query_side_effect(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:
@@ -137,13 +141,14 @@ class TestMistakeThreshold:
         mock_dataset = MagicMock()
         mock_dataset.id = uuid.uuid4()
         mock_mistakes = [MagicMock() for _ in range(50)]
-        
+
         with patch.object(service, '_create_dataset_from_mistakes') as mock_create:
-            mock_create.return_value = {"dataset_id": "dataset-1", "sample_count": 50}
-            
+            mock_create.return_value = {
+                "dataset_id": "dataset-1", "sample_count": 50}
+
             with patch.object(service, '_trigger_training_if_needed') as mock_trigger:
                 mock_trigger.return_value = (True, "run-1")
-                
+
                 result = service.report_mistake(
                     company_id="company-1",
                     agent_id="agent-1",
@@ -154,7 +159,7 @@ class TestMistakeThreshold:
 
     def test_get_threshold_status(self):
         """Test threshold status retrieval."""
-        from app.services.mistake_threshold_service import MistakeThresholdService, MISTAKE_THRESHOLD
+        from app.services.mistake_threshold_service import MistakeThresholdService
 
         db = _mock_db()
         service = MistakeThresholdService(db)
@@ -179,21 +184,22 @@ class TestMistakeThreshold:
 
         # Mock total count
         total_q, total_f = _make_mock_filter_chain(scalar_result=30)
-        
+
         # Mock by_type query
         by_type_q, by_type_f = _make_mock_filter_chain(all_result=[
             ("incorrect_response", 15), ("hallucination", 10), ("tone_issue", 5)
         ])
-        
+
         # Mock by_severity query
         by_sev_q, by_sev_f = _make_mock_filter_chain(all_result=[
             ("low", 5), ("medium", 15), ("high", 10)
         ])
-        
+
         # Mock used_in_training count
         used_q, used_f = _make_mock_filter_chain(scalar_result=10)
 
         call_idx = [0]
+
         def query_side_effect(*args, **kwargs):
             call_idx[0] += 1
             if call_idx[0] == 1:
@@ -260,7 +266,8 @@ class TestAgentTrainingService:
         mock_dataset.record_count = 100
         mock_dataset.status = "ready"
 
-        q, f = _make_mock_filter_chain(first_result=mock_dataset, scalar_result=0)
+        q, f = _make_mock_filter_chain(
+            first_result=mock_dataset, scalar_result=0)
         db.query.return_value = q
 
         with patch.object(service, '_queue_training_task') as mock_queue:
@@ -277,7 +284,7 @@ class TestAgentTrainingService:
 
     def test_create_training_run_insufficient_samples(self):
         """Training should fail with less than 50 samples."""
-        from app.services.agent_training_service import AgentTrainingService, MIN_SAMPLES_FOR_TRAINING
+        from app.services.agent_training_service import AgentTrainingService
 
         db = _mock_db()
         service = AgentTrainingService(db)
@@ -315,12 +322,14 @@ class TestAgentTrainingService:
         mock_existing_run.id = uuid.uuid4()
 
         call_idx = [0]
+
         def query_side_effect(*args, **kwargs):
             call_idx[0] += 1
             if call_idx[0] == 1:
                 return _make_mock_filter_chain(first_result=mock_dataset)[0]
             else:
-                return _make_mock_filter_chain(first_result=mock_existing_run)[0]
+                return _make_mock_filter_chain(
+                    first_result=mock_existing_run)[0]
 
         db.query.side_effect = query_side_effect
 
@@ -466,7 +475,8 @@ class TestAgentTrainingService:
 
         # Mock training runs with different statuses
         mock_runs = []
-        for status, count in [("completed", 5), ("failed", 2), ("running", 1), ("queued", 1)]:
+        for status, count in [
+                ("completed", 5), ("failed", 2), ("running", 1), ("queued", 1)]:
             for _ in range(count):
                 run = MagicMock()
                 run.status = status
@@ -549,13 +559,14 @@ class TestTrainingIntegration:
 
     def test_mistake_triggers_training_flow(self):
         """When 50 mistakes are reached, training should be triggered."""
-        from app.services.mistake_threshold_service import MistakeThresholdService, MISTAKE_THRESHOLD
+        from app.services.mistake_threshold_service import MistakeThresholdService
 
         db = _mock_db()
         mistake_service = MistakeThresholdService(db)
 
         # Simulate reaching threshold
         call_idx = [0]
+
         def query_side_effect(*args, **kwargs):
             call_idx[0] += 1
             if call_idx[0] == 1:
@@ -567,7 +578,8 @@ class TestTrainingIntegration:
         db.query.side_effect = query_side_effect
 
         with patch.object(mistake_service, '_create_dataset_from_mistakes') as mock_dataset:
-            mock_dataset.return_value = {"dataset_id": "dataset-1", "sample_count": 50}
+            mock_dataset.return_value = {
+                "dataset_id": "dataset-1", "sample_count": 50}
 
             with patch.object(mistake_service, '_trigger_training_if_needed') as mock_trigger:
                 mock_trigger.return_value = (True, "run-1")

@@ -14,7 +14,6 @@ from app.core.techniques.crp import (
     CRPResult,
     DEFAULT_FILLERS,
     _COMPRESSION_RULES,
-    _EMPATHY_FILLERS,
     _RESERVED_PHRASES,
 )
 
@@ -377,8 +376,7 @@ class TestFullPipeline:
             "I'd be happy to help you with that! "
             "In order to process your refund, we need your account details. "
             "Your refund has been processed. The refund was processed successfully. "
-            "Please don't hesitate to reach out if you need anything else."
-        )
+            "Please don't hesitate to reach out if you need anything else.")
         result = await processor.process(text, complexity=0.5)
         assert result.original_tokens > 0
         assert result.processed_tokens <= result.original_tokens
@@ -416,8 +414,7 @@ class TestFullPipeline:
         verbose = (
             "I'd be happy to help. In order to resolve your billing issue, "
             "I will need to look at your account. Your account shows a charge of $100. "
-            "Please don't hesitate to contact us for more help."
-        )
+            "Please don't hesitate to contact us for more help.")
         result_low = await processor.process(verbose, complexity=0.1)
         result_high = await processor.process(verbose, complexity=0.9)
         # High complexity should preserve more tokens
@@ -478,8 +475,12 @@ class TestCompanyIsolation:
 
     @pytest.mark.asyncio
     async def test_two_companies_independent(self):
-        config1 = CRPConfig(company_id="A", custom_fillers=(r"Custom phrase A",))
-        config2 = CRPConfig(company_id="B", custom_fillers=(r"Custom phrase B",))
+        config1 = CRPConfig(
+            company_id="A", custom_fillers=(
+                r"Custom phrase A",))
+        config2 = CRPConfig(
+            company_id="B", custom_fillers=(
+                r"Custom phrase B",))
         p1 = CRPProcessor(config=config1)
         p2 = CRPProcessor(config=config2)
 
@@ -650,7 +651,9 @@ class TestKeepEmpathy:
         processor = CRPProcessor(config=config)
         normal_processor = CRPProcessor()
         # keep_empathy processor should have fewer patterns
-        assert len(processor._filler_patterns) < len(normal_processor._filler_patterns)
+        assert len(
+            processor._filler_patterns) < len(
+            normal_processor._filler_patterns)
 
     @pytest.mark.asyncio
     async def test_keep_empathy_preserves_empathy_phrases(self):

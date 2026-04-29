@@ -19,7 +19,7 @@ BC-012: Structured JSON error responses.
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request, Path, HTTPException
+from fastapi import APIRouter, Depends, Query, Request, Path
 from fastapi.responses import JSONResponse
 
 from app.api.deps import require_roles
@@ -36,8 +36,6 @@ from app.schemas.training import (
     TrainingRunListResponse,
     TrainingRunCancelResponse,
     TrainingStatsResponse,
-    CheckpointCreateRequest,
-    CheckpointCreateResponse,
     CheckpointResponse,
 )
 
@@ -84,7 +82,10 @@ async def report_mistake(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -107,11 +108,18 @@ async def report_mistake(
     except Exception as exc:
         logger.error(
             "report_mistake_error",
-            extra={"company_id": company_id, "agent_id": agent_id, "error": str(exc)[:200]},
+            extra={
+                "company_id": company_id,
+                "agent_id": agent_id,
+                "error": str(exc)[
+                    :200]},
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to report mistake"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to report mistake"}},
         )
 
 
@@ -132,7 +140,10 @@ async def get_threshold_status(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -145,11 +156,18 @@ async def get_threshold_status(
     except Exception as exc:
         logger.error(
             "get_threshold_status_error",
-            extra={"company_id": company_id, "agent_id": agent_id, "error": str(exc)[:200]},
+            extra={
+                "company_id": company_id,
+                "agent_id": agent_id,
+                "error": str(exc)[
+                    :200]},
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get threshold status"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get threshold status"}},
         )
 
 
@@ -171,7 +189,10 @@ async def get_mistake_history(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -191,11 +212,18 @@ async def get_mistake_history(
     except Exception as exc:
         logger.error(
             "get_mistake_history_error",
-            extra={"company_id": company_id, "agent_id": agent_id, "error": str(exc)[:200]},
+            extra={
+                "company_id": company_id,
+                "agent_id": agent_id,
+                "error": str(exc)[
+                    :200]},
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get mistake history"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get mistake history"}},
         )
 
 
@@ -213,7 +241,10 @@ async def get_mistake_stats(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -226,11 +257,18 @@ async def get_mistake_stats(
     except Exception as exc:
         logger.error(
             "get_mistake_stats_error",
-            extra={"company_id": company_id, "agent_id": agent_id, "error": str(exc)[:200]},
+            extra={
+                "company_id": company_id,
+                "agent_id": agent_id,
+                "error": str(exc)[
+                    :200]},
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get mistake stats"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get mistake stats"}},
         )
 
 
@@ -256,7 +294,10 @@ async def start_training(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -280,11 +321,18 @@ async def start_training(
     except Exception as exc:
         logger.error(
             "start_training_error",
-            extra={"company_id": company_id, "agent_id": agent_id, "error": str(exc)[:200]},
+            extra={
+                "company_id": company_id,
+                "agent_id": agent_id,
+                "error": str(exc)[
+                    :200]},
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to start training"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to start training"}},
         )
 
 
@@ -305,7 +353,10 @@ async def list_training_runs(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -328,7 +379,10 @@ async def list_training_runs(
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to list training runs"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to list training runs"}},
         )
 
 
@@ -346,7 +400,10 @@ async def get_training_run(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -359,7 +416,10 @@ async def get_training_run(
         if not result:
             return JSONResponse(
                 status_code=404,
-                content={"error": {"code": "NOT_FOUND", "message": f"Training run {run_id} not found"}},
+                content={
+                    "error": {
+                        "code": "NOT_FOUND",
+                        "message": f"Training run {run_id} not found"}},
             )
 
         return result
@@ -367,11 +427,18 @@ async def get_training_run(
     except Exception as exc:
         logger.error(
             "get_training_run_error",
-            extra={"company_id": company_id, "run_id": run_id, "error": str(exc)[:200]},
+            extra={
+                "company_id": company_id,
+                "run_id": run_id,
+                "error": str(exc)[
+                    :200]},
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get training run"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get training run"}},
         )
 
 
@@ -389,7 +456,10 @@ async def cancel_training_run(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -402,7 +472,10 @@ async def cancel_training_run(
         if result.get("status") == "error":
             return JSONResponse(
                 status_code=400,
-                content={"error": {"code": "CANNOT_CANCEL", "message": result.get("error")}},
+                content={
+                    "error": {
+                        "code": "CANNOT_CANCEL",
+                        "message": result.get("error")}},
             )
 
         return result
@@ -410,11 +483,18 @@ async def cancel_training_run(
     except Exception as exc:
         logger.error(
             "cancel_training_run_error",
-            extra={"company_id": company_id, "run_id": run_id, "error": str(exc)[:200]},
+            extra={
+                "company_id": company_id,
+                "run_id": run_id,
+                "error": str(exc)[
+                    :200]},
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to cancel training run"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to cancel training run"}},
         )
 
 
@@ -432,7 +512,10 @@ async def get_training_stats(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -449,7 +532,10 @@ async def get_training_stats(
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get training stats"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get training stats"}},
         )
 
 
@@ -471,7 +557,10 @@ async def get_best_checkpoint(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -484,7 +573,10 @@ async def get_best_checkpoint(
         if not result:
             return JSONResponse(
                 status_code=404,
-                content={"error": {"code": "NOT_FOUND", "message": "No best checkpoint found"}},
+                content={
+                    "error": {
+                        "code": "NOT_FOUND",
+                        "message": "No best checkpoint found"}},
             )
 
         return result
@@ -492,9 +584,16 @@ async def get_best_checkpoint(
     except Exception as exc:
         logger.error(
             "get_best_checkpoint_error",
-            extra={"company_id": company_id, "run_id": run_id, "error": str(exc)[:200]},
+            extra={
+                "company_id": company_id,
+                "run_id": run_id,
+                "error": str(exc)[
+                    :200]},
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get best checkpoint"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get best checkpoint"}},
         )

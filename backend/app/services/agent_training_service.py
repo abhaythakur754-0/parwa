@@ -25,14 +25,11 @@ Building Codes:
 - BC-012: Error handling (structured errors, DLQ for failures)
 """
 
-import json
 import logging
-import os
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict
 from decimal import Decimal
 
-from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger("parwa.agent_training")
@@ -135,7 +132,8 @@ class AgentTrainingService:
         if (dataset.record_count or 0) < MIN_SAMPLES_FOR_TRAINING:
             return {
                 "status": "error",
-                "error": f"Dataset has only {dataset.record_count} samples. Minimum {MIN_SAMPLES_FOR_TRAINING} required.",
+                "error": f"Dataset has only {
+                    dataset.record_count} samples. Minimum {MIN_SAMPLES_FOR_TRAINING} required.",
             }
 
         # Check agent isn't already training
@@ -155,8 +153,10 @@ class AgentTrainingService:
         if existing_run:
             return {
                 "status": "error",
-                "error": f"Agent already has an active training run: {existing_run.id}",
-                "existing_run_id": str(existing_run.id),
+                "error": f"Agent already has an active training run: {
+                    existing_run.id}",
+                "existing_run_id": str(
+                    existing_run.id),
             }
 
         # Create training run
@@ -477,7 +477,10 @@ class AgentTrainingService:
         if not run:
             return {"status": "error", "error": "Run not found"}
 
-        if run.status not in [TRAINING_STATUS_COMPLETED, TRAINING_STATUS_FAILED, TRAINING_STATUS_CANCELLED]:
+        if run.status not in [
+                TRAINING_STATUS_COMPLETED,
+                TRAINING_STATUS_FAILED,
+                TRAINING_STATUS_CANCELLED]:
             return {
                 "status": "error",
                 "error": f"Cannot cancel run with status: {run.status}",
@@ -547,7 +550,7 @@ class AgentTrainingService:
             self.db.query(TrainingCheckpoint).filter(
                 TrainingCheckpoint.company_id == company_id,
                 TrainingCheckpoint.training_run_id == run_id,
-                TrainingCheckpoint.is_best == True,
+                TrainingCheckpoint.is_best,
             ).update({"is_best": False})
 
         checkpoint = TrainingCheckpoint(
@@ -585,7 +588,10 @@ class AgentTrainingService:
             "is_best": is_best,
         }
 
-    def get_best_checkpoint(self, company_id: str, run_id: str) -> Optional[Dict]:
+    def get_best_checkpoint(
+            self,
+            company_id: str,
+            run_id: str) -> Optional[Dict]:
         """Get the best checkpoint for a training run.
 
         Args:
@@ -602,7 +608,7 @@ class AgentTrainingService:
             .filter(
                 TrainingCheckpoint.company_id == company_id,
                 TrainingCheckpoint.training_run_id == run_id,
-                TrainingCheckpoint.is_best == True,
+                TrainingCheckpoint.is_best,
             )
             .first()
         )
@@ -611,7 +617,8 @@ class AgentTrainingService:
             return None
 
         return {
-            "checkpoint_id": str(checkpoint.id),
+            "checkpoint_id": str(
+                checkpoint.id),
             "checkpoint_name": checkpoint.checkpoint_name,
             "model_path": checkpoint.model_path,
             "s3_path": checkpoint.s3_path,
@@ -624,7 +631,10 @@ class AgentTrainingService:
     # Statistics
     # ══════════════════════════════════════════════════════════════════════════
 
-    def get_training_stats(self, company_id: str, agent_id: Optional[str] = None) -> Dict:
+    def get_training_stats(
+            self,
+            company_id: str,
+            agent_id: Optional[str] = None) -> Dict:
         """Get training statistics for a tenant or agent.
 
         Args:
@@ -646,7 +656,8 @@ class AgentTrainingService:
         runs = query.all()
 
         total_runs = len(runs)
-        completed = len([r for r in runs if r.status == TRAINING_STATUS_COMPLETED])
+        completed = len([r for r in runs if r.status ==
+                        TRAINING_STATUS_COMPLETED])
         failed = len([r for r in runs if r.status == TRAINING_STATUS_FAILED])
         running = len([r for r in runs if r.status == TRAINING_STATUS_RUNNING])
         queued = len([r for r in runs if r.status == TRAINING_STATUS_QUEUED])

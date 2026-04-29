@@ -17,7 +17,7 @@ import json
 import logging
 import re
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -88,7 +88,8 @@ class ProhibitedWordCheck:
     """
 
     has_violations: bool
-    violations: List[Dict[str, Any]]  # [{word, position, normalized_form, severity}]
+    # [{word, position, normalized_form, severity}]
+    violations: List[Dict[str, Any]]
     cleaned_text: str
 
 
@@ -641,7 +642,8 @@ class BrandVoiceService:
             _validate_industry(industry)
 
             # Start with industry defaults
-            defaults = _INDUSTRY_DEFAULTS.get(industry, _INDUSTRY_DEFAULTS["tech"])
+            defaults = _INDUSTRY_DEFAULTS.get(
+                industry, _INDUSTRY_DEFAULTS["tech"])
             length_bounds = _RESPONSE_LENGTH_BOUNDS.get(
                 defaults["response_length_preference"],
                 _RESPONSE_LENGTH_BOUNDS["standard"],
@@ -677,9 +679,12 @@ class BrandVoiceService:
             _validate_escalation_tone(escalation_tone)
 
             # Build the bounds for the selected length preference
-            bounds = _RESPONSE_LENGTH_BOUNDS.get(response_length, _RESPONSE_LENGTH_BOUNDS["standard"])
-            max_sentences = config_data.get("max_response_sentences", bounds["max"])
-            min_sentences = config_data.get("min_response_sentences", bounds["min"])
+            bounds = _RESPONSE_LENGTH_BOUNDS.get(
+                response_length, _RESPONSE_LENGTH_BOUNDS["standard"])
+            max_sentences = config_data.get(
+                "max_response_sentences", bounds["max"])
+            min_sentences = config_data.get(
+                "min_response_sentences", bounds["min"])
 
             # Validate min <= max
             if min_sentences > max_sentences:
@@ -783,10 +788,13 @@ class BrandVoiceService:
             if "formality_level" in updates and updates["formality_level"] is not None:
                 _validate_formality(updates["formality_level"])
 
-            if "response_length_preference" in updates and updates["response_length_preference"] is not None:
-                _validate_response_length(updates["response_length_preference"])
+            if "response_length_preference" in updates and updates[
+                    "response_length_preference"] is not None:
+                _validate_response_length(
+                    updates["response_length_preference"])
                 pref = updates["response_length_preference"]
-                bounds = _RESPONSE_LENGTH_BOUNDS.get(pref, _RESPONSE_LENGTH_BOUNDS["standard"])
+                bounds = _RESPONSE_LENGTH_BOUNDS.get(
+                    pref, _RESPONSE_LENGTH_BOUNDS["standard"])
                 if "max_response_sentences" not in updates:
                     updates["max_response_sentences"] = bounds["max"]
                 if "min_response_sentences" not in updates:
@@ -1187,16 +1195,16 @@ class BrandVoiceService:
                 f"the maximum of {config.max_response_sentences}"
             )
             suggested_fixes.append(
-                f"Reduce response to at most {config.max_response_sentences} sentences"
-            )
+                f"Reduce response to at most {
+                    config.max_response_sentences} sentences")
         elif sentence_count < config.min_response_sentences:
             violations.append(
                 f"Response has only {sentence_count} sentence(s), "
                 f"below the minimum of {config.min_response_sentences}"
             )
             suggested_fixes.append(
-                f"Expand response to at least {config.min_response_sentences} sentences"
-            )
+                f"Expand response to at least {
+                    config.min_response_sentences} sentences")
 
         # ── 3. Formality match ──
         estimated_formality = _estimate_formality(text)
@@ -1332,7 +1340,8 @@ class BrandVoiceService:
                 company_id=company_id,
                 tone=defaults["tone"],
                 formality_level=defaults["formality_level"],
-                prohibited_words=list(defaults["prohibited_words"]),
+                prohibited_words=list(
+                    defaults["prohibited_words"]),
                 response_length_preference=defaults["response_length_preference"],
                 max_response_sentences=bounds["max"],
                 min_response_sentences=bounds["min"],
@@ -1466,8 +1475,10 @@ class BrandVoiceService:
             data = await self.redis_client.get(key)
             if data:
                 parsed = json.loads(data)
-                parsed["created_at"] = datetime.fromisoformat(parsed["created_at"])
-                parsed["updated_at"] = datetime.fromisoformat(parsed["updated_at"])
+                parsed["created_at"] = datetime.fromisoformat(
+                    parsed["created_at"])
+                parsed["updated_at"] = datetime.fromisoformat(
+                    parsed["updated_at"])
                 return BrandVoiceConfig(**parsed)
         except Exception as exc:
             logger.warning(

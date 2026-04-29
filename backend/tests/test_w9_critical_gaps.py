@@ -120,7 +120,7 @@ class TestSignalExtractionRaceCondition:
         cache_set_mock = AsyncMock()
 
         with patch("app.core.redis.cache_get", cache_miss), \
-             patch("app.core.redis.cache_set", cache_set_mock):
+                patch("app.core.redis.cache_set", cache_set_mock):
             results = await asyncio.gather(
                 self.extractor.extract(req),
                 self.extractor.extract(req),
@@ -150,7 +150,7 @@ class TestSignalExtractionRaceCondition:
         cache_set_mock = AsyncMock()
 
         with patch("app.core.redis.cache_get", cache_miss), \
-             patch("app.core.redis.cache_set", cache_set_mock):
+                patch("app.core.redis.cache_set", cache_set_mock):
             result_parwa, result_mini = await asyncio.gather(
                 self.extractor.extract(req_parwa),
                 self.extractor.extract(req_mini),
@@ -185,7 +185,7 @@ class TestSignalExtractionRaceCondition:
         cache_set_mock = AsyncMock()
 
         with patch("app.core.redis.cache_get", cache_miss), \
-             patch("app.core.redis.cache_set", cache_set_mock):
+                patch("app.core.redis.cache_set", cache_set_mock):
             result_refund, result_shipping = await asyncio.gather(
                 self.extractor.extract(req_refund),
                 self.extractor.extract(req_shipping),
@@ -224,13 +224,14 @@ class TestSignalExtractionRaceCondition:
         cache_set_mock = AsyncMock()
 
         with patch("app.core.redis.cache_get", cache_get_mock), \
-             patch("app.core.redis.cache_set", cache_set_mock):
+                patch("app.core.redis.cache_set", cache_set_mock):
             results = await asyncio.gather(
                 self.extractor.extract(req),
                 self.extractor.extract(req),
             )
 
-        # Both results should have the same intent (both complaint or both computed)
+        # Both results should have the same intent (both complaint or both
+        # computed)
         assert results[0].intent == results[1].intent
 
     @pytest.mark.asyncio
@@ -261,10 +262,11 @@ class TestSignalExtractionRaceCondition:
             variant_type="parwa",
         )
         cache_miss = AsyncMock(return_value=None)
-        cache_set_err = AsyncMock(side_effect=Exception("Redis connection lost"))
+        cache_set_err = AsyncMock(
+            side_effect=Exception("Redis connection lost"))
 
         with patch("app.core.redis.cache_get", cache_miss), \
-             patch("app.core.redis.cache_set", cache_set_err):
+                patch("app.core.redis.cache_set", cache_set_err):
             result = await self.extractor.extract(req)
 
         assert isinstance(result, ExtractedSignals)
@@ -306,7 +308,8 @@ class TestSentimentScoreBoundaries:
     def test_near_escalation_threshold_59(self):
         """A text that produces a score just below 60 (escalation threshold).
         We construct text with moderate frustration words only."""
-        # Moderate words: 5 pts each. Need about 12 hits to get ~50 + some extras
+        # Moderate words: 5 pts each. Need about 12 hits to get ~50 + some
+        # extras
         text = " ".join(["angry"] * 3 + ["frustrated"] * 3 + ["terrible"] * 3)
         score = self.detector.detect(text)
         # Should produce significant but potentially sub-60 frustration
@@ -348,7 +351,8 @@ class TestSentimentScoreBoundaries:
 
     def test_urgency_low_at_zero_frustration(self):
         """Zero frustration should yield 'low' urgency."""
-        level = self.urgency_scorer.score("Hello, how are you?", frustration_score=0.0)
+        level = self.urgency_scorer.score(
+            "Hello, how are you?", frustration_score=0.0)
         assert level == "low"
 
     def test_urgency_at_escalation_boundary_frustration_60(self):
@@ -403,7 +407,7 @@ class TestSentimentScoreBoundaries:
         cache_miss = AsyncMock(return_value=None)
         cache_set = AsyncMock()
         with patch("app.core.redis.cache_get", cache_miss), \
-             patch("app.core.redis.cache_set", cache_set):
+                patch("app.core.redis.cache_set", cache_set):
             result = await self.analyzer.analyze("This is OUTRAGEOUS and UNACCEPTABLE!!!", company_id="c1")
         # High frustration → sentiment_score should be < 1.0
         # sentiment_score = max(0, min(1, 1.0 - frustration/100))
@@ -417,7 +421,7 @@ class TestSentimentScoreBoundaries:
         cache_miss = AsyncMock(return_value=None)
         cache_set = AsyncMock()
         with patch("app.core.redis.cache_get", cache_miss), \
-             patch("app.core.redis.cache_set", cache_set):
+                patch("app.core.redis.cache_set", cache_set):
             result = await self.analyzer.analyze("", company_id="c1")
         assert result.frustration_score == 0.0
         assert result.sentiment_score == 0.5
@@ -722,7 +726,7 @@ def mock_redis():
             return []
         if stop == -1:
             return list(lst[start:])
-        return list(lst[start : stop + 1])
+        return list(lst[start: stop + 1])
 
     async def _delete(*names):
         count = 0
@@ -822,8 +826,18 @@ class TestTrainingDataCrossContamination:
     @pytest.mark.asyncio
     async def test_list_mini_parwa_excludes_parwa_high(self, mock_redis):
         """Listing mini_parwa datasets must not return parwa_high ones."""
-        _seed_dataset(mock_redis, "ds_mini_1", "c1", "mini_parwa", "Mini Dataset")
-        _seed_dataset(mock_redis, "ds_high_1", "c1", "parwa_high", "High Dataset")
+        _seed_dataset(
+            mock_redis,
+            "ds_mini_1",
+            "c1",
+            "mini_parwa",
+            "Mini Dataset")
+        _seed_dataset(
+            mock_redis,
+            "ds_high_1",
+            "c1",
+            "parwa_high",
+            "High Dataset")
         _seed_dataset(mock_redis, "ds_parwa_1", "c1", "parwa", "Parwa Dataset")
         with _patch_get_redis(mock_redis):
             result = await self.service.list_datasets("c1", variant_type="mini_parwa")
@@ -900,13 +914,16 @@ class TestTrainingDataCrossContamination:
         """Storage paths for same dataset_id under different variants
         must be completely different (no Redis key overlap)."""
         ds_id = "ds_path_iso"
-        path_mini = _seed_dataset(mock_redis, ds_id, "c1", "mini_parwa", "Mini")
-        path_high = _seed_dataset(mock_redis, ds_id, "c1", "parwa_high", "High")
+        path_mini = _seed_dataset(
+            mock_redis, ds_id, "c1", "mini_parwa", "Mini")
+        path_high = _seed_dataset(
+            mock_redis, ds_id, "c1", "parwa_high", "High")
         assert path_mini != path_high
         assert "mini_parwa" in path_mini
         assert "parwa_high" in path_high
         # Ensure no Redis key overlap
         assert path_mini not in mock_redis._store or \
-               path_mini + ":meta" not in mock_redis._store or \
-               mock_redis._store[path_mini + ":meta"]["variant_type"] == "mini_parwa"
-        assert mock_redis._store[path_high + ":meta"]["variant_type"] == "parwa_high"
+            path_mini + ":meta" not in mock_redis._store or \
+            mock_redis._store[path_mini + ":meta"]["variant_type"] == "mini_parwa"
+        assert mock_redis._store[path_high +
+                                 ":meta"]["variant_type"] == "parwa_high"

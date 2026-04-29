@@ -9,11 +9,8 @@ Manages temporary subscription pauses:
 
 import logging
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
 from typing import Any, Dict, Optional
-from uuid import UUID
 
-from sqlalchemy import and_
 
 from database.base import SessionLocal
 from database.models.billing import Subscription
@@ -27,7 +24,6 @@ MIN_PAUSE_INTERVAL_DAYS = 180  # 6 months
 
 class PauseError(Exception):
     """Base error for pause operations."""
-    pass
 
 
 class AlreadyPausedError(PauseError):
@@ -72,8 +68,7 @@ class _PauseService:
 
             if not subscription:
                 raise PauseError(
-                    f"No active subscription for company {company_id} (PAUSE-001)"
-                )
+                    f"No active subscription for company {company_id} (PAUSE-001)")
 
             now = datetime.now(timezone.utc)
 
@@ -94,14 +89,13 @@ class _PauseService:
 
             # Check cooldown (1 pause per 6 months)
             recent_pause = (
-                db.query(PauseRecord)
-                .filter(
+                db.query(PauseRecord) .filter(
                     PauseRecord.company_id == str(company_id),
                     PauseRecord.resumed_at.isnot(None),
-                    PauseRecord.resumed_at > now - timedelta(days=MIN_PAUSE_INTERVAL_DAYS),
-                )
-                .first()
-            )
+                    PauseRecord.resumed_at > now -
+                    timedelta(
+                        days=MIN_PAUSE_INTERVAL_DAYS),
+                ) .first())
             if recent_pause:
                 days_since = (now - recent_pause.resumed_at).days
                 raise PauseCooldownError(
@@ -132,7 +126,10 @@ class _PauseService:
                 "company_id": str(company_id),
                 "paused_at": now.isoformat(),
                 "max_pause_days": MAX_PAUSE_DAYS,
-                "auto_resume_at": (now + timedelta(days=MAX_PAUSE_DAYS)).isoformat(),
+                "auto_resume_at": (
+                    now +
+                    timedelta(
+                        days=MAX_PAUSE_DAYS)).isoformat(),
                 "status": "paused",
             }
 
@@ -155,8 +152,7 @@ class _PauseService:
 
             if not pause:
                 raise NotPausedError(
-                    f"No active pause found for company {company_id} (PAUSE-004)"
-                )
+                    f"No active pause found for company {company_id} (PAUSE-004)")
 
             now = datetime.now(timezone.utc)
             pause_duration = (now - pause.paused_at).days
@@ -173,10 +169,13 @@ class _PauseService:
             )
             if subscription:
                 subscription.status = "active"
-                if hasattr(subscription, "current_period_end") and subscription.current_period_end:
+                if hasattr(
+                        subscription,
+                        "current_period_end") and subscription.current_period_end:
                     subscription.current_period_end = (
-                        subscription.current_period_end + timedelta(days=pause_duration)
-                    )
+                        subscription.current_period_end +
+                        timedelta(
+                            days=pause_duration))
                 db.flush()
 
             logger.info(
@@ -249,10 +248,13 @@ class _PauseService:
                 )
                 if subscription:
                     subscription.status = "active"
-                    if hasattr(subscription, "current_period_end") and subscription.current_period_end:
+                    if hasattr(
+                            subscription,
+                            "current_period_end") and subscription.current_period_end:
                         subscription.current_period_end = (
-                            subscription.current_period_end + timedelta(days=pause_duration)
-                        )
+                            subscription.current_period_end +
+                            timedelta(
+                                days=pause_duration))
 
                 auto_resumed += 1
                 logger.info(

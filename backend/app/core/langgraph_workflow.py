@@ -39,7 +39,6 @@ from __future__ import annotations
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.logger import get_logger
@@ -433,8 +432,7 @@ class LangGraphWorkflow:
                     try:
                         # Find the WorkflowStep definition for this step_id
                         wf_step = next(
-                            (s for s in self._steps if s.step_id == _sid), None,
-                        )
+                            (s for s in self._steps if s.step_id == _sid), None, )
                         if wf_step is None:
                             return {
                                 "step_outputs": {
@@ -492,7 +490,8 @@ class LangGraphWorkflow:
 
                         # Increment quality_retries when re-entering generate
                         if _sid == "generate":
-                            node_return["quality_retries"] = state.get("quality_retries", 0) + 1
+                            node_return["quality_retries"] = state.get(
+                                "quality_retries", 0) + 1
 
                         return node_return
                     except Exception as exc:
@@ -512,7 +511,8 @@ class LangGraphWorkflow:
 
             # Wire edges sequentially, with conditional edge after quality_gate
             has_quality_gate = "quality_gate" in step_ids
-            generate_idx = step_ids.index("generate") if "generate" in step_ids else -1
+            generate_idx = step_ids.index(
+                "generate") if "generate" in step_ids else -1
 
             for i in range(len(step_ids) - 1):
                 src = step_ids[i]
@@ -521,7 +521,8 @@ class LangGraphWorkflow:
                 # If this is the quality_gate step, use a conditional edge
                 # instead of a direct edge to the next step.
                 if src == "quality_gate" and has_quality_gate:
-                    # Find the node that follows quality_gate (usually "format")
+                    # Find the node that follows quality_gate (usually
+                    # "format")
                     next_after_qg = step_ids[i + 1]
 
                     def _quality_gate_router(state: dict) -> str:
@@ -531,8 +532,16 @@ class LangGraphWorkflow:
                         exceeded max retries, route back to ``generate``.
                         Otherwise continue to the next step (e.g. ``format``).
                         """
-                        qg_output = state.get("step_outputs", {}).get("quality_gate", {})
-                        score = qg_output.get("output", {}).get("score", 1.0) if isinstance(qg_output, dict) else 1.0
+                        qg_output = state.get(
+                            "step_outputs", {}).get(
+                            "quality_gate", {})
+                        score = qg_output.get(
+                            "output",
+                            {}).get(
+                            "score",
+                            1.0) if isinstance(
+                            qg_output,
+                            dict) else 1.0
                         retries = state.get("quality_retries", 0)
                         threshold = self._config.quality_gate_confidence_threshold
                         max_retries = self._config.quality_gate_max_retries
@@ -1048,7 +1057,8 @@ class LangGraphWorkflow:
             if errors:
                 overall_status = "partial"
 
-            total_duration_ms = round((time.monotonic() - pipeline_start) * 1000, 2)
+            total_duration_ms = round(
+                (time.monotonic() - pipeline_start) * 1000, 2)
 
             logger.info(
                 "langgraph_execution_completed",
@@ -1227,9 +1237,11 @@ class LangGraphWorkflow:
         if extract_step and extract_step.output:
             extract_out = extract_step.output
 
-        # B8: Derive frustration from sentiment (inverse: sentiment 0.0 = frustration 100)
+        # B8: Derive frustration from sentiment (inverse: sentiment 0.0 =
+        # frustration 100)
         sentiment_val = extract_out.get("sentiment", 0.7)
-        frustration_est = round(max(0.0, min(100.0, (1.0 - sentiment_val) * 100.0)), 1)
+        frustration_est = round(
+            max(0.0, min(100.0, (1.0 - sentiment_val) * 100.0)), 1)
 
         signals = QuerySignals(
             query_complexity=extract_out.get("complexity", 0.5),
@@ -1282,7 +1294,8 @@ class LangGraphWorkflow:
         compressor = ContextCompressor()
 
         # Gather context content to compress
-        raw_context = context.get("knowledge_context") or context.get("conversation_history") or []
+        raw_context = context.get("knowledge_context") or context.get(
+            "conversation_history") or []
         if isinstance(raw_context, str):
             content_chunks = [raw_context]
         elif isinstance(raw_context, list):
@@ -1330,7 +1343,8 @@ class LangGraphWorkflow:
         classify_step = step_results.get("classify")
         if classify_step and classify_step.output:
             query_signals["intent"] = classify_step.output.get("intent")
-            query_signals["confidence"] = classify_step.output.get("confidence")
+            query_signals["confidence"] = classify_step.output.get(
+                "confidence")
 
         # Route to the best model for draft generation
         routing_decision = router.route(
@@ -1341,7 +1355,9 @@ class LangGraphWorkflow:
         )
 
         # Build messages payload — inject full session context
-        system_prompt = context.get("system_prompt", "") or "You are a helpful customer support assistant."
+        system_prompt = context.get(
+            "system_prompt",
+            "") or "You are a helpful customer support assistant."
         knowledge_ctx = context.get("knowledge_context", "")
         if knowledge_ctx and isinstance(knowledge_ctx, (list, str)):
             if isinstance(knowledge_ctx, list):
@@ -1358,7 +1374,8 @@ class LangGraphWorkflow:
         conversation_history = context.get("conversation_history")
         if conversation_history and isinstance(conversation_history, list):
             for msg in conversation_history[-20:]:  # Last 20 turns
-                if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                if isinstance(
+                        msg, dict) and "role" in msg and "content" in msg:
                     # Map internal "jarvis" role to standard "assistant" role
                     # (AI APIs only accept system/user/assistant)
                     role = msg["role"]
@@ -1383,7 +1400,9 @@ class LangGraphWorkflow:
 
         response_text = llm_result.get("content", "")
         # Use real token count from LiteLLM response if available
-        tokens_used = llm_result.get("tokens_used", len(response_text.split()) * 4)
+        tokens_used = llm_result.get(
+            "tokens_used", len(
+                response_text.split()) * 4)
 
         return {
             "response": response_text,
@@ -1849,7 +1868,11 @@ class LangGraphWorkflow:
                 merged = dict(current_values)
                 for key, value in state_updates.items():
                     # Merge step_outputs dicts, replace everything else
-                    if key == "step_outputs" and isinstance(merged.get(key), dict) and isinstance(value, dict):
+                    if key == "step_outputs" and isinstance(
+                            merged.get(key),
+                            dict) and isinstance(
+                            value,
+                            dict):
                         merged[key] = {**merged[key], **value}
                     else:
                         merged[key] = value
@@ -1900,7 +1923,8 @@ class LangGraphWorkflow:
             if errors:
                 overall_status = "partial"
 
-            total_duration_ms = round((time.monotonic() - pipeline_start) * 1000, 2)
+            total_duration_ms = round(
+                (time.monotonic() - pipeline_start) * 1000, 2)
 
             logger.info(
                 "checkpoint_resume_completed",

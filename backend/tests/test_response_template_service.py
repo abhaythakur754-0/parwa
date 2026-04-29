@@ -7,36 +7,30 @@ all edge cases. Uses the in-memory store (no DB/Redis required).
 """
 
 from __future__ import annotations
-
-import sys
-import os
-import re
-from datetime import datetime, timezone
-from typing import Any
-
-import pytest
-import pytest_asyncio
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-
+from app.exceptions import (
+    ValidationError,
+    NotFoundError,
+)
 from app.services.response_template_service import (
     ResponseTemplateService,
     ResponseTemplate,
     TemplateVariable,
-    TemplateValidationResult,
     VALID_CATEGORIES,
     VALID_LANGUAGES,
     _extract_variables,
     _validate_company_id,
     _KNOWN_VARIABLES,
     sanitize_template_variable,
-    _VARIABLE_PATTERN,
 )
-from app.exceptions import (
-    ValidationError,
-    NotFoundError,
-    InternalError,
-)
+
+import sys
+import os
+from datetime import datetime, timezone
+
+import pytest
+import pytest_asyncio
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -368,7 +362,8 @@ class TestUpdateTemplate:
         assert updated.category == "farewell"
 
     @pytest.mark.asyncio
-    async def test_update_body_reextracts_variables(self, svc, greeting_template):
+    async def test_update_body_reextracts_variables(
+            self, svc, greeting_template):
         updated = await svc.update_template(
             greeting_template.id, COMPANY_A,
             {"body_template": "Just {{foo}} and {{bar}}"}
@@ -377,7 +372,8 @@ class TestUpdateTemplate:
         assert "bar" in updated.variables
 
     @pytest.mark.asyncio
-    async def test_update_invalid_category_raises(self, svc, greeting_template):
+    async def test_update_invalid_category_raises(
+            self, svc, greeting_template):
         with pytest.raises(ValidationError, match="Invalid category"):
             await svc.update_template(
                 greeting_template.id, COMPANY_A, {"category": "bad_cat"}
@@ -427,7 +423,8 @@ class TestUpdateTemplate:
         assert updated.version == 1
 
     @pytest.mark.asyncio
-    async def test_update_non_list_intent_types_ignored(self, svc, greeting_template):
+    async def test_update_non_list_intent_types_ignored(
+            self, svc, greeting_template):
         original_intents = list(greeting_template.intent_types)
         updated = await svc.update_template(
             greeting_template.id, COMPANY_A,
@@ -526,7 +523,8 @@ class TestDuplicateTemplate:
             await svc.duplicate_template(greeting_template.id, COMPANY_B)
 
     @pytest.mark.asyncio
-    async def test_duplicate_independent_modification(self, svc, greeting_template):
+    async def test_duplicate_independent_modification(
+            self, svc, greeting_template):
         copy = await svc.duplicate_template(greeting_template.id, COMPANY_A)
         await svc.update_template(
             copy.id, COMPANY_A, {"name": "Modified Copy"}
@@ -552,7 +550,8 @@ class TestRenderTemplate:
         assert "PARWA" in rendered
 
     @pytest.mark.asyncio
-    async def test_render_missing_variable_left_as_is(self, svc, greeting_template):
+    async def test_render_missing_variable_left_as_is(
+            self, svc, greeting_template):
         rendered = await svc.render_template(
             greeting_template.id, COMPANY_A,
             {"customer_name": "Bob"},  # missing company_name
@@ -571,7 +570,8 @@ class TestRenderTemplate:
         assert "&lt;script&gt;" in rendered
 
     @pytest.mark.asyncio
-    async def test_render_html_sanitization_script_removal(self, svc, greeting_template):
+    async def test_render_html_sanitization_script_removal(
+            self, svc, greeting_template):
         rendered = await svc.render_template(
             greeting_template.id, COMPANY_A,
             {"customer_name": '<script>alert("xss")</script>World'},
@@ -581,7 +581,8 @@ class TestRenderTemplate:
         assert "World" in rendered
 
     @pytest.mark.asyncio
-    async def test_render_html_sanitization_event_handlers(self, svc, greeting_template):
+    async def test_render_html_sanitization_event_handlers(
+            self, svc, greeting_template):
         rendered = await svc.render_template(
             greeting_template.id, COMPANY_A,
             {"customer_name": '<div onclick="alert(1)">Click</div>'},
@@ -981,7 +982,12 @@ class TestDefaultTemplates:
         templates = await svc.list_templates(COMPANY_A)
         assert len(templates) == 5
         categories = {t.category for t in templates}
-        assert categories == {"greeting", "apology", "escalation", "refund", "technical"}
+        assert categories == {
+            "greeting",
+            "apology",
+            "escalation",
+            "refund",
+            "technical"}
 
     @pytest.mark.asyncio
     async def test_defaults_have_variables(self, svc):

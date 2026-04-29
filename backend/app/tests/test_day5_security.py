@@ -6,16 +6,14 @@ All tests are pure unit/integration tests that verify source file contents
 and middleware behavior without requiring a running server.
 """
 
-import os
 import re
-import ast
-import textwrap
 from pathlib import Path
 
 import pytest
 
 # ── Project roots ──────────────────────────────────────────────────────────
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent  # /home/z/parwa
+PROJECT_ROOT = Path(__file__).resolve(
+).parent.parent.parent.parent  # /home/z/parwa
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
 BACKEND_DIR = PROJECT_ROOT / "backend"
 INFRA_DIR = PROJECT_ROOT / "infra"
@@ -31,7 +29,8 @@ class TestD2_NextConfigSecurityHeaders:
     NEXT_CONFIG_PATH = FRONTEND_DIR / "next.config.mjs"
 
     def _load_config(self):
-        assert self.NEXT_CONFIG_PATH.exists(), f"File not found: {self.NEXT_CONFIG_PATH}"
+        assert self.NEXT_CONFIG_PATH.exists(
+        ), f"File not found: {self.NEXT_CONFIG_PATH}"
         return self.NEXT_CONFIG_PATH.read_text()
 
     def test_headers_function_exists(self):
@@ -185,13 +184,14 @@ class TestD7_HSTSPreload:
 class TestC3_EmailValidation:
     """Verify register route uses regex for email validation instead of includes('@')."""
 
-    REGISTER_PATH = FRONTEND_DIR / "src" / "app" / "api" / "auth" / "register" / "route.ts"
+    REGISTER_PATH = FRONTEND_DIR / "src" / "app" / \
+        "api" / "auth" / "register" / "route.ts"
 
     def test_uses_regex_validation(self):
         """C3: Must use a regex for email validation."""
         content = self.REGISTER_PATH.read_text()
-        assert re.search(r'/\^?\[\\^\\s@\]', content) or re.search(r"emailRegex", content), \
-            "Register route must use a regex for email validation"
+        assert re.search(r'/\^?\[\\^\\s@\]', content) or re.search(
+            r"emailRegex", content), "Register route must use a regex for email validation"
 
     def test_no_simple_includes_check(self):
         """C3: Must NOT use simple !email.includes(\"@\") check."""
@@ -215,7 +215,8 @@ class TestC3_EmailValidation:
 class TestC4_PasswordComplexity:
     """Verify register route enforces password complexity server-side."""
 
-    REGISTER_PATH = FRONTEND_DIR / "src" / "app" / "api" / "auth" / "register" / "route.ts"
+    REGISTER_PATH = FRONTEND_DIR / "src" / "app" / \
+        "api" / "auth" / "register" / "route.ts"
 
     def _load(self):
         return self.REGISTER_PATH.read_text()
@@ -253,10 +254,13 @@ class TestC4_PasswordComplexity:
     def test_error_messages(self):
         """C4: Each validation check should have a meaningful error message."""
         content = self._load()
-        assert "uppercase" in content.lower(), "Error message must mention uppercase requirement"
-        assert "lowercase" in content.lower(), "Error message must mention lowercase requirement"
+        assert "uppercase" in content.lower(
+        ), "Error message must mention uppercase requirement"
+        assert "lowercase" in content.lower(
+        ), "Error message must mention lowercase requirement"
         assert "digit" in content.lower(), "Error message must mention digit requirement"
-        assert "special character" in content.lower(), "Error message must mention special character requirement"
+        assert "special character" in content.lower(
+        ), "Error message must mention special character requirement"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -266,7 +270,8 @@ class TestC4_PasswordComplexity:
 class TestC5_OTPRateLimiting:
     """Verify OTP verify endpoint has in-memory rate limiting."""
 
-    OTP_PATH = FRONTEND_DIR / "src" / "app" / "api" / "auth" / "verify-otp" / "route.ts"
+    OTP_PATH = FRONTEND_DIR / "src" / "app" / \
+        "api" / "auth" / "verify-otp" / "route.ts"
 
     def test_rate_limit_map_exists(self):
         """C5: OTP endpoint must have an in-memory Map for rate limiting."""
@@ -308,7 +313,8 @@ class TestC5_OTPRateLimiting:
 class TestH1_SessionStoreTODO:
     """Verify login route has TODO comment about Redis migration."""
 
-    LOGIN_PATH = FRONTEND_DIR / "src" / "app" / "api" / "auth" / "login" / "route.ts"
+    LOGIN_PATH = FRONTEND_DIR / "src" / "app" / \
+        "api" / "auth" / "login" / "route.ts"
 
     def test_redis_todo_comment(self):
         """H1: Login route must have a TODO comment about Redis for production."""
@@ -321,7 +327,8 @@ class TestH1_SessionStoreTODO:
         content = self.LOGIN_PATH.read_text()
         # Check for warning keywords
         warning_keywords = ["production", "memory", "restart", "scaling"]
-        found = sum(1 for kw in warning_keywords if kw.lower() in content.lower())
+        found = sum(1 for kw in warning_keywords if kw.lower()
+                    in content.lower())
         assert found >= 2, \
             "TODO comment should warn about production limitations (found only {}/4 keywords)".format(found)
 
@@ -339,7 +346,8 @@ class TestH1_SessionStoreTODO:
 class TestH5_OpenRedirectFix:
     """Verify login page validates redirectTo to prevent open redirects."""
 
-    LOGIN_PAGE_PATH = FRONTEND_DIR / "src" / "app" / "(auth)" / "login" / "page.tsx"
+    LOGIN_PAGE_PATH = FRONTEND_DIR / "src" / \
+        "app" / "(auth)" / "login" / "page.tsx"
 
     def test_redirect_validation_exists(self):
         """H5: Login page must validate the redirect parameter."""
@@ -388,7 +396,11 @@ class TestD3_BackendMiddlewareImportable:
 
     def test_middleware_sets_csp_in_production(self):
         """D3: Verify CSP header is set in the middleware dispatch logic."""
-        content = (BACKEND_DIR / "app" / "middleware" / "security_headers.py").read_text()
+        content = (
+            BACKEND_DIR /
+            "app" /
+            "middleware" /
+            "security_headers.py").read_text()
         assert 'response.headers["Content-Security-Policy"]' in content, \
             "CSP header must be set on response object"
 
@@ -400,7 +412,8 @@ class TestD3_BackendMiddlewareImportable:
 class TestC3_EmailRegexInVerifyOTP:
     """Verify verify-otp also uses regex email validation (consistency fix)."""
 
-    OTP_PATH = FRONTEND_DIR / "src" / "app" / "api" / "auth" / "verify-otp" / "route.ts"
+    OTP_PATH = FRONTEND_DIR / "src" / "app" / \
+        "api" / "auth" / "verify-otp" / "route.ts"
 
     def test_uses_regex_in_verify_otp(self):
         """C3 (consistency): verify-otp should also use regex email validation."""

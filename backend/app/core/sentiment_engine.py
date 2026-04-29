@@ -22,7 +22,7 @@ from __future__ import annotations
 import hashlib
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.logger import get_logger
@@ -179,8 +179,14 @@ class SentimentResult:
             "urgency_level": self.urgency_level,
             "tone_recommendation": self.tone_recommendation,
             "empathy_signals": self.empathy_signals,
-            "sentiment_score": round(self.sentiment_score, 4),
-            "emotion_breakdown": {k: round(v, 4) for k, v in self.emotion_breakdown.items()},
+            "sentiment_score": round(
+                self.sentiment_score,
+                4),
+            "emotion_breakdown": {
+                k: round(
+                    v,
+                    4) for k,
+                v in self.emotion_breakdown.items()},
             "processing_time_ms": self.processing_time_ms,
             "conversation_trend": self.conversation_trend,
         }
@@ -239,7 +245,8 @@ class FrustrationDetector:
         query_words = set(re.findall(r"\b\w+\b", query_lower))
 
         strong_hits = sum(1 for w in FRUSTRATION_STRONG if w in query_lower)
-        moderate_hits = sum(1 for w in FRUSTRATION_MODERATE if w in query_lower)
+        moderate_hits = sum(
+            1 for w in FRUSTRATION_MODERATE if w in query_lower)
         # G9-GAP-03: Word-boundary matching for mild frustration words
         mild_hits = sum(1 for w in FRUSTRATION_MILD if w in query_words)
 
@@ -252,7 +259,8 @@ class FrustrationDetector:
         if not words:
             return 0.0
 
-        caps_words = [w for w in words if w.isalpha() and w.isupper() and len(w) > 1]
+        caps_words = [w for w in words if w.isalpha() and w.isupper()
+                      and len(w) > 1]
         if not caps_words:
             return 0.0
 
@@ -452,7 +460,7 @@ class EmotionClassifier:
         """
         if not query or not isinstance(query, str):
             return EmotionType.NEUTRAL, {"neutral": 1.0, "angry": 0.0, "frustrated": 0.0,
-                                          "disappointed": 0.0, "happy": 0.0, "delighted": 0.0}
+                                         "disappointed": 0.0, "happy": 0.0, "delighted": 0.0}
 
         query_lower = query.lower()
         words = set(re.findall(r"\b\w+\b", query_lower))
@@ -480,7 +488,8 @@ class EmotionClassifier:
             scores["frustrated"] += (frustration_score - 40) * 0.05
 
         # Sentiment-based boost for positive emotions
-        neg_count = sum(1 for w in words if w in FRUSTRATION_STRONG | FRUSTRATION_MODERATE)
+        neg_count = sum(
+            1 for w in words if w in FRUSTRATION_STRONG | FRUSTRATION_MODERATE)
         pos_count = sum(1 for w in words if w in POSITIVE_WORDS)
         if pos_count > neg_count and pos_count > 0:
             scores["happy"] += pos_count * 0.5
@@ -570,7 +579,8 @@ class UrgencyScorer:
         # ALL CAPS words boost urgency
         words = query.split()
         if words:
-            caps_ratio = sum(1 for w in words if w.isalpha() and w.isupper() and len(w) > 1) / len(words)
+            caps_ratio = sum(1 for w in words if w.isalpha()
+                             and w.isupper() and len(w) > 1) / len(words)
             raw_score += min(10.0, caps_ratio * 20.0)
 
         raw_score = min(100.0, max(0.0, raw_score))
@@ -605,13 +615,17 @@ class ToneAdvisor:
         - Empathetic: frustration >= 40 OR emotion in (angry, frustrated, disappointed)
         - Standard: everything else
         """
-        if frustration_score >= 90 or (emotion == "angry" and frustration_score >= 70):
+        if frustration_score >= 90 or (
+                emotion == "angry" and frustration_score >= 70):
             return ToneRecommendation.DE_ESCALATION
 
-        if urgency_level in (UrgencyLevel.HIGH, UrgencyLevel.CRITICAL) and frustration_score >= 60:
+        if urgency_level in (
+                UrgencyLevel.HIGH,
+                UrgencyLevel.CRITICAL) and frustration_score >= 60:
             return ToneRecommendation.URGENT
 
-        if frustration_score >= 40 or emotion in ("angry", "frustrated", "disappointed"):
+        if frustration_score >= 40 or emotion in (
+                "angry", "frustrated", "disappointed"):
             return ToneRecommendation.EMPATHETIC
 
         return ToneRecommendation.STANDARD
@@ -635,7 +649,9 @@ class ConversationTrendAnalyzer:
             return TrendDirection.STABLE
 
         # Filter out None/empty
-        valid_msgs = [m for m in conversation_history if m and isinstance(m, str) and m.strip()]
+        valid_msgs = [
+            m for m in conversation_history if m and isinstance(
+                m, str) and m.strip()]
         if len(valid_msgs) < 3:
             return TrendDirection.STABLE
 
@@ -737,11 +753,19 @@ class SentimentAnalyzer:
                     emotion=cached["emotion"],
                     urgency_level=cached["urgency_level"],
                     tone_recommendation=cached["tone_recommendation"],
-                    empathy_signals=cached.get("empathy_signals", []),
+                    empathy_signals=cached.get(
+                        "empathy_signals",
+                        []),
                     sentiment_score=cached["sentiment_score"],
-                    emotion_breakdown=cached.get("emotion_breakdown", {}),
-                    processing_time_ms=cached.get("processing_time_ms", 0.0),
-                    conversation_trend=cached.get("conversation_trend", "stable"),
+                    emotion_breakdown=cached.get(
+                        "emotion_breakdown",
+                        {}),
+                    processing_time_ms=cached.get(
+                        "processing_time_ms",
+                        0.0),
+                    conversation_trend=cached.get(
+                        "conversation_trend",
+                        "stable"),
                     cached=True,
                 )
                 return result
@@ -839,14 +863,16 @@ class SentimentAnalyzer:
         return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
 
     @staticmethod
-    def _compute_history_hash(conversation_history: Optional[List[str]]) -> str:
+    def _compute_history_hash(
+            conversation_history: Optional[List[str]]) -> str:
         """Compute hash from conversation_history for cache key (G9-GAP-02).
 
         Returns a short hash of the last 3 messages, or 'none' if no history.
         """
         if not conversation_history:
             return "none"
-        recent = [m for m in conversation_history[-3:] if m and isinstance(m, str)]
+        recent = [m for m in conversation_history[-3:]
+                  if m and isinstance(m, str)]
         if not recent:
             return "none"
         combined = "|".join(m.lower().strip() for m in recent)

@@ -22,7 +22,7 @@ BC-008: Never crash — graceful degradation with in-memory fallback.
 import json
 import logging
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
@@ -351,7 +351,11 @@ class TokenBudgetService:
         bucket = self._in_memory.get(conversation_id, {})
         return int(bucket.get(field_name, 0))
 
-    def _mem_set(self, conversation_id: str, field_name: str, value: int) -> None:
+    def _mem_set(
+            self,
+            conversation_id: str,
+            field_name: str,
+            value: int) -> None:
         if conversation_id not in self._in_memory:
             self._in_memory[conversation_id] = {}
         self._in_memory[conversation_id][field_name] = value
@@ -360,7 +364,8 @@ class TokenBudgetService:
         bucket = self._in_memory.get(conversation_id, {})
         return bucket.get("info", {})
 
-    def _mem_set_info(self, conversation_id: str, info: dict[str, str]) -> None:
+    def _mem_set_info(self, conversation_id: str,
+                      info: dict[str, str]) -> None:
         if conversation_id not in self._in_memory:
             self._in_memory[conversation_id] = {}
         self._in_memory[conversation_id]["info"] = info
@@ -369,7 +374,8 @@ class TokenBudgetService:
         bucket = self._in_memory.get(conversation_id, {})
         return list(bucket.get("messages", []))
 
-    def _mem_add_message(self, conversation_id: str, entry: dict[str, Any]) -> None:
+    def _mem_add_message(self, conversation_id: str,
+                         entry: dict[str, Any]) -> None:
         if conversation_id not in self._in_memory:
             self._in_memory[conversation_id] = {}
         if "messages" not in self._in_memory[conversation_id]:
@@ -383,7 +389,8 @@ class TokenBudgetService:
 
     def _get_variant_config(self, variant_type: str) -> dict[str, Any]:
         """Get budget config for a variant type, defaulting to 'parwa'."""
-        return VARIANT_TOKEN_BUDGETS.get(variant_type, VARIANT_TOKEN_BUDGETS[DEFAULT_VARIANT_TYPE])
+        return VARIANT_TOKEN_BUDGETS.get(
+            variant_type, VARIANT_TOKEN_BUDGETS[DEFAULT_VARIANT_TYPE])
 
     def _effective_max_tokens(self, variant_type: str) -> int:
         """Return max tokens minus safety margin."""
@@ -570,7 +577,9 @@ class TokenBudgetService:
                 error="Budget not initialized (max_tokens is 0)",
             )
 
-        result = self._reserve_script(keys=[used_key], args=[tokens, max_tokens])
+        result = self._reserve_script(
+            keys=[used_key], args=[
+                tokens, max_tokens])
 
         if result == -1:
             # Overflow: reservation denied
@@ -731,7 +740,8 @@ class TokenBudgetService:
 
     # ── Public API: Budget Status ─────────────────────────────────
 
-    async def get_budget_status(self, conversation_id: str) -> TokenBudgetStatus:
+    async def get_budget_status(
+            self, conversation_id: str) -> TokenBudgetStatus:
         """
         Get current budget status for a conversation.
 
@@ -866,7 +876,8 @@ class TokenBudgetService:
             if status.available_tokens >= estimated_tokens:
                 return OverflowCheck(
                     can_fit=True,
-                    remaining_tokens=status.available_tokens - estimated_tokens,
+                    remaining_tokens=status.available_tokens -
+                    estimated_tokens,
                     overflow_amount=0,
                     truncation_needed=False,
                     suggested_truncation_tokens=0,
@@ -1002,7 +1013,8 @@ class TokenBudgetService:
             # BC-008: Safe default — keep all, don't truncate
             return ContextStrategy(
                 strategy="keep_all",
-                reason=f"Strategy computation error (graceful degradation): {str(exc)}",
+                reason=f"Strategy computation error (graceful degradation): {
+                    str(exc)}",
                 tokens_to_remove=0,
                 messages_to_remove=0,
                 priority_messages=[],
@@ -1019,7 +1031,8 @@ class TokenBudgetService:
     ) -> ContextStrategy:
         """Compute a truncation strategy removing oldest non-system messages."""
         tokens_needed = max(0, estimated_new_tokens - status.available_tokens)
-        tokens_to_remove = tokens_needed + int(tokens_needed * 0.15)  # 15% buffer
+        tokens_to_remove = tokens_needed + \
+            int(tokens_needed * 0.15)  # 15% buffer
 
         # Identify removable messages (oldest first, keep system messages)
         non_system = [m for m in messages if m.role != "system"]
@@ -1042,7 +1055,8 @@ class TokenBudgetService:
             # Keep the last 2 user/assistant exchanges
             recent = [m.message_id for m in messages[-4:]]
             priority.extend(recent)
-            priority = list(dict.fromkeys(priority))  # deduplicate, preserve order
+            # deduplicate, preserve order
+            priority = list(dict.fromkeys(priority))
 
         return ContextStrategy(
             strategy=strategy_type,
@@ -1062,7 +1076,8 @@ class TokenBudgetService:
     ) -> ContextStrategy:
         """Compute a summarization strategy for older messages."""
         tokens_needed = max(0, estimated_new_tokens - status.available_tokens)
-        tokens_to_remove = tokens_needed + int(tokens_needed * 0.2)  # 20% buffer
+        tokens_to_remove = tokens_needed + \
+            int(tokens_needed * 0.2)  # 20% buffer
 
         non_system = [m for m in messages if m.role != "system"]
         system_ids = [m.message_id for m in messages if m.role == "system"]
@@ -1118,11 +1133,13 @@ class TokenBudgetService:
 
         total_non_system = len(non_system)
         messages_to_remove = max(0, total_non_system - kept_count)
-        tokens_to_remove = sum(m.tokens for m in non_system[:messages_to_remove])
+        tokens_to_remove = sum(
+            m.tokens for m in non_system[:messages_to_remove])
 
         priority = list(system_ids)
         # Keep the messages that fit in the window
-        recent_kept = [m.message_id for m in non_system[-kept_count:]] if kept_count > 0 else []
+        recent_kept = [
+            m.message_id for m in non_system[-kept_count:]] if kept_count > 0 else []
         priority.extend(recent_kept)
         priority = list(dict.fromkeys(priority))
 
@@ -1322,7 +1339,8 @@ class TokenBudgetService:
         entries = await self.get_conversation_history_tokens(conversation_id)
         role_totals: dict[str, int] = {}
         for entry in entries:
-            role_totals[entry.role] = role_totals.get(entry.role, 0) + entry.tokens
+            role_totals[entry.role] = role_totals.get(
+                entry.role, 0) + entry.tokens
         return role_totals
 
 

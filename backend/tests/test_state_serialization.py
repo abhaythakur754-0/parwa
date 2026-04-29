@@ -8,9 +8,8 @@ SaveResult, key builders, utility functions, and StateSerializer class.
 
 import json
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime, timezone
-from enum import Enum
 
 from app.core.state_serialization import (
     StateSerializationError,
@@ -1108,7 +1107,8 @@ class TestLoadState:
         self.serializer._load_from_redis = AsyncMock(return_value=None)
         self.serializer._load_from_postgresql = AsyncMock(return_value=state)
         self.serializer._redis_set = AsyncMock(return_value=True)
-        self.serializer.serialize_state = MagicMock(return_value={"test": "data"})
+        self.serializer.serialize_state = MagicMock(
+            return_value={"test": "data"})
         result = await self.serializer.load_state("t1", "co_1")
         assert result is not None
         self.serializer._redis_set.assert_called_once()
@@ -1118,8 +1118,10 @@ class TestLoadState:
         state = _make_state()
         self.serializer._load_from_redis = AsyncMock(return_value=None)
         self.serializer._load_from_postgresql = AsyncMock(return_value=state)
-        self.serializer._redis_set = AsyncMock(side_effect=Exception("Redis down"))
-        self.serializer.serialize_state = MagicMock(return_value={"test": "data"})
+        self.serializer._redis_set = AsyncMock(
+            side_effect=Exception("Redis down"))
+        self.serializer.serialize_state = MagicMock(
+            return_value={"test": "data"})
         result = await self.serializer.load_state("t1", "co_1")
         assert result is not None
 
@@ -1135,7 +1137,8 @@ class TestSaveCheckpoint:
 
     @pytest.mark.asyncio
     async def test_basic_save(self):
-        self.serializer._save_checkpoint_to_redis = AsyncMock(return_value=True)
+        self.serializer._save_checkpoint_to_redis = AsyncMock(
+            return_value=True)
         self.serializer._save_to_postgresql = AsyncMock(return_value=True)
         state = _make_state()
         result = await self.serializer.save_checkpoint(
@@ -1171,7 +1174,8 @@ class TestSaveCheckpoint:
 
     @pytest.mark.asyncio
     async def test_name_with_spaces_sanitized(self):
-        self.serializer._save_checkpoint_to_redis = AsyncMock(return_value=True)
+        self.serializer._save_checkpoint_to_redis = AsyncMock(
+            return_value=True)
         self.serializer._save_to_postgresql = AsyncMock(return_value=True)
         state = _make_state()
         await self.serializer.save_checkpoint(
@@ -1182,7 +1186,8 @@ class TestSaveCheckpoint:
 
     @pytest.mark.asyncio
     async def test_name_with_special_chars_sanitized(self):
-        self.serializer._save_checkpoint_to_redis = AsyncMock(return_value=True)
+        self.serializer._save_checkpoint_to_redis = AsyncMock(
+            return_value=True)
         self.serializer._save_to_postgresql = AsyncMock(return_value=True)
         state = _make_state()
         await self.serializer.save_checkpoint(
@@ -1195,7 +1200,8 @@ class TestSaveCheckpoint:
 
     @pytest.mark.asyncio
     async def test_both_fail_raises(self):
-        self.serializer._save_checkpoint_to_redis = AsyncMock(return_value=False)
+        self.serializer._save_checkpoint_to_redis = AsyncMock(
+            return_value=False)
         self.serializer._save_to_postgresql = AsyncMock(return_value=False)
         state = _make_state()
         with pytest.raises(StateSerializationError):
@@ -1205,7 +1211,8 @@ class TestSaveCheckpoint:
 
     @pytest.mark.asyncio
     async def test_redis_fails_pg_succeeds(self):
-        self.serializer._save_checkpoint_to_redis = AsyncMock(return_value=False)
+        self.serializer._save_checkpoint_to_redis = AsyncMock(
+            return_value=False)
         self.serializer._save_to_postgresql = AsyncMock(return_value=True)
         state = _make_state()
         result = await self.serializer.save_checkpoint(
@@ -1346,28 +1353,34 @@ class TestDeleteState:
     @pytest.mark.asyncio
     async def test_both_succeed(self):
         self.serializer._delete_state_from_redis = AsyncMock(return_value=True)
-        self.serializer._delete_state_from_postgresql = AsyncMock(return_value=True)
+        self.serializer._delete_state_from_postgresql = AsyncMock(
+            return_value=True)
         result = await self.serializer.delete_state("t1", "co_1")
         assert result == {"redis": True, "postgresql": True}
 
     @pytest.mark.asyncio
     async def test_redis_fails(self):
-        self.serializer._delete_state_from_redis = AsyncMock(return_value=False)
-        self.serializer._delete_state_from_postgresql = AsyncMock(return_value=True)
+        self.serializer._delete_state_from_redis = AsyncMock(
+            return_value=False)
+        self.serializer._delete_state_from_postgresql = AsyncMock(
+            return_value=True)
         result = await self.serializer.delete_state("t1", "co_1")
         assert result == {"redis": False, "postgresql": True}
 
     @pytest.mark.asyncio
     async def test_pg_fails(self):
         self.serializer._delete_state_from_redis = AsyncMock(return_value=True)
-        self.serializer._delete_state_from_postgresql = AsyncMock(return_value=False)
+        self.serializer._delete_state_from_postgresql = AsyncMock(
+            return_value=False)
         result = await self.serializer.delete_state("t1", "co_1")
         assert result == {"redis": True, "postgresql": False}
 
     @pytest.mark.asyncio
     async def test_both_fail(self):
-        self.serializer._delete_state_from_redis = AsyncMock(return_value=False)
-        self.serializer._delete_state_from_postgresql = AsyncMock(return_value=False)
+        self.serializer._delete_state_from_redis = AsyncMock(
+            return_value=False)
+        self.serializer._delete_state_from_postgresql = AsyncMock(
+            return_value=False)
         result = await self.serializer.delete_state("t1", "co_1")
         assert result == {"redis": False, "postgresql": False}
 
@@ -1391,13 +1404,15 @@ class TestGetStateHistory:
 
     @pytest.mark.asyncio
     async def test_empty_history(self):
-        self.serializer._get_history_from_postgresql = AsyncMock(return_value=[])
+        self.serializer._get_history_from_postgresql = AsyncMock(
+            return_value=[])
         result = await self.serializer.get_state_history("t1", "co_1")
         assert result == []
 
     @pytest.mark.asyncio
     async def test_custom_limit(self):
-        self.serializer._get_history_from_postgresql = AsyncMock(return_value=[])
+        self.serializer._get_history_from_postgresql = AsyncMock(
+            return_value=[])
         await self.serializer.get_state_history("t1", "co_1", limit=10)
         self.serializer._get_history_from_postgresql.assert_called_once_with(
             "t1", "co_1", 10,
@@ -1405,7 +1420,8 @@ class TestGetStateHistory:
 
     @pytest.mark.asyncio
     async def test_limit_zero_clamped(self):
-        self.serializer._get_history_from_postgresql = AsyncMock(return_value=[])
+        self.serializer._get_history_from_postgresql = AsyncMock(
+            return_value=[])
         await self.serializer.get_state_history("t1", "co_1", limit=0)
         self.serializer._get_history_from_postgresql.assert_called_once_with(
             "t1", "co_1", 1,
@@ -1413,7 +1429,8 @@ class TestGetStateHistory:
 
     @pytest.mark.asyncio
     async def test_limit_over_200_clamped(self):
-        self.serializer._get_history_from_postgresql = AsyncMock(return_value=[])
+        self.serializer._get_history_from_postgresql = AsyncMock(
+            return_value=[])
         await self.serializer.get_state_history("t1", "co_1", limit=500)
         self.serializer._get_history_from_postgresql.assert_called_once_with(
             "t1", "co_1", 200,
@@ -1496,7 +1513,8 @@ class TestComputeDiff:
         new = _make_state(technique_results={"cot": {}, "react": {}})
         diff = self.serializer.compute_diff(old, new)
         assert "technique_stack" in diff.changed_fields
-        assert diff.technique_stack == {"old": ["cot"], "new": ["cot", "react"]}
+        assert diff.technique_stack == {
+            "old": ["cot"], "new": ["cot", "react"]}
 
     def test_query_changed(self):
         old = _make_state(query="refund")
@@ -1674,7 +1692,8 @@ class TestRedisOperations:
 
     @pytest.mark.asyncio
     async def test_save_to_redis_failure(self):
-        self.serializer._redis_set = AsyncMock(side_effect=Exception("Redis down"))
+        self.serializer._redis_set = AsyncMock(
+            side_effect=Exception("Redis down"))
         result = await self.serializer._save_to_redis(
             "t1", "co_1", '{"test": 1}', "snap_1", "auto", "classify", [],
         )
@@ -1684,7 +1703,8 @@ class TestRedisOperations:
     async def test_load_from_redis_success(self):
         state = _make_state()
         serialized = self.serializer.serialize_state(state)
-        self.serializer._redis_get = AsyncMock(return_value=json.dumps(serialized, default=str))
+        self.serializer._redis_get = AsyncMock(
+            return_value=json.dumps(serialized, default=str))
         result = await self.serializer._load_from_redis("t1", "co_1")
         assert result is not None
 

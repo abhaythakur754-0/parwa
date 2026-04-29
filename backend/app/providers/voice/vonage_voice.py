@@ -101,7 +101,8 @@ class VonageVoiceProvider(VoiceProvider):
 
     def make_call(self, call: VoiceCall) -> ProviderResult:
         """Make an outbound voice call via Vonage's Voice API (POST /v1/calls)."""
-        # Vonage Voice API requires an NCCO or an answer_url to instruct what happens on the call
+        # Vonage Voice API requires an NCCO or an answer_url to instruct what
+        # happens on the call
         if not call.url:
             return ProviderResult(
                 success=False,
@@ -144,7 +145,8 @@ class VonageVoiceProvider(VoiceProvider):
                     },
                 )
             else:
-                data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+                data = response.json() if response.headers.get(
+                    "content-type", "").startswith("application/json") else {}
                 return ProviderResult(
                     success=False,
                     provider_name=self.provider_name,
@@ -205,7 +207,8 @@ class VonageVoiceProvider(VoiceProvider):
                     message_id=call_id,
                 )
             else:
-                data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+                data = response.json() if response.headers.get(
+                    "content-type", "").startswith("application/json") else {}
                 return ProviderResult(
                     success=False,
                     provider_name=self.provider_name,

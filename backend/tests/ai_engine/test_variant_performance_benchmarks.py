@@ -31,8 +31,8 @@ Uses: pytest, unittest.mock, threading for concurrency
 
 import time
 import threading
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import datetime
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -339,31 +339,35 @@ class TestInstanceRegistration:
 
     def test_register_with_custom_capacity(self):
         inst = self.dist.register_instance(
-            CO, "inst_2", "parwa",
-            capacity_config={"max_concurrent_tickets": 200, "token_budget_share": 5_000_000},
-        )
+            CO, "inst_2", "parwa", capacity_config={
+                "max_concurrent_tickets": 200, "token_budget_share": 5_000_000}, )
         assert inst.max_concurrent == 200
         assert inst.token_budget == 5_000_000
 
     def test_register_with_custom_weight(self):
-        inst = self.dist.register_instance(CO, "inst_3", "parwa_high", weight=2.5)
+        inst = self.dist.register_instance(
+            CO, "inst_3", "parwa_high", weight=2.5)
         assert inst.weight == 2.5
 
     def test_register_with_custom_channels(self):
-        inst = self.dist.register_instance(CO, "inst_4", "mini_parwa", channel_assignment="chat,email")
+        inst = self.dist.register_instance(
+            CO, "inst_4", "mini_parwa", channel_assignment="chat,email")
         assert inst.channel_assignment == "chat,email"
 
     def test_register_replaces_existing(self):
         self.dist.register_instance(CO, "inst_5", "mini_parwa", weight=1.0)
-        inst = self.dist.register_instance(CO, "inst_5", "mini_parwa", weight=3.0)
+        inst = self.dist.register_instance(
+            CO, "inst_5", "mini_parwa", weight=3.0)
         assert inst.weight == 3.0
 
     def test_register_with_negative_weight_uses_default(self):
-        inst = self.dist.register_instance(CO, "inst_neg", "mini_parwa", weight=-1.0)
+        inst = self.dist.register_instance(
+            CO, "inst_neg", "mini_parwa", weight=-1.0)
         assert inst.weight == DEFAULT_INSTANCE_WEIGHT
 
     def test_register_with_zero_weight_uses_default(self):
-        inst = self.dist.register_instance(CO, "inst_zero", "mini_parwa", weight=0.0)
+        inst = self.dist.register_instance(
+            CO, "inst_zero", "mini_parwa", weight=0.0)
         assert inst.weight == DEFAULT_INSTANCE_WEIGHT
 
     def test_register_with_invalid_max_concurrent_uses_default(self):
@@ -445,13 +449,17 @@ class TestLoadMetricsAndOverload:
 
     def setup_method(self):
         self.dist = _fresh_distributor()
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 100})
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100})
 
     def test_update_load_basic(self):
-        assert self.dist.update_instance_load(CO, "inst_1", active_tickets=30) is True
+        assert self.dist.update_instance_load(
+            CO, "inst_1", active_tickets=30) is True
 
     def test_update_load_nonexistent_returns_false(self):
-        assert self.dist.update_instance_load(CO, "ghost", active_tickets=10) is False
+        assert self.dist.update_instance_load(
+            CO, "ghost", active_tickets=10) is False
 
     def test_auto_overload_at_90_percent(self):
         self.dist.update_instance_load(CO, "inst_1", active_tickets=90)
@@ -464,7 +472,8 @@ class TestLoadMetricsAndOverload:
         assert inst.status == InstanceStatus.ACTIVE
 
     def test_negative_tickets_clamped_to_zero(self):
-        self.dist.update_instance_load(CO, "inst_1", active_tickets=-5, queued_tickets=-3)
+        self.dist.update_instance_load(
+            CO, "inst_1", active_tickets=-5, queued_tickets=-3)
         inst = self.dist.get_instance_info(CO, "inst_1")
         assert inst.current_load == 0
         assert inst.queued_count == 0
@@ -489,7 +498,8 @@ class TestLoadMetricsAndOverload:
         # 45 active + 90 queued: effective_load = 45 + 90*0.5 = 90
         # But overload is based on utilization_pct (current_load/max_concurrent)
         # 90/100 = 0.9 >= OVERLOAD_THRESHOLD
-        self.dist.update_instance_load(CO, "inst_1", active_tickets=90, queued_tickets=10)
+        self.dist.update_instance_load(
+            CO, "inst_1", active_tickets=90, queued_tickets=10)
         inst = self.dist.get_instance_info(CO, "inst_1")
         assert inst.status == InstanceStatus.OVERLOADED
 
@@ -504,10 +514,13 @@ class TestInstanceStatusTransitions:
 
     def setup_method(self):
         self.dist = _fresh_distributor()
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 100})
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100})
 
     def test_mark_unhealthy(self):
-        assert self.dist.update_instance_status(CO, "inst_1", InstanceStatus.UNHEALTHY) is True
+        assert self.dist.update_instance_status(
+            CO, "inst_1", InstanceStatus.UNHEALTHY) is True
         inst = self.dist.get_instance_info(CO, "inst_1")
         assert inst.status == InstanceStatus.UNHEALTHY
 
@@ -522,11 +535,13 @@ class TestInstanceStatusTransitions:
         assert inst.status == InstanceStatus.WARMING
 
     def test_nonexistent_instance_returns_false(self):
-        assert self.dist.update_instance_status(CO, "ghost", InstanceStatus.ACTIVE) is False
+        assert self.dist.update_instance_status(
+            CO, "ghost", InstanceStatus.ACTIVE) is False
 
     def test_unhealthy_invalidates_sticky_sessions(self):
         self.dist.register_sticky_session(CO, "tkt_1", "inst_1")
-        self.dist.update_instance_status(CO, "inst_1", InstanceStatus.UNHEALTHY)
+        self.dist.update_instance_status(
+            CO, "inst_1", InstanceStatus.UNHEALTHY)
         stats = self.dist.get_distribution_stats(CO)
         assert stats["routing_stats"]["sticky_expired"] >= 1
 
@@ -534,15 +549,18 @@ class TestInstanceStatusTransitions:
         """Setting OVERLOADED on instance that is already OVERLOADED
         but below threshold should auto-recover to ACTIVE."""
         self.dist.update_instance_load(CO, "inst_1", active_tickets=95)
-        assert self.dist.get_instance_info(CO, "inst_1").status == InstanceStatus.OVERLOADED
+        assert self.dist.get_instance_info(
+            CO, "inst_1").status == InstanceStatus.OVERLOADED
         # Load drops below threshold
         self.dist.update_instance_load(CO, "inst_1", active_tickets=50)
-        self.dist.update_instance_status(CO, "inst_1", InstanceStatus.OVERLOADED)
+        self.dist.update_instance_status(
+            CO, "inst_1", InstanceStatus.OVERLOADED)
         inst = self.dist.get_instance_info(CO, "inst_1")
         assert inst.status == InstanceStatus.ACTIVE
 
     def test_recover_from_unhealthy(self):
-        self.dist.update_instance_status(CO, "inst_1", InstanceStatus.UNHEALTHY)
+        self.dist.update_instance_status(
+            CO, "inst_1", InstanceStatus.UNHEALTHY)
         self.dist.update_instance_status(CO, "inst_1", InstanceStatus.ACTIVE)
         inst = self.dist.get_instance_info(CO, "inst_1")
         assert inst.status == InstanceStatus.ACTIVE
@@ -581,18 +599,26 @@ class TestDistributionRouting:
         assert result.routing_method == RoutingMethod.NO_INSTANCE_AVAILABLE.value
 
     def test_distribute_channel_filtering(self):
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", channel_assignment="email")
-        result = self.dist.distribute(CO, "mini_parwa", "tkt_1", preferred_channel="chat")
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", channel_assignment="email")
+        result = self.dist.distribute(
+            CO, "mini_parwa", "tkt_1", preferred_channel="chat")
         assert result.instance_id == ""
 
     def test_distribute_channel_match(self):
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", channel_assignment="chat,email")
-        result = self.dist.distribute(CO, "mini_parwa", "tkt_1", preferred_channel="chat")
+        self.dist.register_instance(
+            CO,
+            "inst_1",
+            "mini_parwa",
+            channel_assignment="chat,email")
+        result = self.dist.distribute(
+            CO, "mini_parwa", "tkt_1", preferred_channel="chat")
         assert result.instance_id == "inst_1"
 
     def test_distribute_all_unhealthy_returns_empty(self):
         self.dist.register_instance(CO, "inst_1", "mini_parwa")
-        self.dist.update_instance_status(CO, "inst_1", InstanceStatus.UNHEALTHY)
+        self.dist.update_instance_status(
+            CO, "inst_1", InstanceStatus.UNHEALTHY)
         result = self.dist.distribute(CO, "mini_parwa", "tkt_1")
         assert result.instance_id == ""
 
@@ -628,8 +654,12 @@ class TestDistributionRouting:
         # Use WARMING instances so auto-overload from update_instance_load
         # does NOT change status (only triggers for ACTIVE → OVERLOADED).
         # WARMING is routable but excluded from non_overloaded when full.
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 100}, status=InstanceStatus.WARMING)
-        self.dist.register_instance(CO, "inst_2", "mini_parwa", capacity_config={"max_concurrent_tickets": 100}, status=InstanceStatus.WARMING)
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100}, status=InstanceStatus.WARMING)
+        self.dist.register_instance(
+            CO, "inst_2", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100}, status=InstanceStatus.WARMING)
         self.dist.update_instance_load(CO, "inst_1", active_tickets=100)
         self.dist.update_instance_load(CO, "inst_2", active_tickets=95)
         result = self.dist.distribute(CO, "mini_parwa", "tkt_ll_1")
@@ -644,7 +674,8 @@ class TestDistributionRouting:
         # Manually register sticky for customer_id so distribute can find it
         self.dist.register_sticky_session(CO, "cust_1", "inst_1")
         # Second ticket with same customer_id should be sticky via cust_1
-        result = self.dist.distribute(CO, "mini_parwa", "tkt_b", customer_id="cust_1")
+        result = self.dist.distribute(
+            CO, "mini_parwa", "tkt_b", customer_id="cust_1")
         assert result.routing_method == RoutingMethod.STICKY.value
 
     def test_distribute_result_has_company_id(self):
@@ -670,15 +701,21 @@ class TestLoadAwareVariantDistribution:
         self.dist = _fresh_distributor()
 
     def test_mini_parwa_low_capacity_default(self):
-        inst = self.dist.register_instance(CO, "mini_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 20})
+        inst = self.dist.register_instance(
+            CO, "mini_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 20})
         assert inst.max_concurrent == 20
 
     def test_parwa_medium_capacity(self):
-        inst = self.dist.register_instance(CO, "parwa_1", "parwa", capacity_config={"max_concurrent_tickets": 100})
+        inst = self.dist.register_instance(
+            CO, "parwa_1", "parwa", capacity_config={
+                "max_concurrent_tickets": 100})
         assert inst.max_concurrent == 100
 
     def test_parwa_high_high_capacity(self):
-        inst = self.dist.register_instance(CO, "high_1", "parwa_high", capacity_config={"max_concurrent_tickets": 500})
+        inst = self.dist.register_instance(
+            CO, "high_1", "parwa_high", capacity_config={
+                "max_concurrent_tickets": 500})
         assert inst.max_concurrent == 500
 
     def test_distribute_within_variant_pool(self):
@@ -708,9 +745,8 @@ class TestLoadAwareVariantDistribution:
     def test_parwa_high_receives_all_14_techniques(self):
         """PARWA High gets full technique pipeline with higher capacity."""
         inst = self.dist.register_instance(
-            CO, "high_1", "parwa_high",
-            capacity_config={"max_concurrent_tickets": 500, "token_budget_share": 10_000_000},
-        )
+            CO, "high_1", "parwa_high", capacity_config={
+                "max_concurrent_tickets": 500, "token_budget_share": 10_000_000}, )
         assert inst.max_concurrent == 500
         assert inst.token_budget == 10_000_000
 
@@ -723,17 +759,27 @@ class TestLoadAwareVariantDistribution:
         assert inst.token_budget == 200_000
 
     def test_load_summary_across_variants(self):
-        self.dist.register_instance(CO, "mini_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 20})
-        self.dist.register_instance(CO, "parwa_1", "parwa", capacity_config={"max_concurrent_tickets": 100})
-        self.dist.register_instance(CO, "high_1", "parwa_high", capacity_config={"max_concurrent_tickets": 500})
+        self.dist.register_instance(
+            CO, "mini_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 20})
+        self.dist.register_instance(
+            CO, "parwa_1", "parwa", capacity_config={
+                "max_concurrent_tickets": 100})
+        self.dist.register_instance(
+            CO, "high_1", "parwa_high", capacity_config={
+                "max_concurrent_tickets": 500})
 
         summary = self.dist.get_instance_load_summary(CO)
         assert summary["total_instances"] == 3
         assert summary["total_capacity"] == 620  # 20 + 100 + 500
 
     def test_load_summary_filtered_by_variant(self):
-        self.dist.register_instance(CO, "mini_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 20})
-        self.dist.register_instance(CO, "parwa_1", "parwa", capacity_config={"max_concurrent_tickets": 100})
+        self.dist.register_instance(
+            CO, "mini_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 20})
+        self.dist.register_instance(
+            CO, "parwa_1", "parwa", capacity_config={
+                "max_concurrent_tickets": 100})
 
         summary = self.dist.get_instance_load_summary(CO, variant_type="parwa")
         assert summary["total_instances"] == 1
@@ -764,8 +810,12 @@ class TestPriorityQueueAndLoadShedding:
     def test_all_overloaded_still_routes_least_loaded(self):
         # Auto-overload marks ACTIVE instances OVERLOADED → excluded from routing.
         # When all instances are auto-marked OVERLOADED, no_instance_available.
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 100})
-        self.dist.register_instance(CO, "inst_2", "mini_parwa", capacity_config={"max_concurrent_tickets": 100})
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100})
+        self.dist.register_instance(
+            CO, "inst_2", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100})
         self.dist.update_instance_load(CO, "inst_1", active_tickets=95)
         self.dist.update_instance_load(CO, "inst_2", active_tickets=91)
 
@@ -775,7 +825,8 @@ class TestPriorityQueueAndLoadShedding:
 
     def test_no_instance_available_when_none_routable(self):
         self.dist.register_instance(CO, "inst_1", "mini_parwa")
-        self.dist.update_instance_status(CO, "inst_1", InstanceStatus.UNHEALTHY)
+        self.dist.update_instance_status(
+            CO, "inst_1", InstanceStatus.UNHEALTHY)
         result = self.dist.distribute(CO, "mini_parwa", "tkt_1")
         assert result.routing_method == RoutingMethod.NO_INSTANCE_AVAILABLE.value
 
@@ -785,7 +836,9 @@ class TestPriorityQueueAndLoadShedding:
         assert stats["routing_stats"]["no_instance_available"] == 1
 
     def test_overloaded_instance_auto_transitions(self):
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 100})
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100})
         self.dist.update_instance_load(CO, "inst_1", active_tickets=95)
         inst = self.dist.get_instance_info(CO, "inst_1")
         assert inst.status == InstanceStatus.OVERLOADED
@@ -798,20 +851,26 @@ class TestPriorityQueueAndLoadShedding:
             channel_assignment="chat",
         )
         self.dist.update_instance_load(CO, "inst_1", active_tickets=10)
-        result = self.dist.distribute(CO, "mini_parwa", "tkt_1", preferred_channel="chat")
+        result = self.dist.distribute(
+            CO, "mini_parwa", "tkt_1", preferred_channel="chat")
         # Instance auto-marked OVERLOADED (10/10=100%) → excluded from routing
         assert result.routing_method == RoutingMethod.NO_INSTANCE_AVAILABLE.value
         assert result.instance_id == ""
 
     def test_warming_instance_receives_traffic(self):
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", status=InstanceStatus.WARMING)
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", status=InstanceStatus.WARMING)
         result = self.dist.distribute(CO, "mini_parwa", "tkt_1")
         assert result.instance_id == "inst_1"
 
     def test_load_shedding_multiple_companies(self):
         """Load shedding for one company doesn't affect another."""
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 10})
-        self.dist.register_instance("co_other", "inst_2", "mini_parwa", capacity_config={"max_concurrent_tickets": 10})
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 10})
+        self.dist.register_instance(
+            "co_other", "inst_2", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 10})
         self.dist.update_instance_load(CO, "inst_1", active_tickets=10)
 
         r1 = self.dist.distribute(CO, "mini_parwa", "tkt_1")
@@ -839,18 +898,28 @@ class TestWeightRebalancing:
         assert result["skipped"] is True
 
     def test_rebalance_boosts_underloaded(self):
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 100}, weight=1.0)
-        self.dist.register_instance(CO, "inst_2", "mini_parwa", capacity_config={"max_concurrent_tickets": 100}, weight=1.0)
-        self.dist.update_instance_load(CO, "inst_1", active_tickets=5)   # 5% util
-        self.dist.update_instance_load(CO, "inst_2", active_tickets=80)  # 80% util
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100}, weight=1.0)
+        self.dist.register_instance(
+            CO, "inst_2", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100}, weight=1.0)
+        self.dist.update_instance_load(
+            CO, "inst_1", active_tickets=5)   # 5% util
+        self.dist.update_instance_load(
+            CO, "inst_2", active_tickets=80)  # 80% util
 
         result = self.dist.rebalance_weights(CO, "mini_parwa")
         assert result["skipped"] is False
         assert result["changes_count"] >= 1
 
     def test_rebalance_reduces_overloaded(self):
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 100}, weight=1.0)
-        self.dist.register_instance(CO, "inst_2", "mini_parwa", capacity_config={"max_concurrent_tickets": 100}, weight=1.0)
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100}, weight=1.0)
+        self.dist.register_instance(
+            CO, "inst_2", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100}, weight=1.0)
         self.dist.update_instance_load(CO, "inst_1", active_tickets=95)
         self.dist.update_instance_load(CO, "inst_2", active_tickets=10)
 
@@ -861,8 +930,12 @@ class TestWeightRebalancing:
         assert inst_1.weight < 1.0
 
     def test_rebalance_no_change_when_balanced(self):
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 100}, weight=1.0)
-        self.dist.register_instance(CO, "inst_2", "mini_parwa", capacity_config={"max_concurrent_tickets": 100}, weight=1.0)
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100}, weight=1.0)
+        self.dist.register_instance(
+            CO, "inst_2", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100}, weight=1.0)
         self.dist.update_instance_load(CO, "inst_1", active_tickets=50)
         self.dist.update_instance_load(CO, "inst_2", active_tickets=50)
 
@@ -871,8 +944,12 @@ class TestWeightRebalancing:
         assert result["changes_count"] == 0
 
     def test_rebalance_clamps_weight_range(self):
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 100}, weight=1.0)
-        self.dist.register_instance(CO, "inst_2", "mini_parwa", capacity_config={"max_concurrent_tickets": 100}, weight=1.0)
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100}, weight=1.0)
+        self.dist.register_instance(
+            CO, "inst_2", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100}, weight=1.0)
         # 99% util → big reduction
         self.dist.update_instance_load(CO, "inst_1", active_tickets=99)
         self.dist.update_instance_load(CO, "inst_2", active_tickets=1)
@@ -913,7 +990,8 @@ class TestFailoverRouting:
         # Pin ticket to inst_1
         self.dist.register_sticky_session(CO, "tkt_1", "inst_1")
         # Mark inst_1 unhealthy
-        self.dist.update_instance_status(CO, "inst_1", InstanceStatus.UNHEALTHY)
+        self.dist.update_instance_status(
+            CO, "inst_1", InstanceStatus.UNHEALTHY)
 
         # Distribution should failover to inst_2
         result = self.dist.distribute(CO, "mini_parwa", "tkt_1")
@@ -1005,7 +1083,9 @@ class TestPerformanceMetricCollection:
         assert stats["routing_stats"]["round_robin_routes"] == 1
 
     def test_load_summary_aggregate_utilization(self):
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 100})
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100})
         self.dist.update_instance_load(CO, "inst_1", active_tickets=50)
         summary = self.dist.get_instance_load_summary(CO)
         assert summary["aggregate_utilization_pct"] == 50.0
@@ -1026,7 +1106,8 @@ class TestPerformanceMetricCollection:
     def test_stats_instance_status_counts(self):
         self.dist.register_instance(CO, "inst_1", "mini_parwa")
         self.dist.register_instance(CO, "inst_2", "mini_parwa")
-        self.dist.update_instance_status(CO, "inst_1", InstanceStatus.UNHEALTHY)
+        self.dist.update_instance_status(
+            CO, "inst_1", InstanceStatus.UNHEALTHY)
 
         stats = self.dist.get_distribution_stats(CO)
         assert stats["instance_status_counts"]["unhealthy"] == 1
@@ -1046,7 +1127,9 @@ class TestSLAEnforcementPerTier:
 
     def test_mini_parwa_faq_throughput(self):
         """Mini PARWA should handle FAQ-style tickets with fast routing."""
-        self.dist.register_instance(CO, "mini_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 50})
+        self.dist.register_instance(
+            CO, "mini_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 50})
         start = time.perf_counter()
         for i in range(100):
             self.dist.distribute(CO, "mini_parwa", f"faq_tkt_{i}")
@@ -1056,9 +1139,17 @@ class TestSLAEnforcementPerTier:
 
     def test_parwa_medium_llm_routing(self):
         """PARWA tier should route with medium-weight round-robin."""
-        self.dist.register_instance(CO, "parwa_1", "parwa", capacity_config={"max_concurrent_tickets": 100}, weight=2.0)
-        self.dist.register_instance(CO, "parwa_2", "parwa", capacity_config={"max_concurrent_tickets": 100}, weight=1.0)
-        results = [self.dist.distribute(CO, "parwa", f"tkt_{i}") for i in range(30)]
+        self.dist.register_instance(
+            CO, "parwa_1", "parwa", capacity_config={
+                "max_concurrent_tickets": 100}, weight=2.0)
+        self.dist.register_instance(
+            CO, "parwa_2", "parwa", capacity_config={
+                "max_concurrent_tickets": 100}, weight=1.0)
+        results = [
+            self.dist.distribute(
+                CO,
+                "parwa",
+                f"tkt_{i}") for i in range(30)]
         parwa_1_count = sum(1 for r in results if r.instance_id == "parwa_1")
         parwa_2_count = sum(1 for r in results if r.instance_id == "parwa_2")
         # parwa_1 should get roughly 2x traffic
@@ -1066,7 +1157,9 @@ class TestSLAEnforcementPerTier:
 
     def test_parwa_high_concurrent_handling(self):
         """PARWA High should handle concurrent high-load scenarios."""
-        self.dist.register_instance(CO, "high_1", "parwa_high", capacity_config={"max_concurrent_tickets": 500})
+        self.dist.register_instance(
+            CO, "high_1", "parwa_high", capacity_config={
+                "max_concurrent_tickets": 500})
         errors = []
         results = []
 
@@ -1077,7 +1170,10 @@ class TestSLAEnforcementPerTier:
             except Exception as e:
                 errors.append(e)
 
-        threads = [threading.Thread(target=worker, args=(i,)) for i in range(50)]
+        threads = [
+            threading.Thread(
+                target=worker, args=(
+                    i,)) for i in range(50)]
         for t in threads:
             t.start()
         for t in threads:
@@ -1098,7 +1194,9 @@ class TestSLAEnforcementPerTier:
 
     def test_resolution_rate_tracking(self):
         """Track distribution as proxy for resolution capability."""
-        self.dist.register_instance(CO, "parwa_1", "parwa", capacity_config={"max_concurrent_tickets": 100})
+        self.dist.register_instance(
+            CO, "parwa_1", "parwa", capacity_config={
+                "max_concurrent_tickets": 100})
         for i in range(100):
             self.dist.distribute(CO, "parwa", f"tkt_{i}")
         stats = self.dist.get_distribution_stats(CO)
@@ -1108,19 +1206,26 @@ class TestSLAEnforcementPerTier:
         """Multi-turn conversation stays on same instance."""
         self.dist.register_instance(CO, "inst_1", "parwa")
         # Turn 1
-        r1 = self.dist.distribute(CO, "parwa", "conv_tkt", customer_id="cust_1")
+        r1 = self.dist.distribute(
+            CO, "parwa", "conv_tkt", customer_id="cust_1")
         # Turn 2
-        r2 = self.dist.distribute(CO, "parwa", "conv_tkt", customer_id="cust_1")
+        r2 = self.dist.distribute(
+            CO, "parwa", "conv_tkt", customer_id="cust_1")
         # Turn 3
-        r3 = self.dist.distribute(CO, "parwa", "conv_tkt", customer_id="cust_1")
+        r3 = self.dist.distribute(
+            CO, "parwa", "conv_tkt", customer_id="cust_1")
         assert r1.instance_id == r2.instance_id == r3.instance_id
         assert r2.routing_method == RoutingMethod.STICKY.value
         assert r3.routing_method == RoutingMethod.STICKY.value
 
     def test_context_window_management_via_capacity(self):
         """Higher tier has more capacity for context windows."""
-        mini = self.dist.register_instance(CO, "mini_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 20})
-        high = self.dist.register_instance(CO, "high_1", "parwa_high", capacity_config={"max_concurrent_tickets": 500})
+        mini = self.dist.register_instance(
+            CO, "mini_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 20})
+        high = self.dist.register_instance(
+            CO, "high_1", "parwa_high", capacity_config={
+                "max_concurrent_tickets": 500})
         assert high.max_concurrent > mini.max_concurrent
 
     def test_sla_response_time_round_robin(self):
@@ -1136,8 +1241,12 @@ class TestSLAEnforcementPerTier:
 
     def test_overloaded_instance_sla_degradation(self):
         """When instance is overloaded, routing degrades to least-loaded."""
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 100})
-        self.dist.register_instance(CO, "inst_2", "mini_parwa", capacity_config={"max_concurrent_tickets": 100})
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100})
+        self.dist.register_instance(
+            CO, "inst_2", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100})
         self.dist.update_instance_load(CO, "inst_1", active_tickets=95)
         self.dist.update_instance_load(CO, "inst_2", active_tickets=5)
 
@@ -1160,12 +1269,14 @@ class TestWarmColdVariantScaling:
 
     def test_warming_instance_receives_limited_traffic(self):
         """WARMING instances should still receive traffic."""
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", status=InstanceStatus.WARMING)
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", status=InstanceStatus.WARMING)
         result = self.dist.distribute(CO, "mini_parwa", "tkt_1")
         assert result.instance_id == "inst_1"
 
     def test_inactive_instance_excluded(self):
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", status=InstanceStatus.INACTIVE)
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", status=InstanceStatus.INACTIVE)
         result = self.dist.distribute(CO, "mini_parwa", "tkt_1")
         assert result.instance_id == ""
 
@@ -1173,7 +1284,8 @@ class TestWarmColdVariantScaling:
         """Scale up by registering new instance."""
         self.dist.register_instance(CO, "inst_1", "mini_parwa")
         self.dist.register_instance(CO, "inst_2", "mini_parwa")
-        summary = self.dist.get_instance_load_summary(CO, variant_type="mini_parwa")
+        summary = self.dist.get_instance_load_summary(
+            CO, variant_type="mini_parwa")
         assert summary["total_instances"] == 2
 
     def test_scale_down_deregister_instance(self):
@@ -1181,11 +1293,13 @@ class TestWarmColdVariantScaling:
         self.dist.register_instance(CO, "inst_1", "mini_parwa")
         self.dist.register_instance(CO, "inst_2", "mini_parwa")
         self.dist.deregister_instance(CO, "inst_2")
-        summary = self.dist.get_instance_load_summary(CO, variant_type="mini_parwa")
+        summary = self.dist.get_instance_load_summary(
+            CO, variant_type="mini_parwa")
         assert summary["total_instances"] == 1
 
     def test_warming_to_active_transition(self):
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", status=InstanceStatus.WARMING)
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", status=InstanceStatus.WARMING)
         self.dist.update_instance_status(CO, "inst_1", InstanceStatus.ACTIVE)
         inst = self.dist.get_instance_info(CO, "inst_1")
         assert inst.status == InstanceStatus.ACTIVE
@@ -1219,7 +1333,10 @@ class TestThreadSafety:
             except Exception as e:
                 errors.append(e)
 
-        threads = [threading.Thread(target=worker, args=(i,)) for i in range(20)]
+        threads = [
+            threading.Thread(
+                target=worker, args=(
+                    i,)) for i in range(20)]
         for t in threads:
             t.start()
         for t in threads:
@@ -1227,7 +1344,9 @@ class TestThreadSafety:
         assert len(errors) == 0
 
     def test_concurrent_distributions_no_crash(self):
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 200})
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 200})
         errors = []
         results = []
 
@@ -1238,7 +1357,8 @@ class TestThreadSafety:
             except Exception as e:
                 errors.append(e)
 
-        threads = [threading.Thread(target=worker, args=(i,)) for i in range(100)]
+        threads = [threading.Thread(target=worker, args=(i,))
+                   for i in range(100)]
         for t in threads:
             t.start()
         for t in threads:
@@ -1247,13 +1367,16 @@ class TestThreadSafety:
         assert len(results) == 100
 
     def test_concurrent_load_updates_no_corruption(self):
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 100})
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 100})
         errors = []
 
         def updater():
             try:
                 for i in range(100):
-                    self.dist.update_instance_load(CO, "inst_1", active_tickets=i)
+                    self.dist.update_instance_load(
+                        CO, "inst_1", active_tickets=i)
             except Exception as e:
                 errors.append(e)
 
@@ -1299,11 +1422,15 @@ class TestThreadSafety:
 
         def worker(i):
             try:
-                self.dist.failover_ticket(CO, f"tkt_{i}", "inst_1", "unhealthy")
+                self.dist.failover_ticket(
+                    CO, f"tkt_{i}", "inst_1", "unhealthy")
             except Exception as e:
                 errors.append(e)
 
-        threads = [threading.Thread(target=worker, args=(i,)) for i in range(10)]
+        threads = [
+            threading.Thread(
+                target=worker, args=(
+                    i,)) for i in range(10)]
         for t in threads:
             t.start()
         for t in threads:
@@ -1327,7 +1454,9 @@ class TestEdgeCases:
         assert result.instance_id == ""
 
     def test_max_capacity_distribution(self):
-        self.dist.register_instance(CO, "inst_1", "mini_parwa", capacity_config={"max_concurrent_tickets": 1})
+        self.dist.register_instance(
+            CO, "inst_1", "mini_parwa", capacity_config={
+                "max_concurrent_tickets": 1})
         result = self.dist.distribute(CO, "mini_parwa", "tkt_full")
         # Instance at 0/1 load should route normally
         assert result.instance_id == "inst_1"
@@ -1354,7 +1483,8 @@ class TestEdgeCases:
         self.dist.clear_company_data(CO)
 
         assert self.dist.get_all_instances(CO) == []
-        assert self.dist.get_distribution_stats(CO)["routing_stats"]["total_distributions"] == 0
+        assert self.dist.get_distribution_stats(
+            CO)["routing_stats"]["total_distributions"] == 0
 
     def test_distribute_with_empty_ticket_id(self):
         self.dist.register_instance(CO, "inst_1", "mini_parwa")
@@ -1363,7 +1493,8 @@ class TestEdgeCases:
 
     def test_distribute_with_empty_customer_id(self):
         self.dist.register_instance(CO, "inst_1", "mini_parwa")
-        result = self.dist.distribute(CO, "mini_parwa", "tkt_1", customer_id="")
+        result = self.dist.distribute(
+            CO, "mini_parwa", "tkt_1", customer_id="")
         assert result.instance_id == "inst_1"
 
     def test_reset_round_robin_nonexistent_returns_false(self):
@@ -1509,12 +1640,14 @@ class TestStickySessionManagement:
         assert keys == {"tkt_1", "tkt_2"}
 
     def test_expired_sticky_returns_none(self):
-        self.dist.register_sticky_session(CO, "tkt_exp", "inst_1", ttl_seconds=0.001)
+        self.dist.register_sticky_session(
+            CO, "tkt_exp", "inst_1", ttl_seconds=0.001)
         time.sleep(0.01)
         assert self.dist.get_sticky_instance(CO, "tkt_exp") is None
 
     def test_custom_ttl_sticky(self):
-        self.dist.register_sticky_session(CO, "tkt_custom", "inst_1", ttl_seconds=7200.0)
+        self.dist.register_sticky_session(
+            CO, "tkt_custom", "inst_1", ttl_seconds=7200.0)
         time.sleep(0.01)
         assert self.dist.get_sticky_instance(CO, "tkt_custom") == "inst_1"
 

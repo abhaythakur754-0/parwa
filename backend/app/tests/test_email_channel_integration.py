@@ -16,7 +16,6 @@ by using actual database operations.
 """
 
 import json
-import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 
@@ -30,7 +29,7 @@ class TestBC006RateLimit:
         """Should allow adding emails when under the 5/24h limit."""
         from app.services.email_channel_service import EmailChannelService
         from database.models.email_channel import EmailThread
-        from database.models.tickets import Ticket, TicketMessage
+        from database.models.tickets import Ticket
         from uuid import uuid4
 
         company_id = str(uuid4())
@@ -142,13 +141,18 @@ class TestBC006RateLimit:
         # Add 5 customer emails, all older than 24h
         for i in range(5):
             msg = TicketMessage(
-                id=str(uuid4()),
+                id=str(
+                    uuid4()),
                 ticket_id=ticket_id,
                 company_id=company_id,
                 role="customer",
                 channel="email",
                 content=f"Old message {i}",
-                created_at=datetime.now(timezone.utc) - timedelta(hours=25 + i),
+                created_at=datetime.now(
+                    timezone.utc) -
+                timedelta(
+                    hours=25 +
+                    i),
             )
             db_session.add(msg)
 
@@ -172,7 +176,10 @@ class TestReferencesParsing:
         service = EmailChannelService.__new__(EmailChannelService)
         references = "<msg1@example.com> <msg2@example.com> <msg3@example.com>"
         result = service._parse_references(references)
-        assert result == ["msg1@example.com", "msg2@example.com", "msg3@example.com"]
+        assert result == [
+            "msg1@example.com",
+            "msg2@example.com",
+            "msg3@example.com"]
 
     def test_parse_references_without_angle_brackets(self):
         """Should fallback to whitespace splitting when no brackets."""
@@ -244,14 +251,14 @@ class TestSpamDetectionIntegration:
 
         # SpamDetectionService requires valid DB state, may fail gracefully
         result = service._check_spam(
-            company_id,
-            {"subject": "Test", "body_text": "Hello", "sender_email": "test@test.com"},
-        )
+            company_id, {
+                "subject": "Test", "body_text": "Hello", "sender_email": "test@test.com"}, )
         # Result may be None (failure) or a dict — either is acceptable
         assert result is None or isinstance(result, dict)
 
     @patch("app.services.email_channel_service.SpamDetectionService")
-    def test_check_spam_auto_flag_blocks_email(self, mock_spam_cls, db_session):
+    def test_check_spam_auto_flag_blocks_email(
+            self, mock_spam_cls, db_session):
         """Should return auto-flag result when spam score is high."""
         from app.services.email_channel_service import EmailChannelService
         from uuid import uuid4

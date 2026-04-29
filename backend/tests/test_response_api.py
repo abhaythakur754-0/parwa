@@ -6,12 +6,28 @@ Auth dependencies and service layers are fully mocked.
 """
 
 from __future__ import annotations
+import pytest
+from app.exceptions import NotFoundError
+from app.api.deps import (
+    get_current_user,
+    get_company_id,
+    require_roles,
+)
+from app.api.response import (
+    response_router,
+    brand_voice_router,
+    assignment_router,
+    migration_router,
+)
+from fastapi.testclient import TestClient
+from fastapi import FastAPI
+import types as _types
 
 import os
 import sys
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # ---------------------------------------------------------------------------
@@ -24,8 +40,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 # ---------------------------------------------------------------------------
 # These prevent SQLAlchemy engine creation and database connection attempts.
 # Must be done BEFORE any backend.app.* imports that touch database.*
-import importlib
-import types as _types
+
 
 def _make_mock_module(name, attrs=None, is_package=False):
     mod = _types.ModuleType(name)
@@ -35,6 +50,7 @@ def _make_mock_module(name, attrs=None, is_package=False):
         for k, v in attrs.items():
             setattr(mod, k, v)
     return mod
+
 
 _MockUser = type("User", (), {})
 _MockCompany = type("Company", (), {})
@@ -84,23 +100,7 @@ for _mod_name, (_attrs, _is_pkg) in _mock_modules.items():
         sys.modules[_mod_name] = _make_mock_module(_mod_name, _attrs, _is_pkg)
 
 # Now safe to import
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
-from app.api.response import (
-    response_router,
-    brand_voice_router,
-    assignment_router,
-    migration_router,
-)
-from app.api.deps import (
-    get_current_user,
-    get_company_id,
-    require_roles,
-)
-from app.exceptions import NotFoundError
-
-import pytest
 
 # ═══════════════════════════════════════════════════════════════════════
 # FIXTURES
@@ -160,7 +160,8 @@ def app(mock_user, owner_user):
     application.dependency_overrides[get_current_user] = override_get_current_user
     application.dependency_overrides[get_company_id] = override_get_company_id
     # require_roles is a factory — we override the inner checker result
-    application.dependency_overrides[require_roles("owner", "admin")] = override_require_roles
+    application.dependency_overrides[require_roles(
+        "owner", "admin")] = override_require_roles
 
     return application
 
@@ -237,7 +238,8 @@ class TestGenerateResponse:
         assert resp.status_code == 422
 
     @patch("app.core.response_generator.ResponseGenerator", create=True)
-    def test_generate_service_raises_validation_error(self, mock_gen_cls, client):
+    def test_generate_service_raises_validation_error(
+            self, mock_gen_cls, client):
         from app.exceptions import ValidationError
         mock_gen = mock_gen_cls.return_value
         mock_gen.generate = AsyncMock(
@@ -250,7 +252,8 @@ class TestGenerateResponse:
         assert resp.status_code == 422
 
     @patch("app.core.response_generator.ResponseGenerator", create=True)
-    def test_generate_service_raises_not_found_error(self, mock_gen_cls, client):
+    def test_generate_service_raises_not_found_error(
+            self, mock_gen_cls, client):
         mock_gen = mock_gen_cls.return_value
         mock_gen.generate = AsyncMock(
             side_effect=NotFoundError(message="Not found")
@@ -353,8 +356,12 @@ class TestBatchGeneration:
         assert resp.status_code == 422
 
     def test_batch_too_many_items(self, client):
-        items = [{"query": f"q{i}", "conversation_id": f"c{i}"} for i in range(21)]
-        resp = client.post("/api/response/generate/batch", json={"items": items})
+        items = [{"query": f"q{i}", "conversation_id": f"c{i}"}
+                 for i in range(21)]
+        resp = client.post(
+            "/api/response/generate/batch",
+            json={
+                "items": items})
         assert resp.status_code == 422
 
     def test_batch_missing_items_key(self, client):
@@ -442,9 +449,15 @@ class TestTokenBudget:
         from app.services.token_budget_service import TokenBudget
         now = datetime.now(timezone.utc)
         mock_budget = TokenBudget(
-            conversation_id="conv-001", company_id="company-001", variant_type="parwa",
-            max_tokens=7373, reserved_tokens=0, used_tokens=0,
-            available_tokens=7373, created_at=now, updated_at=now,
+            conversation_id="conv-001",
+            company_id="company-001",
+            variant_type="parwa",
+            max_tokens=7373,
+            reserved_tokens=0,
+            used_tokens=0,
+            available_tokens=7373,
+            created_at=now,
+            updated_at=now,
         )
         mock_svc.initialize_budget = AsyncMock(return_value=mock_budget)
         resp = client.post("/api/response/budget/conv-001/initialize", json={})
@@ -663,12 +676,14 @@ class TestTemplatesCRUD:
         assert resp.json()["data"]["deleted"] is False
 
     def test_render_template_success(self, client):
-        create_resp = client.post("/api/response/templates", json={
-            "name": "Render Test",
-            "category": "greeting",
-            "subject_template": "Hi {{customer_name}}!",
-            "body_template": "Hello {{customer_name}}, welcome to {{company_name}}.",
-        })
+        create_resp = client.post(
+            "/api/response/templates",
+            json={
+                "name": "Render Test",
+                "category": "greeting",
+                "subject_template": "Hi {{customer_name}}!",
+                "body_template": "Hello {{customer_name}}, welcome to {{company_name}}.",
+            })
         tid = create_resp.json()["data"]["id"]
         resp = client.post(f"/api/response/templates/{tid}/render", json={
             "variables": {
@@ -683,9 +698,11 @@ class TestTemplatesCRUD:
         assert "PARWA" in rendered
 
     def test_render_template_not_found(self, client):
-        resp = client.post("/api/response/templates/nonexistent-id/render", json={
-            "variables": {},
-        })
+        resp = client.post(
+            "/api/response/templates/nonexistent-id/render",
+            json={
+                "variables": {},
+            })
         # Template not found may return 200 with empty content or 404
         assert resp.status_code in (200, 404)
 
@@ -773,15 +790,21 @@ class TestBrandVoice:
         mock_svc = mock_svc_cls.return_value
         mock_svc.get_config = AsyncMock(
             return_value=Config(
-                tone="professional", formality_level=0.7,
-                prohibited_words=["damn"], response_length_preference="standard",
-                max_response_sentences=10, min_response_sentences=1,
-                greeting_template=None, closing_template=None,
-                emoji_usage="minimal", apology_style="solution-focused",
-                escalation_tone="calm", brand_name="PARWA", industry="tech",
+                tone="professional",
+                formality_level=0.7,
+                prohibited_words=["damn"],
+                response_length_preference="standard",
+                max_response_sentences=10,
+                min_response_sentences=1,
+                greeting_template=None,
+                closing_template=None,
+                emoji_usage="minimal",
+                apology_style="solution-focused",
+                escalation_tone="calm",
+                brand_name="PARWA",
+                industry="tech",
                 custom_instructions=None,
-            )
-        )
+            ))
         resp = client.get("/api/brand-voice")
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
@@ -818,7 +841,8 @@ class TestBrandVoice:
     @patch("app.services.brand_voice_service.BrandVoiceService", create=True)
     def test_upsert_brand_voice_create_fallback(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
-        mock_svc.update_config = AsyncMock(side_effect=NotFoundError("not found"))
+        mock_svc.update_config = AsyncMock(
+            side_effect=NotFoundError("not found"))
         from app.services.brand_voice_service import BrandVoiceConfig
         now = datetime.now(timezone.utc)
         mock_config = BrandVoiceConfig(
@@ -901,8 +925,8 @@ class TestAIAssignment:
 
     def test_ai_assign_success(self, client):
         """Assignment endpoints require assignment_service module — tested in test_ticket_assignment.py."""
-        # This is a placeholder — actual assignment logic is tested in test_ticket_assignment.py
-        pass
+        # This is a placeholder — actual assignment logic is tested in
+        # test_ticket_assignment.py
 
     def test_ai_assign_missing_ticket_id(self, client):
         resp = client.post("/api/assignment/ai", json={})
@@ -910,23 +934,18 @@ class TestAIAssignment:
 
     def test_ai_assign_service_error(self, client):
         """Assignment engine error handling tested in test_ticket_assignment.py."""
-        pass
 
     def test_ai_assign_with_full_fields(self, client):
         """Full-field assignment tested in test_ticket_assignment.py."""
-        pass
 
     def test_get_agent_workload(self, client):
         """Agent workload endpoint tested via assignment engine tests."""
-        pass
 
     def test_get_agent_workload_error(self, client):
         """Error handling tested via assignment engine tests."""
-        pass
 
     def test_get_agent_workload_empty(self, client):
         """Empty workload tested via assignment engine tests."""
-        pass
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -960,7 +979,10 @@ class TestMigration:
             ai_rule_count=10,
             metrics={},
         ))
-        resp = client.post("/api/migration/status", json={"feature": "classification"})
+        resp = client.post(
+            "/api/migration/status",
+            json={
+                "feature": "classification"})
         assert resp.status_code == 200
 
     def test_toggle_migration_missing_feature(self, client):
@@ -978,9 +1000,12 @@ class TestMigration:
     @patch("app.services.rule_migration_service.RuleMigrationService", create=True)
     def test_toggle_migration_success(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
-        mock_svc.toggle_feature = MagicMock(return_value=MagicMock(
-            feature="classification", enabled=True, mode="shadow", percentage=10.0
-        ))
+        mock_svc.toggle_feature = MagicMock(
+            return_value=MagicMock(
+                feature="classification",
+                enabled=True,
+                mode="shadow",
+                percentage=10.0))
         resp = client.post("/api/migration/toggle", json={
             "feature": "classification",
             "enabled": True,
@@ -1023,11 +1048,17 @@ class TestValidationEdgeCases:
         assert resp.status_code == 422
 
     def test_brand_voice_max_sentences_too_high(self, client):
-        resp = client.post("/api/brand-voice", json={"max_response_sentences": 100})
+        resp = client.post(
+            "/api/brand-voice",
+            json={
+                "max_response_sentences": 100})
         assert resp.status_code == 422
 
     def test_brand_voice_min_sentences_zero(self, client):
-        resp = client.post("/api/brand-voice", json={"min_response_sentences": 0})
+        resp = client.post(
+            "/api/brand-voice",
+            json={
+                "min_response_sentences": 0})
         assert resp.status_code == 422
 
     def test_brand_voice_sentiment_out_of_range(self, client):
@@ -1068,7 +1099,10 @@ class TestValidationEdgeCases:
         })
         tid = create_resp.json()["data"]["id"]
         long_name = "B" * 256
-        resp = client.put(f"/api/response/templates/{tid}", json={"name": long_name})
+        resp = client.put(
+            f"/api/response/templates/{tid}",
+            json={
+                "name": long_name})
         assert resp.status_code == 422
 
     def test_batch_item_missing_conversation_id(self, client):

@@ -13,23 +13,19 @@ Covers:
 
 from __future__ import annotations
 
-import time
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from app.exceptions import ParwaBaseError
 from app.services.provider_management_service import (
-    AlertLevel,
-    APIKeyConfig,
     ProviderAlert,
     ProviderManagementService,
     ProviderModelStatus,
     ProviderStatus,
     ProviderSummary,
     ProviderUsageStats,
-    _KNOWN_PROVIDERS,
     _mask_api_key,
     _utc_now,
     _utc_today,
@@ -190,7 +186,8 @@ class TestProviderStatus:
 
     def test_unknown_provider_returns_unknown_status(self, svc_with_registry):
         """Unknown provider name returns a ProviderSummary with UNKNOWN status."""
-        summary = svc_with_registry.get_provider_status(COMPANY_ID, "anthropic")
+        summary = svc_with_registry.get_provider_status(
+            COMPANY_ID, "anthropic")
         assert isinstance(summary, ProviderSummary)
         assert summary.status == ProviderStatus.UNKNOWN.value
         assert summary.total_models == 0
@@ -212,7 +209,8 @@ class TestProviderStatus:
         assert by_name["cerebras"] == "Cerebras"
         assert by_name["groq"] == "Groq"
 
-    def test_all_providers_status_returns_list_of_summaries(self, svc_with_registry):
+    def test_all_providers_status_returns_list_of_summaries(
+            self, svc_with_registry):
         """Result is a list of ProviderSummary dataclass instances."""
         summaries = svc_with_registry.get_all_providers_status(COMPANY_ID)
         assert all(isinstance(s, ProviderSummary) for s in summaries)
@@ -352,9 +350,21 @@ class TestAlerts:
 
     def test_get_alerts_filtered_by_level(self, svc):
         """get_alerts with level= filters to matching alerts only."""
-        svc.create_alert(COMPANY_ID, "google", level="info", message="info-msg")
-        svc.create_alert(COMPANY_ID, "google", level="critical", message="crit-msg")
-        svc.create_alert(COMPANY_ID, "groq", level="critical", message="crit-msg-2")
+        svc.create_alert(
+            COMPANY_ID,
+            "google",
+            level="info",
+            message="info-msg")
+        svc.create_alert(
+            COMPANY_ID,
+            "google",
+            level="critical",
+            message="crit-msg")
+        svc.create_alert(
+            COMPANY_ID,
+            "groq",
+            level="critical",
+            message="crit-msg-2")
 
         info_alerts = svc.get_alerts(COMPANY_ID, level="info")
         assert len(info_alerts) == 1
@@ -374,8 +384,16 @@ class TestAlerts:
 
     def test_get_unacknowledged_alerts(self, svc):
         """get_alerts(acknowledged=False) returns only unacknowledged alerts."""
-        a1 = svc.create_alert(COMPANY_ID, "google", level="info", message="new")
-        a2 = svc.create_alert(COMPANY_ID, "google", level="info", message="old")
+        a1 = svc.create_alert(
+            COMPANY_ID,
+            "google",
+            level="info",
+            message="new")
+        a2 = svc.create_alert(
+            COMPANY_ID,
+            "google",
+            level="info",
+            message="old")
         svc.acknowledge_alert(COMPANY_ID, a1.id, "user-1")
 
         unacked = svc.get_alerts(COMPANY_ID, acknowledged=False)
@@ -531,7 +549,8 @@ class TestUsageStats:
 
     def test_empty_stats_for_no_usage(self, svc):
         """Without any recorded usage, historical days show zero entries."""
-        # Without a mock registry/tracker, days > 1 will use stored data (empty).
+        # Without a mock registry/tracker, days > 1 will use stored data
+        # (empty).
         stats = svc.get_usage_stats(COMPANY_ID, days=1)
         # Without registry, it should still return entries (possibly zero).
         assert isinstance(stats, list)
@@ -653,7 +672,11 @@ class TestEdgeCases:
         )
         # Create alerts
         svc.create_alert(COMPANY_ID, "groq", level="info", message="alert-1")
-        svc.create_alert(COMPANY_ID, "groq", level="warning", message="alert-2")
+        svc.create_alert(
+            COMPANY_ID,
+            "groq",
+            level="warning",
+            message="alert-2")
         # Rotate key
         svc.rotate_api_key(COMPANY_ID, "groq", "key-123")
         # Enable model
@@ -697,10 +720,12 @@ class TestHelperFunctions:
         assert _worst_status(["healthy", "healthy"]) == "healthy"
 
     def test_worst_status_unhealthy_wins(self):
-        assert _worst_status(["healthy", "unhealthy", "healthy"]) == "unhealthy"
+        assert _worst_status(
+            ["healthy", "unhealthy", "healthy"]) == "unhealthy"
 
     def test_worst_status_disabled_wins_over_all(self):
-        assert _worst_status(["healthy", "degraded", "unhealthy", "disabled"]) == "disabled"
+        assert _worst_status(
+            ["healthy", "degraded", "unhealthy", "disabled"]) == "disabled"
 
     def test_worst_status_empty_returns_unknown(self):
         assert _worst_status([]) == "unknown"
@@ -755,7 +780,11 @@ class TestLatencyAndSuccessRecording:
     def test_record_latency_keeps_max_100(self, svc):
         """Latency samples are capped at 100 per model."""
         for i in range(150):
-            svc.record_latency(COMPANY_ID, "cerebras", "llama-3.1-8b", float(i))
+            svc.record_latency(
+                COMPANY_ID,
+                "cerebras",
+                "llama-3.1-8b",
+                float(i))
         key = ("cerebras", "llama-3.1-8b")
         samples = svc._latency_samples[COMPANY_ID][key]
         assert len(samples) == 100

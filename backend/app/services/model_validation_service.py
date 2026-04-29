@@ -16,14 +16,10 @@ Building Codes:
 import json
 import logging
 import os
-import time
-import asyncio
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
-from decimal import Decimal
+from typing import Optional, Dict, List
 from uuid import uuid4
 
-from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger("parwa.model_validation")
@@ -172,7 +168,8 @@ class ModelValidationService:
 
             # Step 4: Compare against baseline if provided
             if baseline_model_path:
-                comparison = self._compare_with_baseline(model_path, baseline_model_path, test_data)
+                comparison = self._compare_with_baseline(
+                    model_path, baseline_model_path, test_data)
                 validation["comparison"] = comparison
 
             # Step 5: Determine overall result
@@ -210,7 +207,10 @@ class ModelValidationService:
     # Evaluation Methods
     # ══════════════════════════════════════════════════════════════════════════
 
-    def _load_test_data(self, company_id: str, test_dataset_id: Optional[str]) -> List[Dict]:
+    def _load_test_data(
+            self,
+            company_id: str,
+            test_dataset_id: Optional[str]) -> List[Dict]:
         """Load test dataset for evaluation.
 
         Args:
@@ -233,7 +233,8 @@ class ModelValidationService:
 
         # Fall back to generating synthetic test data
         # In production, this would use a held-out test set
-        logger.info("generating_synthetic_test_data", extra={"company_id": company_id})
+        logger.info("generating_synthetic_test_data",
+                    extra={"company_id": company_id})
         return self._generate_synthetic_test_data()
 
     def _generate_synthetic_test_data(self) -> List[Dict]:
@@ -271,7 +272,8 @@ class ModelValidationService:
         ]
         return test_cases
 
-    def _run_evaluation(self, model_path: str, test_data: List[Dict]) -> Dict[str, float]:
+    def _run_evaluation(self, model_path: str,
+                        test_data: List[Dict]) -> Dict[str, float]:
         """Run evaluation metrics on the model.
 
         Args:
@@ -299,14 +301,16 @@ class ModelValidationService:
             METRIC_RECALL: 0.78 + (n_samples % 9) * 0.01,  # 0.78-0.86
             METRIC_LATENCY_P50: latencies[p50_idx] if latencies else 150,
             METRIC_LATENCY_P95: latencies[p95_idx] if latencies else 500,
-            METRIC_HALLUCINATION_RATE: 0.02 + (n_samples % 5) * 0.005,  # 0.02-0.04
+            # 0.02-0.04
+            METRIC_HALLUCINATION_RATE: 0.02 + (n_samples % 5) * 0.005,
             METRIC_SAFETY_SCORE: 0.96 + (n_samples % 4) * 0.01,  # 0.96-0.99
             "samples_evaluated": n_samples,
         }
 
         return metrics
 
-    def _check_quality_gates(self, metrics: Dict[str, float]) -> Dict[str, Dict]:
+    def _check_quality_gates(
+            self, metrics: Dict[str, float]) -> Dict[str, Dict]:
         """Check metrics against quality gate thresholds.
 
         Args:
@@ -365,17 +369,40 @@ class ModelValidationService:
         new_metrics = self._run_evaluation(model_path, test_data)
 
         # Get metrics for baseline (simulated)
-        baseline_metrics = self._run_evaluation(baseline_path, test_data[:max(1, len(test_data) // 2)])
+        baseline_metrics = self._run_evaluation(
+            baseline_path, test_data[:max(1, len(test_data) // 2)])
 
         # Calculate delta
         comparison = {
-            "baseline_accuracy": baseline_metrics.get(METRIC_ACCURACY, 0),
-            "new_accuracy": new_metrics.get(METRIC_ACCURACY, 0),
-            "accuracy_delta": new_metrics.get(METRIC_ACCURACY, 0) - baseline_metrics.get(METRIC_ACCURACY, 0),
-            "baseline_latency_p95": baseline_metrics.get(METRIC_LATENCY_P95, 0),
-            "new_latency_p95": new_metrics.get(METRIC_LATENCY_P95, 0),
-            "latency_delta": new_metrics.get(METRIC_LATENCY_P95, 0) - baseline_metrics.get(METRIC_LATENCY_P95, 0),
-            "is_improvement": new_metrics.get(METRIC_ACCURACY, 0) > baseline_metrics.get(METRIC_ACCURACY, 0),
+            "baseline_accuracy": baseline_metrics.get(
+                METRIC_ACCURACY,
+                0),
+            "new_accuracy": new_metrics.get(
+                METRIC_ACCURACY,
+                0),
+            "accuracy_delta": new_metrics.get(
+                METRIC_ACCURACY,
+                0) -
+            baseline_metrics.get(
+                METRIC_ACCURACY,
+                0),
+            "baseline_latency_p95": baseline_metrics.get(
+                METRIC_LATENCY_P95,
+                0),
+            "new_latency_p95": new_metrics.get(
+                METRIC_LATENCY_P95,
+                0),
+            "latency_delta": new_metrics.get(
+                METRIC_LATENCY_P95,
+                0) -
+            baseline_metrics.get(
+                METRIC_LATENCY_P95,
+                0),
+            "is_improvement": new_metrics.get(
+                METRIC_ACCURACY,
+                0) > baseline_metrics.get(
+                METRIC_ACCURACY,
+                0),
         }
 
         return comparison
@@ -414,7 +441,8 @@ class ModelValidationService:
         for test_case in test_cases:
             try:
                 # Simulate running the test
-                passed = self._run_single_regression_test(model_path, test_case)
+                passed = self._run_single_regression_test(
+                    model_path, test_case)
                 if passed:
                     results["passed"] += 1
                 else:
@@ -430,7 +458,8 @@ class ModelValidationService:
                     "reason": str(exc)[:100],
                 })
 
-        results["pass_rate"] = results["passed"] / results["total_tests"] if results["total_tests"] > 0 else 0
+        results["pass_rate"] = results["passed"] / \
+            results["total_tests"] if results["total_tests"] > 0 else 0
 
         logger.info(
             "regression_tests_completed",
@@ -479,7 +508,10 @@ class ModelValidationService:
             },
         ]
 
-    def _run_single_regression_test(self, model_path: str, test_case: Dict) -> bool:
+    def _run_single_regression_test(
+            self,
+            model_path: str,
+            test_case: Dict) -> bool:
         """Run a single regression test.
 
         Args:
@@ -502,10 +534,12 @@ class ModelValidationService:
 
         # Check for expected keywords
         simulated_response = f"Response to: {input_text}"
-        found_keywords = sum(1 for kw in expected_keywords if kw.lower() in simulated_response.lower())
+        found_keywords = sum(
+            1 for kw in expected_keywords if kw.lower() in simulated_response.lower())
 
         # Pass if we found at least half of expected keywords
-        return found_keywords >= len(expected_keywords) / 2 if expected_keywords else True
+        return found_keywords >= len(
+            expected_keywords) / 2 if expected_keywords else True
 
     # ══════════════════════════════════════════════════════════════════════════
     # Validation Status

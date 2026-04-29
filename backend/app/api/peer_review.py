@@ -19,7 +19,7 @@ BC-012: Structured JSON error responses.
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request, Path, HTTPException
+from fastapi import APIRouter, Depends, Query, Request, Path
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -51,23 +51,29 @@ def _get_company_id(request: Request) -> Optional[str]:
 
 class EscalationRequest(BaseModel):
     """Request to create an escalation."""
-    junior_agent_id: str = Field(..., description="Junior agent requesting review")
+    junior_agent_id: str = Field(...,
+                                 description="Junior agent requesting review")
     ticket_id: str = Field(..., description="Related ticket ID")
     reason: str = Field(
         ...,
         description="Reason: low_confidence, complex_query, policy_violation_risk, customer_escalation, uncertainty, knowledge_gap"
     )
-    original_response: Optional[str] = Field(None, description="Draft response for review")
-    confidence_score: Optional[float] = Field(None, ge=0, le=1, description="Junior's confidence score")
+    original_response: Optional[str] = Field(
+        None, description="Draft response for review")
+    confidence_score: Optional[float] = Field(
+        None, ge=0, le=1, description="Junior's confidence score")
     context: Optional[dict] = Field(None, description="Additional context")
-    priority: str = Field("normal", description="Priority: low, normal, high, urgent")
+    priority: str = Field(
+        "normal",
+        description="Priority: low, normal, high, urgent")
 
 
 class AutoEscalateRequest(BaseModel):
     """Request for auto-escalation check."""
     agent_id: str = Field(..., description="Agent ID")
     ticket_id: str = Field(..., description="Ticket ID")
-    confidence_score: float = Field(..., ge=0, le=1, description="Confidence score")
+    confidence_score: float = Field(..., ge=0,
+                                    le=1, description="Confidence score")
     response_draft: str = Field(..., description="Draft response")
     context: Optional[dict] = Field(None, description="Additional context")
 
@@ -75,9 +81,11 @@ class AutoEscalateRequest(BaseModel):
 class ReviewSubmitRequest(BaseModel):
     """Request to submit a senior review."""
     senior_agent_id: str = Field(..., description="Senior agent ID")
-    reviewed_response: str = Field(..., description="Reviewed/corrected response")
+    reviewed_response: str = Field(...,
+                                   description="Reviewed/corrected response")
     feedback: Optional[str] = Field(None, description="Feedback for junior")
-    corrections: Optional[list] = Field(None, description="List of corrections")
+    corrections: Optional[list] = Field(
+        None, description="List of corrections")
     approved: bool = Field(True, description="Whether original was approved")
     use_for_training: bool = Field(True, description="Use for training data")
 
@@ -99,7 +107,10 @@ async def create_escalation(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -121,7 +132,10 @@ async def create_escalation(
         if result.get("status") == "error":
             return JSONResponse(
                 status_code=400,
-                content={"error": {"code": "ESCALATION_ERROR", "message": result.get("error")}},
+                content={
+                    "error": {
+                        "code": "ESCALATION_ERROR",
+                        "message": result.get("error")}},
             )
 
         return result
@@ -133,7 +147,10 @@ async def create_escalation(
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to create escalation"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to create escalation"}},
         )
 
 
@@ -150,7 +167,10 @@ async def auto_escalate(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -176,7 +196,10 @@ async def auto_escalate(
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to auto-escalate"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to auto-escalate"}},
         )
 
 
@@ -197,7 +220,10 @@ async def get_review_queue(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -221,7 +247,10 @@ async def get_review_queue(
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get review queue"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get review queue"}},
         )
 
 
@@ -238,7 +267,10 @@ async def get_escalation_details(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -251,7 +283,10 @@ async def get_escalation_details(
         if not result:
             return JSONResponse(
                 status_code=404,
-                content={"error": {"code": "NOT_FOUND", "message": f"Escalation {escalation_id} not found"}},
+                content={
+                    "error": {
+                        "code": "NOT_FOUND",
+                        "message": f"Escalation {escalation_id} not found"}},
             )
 
         return result
@@ -259,11 +294,18 @@ async def get_escalation_details(
     except Exception as exc:
         logger.error(
             "get_escalation_details_error",
-            extra={"company_id": company_id, "escalation_id": escalation_id, "error": str(exc)[:200]},
+            extra={
+                "company_id": company_id,
+                "escalation_id": escalation_id,
+                "error": str(exc)[
+                    :200]},
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get escalation details"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get escalation details"}},
         )
 
 
@@ -281,7 +323,10 @@ async def submit_review(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -303,7 +348,10 @@ async def submit_review(
         if result.get("status") == "error":
             return JSONResponse(
                 status_code=400,
-                content={"error": {"code": "REVIEW_ERROR", "message": result.get("error")}},
+                content={
+                    "error": {
+                        "code": "REVIEW_ERROR",
+                        "message": result.get("error")}},
             )
 
         return result
@@ -311,11 +359,18 @@ async def submit_review(
     except Exception as exc:
         logger.error(
             "submit_review_error",
-            extra={"company_id": company_id, "escalation_id": escalation_id, "error": str(exc)[:200]},
+            extra={
+                "company_id": company_id,
+                "escalation_id": escalation_id,
+                "error": str(exc)[
+                    :200]},
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to submit review"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to submit review"}},
         )
 
 
@@ -336,7 +391,10 @@ async def get_escalation_analytics(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -353,7 +411,10 @@ async def get_escalation_analytics(
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get analytics"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get analytics"}},
         )
 
 
@@ -367,7 +428,10 @@ async def get_senior_workload(request: Request):
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -390,7 +454,10 @@ async def get_senior_workload(request: Request):
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get workload"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get workload"}},
         )
 
 
@@ -408,7 +475,10 @@ async def get_learning_progress(
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -421,11 +491,18 @@ async def get_learning_progress(
     except Exception as exc:
         logger.error(
             "get_learning_progress_error",
-            extra={"company_id": company_id, "agent_id": agent_id, "error": str(exc)[:200]},
+            extra={
+                "company_id": company_id,
+                "agent_id": agent_id,
+                "error": str(exc)[
+                    :200]},
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to get learning progress"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to get learning progress"}},
         )
 
 
@@ -443,7 +520,10 @@ async def run_pipeline_test(request: Request):
     if not company_id:
         return JSONResponse(
             status_code=403,
-            content={"error": {"code": "AUTHORIZATION_ERROR", "message": "Tenant identification required"}},
+            content={
+                "error": {
+                    "code": "AUTHORIZATION_ERROR",
+                    "message": "Tenant identification required"}},
         )
 
     try:
@@ -457,7 +537,11 @@ async def run_pipeline_test(request: Request):
         else:
             return JSONResponse(
                 status_code=400,
-                content={"error": {"code": "TEST_FAILED", "message": "Pipeline test failed", "details": result}},
+                content={
+                    "error": {
+                        "code": "TEST_FAILED",
+                        "message": "Pipeline test failed",
+                        "details": result}},
             )
 
     except Exception as exc:
@@ -467,5 +551,8 @@ async def run_pipeline_test(request: Request):
         )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "INTERNAL_ERROR", "message": "Failed to run pipeline test"}},
+            content={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Failed to run pipeline test"}},
         )

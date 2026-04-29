@@ -81,7 +81,8 @@ class KnowledgeRetriever:
             )
         )
 
-        # LIKE search on chunk content (split query into words for better coverage)
+        # LIKE search on chunk content (split query into words for better
+        # coverage)
         words = like_term.split()
         if words:
             conditions = [
@@ -89,8 +90,10 @@ class KnowledgeRetriever:
             ]
             base = base.filter(or_(*conditions))
 
-        # Order by most recent (placeholder — pgvector will use cosine similarity)
-        results = base.order_by(desc(DocumentChunk.created_at)).limit(max_results).all()
+        # Order by most recent (placeholder — pgvector will use cosine
+        # similarity)
+        results = base.order_by(
+            desc(DocumentChunk.created_at)).limit(max_results).all()
 
         # Compute a naive relevance score based on word matches
         out: List[Dict[str, Any]] = []
@@ -138,17 +141,13 @@ class KnowledgeRetriever:
             .all()
         )
 
-        return [
-            {
-                "chunk_id": c.id,
-                "content": c.content,
-                "chunk_index": c.chunk_index,
-                "char_count": len(c.content) if c.content else 0,
-                "has_embedding": c.embedding is not None,
-                "created_at": c.created_at.isoformat() if c.created_at else None,
-            }
-            for c in chunks
-        ]
+        return [{"chunk_id": c.id,
+                 "content": c.content,
+                 "chunk_index": c.chunk_index,
+                 "char_count": len(c.content) if c.content else 0,
+                 "has_embedding": c.embedding is not None,
+                 "created_at": c.created_at.isoformat() if c.created_at else None,
+                 } for c in chunks]
 
     def get_stats(self) -> Dict[str, Any]:
         """Get knowledge base statistics for the current tenant.

@@ -21,9 +21,7 @@ Building Codes tested:
 import json
 import uuid
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 
 # ── Fixtures ──────────────────────────────────────────────────
@@ -40,7 +38,12 @@ def _mock_db():
     return db
 
 
-def _make_mock_filter_chain(query_result=None, scalar_result=None, all_result=None, first_result=None, order_by_result=None):
+def _make_mock_filter_chain(
+        query_result=None,
+        scalar_result=None,
+        all_result=None,
+        first_result=None,
+        order_by_result=None):
     """Create a properly chained mock filter query.
 
     Supports chaining: query.filter().order_by().limit().all()
@@ -48,7 +51,8 @@ def _make_mock_filter_chain(query_result=None, scalar_result=None, all_result=No
     work regardless of how many methods are chained.
     """
     f = MagicMock()
-    f.first.return_value = first_result if first_result is not None else (query_result if query_result else None)
+    f.first.return_value = first_result if first_result is not None else (
+        query_result if query_result else None)
     f.scalar.return_value = scalar_result if scalar_result is not None else 0
     f.order_by.return_value = order_by_result if order_by_result is not None else f
     f.group_by.return_value = f
@@ -60,7 +64,10 @@ def _make_mock_filter_chain(query_result=None, scalar_result=None, all_result=No
     return q, f
 
 
-def _make_bounce_data(email="bounced@example.com", bounce_type="hard", reason="does_not_exist"):
+def _make_bounce_data(
+        email="bounced@example.com",
+        bounce_type="hard",
+        reason="does_not_exist"):
     return {
         "email": email,
         "bounce_type": bounce_type,
@@ -80,7 +87,11 @@ def _make_complaint_data(email="complained@example.com", reason="spam"):
     }
 
 
-def _make_email_data(headers_json=None, subject="", body_text="", sender_email="user@example.com"):
+def _make_email_data(
+        headers_json=None,
+        subject="",
+        body_text="",
+        sender_email="user@example.com"):
     return {
         "sender_email": sender_email,
         "subject": subject,
@@ -616,7 +627,8 @@ class TestBounceHard:
         db = _mock_db()
         service = BounceComplaintService(db)
 
-        bounce_data = _make_bounce_data(bounce_type="hard", reason="does_not_exist")
+        bounce_data = _make_bounce_data(
+            bounce_type="hard", reason="does_not_exist")
 
         q, f = _make_mock_filter_chain(first_result=None, scalar_result=0)
         db.query.return_value = q
@@ -670,16 +682,21 @@ class TestBounceSoft:
         db = _mock_db()
         service = BounceComplaintService(db)
 
-        bounce_data = _make_bounce_data(bounce_type="soft", reason="mailbox_full")
+        bounce_data = _make_bounce_data(
+            bounce_type="soft", reason="mailbox_full")
 
         call_idx = [0]
+
         def query_side_effect(*args, **kwargs):
             call_idx[0] += 1
-            # Alternate between scalar=0 (no event) and first=None (no outbound)
+            # Alternate between scalar=0 (no event) and first=None (no
+            # outbound)
             if call_idx[0] % 2 == 0:
-                q, f = _make_mock_filter_chain(scalar_result=0, first_result=None)
+                q, f = _make_mock_filter_chain(
+                    scalar_result=0, first_result=None)
             else:
-                q, f = _make_mock_filter_chain(scalar_result=0, first_result=None)
+                q, f = _make_mock_filter_chain(
+                    scalar_result=0, first_result=None)
             return q
 
         db.query.side_effect = query_side_effect
@@ -695,13 +712,15 @@ class TestBounceSoft:
         db = _mock_db()
         service = BounceComplaintService(db)
 
-        bounce_data = _make_bounce_data(bounce_type="soft", reason="mailbox_full")
+        bounce_data = _make_bounce_data(
+            bounce_type="soft", reason="mailbox_full")
 
         # Multiple query calls happen inside process_bounce:
         # 1. _is_event_processed → scalar() must return 0 (not duplicate)
         # 2. _find_outbound → first() returns None
         # 3. _get_or_create_email_status → first() returns mock
-        # 4. _get_soft_bounce_count → scalar() returns >= SOFT_BOUNCE_MAX_RETRIES
+        # 4. _get_soft_bounce_count → scalar() returns >=
+        # SOFT_BOUNCE_MAX_RETRIES
         call_results = [
             0,      # _is_event_processed: scalar() returns 0
             None,   # _find_outbound: first() returns None
@@ -709,6 +728,7 @@ class TestBounceSoft:
             3,      # _get_soft_bounce_count: scalar() returns 3
         ]
         call_idx = [0]
+
         def query_side_effect(*args, **kwargs):
             idx = min(call_idx[0], len(call_results) - 1)
             call_idx[0] += 1
@@ -898,7 +918,8 @@ class TestSuppressionList:
         q, f = _make_mock_filter_chain(first_result=mock_status)
         db.query.return_value = q
 
-        assert service.is_email_suppressed("comp-1", "whitelisted@example.com") is False
+        assert service.is_email_suppressed(
+            "comp-1", "whitelisted@example.com") is False
 
     def test_active_email_not_suppressed(self):
         from app.services.bounce_complaint_service import BounceComplaintService
@@ -909,7 +930,8 @@ class TestSuppressionList:
         q, f = _make_mock_filter_chain(first_result=None)
         db.query.return_value = q
 
-        assert service.is_email_suppressed("comp-1", "good@example.com") is False
+        assert service.is_email_suppressed(
+            "comp-1", "good@example.com") is False
 
 
 class TestWhitelist:
@@ -1023,6 +1045,7 @@ class TestBounceDigest:
         # 2. EmailBounce count (recent bounces) → scalar()
         # 3. EmailBounce count (complaints) → scalar()
         call_idx = [0]
+
         def query_side_effect(*args, **kwargs):
             call_idx[0] += 1
             if call_idx[0] == 1:

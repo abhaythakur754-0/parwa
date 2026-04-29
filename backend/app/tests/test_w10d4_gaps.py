@@ -20,10 +20,8 @@ from __future__ import annotations
 import asyncio
 import json
 import threading
-import time
-from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -31,7 +29,6 @@ import pytest
 
 from app.core.state_serialization import (
     StateSerializer,
-    StateSerializerConfig,
     StorageBackend,
     _build_state_key,
     _build_checkpoint_key,
@@ -39,9 +36,7 @@ from app.core.state_serialization import (
     _build_checkpoint_index_key,
     _safe_json_dumps,
     _safe_json_loads,
-    _serialize_enum,
     StateSerializationError,
-    SaveResult,
 )
 from app.core.langgraph_workflow import (
     LangGraphWorkflow,
@@ -50,7 +45,6 @@ from app.core.langgraph_workflow import (
     WorkflowStepResult,
     WorkflowResult,
     VARIANT_PIPELINE_CONFIG,
-    WORKFLOW_STEP_DEFINITIONS,
 )
 from app.core.context_compression import (
     ContextCompressor,
@@ -64,7 +58,6 @@ from app.core.context_health import (
     ContextHealthMeter,
     HealthConfig,
     HealthMetrics,
-    HealthReport,
     HealthStatus,
     HealthAlertType,
     _MAX_HISTORY_LENGTH,
@@ -72,12 +65,10 @@ from app.core.context_health import (
 from app.core.gsd_engine import (
     GSDEngine,
     GSDConfig,
-    GSDVariant,
     InvalidTransitionError,
     EscalationCooldownError,
     FULL_TRANSITION_TABLE,
     MINI_TRANSITION_TABLE,
-    ESCALATION_ELIGIBLE_STATES,
 )
 from app.core.techniques.base import (
     ConversationState,
@@ -108,20 +99,35 @@ def _make_conversation_state(
     return ConversationState(
         query=query,
         gsd_state=gsd_state,
-        gsd_history=gsd_history or [GSDState.NEW, GSDState.GREETING, GSDState.DIAGNOSIS],
+        gsd_history=gsd_history or [
+            GSDState.NEW,
+            GSDState.GREETING,
+            GSDState.DIAGNOSIS],
         token_usage=token_usage,
         technique_results=technique_results or {
-            "active_listening": {"status": "success", "result": "empathy"},
-            "clarification": {"status": "success", "result": "refund_details"},
-            "technique_token_budget": {"status": "skipped", "reason": "budget"},
+            "active_listening": {
+                "status": "success",
+                "result": "empathy"},
+            "clarification": {
+                "status": "success",
+                "result": "refund_details"},
+            "technique_token_budget": {
+                "status": "skipped",
+                "reason": "budget"},
         },
-        response_parts=response_parts or ["Part 1", "Part 2"],
+        response_parts=response_parts or [
+            "Part 1",
+            "Part 2"],
         final_response=final_response,
         ticket_id=ticket_id,
         conversation_id="conv_001",
         company_id=company_id,
-        reasoning_thread=reasoning_thread or ["Step 1: classify", "Step 2: extract signals"],
-        reflexion_trace=reflexion_trace or {"attempts": 2, "improved": True},
+        reasoning_thread=reasoning_thread or [
+            "Step 1: classify",
+            "Step 2: extract signals"],
+        reflexion_trace=reflexion_trace or {
+            "attempts": 2,
+            "improved": True},
     )
 
 
@@ -270,7 +276,8 @@ class TestRedisPostgresFailoverDataLoss:
 
     @pytest.mark.asyncio
     async def test_save_falls_back_to_postgres_when_redis_fails(self):
-        serializer = self._make_serializer_with_mocks(redis_fail=True, pg_fail=False)
+        serializer = self._make_serializer_with_mocks(
+            redis_fail=True, pg_fail=False)
         state = _make_conversation_state()
 
         result = await serializer.save_state(
@@ -284,7 +291,8 @@ class TestRedisPostgresFailoverDataLoss:
 
     @pytest.mark.asyncio
     async def test_save_raises_when_both_backends_fail(self):
-        serializer = self._make_serializer_with_mocks(redis_fail=True, pg_fail=True)
+        serializer = self._make_serializer_with_mocks(
+            redis_fail=True, pg_fail=True)
         state = _make_conversation_state()
 
         with pytest.raises(StateSerializationError):
@@ -313,7 +321,8 @@ class TestRedisPostgresFailoverDataLoss:
         assert loaded.technique_results == state.technique_results
 
     @pytest.mark.asyncio
-    async def test_failover_preserves_technique_stack_not_just_current_node(self):
+    async def test_failover_preserves_technique_stack_not_just_current_node(
+            self):
         """Verify that PG fallback returns ALL fields, not just current_node/variables."""
         complex_results = {
             "technique_a": {"status": "success", "result": {"nested": True}},
@@ -322,8 +331,15 @@ class TestRedisPostgresFailoverDataLoss:
         state = _make_conversation_state(
             technique_results=complex_results,
             token_usage=1500,
-            gsd_history=[GSDState.NEW, GSDState.GREETING, GSDState.DIAGNOSIS, GSDState.RESOLUTION],
-            reasoning_thread=["reason1", "reason2", "reason3"],
+            gsd_history=[
+                GSDState.NEW,
+                GSDState.GREETING,
+                GSDState.DIAGNOSIS,
+                GSDState.RESOLUTION],
+            reasoning_thread=[
+                "reason1",
+                "reason2",
+                "reason3"],
         )
 
         serializer = StateSerializer()
@@ -387,7 +403,8 @@ class TestDistributedLocksConcurrentMutation:
         for t in threads:
             t.join(timeout=5)
 
-        assert len(errors) == 0, f"Errors during concurrent serialization: {errors}"
+        assert len(
+            errors) == 0, f"Errors during concurrent serialization: {errors}"
         assert len(results) == 10
 
         # All results should be identical
@@ -414,7 +431,12 @@ class TestDistributedLocksConcurrentMutation:
             except Exception as e:
                 errors.append(e)
 
-        threads = [threading.Thread(target=round_trip_worker, args=(i,)) for i in range(5)]
+        threads = [
+            threading.Thread(
+                target=round_trip_worker,
+                args=(
+                    i,
+                )) for i in range(5)]
         for t in threads:
             t.start()
         for t in threads:
@@ -490,8 +512,10 @@ class TestTenantIsolationStateKeys:
         # Lock is intentionally NOT company-scoped per source code
 
     def test_serialized_state_preserves_company_id(self):
-        state_a = _make_conversation_state(company_id="tenant_alpha", ticket_id="t1")
-        state_b = _make_conversation_state(company_id="tenant_beta", ticket_id="t1")
+        state_a = _make_conversation_state(
+            company_id="tenant_alpha", ticket_id="t1")
+        state_b = _make_conversation_state(
+            company_id="tenant_beta", ticket_id="t1")
 
         serializer = StateSerializer()
         dict_a = serializer.serialize_state(state_a)
@@ -502,8 +526,10 @@ class TestTenantIsolationStateKeys:
         assert dict_a["ticket_id"] == dict_b["ticket_id"]
 
     def test_deserialize_distinguishes_same_ticket_different_tenant(self):
-        state_a = _make_conversation_state(company_id="corp_A", query="Corp A secret data")
-        state_b = _make_conversation_state(company_id="corp_B", query="Corp B secret data")
+        state_a = _make_conversation_state(
+            company_id="corp_A", query="Corp A secret data")
+        state_b = _make_conversation_state(
+            company_id="corp_B", query="Corp B secret data")
 
         serializer = StateSerializer()
         dict_a = serializer.serialize_state(state_a)
@@ -599,7 +625,9 @@ class TestGSDTransitionsAtomicityConsistency:
         # appended by each transition. Must have grown.
         assert len(state.gsd_history) >= 3
         # Verify the appended TransitionRecord objects contain expected states
-        transition_records = [h for h in state.gsd_history if isinstance(h, dict)]
+        transition_records = [
+            h for h in state.gsd_history if isinstance(
+                h, dict)]
         assert len(transition_records) == 2
         assert transition_records[0]["state"] == "greeting"
         assert transition_records[1]["state"] == "diagnosis"
@@ -729,7 +757,8 @@ class TestHistoryBufferOverflow:
         )
         engine.update_config("co_hist", config)
 
-        state = _make_conversation_state(gsd_state=GSDState.NEW, company_id="co_hist")
+        state = _make_conversation_state(
+            gsd_state=GSDState.NEW, company_id="co_hist")
         await engine.transition(state, GSDState.GREETING)
         await engine.transition(state, GSDState.DIAGNOSIS)
 
@@ -754,7 +783,8 @@ class TestHistoryBufferOverflow:
         assert final_len >= initial_len
 
         # GAP CHECK: History should be bounded by max_history_entries.
-        # If the engine does NOT enforce the ring buffer, this documents the bug.
+        # If the engine does NOT enforce the ring buffer, this documents the
+        # bug.
         if final_len > config.max_history_entries:
             pytest.xfail(
                 f"History grew to {final_len} > max {config.max_history_entries} — "
@@ -868,7 +898,9 @@ class TestConditionalBranchingLogic:
     """
 
     def test_mini_parwa_has_correct_3_steps(self):
-        wf = LangGraphWorkflow(config=WorkflowConfig(variant_type="mini_parwa"))
+        wf = LangGraphWorkflow(
+            config=WorkflowConfig(
+                variant_type="mini_parwa"))
         wf.build_graph()
 
         step_ids = [s.step_id for s in wf._steps]
@@ -885,7 +917,9 @@ class TestConditionalBranchingLogic:
         ]
 
     def test_high_parwa_has_correct_9_steps(self):
-        wf = LangGraphWorkflow(config=WorkflowConfig(variant_type="high_parwa"))
+        wf = LangGraphWorkflow(
+            config=WorkflowConfig(
+                variant_type="high_parwa"))
         wf.build_graph()
 
         step_ids = [s.step_id for s in wf._steps]
@@ -1004,9 +1038,12 @@ class TestHumanCheckpointTimeoutHandling:
         original_execute = wf._execute_step
 
         async def failing_step(*args, **kwargs):
-            step = kwargs.get('wf_step') if 'wf_step' in kwargs else (args[1] if len(args) > 1 else None)
-            if step and hasattr(step, 'step_id') and step.step_id == "generate":
-                # Return error result (simulating what _execute_step does on error)
+            step = kwargs.get('wf_step') if 'wf_step' in kwargs else (
+                args[1] if len(args) > 1 else None)
+            if step and hasattr(
+                    step, 'step_id') and step.step_id == "generate":
+                # Return error result (simulating what _execute_step does on
+                # error)
                 from app.core.langgraph_workflow import WorkflowStepResult
                 return WorkflowStepResult(
                     step_id="generate", status="error",
@@ -1048,7 +1085,9 @@ class TestContextCompressionQualityThresholds:
         ))
 
         # 10 chunks, each ~100 chars (~25 tokens), total ~250 tokens
-        content = [f"Chunk {i}: Important customer detail about order #{1000+i}. " * 3 for i in range(10)]
+        content = [
+            f"Chunk {i}: Important customer detail about order #{
+                1000 + i}. " * 3 for i in range(10)]
         priorities = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05]
         input_data = CompressionInput(content=content, priorities=priorities)
 
@@ -1085,7 +1124,8 @@ class TestContextCompressionQualityThresholds:
         assert output.compressed_token_count > 0
         assert output.strategy_used == "extractive"
         # Even aggressive compression should retain something
-        assert len(output.compressed_content) >= 2  # at least preserve_recent_n
+        # at least preserve_recent_n
+        assert len(output.compressed_content) >= 2
 
     @pytest.mark.asyncio
     async def test_compression_preserves_recent_high_priority_content(self):
@@ -1110,7 +1150,8 @@ class TestContextCompressionQualityThresholds:
 
         # The last 3 chunks (critical ones) should be preserved
         for critical_chunk in content[-3:]:
-            found = any(critical_chunk[:20] in c for c in output.compressed_content)
+            found = any(critical_chunk[:20]
+                        in c for c in output.compressed_content)
             assert found, f"Critical content not preserved: {critical_chunk[:30]}"
 
     @pytest.mark.asyncio
@@ -1362,8 +1403,12 @@ class TestTenantIsolationGraphSharing:
 
     def test_workflow_config_is_per_instance_not_global(self):
         """Each WorkflowConfig is independent; changing one does not affect others."""
-        config_mini = WorkflowConfig(company_id="tenant_mini", variant_type="mini_parwa")
-        config_high = WorkflowConfig(company_id="tenant_high", variant_type="high_parwa")
+        config_mini = WorkflowConfig(
+            company_id="tenant_mini",
+            variant_type="mini_parwa")
+        config_high = WorkflowConfig(
+            company_id="tenant_high",
+            variant_type="high_parwa")
 
         wf_mini = LangGraphWorkflow(config=config_mini)
         wf_high = LangGraphWorkflow(config=config_high)
@@ -1405,7 +1450,9 @@ class TestTenantIsolationGraphSharing:
     async def test_reset_does_not_affect_other_instances(self):
         """Resetting one workflow engine does not affect another."""
         wf1 = LangGraphWorkflow(config=WorkflowConfig(variant_type="parwa"))
-        wf2 = LangGraphWorkflow(config=WorkflowConfig(variant_type="high_parwa"))
+        wf2 = LangGraphWorkflow(
+            config=WorkflowConfig(
+                variant_type="high_parwa"))
 
         wf1.build_graph()
         wf2.build_graph()
@@ -1471,8 +1518,10 @@ class TestWorkflowRollbackAtomicity:
         original_execute = wf._execute_step
 
         async def failing_generate(*args, **kwargs):
-            wf_step = kwargs.get('wf_step') if 'wf_step' in kwargs else (args[1] if len(args) > 1 else None)
-            if wf_step and hasattr(wf_step, 'step_id') and wf_step.step_id == "generate":
+            wf_step = kwargs.get('wf_step') if 'wf_step' in kwargs else (
+                args[1] if len(args) > 1 else None)
+            if wf_step and hasattr(wf_step,
+                                   'step_id') and wf_step.step_id == "generate":
                 return WorkflowStepResult(
                     step_id="generate", status="error",
                     error="Generate step crash",
@@ -1584,11 +1633,21 @@ class TestCrossModuleIntegration:
             workflow_id="wf_test",
             variant_type="parwa",
             status="success",
-            steps_completed=["classify", "generate", "format"],
+            steps_completed=[
+                "classify",
+                "generate",
+                "format"],
             step_results={
-                "classify": WorkflowStepResult(step_id="classify", status="success"),
-                "generate": WorkflowStepResult(step_id="generate", status="success", tokens_used=800),
-                "format": WorkflowStepResult(step_id="format", status="success"),
+                "classify": WorkflowStepResult(
+                    step_id="classify",
+                    status="success"),
+                "generate": WorkflowStepResult(
+                    step_id="generate",
+                    status="success",
+                    tokens_used=800),
+                "format": WorkflowStepResult(
+                    step_id="format",
+                    status="success"),
             },
             final_response="Test response",
             total_tokens_used=950,

@@ -18,18 +18,14 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from shared.knowledge_base.vector_search import (
-    EMBEDDING_DIMENSION,
     MockVectorStore,
-    VectorChunk,
     VectorStore,
     SearchResult,
     vector_search,
     get_vector_store,
 )
 from shared.knowledge_base.reindexing import (
-    ReindexJob,
     ReindexingManager,
-    ReindexStatus,
 )
 from app.core.rag_retrieval import (
     RAGChunk,
@@ -205,16 +201,10 @@ class TestMockVectorStoreSearch:
     def setup_method(self):
         self.store = MockVectorStore(seed=42)
         # Add test documents
-        self.store.add_document(
-            "doc1",
-            [{"content": "Refund policy for customer orders"}, {"content": "How to return items"}],
-            "c1",
-        )
-        self.store.add_document(
-            "doc2",
-            [{"content": "API endpoint configuration guide"}, {"content": "Server setup instructions"}],
-            "c1",
-        )
+        self.store.add_document("doc1", [{"content": "Refund policy for customer orders"}, {
+            "content": "How to return items"}], "c1", )
+        self.store.add_document("doc2", [{"content": "API endpoint configuration guide"}, {
+            "content": "Server setup instructions"}], "c1", )
         self.store.add_document(
             "doc3",
             [{"content": "Billing invoice and payment processing"}],
@@ -223,7 +213,8 @@ class TestMockVectorStoreSearch:
 
     def test_search_returns_results(self):
         """Search with relevant embedding returns results."""
-        query_embedding = self.store._generate_embedding("refund policy orders")
+        query_embedding = self.store._generate_embedding(
+            "refund policy orders")
         results = self.store.search(query_embedding, "c1", top_k=5)
         assert len(results) > 0
 
@@ -269,7 +260,8 @@ class TestMockVectorStoreSearch:
             [{"content": "Specific filtered content", "metadata": {"document_type": "faq"}}],
             "c1",
         )
-        query_embedding = self.store._generate_embedding("Specific filtered content")
+        query_embedding = self.store._generate_embedding(
+            "Specific filtered content")
         results = self.store.search(
             query_embedding, "c1", top_k=10,
             filters={"document_type": "faq"},
@@ -284,7 +276,8 @@ class TestMockVectorStoreSearch:
             [{"content": "Unique source content", "metadata": {"source": "manual"}}],
             "c1",
         )
-        query_embedding = self.store._generate_embedding("Unique source content")
+        query_embedding = self.store._generate_embedding(
+            "Unique source content")
         results = self.store.search(
             query_embedding, "c1", top_k=10,
             filters={"source": "manual"},
@@ -688,21 +681,20 @@ class TestRAGRetrieverFilters:
 
     def setup_method(self):
         self.store = MockVectorStore(seed=42)
-        self.store.add_document(
-            "faq_doc",
-            [
-                {"content": "FAQ refund answer", "metadata": {"document_type": "faq"}},
-                {"content": "FAQ billing answer", "metadata": {"document_type": "faq"}},
-            ],
-            "c1",
-        )
-        self.store.add_document(
-            "guide_doc",
-            [
-                {"content": "Guide refund steps", "metadata": {"document_type": "guide"}},
-            ],
-            "c1",
-        )
+        self.store.add_document("faq_doc",
+                                [{"content": "FAQ refund answer",
+                                  "metadata": {"document_type": "faq"}},
+                                    {"content": "FAQ billing answer",
+                                     "metadata": {"document_type": "faq"}},
+                                 ],
+                                "c1",
+                                )
+        self.store.add_document("guide_doc",
+                                [{"content": "Guide refund steps",
+                                  "metadata": {"document_type": "guide"}},
+                                 ],
+                                "c1",
+                                )
         self.retriever = RAGRetriever(vector_store=self.store)
 
     @pytest.mark.asyncio
@@ -1440,7 +1432,8 @@ class TestReindexingManagerStaleDocuments:
         """Documents indexed long ago are stale."""
         self.manager.record_index_timestamp("c1", ["old_doc"])
         # Manually age the timestamp
-        self.manager._doc_timestamps["c1"]["old_doc"] = time.time() - 600  # 10 minutes ago
+        # 10 minutes ago
+        self.manager._doc_timestamps["c1"]["old_doc"] = time.time() - 600
         stale = await self.manager.get_stale_documents("c1", max_age_minutes=5)
         assert len(stale) == 1
         assert stale[0]["document_id"] == "old_doc"
@@ -1529,14 +1522,14 @@ class TestVariantConfig:
     def test_thresholds_increasing(self):
         """Similarity thresholds increase with tier."""
         assert VARIANT_CONFIG["mini_parwa"]["similarity_threshold"] < \
-               VARIANT_CONFIG["parwa"]["similarity_threshold"] < \
-               VARIANT_CONFIG["high_parwa"]["similarity_threshold"]
+            VARIANT_CONFIG["parwa"]["similarity_threshold"] < \
+            VARIANT_CONFIG["high_parwa"]["similarity_threshold"]
 
     def test_top_k_increasing(self):
         """Default top_k increases with tier."""
         assert VARIANT_CONFIG["mini_parwa"]["default_top_k"] < \
-               VARIANT_CONFIG["parwa"]["default_top_k"] < \
-               VARIANT_CONFIG["high_parwa"]["default_top_k"]
+            VARIANT_CONFIG["parwa"]["default_top_k"] < \
+            VARIANT_CONFIG["high_parwa"]["default_top_k"]
 
 
 # =========================================================================

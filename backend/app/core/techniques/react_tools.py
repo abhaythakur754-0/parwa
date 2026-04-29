@@ -178,15 +178,19 @@ class CustomerLookupTool(BaseTool):
         customer_id: str = params.get("customer_id", "")
 
         db = kwargs.get("db")
-        customer_data = {"customer_id": customer_id, "name": None, "email": None, "tier": None, "status": None}
+        customer_data = {
+            "customer_id": customer_id,
+            "name": None,
+            "email": None,
+            "tier": None,
+            "status": None}
         if db is not None and customer_id:
             try:
                 from database.models.tickets import Customer
                 row = (
-                    db.query(Customer)
-                    .filter(Customer.id == customer_id, Customer.company_id == company_id)
-                    .first()
-                )
+                    db.query(Customer) .filter(
+                        Customer.id == customer_id,
+                        Customer.company_id == company_id) .first())
                 if row is not None:
                     customer_data.update({
                         "name": getattr(row, "name", None),
@@ -326,15 +330,18 @@ class OrderStatusCheckTool(BaseTool):
         order_id: str = params.get("order_id", "")
 
         db = kwargs.get("db")
-        order_data = {"order_id": order_id, "status": None, "tracking_number": None, "estimated_delivery": None}
+        order_data = {
+            "order_id": order_id,
+            "status": None,
+            "tracking_number": None,
+            "estimated_delivery": None}
         if db is not None and order_id:
             try:
                 from database.models.orders import Order
                 row = (
-                    db.query(Order)
-                    .filter(Order.id == order_id, Order.company_id == company_id)
-                    .first()
-                )
+                    db.query(Order) .filter(
+                        Order.id == order_id,
+                        Order.company_id == company_id) .first())
                 if row is not None:
                     order_data.update({
                         "status": getattr(row, "status", None),

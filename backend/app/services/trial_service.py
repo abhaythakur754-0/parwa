@@ -11,11 +11,8 @@ Manages subscription trial periods:
 
 import logging
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
 from typing import Any, Dict, Optional
-from uuid import UUID
 
-from sqlalchemy import and_
 
 from database.base import SessionLocal
 from database.models.billing import Subscription
@@ -28,7 +25,6 @@ REMINDER_DAYS = [3, 1, 0]  # Send reminders at these days before expiry
 
 class TrialError(Exception):
     """Base error for trial operations."""
-    pass
 
 
 class TrialAlreadyActiveError(TrialError):
@@ -69,17 +65,18 @@ class _TrialService:
 
             if not subscription:
                 raise TrialError(
-                    f"No subscription found for company {company_id} (TRIAL-001)"
-                )
+                    f"No subscription found for company {company_id} (TRIAL-001)")
 
             now = datetime.now(timezone.utc)
 
             # Check if trial already active
-            if getattr(subscription, "trial_ends_at", None) and subscription.trial_ends_at > now:
+            if getattr(
+                subscription,
+                "trial_ends_at",
+                    None) and subscription.trial_ends_at > now:
                 raise TrialAlreadyActiveError(
-                    f"Trial already active for company {company_id}. "
-                    f"Ends at {subscription.trial_ends_at.isoformat()} (TRIAL-002)"
-                )
+                    f"Trial already active for company {company_id}. " f"Ends at {
+                        subscription.trial_ends_at.isoformat()} (TRIAL-002)")
 
             trial_ends = now + timedelta(days=trial_days)
 
@@ -172,8 +169,7 @@ class _TrialService:
 
             if not subscription:
                 raise TrialError(
-                    f"No subscription found for company {company_id} (TRIAL-003)"
-                )
+                    f"No subscription found for company {company_id} (TRIAL-003)")
 
             now = datetime.now(timezone.utc)
             trial_ends = getattr(subscription, "trial_ends_at", None)
@@ -184,7 +180,8 @@ class _TrialService:
                     f"Ends at {trial_ends.isoformat()} (TRIAL-004)"
                 )
 
-            # Mark trial as converted (clear trial fields, keep subscription active)
+            # Mark trial as converted (clear trial fields, keep subscription
+            # active)
             subscription.trial_days = 0
             subscription.trial_ends_at = None
             # Keep trial_started_at for audit trail

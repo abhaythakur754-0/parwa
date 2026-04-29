@@ -78,7 +78,8 @@ class Settings(BaseSettings):
     PADDLE_API_KEY: str = ""
     PADDLE_WEBHOOK_SECRET: str = ""
     # Paddle Price IDs — override via env when products are created in Paddle dashboard
-    # Format: JSON string {"demo_pack": "pri_xxx", "mini_parwa": "pri_xxx", ...}
+    # Format: JSON string {"demo_pack": "pri_xxx", "mini_parwa": "pri_xxx",
+    # ...}
     PADDLE_PRICE_IDS: str = ""  # Optional: JSON override for all price IDs
 
     # ── Shopify (F-131) ─────────────────────────────────────────
@@ -87,7 +88,8 @@ class Settings(BaseSettings):
     # ── Compliance ───────────────────────────────────────────────
     GDPR_RETENTION_DAYS: int = 365
     AUDIT_LOG_RETENTION_DAYS: int = 2555
-    DATA_ENCRYPTION_KEY: str = "CHANGE_ME_IN_PROD_32chars!!"  # BC-011: must be overridden in .env
+    # BC-011: must be overridden in .env
+    DATA_ENCRYPTION_KEY: str = "CHANGE_ME_IN_PROD_32chars!!"
 
     # ── Validators ────────────────────────────────────────────────
 

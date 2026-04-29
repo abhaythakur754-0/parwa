@@ -656,10 +656,9 @@ class TrustPreservationService:
                 # No critical issues — just need 15 min stability
                 estimate_seconds = GREEN_STABLE_SECONDS
                 message = (
-                    "All critical subsystems healthy. "
-                    f"Protocol will return to GREEN in ~{GREEN_STABLE_SECONDS // 60} "
-                    "minutes if stability maintained."
-                )
+                    "All critical subsystems healthy. " f"Protocol will return to GREEN in ~{
+                        GREEN_STABLE_SECONDS //
+                        60} " "minutes if stability maintained.")
             else:
                 # Critical subsystems degraded
                 estimate_seconds = -1  # Indeterminate
@@ -702,7 +701,8 @@ class TrustPreservationService:
 
         progress_pct = 0.0
         if required_for_next > 0 and healthy_seconds > 0:
-            progress_pct = min(100.0, (healthy_seconds / required_for_next) * 100)
+            progress_pct = min(
+                100.0, (healthy_seconds / required_for_next) * 100)
 
         return {
             "company_id": self.company_id,

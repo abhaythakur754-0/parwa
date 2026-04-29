@@ -10,7 +10,8 @@ import pytest
 
 
 # Runtime-injected by _mock_logger fixture — satisfies flake8 F821
-ContextHealthMeter = HealthConfig = HealthMetrics = HealthReport = HealthAlert = HealthStatus = HealthAlertType = ContextHealthError = _HEALTH_WEIGHTS = _VARIANT_HEALTH_CONFIGS = None  # type: ignore[assignment,misc]
+# type: ignore[assignment,misc]
+ContextHealthMeter = HealthConfig = HealthMetrics = HealthReport = HealthAlert = HealthStatus = HealthAlertType = ContextHealthError = _HEALTH_WEIGHTS = _VARIANT_HEALTH_CONFIGS = None
 
 
 @pytest.fixture(autouse=True)
@@ -750,7 +751,8 @@ class TestRecommendations:
             "c1", "conv-rec1", _make_healthy_metrics(),
         )
         assert len(report.recommendations) >= 1
-        assert any("no action needed" in r.lower() for r in report.recommendations)
+        assert any("no action needed" in r.lower()
+                   for r in report.recommendations)
 
     @pytest.mark.asyncio
     async def test_critical_has_recommendations(self):

@@ -91,7 +91,9 @@ class TestBurstSeverity:
 
     def test_order_low_before_critical(self):
         members = list(BurstSeverity)
-        assert members.index(BurstSeverity.LOW) < members.index(BurstSeverity.CRITICAL)
+        assert members.index(
+            BurstSeverity.LOW) < members.index(
+            BurstSeverity.CRITICAL)
 
 
 class TestBurstAction:
@@ -200,8 +202,10 @@ class TestBurstProtectionConfig:
 
     def test_custom_max_concurrent_requests(self):
         cfg = BurstProtectionConfig(
-            max_concurrent_requests={"mini_parwa": 1, "parwa": 5, "parwa_high": 50}
-        )
+            max_concurrent_requests={
+                "mini_parwa": 1,
+                "parwa": 5,
+                "parwa_high": 50})
         assert cfg.max_concurrent_requests["mini_parwa"] == 1
 
     def test_custom_error_rate_threshold(self):
@@ -214,12 +218,18 @@ class TestBurstProtectionConfig:
 
     def test_custom_all_parameters(self):
         cfg = BurstProtectionConfig(
-            rpm_thresholds={"mini_parwa": 10, "parwa": 50, "parwa_high": 100},
+            rpm_thresholds={
+                "mini_parwa": 10,
+                "parwa": 50,
+                "parwa_high": 100},
             burst_multiplier_threshold=2.0,
             window_seconds=30,
             throttle_duration_seconds=10,
             block_duration_seconds=60,
-            max_concurrent_requests={"mini_parwa": 1, "parwa": 5, "parwa_high": 10},
+            max_concurrent_requests={
+                "mini_parwa": 1,
+                "parwa": 5,
+                "parwa_high": 10},
             error_rate_threshold_pct=90.0,
             alert_cooldown_seconds=10,
         )
@@ -1004,10 +1014,8 @@ class TestUpgradeSeverity:
         )
 
     def test_critical_stays_critical(self):
-        assert (
-            UsageBurstProtectionService._upgrade_severity(BurstSeverity.CRITICAL)
-            == BurstSeverity.CRITICAL
-        )
+        assert (UsageBurstProtectionService._upgrade_severity(
+            BurstSeverity.CRITICAL) == BurstSeverity.CRITICAL)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1098,7 +1106,8 @@ class TestGetThrottleDecision:
         )
         svc = UsageBurstProtectionService(config=cfg)
         svc.reset("co-1")
-        # Generate enough requests to exceed 3x threshold: 30+ requests → RPM > 30
+        # Generate enough requests to exceed 3x threshold: 30+ requests → RPM >
+        # 30
         for _ in range(40):
             svc.record_request("co-1", "parwa")
             svc.decrement_concurrent("co-1")
@@ -1133,7 +1142,8 @@ class TestThrottleState:
     def test_expired_state_returns_empty(self):
         svc = UsageBurstProtectionService()
         svc.reset("co-1")
-        svc._set_throttle_state("co-1", "block", 0)  # 0 duration → effectively expired
+        # 0 duration → effectively expired
+        svc._set_throttle_state("co-1", "block", 0)
         state = svc._get_throttle_state("co-1")
         assert state == {}
 

@@ -16,13 +16,10 @@ Building Codes:
 - BC-011: Credentials encrypted at rest
 """
 
-import hashlib
-import hmac
 import logging
 import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import urlencode
 
 import httpx
 from sqlalchemy.orm import Session
@@ -41,27 +38,29 @@ MAX_SMS_PER_HOUR = 100
 
 # Message status values
 SMS_STATUSES = ["queued", "sent", "delivered", "undelivered", "failed"]
-CALL_STATUSES = ["queued", "ringing", "in-progress", "completed", "failed", "canceled"]
+CALL_STATUSES = [
+    "queued",
+    "ringing",
+    "in-progress",
+    "completed",
+    "failed",
+    "canceled"]
 
 
 class TwilioClientError(Exception):
     """Base exception for Twilio client errors."""
-    pass
 
 
 class TwilioAuthError(TwilioClientError):
     """Authentication or signature verification failed."""
-    pass
 
 
 class TwilioRateLimitError(TwilioClientError):
     """Rate limit exceeded."""
-    pass
 
 
 class TwilioTCPAError(TwilioClientError):
     """TCPA compliance violation (opt-out)."""
-    pass
 
 
 class TwilioClient:
@@ -106,16 +105,19 @@ class TwilioClient:
             phone_number: Default Twilio phone number (falls back to env var).
             db: Optional database session for rate limiting.
         """
-        self.account_sid = account_sid or os.environ.get("TWILIO_ACCOUNT_SID", "")
+        self.account_sid = account_sid or os.environ.get(
+            "TWILIO_ACCOUNT_SID", "")
         self.auth_token = auth_token or os.environ.get("TWILIO_AUTH_TOKEN", "")
-        self.phone_number = phone_number or os.environ.get("TWILIO_PHONE_NUMBER", "")
+        self.phone_number = phone_number or os.environ.get(
+            "TWILIO_PHONE_NUMBER", "")
         self.db = db
 
         if not self.account_sid or not self.auth_token:
             logger.warning(
-                "twilio_client_missing_credentials",
-                extra={"has_sid": bool(self.account_sid), "has_token": bool(self.auth_token)},
-            )
+                "twilio_client_missing_credentials", extra={
+                    "has_sid": bool(
+                        self.account_sid), "has_token": bool(
+                        self.auth_token)}, )
 
     @property
     def auth_header(self) -> Tuple[str, str]:
@@ -355,7 +357,8 @@ class TwilioClient:
             raise TwilioClientError("Invalid recipient phone number")
 
         if not url and not twiml and not application_sid:
-            raise TwilioClientError("Must provide url, twiml, or application_sid")
+            raise TwilioClientError(
+                "Must provide url, twiml, or application_sid")
 
         api_url = f"{TWILIO_API_BASE}/Accounts/{self.account_sid}/Calls.json"
 
@@ -489,7 +492,10 @@ class TwilioClient:
         except Exception as e:
             logger.warning(
                 "twilio_opt_out_check_failed",
-                extra={"company_id": company_id, "phone": phone, "error": str(e)},
+                extra={
+                    "company_id": company_id,
+                    "phone": phone,
+                    "error": str(e)},
             )
             # Fail-safe: allow the message if check fails
             return False
@@ -531,10 +537,16 @@ class TwilioClient:
         except Exception as e:
             logger.warning(
                 "twilio_rate_limit_check_failed",
-                extra={"company_id": company_id, "phone": phone, "error": str(e)},
+                extra={
+                    "company_id": company_id,
+                    "phone": phone,
+                    "error": str(e)},
             )
             # Fail-safe: allow the message if check fails
-            return {"allowed": True, "count": 0, "remaining": MAX_SMS_PER_THREAD_PER_DAY}
+            return {
+                "allowed": True,
+                "count": 0,
+                "remaining": MAX_SMS_PER_THREAD_PER_DAY}
 
 
 # ── Factory Function ─────────────────────────────────────────────────

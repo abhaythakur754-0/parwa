@@ -205,7 +205,8 @@ class BaseReactTool(ABC):
                     if attempt == self.MAX_RETRIES + 1:
                         return ToolResult(
                             success=False,
-                            error=f"Tool execution timed out after {self.EXECUTION_TIMEOUT}s",
+                            error=f"Tool execution timed out after {
+                                self.EXECUTION_TIMEOUT}s",
                             data=None,
                             execution_time_ms=elapsed_ms,
                             action=action,
@@ -242,7 +243,10 @@ class BaseReactTool(ABC):
 
     # ── Validation ──────────────────────────────────────────────
 
-    def validate_params(self, action: str, params: dict[str, Any]) -> ValidationResult:
+    def validate_params(self,
+                        action: str,
+                        params: dict[str,
+                                     Any]) -> ValidationResult:
         """
         Validate parameters against the action's schema.
 

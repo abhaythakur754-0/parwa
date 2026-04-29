@@ -102,9 +102,7 @@ _RE_HALLUC_TEMPORAL_CLAIMS = re.compile(
     r"\b(as of (?:my |the )?(?:latest|last) (?:update|training|knowledge).*?202[0-5]|"
     r"I (?:recently|just) learned that|according to (?:my|the) (?:latest|recent) (?:data|info)|"
     r"studies (?:from|in) 202[0-5] (?:show|suggest|indicate)|"
-    r"a (?:recent|new|latest) (?:report|study|survey) (?:from|in) 202[0-5])\b",
-    re.IGNORECASE,
-)
+    r"a (?:recent|new|latest) (?:report|study|survey) (?:from|in) 202[0-5])\b", re.IGNORECASE, )
 
 _RE_HALLUC_UNCERTAIN_CLAIMS = re.compile(
     r"\b(I (?:believe|think|assume|estimate) (?:that )?"
@@ -379,7 +377,10 @@ def _jaccard_similarity(set_a: Set[str], set_b: Set[str]) -> float:
     return len(intersection) / len(union)
 
 
-def _safe_divide(numerator: float, denominator: float, fallback: float = 0.0) -> float:
+def _safe_divide(
+        numerator: float,
+        denominator: float,
+        fallback: float = 0.0) -> float:
     """Safely divide two numbers, returning fallback on zero denominator.
 
     Args:
@@ -721,7 +722,8 @@ class ConfidenceScoringEngine:
             threshold=DEFAULT_THRESHOLDS[VariantType.PARWA.value],
         )
 
-    def _get_effective_weights(self, config: ConfidenceConfig) -> Dict[str, float]:
+    def _get_effective_weights(
+            self, config: ConfidenceConfig) -> Dict[str, float]:
         """Build effective weights by merging defaults with tenant overrides.
 
         Args:
@@ -857,7 +859,9 @@ class ConfidenceScoringEngine:
         response_tokens_filtered = response_tokens - stop_words
 
         # Jaccard similarity (intersection / union)
-        jaccard = _jaccard_similarity(query_tokens_filtered, response_tokens_filtered)
+        jaccard = _jaccard_similarity(
+            query_tokens_filtered,
+            response_tokens_filtered)
 
         # Keyword overlap ratio (how many query tokens appear in response)
         if query_tokens_filtered:
@@ -990,7 +994,8 @@ class ConfidenceScoringEngine:
             part_tokens = _tokenize(part) - stop_words
             if not part_tokens:
                 parts_addressed += 1
-                part_details.append({"part": part[:50], "covered": True, "ratio": 1.0})
+                part_details.append(
+                    {"part": part[:50], "covered": True, "ratio": 1.0})
                 continue
 
             covered = part_tokens & response_tokens
@@ -1307,8 +1312,10 @@ class ConfidenceScoringEngine:
         query_negative = sum(1 for w in _NEGATIVE_WORDS if w in query_lower)
         query_emergency = sum(1 for w in _EMERGENCY_WORDS if w in query_lower)
 
-        response_positive = sum(1 for w in _POSITIVE_WORDS if w in response_lower)
-        response_negative = sum(1 for w in _NEGATIVE_WORDS if w in response_lower)
+        response_positive = sum(
+            1 for w in _POSITIVE_WORDS if w in response_lower)
+        response_negative = sum(
+            1 for w in _NEGATIVE_WORDS if w in response_lower)
 
         # Determine query sentiment
         if query_emergency > 0:
@@ -1457,7 +1464,9 @@ class ConfidenceScoringEngine:
         ratio = _safe_divide(response_len, query_len, fallback=0.0)
 
         # Compute token ratio
-        token_ratio = _safe_divide(response_tokens, max(1, query_tokens), fallback=0.0)
+        token_ratio = _safe_divide(
+            response_tokens, max(
+                1, query_tokens), fallback=0.0)
 
         # Determine score based on ratio
         if ratio <= 0:
@@ -1565,7 +1574,9 @@ class ConfidenceScoringEngine:
         # Complexity adjustment: measure query complexity
         query_tokens = _tokenize(query) if query else set()
         query_word_count = len(query.split()) if query else 0
-        has_multi_part = len(_RE_MULTI_PART_SPLITTERS.split(query.lower())) > 2 if query else False
+        has_multi_part = len(
+            _RE_MULTI_PART_SPLITTERS.split(
+                query.lower())) > 2 if query else False
 
         # Penalize lower tiers for complex queries
         if query_word_count > 30 or has_multi_part or len(query_tokens) > 15:
@@ -1579,7 +1590,8 @@ class ConfidenceScoringEngine:
             score -= complexity_penalty
 
         # Bonus for higher tiers handling complex queries well
-        if model_tier == "tier_1" and (query_word_count > 30 or has_multi_part):
+        if model_tier == "tier_1" and (
+                query_word_count > 30 or has_multi_part):
             score = min(100.0, score + 5.0)
 
         score = max(0.0, min(100.0, round(score, 2)))

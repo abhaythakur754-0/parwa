@@ -106,7 +106,9 @@ class TestCSRFWiredInMain(unittest.TestCase):
 
     def test_csrf_import_in_main(self):
         content = self.MAIN_PY.read_text()
-        self.assertIn("from app.middleware.csrf import CSRFMiddleware", content)
+        self.assertIn(
+            "from app.middleware.csrf import CSRFMiddleware",
+            content)
 
     def test_csrf_middleware_added_to_app(self):
         content = self.MAIN_PY.read_text()
@@ -181,7 +183,9 @@ class TestTenantReducedPublicPrefixes(unittest.TestCase):
     def test_billing_removed_from_public_prefixes(self):
         content = self.TENANT_PY.read_text()
         # Find the PUBLIC_PREFIXES tuple
-        self.assertNotIn('"/api/billing/"', content.split("PUBLIC_PREFIXES")[1].split(")")[0])
+        self.assertNotIn(
+            '"/api/billing/"',
+            content.split("PUBLIC_PREFIXES")[1].split(")")[0])
 
     def test_api_keys_removed_from_public_prefixes(self):
         content = self.TENANT_PY.read_text()
@@ -223,7 +227,11 @@ class TestAllDayFilesExist(unittest.TestCase):
 
     # --- Day 1 ---
     def test_day1_csrf_middleware(self):
-        self.assertTrue((self.BASE / "app" / "middleware" / "csrf.py").is_file())
+        self.assertTrue(
+            (self.BASE /
+             "app" /
+             "middleware" /
+             "csrf.py").is_file())
 
     # --- Day 2 ---
     def test_day2_docker_compose(self):
@@ -234,44 +242,69 @@ class TestAllDayFilesExist(unittest.TestCase):
         self.assertTrue((self.BASE / "app" / "api" / "gdpr.py").is_file())
 
     def test_day3_info_leak_guard(self):
-        self.assertTrue((self.BASE / "app" / "core" / "info_leak_guard.py").is_file())
+        self.assertTrue(
+            (self.BASE / "app" / "core" / "info_leak_guard.py").is_file())
 
     # --- Day 4 ---
     def test_day4_pii_redaction_engine(self):
-        self.assertTrue((self.BASE / "app" / "core" / "pii_redaction_engine.py").is_file())
+        self.assertTrue(
+            (self.BASE /
+             "app" /
+             "core" /
+             "pii_redaction_engine.py").is_file())
 
     def test_day4_prompt_injection_defense(self):
-        self.assertTrue((self.BASE / "app" / "core" / "prompt_injection_defense.py").is_file())
+        self.assertTrue(
+            (self.BASE /
+             "app" /
+             "core" /
+             "prompt_injection_defense.py").is_file())
 
     def test_day4_techniques_readme(self):
-        self.assertTrue((self.BASE / "app" / "core" / "techniques" / "README.md").is_file())
+        self.assertTrue(
+            (self.BASE /
+             "app" /
+             "core" /
+             "techniques" /
+             "README.md").is_file())
 
     # --- Day 5-7: security_headers already checked above ---
 
     # --- Test files ---
     def test_test_day1_file(self):
-        self.assertTrue((self.BASE / "app" / "tests" / "test_day1_security.py").is_file())
+        self.assertTrue((self.BASE / "app" / "tests" /
+                        "test_day1_security.py").is_file())
 
     def test_test_day2_file(self):
-        self.assertTrue((self.BASE / "app" / "tests" / "test_day2_security.py").is_file())
+        self.assertTrue((self.BASE / "app" / "tests" /
+                        "test_day2_security.py").is_file())
 
     def test_test_day3_file(self):
-        self.assertTrue((self.BASE / "app" / "tests" / "test_day3_security.py").is_file())
+        self.assertTrue((self.BASE / "app" / "tests" /
+                        "test_day3_security.py").is_file())
 
     def test_test_day4_file(self):
-        self.assertTrue((self.BASE / "app" / "tests" / "test_day4_security.py").is_file())
+        self.assertTrue((self.BASE / "app" / "tests" /
+                        "test_day4_security.py").is_file())
 
     def test_test_day5_file(self):
-        self.assertTrue((self.BASE / "app" / "tests" / "test_day5_security.py").is_file())
+        self.assertTrue((self.BASE / "app" / "tests" /
+                        "test_day5_security.py").is_file())
 
     def test_test_day6_file(self):
-        self.assertTrue((self.BASE / "app" / "tests" / "test_day6_security.py").is_file())
+        self.assertTrue((self.BASE / "app" / "tests" /
+                        "test_day6_security.py").is_file())
 
     def test_test_day7_file(self):
-        self.assertTrue((self.BASE / "app" / "tests" / "test_day7_security.py").is_file())
+        self.assertTrue((self.BASE / "app" / "tests" /
+                        "test_day7_security.py").is_file())
 
     def test_test_day8_file(self):
-        self.assertTrue((self.BASE / "app" / "tests" / "test_day8_integration.py").is_file())
+        self.assertTrue(
+            (self.BASE /
+             "app" /
+             "tests" /
+             "test_day8_integration.py").is_file())
 
 
 # ===================================================================
@@ -305,7 +338,14 @@ class TestCrossModuleImports(unittest.TestCase):
     def test_injection_defense_has_all_day4_rule_prefixes(self):
         from app.core.prompt_injection_defense import _ALL_RULES
         rule_ids = {r["rule_id"] for r in _ALL_RULES}
-        for prefix in ("SQL-", "XSS-", "CMDI-", "TSM-", "RPA-", "JBR-", "EXTA-"):
+        for prefix in (
+            "SQL-",
+            "XSS-",
+            "CMDI-",
+            "TSM-",
+            "RPA-",
+            "JBR-",
+                "EXTA-"):
             self.assertTrue(
                 any(rid.startswith(prefix) for rid in rule_ids),
                 f"Missing rule prefix: {prefix}"

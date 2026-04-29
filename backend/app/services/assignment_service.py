@@ -18,7 +18,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, desc, func, or_
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from database.models.tickets import (
@@ -26,7 +26,6 @@ from database.models.tickets import (
     TicketAssignment,
     AssignmentRule,
     TicketStatus,
-    TicketPriority,
 )
 from database.models.core import User
 from app.exceptions import NotFoundError, ValidationError
@@ -124,7 +123,7 @@ class AssignmentService:
         # Get all active rules, sorted by priority
         rules = self.db.query(AssignmentRule).filter(
             AssignmentRule.company_id == self.company_id,
-            AssignmentRule.is_active == True,
+            AssignmentRule.is_active,
         ).order_by(AssignmentRule.priority_order).all()
 
         # If no rules, create defaults
@@ -147,7 +146,10 @@ class AssignmentService:
             }
 
         # Execute rule action
-        action = json.loads(matched_rule.action) if isinstance(matched_rule.action, str) else matched_rule.action
+        action = json.loads(
+            matched_rule.action) if isinstance(
+            matched_rule.action,
+            str) else matched_rule.action
 
         assignee_id, assignee_type = self._execute_action(action, ticket)
 
@@ -214,7 +216,8 @@ class AssignmentService:
             # Use real AI scoring
             try:
                 from app.services.assignment_scoring_service import get_assignment_scoring_service
-                scoring_svc = get_assignment_scoring_service(self.db, self.company_id)
+                scoring_svc = get_assignment_scoring_service(
+                    self.db, self.company_id)
                 return scoring_svc.calculate_scores(ticket_id)
             except Exception as exc:
                 # Fall back to rule-based on error
@@ -283,8 +286,8 @@ class AssignmentService:
 
         if current_count >= self.MAX_RULES_PER_COMPANY:
             raise ValidationError(
-                f"Maximum {self.MAX_RULES_PER_COMPANY} rules allowed per company"
-            )
+                f"Maximum {
+                    self.MAX_RULES_PER_COMPANY} rules allowed per company")
 
         # Validate conditions
         self._validate_conditions(conditions)
@@ -413,22 +416,29 @@ class AssignmentService:
         )
 
         if not include_inactive:
-            query = query.filter(AssignmentRule.is_active == True)
+            query = query.filter(AssignmentRule.is_active)
 
         rules = query.order_by(AssignmentRule.priority_order).all()
 
         results = []
         for rule in rules:
-            results.append({
-                "id": rule.id,
-                "name": rule.name,
-                "conditions": json.loads(rule.conditions) if isinstance(rule.conditions, str) else rule.conditions,
-                "action": json.loads(rule.action) if isinstance(rule.action, str) else rule.action,
-                "priority_order": rule.priority_order,
-                "is_active": rule.is_active,
-                "created_at": rule.created_at.isoformat() if rule.created_at else None,
-                "updated_at": rule.updated_at.isoformat() if rule.updated_at else None,
-            })
+            results.append(
+                {
+                    "id": rule.id,
+                    "name": rule.name,
+                    "conditions": json.loads(
+                        rule.conditions) if isinstance(
+                        rule.conditions,
+                        str) else rule.conditions,
+                    "action": json.loads(
+                        rule.action) if isinstance(
+                        rule.action,
+                        str) else rule.action,
+                    "priority_order": rule.priority_order,
+                    "is_active": rule.is_active,
+                    "created_at": rule.created_at.isoformat() if rule.created_at else None,
+                    "updated_at": rule.updated_at.isoformat() if rule.updated_at else None,
+                })
 
         return results
 
@@ -621,7 +631,10 @@ class AssignmentService:
         Returns:
             True if rule matches
         """
-        conditions = json.loads(rule.conditions) if isinstance(rule.conditions, str) else rule.conditions
+        conditions = json.loads(
+            rule.conditions) if isinstance(
+            rule.conditions,
+            str) else rule.conditions
 
         if not conditions:
             # Empty conditions = match all (catch-all rule)
@@ -686,7 +699,8 @@ class AssignmentService:
             pool = action["assign_to_pool"]
 
             if pool == "ai":
-                # AI assignment - return None for now (AI agent ID would be configured)
+                # AI assignment - return None for now (AI agent ID would be
+                # configured)
                 return None, AssigneeType.AI
 
             # Get agents in pool and assign round-robin
@@ -701,7 +715,7 @@ class AssignmentService:
         """Get all available agents for assignment."""
         return self.db.query(User).filter(
             User.company_id == self.company_id,
-            User.is_active == True,
+            User.is_active,
         ).all()
 
     def _get_next_agent_in_pool(self, pool: str) -> Optional[User]:

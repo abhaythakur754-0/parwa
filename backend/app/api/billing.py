@@ -86,7 +86,6 @@ from app.schemas.billing import (
 )
 from app.api.deps import require_roles
 from app.services.subscription_service import (
-    SubscriptionService,
     SubscriptionError,
     SubscriptionNotFoundError,
     SubscriptionAlreadyExistsError,
@@ -95,29 +94,22 @@ from app.services.subscription_service import (
     get_subscription_service,
 )
 from app.services.proration_service import (
-    ProrationService,
-    ProrationError,
     get_proration_service,
 )
 from app.services.invoice_service import (
-    InvoiceService,
-    InvoiceError,
     InvoiceNotFoundError,
     InvoiceAccessDeniedError,
     get_invoice_service,
 )
 from app.services.client_refund_service import (
-    ClientRefundService,
     ClientRefundError,
     ClientRefundNotFoundError,
     get_client_refund_service,
 )
 from app.services.overage_service import (
-    OverageService,
     get_overage_service,
 )
 from app.services.variant_addon_service import (
-    VariantAddonService,
     VariantAddonError,
     get_variant_addon_service,
 )
@@ -279,7 +271,10 @@ async def create_subscription(
             },
         )
     except SubscriptionError as e:
-        logger.error("subscription_create_failed company_id=%s error=%s", company_id, e)
+        logger.error(
+            "subscription_create_failed company_id=%s error=%s",
+            company_id,
+            e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
@@ -356,7 +351,9 @@ async def update_subscription(
                 subscription=result["subscription"],
                 proration=None,
                 audit_id=None,
-                message=result.get("message", f"Downgrade to {new_variant} scheduled"),
+                message=result.get(
+                    "message",
+                    f"Downgrade to {new_variant} scheduled"),
             )
 
     except SubscriptionNotFoundError as e:
@@ -376,7 +373,10 @@ async def update_subscription(
             },
         )
     except SubscriptionError as e:
-        logger.error("subscription_update_failed company_id=%s error=%s", company_id, e)
+        logger.error(
+            "subscription_update_failed company_id=%s error=%s",
+            company_id,
+            e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
@@ -431,7 +431,10 @@ async def cancel_subscription(
             },
         )
     except SubscriptionError as e:
-        logger.error("subscription_cancel_failed company_id=%s error=%s", company_id, e)
+        logger.error(
+            "subscription_cancel_failed company_id=%s error=%s",
+            company_id,
+            e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
@@ -535,7 +538,7 @@ async def preview_upgrade(
         )
 
     # Calculate preview
-    from datetime import datetime, timezone
+    from datetime import timezone
 
     billing_start = current.current_period_start
     billing_end = current.current_period_end
@@ -753,8 +756,7 @@ async def get_invoice_pdf(
             content=pdf_bytes,
             media_type="application/pdf",
             headers={
-                "Content-Disposition": f"attachment; filename=invoice_{invoice_id}.pdf"
-            },
+                "Content-Disposition": f"attachment; filename=invoice_{invoice_id}.pdf"},
         )
 
     except InvoiceNotFoundError as e:
@@ -814,12 +816,20 @@ async def get_current_usage(
     overage = max(0, tickets_used - ticket_limit)
 
     return UsageResponse(
-        current_month=usage.get("month", date.today().strftime("%Y-%m")),
+        current_month=usage.get(
+            "month",
+            date.today().strftime("%Y-%m")),
         tickets_used=tickets_used,
         ticket_limit=ticket_limit,
         overage_tickets=overage,
-        overage_charges=str(Decimal(str(overage)) * Decimal("0.10")),
-        usage_percentage=min(1.0, tickets_used / ticket_limit) if ticket_limit > 0 else 0,
+        overage_charges=str(
+            Decimal(
+                str(overage)) *
+            Decimal("0.10")),
+        usage_percentage=min(
+            1.0,
+            tickets_used /
+            ticket_limit) if ticket_limit > 0 else 0,
     )
 
 
@@ -1041,7 +1051,9 @@ async def add_variant(
     """Add an industry variant add-on to the subscription."""
     service = get_variant_addon_service()
     try:
-        return service.add_variant(company_id=company_id, variant_id=data.variant_id)
+        return service.add_variant(
+            company_id=company_id,
+            variant_id=data.variant_id)
     except VariantAddonError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1058,7 +1070,8 @@ async def remove_variant(
     """Schedule removal of an industry variant add-on at period end."""
     service = get_variant_addon_service()
     try:
-        return service.remove_variant(company_id=company_id, variant_id=variant_id)
+        return service.remove_variant(
+            company_id=company_id, variant_id=variant_id)
     except VariantAddonError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1086,7 +1099,8 @@ async def restore_variant(
     """Restore an archived variant add-on."""
     service = get_variant_addon_service()
     try:
-        return service.restore_variant(company_id=company_id, variant_id=variant_id)
+        return service.restore_variant(
+            company_id=company_id, variant_id=variant_id)
     except VariantAddonError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1125,7 +1139,8 @@ async def get_variant_catalog(
 
     service = get_variant_addon_service()
     active_variants = service.list_variants(company_id=company_id)
-    active_ids = {v.variant_id for v in active_variants if v.status.value == "active"}
+    active_ids = {
+        v.variant_id for v in active_variants if v.status.value == "active"}
 
     catalog = []
     for variant_id, config in INDUSTRY_ADD_ONS.items():
@@ -1439,10 +1454,17 @@ async def request_data_export(
         result = await service.request_data_export(company_id)
 
         return DataExportRequestResponse(
-            export_id=str(result.get("export_id", "")) if result.get("export_id") else None,
-            status=result.get("status", "processing"),
+            export_id=str(
+                result.get(
+                    "export_id",
+                    "")) if result.get("export_id") else None,
+            status=result.get(
+                "status",
+                "processing"),
             requested_at=result.get("requested_at"),
-            message=result.get("message", "Export requested."),
+            message=result.get(
+                "message",
+                "Export requested."),
         )
 
     except DataExportInProgressError as e:
@@ -1545,7 +1567,8 @@ async def download_data_export(
 
 # ── G1: Payment Failure Status ──────────────────────────────────────
 
-@router.get("/payment-failure-status", response_model=PaymentFailureStatusResponse)
+@router.get("/payment-failure-status",
+            response_model=PaymentFailureStatusResponse)
 async def get_payment_failure_status(
     request: Request,
     company_id: UUID = Depends(get_company_id),
@@ -1796,7 +1819,8 @@ async def validate_promo_code(code: str, request: Request):
     company_id = getattr(request.state, "company_id", None)
     tier = None
     try:
-        result = svc.validate_promo_code(code, str(company_id) or "unknown", tier)
+        result = svc.validate_promo_code(
+            code, str(company_id) or "unknown", tier)
         return PromoValidateResponse(
             valid=True,
             code=result.get("code"),
@@ -1826,13 +1850,17 @@ async def get_timezone(request: Request):
 # ── MF6: Enterprise Billing (Admin) ───────────────────────────────────────
 
 @router.post("/admin/enterprise/enable-manual")
-async def enable_manual_billing(request: Request, body: EnterpriseBillingRequest):
+async def enable_manual_billing(
+        request: Request,
+        body: EnterpriseBillingRequest):
     """MF6: Enable manual (B2B) billing for a company."""
     from app.services.enterprise_billing_service import get_enterprise_billing_service
     svc = get_enterprise_billing_service()
     try:
         result = svc.enable_manual_billing(body.company_id)
-        return MessageResponse(message="Manual billing enabled", code="enterprise_enabled")
+        return MessageResponse(
+            message="Manual billing enabled",
+            code="enterprise_enabled")
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1849,7 +1877,9 @@ async def create_manual_invoice(request: Request, body: ManualInvoiceRequest):
             due_date=body.due_date,
             line_items=body.line_items,
         )
-        return MessageResponse(message="Manual invoice created", code="invoice_created")
+        return MessageResponse(
+            message="Manual invoice created",
+            code="invoice_created")
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1861,7 +1891,9 @@ async def mark_enterprise_invoice_paid(invoice_id: str, request: Request):
     svc = get_enterprise_billing_service()
     try:
         result = svc.mark_invoice_paid(invoice_id)
-        return MessageResponse(message="Invoice marked as paid", code="invoice_paid")
+        return MessageResponse(
+            message="Invoice marked as paid",
+            code="invoice_paid")
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1869,7 +1901,10 @@ async def mark_enterprise_invoice_paid(invoice_id: str, request: Request):
 # ── MF7: Invoice Amendments (Admin) ───────────────────────────────────────
 
 @router.post("/admin/invoices/{invoice_id}/amend")
-async def create_invoice_amendment(invoice_id: str, request: Request, body: InvoiceAmendmentRequest):
+async def create_invoice_amendment(
+        invoice_id: str,
+        request: Request,
+        body: InvoiceAmendmentRequest):
     """MF7: Create an invoice amendment."""
     from app.services.invoice_amendment_service import get_invoice_amendment_service
     svc = get_invoice_amendment_service()
@@ -1883,12 +1918,15 @@ async def create_invoice_amendment(invoice_id: str, request: Request, body: Invo
             reason=body.reason,
             approved_by=admin_id,
         )
-        return MessageResponse(message="Amendment created", code="amendment_created")
+        return MessageResponse(
+            message="Amendment created",
+            code="amendment_created")
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/admin/invoices/{invoice_id}/amendments", response_model=List[InvoiceAmendmentInfo])
+@router.get("/admin/invoices/{invoice_id}/amendments",
+            response_model=List[InvoiceAmendmentInfo])
 async def list_invoice_amendments(invoice_id: str, request: Request):
     """MF7: List amendments for an invoice."""
     from app.services.invoice_amendment_service import get_invoice_amendment_service
@@ -1928,7 +1966,10 @@ async def create_promo_code(request: Request, body: PromoCodeCreateRequest):
             applies_to_tiers=body.applies_to_tiers,
             created_by=admin_id,
         )
-        return MessageResponse(message=f"Promo code '{body.code}' created", code="promo_created")
+        return MessageResponse(
+            message=f"Promo code '{
+                body.code}' created",
+            code="promo_created")
     except PromoError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1960,7 +2001,9 @@ async def deactivate_promo_code(promo_id: str, request: Request):
     svc = get_promo_service()
     try:
         result = svc.deactivate_promo_code(promo_id)
-        return MessageResponse(message=f"Promo code deactivated", code="promo_deactivated")
+        return MessageResponse(
+            message=f"Promo code deactivated",
+            code="promo_deactivated")
     except PromoError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -2024,7 +2067,10 @@ async def get_voice_usage(request: Request):
     svc = get_billing_analytics_service()
     company_id = getattr(request.state, "company_id", None)
     if not company_id:
-        return VoiceUsageInfo(period="current", voice_minutes_used=0, status="no_subscription")
+        return VoiceUsageInfo(
+            period="current",
+            voice_minutes_used=0,
+            status="no_subscription")
     result = svc.get_voice_usage(str(company_id))
     return VoiceUsageInfo(
         period=result.get("period", "current"),
@@ -2040,7 +2086,10 @@ async def get_sms_usage(request: Request):
     svc = get_billing_analytics_service()
     company_id = getattr(request.state, "company_id", None)
     if not company_id:
-        return SmsUsageInfo(period="current", sms_count=0, status="no_subscription")
+        return SmsUsageInfo(
+            period="current",
+            sms_count=0,
+            status="no_subscription")
     result = svc.get_sms_usage(str(company_id))
     return SmsUsageInfo(
         period=result.get("period", "current"),
@@ -2064,10 +2113,14 @@ async def get_dashboard_summary(request: Request):
             sub_service = get_subscription_service()
             subscription = await sub_service.get_subscription(UUID(company_id))
             if subscription:
-                result["subscription_status"] = subscription.status.value if hasattr(subscription.status, "value") else str(subscription.status)
-                result["current_plan"] = subscription.variant.value if hasattr(subscription.variant, "value") else str(subscription.variant)
-                result["billing_frequency"] = subscription.billing_frequency if hasattr(subscription, "billing_frequency") else None
-                result["current_period_end"] = str(subscription.current_period_end) if subscription.current_period_end else None
+                result["subscription_status"] = subscription.status.value if hasattr(
+                    subscription.status, "value") else str(subscription.status)
+                result["current_plan"] = subscription.variant.value if hasattr(
+                    subscription.variant, "value") else str(subscription.variant)
+                result["billing_frequency"] = subscription.billing_frequency if hasattr(
+                    subscription, "billing_frequency") else None
+                result["current_period_end"] = str(
+                    subscription.current_period_end) if subscription.current_period_end else None
         except Exception:
             pass
 
@@ -2094,7 +2147,8 @@ async def get_dashboard_summary(request: Request):
         from app.services.analytics_service import get_billing_analytics_service
         svc = get_billing_analytics_service()
         if company_id:
-            result["spending_summary"] = svc.get_spending_summary(str(company_id))
+            result["spending_summary"] = svc.get_spending_summary(
+                str(company_id))
             result["budget_alert"] = svc.get_budget_alert(str(company_id))
     except Exception:
         pass

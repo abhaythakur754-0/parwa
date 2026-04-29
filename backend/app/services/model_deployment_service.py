@@ -14,18 +14,12 @@ Building Codes:
 - BC-004: Background Jobs for monitoring
 """
 
-import json
 import logging
-import os
-import time
-import asyncio
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any, List
-from decimal import Decimal
+from datetime import datetime, timezone
+from typing import Optional, Dict
 from uuid import uuid4
 from enum import Enum
 
-from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger("parwa.model_deployment")
@@ -33,6 +27,8 @@ logger = logging.getLogger("parwa.model_deployment")
 # ── Constants ───────────────────────────────────────────────────────────────
 
 # Deployment status values
+
+
 class DeploymentStatus(str, Enum):
     PENDING = "pending"
     INITIALIZING = "initializing"
@@ -45,18 +41,23 @@ class DeploymentStatus(str, Enum):
     PAUSED = "paused"
 
 # Deployment strategies
+
+
 class DeploymentStrategy(str, Enum):
     CANARY = "canary"  # Gradual rollout with monitoring
     BLUE_GREEN = "blue_green"  # Instant switch with rollback capability
     ROLLING = "rolling"  # Gradual replacement
 
 # Rollback triggers
+
+
 class RollbackTrigger(str, Enum):
     ERROR_RATE = "error_rate"
     LATENCY = "latency"
     ACCURACY_DROP = "accuracy_drop"
     MANUAL = "manual"
     SAFETY_VIOLATION = "safety_violation"
+
 
 # Default thresholds
 DEFAULT_CANARY_PERCENTAGE = 5  # Start with 5% traffic
@@ -191,7 +192,10 @@ class ModelDeploymentService:
     # Canary Deployment
     # ══════════════════════════════════════════════════════════════════════════
 
-    def _start_canary_phase(self, deployment: Dict, canary_percentage: int) -> Dict:
+    def _start_canary_phase(
+            self,
+            deployment: Dict,
+            canary_percentage: int) -> Dict:
         """Start canary phase of deployment.
 
         Args:
@@ -204,7 +208,8 @@ class ModelDeploymentService:
         deployment["status"] = DeploymentStatus.CANARY.value
         deployment["canary_percentage"] = canary_percentage
         deployment["current_percentage"] = canary_percentage
-        deployment["canary_started_at"] = datetime.now(timezone.utc).isoformat()
+        deployment["canary_started_at"] = datetime.now(
+            timezone.utc).isoformat()
         deployment["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         logger.info(
@@ -241,7 +246,8 @@ class ModelDeploymentService:
 
         # Check error rate
         error_rate = metrics.get("error_rate", 0)
-        if error_rate > thresholds.get("error_rate", DEFAULT_ERROR_RATE_THRESHOLD):
+        if error_rate > thresholds.get(
+                "error_rate", DEFAULT_ERROR_RATE_THRESHOLD):
             health_status["healthy"] = False
             health_status["triggers"].append({
                 "type": RollbackTrigger.ERROR_RATE.value,
@@ -251,7 +257,9 @@ class ModelDeploymentService:
 
         # Check latency
         latency_p95 = metrics.get("latency_p95_ms", 0)
-        if latency_p95 > thresholds.get("latency_p95_ms", DEFAULT_LATENCY_THRESHOLD_MS):
+        if latency_p95 > thresholds.get(
+            "latency_p95_ms",
+                DEFAULT_LATENCY_THRESHOLD_MS):
             health_status["healthy"] = False
             health_status["triggers"].append({
                 "type": RollbackTrigger.LATENCY.value,
@@ -263,7 +271,8 @@ class ModelDeploymentService:
         if "accuracy" in metrics:
             baseline_accuracy = deployment.get("baseline_accuracy", 0.85)
             accuracy_drop = baseline_accuracy - metrics["accuracy"]
-            if accuracy_drop > thresholds.get("accuracy_drop", DEFAULT_ACCURACY_DROP_THRESHOLD):
+            if accuracy_drop > thresholds.get(
+                    "accuracy_drop", DEFAULT_ACCURACY_DROP_THRESHOLD):
                 health_status["healthy"] = False
                 health_status["triggers"].append({
                     "type": RollbackTrigger.ACCURACY_DROP.value,
@@ -335,7 +344,8 @@ class ModelDeploymentService:
         """
         # In blue-green, we deploy to "green" environment
         # but don't switch traffic yet
-        deployment["status"] = DeploymentStatus.CANARY.value  # Use CANARY as staging
+        # Use CANARY as staging
+        deployment["status"] = DeploymentStatus.CANARY.value
         deployment["current_percentage"] = 0  # No traffic yet
         deployment["green_model_path"] = deployment["model_path"]
         deployment["blue_model_path"] = deployment.get("baseline_model_path")
@@ -425,7 +435,8 @@ class ModelDeploymentService:
         deployment["status"] = DeploymentStatus.ROLLING_BACK.value
         deployment["rollback_reason"] = reason
         deployment["rollback_trigger"] = trigger_type
-        deployment["rollback_started_at"] = datetime.now(timezone.utc).isoformat()
+        deployment["rollback_started_at"] = datetime.now(
+            timezone.utc).isoformat()
         deployment["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         logger.warning(
@@ -444,7 +455,8 @@ class ModelDeploymentService:
             deployment["current_percentage"] = 100  # Back to baseline
 
         deployment["status"] = DeploymentStatus.ROLLED_BACK.value
-        deployment["rollback_completed_at"] = datetime.now(timezone.utc).isoformat()
+        deployment["rollback_completed_at"] = datetime.now(
+            timezone.utc).isoformat()
         deployment["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         logger.info(
@@ -479,7 +491,7 @@ class ModelDeploymentService:
             # Auto-rollback triggered
             triggers = health.get("triggers", [])
             primary_trigger = triggers[0] if triggers else {}
-            
+
             updated_deployment = self.trigger_rollback(
                 deployment=deployment,
                 reason=f"Auto-rollback: {primary_trigger.get('type', 'unknown')}",
@@ -619,7 +631,10 @@ class ModelDeploymentService:
 
         return deployment
 
-    def cancel_deployment(self, deployment: Dict, reason: str = "Cancelled by user") -> Dict:
+    def cancel_deployment(
+            self,
+            deployment: Dict,
+            reason: str = "Cancelled by user") -> Dict:
         """Cancel a deployment.
 
         Args:

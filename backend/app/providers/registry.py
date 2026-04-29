@@ -10,22 +10,37 @@ To add a new provider:
 3. The factory will automatically make it available
 """
 
+from app.providers.chat.teams import TeamsChatProvider
+from app.providers.chat.discord import DiscordChatProvider
+from app.providers.chat.slack import SlackChatProvider
+from app.providers.voice.vonage_voice import VonageVoiceProvider
+from app.providers.voice.twilio_voice import TwilioVoiceProvider
+from app.providers.sms.sinch import SinchSMSProvider
+from app.providers.sms.plivo import PlivoSMSProvider
+from app.providers.sms.vonage import VonageSMSProvider
+from app.providers.sms.messagebird import MessageBirdSMSProvider
+from app.providers.sms.twilio import TwilioSMSProvider
+from app.providers.email.smtp import SMTPEmailProvider
+from app.providers.email.postmark import PostmarkEmailProvider
+from app.providers.email.ses import SESEmailProvider
+from app.providers.email.mailgun import MailgunEmailProvider
+from app.providers.email.sendgrid import SendGridEmailProvider
+from app.providers.email.brevo import BrevoEmailProvider
 from typing import Dict, List, Type, Any
 
 from app.providers.base import (
     BaseProvider,
     ProviderType,
-    ProviderCapability,
 )
 
 
 class ProviderRegistry:
     """Registry of all available providers.
-    
+
     This is a centralized registry that maps provider names to their
     implementation classes. New providers are added here.
     """
-    
+
     # Provider class registry: {provider_type: {provider_name: provider_class}}
     _providers: Dict[str, Dict[str, Type[BaseProvider]]] = {
         ProviderType.EMAIL.value: {},
@@ -39,7 +54,7 @@ class ProviderRegistry:
         ProviderType.STORAGE.value: {},
         ProviderType.AI.value: {},
     }
-    
+
     # Provider metadata: {provider_type: {provider_name: metadata}}
     _metadata: Dict[str, Dict[str, Dict[str, Any]]] = {
         ProviderType.EMAIL.value: {},
@@ -53,7 +68,7 @@ class ProviderRegistry:
         ProviderType.STORAGE.value: {},
         ProviderType.AI.value: {},
     }
-    
+
     @classmethod
     def register(
         cls,
@@ -63,21 +78,22 @@ class ProviderRegistry:
         metadata: Dict[str, Any] = None,
     ) -> None:
         """Register a provider class.
-        
+
         Args:
             provider_type: Type of provider (email, sms, etc.)
             provider_name: Unique name for the provider (e.g., "brevo")
             provider_class: The provider implementation class
             metadata: Optional metadata (display_name, description, etc.)
         """
-        type_key = provider_type.value if isinstance(provider_type, ProviderType) else provider_type
-        
+        type_key = provider_type.value if isinstance(
+            provider_type, ProviderType) else provider_type
+
         if type_key not in cls._providers:
             cls._providers[type_key] = {}
             cls._metadata[type_key] = {}
-        
+
         cls._providers[type_key][provider_name.lower()] = provider_class
-        
+
         # Default metadata from class attributes
         default_meta = {
             "display_name": getattr(provider_class, "display_name", provider_name),
@@ -86,13 +102,13 @@ class ProviderRegistry:
             "capabilities": [c.value for c in getattr(provider_class, "capabilities", [])],
             "required_config_fields": getattr(provider_class, "required_config_fields", []),
         }
-        
+
         # Override with provided metadata
         if metadata:
             default_meta.update(metadata)
-        
+
         cls._metadata[type_key][provider_name.lower()] = default_meta
-    
+
     @classmethod
     def get_provider_class(
         cls,
@@ -100,22 +116,23 @@ class ProviderRegistry:
         provider_name: str,
     ) -> Type[BaseProvider]:
         """Get a provider class by type and name.
-        
+
         Args:
             provider_type: Type of provider.
             provider_name: Name of the provider.
-            
+
         Returns:
             The provider class.
-            
+
         Raises:
             ValueError: If provider not found.
         """
-        type_key = provider_type.value if isinstance(provider_type, ProviderType) else provider_type
-        
+        type_key = provider_type.value if isinstance(
+            provider_type, ProviderType) else provider_type
+
         if type_key not in cls._providers:
             raise ValueError(f"Unknown provider type: {provider_type}")
-        
+
         name_lower = provider_name.lower()
         if name_lower not in cls._providers[type_key]:
             available = list(cls._providers[type_key].keys())
@@ -123,9 +140,9 @@ class ProviderRegistry:
                 f"Unknown provider '{provider_name}' for type '{provider_type}'. "
                 f"Available: {', '.join(available)}"
             )
-        
+
         return cls._providers[type_key][name_lower]
-    
+
     @classmethod
     def get_metadata(
         cls,
@@ -133,40 +150,42 @@ class ProviderRegistry:
         provider_name: str,
     ) -> Dict[str, Any]:
         """Get metadata for a provider.
-        
+
         Args:
             provider_type: Type of provider.
             provider_name: Name of the provider.
-            
+
         Returns:
             Dict with provider metadata.
         """
-        type_key = provider_type.value if isinstance(provider_type, ProviderType) else provider_type
+        type_key = provider_type.value if isinstance(
+            provider_type, ProviderType) else provider_type
         name_lower = provider_name.lower()
-        
+
         return cls._metadata.get(type_key, {}).get(name_lower, {})
-    
+
     @classmethod
     def list_providers(
         cls,
         provider_type: ProviderType = None,
     ) -> List[Dict[str, Any]]:
         """List all registered providers.
-        
+
         Args:
             provider_type: Optional filter by type.
-            
+
         Returns:
             List of provider info dicts.
         """
         result = []
-        
+
         if provider_type:
-            type_key = provider_type.value if isinstance(provider_type, ProviderType) else provider_type
+            type_key = provider_type.value if isinstance(
+                provider_type, ProviderType) else provider_type
             types_to_check = [type_key]
         else:
             types_to_check = list(cls._providers.keys())
-        
+
         for type_key in types_to_check:
             for name, meta in cls._metadata.get(type_key, {}).items():
                 result.append({
@@ -174,19 +193,19 @@ class ProviderRegistry:
                     "name": name,
                     **meta,
                 })
-        
+
         return result
-    
+
     @classmethod
     def list_providers_by_type(
         cls,
         provider_type: ProviderType,
     ) -> List[Dict[str, Any]]:
         """List providers of a specific type.
-        
+
         Args:
             provider_type: Type of provider to list.
-            
+
         Returns:
             List of provider info dicts.
         """
@@ -198,12 +217,6 @@ class ProviderRegistry:
 # ============================================================
 
 # Import email providers
-from app.providers.email.brevo import BrevoEmailProvider
-from app.providers.email.sendgrid import SendGridEmailProvider
-from app.providers.email.mailgun import MailgunEmailProvider
-from app.providers.email.ses import SESEmailProvider
-from app.providers.email.postmark import PostmarkEmailProvider
-from app.providers.email.smtp import SMTPEmailProvider
 
 # Register email providers
 ProviderRegistry.register(
@@ -266,11 +279,6 @@ ProviderRegistry.register(
 # ============================================================
 
 # Import SMS providers
-from app.providers.sms.twilio import TwilioSMSProvider
-from app.providers.sms.messagebird import MessageBirdSMSProvider
-from app.providers.sms.vonage import VonageSMSProvider
-from app.providers.sms.plivo import PlivoSMSProvider
-from app.providers.sms.sinch import SinchSMSProvider
 
 # Register SMS providers
 ProviderRegistry.register(
@@ -323,8 +331,6 @@ ProviderRegistry.register(
 # VOICE PROVIDERS REGISTRATION
 # ============================================================
 
-from app.providers.voice.twilio_voice import TwilioVoiceProvider
-from app.providers.voice.vonage_voice import VonageVoiceProvider
 
 ProviderRegistry.register(
     ProviderType.VOICE, "twilio", TwilioVoiceProvider,
@@ -349,9 +355,6 @@ ProviderRegistry.register(
 # CHAT PROVIDERS REGISTRATION
 # ============================================================
 
-from app.providers.chat.slack import SlackChatProvider
-from app.providers.chat.discord import DiscordChatProvider
-from app.providers.chat.teams import TeamsChatProvider
 
 ProviderRegistry.register(
     ProviderType.CHAT, "slack", SlackChatProvider,

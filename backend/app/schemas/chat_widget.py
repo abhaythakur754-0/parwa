@@ -4,8 +4,7 @@ Chat Widget Schemas — Week 13 Day 4 (F-122: Live Chat Widget)
 Pydantic models for chat widget API requests and responses.
 """
 
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 

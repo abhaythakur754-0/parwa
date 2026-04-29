@@ -819,9 +819,10 @@ class GSDTerminalService:
         minutes = duration / 60
         if minutes > 60:
             return (
-                f"Stuck in '{state}' for {minutes:.0f} minutes "
-                f"(>{CRITICAL_STUCK_THRESHOLD_SECONDS / 60:.0f} min critical threshold)"
-            )
+                f"Stuck in '{state}' for {
+                    minutes:.0f} minutes " f"(>{
+                    CRITICAL_STUCK_THRESHOLD_SECONDS /
+                    60:.0f} min critical threshold)")
         return (
             f"In '{state}' for {minutes:.0f} minutes "
             f"(>{STUCK_THRESHOLD_SECONDS / 60:.0f} min threshold)"

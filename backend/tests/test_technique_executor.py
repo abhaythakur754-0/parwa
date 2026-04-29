@@ -4,7 +4,6 @@ TechniqueRouter + TechniqueTierAccessChecker + TechniqueCache +
 TechniqueMetricsCollector + TECHNIQUE_NODES.
 """
 
-import hashlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -19,7 +18,6 @@ from app.core.technique_router import (
     TechniqueActivation,
     TechniqueID,
     TechniqueTier,
-    TECHNIQUE_REGISTRY,
 )
 
 
@@ -111,7 +109,8 @@ class TestTechniqueExecutorInit:
 
 class TestBasicPipelineExecution:
     @pytest.mark.asyncio
-    async def test_pipeline_returns_state_and_result(self, executor, basic_state):
+    async def test_pipeline_returns_state_and_result(
+            self, executor, basic_state):
         state, pipeline_result = await executor.execute_pipeline(basic_state)
         assert state is basic_state
         assert isinstance(pipeline_result, PipelineResult)
@@ -335,7 +334,8 @@ class TestExecuteSingle:
         assert count > 0
 
     @pytest.mark.asyncio
-    async def test_execute_single_unknown_technique(self, executor, basic_state):
+    async def test_execute_single_unknown_technique(
+            self, executor, basic_state):
         """execute_single with unknown technique should not crash."""
         result = await executor.execute_single(TechniqueID.CRP, basic_state)
         assert result is basic_state
@@ -355,7 +355,8 @@ class TestApplyFallback:
         )
         with patch('app.core.technique_executor.TECHNIQUE_NODES') as mock_nodes:
             mock_node = AsyncMock()
-            mock_node.execute = AsyncMock(side_effect=RuntimeError("CRP failed"))
+            mock_node.execute = AsyncMock(
+                side_effect=RuntimeError("CRP failed"))
             mock_node.check_token_budget = MagicMock(return_value=True)
             mock_nodes.get = MagicMock(return_value=mock_node)
             detail = await executor._execute_with_infrastructure(activation, basic_state)
@@ -365,7 +366,6 @@ class TestApplyFallback:
     @pytest.mark.asyncio
     async def test_t3_failure_triggers_fallback(self):
         """When a T3 technique fails, fallback should be attempted."""
-        from app.core.techniques.base import TECHNIQUE_NODES
         ex = TechniqueExecutor(
             model_tier="heavy",
             variant_type="parwa_high",
@@ -385,7 +385,8 @@ class TestApplyFallback:
         )
         with patch('app.core.technique_executor.TECHNIQUE_NODES') as mock_nodes:
             mock_t3_node = AsyncMock()
-            mock_t3_node.execute = AsyncMock(side_effect=RuntimeError("GST failed"))
+            mock_t3_node.execute = AsyncMock(
+                side_effect=RuntimeError("GST failed"))
             mock_t3_node.check_token_budget = MagicMock(return_value=True)
             mock_nodes.get = MagicMock(return_value=mock_t3_node)
             detail = await ex._execute_with_infrastructure(activation, state)
@@ -398,7 +399,8 @@ class TestApplyFallback:
 
 class TestNodeNotFound:
     @pytest.mark.asyncio
-    async def test_missing_node_returns_error_detail(self, executor, basic_state):
+    async def test_missing_node_returns_error_detail(
+            self, executor, basic_state):
         """If technique_id not in TECHNIQUE_NODES, should return error detail."""
         activation = TechniqueActivation(
             technique_id=TechniqueID.CRP,
@@ -417,7 +419,8 @@ class TestNodeNotFound:
 
 class TestBudgetSkip:
     @pytest.mark.asyncio
-    async def test_budget_exceeded_returns_skipped(self, executor, basic_state):
+    async def test_budget_exceeded_returns_skipped(
+            self, executor, basic_state):
         """When check_token_budget returns False, status should be skipped_budget."""
         activation = TechniqueActivation(
             technique_id=TechniqueID.CRP,

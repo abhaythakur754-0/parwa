@@ -19,7 +19,12 @@ Tests for all 12 Day 2 infrastructure & docker hardening fixes:
 import os
 import pytest
 
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+PROJECT_ROOT = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        ".."))
 
 
 def _read(rel_path: str) -> str:
@@ -43,7 +48,8 @@ def _extract_service(content: str, service_key: str) -> str:
                 continue
         else:
             # End of service: next 2-space indent key or top-level key
-            if line and not line.startswith("    ") and not line.startswith("#") and stripped:
+            if line and not line.startswith(
+                    "    ") and not line.startswith("#") and stripped:
                 break
             service_lines.append(line)
     return "\n".join(service_lines)
@@ -87,7 +93,8 @@ class TestF1DevPortsBindToLocalhost:
             # Skip if it's already bound to 127.0.0.1 or is a non-port config
             if port_val.startswith("127.0.0.1:"):
                 continue
-            # Check if it looks like a port mapping (contains colon and numbers)
+            # Check if it looks like a port mapping (contains colon and
+            # numbers)
             if re.match(r'^\d+:\d+$', port_val):
                 pytest.fail(f"Port '{port_val}' is not bound to 127.0.0.1")
 
@@ -190,11 +197,14 @@ class TestF5ProdFrontendNoPort:
                 in_frontend = True
                 continue
             if in_frontend:
-                # End of frontend block: next 2-space indent key or 0-indent key
-                if line and not line.startswith("    ") and not line.startswith("#") and stripped:
+                # End of frontend block: next 2-space indent key or 0-indent
+                # key
+                if line and not line.startswith(
+                        "    ") and not line.startswith("#") and stripped:
                     break
                 if stripped.startswith("ports:"):
-                    pytest.fail("Production frontend should not have a ports section")
+                    pytest.fail(
+                        "Production frontend should not have a ports section")
 
 
 # ============================================================

@@ -22,7 +22,6 @@ import hmac
 import json
 import logging
 import time
-from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
@@ -48,27 +47,22 @@ RETRY_MAX_DELAY = 30
 
 class PaddleError(Exception):
     """Base exception for Paddle API errors."""
-    pass
 
 
 class PaddleAuthError(PaddleError):
     """Authentication error (401/403)."""
-    pass
 
 
 class PaddleRateLimitError(PaddleError):
     """Rate limit exceeded (429)."""
-    pass
 
 
 class PaddleNotFoundError(PaddleError):
     """Resource not found (404)."""
-    pass
 
 
 class PaddleValidationError(PaddleError):
     """Validation error (400/422)."""
-    pass
 
 
 class PaddleClient:
@@ -181,20 +175,27 @@ class PaddleClient:
                 if response.status_code == 422:
                     error_data = response.json()
                     raise PaddleValidationError(
-                        error_data.get("error", {}).get("message", "Validation failed")
-                    )
+                        error_data.get(
+                            "error", {}).get(
+                            "message", "Validation failed"))
                 if response.status_code == 429:
                     # Rate limited - wait and retry (non-blocking)
-                    retry_after = int(response.headers.get("Retry-After", RETRY_BASE_DELAY))
-                    logger.warning("paddle_rate_limited retry_after=%d", retry_after)
+                    retry_after = int(
+                        response.headers.get(
+                            "Retry-After",
+                            RETRY_BASE_DELAY))
+                    logger.warning(
+                        "paddle_rate_limited retry_after=%d", retry_after)
                     await asyncio.sleep(retry_after)
                     continue
 
                 # Other errors - retry for 5xx
                 if response.status_code >= 500:
-                    last_error = PaddleError(f"Server error: {response.status_code}")
+                    last_error = PaddleError(
+                        f"Server error: {response.status_code}")
                 else:
-                    last_error = PaddleError(f"API error: {response.status_code}")
+                    last_error = PaddleError(
+                        f"API error: {response.status_code}")
 
             except httpx.TimeoutException as e:
                 last_error = PaddleError(f"Request timeout: {e}")
@@ -324,7 +325,8 @@ class PaddleClient:
             "POST", f"/subscriptions/{subscription_id}/pause", json=data
         )
 
-    async def resume_subscription(self, subscription_id: str) -> Dict[str, Any]:
+    async def resume_subscription(
+            self, subscription_id: str) -> Dict[str, Any]:
         """
         Resume a paused subscription.
 

@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from difflib import SequenceMatcher
 
-from sqlalchemy import and_, desc, or_, func, text, case
+from sqlalchemy import desc, or_, case
 from sqlalchemy.orm import Session
 
 from database.models.tickets import (
@@ -105,7 +105,8 @@ class TicketSearchService:
         if query:
             query = self._sanitize_query(query)
             if len(query) < self.MIN_QUERY_LENGTH:
-                return [], 0, f"Query must be at least {self.MIN_QUERY_LENGTH} characters"
+                return [], 0, f"Query must be at least {
+                    self.MIN_QUERY_LENGTH} characters"
             if len(query) > self.MAX_QUERY_LENGTH:
                 query = query[:self.MAX_QUERY_LENGTH]
 
@@ -137,7 +138,8 @@ class TicketSearchService:
         total = base_query.count()
 
         # Apply sorting
-        base_query = self._apply_sorting(base_query, sort_by, sort_order, query)
+        base_query = self._apply_sorting(
+            base_query, sort_by, sort_order, query)
 
         # Paginate
         offset = (page - 1) * page_size
@@ -231,7 +233,9 @@ class TicketSearchService:
         """
         try:
             redis = get_redis()
-            key = make_key(self.company_id, f"{self.RECENT_SEARCHES_KEY}:{user_id}")
+            key = make_key(
+                self.company_id, f"{
+                    self.RECENT_SEARCHES_KEY}:{user_id}")
             data = redis.lrange(key, 0, self.MAX_RECENT_SEARCHES - 1)
 
             searches = []
@@ -259,7 +263,9 @@ class TicketSearchService:
         """
         try:
             redis = get_redis()
-            key = make_key(self.company_id, f"{self.RECENT_SEARCHES_KEY}:{user_id}")
+            key = make_key(
+                self.company_id, f"{
+                    self.RECENT_SEARCHES_KEY}:{user_id}")
             redis.delete(key)
             return True
         except Exception:
@@ -350,7 +356,8 @@ class TicketSearchService:
 
         if tags:
             for tag in tags:
-                base_query = base_query.filter(Ticket.tags.contains(f'"{tag}"'))
+                base_query = base_query.filter(
+                    Ticket.tags.contains(f'"{tag}"'))
 
         return base_query
 
@@ -426,9 +433,11 @@ class TicketSearchService:
                 else_=50
             )
             if sort_order == "desc":
-                base_query = base_query.order_by(desc(relevance_case), desc(Ticket.created_at))
+                base_query = base_query.order_by(
+                    desc(relevance_case), desc(Ticket.created_at))
             else:
-                base_query = base_query.order_by(relevance_case, Ticket.created_at)
+                base_query = base_query.order_by(
+                    relevance_case, Ticket.created_at)
         else:
             # Standard column sorting
             sort_column = getattr(Ticket, sort_by, Ticket.created_at)
@@ -536,7 +545,8 @@ class TicketSearchService:
 
         # Highlight the match
         pattern = re.compile(re.escape(query), re.IGNORECASE)
-        snippet = pattern.sub(f"{highlight_start}\\g<0>{highlight_end}", snippet)
+        snippet = pattern.sub(
+            f"{highlight_start}\\g<0>{highlight_end}", snippet)
 
         return snippet
 
@@ -579,7 +589,9 @@ class TicketSearchService:
         """
         try:
             redis = get_redis()
-            key = make_key(self.company_id, f"{self.RECENT_SEARCHES_KEY}:{user_id}")
+            key = make_key(
+                self.company_id, f"{
+                    self.RECENT_SEARCHES_KEY}:{user_id}")
 
             # Create search record
             search_record = json.dumps({
@@ -634,7 +646,8 @@ class TicketSearchService:
 
         for ticket in tickets:
             if ticket.subject:
-                similarity = self._calculate_similarity(search_text, ticket.subject)
+                similarity = self._calculate_similarity(
+                    search_text, ticket.subject)
                 if similarity >= threshold:
                     results.append({
                         "ticket": self._ticket_to_dict(ticket),

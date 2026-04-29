@@ -20,9 +20,7 @@ Tests for all Day 7 security audit items:
 
 import os
 import secrets
-from unittest.mock import MagicMock, patch
 
-import pytest
 import yaml
 
 # Base paths

@@ -9,7 +9,6 @@ import pytest
 
 from app.core.technique_router import TechniqueID, TechniqueTier
 from app.services.intent_technique_mapper import (
-    INTENT_TECHNIQUE_MAP,
     IntentTechniqueMapper,
     MappingResult,
     TECHNIQUE_TIER1_FALLBACKS,
@@ -60,7 +59,8 @@ class TestGAP001VariantFiltering:
     ])
     def test_mini_parwa_only_tier_1(self, intent):
         """GAP-001: Mini PARWA should only get Tier 1 techniques."""
-        result = self.mapper.map_intent(intent=intent, variant_type="mini_parwa")
+        result = self.mapper.map_intent(
+            intent=intent, variant_type="mini_parwa")
         for tid in result.selected_techniques:
             assert tid in (TechniqueID.CLARA, TechniqueID.CRP, TechniqueID.GSD)
 
@@ -163,11 +163,17 @@ class TestFallbackDeduplication:
 class TestTier1FallbackMap:
     def test_all_techniques_have_fallbacks(self):
         for tid, fallback in TECHNIQUE_TIER1_FALLBACKS.items():
-            assert fallback in (TechniqueID.CLARA, TechniqueID.CRP, TechniqueID.GSD)
+            assert fallback in (
+                TechniqueID.CLARA,
+                TechniqueID.CRP,
+                TechniqueID.GSD)
 
     def test_fallback_is_tier_1(self):
         for tid, fallback in TECHNIQUE_TIER1_FALLBACKS.items():
-            assert fallback in (TechniqueID.CLARA, TechniqueID.CRP, TechniqueID.GSD)
+            assert fallback in (
+                TechniqueID.CLARA,
+                TechniqueID.CRP,
+                TechniqueID.GSD)
 
 
 class TestMappingResult:
@@ -194,9 +200,12 @@ class TestMappingResult:
         assert len(all_mappings) == 12
 
     def test_get_variant_tier_limit(self):
-        assert IntentTechniqueMapper.get_variant_tier_limit("mini_parwa") == TechniqueTier.TIER_1
-        assert IntentTechniqueMapper.get_variant_tier_limit("parwa") == TechniqueTier.TIER_2
-        assert IntentTechniqueMapper.get_variant_tier_limit("high_parwa") == TechniqueTier.TIER_3
+        assert IntentTechniqueMapper.get_variant_tier_limit(
+            "mini_parwa") == TechniqueTier.TIER_1
+        assert IntentTechniqueMapper.get_variant_tier_limit(
+            "parwa") == TechniqueTier.TIER_2
+        assert IntentTechniqueMapper.get_variant_tier_limit(
+            "high_parwa") == TechniqueTier.TIER_3
 
 
 class TestSpecificMappings:

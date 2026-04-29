@@ -24,7 +24,6 @@ Parent: Week 10 Day 3
 
 from __future__ import annotations
 
-import os
 import pickle
 import re
 import statistics
@@ -567,7 +566,11 @@ class DSPyIntegration:
 
             if not _DSPY_AVAILABLE:
                 fallback_used = True
-                stub = StubModule(task_type=getattr(module, 'task_type', 'unknown'))
+                stub = StubModule(
+                    task_type=getattr(
+                        module,
+                        'task_type',
+                        'unknown'))
                 return self._stub_execute(stub, inputs)
 
             # DSPy execution
@@ -1250,7 +1253,9 @@ class DSPyIntegration:
                         }
                     else:
                         # Fallback: pass the whole example
-                        inputs = {"customer_query": str(example), "input": str(example)}
+                        inputs = {
+                            "customer_query": str(example),
+                            "input": str(example)}
 
                     # Execute module
                     pred = self.execute(module, inputs)

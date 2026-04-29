@@ -17,19 +17,17 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, desc, func, or_
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.exceptions import (
     NotFoundError,
-    AuthorizationError,
     ValidationError,
 )
 from database.models.tickets import (
     Ticket,
     TicketMessage,
     TicketAttachment,
-    TicketStatus,
 )
 
 
@@ -90,7 +88,9 @@ class MessageService:
 
         # Validate role
         if role not in self.VALID_ROLES:
-            raise ValidationError(f"Invalid role: {role}. Must be one of {self.VALID_ROLES}")
+            raise ValidationError(
+                f"Invalid role: {role}. Must be one of {
+                    self.VALID_ROLES}")
 
         # Validate content length
         if len(content) > self.MAX_MESSAGE_LENGTH:
@@ -263,8 +263,8 @@ class MessageService:
             )
             if datetime.now(timezone.utc) > edit_deadline:
                 raise ValidationError(
-                    f"Message can only be edited within {self.EDIT_WINDOW_MINUTES} minutes"
-                )
+                    f"Message can only be edited within {
+                        self.EDIT_WINDOW_MINUTES} minutes")
 
         # Validate content length
         if content and len(content) > self.MAX_MESSAGE_LENGTH:

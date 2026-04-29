@@ -13,7 +13,7 @@ Chunking parameters match knowledge_tasks.py:
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 # HTML tag pattern for stripping
@@ -256,7 +256,8 @@ class DocumentChunker:
 
         # Each header section
         for i, (hdr_start, hdr_end, header_text) in enumerate(positions):
-            next_start = positions[i + 1][0] if i + 1 < len(positions) else len(text)
+            next_start = positions[i + 1][0] if i + \
+                1 < len(positions) else len(text)
             section_body = text[hdr_end:next_start]
             sections.append((header_text, section_body))
 

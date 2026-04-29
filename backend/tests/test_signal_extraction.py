@@ -6,8 +6,6 @@ GAP-017 (multi-currency), edge cases, variant weights.
 Target: 120+ tests
 """
 
-import asyncio
-import hashlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -65,40 +63,52 @@ class TestExtractIntent:
         self.extractor = SignalExtractor()
 
     def test_refund_intent(self):
-        assert self.extractor._extract_intent("I want a refund for my order") == "refund"
+        assert self.extractor._extract_intent(
+            "I want a refund for my order") == "refund"
 
     def test_technical_intent(self):
-        assert self.extractor._extract_intent("The app keeps crashing with an error") == "technical"
+        assert self.extractor._extract_intent(
+            "The app keeps crashing with an error") == "technical"
 
     def test_billing_intent(self):
-        assert self.extractor._extract_intent("I have a question about my bill") == "billing"
+        assert self.extractor._extract_intent(
+            "I have a question about my bill") == "billing"
 
     def test_complaint_intent(self):
-        assert self.extractor._extract_intent("I'm very unhappy with the service") == "complaint"
+        assert self.extractor._extract_intent(
+            "I'm very unhappy with the service") == "complaint"
 
     def test_feature_request_intent(self):
-        assert self.extractor._extract_intent("It would be great to add a dark mode") == "feature_request"
+        assert self.extractor._extract_intent(
+            "It would be great to add a dark mode") == "feature_request"
 
     def test_general_intent(self):
-        assert self.extractor._extract_intent("Hello there, how are you?") == "general"
+        assert self.extractor._extract_intent(
+            "Hello there, how are you?") == "general"
 
     def test_cancellation_intent(self):
-        assert self.extractor._extract_intent("Cancel my subscription immediately") == "cancellation"
+        assert self.extractor._extract_intent(
+            "Cancel my subscription immediately") == "cancellation"
 
     def test_shipping_intent(self):
-        assert self.extractor._extract_intent("Where is my package? I need to track it") == "shipping"
+        assert self.extractor._extract_intent(
+            "Where is my package? I need to track it") == "shipping"
 
     def test_inquiry_intent(self):
-        assert self.extractor._extract_intent("Can you explain how this works?") == "inquiry"
+        assert self.extractor._extract_intent(
+            "Can you explain how this works?") == "inquiry"
 
     def test_escalation_intent(self):
-        assert self.extractor._extract_intent("I need to speak to a manager") == "escalation"
+        assert self.extractor._extract_intent(
+            "I need to speak to a manager") == "escalation"
 
     def test_account_intent(self):
-        assert self.extractor._extract_intent("How do I reset my password?") == "account"
+        assert self.extractor._extract_intent(
+            "How do I reset my password?") == "account"
 
     def test_feedback_intent(self):
-        assert self.extractor._extract_intent("Your product is amazing, great job!") == "feedback"
+        assert self.extractor._extract_intent(
+            "Your product is amazing, great job!") == "feedback"
 
     def test_multi_intent_best_score_wins(self):
         result = self.extractor._extract_intent(
@@ -107,13 +117,15 @@ class TestExtractIntent:
         assert result in ("refund", "billing", "technical")
 
     def test_no_intent_fallback_general(self):
-        assert self.extractor._extract_intent("hello there good day") == "general"
+        assert self.extractor._extract_intent(
+            "hello there good day") == "general"
 
     def test_empty_query_returns_general(self):
         assert self.extractor._extract_intent("") == "general"
 
     def test_case_insensitive_intent(self):
-        assert self.extractor._extract_intent("REFUND MY ORDER NOW") == "refund"
+        assert self.extractor._extract_intent(
+            "REFUND MY ORDER NOW") == "refund"
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -125,7 +137,8 @@ class TestExtractSentiment:
         self.extractor = SignalExtractor()
 
     def test_positive_sentiment(self):
-        score = self.extractor._extract_sentiment("This is amazing and wonderful!")
+        score = self.extractor._extract_sentiment(
+            "This is amazing and wonderful!")
         assert score > 0.7
 
     def test_negative_sentiment(self):
@@ -135,11 +148,13 @@ class TestExtractSentiment:
         assert score < 0.3
 
     def test_neutral_sentiment(self):
-        score = self.extractor._extract_sentiment("How do I update my settings?")
+        score = self.extractor._extract_sentiment(
+            "How do I update my settings?")
         assert 0.3 <= score <= 0.7
 
     def test_mixed_sentiment(self):
-        score = self.extractor._extract_sentiment("Great product but terrible support")
+        score = self.extractor._extract_sentiment(
+            "Great product but terrible support")
         assert 0.3 <= score <= 0.7
 
     def test_intensifiers_boost_negative(self):
@@ -147,7 +162,8 @@ class TestExtractSentiment:
         intensified = self.extractor._extract_sentiment(
             "This is very very bad and extremely terrible"
         )
-        # Intensifiers amplify both sides, but net effect shifts toward the dominant
+        # Intensifiers amplify both sides, but net effect shifts toward the
+        # dominant
         assert isinstance(intensified, float)
 
     def test_intensifiers_boost_positive(self):
@@ -212,11 +228,13 @@ class TestExtractComplexity:
 
     def test_complex_query_higher(self):
         long_query = " ".join(["problem"] * 120)
-        score = self.extractor._extract_complexity(long_query, {"complexity": 0.4})
+        score = self.extractor._extract_complexity(
+            long_query, {"complexity": 0.4})
         assert score > 0.3
 
     def test_technical_terms_increase(self):
-        normal = self.extractor._extract_complexity("My thing is broken", {"complexity": 0.4})
+        normal = self.extractor._extract_complexity(
+            "My thing is broken", {"complexity": 0.4})
         techy = self.extractor._extract_complexity(
             "The API endpoint has a 500 error and the database server is down",
             {"complexity": 0.4},
@@ -224,14 +242,16 @@ class TestExtractComplexity:
         assert techy > normal
 
     def test_multi_question_increases(self):
-        simple = self.extractor._extract_complexity("Help me", {"complexity": 0.4})
+        simple = self.extractor._extract_complexity(
+            "Help me", {"complexity": 0.4})
         questions = self.extractor._extract_complexity(
             "How? Why? What? When? Where?", {"complexity": 0.4}
         )
         assert questions > simple
 
     def test_complexity_capped_at_1(self):
-        score = self.extractor._extract_complexity("x " * 1000, {"complexity": 1.0})
+        score = self.extractor._extract_complexity(
+            "x " * 1000, {"complexity": 1.0})
         assert score <= 1.0
 
     def test_complexity_capped_at_0(self):
@@ -260,11 +280,13 @@ class TestExtractComplexity:
     def test_long_text_higher_than_short(self):
         short = self.extractor._extract_complexity("bug", {"complexity": 0.4})
         long_q = "bug " * 200
-        long_score = self.extractor._extract_complexity(long_q, {"complexity": 0.4})
+        long_score = self.extractor._extract_complexity(
+            long_q, {"complexity": 0.4})
         assert long_score > short
 
     def test_multi_topic_increases_complexity(self):
-        simple = self.extractor._extract_complexity("I want a refund", {"complexity": 0.4})
+        simple = self.extractor._extract_complexity(
+            "I want a refund", {"complexity": 0.4})
         multi = self.extractor._extract_complexity(
             "I have a billing error charge, the app server is crashing, "
             "my package delivery is lost, and my account login is broken",
@@ -287,44 +309,53 @@ class TestExtractMonetaryValue:
         assert currency == "$"
 
     def test_gbp_pound(self):
-        value, currency = self.extractor._extract_monetary_value("Costs £1,200.50")
+        value, currency = self.extractor._extract_monetary_value(
+            "Costs £1,200.50")
         assert value > 1300  # converted to USD
         assert currency == "£"
 
     def test_euro_sign(self):
-        value, currency = self.extractor._extract_monetary_value("Price is €99")
+        value, currency = self.extractor._extract_monetary_value(
+            "Price is €99")
         assert value > 90  # converted to USD
         assert currency == "€"
 
     def test_inr_rupee(self):
-        value, currency = self.extractor._extract_monetary_value("I paid ₹50000")
+        value, currency = self.extractor._extract_monetary_value(
+            "I paid ₹50000")
         assert 0 < value < 1000  # INR to USD
         assert currency == "₹"
 
     def test_jpy_yen(self):
-        value, currency = self.extractor._extract_monetary_value("Price ¥10000")
+        value, currency = self.extractor._extract_monetary_value(
+            "Price ¥10000")
         assert 0 < value < 200  # JPY to USD
         assert currency == "¥"
 
     def test_currency_code_usd(self):
-        value, currency = self.extractor._extract_monetary_value("Total 500 USD")
+        value, currency = self.extractor._extract_monetary_value(
+            "Total 500 USD")
         assert value == 500.0
         assert currency == "USD"
 
     def test_currency_code_eur(self):
-        value, currency = self.extractor._extract_monetary_value("Costs 250 EUR")
+        value, currency = self.extractor._extract_monetary_value(
+            "Costs 250 EUR")
         assert value > 250
 
     def test_currency_code_gbp(self):
-        value, currency = self.extractor._extract_monetary_value("Price 100 GBP")
+        value, currency = self.extractor._extract_monetary_value(
+            "Price 100 GBP")
         assert value > 100
 
     def test_currency_code_inr(self):
-        value, currency = self.extractor._extract_monetary_value("Amount 5,000 INR")
+        value, currency = self.extractor._extract_monetary_value(
+            "Amount 5,000 INR")
         assert 0 < value < 100
 
     def test_currency_code_jpy(self):
-        value, currency = self.extractor._extract_monetary_value("Price 50,000 JPY")
+        value, currency = self.extractor._extract_monetary_value(
+            "Price 50,000 JPY")
         assert 0 < value < 500
 
     def test_multiple_amounts(self):
@@ -334,7 +365,8 @@ class TestExtractMonetaryValue:
         assert value > 100
 
     def test_no_monetary_value(self):
-        value, currency = self.extractor._extract_monetary_value("No money mentioned")
+        value, currency = self.extractor._extract_monetary_value(
+            "No money mentioned")
         assert value == 0.0
         assert currency is None
 
@@ -362,7 +394,8 @@ class TestResolveCustomerTier:
         self.extractor = SignalExtractor()
 
     def test_from_request_default(self):
-        req = SignalExtractionRequest(query="test", company_id="c1", customer_tier="free")
+        req = SignalExtractionRequest(
+            query="test", company_id="c1", customer_tier="free")
         assert self.extractor._resolve_customer_tier(req) == "free"
 
     def test_from_metadata(self):
@@ -428,15 +461,21 @@ class TestReasoningLoopDetection:
 
     def test_single_different_message(self):
         history = ["How do I reset my password?"]
-        assert not self.extractor._detect_reasoning_loop("What is my order status?", history)
+        assert not self.extractor._detect_reasoning_loop(
+            "What is my order status?", history)
 
     def test_similar_messages_detected(self):
-        history = ["refund my order now", "I need a refund please", "refund my order now"]
-        assert self.extractor._detect_reasoning_loop("refund my order now", history)
+        history = [
+            "refund my order now",
+            "I need a refund please",
+            "refund my order now"]
+        assert self.extractor._detect_reasoning_loop(
+            "refund my order now", history)
 
     def test_different_messages_not_loop(self):
         history = ["How do I reset?", "Where is settings?", "Thanks"]
-        assert not self.extractor._detect_reasoning_loop("New question here", history)
+        assert not self.extractor._detect_reasoning_loop(
+            "New question here", history)
 
     def test_empty_history_items(self):
         history = ["", None, "refund"]
@@ -448,19 +487,24 @@ class TestReasoningLoopDetection:
 
     def test_one_similar_not_enough(self):
         history = ["refund my order now"]
-        assert not self.extractor._detect_reasoning_loop("refund my order now", history)
+        assert not self.extractor._detect_reasoning_loop(
+            "refund my order now", history)
 
     def test_case_insensitive_similarity(self):
         history = ["REFUND MY ORDER", "Refund My Order"]
-        assert self.extractor._detect_reasoning_loop("refund my order", history)
+        assert self.extractor._detect_reasoning_loop(
+            "refund my order", history)
 
     def test_only_checks_last_5_messages(self):
-        history = ["unrelated"] * 10 + ["refund my order", "refund my order please"]
-        assert not self.extractor._detect_reasoning_loop("refund my order", history)
+        history = ["unrelated"] * 10 + \
+            ["refund my order", "refund my order please"]
+        assert not self.extractor._detect_reasoning_loop(
+            "refund my order", history)
 
     def test_whitespace_variations(self):
         history = ["refund my order", "refund  my  order"]
-        assert self.extractor._detect_reasoning_loop("refund my order", history)
+        assert self.extractor._detect_reasoning_loop(
+            "refund my order", history)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -480,20 +524,25 @@ class TestResolutionPathCount:
         assert paths == 1
 
     def test_technical_intent(self):
-        paths = self.extractor._count_resolution_paths("bug in api", "technical")
+        paths = self.extractor._count_resolution_paths(
+            "bug in api", "technical")
         assert paths >= 2
 
     def test_complaint_high_paths(self):
-        paths = self.extractor._count_resolution_paths("terrible service", "complaint")
+        paths = self.extractor._count_resolution_paths(
+            "terrible service", "complaint")
         assert paths >= 3
 
     def test_monetary_boost(self):
-        normal = self.extractor._count_resolution_paths("I want a refund", "refund")
-        with_money = self.extractor._count_resolution_paths("I want a $500 refund", "refund")
+        normal = self.extractor._count_resolution_paths(
+            "I want a refund", "refund")
+        with_money = self.extractor._count_resolution_paths(
+            "I want a $500 refund", "refund")
         assert with_money > normal
 
     def test_multi_topic_boost(self):
-        simple = self.extractor._count_resolution_paths("I want a refund", "refund")
+        simple = self.extractor._count_resolution_paths(
+            "I want a refund", "refund")
         multi = self.extractor._count_resolution_paths(
             "I want a refund for the billing charge on my shipping package",
             "refund",
@@ -510,7 +559,8 @@ class TestResolutionPathCount:
         assert paths <= 5
 
     def test_feedback_base_paths(self):
-        paths = self.extractor._count_resolution_paths("great product", "feedback")
+        paths = self.extractor._count_resolution_paths(
+            "great product", "feedback")
         assert paths == 1
 
 
@@ -689,10 +739,19 @@ class TestExtractedSignalsDataclass:
         )
         d = signals.to_dict()
         expected_keys = {
-            "intent", "sentiment", "complexity", "monetary_value",
-            "monetary_currency", "customer_tier", "turn_count",
-            "previous_response_status", "reasoning_loop_detected",
-            "resolution_path_count", "query_breadth", "extraction_version", "cached",
+            "intent",
+            "sentiment",
+            "complexity",
+            "monetary_value",
+            "monetary_currency",
+            "customer_tier",
+            "turn_count",
+            "previous_response_status",
+            "reasoning_loop_detected",
+            "resolution_path_count",
+            "query_breadth",
+            "extraction_version",
+            "cached",
         }
         assert set(d.keys()) == expected_keys
 
@@ -804,7 +863,10 @@ class TestExtractIntegration:
         req = SignalExtractionRequest(
             query="refund my order",
             company_id="c1",
-            conversation_history=["refund my order", "refund my order now", "refund my order please"],
+            conversation_history=[
+                "refund my order",
+                "refund my order now",
+                "refund my order please"],
         )
         with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             with patch("app.core.redis.cache_set", new_callable=AsyncMock):

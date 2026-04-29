@@ -14,26 +14,18 @@ BC-004: Tasks use retry with DLQ routing.
 
 from __future__ import annotations
 
-import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from celery import shared_task
 
 from app.tasks.base import ParwaTask
 from app.tasks.celery_app import app
 from database.base import SessionLocal
 from database.models.tickets import (
     Ticket,
-    TicketMessage,
-    TicketIntent,
-    TicketAssignment,
-    AssignmentRule,
     TicketStatus,
-    TicketPriority,
 )
-from database.models.core import User
 
 logger = logging.getLogger(__name__)
 
@@ -316,7 +308,7 @@ def auto_assign_new_tickets(
         # Get unassigned open tickets
         unassigned = db.query(Ticket).filter(
             Ticket.company_id == company_id,
-            Ticket.assigned_to == None,
+            Ticket.assigned_to is None,
             Ticket.status == TicketStatus.open.value,
         ).all()
 
@@ -805,10 +797,13 @@ def send_sla_warning(
                     user_id=ticket.assigned_to,
                     notification_type="sla_warning",
                     title="SLA Warning",
-                    message=f"Ticket {ticket.subject or ticket_id} is approaching SLA breach",
+                    message=f"Ticket {
+                        ticket.subject or ticket_id} is approaching SLA breach",
                     data={
                         "ticket_id": ticket_id,
-                        "percentage_elapsed": round((percentage or 0.75) * 100, 1),
+                        "percentage_elapsed": round(
+                            (percentage or 0.75) * 100,
+                            1),
                     },
                 )
 
@@ -869,7 +864,8 @@ def send_sla_breach(
             sla_service = SLAService(db)
 
             # Check if actually breached
-            is_breached, breach_type = sla_service.check_breach(company_id, ticket_id)
+            is_breached, breach_type = sla_service.check_breach(
+                company_id, ticket_id)
 
             if not is_breached:
                 return {
@@ -915,7 +911,8 @@ def send_sla_breach(
                     user_id=ticket.assigned_to,
                     notification_type="sla_breach",
                     title="SLA Breached",
-                    message=f"Ticket {ticket.subject or ticket_id} has breached SLA",
+                    message=f"Ticket {
+                        ticket.subject or ticket_id} has breached SLA",
                     data={
                         "ticket_id": ticket_id,
                         "breach_type": breach_type,

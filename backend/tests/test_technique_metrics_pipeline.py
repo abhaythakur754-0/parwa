@@ -16,9 +16,8 @@ Minimum 40 tests.
 
 import threading
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 
 from app.core.technique_metrics import TechniqueMetricsCollector
 from app.core.technique_metrics_pipeline import (

@@ -18,13 +18,10 @@ Building Codes:
 - BC-012: Error handling (structured errors, retry logic)
 """
 
-import json
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any, List
-from decimal import Decimal
+from datetime import datetime, timezone
+from typing import Optional, Dict, List
 
-from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger("parwa.cold_start")
@@ -59,7 +56,7 @@ COLD_START_FAILED = "failed"
 MIN_TEMPLATE_SAMPLES = 25
 
 
-# ── Industry Templates ───────────────────────────────────────────────────────────────
+# ── Industry Templates ──────────────────────────────────────────────────
 
 INDUSTRY_TEMPLATES = {
     INDUSTRY_ECOMMERCE: {
@@ -360,7 +357,13 @@ class ColdStartService:
         needs_cold_start = completed_runs == 0 and active_run is None
 
         # Get assigned industry
-        industry = getattr(agent, "industry", None) or getattr(agent, "specialty", None) or INDUSTRY_GENERIC
+        industry = getattr(
+            agent,
+            "industry",
+            None) or getattr(
+            agent,
+            "specialty",
+            None) or INDUSTRY_GENERIC
 
         return {
             "agent_id": agent_id,
@@ -385,7 +388,6 @@ class ColdStartService:
             List of agents needing cold start.
         """
         from database.models.agent import Agent
-        from database.models.training import TrainingRun
 
         # Get all active agents
         agents = (
@@ -425,7 +427,8 @@ class ColdStartService:
         Returns:
             Dict with industry template data.
         """
-        template = INDUSTRY_TEMPLATES.get(industry, INDUSTRY_TEMPLATES[INDUSTRY_GENERIC])
+        template = INDUSTRY_TEMPLATES.get(
+            industry, INDUSTRY_TEMPLATES[INDUSTRY_GENERIC])
         return {
             "industry": industry,
             "template": template,
@@ -463,7 +466,8 @@ class ColdStartService:
         Returns:
             List of training samples.
         """
-        template = INDUSTRY_TEMPLATES.get(industry, INDUSTRY_TEMPLATES[INDUSTRY_GENERIC])
+        template = INDUSTRY_TEMPLATES.get(
+            industry, INDUSTRY_TEMPLATES[INDUSTRY_GENERIC])
 
         training_samples = []
 
@@ -473,7 +477,9 @@ class ColdStartService:
 
             # Get response for this category
             responses = template.get("responses", {})
-            response = responses.get(category, f"I'll help you with your {category} concern. Let me look into this for you.")
+            response = responses.get(
+                category,
+                f"I'll help you with your {category} concern. Let me look into this for you.")
 
             training_samples.append({
                 "input": query,
@@ -503,12 +509,16 @@ class ColdStartService:
         if specialty and specialty != SPECIALTY_GENERAL:
             priority_categories = self._get_specialty_categories(specialty)
             training_samples.sort(
-                key=lambda x: (0 if x.get("category") in priority_categories else 1, x.get("category"))
-            )
+                key=lambda x: (
+                    0 if x.get("category") in priority_categories else 1,
+                    x.get("category")))
 
         return training_samples
 
-    def _generate_query_variations(self, query: str, category: str) -> List[str]:
+    def _generate_query_variations(
+            self,
+            query: str,
+            category: str) -> List[str]:
         """Generate variations of a query for training diversity."""
         variations = []
 
@@ -525,20 +535,33 @@ class ColdStartService:
 
         return variations[:3]  # Limit variations
 
-    def _generate_knowledge_samples(self, topic: str, industry: str) -> List[Dict]:
+    def _generate_knowledge_samples(
+            self, topic: str, industry: str) -> List[Dict]:
         """Generate training samples for a knowledge topic."""
         # Simple knowledge samples
         return [
             {
-                "input": f"Tell me about {topic.replace('_', ' ')}",
-                "expected_output": f"I can provide information about {topic.replace('_', ' ')}. Let me look that up for you.",
+                "input": f"Tell me about {
+                    topic.replace(
+                        '_',
+                        ' ')}",
+                "expected_output": f"I can provide information about {
+                    topic.replace(
+                        '_',
+                        ' ')}. Let me look that up for you.",
                 "category": "knowledge",
                 "industry": industry,
                 "source": "knowledge_topic",
             },
             {
-                "input": f"I need help understanding {topic.replace('_', ' ')}",
-                "expected_output": f"I'd be happy to help you understand {topic.replace('_', ' ')}. What specific aspect would you like to know more about?",
+                "input": f"I need help understanding {
+                    topic.replace(
+                        '_',
+                        ' ')}",
+                "expected_output": f"I'd be happy to help you understand {
+                    topic.replace(
+                        '_',
+                        ' ')}. What specific aspect would you like to know more about?",
                 "category": "knowledge",
                 "industry": industry,
                 "source": "knowledge_topic",
@@ -610,12 +633,15 @@ class ColdStartService:
 
         try:
             # Generate training data from template
-            training_data = self.get_template_training_data(industry, specialty)
+            training_data = self.get_template_training_data(
+                industry, specialty)
 
             if len(training_data) < MIN_TEMPLATE_SAMPLES:
                 # Supplement with generic data
-                generic_data = self.get_template_training_data(INDUSTRY_GENERIC, specialty)
-                training_data.extend(generic_data[:MIN_TEMPLATE_SAMPLES - len(training_data)])
+                generic_data = self.get_template_training_data(
+                    INDUSTRY_GENERIC, specialty)
+                training_data.extend(
+                    generic_data[:MIN_TEMPLATE_SAMPLES - len(training_data)])
 
             # Create dataset
             from app.services.dataset_preparation_service import DatasetPreparationService
@@ -632,7 +658,8 @@ class ColdStartService:
             if dataset_result.get("status") != "created":
                 return {
                     "status": "error",
-                    "error": f"Failed to create dataset: {dataset_result.get('error')}",
+                    "error": f"Failed to create dataset: {
+                        dataset_result.get('error')}",
                     "agent_id": agent_id,
                 }
 
@@ -813,7 +840,8 @@ class ColdStartService:
             .all()
         )
 
-        completed = len([r for r in cold_start_runs if r.status == "completed"])
+        completed = len(
+            [r for r in cold_start_runs if r.status == "completed"])
         failed = len([r for r in cold_start_runs if r.status == "failed"])
         total_cost = sum(float(r.cost_usd or 0) for r in cold_start_runs)
 

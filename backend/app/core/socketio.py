@@ -120,7 +120,10 @@ def _extract_token_from_qs(query_string: str) -> str:
 if _socketio_pkg is not None:
     sio = _socketio_pkg.AsyncServer(
         async_mode="asgi",
-        cors_allowed_origins=[origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",") if origin.strip()],
+        cors_allowed_origins=[
+            origin.strip() for origin in os.getenv(
+                "ALLOWED_ORIGINS",
+                "http://localhost:3000").split(",") if origin.strip()],
         ping_timeout=60,
         ping_interval=25,
         max_http_buffer_size=1_000_000,  # 1MB max message size

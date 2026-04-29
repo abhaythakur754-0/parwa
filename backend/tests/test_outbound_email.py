@@ -18,10 +18,8 @@ Building Codes tested:
 
 import json
 import uuid
-from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch, PropertyMock
-
-import pytest
+from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
 
 
 # ── Fixtures ──────────────────────────────────────────────────
@@ -168,10 +166,10 @@ class TestOutboundEmailServiceBasic:
         mock_task.delay = MagicMock()
 
         with patch("app.services.outbound_email_service.OutboundEmail", create=True) as MockOutbound, \
-             patch("app.services.outbound_email_service.TicketMessage", create=True) as MockMsg, \
-             patch("app.services.outbound_email_service.EmailThread", create=True), \
-             patch("app.services.outbound_email_service.InboundEmail", create=True), \
-             patch("app.tasks.email_tasks.send_email", mock_task):
+                patch("app.services.outbound_email_service.TicketMessage", create=True) as MockMsg, \
+                patch("app.services.outbound_email_service.EmailThread", create=True), \
+                patch("app.services.outbound_email_service.InboundEmail", create=True), \
+                patch("app.tasks.email_tasks.send_email", mock_task):
             # Configure mock constructor
             mock_msg_instance = MagicMock()
             mock_msg_instance.id = str(uuid.uuid4())
@@ -181,7 +179,8 @@ class TestOutboundEmailServiceBasic:
             mock_outbound_instance.id = str(uuid.uuid4())
             MockOutbound.return_value = mock_outbound_instance
 
-            # Can't fully test without DB mock — test the import and class creation
+            # Can't fully test without DB mock — test the import and class
+            # creation
             assert service is not None
             assert hasattr(service, "send_email_reply")
 
@@ -244,6 +243,7 @@ class TestOutboundEmailServiceBasic:
 
         # First query: ticket found, second query: customer found but no email
         call_count = [0]
+
         def query_side_effect(*args, **kwargs):
             call_count[0] += 1
             q = MagicMock()
@@ -296,7 +296,8 @@ class TestOutboundRateLimiting:
         mock_q.func = MagicMock()
         db.query.return_value = mock_q
 
-        error = service._check_outbound_rate_limit(company_id, str(uuid.uuid4()))
+        error = service._check_outbound_rate_limit(
+            company_id, str(uuid.uuid4()))
         assert error is not None
         assert "rate limit" in error.lower()
 
@@ -318,7 +319,8 @@ class TestOutboundRateLimiting:
         mock_q.func = MagicMock()
         db.query.return_value = mock_q
 
-        error = service._check_outbound_rate_limit(company_id, str(uuid.uuid4()))
+        error = service._check_outbound_rate_limit(
+            company_id, str(uuid.uuid4()))
         assert error is None
 
 
@@ -339,7 +341,8 @@ class TestOutboundThreading:
 
         db = _make_mock_db()
         service = OutboundEmailService(db)
-        assert service._build_reply_subject("Re: Help needed") == "Re: Help needed"
+        assert service._build_reply_subject(
+            "Re: Help needed") == "Re: Help needed"
 
     def test_build_reply_subject_multiple_re(self):
         """Deduplicates multiple Re: prefixes."""
@@ -347,7 +350,8 @@ class TestOutboundThreading:
 
         db = _make_mock_db()
         service = OutboundEmailService(db)
-        assert service._build_reply_subject("Re: Re: Help needed") == "Re: Help needed"
+        assert service._build_reply_subject(
+            "Re: Re: Help needed") == "Re: Help needed"
 
     def test_build_reply_subject_fwd(self):
         """Strips Fwd: prefix and adds Re:."""
@@ -355,7 +359,8 @@ class TestOutboundThreading:
 
         db = _make_mock_db()
         service = OutboundEmailService(db)
-        assert service._build_reply_subject("Fwd: Help needed") == "Re: Help needed"
+        assert service._build_reply_subject(
+            "Fwd: Help needed") == "Re: Help needed"
 
     def test_build_reply_subject_empty(self):
         """Handles empty subject."""
@@ -496,7 +501,8 @@ class TestOutboundInlineQuoting:
         mock_email.sender_email = "jane@example.com"
         mock_email.body_html = None
         mock_email.body_text = "I need help with my order #12345"
-        mock_email.created_at = datetime(2026, 4, 13, 10, 30, tzinfo=timezone.utc)
+        mock_email.created_at = datetime(
+            2026, 4, 13, 10, 30, tzinfo=timezone.utc)
 
         mock_q = MagicMock()
         mock_f = MagicMock()
@@ -724,7 +730,8 @@ class TestEmailUtils:
     def test_strip_html_preserves_text_content(self):
         """Preserves text content within tags."""
         from app.core.email_utils import strip_html
-        result = strip_html("<h1>Title</h1><p>Paragraph with <a href='#'>link</a></p>")
+        result = strip_html(
+            "<h1>Title</h1><p>Paragraph with <a href='#'>link</a></p>")
         assert "Title" in result
         assert "Paragraph with link" in result
 

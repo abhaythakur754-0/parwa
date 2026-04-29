@@ -16,7 +16,6 @@ Comprehensive tests covering:
 from __future__ import annotations
 
 import pytest
-from unittest.mock import patch, MagicMock
 
 from app.core.confidence_scoring_engine import (
     ConfidenceScoringEngine,
@@ -24,7 +23,6 @@ from app.core.confidence_scoring_engine import (
     ConfidenceResult,
     SignalScore,
     SignalName,
-    VariantType,
     DEFAULT_SIGNAL_WEIGHTS,
     DEFAULT_THRESHOLDS,
     ALL_SIGNAL_NAMES,
@@ -104,12 +102,12 @@ class TestHelperFunctions:
         assert _jaccard_similarity(s, s) == pytest.approx(1.0)
 
     def test_jaccard_disjoint_sets(self):
-        assert _jaccard_similarity({"a", "b"}, {"c", "d"}) == pytest.approx(0.0)
+        assert _jaccard_similarity(
+            {"a", "b"}, {"c", "d"}) == pytest.approx(0.0)
 
     def test_jaccard_partial_overlap(self):
-        assert _jaccard_similarity({"a", "b", "c"}, {"b", "c", "d"}) == pytest.approx(
-            2 / 4
-        )
+        assert _jaccard_similarity(
+            {"a", "b", "c"}, {"b", "c", "d"}) == pytest.approx(2 / 4)
 
     def test_jaccard_empty_both(self):
         assert _jaccard_similarity(set(), set()) == 0.0
@@ -1285,7 +1283,10 @@ class TestBC008NeverCrash:
             COMPANY_ID,
             "query",
             "response",
-            context={"model_tier": 12345, "model_health": "bad_value"},  # type: ignore
+            context={
+                "model_tier": 12345,
+                "model_health": "bad_value"},
+            # type: ignore
         )
         assert isinstance(result, ConfidenceResult)
 
@@ -1347,5 +1348,6 @@ class TestSignalLevelEdgeCases:
             context={"model_tier": "tier_3"},
         )
         sr = _get_signal(result, "provider_confidence")
-        # tier_3 gets 15 point penalty for complex queries (word_count>30 or multi-part)
+        # tier_3 gets 15 point penalty for complex queries (word_count>30 or
+        # multi-part)
         assert sr.score < MODEL_TIER_RELIABILITY["tier_3"]

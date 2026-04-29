@@ -30,7 +30,7 @@ HINDI_VOICE_MESSAGE = """
 
 तीसरी बात, PARWA में Advanced AI तकनीकें हैं जैसे:
 - Multi-turn Reasoning
-- Step-back Analysis  
+- Step-back Analysis
 - Tree of Thoughts
 - Advanced Sentiment Analysis
 
@@ -44,34 +44,35 @@ HINDI_VOICE_MESSAGE = """
 
 def create_twiml_for_hindi(message: str) -> str:
     """Create TwiML for Hindi voice message"""
-    
+
     # Split message into smaller chunks for better TTS
     sentences = message.replace('\n', ' ').split('. ')
-    
+
     # Build TwiML with Say tags
     say_tags = []
     for sentence in sentences:
         if sentence.strip():
-            say_tags.append(f'        <Say language="hi-IN" voice="Polly.Aditi">{sentence.strip()}.</Say>')
-    
+            say_tags.append(
+                f'        <Say language="hi-IN" voice="Polly.Aditi">{sentence.strip()}.</Say>')
+
     twiml = f'''<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Pause length="1"/>
 {chr(10).join(say_tags)}
     <Pause length="1"/>
 </Response>'''
-    
+
     return twiml
 
 
 def make_voice_call_twiml(to_number: str, twiml: str) -> dict:
     """
     Make a voice call using TwiML.
-    
+
     Args:
         to_number: Phone number to call (with country code)
         twiml: TwiML content for the call
-    
+
     Returns:
         dict with call details
     """
@@ -82,23 +83,23 @@ def make_voice_call_twiml(to_number: str, twiml: str) -> dict:
         "from_number": TWILIO_PHONE_NUMBER,
         "error": None
     }
-    
+
     if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
         result["error"] = "Twilio credentials not set"
         result["note"] = "Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN environment variables"
         return result
-    
+
     if not TWILIO_PHONE_NUMBER:
         result["error"] = "Twilio phone number not set"
         result["note"] = "Set TWILIO_PHONE_NUMBER environment variable"
         return result
-    
+
     try:
         # Import Twilio client
         from twilio.rest import Client
-        
+
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-        
+
         # Make the call
         call = client.calls.create(
             to=to_number,
@@ -106,29 +107,29 @@ def make_voice_call_twiml(to_number: str, twiml: str) -> dict:
             twiml=twiml,
             timeout=30
         )
-        
+
         result["success"] = True
         result["call_sid"] = call.sid
         result["status"] = call.status
         result["message"] = "Voice call initiated successfully"
-        
+
     except ImportError:
         result["error"] = "Twilio library not installed"
         result["note"] = "Install with: pip install twilio"
     except Exception as e:
         result["error"] = str(e)
-    
+
     return result
 
 
 def make_voice_call_tts(to_number: str, audio_url: str) -> dict:
     """
     Make a voice call using a pre-recorded audio URL.
-    
+
     Args:
         to_number: Phone number to call
         audio_url: URL to the audio file to play
-    
+
     Returns:
         dict with call details
     """
@@ -139,35 +140,35 @@ def make_voice_call_tts(to_number: str, audio_url: str) -> dict:
         "from_number": TWILIO_PHONE_NUMBER,
         "error": None
     }
-    
+
     if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
         result["error"] = "Twilio credentials not set"
         return result
-    
+
     try:
         from twilio.rest import Client
-        
+
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-        
+
         # TwiML to play audio
         twiml = f'''<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Play>{audio_url}</Play>
 </Response>'''
-        
+
         call = client.calls.create(
             to=to_number,
             from_=TWILIO_PHONE_NUMBER,
             twiml=twiml
         )
-        
+
         result["success"] = True
         result["call_sid"] = call.sid
         result["status"] = call.status
-        
+
     except Exception as e:
         result["error"] = str(e)
-    
+
     return result
 
 
@@ -178,29 +179,29 @@ def send_sms_notification(to_number: str, message: str) -> dict:
         "message_sid": None,
         "error": None
     }
-    
+
     if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
         result["error"] = "Twilio credentials not set"
         return result
-    
+
     try:
         from twilio.rest import Client
-        
+
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-        
+
         msg = client.messages.create(
             to=to_number,
             from_=TWILIO_PHONE_NUMBER,
             body=message
         )
-        
+
         result["success"] = True
         result["message_sid"] = msg.sid
         result["status"] = msg.status
-        
+
     except Exception as e:
         result["error"] = str(e)
-    
+
     return result
 
 
@@ -212,44 +213,44 @@ def test_twilio_connection() -> dict:
         "phone_number": TWILIO_PHONE_NUMBER,
         "error": None
     }
-    
+
     if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
         result["error"] = "Credentials not set"
         return result
-    
+
     try:
         from twilio.rest import Client
-        
+
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-        
+
         # Get account info
         account = client.api.accounts(TWILIO_ACCOUNT_SID).fetch()
-        
+
         result["success"] = True
         result["account_name"] = account.friendly_name
         result["account_status"] = account.status
         result["account_type"] = account.type
-        
+
     except Exception as e:
         result["error"] = str(e)
-    
+
     return result
 
 
 def demo_parwa_voice_call(phone_number: str):
     """Demo PARWA voice call in Hindi"""
-    
-    print("\n" + "="*70)
+
+    print("\n" + "=" * 70)
     print("PARWA VOICE CALL DEMO - HINDI")
-    print("="*70)
-    
+    print("=" * 70)
+
     print(f"\n📞 Target Phone: {phone_number}")
     print(f"📅 Date/Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    
+
     # Test connection first
     print("\n--- Testing Twilio Connection ---")
     conn_test = test_twilio_connection()
-    
+
     if conn_test["success"]:
         print(f"✅ Connected to Twilio")
         print(f"   Account: {conn_test.get('account_name', 'N/A')}")
@@ -258,16 +259,16 @@ def demo_parwa_voice_call(phone_number: str):
     else:
         print(f"❌ Connection failed: {conn_test['error']}")
         return
-    
+
     # Create TwiML for Hindi message
     print("\n--- Creating Hindi Voice Message ---")
     twiml = create_twiml_for_hindi(HINDI_VOICE_MESSAGE)
     print(f"✅ TwiML created ({len(twiml)} bytes)")
-    
+
     # Make the call
     print("\n--- Initiating Voice Call ---")
     call_result = make_voice_call_twiml(phone_number, twiml)
-    
+
     if call_result["success"]:
         print(f"✅ Voice call initiated!")
         print(f"   Call SID: {call_result['call_sid']}")
@@ -278,39 +279,52 @@ def demo_parwa_voice_call(phone_number: str):
         print(f"❌ Call failed: {call_result['error']}")
         if call_result.get('note'):
             print(f"   Note: {call_result['note']}")
-    
+
     # Also send SMS confirmation
     print("\n--- Sending SMS Confirmation ---")
     sms_message = "PARWA Demo: आपका voice call सफलतापूर्वक पूरा हुआ। Thank you for testing PARWA AI Support System! - TechCorp Solutions"
-    
+
     sms_result = send_sms_notification(phone_number, sms_message)
-    
+
     if sms_result["success"]:
         print(f"✅ SMS sent successfully")
         print(f"   Message SID: {sms_result['message_sid']}")
     else:
         print(f"❌ SMS failed: {sms_result['error']}")
-    
-    print("\n" + "="*70)
+
+    print("\n" + "=" * 70)
     print("VOICE CALL DEMO COMPLETE")
-    print("="*70)
+    print("=" * 70)
 
 
 def main():
     """Main entry point"""
     import argparse
-    
-    parser = argparse.ArgumentParser(description="PARWA Voice Call Service - Hindi")
-    parser.add_argument("--phone", "-p", required=False, help="Phone number to call (with country code)")
-    parser.add_argument("--test", "-t", action="store_true", help="Test Twilio connection only")
-    parser.add_argument("--demo", "-d", action="store_true", help="Run demo with sample number")
-    
+
+    parser = argparse.ArgumentParser(
+        description="PARWA Voice Call Service - Hindi")
+    parser.add_argument(
+        "--phone",
+        "-p",
+        required=False,
+        help="Phone number to call (with country code)")
+    parser.add_argument(
+        "--test",
+        "-t",
+        action="store_true",
+        help="Test Twilio connection only")
+    parser.add_argument(
+        "--demo",
+        "-d",
+        action="store_true",
+        help="Run demo with sample number")
+
     args = parser.parse_args()
-    
+
     if args.test:
         print("\n--- Testing Twilio Connection ---")
         result = test_twilio_connection()
-        
+
         if result["success"]:
             print(f"✅ Connection successful")
             print(f"   Account SID: {result['account_sid']}")
@@ -318,31 +332,34 @@ def main():
             print(f"   Phone Number: {result.get('phone_number', 'N/A')}")
         else:
             print(f"❌ Connection failed: {result['error']}")
-        
+
         return
-    
+
     if args.demo:
         # Demo mode - just show what would happen
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("PARWA VOICE CALL DEMO MODE")
-        print("="*70)
-        
+        print("=" * 70)
+
         print("\nHindi Voice Message:")
         print("-" * 50)
         print(HINDI_VOICE_MESSAGE)
         print("-" * 50)
-        
+
         print("\nTwiML Generated:")
         print("-" * 50)
         print(create_twiml_for_hindi(HINDI_VOICE_MESSAGE))
         print("-" * 50)
-        
+
         # Test connection
         conn = test_twilio_connection()
-        print(f"\nTwilio Connection: {'✅ OK' if conn['success'] else '❌ ' + conn['error']}")
-        
+        print(
+            f"\nTwilio Connection: {
+                '✅ OK' if conn['success'] else '❌ ' +
+                conn['error']}")
+
         return
-    
+
     if args.phone:
         demo_parwa_voice_call(args.phone)
     else:

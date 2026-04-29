@@ -39,11 +39,10 @@ Building Codes: BC-001 (multi-tenant), BC-007 (AI model),
 import hashlib
 import json
 import math
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
-from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.logger import get_logger
@@ -372,7 +371,7 @@ class InstructionWorkflowService:
             version=instruction_set.version,
             instructions=instruction_set.instructions,
             change_summary=instruction_set.change_summary
-                or f"Published version {instruction_set.version}",
+            or f"Published version {instruction_set.version}",
             published_by=user_id,
             published_at=now,
         )
@@ -528,9 +527,8 @@ class InstructionWorkflowService:
         if not target:
             from app.exceptions import NotFoundError
             raise NotFoundError(
-                message=f"Version {version} not found for this instruction set",
-                details={"set_id": set_id, "target_version": version},
-            )
+                message=f"Version {version} not found for this instruction set", details={
+                    "set_id": set_id, "target_version": version}, )
 
         # Restore the instructions from the target version
         update_result = self.update_instruction_set(
@@ -980,8 +978,8 @@ class InstructionWorkflowService:
                 "winner": None,
                 "confidence_level": None,
                 "recommendation": "Insufficient data — need at least "
-                                 f"{MIN_TICKETS_FOR_EVALUATION} tickets "
-                                 "per variant",
+                f"{MIN_TICKETS_FOR_EVALUATION} tickets "
+                "per variant",
                 "tickets_a": tickets_a,
                 "tickets_b": tickets_b,
                 "min_required": MIN_TICKETS_FOR_EVALUATION,

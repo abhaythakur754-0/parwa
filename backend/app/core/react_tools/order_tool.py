@@ -29,7 +29,13 @@ logger = logging.getLogger(__name__)
 # ── Mock data factories ────────────────────────────────────────────
 
 _CARRIERS = ["FedEx", "UPS", "DHL", "USPS", "OnTrac"]
-_STATUSES = ["pending", "processing", "shipped", "delivered", "cancelled", "refunded"]
+_STATUSES = [
+    "pending",
+    "processing",
+    "shipped",
+    "delivered",
+    "cancelled",
+    "refunded"]
 _ITEMS = [
     {"sku": "PARWA-PRO-001", "name": "PARWA Pro Annual Plan", "price": 299.00},
     {"sku": "PARWA-STD-001", "name": "PARWA Standard Monthly", "price": 49.00},
@@ -48,7 +54,8 @@ def _mock_order(
     oid = order_id or f"ORD-{uuid.uuid4().hex[:8].upper()}"
     item = random.choice(_ITEMS)
     qty = random.randint(1, 5)
-    carrier = random.choice(_CARRIERS) if status in ("shipped", "delivered") else None
+    carrier = random.choice(_CARRIERS) if status in (
+        "shipped", "delivered") else None
     created = datetime.now(timezone.utc) - timedelta(
         days=random.randint(1, 90),
         hours=random.randint(0, 23),
@@ -243,7 +250,9 @@ class OrderTool(BaseReactTool):
         await asyncio.sleep(random.uniform(0.02, 0.15))
 
         if action == "__health_check__":
-            return ToolResult(success=True, error=None, data={"status": "ok"}, execution_time_ms=0)
+            return ToolResult(
+                success=True, error=None, data={
+                    "status": "ok"}, execution_time_ms=0)
 
         handler = {
             "get_order": self._get_order,
@@ -257,7 +266,9 @@ class OrderTool(BaseReactTool):
         if handler is None:
             return ToolResult(
                 success=False,
-                error=f"Unknown action: {action}. Available: {', '.join(self.actions)}",
+                error=f"Unknown action: {action}. Available: {
+                    ', '.join(
+                        self.actions)}",
                 data=None,
                 execution_time_ms=0,
             )
@@ -280,11 +291,19 @@ class OrderTool(BaseReactTool):
                     data=None,
                     execution_time_ms=0,
                 )
-            return ToolResult(success=True, error=None, data=order, execution_time_ms=0)
+            return ToolResult(
+                success=True,
+                error=None,
+                data=order,
+                execution_time_ms=0)
 
         order = _mock_order(order_id=order_id, company_id=company_id)
         self._store[order_id] = order
-        return ToolResult(success=True, error=None, data=order, execution_time_ms=0)
+        return ToolResult(
+            success=True,
+            error=None,
+            data=order,
+            execution_time_ms=0)
 
     async def _list_orders(
         self,
@@ -306,7 +325,7 @@ class OrderTool(BaseReactTool):
         if customer_id:
             orders = [o for o in orders if o.get("customer_id") == customer_id]
 
-        paginated = orders[offset : offset + limit]
+        paginated = orders[offset: offset + limit]
         return ToolResult(
             success=True,
             error=None,
@@ -319,12 +338,16 @@ class OrderTool(BaseReactTool):
             execution_time_ms=0,
         )
 
-    async def _cancel_order(self, company_id: str, **params: Any) -> ToolResult:
+    async def _cancel_order(
+            self,
+            company_id: str,
+            **params: Any) -> ToolResult:
         """Cancel an open order."""
         order_id: str = params.get("order_id", "")
         reason: str = params.get("reason", "Cancelled by request")
 
-        order = self._store.get(order_id) or _mock_order(order_id=order_id, company_id=company_id)
+        order = self._store.get(order_id) or _mock_order(
+            order_id=order_id, company_id=company_id)
 
         if order["company_id"] != company_id:
             return ToolResult(
@@ -337,8 +360,10 @@ class OrderTool(BaseReactTool):
         if order["status"] not in ("pending", "processing"):
             return ToolResult(
                 success=False,
-                error=f"Cannot cancel order in status '{order['status']}'. Only pending/processing orders can be cancelled.",
-                data={"current_status": order["status"]},
+                error=f"Cannot cancel order in status '{
+                    order['status']}'. Only pending/processing orders can be cancelled.",
+                data={
+                    "current_status": order["status"]},
                 execution_time_ms=0,
             )
 
@@ -346,9 +371,16 @@ class OrderTool(BaseReactTool):
         order["cancellation_reason"] = reason
         order["cancelled_at"] = datetime.now(timezone.utc).isoformat()
         self._store[order_id] = order
-        return ToolResult(success=True, error=None, data=order, execution_time_ms=0)
+        return ToolResult(
+            success=True,
+            error=None,
+            data=order,
+            execution_time_ms=0)
 
-    async def _get_order_status(self, company_id: str, **params: Any) -> ToolResult:
+    async def _get_order_status(
+            self,
+            company_id: str,
+            **params: Any) -> ToolResult:
         """Quick status check for one or more orders."""
         raw_ids: str = params.get("order_ids", "")
         order_ids = [oid.strip() for oid in raw_ids.split(",") if oid.strip()]
@@ -363,7 +395,8 @@ class OrderTool(BaseReactTool):
 
         results: list[dict[str, Any]] = []
         for oid in order_ids[:20]:  # Max 20 at a time
-            order = self._store.get(oid) or _mock_order(order_id=oid, company_id=company_id)
+            order = self._store.get(oid) or _mock_order(
+                order_id=oid, company_id=company_id)
             results.append({
                 "order_id": oid,
                 "status": order["status"],
@@ -371,16 +404,25 @@ class OrderTool(BaseReactTool):
                 "carrier": order.get("carrier"),
             })
 
-        return ToolResult(success=True, error=None, data={"statuses": results}, execution_time_ms=0)
+        return ToolResult(
+            success=True,
+            error=None,
+            data={
+                "statuses": results},
+            execution_time_ms=0)
 
-    async def _update_shipping(self, company_id: str, **params: Any) -> ToolResult:
+    async def _update_shipping(
+            self,
+            company_id: str,
+            **params: Any) -> ToolResult:
         """Update shipping details for an order."""
         order_id: str = params.get("order_id", "")
         carrier: str | None = params.get("carrier")
         tracking_number: str | None = params.get("tracking_number")
         address: dict | None = params.get("address")
 
-        order = self._store.get(order_id) or _mock_order(order_id=order_id, company_id=company_id)
+        order = self._store.get(order_id) or _mock_order(
+            order_id=order_id, company_id=company_id)
 
         if order["company_id"] != company_id:
             return ToolResult(
@@ -392,11 +434,9 @@ class OrderTool(BaseReactTool):
 
         if order["status"] in ("delivered", "cancelled", "refunded"):
             return ToolResult(
-                success=False,
-                error=f"Cannot update shipping for order in status '{order['status']}'",
-                data={"current_status": order["status"]},
-                execution_time_ms=0,
-            )
+                success=False, error=f"Cannot update shipping for order in status '{
+                    order['status']}'", data={
+                    "current_status": order["status"]}, execution_time_ms=0, )
 
         updated_fields: list[str] = []
         if carrier:
@@ -422,11 +462,17 @@ class OrderTool(BaseReactTool):
         return ToolResult(
             success=True,
             error=None,
-            data={"order_id": order_id, "updated_fields": updated_fields, "order": order},
+            data={
+                "order_id": order_id,
+                "updated_fields": updated_fields,
+                "order": order},
             execution_time_ms=0,
         )
 
-    async def _refund_order(self, company_id: str, **params: Any) -> ToolResult:
+    async def _refund_order(
+            self,
+            company_id: str,
+            **params: Any) -> ToolResult:
         """Initiate a refund for a completed order."""
         order_id: str = params.get("order_id", "")
         amount: float | None = params.get("amount")
@@ -449,8 +495,10 @@ class OrderTool(BaseReactTool):
         if order["status"] not in ("delivered", "shipped", "processing"):
             return ToolResult(
                 success=False,
-                error=f"Cannot refund order in status '{order['status']}'. Only delivered/shipped/processing orders can be refunded.",
-                data={"current_status": order["status"]},
+                error=f"Cannot refund order in status '{
+                    order['status']}'. Only delivered/shipped/processing orders can be refunded.",
+                data={
+                    "current_status": order["status"]},
                 execution_time_ms=0,
             )
 

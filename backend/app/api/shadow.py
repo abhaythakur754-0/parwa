@@ -9,7 +9,6 @@ BC-001: All endpoints scoped by company_id from authenticated user.
 BC-011: All endpoints require authentication.
 """
 
-import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -30,23 +29,32 @@ router = APIRouter(prefix="/api/shadow", tags=["shadow"])
 
 
 class SetModeRequest(BaseModel):
-    mode: str = Field(..., description="New system mode: shadow, supervised, graduated")
-    set_via: str = Field(default="ui", description="How this was set: ui or jarvis")
+    mode: str = Field(...,
+                      description="New system mode: shadow, supervised, graduated")
+    set_via: str = Field(
+        default="ui",
+        description="How this was set: ui or jarvis")
 
 
 class SetPreferenceRequest(BaseModel):
-    action_category: str = Field(..., description="Action category: refund, sms, email_reply, etc.")
-    preferred_mode: str = Field(..., description="Preferred mode: shadow, supervised, graduated")
-    set_via: str = Field(default="ui", description="How this was set: ui or jarvis")
+    action_category: str = Field(...,
+                                 description="Action category: refund, sms, email_reply, etc.")
+    preferred_mode: str = Field(...,
+                                description="Preferred mode: shadow, supervised, graduated")
+    set_via: str = Field(
+        default="ui",
+        description="How this was set: ui or jarvis")
 
 
 class EvaluateActionRequest(BaseModel):
     action_type: str = Field(..., description="Type of action to evaluate")
-    action_payload: Dict[str, Any] = Field(default_factory=dict, description="Action payload data")
+    action_payload: Dict[str, Any] = Field(
+        default_factory=dict, description="Action payload data")
 
 
 class ResolveActionRequest(BaseModel):
-    note: Optional[str] = Field(default=None, description="Manager note for the decision")
+    note: Optional[str] = Field(default=None,
+                                description="Manager note for the decision")
 
 
 class UndoActionRequest(BaseModel):
@@ -54,9 +62,12 @@ class UndoActionRequest(BaseModel):
 
 
 class BatchResolveRequest(BaseModel):
-    ids: list[str] = Field(..., description="List of shadow log IDs to resolve")
-    decision: str = Field(..., description="Batch decision: approved or rejected")
-    note: Optional[str] = Field(default=None, description="Optional note for all entries")
+    ids: list[str] = Field(...,
+                           description="List of shadow log IDs to resolve")
+    decision: str = Field(...,
+                          description="Batch decision: approved or rejected")
+    note: Optional[str] = Field(default=None,
+                                description="Optional note for all entries")
 
 
 # ── Endpoints ─────────────────────────────────────────────────
@@ -96,9 +107,10 @@ def set_mode(
 
     if body.mode not in VALID_MODES:
         raise HTTPException(
-            status_code=400,
-            detail=f"Invalid mode: {body.mode}. Must be one of: {', '.join(sorted(VALID_MODES))}",
-        )
+            status_code=400, detail=f"Invalid mode: {
+                body.mode}. Must be one of: {
+                ', '.join(
+                    sorted(VALID_MODES))}", )
 
     svc = ShadowModeService()
 
@@ -172,9 +184,10 @@ def set_preference(
 
     if body.preferred_mode not in VALID_MODES:
         raise HTTPException(
-            status_code=400,
-            detail=f"Invalid mode: {body.preferred_mode}. Must be one of: {', '.join(sorted(VALID_MODES))}",
-        )
+            status_code=400, detail=f"Invalid mode: {
+                body.preferred_mode}. Must be one of: {
+                ', '.join(
+                    sorted(VALID_MODES))}", )
 
     svc = ShadowModeService()
     preference = svc.set_shadow_preference(
@@ -307,7 +320,10 @@ def batch_resolve_actions(
     if body.decision not in VALID_DECISIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid decision: {body.decision}. Must be one of: {', '.join(sorted(VALID_DECISIONS))}",
+            detail=f"Invalid decision: {
+                body.decision}. Must be one of: {
+                ', '.join(
+                    sorted(VALID_DECISIONS))}",
         )
 
     svc = ShadowModeService()
@@ -369,7 +385,9 @@ def approve_action(
             note=body.note,
         )
     except ShadowModeService.ShadowLogNotFoundError:
-        raise HTTPException(status_code=404, detail="Shadow log entry not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Shadow log entry not found")
     except ShadowModeService.ShadowModeError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -420,7 +438,9 @@ def reject_action(
             note=body.note,
         )
     except ShadowModeService.ShadowLogNotFoundError:
-        raise HTTPException(status_code=404, detail="Shadow log entry not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Shadow log entry not found")
     except ShadowModeService.ShadowModeError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -471,7 +491,9 @@ def undo_action(
             manager_id=user.id,
         )
     except ShadowModeService.ShadowLogNotFoundError:
-        raise HTTPException(status_code=404, detail="Shadow log entry not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Shadow log entry not found")
     except ShadowModeService.ShadowModeError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -517,7 +539,8 @@ def get_undo_history(
             # Get the user who undid the action
             undone_by_name = None
             if log.undone_by:
-                undo_user = db.query(User).filter(User.id == log.undone_by).first()
+                undo_user = db.query(User).filter(
+                    User.id == log.undone_by).first()
                 if undo_user:
                     undone_by_name = undo_user.name or undo_user.email
 
@@ -542,9 +565,15 @@ def get_undo_history(
 
 
 class UpdateConfigRequest(BaseModel):
-    undo_window_minutes: Optional[int] = Field(None, ge=1, le=1440, description="Undo window in minutes (1-1440)")
-    risk_threshold_shadow: Optional[float] = Field(None, ge=0.0, le=1.0, description="Risk threshold to force shadow mode (0.0-1.0)")
-    risk_threshold_auto: Optional[float] = Field(None, ge=0.0, le=1.0, description="Risk threshold for auto-execute in graduated mode (0.0-1.0)")
+    undo_window_minutes: Optional[int] = Field(
+        None, ge=1, le=1440, description="Undo window in minutes (1-1440)")
+    risk_threshold_shadow: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Risk threshold to force shadow mode (0.0-1.0)")
+    risk_threshold_auto: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Risk threshold for auto-execute in graduated mode (0.0-1.0)")
 
 
 class GetConfigResponse(BaseModel):
@@ -554,7 +583,8 @@ class GetConfigResponse(BaseModel):
 
 
 class JarvisCommandRequest(BaseModel):
-    message: str = Field(..., description="The user's message containing a shadow mode command")
+    message: str = Field(...,
+                         description="The user's message containing a shadow mode command")
 
 
 @router.get("/config")
@@ -562,7 +592,6 @@ def get_config(
     user: User = Depends(get_current_user),
 ):
     """Get the shadow mode configuration for the company (undo window, risk thresholds)."""
-    from decimal import Decimal
     from database.base import SessionLocal
     from database.models.core import Company
 
@@ -577,8 +606,10 @@ def get_config(
 
         return {
             "undo_window_minutes": company.undo_window_minutes or 30,
-            "risk_threshold_shadow": float(company.risk_threshold_shadow) if company.risk_threshold_shadow else 0.7,
-            "risk_threshold_auto": float(company.risk_threshold_auto) if company.risk_threshold_auto else 0.3,
+            "risk_threshold_shadow": float(
+                company.risk_threshold_shadow) if company.risk_threshold_shadow else 0.7,
+            "risk_threshold_auto": float(
+                company.risk_threshold_auto) if company.risk_threshold_auto else 0.3,
         }
 
 
@@ -622,16 +653,22 @@ def update_config(
 
         logger.info(
             "shadow_config_updated company_id=%s user=%s undo_window=%s risk_shadow=%.2f risk_auto=%.2f",
-            company_id, user.id, company.undo_window_minutes,
-            float(company.risk_threshold_shadow or 0.7),
-            float(company.risk_threshold_auto or 0.3),
+            company_id,
+            user.id,
+            company.undo_window_minutes,
+            float(
+                company.risk_threshold_shadow or 0.7),
+            float(
+                company.risk_threshold_auto or 0.3),
         )
 
         return {
             "company_id": str(company_id),
             "undo_window_minutes": company.undo_window_minutes,
-            "risk_threshold_shadow": float(company.risk_threshold_shadow) if company.risk_threshold_shadow else 0.7,
-            "risk_threshold_auto": float(company.risk_threshold_auto) if company.risk_threshold_auto else 0.3,
+            "risk_threshold_shadow": float(
+                company.risk_threshold_shadow) if company.risk_threshold_shadow else 0.7,
+            "risk_threshold_auto": float(
+                company.risk_threshold_auto) if company.risk_threshold_auto else 0.3,
         }
 
 
@@ -670,8 +707,8 @@ def jarvis_shadow_command(
         }
 
     return {
-        "command_matched": True,
-        "success": result.get("success", False),
-        "message": result.get("message", ""),
-        "data": {k: v for k, v in result.items() if k not in ("success", "message")},
-    }
+        "command_matched": True, "success": result.get(
+            "success", False), "message": result.get(
+            "message", ""), "data": {
+                k: v for k, v in result.items() if k not in (
+                    "success", "message")}, }

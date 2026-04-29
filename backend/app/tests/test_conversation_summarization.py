@@ -5,7 +5,7 @@ Tests for F-160 Conversation Summarization — Week 9 Day 10
 import time
 import threading
 from datetime import datetime, timezone, timedelta
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -37,7 +37,8 @@ def _mock_logger():
             SummaryStatus as _SummaryStatus,
             ConversationState as _ConversationState,
         )
-        globals()["ConversationSummarizationService"] = _ConversationSummarizationService
+        globals()[
+            "ConversationSummarizationService"] = _ConversationSummarizationService
         globals()["ConversationMessage"] = _ConversationMessage
         globals()["ConversationSummary"] = _ConversationSummary
         globals()["ConversationContext"] = _ConversationContext
@@ -84,11 +85,18 @@ class _Base:
         ts = base_ts or datetime(2024, 1, 1, tzinfo=timezone.utc)
         for i in range(n):
             role = "customer" if i % 2 == 0 else "agent"
-            msg = self._msg(f"This is message number {i} with some content.", role=role, ts=ts)
+            msg = self._msg(
+                f"This is message number {i} with some content.",
+                role=role,
+                ts=ts)
             self.service.add_message(company_id, conv_id, msg)
         return self.service.get_conversation_version(company_id, conv_id)
 
-    def _add_realistic(self, n: int = 5, company_id: str = CID, conv_id: str = CONV) -> list:
+    def _add_realistic(
+            self,
+            n: int = 5,
+            company_id: str = CID,
+            conv_id: str = CONV) -> list:
         """Add a handful of realistic messages; returns the list."""
         texts = [
             ("I have a problem with my order. The delivery is delayed.", "customer"),
@@ -341,7 +349,7 @@ class TestInitialization(_Base):
         assert svc._abstractive_generator is None
 
     def test_create_with_custom_generator(self):
-        gen = lambda msgs: "custom"
+        def gen(msgs): return "custom"
         svc = ConversationSummarizationService(abstractive_generator=gen)
         assert svc._abstractive_generator is gen
 
@@ -544,8 +552,14 @@ class TestExtractiveSummarization(_Base):
 
     def test_high_value_keywords_boosted(self):
         msgs = [
-            ConversationMessage(message_id="a", content="I have a serious problem with my order and need urgent help.", role="customer"),
-            ConversationMessage(message_id="b", content="The delivery was delayed and I want a refund for the shipping charge.", role="customer"),
+            ConversationMessage(
+                message_id="a",
+                content="I have a serious problem with my order and need urgent help.",
+                role="customer"),
+            ConversationMessage(
+                message_id="b",
+                content="The delivery was delayed and I want a refund for the shipping charge.",
+                role="customer"),
         ]
         ext, kp = self.service._extractive_summarize(msgs)
         # Should contain content about problem/order/delivery/refund
@@ -554,8 +568,14 @@ class TestExtractiveSummarization(_Base):
 
     def test_questions_get_attention(self):
         msgs = [
-            ConversationMessage(message_id="a", content="Can you help me resolve this issue?", role="customer"),
-            ConversationMessage(message_id="b", content="Sure, what seems to be the error you are experiencing?", role="agent"),
+            ConversationMessage(
+                message_id="a",
+                content="Can you help me resolve this issue?",
+                role="customer"),
+            ConversationMessage(
+                message_id="b",
+                content="Sure, what seems to be the error you are experiencing?",
+                role="agent"),
         ]
         _, kp = self.service._extractive_summarize(msgs)
         # Questions should appear in key points
@@ -619,9 +639,18 @@ class TestAbstractiveSummarization(_Base):
 
     def test_merges_consecutive_same_role(self):
         msgs = [
-            ConversationMessage(message_id="a", content="First part.", role="customer"),
-            ConversationMessage(message_id="b", content="Second part.", role="customer"),
-            ConversationMessage(message_id="c", content="Agent reply.", role="agent"),
+            ConversationMessage(
+                message_id="a",
+                content="First part.",
+                role="customer"),
+            ConversationMessage(
+                message_id="b",
+                content="Second part.",
+                role="customer"),
+            ConversationMessage(
+                message_id="c",
+                content="Agent reply.",
+                role="agent"),
         ]
         result = self.service._abstractive_summarize(msgs)
         assert isinstance(result, str)
@@ -633,7 +662,11 @@ class TestAbstractiveSummarization(_Base):
 
     def test_truncates_long_sentences(self):
         long_content = "A" * 200
-        msgs = [ConversationMessage(message_id="x", content=long_content, role="customer")]
+        msgs = [
+            ConversationMessage(
+                message_id="x",
+                content=long_content,
+                role="customer")]
         result = self.service._abstractive_summarize(msgs)
         # Rule-based should truncate to ~60 chars per block first sentence
         assert isinstance(result, str)
@@ -676,7 +709,9 @@ class TestHybridSummarization(_Base):
 
     def test_hybrid_key_points_excluded_when_flag_false(self):
         self._add_realistic(6)
-        r = self._summarize_mode(SummarizationMode.HYBRID, include_key_points=False)
+        r = self._summarize_mode(
+            SummarizationMode.HYBRID,
+            include_key_points=False)
         assert r.success is True
         assert r.summary.key_points == []
 
@@ -885,7 +920,8 @@ class TestW9GAP024(_Base):
             time.sleep(0.3)
             return "Slow generated summary"
 
-        svc = ConversationSummarizationService(abstractive_generator=slow_generator)
+        svc = ConversationSummarizationService(
+            abstractive_generator=slow_generator)
         svc.reset()
 
         for i in range(5):
@@ -982,7 +1018,8 @@ class TestGetLatestSummary(_Base):
     def test_returns_from_cache(self):
         self._add_realistic(5)
         self.service.summarize(CID, CONV)
-        # Even after clearing the context's summaries list, cache should still work
+        # Even after clearing the context's summaries list, cache should still
+        # work
         key = f"{CID}:{CONV}"
         cached = self.service._summary_cache.get(key)
         assert cached is not None
@@ -1312,11 +1349,14 @@ class TestEdgeCases(_Base):
         assert r.success is True
 
     def test_special_characters(self):
-        self.service.add_message(CID, CONV, self._msg("<script>alert('xss')</script>"))
-        self.service.add_message(CID, CONV, self._msg("SQL: DROP TABLE users; --"))
+        self.service.add_message(
+            CID, CONV, self._msg("<script>alert('xss')</script>"))
+        self.service.add_message(
+            CID, CONV, self._msg("SQL: DROP TABLE users; --"))
         self.service.add_message(CID, CONV, self._msg("Path: /etc/passwd"))
         self.service.add_message(CID, CONV, self._msg("Regex: ^[a-z]+$"))
-        self.service.add_message(CID, CONV, self._msg("JSON: {\"key\": \"value\"}"))
+        self.service.add_message(
+            CID, CONV, self._msg("JSON: {\"key\": \"value\"}"))
         r = self.service.summarize(CID, CONV)
         assert r.success is True
 

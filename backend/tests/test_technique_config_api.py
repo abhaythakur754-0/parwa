@@ -25,7 +25,6 @@ from fastapi.testclient import TestClient
 # Import technique_router directly (no problematic deps)
 from app.core.technique_router import (
     TechniqueID,
-    TechniqueTier,
     TECHNIQUE_REGISTRY,
 )
 

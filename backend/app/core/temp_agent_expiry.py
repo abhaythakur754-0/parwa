@@ -82,7 +82,9 @@ class TempAgentRecord:
     expires_at: datetime
     assigned_tickets: Set[str] = field(default_factory=set)
     status: str = "active"
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(
+        default_factory=lambda: datetime.now(
+            timezone.utc))
 
     @property
     def is_expired(self) -> bool:
@@ -116,7 +118,9 @@ class ExpiryResult:
     tickets_reassigned: int = 0
     tickets_failed: int = 0
     reassigned_to: Dict[str, str] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(
+        default_factory=lambda: datetime.now(
+            timezone.utc))
 
 
 @dataclass
@@ -206,8 +210,7 @@ class TempAgentExpiryService:
             with self._lock:
                 if agent_id in self._agents:
                     raise ValueError(
-                        f"Agent '{agent_id}' is already registered as a temp agent"
-                    )
+                        f"Agent '{agent_id}' is already registered as a temp agent")
 
                 now = datetime.now(timezone.utc)
                 record = TempAgentRecord(

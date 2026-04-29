@@ -14,12 +14,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import and_, case, desc, func
+from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from app.logger import get_logger
 from database.models.analytics import DriftReport, QAScore
-from database.models.tickets import Ticket, TicketMessage
+from database.models.tickets import TicketMessage
 
 logger = get_logger("analytics_dashboard_service")
 
@@ -91,7 +91,8 @@ def get_confidence_trend(
                 avg_conf = round(sum(scores) / len(scores), 2)
                 min_conf = round(min(scores), 2)
                 max_conf = round(max(scores), 2)
-                low_count = sum(1 for s in scores if s < LOW_CONFIDENCE_THRESHOLD)
+                low_count = sum(1 for s in scores if s <
+                                LOW_CONFIDENCE_THRESHOLD)
             else:
                 avg_conf = 0.0
                 min_conf = 0.0
@@ -111,7 +112,9 @@ def get_confidence_trend(
 
         # Overall stats
         total_predictions = len(all_confidences)
-        overall_avg = round(sum(all_confidences) / total_predictions, 2) if total_predictions > 0 else 0.0
+        overall_avg = round(
+            sum(all_confidences) / total_predictions,
+            2) if total_predictions > 0 else 0.0
         current_avg = 0.0
         for entry in reversed(daily_trend):
             if entry["avg_confidence"] > 0:
@@ -119,10 +122,12 @@ def get_confidence_trend(
                 break
 
         # Distribution buckets
-        distribution = _compute_confidence_distribution(all_confidences, total_predictions)
+        distribution = _compute_confidence_distribution(
+            all_confidences, total_predictions)
 
         # Trend direction: compare second half vs first half
-        trend_direction, change_vs_previous = _compute_trend(daily_trend, days, "avg_confidence")
+        trend_direction, change_vs_previous = _compute_trend(
+            daily_trend, days, "avg_confidence")
 
         return {
             "daily_trend": daily_trend,
@@ -246,7 +251,8 @@ def get_drift_reports(
             if report_date:
                 detected_at = report_date.strftime("%Y-%m-%dT%H:%M:%SZ")
             else:
-                detected_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                detected_at = datetime.now(
+                    timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
             mapped_reports.append({
                 "report_id": str(r.id),
@@ -257,13 +263,14 @@ def get_drift_reports(
                 "baseline_value": float(r.baseline_value) if r.baseline_value is not None else 0.0,
                 "drift_pct": float(r.drift_pct) if r.drift_pct is not None else 0.0,
                 "description": f"Drift detected in {r.metric_type or 'unknown metric'} "
-                               f"(current: {r.current_value or 0}, baseline: {r.baseline_value or 0})",
+                f"(current: {r.current_value or 0}, baseline: {r.baseline_value or 0})",
                 "status": "active",
                 "resolved_at": None,
                 "recovery_action": None,
             })
 
-            # Track active count (all reports without resolved status are "active")
+            # Track active count (all reports without resolved status are
+            # "active")
             active_count += 1
 
             # Track last detected
@@ -370,16 +377,29 @@ def get_qa_scores(
             entries = day_map.get(day_str, [])
 
             if entries:
-                acc_scores = [e["accuracy"] for e in entries if e["accuracy"] is not None]
-                tone_scores = [e["tone"] for e in entries if e["tone"] is not None]
-                comp_scores = [e["completeness"] for e in entries if e["completeness"] is not None]
-                overall_scores = [e["overall"] for e in entries if e["overall"] is not None]
+                acc_scores = [e["accuracy"]
+                              for e in entries if e["accuracy"] is not None]
+                tone_scores = [e["tone"]
+                               for e in entries if e["tone"] is not None]
+                comp_scores = [e["completeness"]
+                               for e in entries if e["completeness"] is not None]
+                overall_scores = [e["overall"]
+                                  for e in entries if e["overall"] is not None]
 
-                acc_avg = round(sum(acc_scores) / len(acc_scores), 2) if acc_scores else 0.0
-                tone_avg = round(sum(tone_scores) / len(tone_scores), 2) if tone_scores else 0.0
-                comp_avg = round(sum(comp_scores) / len(comp_scores), 2) if comp_scores else 0.0
-                overall_avg = round(sum(overall_scores) / len(overall_scores), 2) if overall_scores else 0.0
-                pass_count = sum(1 for o in overall_scores if o >= QA_PASS_THRESHOLD)
+                acc_avg = round(
+                    sum(acc_scores) / len(acc_scores),
+                    2) if acc_scores else 0.0
+                tone_avg = round(
+                    sum(tone_scores) / len(tone_scores),
+                    2) if tone_scores else 0.0
+                comp_avg = round(
+                    sum(comp_scores) / len(comp_scores),
+                    2) if comp_scores else 0.0
+                overall_avg = round(
+                    sum(overall_scores) / len(overall_scores),
+                    2) if overall_scores else 0.0
+                pass_count = sum(
+                    1 for o in overall_scores if o >= QA_PASS_THRESHOLD)
 
                 all_accuracy.extend(acc_scores)
                 all_tone.extend(tone_scores)
@@ -424,35 +444,40 @@ def get_qa_scores(
         )
 
         # Dimension summaries
-        dimensions = [
-            {
-                "dimension_name": "Accuracy",
-                "avg_score": round(sum(all_accuracy) / len(all_accuracy), 2) if all_accuracy else 0.0,
-                "pass_rate": round(sum(1 for s in all_accuracy if s >= QA_PASS_THRESHOLD) / len(all_accuracy), 2) if all_accuracy else 0.0,
-                "trend": _dimension_trend(daily_trend, "accuracy_score"),
-            },
-            {
-                "dimension_name": "Completeness",
-                "avg_score": round(sum(all_completeness) / len(all_completeness), 2) if all_completeness else 0.0,
-                "pass_rate": round(sum(1 for s in all_completeness if s >= QA_PASS_THRESHOLD) / len(all_completeness), 2) if all_completeness else 0.0,
-                "trend": _dimension_trend(daily_trend, "completeness_score"),
-            },
-            {
-                "dimension_name": "Tone",
-                "avg_score": round(sum(all_tone) / len(all_tone), 2) if all_tone else 0.0,
-                "pass_rate": round(sum(1 for s in all_tone if s >= QA_PASS_THRESHOLD) / len(all_tone), 2) if all_tone else 0.0,
-                "trend": _dimension_trend(daily_trend, "tone_score"),
-            },
-            {
-                "dimension_name": "Relevance",
-                "avg_score": 0.0,
-                "pass_rate": 0.0,
-                "trend": "stable",
-            },
-        ]
+        dimensions = [{"dimension_name": "Accuracy",
+                       "avg_score": round(sum(all_accuracy) / len(all_accuracy),
+                                          2) if all_accuracy else 0.0,
+                       "pass_rate": round(sum(1 for s in all_accuracy if s >= QA_PASS_THRESHOLD) / len(all_accuracy),
+                                          2) if all_accuracy else 0.0,
+                       "trend": _dimension_trend(daily_trend,
+                                                 "accuracy_score"),
+                       },
+                      {"dimension_name": "Completeness",
+                       "avg_score": round(sum(all_completeness) / len(all_completeness),
+                                          2) if all_completeness else 0.0,
+                       "pass_rate": round(sum(1 for s in all_completeness if s >= QA_PASS_THRESHOLD) / len(all_completeness),
+                                          2) if all_completeness else 0.0,
+                       "trend": _dimension_trend(daily_trend,
+                                                 "completeness_score"),
+                       },
+                      {"dimension_name": "Tone",
+                       "avg_score": round(sum(all_tone) / len(all_tone),
+                                          2) if all_tone else 0.0,
+                       "pass_rate": round(sum(1 for s in all_tone if s >= QA_PASS_THRESHOLD) / len(all_tone),
+                                          2) if all_tone else 0.0,
+                       "trend": _dimension_trend(daily_trend,
+                                                 "tone_score"),
+                       },
+                      {"dimension_name": "Relevance",
+                       "avg_score": 0.0,
+                       "pass_rate": 0.0,
+                       "trend": "stable",
+                       },
+                      ]
 
         # Overall trend direction
-        trend_direction, change_vs_previous = _compute_trend(daily_trend, days, "overall_score")
+        trend_direction, change_vs_previous = _compute_trend(
+            daily_trend, days, "overall_score")
 
         return {
             "daily_trend": daily_trend,

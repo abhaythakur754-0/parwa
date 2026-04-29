@@ -6,7 +6,6 @@ overall scoring, edge cases.
 """
 
 import asyncio
-from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -14,7 +13,6 @@ from app.core.clara_quality_gate import (
     BrandVoiceConfig,
     CLARAQualityGate,
     CLARAStage,
-    CLARAResult,
     StageOutput,
     StageResult,
 )
@@ -209,7 +207,8 @@ class TestBrandCheck:
         bv = BrandVoiceConfig(prohibited_words=["test"])
         gate = CLARAQualityGate(brand_voice=bv)
         result = await gate._brand_check("")
-        assert result.result == StageResult.PASS  # empty passes (no words to check)
+        # empty passes (no words to check)
+        assert result.result == StageResult.PASS
 
 
 # ── Tone Check ───────────────────────────────────────────────────────
@@ -289,7 +288,8 @@ class TestDeliveryCheck:
             "Please contact us at support@example.com for more help."
         )
         assert result.result == StageResult.FAIL
-        assert any("pii" in i.lower() or "email" in i.lower() for i in result.issues)
+        assert any("pii" in i.lower() or "email" in i.lower()
+                   for i in result.issues)
 
     @pytest.mark.asyncio
     async def test_phone_pii(self):
@@ -345,8 +345,8 @@ class TestFullPipeline:
         gate = CLARAQualityGate()
         result = await gate.evaluate(
             response="Thank you for your patience regarding the refund. "
-                    "I have processed your refund of $50.00. You should see "
-                    "the credit within 5-7 business days. Best regards.",
+            "I have processed your refund of $50.00. You should see "
+            "the credit within 5-7 business days. Best regards.",
             query="refund my order",
             customer_sentiment=0.5,
         )
@@ -384,7 +384,10 @@ class TestFullPipeline:
             response="Thank you for your inquiry. I can help you with that.",
             query="help",
         )
-        scored = [s for s in result.stages if s.result in (StageResult.PASS, StageResult.FAIL)]
+        scored = [
+            s for s in result.stages if s.result in (
+                StageResult.PASS,
+                StageResult.FAIL)]
         if scored:
             expected_avg = sum(s.score for s in scored) / len(scored)
             assert abs(result.overall_score - expected_avg) < 0.01
@@ -416,6 +419,7 @@ class TestTimeoutGAP002:
     async def test_stage_timeout_returns_timeout_pass(self):
         """GAP-002: Stage timeout returns TIMEOUT_PASS, not FAIL."""
         gate = CLARAQualityGate(stage_timeout_seconds=0.001)
+
         async def slow_stage(**kwargs):
             await asyncio.sleep(10)
             return StageOutput(
@@ -440,6 +444,7 @@ class TestTimeoutGAP002:
         )
         # Even if pipeline doesn't timeout, verify the timeout mechanism works
         # by testing the _run_stage method directly
+
         async def slow_stage(**kwargs):
             await asyncio.sleep(0.1)
             return StageOutput(
@@ -456,15 +461,19 @@ class TestTimeoutGAP002:
     @pytest.mark.asyncio
     async def test_timeout_pass_doesnt_fail_overall(self):
         """GAP-002: TIMEOUT_PASS stages don't cause overall failure."""
-        gate = CLARAQualityGate(stage_timeout_seconds=0.001, pipeline_timeout_seconds=0.01)
+        gate = CLARAQualityGate(
+            stage_timeout_seconds=0.001,
+            pipeline_timeout_seconds=0.01)
         result = await gate.evaluate(
             response="A reasonable response for testing.",
             query="help",
         )
         # TIMEOUT_PASS stages are excluded from scoring, so overall should pass
         # if no actual FAIL stages exist
-        timeout_stages = [s for s in result.stages if s.result == StageResult.TIMEOUT_PASS]
-        fail_stages = [s for s in result.stages if s.result == StageResult.FAIL]
+        timeout_stages = [
+            s for s in result.stages if s.result == StageResult.TIMEOUT_PASS]
+        fail_stages = [
+            s for s in result.stages if s.result == StageResult.FAIL]
         if not fail_stages:
             assert result.overall_pass is True
 

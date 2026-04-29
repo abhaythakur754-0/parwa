@@ -17,7 +17,7 @@ Day 20: Added tenant context propagation for Celery tasks:
 
 import functools
 import logging
-from typing import Any, Callable, Dict, Optional
+from typing import Callable, Dict, Optional
 
 from celery import Task
 
@@ -221,7 +221,7 @@ def with_company_id(func: Callable) -> Callable:
             raise ValueError(
                 "company_id is required as the first parameter (BC-001)"
             )
-        
+
         # For bound methods (bind=True), first arg is 'self' (task instance)
         # Check if first arg is a Task instance
         first_arg = args[0]
@@ -235,7 +235,7 @@ def with_company_id(func: Callable) -> Callable:
         else:
             # Unbound function: company_id is first arg
             company_id = first_arg
-            
+
         if not isinstance(company_id, str) or not company_id.strip():
             raise ValueError(
                 "company_id must be a non-empty string (BC-001)"

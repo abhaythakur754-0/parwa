@@ -22,9 +22,9 @@ from app.providers.base import (
 
 class SMTPEmailProvider(EmailProvider):
     """Custom SMTP email provider.
-    
+
     Works with any SMTP server.
-    
+
     Configuration:
         - host: SMTP server hostname (required)
         - port: SMTP port (required, typically 587 or 465)
@@ -33,19 +33,19 @@ class SMTPEmailProvider(EmailProvider):
         - use_tls: Use TLS (optional, default True)
         - from_email: Default sender email (optional)
     """
-    
+
     provider_name = "smtp"
     display_name = "Custom SMTP"
     description = "Any SMTP server"
     website = ""
-    
+
     required_config_fields = ["host", "port", "username", "password"]
     optional_config_fields = ["use_tls", "from_email"]
-    
+
     capabilities = [
         ProviderCapability.SEND_EMAIL,
     ]
-    
+
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
         self.host = config["host"]
@@ -55,14 +55,14 @@ class SMTPEmailProvider(EmailProvider):
         self.use_tls = config.get("use_tls", True)
         self.from_email = config.get("from_email", config["username"])
         self._status = ProviderStatus.ACTIVE
-    
+
     def test_connection(self) -> ProviderResult:
         try:
             with smtplib.SMTP(self.host, self.port, timeout=10) as server:
                 if self.use_tls:
                     server.starttls()
                 server.login(self.username, self.password)
-            
+
             return ProviderResult(
                 success=True,
                 provider_name=self.provider_name,
@@ -75,29 +75,29 @@ class SMTPEmailProvider(EmailProvider):
                 operation="test_connection",
                 error_message=str(e)[:200],
             )
-    
+
     def get_rate_limits(self) -> Dict[str, Any]:
         return {
             "note": "Rate limits depend on your SMTP server configuration.",
         }
-    
+
     def send_email(self, message: EmailMessage) -> ProviderResult:
         try:
             msg = MIMEMultipart("alternative")
             msg["From"] = message.from_email or self.from_email
             msg["To"] = message.to
             msg["Subject"] = message.subject
-            
+
             if message.reply_to:
                 msg["Reply-To"] = message.reply_to
-            
+
             # Add text content
             if message.text_content:
                 msg.attach(MIMEText(message.text_content, "plain"))
-            
+
             # Add HTML content
             msg.attach(MIMEText(message.html_content, "html"))
-            
+
             # Add attachments
             for att in message.attachments:
                 part = MIMEBase("application", "octet-stream")
@@ -108,7 +108,7 @@ class SMTPEmailProvider(EmailProvider):
                     f"attachment; filename={att.get('name', 'attachment')}",
                 )
                 msg.attach(part)
-            
+
             # Send
             with smtplib.SMTP(self.host, self.port, timeout=30) as server:
                 if self.use_tls:
@@ -119,7 +119,7 @@ class SMTPEmailProvider(EmailProvider):
                     [message.to] + message.cc + message.bcc,
                     msg.as_string(),
                 )
-            
+
             return ProviderResult(
                 success=True,
                 provider_name=self.provider_name,
@@ -132,8 +132,12 @@ class SMTPEmailProvider(EmailProvider):
                 operation="send_email",
                 error_message=str(e)[:200],
             )
-    
-    def send_template_email(self, template_id: str, to: str, variables: Dict[str, Any]) -> ProviderResult:
+
+    def send_template_email(self,
+                            template_id: str,
+                            to: str,
+                            variables: Dict[str,
+                                            Any]) -> ProviderResult:
         return ProviderResult(
             success=False,
             provider_name=self.provider_name,

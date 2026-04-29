@@ -10,33 +10,25 @@ Three focus areas:
 from __future__ import annotations
 
 import asyncio
-import copy
-import json
 from typing import Any, Dict, List, Optional
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.core.langgraph_workflow import (
     LangGraphWorkflow,
     WorkflowConfig,
-    WorkflowResult,
-    WorkflowStepResult,
 )
 from app.core.context_compression import (
     CompressionConfig,
     CompressionInput,
     CompressionLevel,
-    CompressionOutput,
     CompressionStrategy,
     ContextCompressor,
 )
 from app.core.state_serialization import (
     StateSerializer,
-    StateSerializerConfig,
     _safe_json_dumps,
     _safe_json_loads,
-    _serialize_enum,
 )
 from app.core.techniques.base import (
     ConversationState,
@@ -126,7 +118,8 @@ class TestConcurrentWorkflowStatePersistence:
         assert results[0].workflow_id != results[1].workflow_id
 
     @pytest.mark.asyncio
-    async def test_concurrent_executions_with_different_variants_isolated(self):
+    async def test_concurrent_executions_with_different_variants_isolated(
+            self):
         """Concurrent executions on different variant types don't interfere."""
         engine_parwa = LangGraphWorkflow(
             config=WorkflowConfig(company_id="co1", variant_type="parwa"),
@@ -158,7 +151,8 @@ class TestConcurrentWorkflowStatePersistence:
         engine.build_graph()
 
         num_concurrent = 5
-        queries = [f"concurrent query number {i}" for i in range(num_concurrent)]
+        queries = [
+            f"concurrent query number {i}" for i in range(num_concurrent)]
         results = await asyncio.gather(*[
             engine.execute("co1", q) for q in queries
         ])
@@ -246,7 +240,8 @@ class TestConcurrentWorkflowStatePersistence:
         def patched_preprocessing(step_id, query, context, step_results):
             if "FAIL_TRIGGER" in query and step_id == "extract_signals":
                 raise RuntimeError("Simulated step failure")
-            return original_preprocessing(step_id, query, context, step_results)
+            return original_preprocessing(
+                step_id, query, context, step_results)
 
         engine._simulate_preprocessing = patched_preprocessing
 

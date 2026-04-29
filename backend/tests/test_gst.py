@@ -10,13 +10,12 @@ Target: 80+ tests.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from app.core.technique_router import TechniqueID, QuerySignals
 from app.core.techniques.base import (
     BaseTechniqueNode,
     ConversationState,
-    GSDState,
 )
 from app.core.techniques.gst import (
     GSTConfig,
@@ -28,11 +27,9 @@ from app.core.techniques.gst import (
     DecisionScope,
     RiskCategory,
     RiskSeverity,
-    _SCOPE_PATTERNS,
     _SCOPE_OPTIONS,
     _SCOPE_STAKEHOLDERS,
     _SCOPE_CONSTRAINTS,
-    _DEFAULT_SCOPE,
     _DEFAULT_WEIGHTS,
 )
 
@@ -272,7 +269,12 @@ class TestGSTOption:
             total_score=0.5,
         )
         d = opt.to_dict()
-        expected_keys = {"option_id", "description", "impact_scores", "risks", "total_score"}
+        expected_keys = {
+            "option_id",
+            "description",
+            "impact_scores",
+            "risks",
+            "total_score"}
         assert set(d.keys()) == expected_keys
 
     def test_to_dict_total_score_rounded(self):
@@ -306,7 +308,8 @@ class TestGSTResult:
         )
         assert len(result.options) == 1
         assert len(result.checkpoints) == 1
-        assert result.steps_applied == ["problem_definition", "option_generation"]
+        assert result.steps_applied == [
+            "problem_definition", "option_generation"]
 
     def test_to_dict_keys(self):
         result = GSTResult()
@@ -375,7 +378,8 @@ class TestShouldActivate:
         assert await node.should_activate(strategic_state) is True
 
     @pytest.mark.asyncio
-    async def test_non_strategic_does_not_activate(self, node, non_strategic_state):
+    async def test_non_strategic_does_not_activate(
+            self, node, non_strategic_state):
         assert await node.should_activate(non_strategic_state) is False
 
     @pytest.mark.asyncio
@@ -508,7 +512,8 @@ class TestGenerateOptions:
         )
         assert len(options) >= 2
         assert all(isinstance(o, GSTOption) for o in options)
-        assert all(o.option_id.startswith("contract_modification_opt_") for o in options)
+        assert all(o.option_id.startswith("contract_modification_opt_")
+                   for o in options)
 
     @pytest.mark.asyncio
     async def test_feature_options(self, processor):
@@ -661,8 +666,11 @@ class TestAnalyzeImpact:
                 },
             ),
         ]
-        custom_weights = {"customer_satisfaction": 1.0, "cost_impact": 0.0,
-                          "policy_compliance": 0.0, "implementation_feasibility": 0.0}
+        custom_weights = {
+            "customer_satisfaction": 1.0,
+            "cost_impact": 0.0,
+            "policy_compliance": 0.0,
+            "implementation_feasibility": 0.0}
         result = await processor.analyze_impact(options, weights=custom_weights)
         assert result[0].total_score == pytest.approx(1.0)
 
@@ -702,7 +710,8 @@ class TestAnalyzeImpact:
         result = await processor.analyze_impact(options)
         assert result[0].total_score > 0.0
         # Only customer_satisfaction contributes
-        assert result[0].total_score == pytest.approx(0.5 * _DEFAULT_WEIGHTS["customer_satisfaction"])
+        assert result[0].total_score == pytest.approx(
+            0.5 * _DEFAULT_WEIGHTS["customer_satisfaction"])
 
     @pytest.mark.asyncio
     async def test_empty_options(self, processor):
@@ -867,8 +876,12 @@ class TestRecommend:
     @pytest.mark.asyncio
     async def test_has_rationale(self, processor):
         options = [
-            GSTOption(option_id="opt_1", total_score=0.7,
-                      impact_scores={"customer_satisfaction": 0.8, "cost_impact": 0.6}),
+            GSTOption(
+                option_id="opt_1",
+                total_score=0.7,
+                impact_scores={
+                    "customer_satisfaction": 0.8,
+                    "cost_impact": 0.6}),
         ]
         risk_summary = {
             "per_option": [{"option_id": "opt_1", "risk_score": 0.0}],
@@ -1061,7 +1074,8 @@ class TestFullPipeline:
     async def test_recommendation_has_selected_option(self, processor):
         result = await processor.process("We need to change the pricing")
         assert result.recommendation.get("selected_option") is not None
-        assert result.recommendation["selected_option"].get("option_id") is not None
+        assert result.recommendation["selected_option"].get(
+            "option_id") is not None
 
     @pytest.mark.asyncio
     async def test_risk_summary_has_structure(self, processor):
@@ -1228,7 +1242,8 @@ class TestErrorFallback:
     """BC-008: Never crash — return original state on error."""
 
     @pytest.mark.asyncio
-    async def test_execute_returns_original_on_exception(self, node, strategic_state):
+    async def test_execute_returns_original_on_exception(
+            self, node, strategic_state):
         """Force an exception inside execute() and verify original state returned."""
         with patch.object(
             node._processor, 'process',
@@ -1371,7 +1386,7 @@ class TestScopeTemplateIntegrity:
                 assert "base_scores" in tmpl
                 assert "risks" in tmpl
                 for dim in ("customer_satisfaction", "cost_impact",
-                           "policy_compliance", "implementation_feasibility"):
+                            "policy_compliance", "implementation_feasibility"):
                     assert dim in tmpl["base_scores"], f"Missing {dim} for {scope}"
 
     def test_option_scores_in_range(self):

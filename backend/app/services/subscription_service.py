@@ -19,12 +19,11 @@ BC-002: All money calculations use Decimal
 import calendar
 import json as _json
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from uuid import UUID
 
-from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.clients.paddle_client import (
@@ -41,8 +40,8 @@ from app.schemas.billing import (
     VariantLimits,
 )
 from database.base import SessionLocal
-from database.models.billing import Subscription, CancellationRequest, Invoice
-from database.models.billing_extended import PaymentMethod, ProrationAudit
+from database.models.billing import Subscription, CancellationRequest
+from database.models.billing_extended import ProrationAudit
 from database.models.core import Company
 
 logger = logging.getLogger("parwa.services.subscription")
@@ -64,32 +63,26 @@ PREDOWNGRADE_WARNING_DAYS = 7
 
 class SubscriptionError(Exception):
     """Base exception for subscription errors."""
-    pass
 
 
 class SubscriptionNotFoundError(SubscriptionError):
     """Subscription not found."""
-    pass
 
 
 class SubscriptionAlreadyExistsError(SubscriptionError):
     """Company already has an active subscription."""
-    pass
 
 
 class InvalidVariantError(SubscriptionError):
     """Invalid variant specified."""
-    pass
 
 
 class InvalidStatusTransitionError(SubscriptionError):
     """Invalid subscription status transition."""
-    pass
 
 
 class DowngradeUndoExpiredError(SubscriptionError):
     """Downgrade undo window has expired."""
-    pass
 
 
 class SubscriptionService:
@@ -149,7 +142,10 @@ class SubscriptionService:
             )
         return freq_lower
 
-    def _get_variant_price(self, variant: str, frequency: str = "monthly") -> Decimal:
+    def _get_variant_price(
+            self,
+            variant: str,
+            frequency: str = "monthly") -> Decimal:
         """Get price for a variant based on billing frequency."""
         variant_type = VariantType(variant)
         limits = VARIANT_LIMITS[variant_type]
@@ -187,12 +183,15 @@ class SubscriptionService:
             end_candidate_366 = start + timedelta(days=366)
             # Check if any leap day falls within the period by examining
             # whether the next calendar year is a leap year and the period
-            # crosses into it, or the start year is leap and start is before Feb 29
+            # crosses into it, or the start year is leap and start is before
+            # Feb 29
             start_year = start.year
             next_year = start_year + 1
             use_366 = False
             # Case 1: Start year is leap and start is before Feb 29
-            if calendar.isleap(start_year) and (start.month < 2 or (start.month == 2 and start.day <= 29)):
+            if calendar.isleap(start_year) and (
+                start.month < 2 or (
+                    start.month == 2 and start.day <= 29)):
                 use_366 = True
             # Case 2: Next year is leap (period crosses into a leap year)
             if calendar.isleap(next_year):
@@ -202,7 +201,8 @@ class SubscriptionService:
             # P1: Monthly = exactly 30 days
             return start + timedelta(days=BILLING_PERIOD_DAYS)
 
-    def _calculate_period_days(self, billing_frequency: str = "monthly") -> int:
+    def _calculate_period_days(
+            self, billing_frequency: str = "monthly") -> int:
         """
         Get the number of days in a billing period.
 
@@ -348,7 +348,8 @@ class SubscriptionService:
             # Calculate billing period
             now = datetime.now(timezone.utc)
             period_end = self._calculate_period_end(now, billing_frequency)
-            period_days = self._calculate_period_days_for_range(now, period_end)
+            period_days = self._calculate_period_days_for_range(
+                now, period_end)
 
             # Build metadata JSON with Paddle sync info
             metadata = None
@@ -357,7 +358,7 @@ class SubscriptionService:
                     "paddle_sync_pending": True,
                     "paddle_creation_failed": True,
                     "note": "Paddle subscription creation failed; "
-                           "retry via reconciliation or manual setup",
+                    "retry via reconciliation or manual setup",
                 })
 
             # Create subscription record
@@ -394,7 +395,9 @@ class SubscriptionService:
 
             return self._to_subscription_info(subscription)
 
-    async def get_subscription(self, company_id: UUID) -> Optional[SubscriptionInfo]:
+    async def get_subscription(
+            self,
+            company_id: UUID) -> Optional[SubscriptionInfo]:
         """
         Get subscription details for a company.
 
@@ -636,9 +639,8 @@ class SubscriptionService:
                     "effective_date": subscription.current_period_end,
                 },
                 "message": (
-                    f"Downgrade to {new_variant} scheduled for "
-                    f"{subscription.current_period_end.isoformat() if subscription.current_period_end else 'next billing cycle'}"
-                ),
+                    f"Downgrade to {new_variant} scheduled for " f"{
+                        subscription.current_period_end.isoformat() if subscription.current_period_end else 'next billing cycle'}"),
             }
 
     # ═══════════════════════════════════════════════════════════════════
@@ -693,8 +695,7 @@ class SubscriptionService:
                         )
                     except PaddleError as e:
                         logger.warning(
-                            "subscription_paddle_cancel_failed error=%s", str(e)
-                        )
+                            "subscription_paddle_cancel_failed error=%s", str(e))
             else:
                 subscription.cancel_at_period_end = True
 
@@ -708,8 +709,7 @@ class SubscriptionService:
                         )
                     except PaddleError as e:
                         logger.warning(
-                            "subscription_paddle_cancel_failed error=%s", str(e)
-                        )
+                            "subscription_paddle_cancel_failed error=%s", str(e))
 
             # Create cancellation request record
             cancellation = CancellationRequest(
@@ -759,7 +759,7 @@ class SubscriptionService:
         with SessionLocal() as db:
             subscription = db.query(Subscription).filter(
                 Subscription.company_id == str(company_id),
-                Subscription.cancel_at_period_end == True,
+                Subscription.cancel_at_period_end,
                 Subscription.status == SubscriptionStatus.ACTIVE.value,
             ).with_for_update().first()
 
@@ -839,10 +839,9 @@ class SubscriptionService:
             elapsed = now - executed_at
             if elapsed.total_seconds() > DOWNGRADE_UNDO_WINDOW_HOURS * 3600:
                 raise DowngradeUndoExpiredError(
-                    f"Downgrade undo window expired. "
-                    f"Downgrade was executed {elapsed.total_seconds() / 3600:.1f} "
-                    f"hours ago (limit: {DOWNGRADE_UNDO_WINDOW_HOURS} hours)."
-                )
+                    f"Downgrade undo window expired. " f"Downgrade was executed {
+                        elapsed.total_seconds() /
+                        3600:.1f} " f"hours ago (limit: {DOWNGRADE_UNDO_WINDOW_HOURS} hours).")
 
             # Restore previous tier
             old_tier = subscription.previous_tier
@@ -953,13 +952,15 @@ class SubscriptionService:
                 subscription, "days_in_period", None
             ) or self._calculate_period_days(current_frequency)
 
-            credit = (old_price / Decimal(max(old_period_days, 1))) * Decimal(max(remaining_days, 0))
+            credit = (old_price / Decimal(max(old_period_days, 1))) * \
+                Decimal(max(remaining_days, 0))
 
             # Calculate charge for new frequency
             new_price = self._get_variant_price(variant, new_frequency)
             new_period_days = self._calculate_period_days(new_frequency)
 
-            charge = (new_price / Decimal(max(new_period_days, 1))) * Decimal(max(remaining_days, 0))
+            charge = (new_price / Decimal(max(new_period_days, 1))) * \
+                Decimal(max(remaining_days, 0))
 
             net_charge = charge - credit
 
@@ -1069,10 +1070,11 @@ class SubscriptionService:
                         "error": str(e)[:200],
                     })
 
-            # D3: Find subscriptions with scheduled cancellation (no pending downgrade)
+            # D3: Find subscriptions with scheduled cancellation (no pending
+            # downgrade)
             pending_cancellations = db.query(Subscription).filter(
                 Subscription.status == SubscriptionStatus.ACTIVE.value,
-                Subscription.cancel_at_period_end == True,
+                Subscription.cancel_at_period_end,
                 Subscription.pending_downgrade_tier.is_(None),
                 Subscription.current_period_end <= now,
             ).all()
@@ -1100,7 +1102,8 @@ class SubscriptionService:
                 from app.services.variant_addon_service import get_variant_addon_service
                 addon_service = get_variant_addon_service()
                 variant_results = addon_service.process_variant_period_end()
-                results["variants_archived"] = variant_results.get("archived_count", 0)
+                results["variants_archived"] = variant_results.get(
+                    "archived_count", 0)
                 if variant_results.get("errors"):
                     results["errors"].extend([
                         {"type": "variant_archival", "error": e}
@@ -1159,7 +1162,8 @@ class SubscriptionService:
 
         # Calculate new period
         new_period_end = self._calculate_period_end(now, billing_frequency)
-        new_period_days = self._calculate_period_days_for_range(now, new_period_end)
+        new_period_days = self._calculate_period_days_for_range(
+            now, new_period_end)
         subscription.current_period_start = now
         subscription.current_period_end = new_period_end
         subscription.days_in_period = new_period_days
@@ -1302,7 +1306,7 @@ class SubscriptionService:
             member_limit = new_limits.get("team_members", 3)
             active_members = db.query(User).filter(
                 User.company_id == company_id,
-                User.is_active == True,
+                User.is_active,
                 User.role != "owner",
             ).order_by(User.created_at.asc()).all()
 
@@ -1336,7 +1340,8 @@ class SubscriptionService:
             if voice_limit < old_voice_slots:
                 disabled = old_voice_slots - voice_limit
                 cleanup["voice_channels_disabled"] = disabled
-                # TODO: Integration with voice service to actually disable channels
+                # TODO: Integration with voice service to actually disable
+                # channels
         except Exception as e:
             logger.warning("voice_cleanup_failed error=%s", str(e))
 
@@ -1405,7 +1410,7 @@ class SubscriptionService:
             from database.models.core import User
             viewer_members = db.query(User).filter(
                 User.company_id == company_id,
-                User.is_active == True,
+                User.is_active,
                 User.role == "viewer",
             ).all()
 
@@ -1420,7 +1425,7 @@ class SubscriptionService:
             from database.models.provisioning import KnowledgeBaseDocument
             archived_docs = db.query(KnowledgeBaseDocument).filter(
                 KnowledgeBaseDocument.company_id == company_id,
-                KnowledgeBaseDocument.is_archived == True,
+                KnowledgeBaseDocument.is_archived,
             ).limit(restored_limits.get("kb_docs", 100)).all()
 
             for doc in archived_docs:
@@ -1568,7 +1573,7 @@ class SubscriptionService:
             member_limit = new_limits.get("team_members", 3)
             member_count = db.query(User).filter(
                 User.company_id == subscription.company_id,
-                User.is_active == True,
+                User.is_active,
                 User.role != "owner",
             ).count()
             team_downgraded = max(0, member_count - member_limit)
@@ -1696,7 +1701,8 @@ class SubscriptionService:
 
             for sub in upcoming_renewals:
                 try:
-                    freq = getattr(sub, "billing_frequency", "monthly") or "monthly"
+                    freq = getattr(
+                        sub, "billing_frequency", "monthly") or "monthly"
                     logger.info(
                         "renewal_reminder company_id=%s tier=%s freq=%s ends=%s",
                         sub.company_id,
@@ -1723,7 +1729,8 @@ class SubscriptionService:
 
             for sub in expired:
                 try:
-                    freq = getattr(sub, "billing_frequency", "monthly") or "monthly"
+                    freq = getattr(
+                        sub, "billing_frequency", "monthly") or "monthly"
                     new_period_end = self._calculate_period_end(now, freq)
                     new_period_days = self._calculate_period_days_for_range(
                         now, new_period_end
@@ -1797,7 +1804,8 @@ class SubscriptionService:
             )
 
         if billing_cycle_start.tzinfo is None:
-            billing_cycle_start = billing_cycle_start.replace(tzinfo=timezone.utc)
+            billing_cycle_start = billing_cycle_start.replace(
+                tzinfo=timezone.utc)
         if billing_cycle_end.tzinfo is None:
             billing_cycle_end = billing_cycle_end.replace(tzinfo=timezone.utc)
 
@@ -1863,10 +1871,10 @@ class SubscriptionService:
 
         # Monthly price map
         monthly_map = {
-            "mini_parwa": getattr(settings, "PADDLE_PRICE_MINI_PARWA", "pri_mini_parwa"),
-            "parwa": getattr(settings, "PADDLE_PRICE_PARWA", "pri_parwa"),
-            "high_parwa": getattr(settings, "PADDLE_PRICE_HIGH_PARWA", "pri_high_parwa"),
-        }
+            "mini_parwa": getattr(
+                settings, "PADDLE_PRICE_MINI_PARWA", "pri_mini_parwa"), "parwa": getattr(
+                settings, "PADDLE_PRICE_PARWA", "pri_parwa"), "high_parwa": getattr(
+                settings, "PADDLE_PRICE_HIGH_PARWA", "pri_high_parwa"), }
 
         if billing_frequency == "yearly":
             # Y2: Load yearly price IDs from env
@@ -1876,11 +1884,13 @@ class SubscriptionService:
                     import json
                     yearly_ids = json.loads(yearly_ids_str)
                     yearly_map = {
-                        "mini_parwa": yearly_ids.get("mini_parwa", "pri_mini_parwa_yearly"),
-                        "parwa": yearly_ids.get("parwa", "pri_parwa_yearly"),
-                        "high_parwa": yearly_ids.get("high_parwa", "pri_high_parwa_yearly"),
-                    }
-                    return yearly_map.get(variant, monthly_map.get(variant, "pri_mini_parwa"))
+                        "mini_parwa": yearly_ids.get(
+                            "mini_parwa", "pri_mini_parwa_yearly"), "parwa": yearly_ids.get(
+                            "parwa", "pri_parwa_yearly"), "high_parwa": yearly_ids.get(
+                            "high_parwa", "pri_high_parwa_yearly"), }
+                    return yearly_map.get(
+                        variant, monthly_map.get(
+                            variant, "pri_mini_parwa"))
                 except (json.JSONDecodeError, TypeError):
                     pass
 
@@ -1890,11 +1900,15 @@ class SubscriptionService:
                 "parwa": "pri_parwa_yearly",
                 "high_parwa": "pri_high_parwa_yearly",
             }
-            return yearly_defaults.get(variant, monthly_map.get(variant, "pri_mini_parwa"))
+            return yearly_defaults.get(
+                variant, monthly_map.get(
+                    variant, "pri_mini_parwa"))
 
         return monthly_map.get(variant, "pri_mini_parwa")
 
-    def _to_subscription_info(self, subscription: Subscription) -> SubscriptionInfo:
+    def _to_subscription_info(
+            self,
+            subscription: Subscription) -> SubscriptionInfo:
         """Convert Subscription model to SubscriptionInfo schema."""
         variant = VariantType(subscription.tier)
         limits_data = VARIANT_LIMITS.get(variant)
@@ -1933,7 +1947,6 @@ class SubscriptionService:
             days_in_period=getattr(subscription, "days_in_period", None),
             limits=limits,
         )
-
 
     # ═══════════════════════════════════════════════════════════════════
     # R1-R3: Re-subscription
@@ -2002,17 +2015,20 @@ class SubscriptionService:
 
             # Determine retention status
             now = datetime.now(timezone.utc)
-            service_stopped_at = getattr(canceled_sub, "service_stopped_at", None)
+            service_stopped_at = getattr(
+                canceled_sub, "service_stopped_at", None)
             if not service_stopped_at:
                 # Use the canceled_at or created_at as fallback
                 service_stopped_at = canceled_sub.updated_at or canceled_sub.created_at
 
             if service_stopped_at and service_stopped_at.tzinfo is None:
-                service_stopped_at = service_stopped_at.replace(tzinfo=timezone.utc)
+                service_stopped_at = service_stopped_at.replace(
+                    tzinfo=timezone.utc)
 
             retention_deadline = (
-                service_stopped_at + timedelta(days=30) if service_stopped_at else None
-            )
+                service_stopped_at +
+                timedelta(
+                    days=30) if service_stopped_at else None)
 
             within_retention = (
                 retention_deadline is not None and now < retention_deadline
@@ -2077,7 +2093,8 @@ class SubscriptionService:
 
             # Create new subscription record
             period_end = self._calculate_period_end(now, billing_frequency)
-            period_days = self._calculate_period_days_for_range(now, period_end)
+            period_days = self._calculate_period_days_for_range(
+                now, period_end)
 
             new_subscription = Subscription(
                 company_id=str(company_id),
@@ -2307,7 +2324,8 @@ class SubscriptionService:
                 subscription, "billing_frequency", "monthly"
             ) or "monthly"
 
-            original_price = self._get_variant_price(variant, billing_frequency)
+            original_price = self._get_variant_price(
+                variant, billing_frequency)
             discounted_price = original_price * Decimal("0.80")  # 20% off
             discounted_price = discounted_price.quantize(Decimal("0.01"))
 
@@ -2396,7 +2414,7 @@ class SubscriptionService:
             from database.models.core import User
             active_members = db.query(User).filter(
                 User.company_id == company_id,
-                User.is_active == True,
+                User.is_active,
                 User.role.notin_(["owner", "admin"]),
             ).all()
 
@@ -2415,7 +2433,7 @@ class SubscriptionService:
             from database.models.core import Channel
             active_channels = db.query(Channel).filter(
                 Channel.company_id == company_id,
-                Channel.is_enabled == True,
+                Channel.is_enabled,
             ).all()
 
             for channel in active_channels:

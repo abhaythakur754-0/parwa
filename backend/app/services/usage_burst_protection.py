@@ -27,8 +27,6 @@ from __future__ import annotations
 
 import threading
 import time
-import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -157,7 +155,6 @@ class BurstProtectionConfig:
 
 class BurstProtectionError(ParwaBaseError):
     """Raised when a burst-protection policy is violated."""
-    pass
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -621,7 +618,6 @@ class UsageBurstProtectionService:
                 key = self._redis_throttle_key(company_id)
                 state = self._redis.hgetall(key)
                 if state:
-                    import json
                     expires_at = float(state.get(b"expires_at", 0))
                     if expires_at > time.time():
                         return {
@@ -1222,7 +1218,9 @@ class UsageBurstProtectionService:
                                 error=str(exc),
                             )
 
-                    logger.info("state_reset_for_company", company_id=company_id)
+                    logger.info(
+                        "state_reset_for_company",
+                        company_id=company_id)
                 else:
                     self._request_history.clear()
                     self._peak_rpm.clear()

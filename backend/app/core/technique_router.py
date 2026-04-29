@@ -20,7 +20,6 @@ Parent Framework: TRIVYA Optimization Framework
 
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set
@@ -237,7 +236,7 @@ class QuerySignals:
     monetary_value: float = 0.0            # $0.00+
     turn_count: int = 0                    # 0+
     intent_type: str = "general"           # billing/technical/general/etc.
-    previous_response_status: str = "none" # accepted/rejected/corrected/none
+    previous_response_status: str = "none"  # accepted/rejected/corrected/none
     reasoning_loop_detected: bool = False
     resolution_path_count: int = 1         # 1+
     external_data_required: bool = False
@@ -361,7 +360,8 @@ class TechniqueActivation:
 class RouterResult:
     """Output of the Technique Router for a single query."""
 
-    activated_techniques: List[TechniqueActivation] = field(default_factory=list)
+    activated_techniques: List[TechniqueActivation] = field(
+        default_factory=list)
     skipped_techniques: List[Dict[str, Any]] = field(default_factory=list)
     trigger_rules_evaluated: int = 0
     trigger_rules_matched: int = 0
@@ -489,10 +489,11 @@ class TechniqueRouter:
                             new_activations.append(
                                 TechniqueActivation(
                                     technique_id=fb_tid,
-                                    triggered_by=[f"fallback_from_{activation.technique_id.value}"],
+                                    triggered_by=[
+                                        f"fallback_from_{
+                                            activation.technique_id.value}"],
                                     tier=TechniqueTier.TIER_2,
-                                )
-                            )
+                                ))
                     new_skipped.append({
                         "technique_id": activation.technique_id.value,
                         "reason": "token_budget_exceeded",

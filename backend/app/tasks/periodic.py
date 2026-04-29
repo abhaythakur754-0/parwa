@@ -673,7 +673,6 @@ def reindex_all_knowledge_documents(self):
     """
     try:
         from database.base import SessionLocal
-        from database.models.onboarding import KnowledgeDocument
         from sqlalchemy import text
 
         db = SessionLocal()

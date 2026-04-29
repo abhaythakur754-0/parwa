@@ -11,10 +11,9 @@ Total: 100+ tests covering every gap fix.
 Parent: Week 9 Gap Fix Sprint
 """
 
-import asyncio
 import hashlib
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 from app.core.sentiment_engine import (
     SentimentAnalyzer,
@@ -28,7 +27,7 @@ from app.core.response_formatters import (
 )
 from app.core.language_pipeline import LanguagePipeline
 from app.services.sentiment_technique_mapper import SentimentTechniqueMapper
-from app.core.clara_quality_gate import CLARAQualityGate, BrandVoiceConfig
+from app.core.clara_quality_gate import CLARAQualityGate
 from app.core.classification_engine import ClassificationEngine
 from app.core.prompt_templates import PromptTemplateManager
 from app.core.signal_extraction import SignalExtractor, SignalExtractionRequest
@@ -71,19 +70,22 @@ class TestG9Gap02_SentimentCacheHistory:
         """Same history content → deterministic hash."""
         h1 = ["I need help", "Still waiting", "This is terrible"]
         h2 = ["I need help", "Still waiting", "This is terrible"]
-        assert SentimentAnalyzer._compute_history_hash(h1) == SentimentAnalyzer._compute_history_hash(h2)
+        assert SentimentAnalyzer._compute_history_hash(
+            h1) == SentimentAnalyzer._compute_history_hash(h2)
 
     def test_history_hash_uses_last_3_only(self):
         """Only last 3 messages should influence the hash."""
         h_short = ["msg1", "msg2", "msg3"]
         h_long = ["ignored", "ignored", "msg1", "msg2", "msg3"]
-        assert SentimentAnalyzer._compute_history_hash(h_short) == SentimentAnalyzer._compute_history_hash(h_long)
+        assert SentimentAnalyzer._compute_history_hash(
+            h_short) == SentimentAnalyzer._compute_history_hash(h_long)
 
     def test_history_hash_case_insensitive(self):
         """History hash should be case-insensitive."""
         h1 = ["Hello World"]
         h2 = ["hello world"]
-        assert SentimentAnalyzer._compute_history_hash(h1) == SentimentAnalyzer._compute_history_hash(h2)
+        assert SentimentAnalyzer._compute_history_hash(
+            h1) == SentimentAnalyzer._compute_history_hash(h2)
 
     @pytest.mark.asyncio
     async def test_same_query_different_history_different_cache_keys(self):
@@ -108,7 +110,8 @@ class TestG9Gap03_FrustrationWordBoundary:
         detector = FrustrationDetector()
         score = detector.detect("I love the new tissue design")
         # 'issue' is in FRUSTRATION_MILD (word-boundary now), 'tissue' != 'issue'
-        mild_contribution = 0  # word-boundary: 'issue' not in words set {'i', 'love', 'the', ...}
+        # word-boundary: 'issue' not in words set {'i', 'love', 'the', ...}
+        mild_contribution = 0
         assert score < 10, f"Expected low score for 'tissue', got {score}"
 
     def test_badge_does_not_trigger_bad(self):
@@ -143,7 +146,8 @@ class TestG9Gap03_FrustrationWordBoundary:
         detector = FrustrationDetector()
         score1 = detector.detect("This is very annoying")
         score2 = detector.detect("I am annoyed")
-        # Both should trigger since 'annoyed' is in FRUSTRATION_MODERATE (substring)
+        # Both should trigger since 'annoyed' is in FRUSTRATION_MODERATE
+        # (substring)
         assert score1 > 0
         assert score2 >= 5  # 'annoyed' exactly matches a moderate word
 
@@ -218,7 +222,8 @@ class TestG9Gap06_BoldFormatterCodeBlocks:
         """Code with many * should not trigger excessive italic removal."""
         response = "```javascript\nconst a = 1 * 2 * 3 * 4 * 5;\nconst b = x * y * z;\n```\nNormal text with *one* italic."
         result = self.formatter.format(response, self.context)
-        # The *one* italic outside code block should be preserved (< 3 italic sections)
+        # The *one* italic outside code block should be preserved (< 3 italic
+        # sections)
         assert "*one*" in result or "one" in result
 
     def test_url_with_asterisks_in_code_block(self):
@@ -259,7 +264,8 @@ class TestG9Gap07_RAGKeywordFallbackPublic:
     def test_get_all_documents_returns_data_for_known_company(self):
         """get_all_documents returns data after adding documents."""
         store = MockVectorStore()
-        store.add_document("doc1", [{"content": "Test content", "metadata": {"section": "intro"}}], "co1")
+        store.add_document(
+            "doc1", [{"content": "Test content", "metadata": {"section": "intro"}}], "co1")
         result = store.get_all_documents("co1")
         assert "doc1" in result
 
@@ -290,13 +296,15 @@ class TestG9Gap09_UrgencyWordBoundary:
         """'hours' as standalone word should trigger urgency."""
         score = self.scorer.score("I've been waiting for hours", 10)
         assert isinstance(score, str)
-        assert score in ("low", "medium", "high")  # 'hours' + question mark density
+        # 'hours' + question mark density
+        assert score in ("low", "medium", "high")
 
     def test_multword_keyword_right_now_triggers(self):
         """Multi-word keyword 'right now' should trigger urgency."""
         score = self.scorer.score("Fix this right now", 10)
         assert isinstance(score, str)
-        assert score in ("medium", "high", "critical")  # 'right now' has weight 0.85
+        # 'right now' has weight 0.85
+        assert score in ("medium", "high", "critical")
 
     def test_emergency_triggers_critical(self):
         """'emergency' as a single word should trigger high urgency."""
@@ -316,7 +324,8 @@ class TestG9Gap09_UrgencyWordBoundary:
     def test_emergency_triggers_critical(self):
         """'emergency' as a single word should trigger high urgency."""
         score = self.scorer.score("This is an emergency", 10)
-        assert score in ("medium", "high", "critical")  # 'emergency' has weight 0.95
+        # 'emergency' has weight 0.95
+        assert score in ("medium", "high", "critical")
 
 
 class TestG9Gap10_LanguagePipelineCacheLanguage:
@@ -328,7 +337,8 @@ class TestG9Gap10_LanguagePipelineCacheLanguage:
         pipeline = LanguagePipeline()
         # Simulate cache key computation
         query = "Hola, necesito ayuda"
-        query_hash = hashlib.sha256(query.lower().strip().encode("utf-8")).hexdigest()[:16]
+        query_hash = hashlib.sha256(
+            query.lower().strip().encode("utf-8")).hexdigest()[:16]
         key_en = f"lang_pipeline:co1:{query_hash}:en"
         key_es = f"lang_pipeline:co1:{query_hash}:es"
         key_none = f"lang_pipeline:co1:{query_hash}:none"
@@ -340,7 +350,8 @@ class TestG9Gap10_LanguagePipelineCacheLanguage:
         """None tenant_language should use 'none' in cache key."""
         pipeline = LanguagePipeline()
         query = "Bonjour"
-        query_hash = hashlib.sha256(query.lower().strip().encode("utf-8")).hexdigest()[:16]
+        query_hash = hashlib.sha256(
+            query.lower().strip().encode("utf-8")).hexdigest()[:16]
         expected = f"lang_pipeline:co1:{query_hash}:none"
         assert expected.endswith(":none")
 
@@ -424,7 +435,8 @@ class TestD6Gap01_CacheTTLExpiry:
         expected_hash = extractor._compute_query_hash(request.query)
         expected_key = f"signal_cache:co1:parwa:{expected_hash}"
         # Verify the hash computation
-        assert expected_hash == hashlib.sha256("refund my order".lower().strip().encode()).hexdigest()[:16]
+        assert expected_hash == hashlib.sha256(
+            "refund my order".lower().strip().encode()).hexdigest()[:16]
         assert "signal_cache:co1:parwa:" in expected_key
 
     @pytest.mark.asyncio
@@ -486,11 +498,14 @@ class TestD6Gap02_CLARAContextParameter:
             company_id="co1",
             context=context,
         )
-        logic_stage = next((s for s in result.stages if s.stage.value == "logic_check"), None)
+        logic_stage = next(
+            (s for s in result.stages if s.stage.value == "logic_check"), None)
         assert logic_stage is not None
         # order_id 'ord-12345' should be flagged as not in response
-        has_order_issue = any("order_id" in issue for issue in logic_stage.issues)
-        assert has_order_issue, f"Expected order_id issue, got: {logic_stage.issues}"
+        has_order_issue = any(
+            "order_id" in issue for issue in logic_stage.issues)
+        assert has_order_issue, f"Expected order_id issue, got: {
+            logic_stage.issues}"
 
     @pytest.mark.asyncio
     async def test_logic_check_passes_with_context_in_response(self):
@@ -502,10 +517,13 @@ class TestD6Gap02_CLARAContextParameter:
             company_id="co1",
             context=context,
         )
-        logic_stage = next((s for s in result.stages if s.stage.value == "logic_check"), None)
+        logic_stage = next(
+            (s for s in result.stages if s.stage.value == "logic_check"), None)
         assert logic_stage is not None
-        has_order_issue = any("order_id" in issue for issue in logic_stage.issues)
-        assert not has_order_issue, f"Should not have order_id issue: {logic_stage.issues}"
+        has_order_issue = any(
+            "order_id" in issue for issue in logic_stage.issues)
+        assert not has_order_issue, f"Should not have order_id issue: {
+            logic_stage.issues}"
 
     @pytest.mark.asyncio
     async def test_logic_check_none_context_no_error(self):
@@ -548,11 +566,14 @@ class TestD6Gap03_PIIFalsePositive:
             company_id="co1",
             context={},
         )
-        delivery_stage = next((s for s in result.stages if s.stage.value == "delivery_check"), None)
+        delivery_stage = next(
+            (s for s in result.stages if s.stage.value == "delivery_check"), None)
         assert delivery_stage is not None
         # Should NOT have phone PII issue since it's near 'tracking'
-        phone_issues = [i for i in delivery_stage.issues if "phone" in i.lower()]
-        assert len(phone_issues) == 0, f"Tracking number falsely flagged as phone: {delivery_stage.issues}"
+        phone_issues = [
+            i for i in delivery_stage.issues if "phone" in i.lower()]
+        assert len(phone_issues) == 0, f"Tracking number falsely flagged as phone: {
+            delivery_stage.issues}"
 
     @pytest.mark.asyncio
     async def test_order_number_near_order_not_flagged(self):
@@ -564,8 +585,10 @@ class TestD6Gap03_PIIFalsePositive:
             company_id="co1",
             context={},
         )
-        delivery_stage = next((s for s in result.stages if s.stage.value == "delivery_check"), None)
-        phone_issues = [i for i in delivery_stage.issues if "phone" in i.lower()]
+        delivery_stage = next(
+            (s for s in result.stages if s.stage.value == "delivery_check"), None)
+        phone_issues = [
+            i for i in delivery_stage.issues if "phone" in i.lower()]
         assert len(phone_issues) == 0
 
     @pytest.mark.asyncio
@@ -578,8 +601,10 @@ class TestD6Gap03_PIIFalsePositive:
             company_id="co1",
             context={},
         )
-        delivery_stage = next((s for s in result.stages if s.stage.value == "delivery_check"), None)
-        phone_issues = [i for i in delivery_stage.issues if "phone" in i.lower()]
+        delivery_stage = next(
+            (s for s in result.stages if s.stage.value == "delivery_check"), None)
+        phone_issues = [
+            i for i in delivery_stage.issues if "phone" in i.lower()]
         assert len(phone_issues) > 0
 
     @pytest.mark.asyncio
@@ -592,8 +617,10 @@ class TestD6Gap03_PIIFalsePositive:
             company_id="co1",
             context={"has_tracking_number": True},
         )
-        delivery_stage = next((s for s in result.stages if s.stage.value == "delivery_check"), None)
-        phone_issues = [i for i in delivery_stage.issues if "phone" in i.lower()]
+        delivery_stage = next(
+            (s for s in result.stages if s.stage.value == "delivery_check"), None)
+        phone_issues = [
+            i for i in delivery_stage.issues if "phone" in i.lower()]
         assert len(phone_issues) == 0
 
 
@@ -616,7 +643,9 @@ class TestD6Gap05_CLARAPipelineTimeout:
         )
         assert len(result.stages) == 5
         # All stages should either pass or timeout_pass (both are OK)
-        ok_stages = [s for s in result.stages if s.result.value in ("pass", "timeout_pass")]
+        ok_stages = [
+            s for s in result.stages if s.result.value in (
+                "pass", "timeout_pass")]
         assert len(ok_stages) == 5
 
     @pytest.mark.asyncio

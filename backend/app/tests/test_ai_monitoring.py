@@ -18,13 +18,6 @@ Comprehensive tests covering:
 """
 
 from __future__ import annotations
-
-import os
-
-os.environ["ENVIRONMENT"] = "test"
-
-import pytest
-
 from app.core.ai_monitoring_service import (
     AIMonitoringService,
     AlertCondition,
@@ -33,12 +26,10 @@ from app.core.ai_monitoring_service import (
     ConfidenceDistribution,
     DashboardSnapshot,
     ErrorMetrics,
-    GuardrailLayerBreakdown,
     GuardrailStats,
     LatencyStats,
     MetricPoint,
     ProviderComparison,
-    TimeWindow,
     TokenUsageMetrics,
     _confidence_bucket,
     _estimate_tokens,
@@ -47,6 +38,11 @@ from app.core.ai_monitoring_service import (
     _percentile,
     _window_cutoff,
 )
+import pytest
+
+import os
+
+os.environ["ENVIRONMENT"] = "test"
 
 
 COMPANY_ID = "test-company-monitoring"
@@ -61,16 +57,32 @@ def monitor() -> AIMonitoringService:
     return svc
 
 
-def _sample_routing(provider="google", model_id="gemini-2.0-flash", tier="medium", step="cot_reasoning"):
-    return {"provider": provider, "model_id": model_id, "tier": tier, "step": step}
+def _sample_routing(
+        provider="google",
+        model_id="gemini-2.0-flash",
+        tier="medium",
+        step="cot_reasoning"):
+    return {
+        "provider": provider,
+        "model_id": model_id,
+        "tier": tier,
+        "step": step}
 
 
 def _sample_confidence(score=85.0, passed=True, threshold=85.0):
     return {"overall_score": score, "passed": passed, "threshold": threshold}
 
 
-def _sample_guardrails(passed=True, blocked_count=0, flagged_count=0, results=None):
-    return {"passed": passed, "blocked_count": blocked_count, "flagged_count": flagged_count, "results": results or []}
+def _sample_guardrails(
+        passed=True,
+        blocked_count=0,
+        flagged_count=0,
+        results=None):
+    return {
+        "passed": passed,
+        "blocked_count": blocked_count,
+        "flagged_count": flagged_count,
+        "results": results or []}
 
 
 # ════════════════════════════════════════════════════════════════
@@ -189,7 +201,8 @@ class TestRecordQuery:
         assert result["variant_type"] == "high_parwa"
 
     def test_record_stores_latency(self, monitor):
-        result = monitor.record_query(COMPANY_ID, "parwa", "Q", "R", latency_ms=250.5)
+        result = monitor.record_query(
+            COMPANY_ID, "parwa", "Q", "R", latency_ms=250.5)
         assert result["latency_ms"] == 250.5
 
     def test_record_stores_confidence(self, monitor):
@@ -301,7 +314,8 @@ class TestLatencyMetrics:
 
     def test_percentiles(self, monitor):
         for ms in range(10, 110, 10):
-            monitor.record_query(COMPANY_ID, "parwa", "Q", "R", latency_ms=float(ms))
+            monitor.record_query(COMPANY_ID, "parwa", "Q",
+                                 "R", latency_ms=float(ms))
         stats = monitor.get_latency_stats(COMPANY_ID)
         assert stats.p50 >= 40
         assert stats.p90 >= 85
@@ -624,7 +638,8 @@ class TestAlertConditions:
         assert "error" in critical[0].message.lower()
 
     def test_warning_error_rate_alert(self, monitor):
-        # 3 errors out of 10 = 30% which is > 10% but < 25%... actually need >10%
+        # 3 errors out of 10 = 30% which is > 10% but < 25%... actually need
+        # >10%
         for _ in range(7):
             monitor.record_query(COMPANY_ID, "parwa", "Q", "R")
         for _ in range(3):
@@ -817,7 +832,12 @@ class TestEdgeCases:
 
     def test_multiple_companies_isolated(self, monitor):
         monitor.record_query(COMPANY_ID, "parwa", "Q", "R", latency_ms=100)
-        monitor.record_query(ANOTHER_COMPANY, "parwa", "Q", "R", latency_ms=200)
+        monitor.record_query(
+            ANOTHER_COMPANY,
+            "parwa",
+            "Q",
+            "R",
+            latency_ms=200)
         stats1 = monitor.get_latency_stats(COMPANY_ID)
         stats2 = monitor.get_latency_stats(ANOTHER_COMPANY)
         assert stats1.avg == 100.0
@@ -843,7 +863,14 @@ class TestDataClassStructure:
         assert mp.value == 42.0
 
     def test_latency_stats(self):
-        ls = LatencyStats(avg=1.0, p50=2.0, p90=3.0, p99=4.0, min_val=0.5, max_val=5.0, count=10)
+        ls = LatencyStats(
+            avg=1.0,
+            p50=2.0,
+            p90=3.0,
+            p99=4.0,
+            min_val=0.5,
+            max_val=5.0,
+            count=10)
         assert ls.avg == 1.0
 
     def test_confidence_distribution(self):

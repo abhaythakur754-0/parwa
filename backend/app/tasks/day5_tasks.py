@@ -154,16 +154,14 @@ def weekly_invoice_audit(self) -> dict:
         result = service.run_weekly_invoice_audit()
 
         logger.info(
-            "weekly_invoice_audit_completed",
-            extra={
-                "task": self.name,
-                "companies_audited": result.get("companies_audited", 0),
-                "total_matched": result.get("total_matched", 0),
-                "total_mismatched": result.get("total_mismatched", 0),
-                "companies_with_issues": result.get("companies_with_issues", 0),
-                "errors": len(result.get("errors", [])),
-            },
-        )
+            "weekly_invoice_audit_completed", extra={
+                "task": self.name, "companies_audited": result.get(
+                    "companies_audited", 0), "total_matched": result.get(
+                    "total_matched", 0), "total_mismatched": result.get(
+                    "total_mismatched", 0), "companies_with_issues": result.get(
+                        "companies_with_issues", 0), "errors": len(
+                            result.get(
+                                "errors", [])), }, )
 
         return result
 
@@ -255,7 +253,7 @@ def check_spending_caps(self) -> dict:
         Dict with check summary: companies_checked, alerts_triggered, errors
     """
     try:
-        from app.services.spending_cap_service import SpendingCapService, DEFAULT_THRESHOLDS
+        from app.services.spending_cap_service import SpendingCapService
 
         cap_service = SpendingCapService()
 
@@ -301,7 +299,8 @@ def check_spending_caps(self) -> dict:
                     from sqlalchemy import func
                     from database.models.billing_extended import UsageRecord
 
-                    current_month = datetime.now(timezone.utc).strftime("%Y-%m")
+                    current_month = datetime.now(
+                        timezone.utc).strftime("%Y-%m")
 
                     current_overage = (
                         db.query(

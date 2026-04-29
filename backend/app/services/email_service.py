@@ -64,7 +64,8 @@ def _get_redis_client():
         import redis
         settings = get_settings()
         if settings.REDIS_URL:
-            _redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+            _redis_client = redis.from_url(
+                settings.REDIS_URL, decode_responses=True)
             _redis_client.ping()  # validate connection
             return _redis_client
     except Exception as exc:
@@ -94,6 +95,7 @@ def _cb_set(key: str, value: float) -> None:
         except Exception:
             pass
 
+
 BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 
 # Lazy SDK client (BC-008)
@@ -113,7 +115,8 @@ def _get_brevo_client():
         return _brevo_api_client
     try:
         settings = get_settings()
-        configuration = Configuration(api_key={"api-key": settings.BREVO_API_KEY})
+        configuration = Configuration(
+            api_key={"api-key": settings.BREVO_API_KEY})
         api_client = sib_api_v3_sdk.ApiClient(configuration)
         _brevo_api_client = TransactionalEmailsApi(api_client)
         return _brevo_api_client
@@ -304,9 +307,11 @@ def _do_send_email(
                 )
                 # SDK supports text_content and attachment
                 if text_content:
-                    send_email_obj.text_content = text_content  # type: ignore[attr-defined]
+                    # type: ignore[attr-defined]
+                    send_email_obj.text_content = text_content
                 if brevo_attachments:
-                    send_email_obj.attachment = brevo_attachments  # type: ignore[attr-defined]
+                    # type: ignore[attr-defined]
+                    send_email_obj.attachment = brevo_attachments
 
                 result = client.send_transac_email(send_email_obj)
                 if result and hasattr(result, 'message_id'):

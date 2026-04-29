@@ -5,7 +5,6 @@ Tests the wiring of GuardrailsEngine to Smart Router / AI Pipeline.
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
 
 from app.core.guardrails_integration import (
     GuardrailsAction,
@@ -127,7 +126,9 @@ class TestCheckLlmResponse:
             company_id="company1",
         )
         # PII leak guard should catch this
-        assert result.action in [GuardrailsAction.BLOCK, GuardrailsAction.FLAG_FOR_REVIEW]
+        assert result.action in [
+            GuardrailsAction.BLOCK,
+            GuardrailsAction.FLAG_FOR_REVIEW]
 
     def test_company_id_in_result(self, clean_response):
         result = check_llm_response(
@@ -252,7 +253,10 @@ class TestEdgeCases:
             company_id="company1",
         )
         # Should pass topic relevance with matching query
-        assert result.action in [GuardrailsAction.ALLOW, GuardrailsAction.FLAG_FOR_REVIEW, GuardrailsAction.BLOCK]
+        assert result.action in [
+            GuardrailsAction.ALLOW,
+            GuardrailsAction.FLAG_FOR_REVIEW,
+            GuardrailsAction.BLOCK]
 
     def test_unicode_content(self):
         unicode_response = "Hello 你好 مرحبا Привет 🌍"
@@ -261,7 +265,9 @@ class TestEdgeCases:
             original_query="Say hello",
             company_id="company1",
         )
-        assert result.action in [GuardrailsAction.ALLOW, GuardrailsAction.FLAG_FOR_REVIEW]
+        assert result.action in [
+            GuardrailsAction.ALLOW,
+            GuardrailsAction.FLAG_FOR_REVIEW]
 
     def test_code_content_allowed(self):
         """Code snippets should be allowed."""
@@ -409,7 +415,9 @@ class TestGuardrailsPipelineWiring:
             company_id="pii_test_company",
         )
         # Should be blocked or flagged due to PII
-        assert result.action in [GuardrailsAction.BLOCK, GuardrailsAction.FLAG_FOR_REVIEW]
+        assert result.action in [
+            GuardrailsAction.BLOCK,
+            GuardrailsAction.FLAG_FOR_REVIEW]
 
     def test_day4_output_scanners_run_on_clean_output(self):
         """Day 4 scanners should allow clean output."""
@@ -439,9 +447,14 @@ class TestGuardrailsPipelineWiring:
         )
         # Both should detect the legal advice pattern, but actions may differ
         # mini_parwa (HIGH strictness) should be more restrictive
-        assert result_mini.action in [GuardrailsAction.BLOCK, GuardrailsAction.FLAG_FOR_REVIEW]
+        assert result_mini.action in [
+            GuardrailsAction.BLOCK,
+            GuardrailsAction.FLAG_FOR_REVIEW]
         # high_parwa may be more lenient
-        assert result_high.action in [GuardrailsAction.ALLOW, GuardrailsAction.BLOCK, GuardrailsAction.FLAG_FOR_REVIEW]
+        assert result_high.action in [
+            GuardrailsAction.ALLOW,
+            GuardrailsAction.BLOCK,
+            GuardrailsAction.FLAG_FOR_REVIEW]
 
     def test_full_integration_clean_response(self):
         """Full integration: clean query → clean response → ALLOW."""

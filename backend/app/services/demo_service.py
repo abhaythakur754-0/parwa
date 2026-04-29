@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Dict, List, Optional
 import subprocess
 
 from app.logger import get_logger
@@ -148,7 +148,9 @@ class DemoSession:
     message_count: int = 0
     messages: List[Dict[str, Any]] = field(default_factory=list)
     scenarios_completed: List[str] = field(default_factory=list)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(
+        default_factory=lambda: datetime.now(
+            timezone.utc))
     expires_at: Optional[datetime] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -158,7 +160,8 @@ class DemoSession:
         # Set expiry based on variant (30 minutes from now)
         if self.expires_at is None:
             from datetime import timedelta
-            self.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+            self.expires_at = datetime.now(
+                timezone.utc) + timedelta(minutes=30)
 
 
 @dataclass
@@ -216,7 +219,8 @@ Apply brand voice and custom guardrails.
 Max response length: 1000 characters.""",
     }
 
-    system_prompt = system_prompts.get(variant, system_prompts[DemoVariant.PARWA])
+    system_prompt = system_prompts.get(
+        variant, system_prompts[DemoVariant.PARWA])
 
     # Build messages for AI
     messages = [{"role": "system", "content": system_prompt}]
@@ -357,9 +361,8 @@ class DemoService:
 
         if session.status != DemoStatus.ACTIVE:
             return DemoResult(
-                success=False,
-                message=f"Demo session is {session.status.value}. Please start a new demo.",
-            )
+                success=False, message=f"Demo session is {
+                    session.status.value}. Please start a new demo.", )
 
         capabilities = VARIANT_DEMO_CAPABILITIES.get(session.variant, {})
         max_messages = capabilities.get("max_demo_messages", 20)
@@ -397,7 +400,9 @@ class DemoService:
         # Web search (High Parwa only)
         web_search_enabled = capabilities.get("web_search_enabled", False)
         web_results = []
-        if web_search_enabled and any(kw in message.lower() for kw in ["search", "find", "lookup", "compare"]):
+        if web_search_enabled and any(
+            kw in message.lower() for kw in [
+                "search", "find", "lookup", "compare"]):
             web_results = _get_web_search_results(message)
             if web_results:
                 features_used.append("web_search")
@@ -465,7 +470,8 @@ class DemoService:
         filtered = []
         for scenario in all_scenarios:
             if industry in ["ecommerce", "saas", "logistics", "healthcare"]:
-                if scenario.get("industry") == industry or scenario.get("industry") == "ecommerce":
+                if scenario.get("industry") == industry or scenario.get(
+                        "industry") == "ecommerce":
                     filtered.append({
                         "id": scenario.get("id"),
                         "title": scenario.get("title"),
@@ -612,7 +618,8 @@ class DemoService:
             display_name = capabilities.get("display_name", "Parwa")
 
             url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
-            auth = base64.b64encode(f"{account_sid}:{auth_token}".encode()).decode()
+            auth = base64.b64encode(
+                f"{account_sid}:{auth_token}".encode()).decode()
 
             body = f"Thanks for trying PARWA {display_name}! Ready to transform your customer support? Sign up at parwa.ai/pricing"
 

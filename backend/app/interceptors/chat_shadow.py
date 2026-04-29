@@ -13,7 +13,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from database.base import Base, SessionLocal
+from database.base import SessionLocal
 from database.models.shadow_mode import ChatShadowQueue
 from app.interceptors.base_interceptor import ShadowInterceptor
 
@@ -119,7 +119,11 @@ class ChatShadowInterceptor(ShadowInterceptor):
 
                 logger.info(
                     "chat_queued_for_approval company_id=%s session=%s log_id=%s queue_id=%s risk=%.2f",
-                    company_id, session_id, shadow_log_id, queue_result.get("queue_id"), risk_score,
+                    company_id,
+                    session_id,
+                    shadow_log_id,
+                    queue_result.get("queue_id"),
+                    risk_score,
                 )
 
                 return {
@@ -129,7 +133,9 @@ class ChatShadowInterceptor(ShadowInterceptor):
                     "risk_score": risk_score,
                     "mode": mode,
                     "requires_hold": True,
-                    "reason": eval_result.get("reason", "Chat message requires manager approval"),
+                    "reason": eval_result.get(
+                        "reason",
+                        "Chat message requires manager approval"),
                 }
 
             else:
@@ -150,7 +156,10 @@ class ChatShadowInterceptor(ShadowInterceptor):
 
                     logger.info(
                         "chat_auto_sent company_id=%s session=%s log_id=%s uuid=%s",
-                        company_id, session_id, shadow_log_id, send_result.get("message_uuid"),
+                        company_id,
+                        session_id,
+                        shadow_log_id,
+                        send_result.get("message_uuid"),
                     )
 
                     return {
@@ -166,7 +175,9 @@ class ChatShadowInterceptor(ShadowInterceptor):
                     # Send failed
                     logger.error(
                         "chat_auto_send_failed company_id=%s session=%s error=%s",
-                        company_id, session_id, send_result.get("error"),
+                        company_id,
+                        session_id,
+                        send_result.get("error"),
                     )
 
                     return {
@@ -279,15 +290,16 @@ class ChatShadowInterceptor(ShadowInterceptor):
                 company_id=company_id,
             )
 
-            return {
-                "success": True,
-                "message_uuid": result.get("uuid") or result.get("message_uuid"),
-            }
+            return {"success": True, "message_uuid": result.get(
+                "uuid") or result.get("message_uuid"), }
 
         except Exception as e:
             logger.error(
                 "chat_send_failed company_id=%s session=%s error=%s",
-                company_id, message_data.get("session_id"), str(e), exc_info=True,
+                company_id,
+                message_data.get("session_id"),
+                str(e),
+                exc_info=True,
             )
             return {
                 "success": False,
@@ -328,11 +340,16 @@ class ChatShadowInterceptor(ShadowInterceptor):
                 ).offset(offset).limit(page_size).all()
 
                 return {
-                    "items": [self._queue_entry_to_dict(item) for item in items],
+                    "items": [
+                        self._queue_entry_to_dict(item) for item in items],
                     "total": total,
                     "page": page,
                     "page_size": page_size,
-                    "total_pages": (total + page_size - 1) // page_size if page_size > 0 else 0,
+                    "total_pages": (
+                        total +
+                        page_size -
+                        1) //
+                    page_size if page_size > 0 else 0,
                 }
 
         except Exception as e:
@@ -397,7 +414,8 @@ class ChatShadowInterceptor(ShadowInterceptor):
                 message_to_send = edited_message or queue_entry.message_text
 
                 # Track if message was edited
-                was_edited = bool(edited_message and edited_message != queue_entry.message_text)
+                was_edited = bool(
+                    edited_message and edited_message != queue_entry.message_text)
                 if was_edited:
                     queue_entry.was_edited = True
                     queue_entry.original_message = queue_entry.message_text
@@ -434,7 +452,11 @@ class ChatShadowInterceptor(ShadowInterceptor):
 
                 logger.info(
                     "queued_chat_approved company_id=%s queue_id=%s manager=%s sent=%s edited=%s",
-                    company_id, queue_id, manager_id, send_result.get("success"), was_edited,
+                    company_id,
+                    queue_id,
+                    manager_id,
+                    send_result.get("success"),
+                    was_edited,
                 )
 
                 return {
@@ -449,7 +471,10 @@ class ChatShadowInterceptor(ShadowInterceptor):
         except Exception as e:
             logger.error(
                 "approve_queued_chat_failed company_id=%s queue_id=%s error=%s",
-                company_id, queue_id, str(e), exc_info=True,
+                company_id,
+                queue_id,
+                str(e),
+                exc_info=True,
             )
             return {
                 "success": False,
@@ -507,7 +532,9 @@ class ChatShadowInterceptor(ShadowInterceptor):
 
                 logger.info(
                     "queued_chat_rejected company_id=%s queue_id=%s manager=%s",
-                    company_id, queue_id, manager_id,
+                    company_id,
+                    queue_id,
+                    manager_id,
                 )
 
                 return {

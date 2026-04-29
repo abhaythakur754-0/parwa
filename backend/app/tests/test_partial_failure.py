@@ -21,7 +21,6 @@ Comprehensive unit tests for PartialFailureHandler covering:
 
 import pytest
 import threading
-from collections import defaultdict
 
 from app.core.partial_failure import (
     PartialFailureHandler,
@@ -30,10 +29,6 @@ from app.core.partial_failure import (
     DegradationLevel,
     PipelineFinalStatus,
     StageFailure,
-    FallbackTemplate,
-    DegradationConfig,
-    PipelineResultRecord,
-    _VARIANT_DEGRADATION_CONFIGS,
     _count_failures,
     _count_all_non_success,
 )
@@ -139,9 +134,12 @@ class TestConstructor:
         }
         assert expected_intents.issubset(intents)
 
-    def test_enhanced_templates_registered_for_high_parwa_intents(self, handler):
+    def test_enhanced_templates_registered_for_high_parwa_intents(
+            self,
+            handler):
         """high_parwa enhanced templates should be added to existing intents."""
-        refund_templates = handler._fallback_templates.get("refund_request", [])
+        refund_templates = handler._fallback_templates.get(
+            "refund_request", [])
         assert len(refund_templates) >= 2
 
     def test_templates_sorted_by_priority(self, handler):
@@ -216,7 +214,8 @@ class TestRegisterStageFailure:
         assert "intent" in missing
         assert "sentiment" in missing
 
-    def test_confidence_penalty_increased_for_failed(self, handler, parwa_context):
+    def test_confidence_penalty_increased_for_failed(
+            self, handler, parwa_context):
         """FAILED status should add 0.15 to confidence penalty."""
         handler.register_stage_failure(
             "co_test", "tkt_1", "stage_a", "err",
@@ -274,9 +273,13 @@ class TestGetDegradationLevel:
 
     def test_one_failed_returns_degraded_parwa(self, handler, parwa_context):
         """1 FAILED out of 3 max for parwa → degraded."""
-        parwa_context.failures.append(StageFailure(
-            "stage_a", "err", PipelineStageStatus.FAILED, "2025-01-01T00:00:00Z",
-        ))
+        parwa_context.failures.append(
+            StageFailure(
+                "stage_a",
+                "err",
+                PipelineStageStatus.FAILED,
+                "2025-01-01T00:00:00Z",
+            ))
         level = handler.get_degradation_level(parwa_context)
         assert level == DegradationLevel.DEGRADED.value
 
@@ -309,9 +312,13 @@ class TestGetDegradationLevel:
 
     def test_critical_mini_parwa(self, handler, mini_parwa_context):
         """1 FAILED out of 2 max for mini_parwa → critical (>= 50%)."""
-        mini_parwa_context.failures.append(StageFailure(
-            "stage_a", "err", PipelineStageStatus.FAILED, "2025-01-01T00:00:00Z",
-        ))
+        mini_parwa_context.failures.append(
+            StageFailure(
+                "stage_a",
+                "err",
+                PipelineStageStatus.FAILED,
+                "2025-01-01T00:00:00Z",
+            ))
         level = handler.get_degradation_level(mini_parwa_context)
         assert level == DegradationLevel.CRITICAL.value
 
@@ -324,14 +331,23 @@ class TestGetDegradationLevel:
         level = handler.get_degradation_level(high_parwa_context)
         assert level == DegradationLevel.HUMAN_HANDOFF.value
 
-    def test_skipped_does_not_count_toward_handoff(self, handler, parwa_context):
+    def test_skipped_does_not_count_toward_handoff(
+            self, handler, parwa_context):
         """SKIPPED stages should not count toward handoff threshold."""
-        parwa_context.failures.append(StageFailure(
-            "stage_a", "skipped", PipelineStageStatus.SKIPPED, "2025-01-01T00:00:00Z",
-        ))
-        parwa_context.failures.append(StageFailure(
-            "stage_b", "skipped", PipelineStageStatus.SKIPPED, "2025-01-01T00:00:00Z",
-        ))
+        parwa_context.failures.append(
+            StageFailure(
+                "stage_a",
+                "skipped",
+                PipelineStageStatus.SKIPPED,
+                "2025-01-01T00:00:00Z",
+            ))
+        parwa_context.failures.append(
+            StageFailure(
+                "stage_b",
+                "skipped",
+                PipelineStageStatus.SKIPPED,
+                "2025-01-01T00:00:00Z",
+            ))
         level = handler.get_degradation_level(parwa_context)
         assert level == DegradationLevel.DEGRADED.value
 
@@ -342,7 +358,9 @@ class TestGetDegradationLevel:
             "a", "err", PipelineStageStatus.FAILED, "2025-01-01T00:00:00Z",
         ))
         level = handler.get_degradation_level(ctx)
-        assert level in (DegradationLevel.DEGRADED.value, DegradationLevel.CRITICAL.value)
+        assert level in (
+            DegradationLevel.DEGRADED.value,
+            DegradationLevel.CRITICAL.value)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -419,9 +437,13 @@ class TestBuildReducedPipeline:
 
     def test_timeout_stage_removed(self, handler, parwa_context):
         """TIMEOUT stage should be removed from the pipeline."""
-        parwa_context.failures.append(StageFailure(
-            "a", "timeout", PipelineStageStatus.TIMEOUT, "2025-01-01T00:00:00Z",
-        ))
+        parwa_context.failures.append(
+            StageFailure(
+                "a",
+                "timeout",
+                PipelineStageStatus.TIMEOUT,
+                "2025-01-01T00:00:00Z",
+            ))
         reduced = handler.build_reduced_pipeline(
             parwa_context, ["a", "b", "c"],
         )
@@ -430,9 +452,13 @@ class TestBuildReducedPipeline:
 
     def test_skipped_stage_removed(self, handler, parwa_context):
         """SKIPPED stage should also be removed from the pipeline."""
-        parwa_context.failures.append(StageFailure(
-            "c", "skipped", PipelineStageStatus.SKIPPED, "2025-01-01T00:00:00Z",
-        ))
+        parwa_context.failures.append(
+            StageFailure(
+                "c",
+                "skipped",
+                PipelineStageStatus.SKIPPED,
+                "2025-01-01T00:00:00Z",
+            ))
         reduced = handler.build_reduced_pipeline(
             parwa_context, ["a", "b", "c"],
         )
@@ -496,12 +522,14 @@ class TestShouldTriggerHumanHandoff:
             ))
         assert handler.should_trigger_human_handoff(mini_parwa_context) is True
 
-    def test_mini_parwa_one_failure_no_handoff(self, handler, mini_parwa_context):
+    def test_mini_parwa_one_failure_no_handoff(
+            self, handler, mini_parwa_context):
         """1 failure out of 2 threshold for mini_parwa should not trigger."""
         mini_parwa_context.failures.append(StageFailure(
             "a", "err", PipelineStageStatus.FAILED, "2025-01-01T00:00:00Z",
         ))
-        assert handler.should_trigger_human_handoff(mini_parwa_context) is False
+        assert handler.should_trigger_human_handoff(
+            mini_parwa_context) is False
 
     def test_parwa_threshold_3(self, handler, parwa_context):
         """parwa should trigger handoff at 3 failures."""
@@ -522,9 +550,13 @@ class TestShouldTriggerHumanHandoff:
     def test_skipped_does_not_trigger(self, handler, parwa_context):
         """SKIPPED stages should not count toward handoff."""
         for sid in ["a", "b", "c"]:
-            parwa_context.failures.append(StageFailure(
-                sid, "skipped", PipelineStageStatus.SKIPPED, "2025-01-01T00:00:00Z",
-            ))
+            parwa_context.failures.append(
+                StageFailure(
+                    sid,
+                    "skipped",
+                    PipelineStageStatus.SKIPPED,
+                    "2025-01-01T00:00:00Z",
+                ))
         assert handler.should_trigger_human_handoff(parwa_context) is False
 
 
@@ -563,9 +595,13 @@ class TestPropagateErrorContext:
         parwa_context.failures.append(StageFailure(
             "a", "err", PipelineStageStatus.FAILED, "2025-01-01T00:00:00Z",
         ))
-        parwa_context.failures.append(StageFailure(
-            "b", "skipped", PipelineStageStatus.SKIPPED, "2025-01-01T00:00:00Z",
-        ))
+        parwa_context.failures.append(
+            StageFailure(
+                "b",
+                "skipped",
+                PipelineStageStatus.SKIPPED,
+                "2025-01-01T00:00:00Z",
+            ))
         ctx = handler.propagate_error_context(parwa_context)
         assert ctx["real_failure_count"] == 1
 
@@ -819,7 +855,8 @@ class TestGetPipelineSummary:
 
     def test_summary_has_required_keys(self, handler, parwa_context):
         """Summary should contain all expected top-level keys."""
-        summary = handler.get_pipeline_summary("co_test", "tkt_1", parwa_context)
+        summary = handler.get_pipeline_summary(
+            "co_test", "tkt_1", parwa_context)
         assert "degradation_level" in summary
         assert "should_handoff" in summary
         assert "total_failures" in summary
@@ -829,7 +866,8 @@ class TestGetPipelineSummary:
 
     def test_summary_no_failures(self, handler, parwa_context):
         """Summary with no failures should show degradation_level='none'."""
-        summary = handler.get_pipeline_summary("co_test", "tkt_1", parwa_context)
+        summary = handler.get_pipeline_summary(
+            "co_test", "tkt_1", parwa_context)
         assert summary["degradation_level"] == "none"
         assert summary["total_failures"] == 0
 
@@ -858,7 +896,8 @@ class TestEdgeCases:
         )
         assert reduced == []
 
-    def test_duplicate_stage_failure_not_double_counted(self, handler, parwa_context):
+    def test_duplicate_stage_failure_not_double_counted(
+            self, handler, parwa_context):
         """Same stage failing twice should have separate failure records."""
         handler.register_stage_failure(
             "co_test", "tkt_1", "stage_a", "err",
@@ -880,7 +919,9 @@ class TestEdgeCases:
             "a", "err", PipelineStageStatus.FAILED, "2025-01-01T00:00:00Z",
         ))
         level = handler.get_degradation_level(ctx)
-        assert level in (DegradationLevel.DEGRADED.value, DegradationLevel.CRITICAL.value)
+        assert level in (
+            DegradationLevel.DEGRADED.value,
+            DegradationLevel.CRITICAL.value)
 
     def test_generate_response_no_signals_no_template(self, handler):
         """Response generation with no signals and custom intent should still work."""
@@ -915,7 +956,10 @@ class TestThreadSafety:
             except Exception as e:
                 errors.append(str(e))
 
-        threads = [threading.Thread(target=register, args=(i,)) for i in range(50)]
+        threads = [
+            threading.Thread(
+                target=register, args=(
+                    i,)) for i in range(50)]
         for t in threads:
             t.start()
         for t in threads:
@@ -938,7 +982,8 @@ class TestThreadSafety:
             except Exception as e:
                 errors.append(str(e))
 
-        threads = [threading.Thread(target=check, args=(i,)) for i in range(50)]
+        threads = [threading.Thread(target=check, args=(i,))
+                   for i in range(50)]
         for t in threads:
             t.start()
         for t in threads:

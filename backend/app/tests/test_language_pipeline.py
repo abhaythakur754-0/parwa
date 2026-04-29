@@ -71,8 +71,7 @@ class TestLanguageDetector:
     def test_english_long(self):
         lang, conf = self.detector.detect(
             "I need help with my account. The password reset is not working "
-            "and I have been trying for three days. Can someone please assist me?"
-        )
+            "and I have been trying for three days. Can someone please assist me?")
         assert lang == Language.ENGLISH
         assert conf > 0.3
 
@@ -116,8 +115,7 @@ class TestLanguageDetector:
     def test_german_paragraph(self):
         lang, conf = self.detector.detect(
             "Hallo, ich brauche Hilfe mit meiner Bestellung. Ich möchte eine "
-            "Rückerstattung weil das Produkt beschädigt ist. Bitte helfen Sie mir."
-        )
+            "Rückerstattung weil das Produkt beschädigt ist. Bitte helfen Sie mir.")
         assert lang == Language.GERMAN
         assert conf > 0.2
 
@@ -345,12 +343,14 @@ class TestTranslationSimulator:
         assert success is True
 
     def test_translate_back_spanish(self):
-        text, success = self.simulator.translate_back("hello help please", "es", "en")
+        text, success = self.simulator.translate_back(
+            "hello help please", "es", "en")
         # Should have some reverse-translated words
         assert success is True
 
     def test_translate_back_chinese_suffix(self):
-        text, success = self.simulator.translate_back("hello world", "zh", "en")
+        text, success = self.simulator.translate_back(
+            "hello world", "zh", "en")
         assert "中文翻译" in text or "translated" in text.lower()
         assert success is True
 
@@ -399,13 +399,17 @@ class TestTranslationQualityChecker:
         score, issues = self.checker.check(
             "aaaaaaaaa bbbbbbbbb test", "es", "en"
         )
-        assert any("garbled" in i for i in issues) or any("repeated" in i for i in issues)
+        assert any(
+            "garbled" in i for i in issues) or any(
+            "repeated" in i for i in issues)
 
     def test_garbled_replacement_chars(self):
         score, issues = self.checker.check(
             "Some text \ufffd\ufffd more text", "es", "en"
         )
-        assert any("garbled" in i for i in issues) or any("replacement" in i for i in issues)
+        assert any(
+            "garbled" in i for i in issues) or any(
+            "replacement" in i for i in issues)
 
     def test_placeholder_detected(self):
         score, issues = self.checker.check(
@@ -943,7 +947,8 @@ class TestListFormatter:
         self.ctx = FormattingContext()
 
     def test_normalize_bullets(self):
-        result = self.formatter.format("* item one\n• item two\n- item three", self.ctx)
+        result = self.formatter.format(
+            "* item one\n• item two\n- item three", self.ctx)
         lines = result.strip().split("\n")
         for line in lines:
             assert line.lstrip().startswith("- ")
@@ -1242,7 +1247,8 @@ class TestEscalationFormatter:
 
     def test_escalation_gets_header(self):
         ctx = FormattingContext(intent_type="escalation")
-        result = self.formatter.format("I am very unhappy with this service.", ctx)
+        result = self.formatter.format(
+            "I am very unhappy with this service.", ctx)
         assert "Priority:" in result
         assert "Escalation Notice" in result
 
@@ -1461,7 +1467,9 @@ class TestComposability:
     def test_full_parwa_pipeline(self):
         """parwa gets 6 formatters."""
         registry = create_default_registry()
-        ctx = FormattingContext(variant_type="parwa", brand_voice="professional")
+        ctx = FormattingContext(
+            variant_type="parwa",
+            brand_voice="professional")
         text = "##Header\n- bullet\nResearch [1] and [2] show results."
         result = registry.apply_all(text, ctx)
         assert len(result.formatters_applied) == 6
@@ -1495,7 +1503,8 @@ class TestComposability:
         """Empty response should pass through all formatters."""
         registry = create_default_registry()
         ctx = FormattingContext()
-        result = registry.apply_all("", ctx, ["token_limit", "markdown", "whitespace"])
+        result = registry.apply_all(
+            "", ctx, ["token_limit", "markdown", "whitespace"])
         assert result.formatted_text == ""
 
     def test_very_long_response(self):

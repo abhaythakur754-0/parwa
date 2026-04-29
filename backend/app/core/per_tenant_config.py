@@ -28,7 +28,7 @@ import json
 import threading
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
 from app.logger import get_logger
 

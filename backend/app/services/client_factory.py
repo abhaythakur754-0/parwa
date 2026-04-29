@@ -12,7 +12,6 @@ BC-011: Owner user created with bcrypt-hashed password.
 BC-012: Every write operation logged to audit_trail.
 """
 
-import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional

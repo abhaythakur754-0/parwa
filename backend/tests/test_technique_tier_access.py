@@ -175,8 +175,14 @@ class TestDataclasses:
         )
         field_names = {f.name for f in fields(result)}
         expected = {
-            "technique", "requested_tier", "decision", "variant_type",
-            "effective_tier", "fallback_technique", "reason", "max_allowed_tier",
+            "technique",
+            "requested_tier",
+            "decision",
+            "variant_type",
+            "effective_tier",
+            "fallback_technique",
+            "reason",
+            "max_allowed_tier",
         }
         assert field_names == expected
 
@@ -809,7 +815,8 @@ class TestFallbackLookup:
 
     def test_fallback_for_chain_of_thought_on_mini_parwa(self):
         checker = TechniqueTierAccessChecker()
-        fb = checker.get_fallback_for_technique("chain_of_thought", "mini_parwa")
+        fb = checker.get_fallback_for_technique(
+            "chain_of_thought", "mini_parwa")
         assert fb == "crp"
 
     def test_fallback_for_gst_on_parwa(self):
@@ -1008,7 +1015,8 @@ class TestValidatePipeline:
             ["clara", "chain_of_thought", "gst", "unknown"],
             "parwa",
         )
-        assert len(result["allowed"]) >= 2  # clara, chain_of_thought + fallbacks
+        # clara, chain_of_thought + fallbacks
+        assert len(result["allowed"]) >= 2
         assert "gst" in result["downgraded"]
         assert "unknown" in result["blocked"]
         assert result["valid"] is False
@@ -1189,7 +1197,8 @@ class TestBC008GracefulDegradation:
 
     def test_no_crash_on_none_company_id(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.check_access("clara", "parwa", company_id=None)  # type: ignore[arg-type]
+        result = checker.check_access(
+            "clara", "parwa", company_id=None)  # type: ignore[arg-type]
         assert result.decision == TierAccessDecision.ALLOWED
 
     def test_no_crash_on_batch_with_empty_list(self):

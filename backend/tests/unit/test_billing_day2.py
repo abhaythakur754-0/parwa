@@ -8,11 +8,10 @@ Tests for:
 """
 
 import asyncio
-import calendar
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from unittest.mock import MagicMock, patch, PropertyMock, AsyncMock
+from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 
@@ -378,7 +377,8 @@ class TestResourceCleanup:
         mock_db = MagicMock()
 
         mock_query_agents = MagicMock()
-        mock_query_agents.filter.return_value.order_by.return_value.all.return_value = [MagicMock()]
+        mock_query_agents.filter.return_value.order_by.return_value.all.return_value = [
+            MagicMock()]
         mock_query_members = MagicMock()
         mock_query_members.filter.return_value.order_by.return_value.all.return_value = []
         mock_query_docs = MagicMock()
@@ -452,8 +452,10 @@ class TestPreDowngradeWarning:
         assert data["days_until_change"] == 7
         assert "affected_resources" in data
         assert data["affected_resources"]["agents_to_pause"] == 2  # 3 - 1
-        assert data["affected_resources"]["team_members_to_downgrade"] == 5  # 8 - 3
-        assert data["affected_resources"]["kb_docs_to_archive"] == 20  # 120 - 100
+        # 8 - 3
+        assert data["affected_resources"]["team_members_to_downgrade"] == 5
+        # 120 - 100
+        assert data["affected_resources"]["kb_docs_to_archive"] == 20
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -468,7 +470,6 @@ class TestDowngradeUndo:
         """D6: Undo within 24 hours should restore previous tier."""
         from app.services.subscription_service import (
             SubscriptionService,
-            DowngradeUndoExpiredError,
         )
 
         service = SubscriptionService()
@@ -484,8 +485,10 @@ class TestDowngradeUndo:
         mock_sub.id = str(test_id)
         mock_sub.company_id = str(test_id)
         mock_sub.status = "active"
-        mock_sub.current_period_start = datetime.now(timezone.utc) - timedelta(days=10)
-        mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=20)
+        mock_sub.current_period_start = datetime.now(
+            timezone.utc) - timedelta(days=10)
+        mock_sub.current_period_end = datetime.now(
+            timezone.utc) + timedelta(days=20)
         mock_sub.cancel_at_period_end = False
         mock_sub.paddle_subscription_id = None
         mock_sub.created_at = datetime.now(timezone.utc) - timedelta(days=30)
@@ -694,8 +697,10 @@ class TestFrequencySwitch:
         mock_sub.billing_frequency = "monthly"
         mock_sub.company_id = str(test_company_id)
         mock_sub.paddle_subscription_id = None
-        mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=20)
-        mock_sub.current_period_start = datetime.now(timezone.utc) - timedelta(days=10)
+        mock_sub.current_period_end = datetime.now(
+            timezone.utc) + timedelta(days=20)
+        mock_sub.current_period_start = datetime.now(
+            timezone.utc) - timedelta(days=10)
         mock_sub.days_in_period = 30
         mock_sub.id = str(uuid.uuid4())
         mock_sub.status = "active"
@@ -736,8 +741,10 @@ class TestFrequencySwitch:
         mock_sub.company_id = str(test_company_id)
         mock_sub.id = str(uuid.uuid4())
         mock_sub.status = "active"
-        mock_sub.current_period_start = datetime.now(timezone.utc) - timedelta(days=10)
-        mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=20)
+        mock_sub.current_period_start = datetime.now(
+            timezone.utc) - timedelta(days=10)
+        mock_sub.current_period_end = datetime.now(
+            timezone.utc) + timedelta(days=20)
         mock_sub.cancel_at_period_end = False
         mock_sub.pending_downgrade_tier = None
         mock_sub.previous_tier = None
@@ -844,7 +851,8 @@ class TestYearlyUpgradeDowngrade:
         mock_sub.current_period_end = (
             datetime.now(timezone.utc) + timedelta(days=30)
         )
-        mock_sub.current_period_start = datetime.now(timezone.utc) - timedelta(days=10)
+        mock_sub.current_period_start = datetime.now(
+            timezone.utc) - timedelta(days=10)
         mock_sub.cancel_at_period_end = False
         mock_sub.pending_downgrade_tier = None
         mock_sub.previous_tier = None

@@ -23,7 +23,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import and_, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.email_utils import run_async_coro, validate_email_address
@@ -84,23 +84,24 @@ class BounceComplaintService:
         Returns:
             Dict with status, bounce_type, action_taken.
         """
-        from database.models.outbound_email import OutboundEmail
         from database.models.email_delivery_event import EmailDeliveryEvent
-        from database.models.email_bounces import EmailBounce, CustomerEmailStatus
-        from database.models.tickets import Customer
+        from database.models.email_bounces import EmailBounce
 
         email = bounce_data.get("email", "")
         reason = bounce_data.get("reason", "").lower()
         bounce_type = bounce_data.get("bounce_type", "").lower()
         message_id = bounce_data.get("message_id", "")
-        event_id = bounce_data.get("event_id") or bounce_data.get("brevo_event_id", "")
+        event_id = bounce_data.get(
+            "event_id") or bounce_data.get("brevo_event_id", "")
 
         if not email:
             return {"status": "error", "error": "Missing email in bounce data"}
 
         # Validate email format
         if not validate_email_address(email):
-            return {"status": "error", "error": f"Invalid email format: {email}"}
+            return {
+                "status": "error",
+                "error": f"Invalid email format: {email}"}
 
         # Determine if hard or soft
         is_hard = self._is_hard_bounce(bounce_type, reason)
@@ -162,7 +163,8 @@ class BounceComplaintService:
             bounce_record.email_status_after = "hard_bounced"
             if email_status_obj:
                 email_status_obj.email_status = "hard_bounced"
-                email_status_obj.bounce_count = (email_status_obj.bounce_count or 0) + 1
+                email_status_obj.bounce_count = (
+                    email_status_obj.bounce_count or 0) + 1
                 email_status_obj.last_bounce_at = datetime.now(timezone.utc)
             if outbound:
                 outbound.delivery_status = "bounced"
@@ -183,12 +185,15 @@ class BounceComplaintService:
                 bounce_record.email_status_after = "soft_bounced"
                 if email_status_obj:
                     email_status_obj.email_status = "soft_bounced"
-                    email_status_obj.bounce_count = (email_status_obj.bounce_count or 0) + 1
-                    email_status_obj.last_bounce_at = datetime.now(timezone.utc)
+                    email_status_obj.bounce_count = (
+                        email_status_obj.bounce_count or 0) + 1
+                    email_status_obj.last_bounce_at = datetime.now(
+                        timezone.utc)
                 action_taken.append(f"scheduled_retry_{retry_count + 1}")
                 if outbound:
                     outbound.delivery_status = "soft_bounced"
-                    outbound.error_message = f"Soft bounce (retry {retry_count + 1}/{SOFT_BOUNCE_MAX_RETRIES})"
+                    outbound.error_message = f"Soft bounce (retry {
+                        retry_count + 1}/{SOFT_BOUNCE_MAX_RETRIES})"
             else:
                 # Max retries exceeded — treat as hard bounce (suppressed)
                 self._mark_email_invalid(company_id, email)
@@ -196,8 +201,10 @@ class BounceComplaintService:
                 bounce_record.email_status_after = "suppressed"
                 if email_status_obj:
                     email_status_obj.email_status = "suppressed"
-                    email_status_obj.bounce_count = (email_status_obj.bounce_count or 0) + 1
-                    email_status_obj.last_bounce_at = datetime.now(timezone.utc)
+                    email_status_obj.bounce_count = (
+                        email_status_obj.bounce_count or 0) + 1
+                    email_status_obj.last_bounce_at = datetime.now(
+                        timezone.utc)
                     email_status_obj.suppressed_at = datetime.now(timezone.utc)
                 if outbound:
                     outbound.delivery_status = "failed"
@@ -255,19 +262,20 @@ class BounceComplaintService:
         Returns:
             Dict with status and action_taken.
         """
-        from database.models.outbound_email import OutboundEmail
         from database.models.email_delivery_event import EmailDeliveryEvent
-        from database.models.email_bounces import EmailBounce, CustomerEmailStatus
-        from database.models.tickets import Customer
+        from database.models.email_bounces import EmailBounce
 
         email = complaint_data.get("email", "")
         reason = complaint_data.get("reason", "")
         complaint_type = complaint_data.get("complaint_type", "unknown")
         message_id = complaint_data.get("message_id", "")
-        event_id = complaint_data.get("event_id") or complaint_data.get("brevo_event_id", "")
+        event_id = complaint_data.get(
+            "event_id") or complaint_data.get("brevo_event_id", "")
 
         if not email:
-            return {"status": "error", "error": "Missing email in complaint data"}
+            return {
+                "status": "error",
+                "error": "Missing email in complaint data"}
 
         # BC-003 idempotency
         if event_id and self._is_event_processed(company_id, event_id):
@@ -317,7 +325,8 @@ class BounceComplaintService:
         self._mark_email_complained(company_id, email)
         if email_status_obj:
             email_status_obj.email_status = "complained"
-            email_status_obj.complaint_count = (email_status_obj.complaint_count or 0) + 1
+            email_status_obj.complaint_count = (
+                email_status_obj.complaint_count or 0) + 1
             email_status_obj.last_complaint_at = datetime.now(timezone.utc)
 
         if outbound:
@@ -385,12 +394,12 @@ class BounceComplaintService:
         Returns:
             Dict with status.
         """
-        from database.models.outbound_email import OutboundEmail
         from database.models.email_delivery_event import EmailDeliveryEvent
 
         email = delivery_data.get("email", "")
         message_id = delivery_data.get("message_id", "")
-        event_id = delivery_data.get("event_id") or delivery_data.get("brevo_event_id", "")
+        event_id = delivery_data.get(
+            "event_id") or delivery_data.get("brevo_event_id", "")
 
         # BC-003 idempotency
         if event_id and self._is_event_processed(company_id, event_id):
@@ -456,7 +465,8 @@ class BounceComplaintService:
         if status.whitelisted:
             return False
 
-        return status.email_status in ("hard_bounced", "complained", "suppressed")
+        return status.email_status in (
+            "hard_bounced", "complained", "suppressed")
 
     def get_email_status(self, company_id: str, email: str) -> dict:
         """Get full delivery status for an email address.
@@ -630,7 +640,8 @@ class BounceComplaintService:
         total_pages = max(1, (total + page_size - 1) // page_size)
         offset = (page - 1) * page_size
 
-        items = query.order_by(EmailBounce.created_at.desc()).offset(offset).limit(page_size).all()
+        items = query.order_by(EmailBounce.created_at.desc()).offset(
+            offset).limit(page_size).all()
 
         return {
             "bounces": [
@@ -671,14 +682,16 @@ class BounceComplaintService:
         # Current period counts
         try:
             current_bounces = (
-                self.db.query(func.count(EmailBounce.id))
-                .filter(
+                self.db.query(
+                    func.count(
+                        EmailBounce.id)) .filter(
                     EmailBounce.company_id == company_id,
                     EmailBounce.created_at >= since,
-                    EmailBounce.bounce_type.in_(["hard_bounce", "soft_bounce"]),
-                )
-                .scalar()
-            ) or 0
+                    EmailBounce.bounce_type.in_(
+                        [
+                            "hard_bounce",
+                            "soft_bounce"]),
+                ) .scalar()) or 0
         except Exception:
             current_bounces = 0
 
@@ -724,29 +737,34 @@ class BounceComplaintService:
         # Suppressed count
         try:
             suppressed = (
-                self.db.query(func.count(CustomerEmailStatus.id))
-                .filter(
+                self.db.query(
+                    func.count(
+                        CustomerEmailStatus.id)) .filter(
                     CustomerEmailStatus.company_id == company_id,
-                    CustomerEmailStatus.email_status.in_(["hard_bounced", "complained", "suppressed"]),
+                    CustomerEmailStatus.email_status.in_(
+                        [
+                            "hard_bounced",
+                            "complained",
+                            "suppressed"]),
                     CustomerEmailStatus.whitelisted == False,
-                )
-                .scalar()
-            ) or 0
+                ) .scalar()) or 0
         except Exception:
             suppressed = 0
 
         # Previous period for trend comparison
         try:
             prev_bounces = (
-                self.db.query(func.count(EmailBounce.id))
-                .filter(
+                self.db.query(
+                    func.count(
+                        EmailBounce.id)) .filter(
                     EmailBounce.company_id == company_id,
                     EmailBounce.created_at >= prev_since,
                     EmailBounce.created_at < since,
-                    EmailBounce.bounce_type.in_(["hard_bounce", "soft_bounce"]),
-                )
-                .scalar()
-            ) or 0
+                    EmailBounce.bounce_type.in_(
+                        [
+                            "hard_bounce",
+                            "soft_bounce"]),
+                ) .scalar()) or 0
         except Exception:
             prev_bounces = 0
 
@@ -873,7 +891,8 @@ class BounceComplaintService:
             },
         }
 
-    def get_soft_bounces_for_retry(self, company_id: Optional[str] = None) -> list:
+    def get_soft_bounces_for_retry(
+            self, company_id: Optional[str] = None) -> list:
         """Get soft bounces that are due for retry.
 
         Args:
@@ -889,7 +908,7 @@ class BounceComplaintService:
             self.db.query(EmailDeliveryEvent)
             .filter(
                 EmailDeliveryEvent.event_type == "soft_bounce",
-                EmailDeliveryEvent.is_processed == True,
+                EmailDeliveryEvent.is_processed,
                 EmailDeliveryEvent.retry_count < SOFT_BOUNCE_MAX_RETRIES,
                 EmailDeliveryEvent.next_retry_at <= now,
             )
@@ -987,7 +1006,8 @@ class BounceComplaintService:
         """Get the number of soft bounces for an email in the retry window."""
         from database.models.email_delivery_event import EmailDeliveryEvent
 
-        window_start = datetime.now(timezone.utc) - timedelta(days=SOFT_BOUNCE_RETRY_WINDOW_DAYS)
+        window_start = datetime.now(
+            timezone.utc) - timedelta(days=SOFT_BOUNCE_RETRY_WINDOW_DAYS)
         return (
             self.db.query(func.count(EmailDeliveryEvent.id))
             .filter(
@@ -1121,7 +1141,11 @@ class BounceComplaintService:
                     threshold=GMAIL_COMPLAINT_RATE_THRESHOLD,
                 )
         except Exception as exc:
-            logger.warning("gmail_complaint_rate_check_failed", extra={"error": str(exc)[:200]})
+            logger.warning(
+                "gmail_complaint_rate_check_failed",
+                extra={
+                    "error": str(exc)[
+                        :200]})
 
     def _create_deliverability_alert(
         self,

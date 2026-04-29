@@ -68,7 +68,6 @@ class PaddleEventType(str, Enum):
 
 class PaddleEventData(BaseModel):
     """Base event data structure."""
-    pass
 
 
 class PaddleEvent(BaseModel):

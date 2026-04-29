@@ -232,7 +232,8 @@ class ThoTProcessor:
             Tuple of (truncated_thread, current_topic, topic_shift).
         """
         # Identify current topic regardless of thread state
-        current_topic = self._identify_topic([current_query] if current_query else [])
+        current_topic = self._identify_topic(
+            [current_query] if current_query else [])
 
         if not reasoning_thread:
             return [], current_topic, TopicShift.NONE
@@ -361,10 +362,10 @@ class ThoTProcessor:
         repetition_penalty = min(0.2, len(repeated_info) * 0.05)
         loop_penalty = 0.3 if loop_detected else 0.0
 
-        continuity = max(
-            0.0,
-            min(1.0, topic_score - contradiction_penalty - repetition_penalty - loop_penalty),
-        )
+        continuity = max(0.0, min(1.0, topic_score -
+                                  contradiction_penalty -
+                                  repetition_penalty -
+                                  loop_penalty), )
 
         return ThreadAnalysis(
             turn_count=turn_count,
@@ -398,8 +399,12 @@ class ThoTProcessor:
         entries_lower = [entry.lower() for entry in thread]
 
         for i in range(len(entries_lower) - 1):
-            current_words = set(re.findall(r"\b\w+\b", entries_lower[i])) - _STOP_WORDS
-            next_words = set(re.findall(r"\b\w+\b", entries_lower[i + 1])) - _STOP_WORDS
+            current_words = set(
+                re.findall(
+                    r"\b\w+\b",
+                    entries_lower[i])) - _STOP_WORDS
+            next_words = set(re.findall(
+                r"\b\w+\b", entries_lower[i + 1])) - _STOP_WORDS
 
             for cluster_a, cluster_b in _CONTRADICTION_PAIRS:
                 a_hits = current_words & cluster_a
@@ -420,7 +425,9 @@ class ThoTProcessor:
                     word_a = list(a_hits_rev)[0]
                     word_b = list(b_hits_rev)[0]
                     # Avoid duplicate if already found in forward direction
-                    desc = f"Turn {i + 1}->{i + 2}: '{word_a}' contradicts '{word_b}'"
+                    desc = f"Turn {i +
+                                   1}->{i +
+                                        2}: '{word_a}' contradicts '{word_b}'"
                     if desc not in contradictions:
                         contradictions.append(desc)
 
@@ -442,12 +449,18 @@ class ThoTProcessor:
             if i == 0:
                 continue
 
-            entry_words = set(re.findall(r"\b\w+\b", entry.lower())) - _STOP_WORDS
+            entry_words = set(
+                re.findall(
+                    r"\b\w+\b",
+                    entry.lower())) - _STOP_WORDS
             if not entry_words:
                 continue
 
             for j in range(i):
-                prev_words = set(re.findall(r"\b\w+\b", thread[j].lower())) - _STOP_WORDS
+                prev_words = set(
+                    re.findall(
+                        r"\b\w+\b",
+                        thread[j].lower())) - _STOP_WORDS
                 if not prev_words:
                     continue
 
@@ -585,8 +598,7 @@ class ThoTProcessor:
         if analysis.contradictions:
             contradiction_count = len(analysis.contradictions)
             prefix_parts.append(
-                f"[Note: {contradiction_count} contradiction(s) detected in reasoning history]"
-            )
+                f"[Note: {contradiction_count} contradiction(s) detected in reasoning history]")
 
         # Flag loops
         if analysis.loop_detected:
@@ -598,8 +610,7 @@ class ThoTProcessor:
         if analysis.repeated_info:
             repeat_count = len(analysis.repeated_info)
             prefix_parts.append(
-                f"[Note: {repeat_count} repeated information pattern(s) detected]"
-            )
+                f"[Note: {repeat_count} repeated information pattern(s) detected]")
 
         # Handle topic shift
         if topic_shift == TopicShift.COMPLETE:
@@ -612,7 +623,8 @@ class ThoTProcessor:
             )
 
         context_prefix = " ".join(prefix_parts)
-        enhanced_response = f"{context_prefix} {current_query}".strip() if context_prefix else current_query
+        enhanced_response = f"{context_prefix} {current_query}".strip(
+        ) if context_prefix else current_query
 
         return context_prefix, enhanced_response
 
@@ -706,7 +718,8 @@ class ThreadOfThoughtNode(BaseTechniqueNode):
         self._config = config or ThoTConfig()
         self._processor = ThoTProcessor(config=self._config)
         # Initialize technique_info from registry
-        self.technique_info = TECHNIQUE_REGISTRY[TechniqueID.THREAD_OF_THOUGHT]  # type: ignore[assignment]
+        # type: ignore[assignment]
+        self.technique_info = TECHNIQUE_REGISTRY[TechniqueID.THREAD_OF_THOUGHT]
 
     @property
     def technique_id(self) -> TechniqueID:

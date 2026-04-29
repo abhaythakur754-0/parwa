@@ -18,7 +18,6 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy import desc
-from sqlalchemy.orm import Session
 
 from database.base import SessionLocal
 from database.models.billing_extended import ClientRefund
@@ -28,12 +27,10 @@ logger = logging.getLogger("parwa.services.client_refund")
 
 class ClientRefundError(Exception):
     """Base exception for client refund errors."""
-    pass
 
 
 class ClientRefundNotFoundError(ClientRefundError):
     """Refund request not found."""
-    pass
 
 
 class ClientRefundService:
@@ -375,7 +372,8 @@ class ClientRefundService:
             total_count = len(refunds)
             total_amount = sum(r.amount or Decimal("0") for r in refunds)
             pending_count = sum(1 for r in refunds if r.status == "pending")
-            processed_count = sum(1 for r in refunds if r.status == "processed")
+            processed_count = sum(
+                1 for r in refunds if r.status == "processed")
             failed_count = sum(1 for r in refunds if r.status == "failed")
 
             return {
@@ -392,7 +390,8 @@ class ClientRefundService:
             "id": refund.id,
             "company_id": refund.company_id,
             "ticket_id": refund.ticket_id,
-            "amount": str(refund.amount) if refund.amount else "0.00",
+            "amount": str(
+                refund.amount) if refund.amount else "0.00",
             "currency": refund.currency or "USD",
             "reason": refund.reason or "",
             "status": refund.status,

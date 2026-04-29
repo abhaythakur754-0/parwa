@@ -26,7 +26,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.core.rag_retrieval import (
-    RAGChunk,
     RAGResult,
     RAGRetriever,
     VARIANT_CONFIG,
@@ -34,8 +33,6 @@ from app.core.rag_retrieval import (
 from app.core.sentiment_engine import (
     FrustrationDetector,
     SentimentAnalyzer,
-    SentimentResult,
-    TrendDirection,
     UrgencyLevel,
     UrgencyScorer,
 )
@@ -48,7 +45,6 @@ from app.core.response_formatters import (
 from app.services.sentiment_technique_mapper import (
     SentimentTechniqueMapper,
 )
-from app.core.technique_router import TechniqueID
 from shared.knowledge_base.vector_search import MockVectorStore
 from shared.knowledge_base.reindexing import ReindexingManager
 
@@ -212,7 +208,7 @@ class TestGap2_SentimentCacheHistory:
             "empathy_signals": [],
             "sentiment_score": 0.9,
             "emotion_breakdown": {"neutral": 0.9, "angry": 0.0, "frustrated": 0.0,
-                                   "disappointed": 0.0, "happy": 0.1, "delighted": 0.0},
+                                  "disappointed": 0.0, "happy": 0.1, "delighted": 0.0},
             "processing_time_ms": 2.0,
             "conversation_trend": "worsening",  # Cached with worsening trend
         }
@@ -303,7 +299,8 @@ class TestGap3_FrustrationSubstrings:
 
     def test_badge_should_not_trigger_bad_frustration(self):
         """'badge' contains 'bad' as substring — known false positive."""
-        score_badge = self.detector.detect("I received my employee badge today")
+        score_badge = self.detector.detect(
+            "I received my employee badge today")
         # 'bad' is in 'badge' — mild false positive
         assert isinstance(score_badge, float)
 
@@ -531,7 +528,8 @@ class TestGap5_SignatureFormatter:
         )
         result = self.formatter.format(response, self.ctx)
         # Should detect existing sign-off and NOT add another one
-        # Count occurrences of "Best regards" — should only appear once (from original) or zero
+        # Count occurrences of "Best regards" — should only appear once (from
+        # original) or zero
         assert isinstance(result, str)
 
     def test_best_regards_sign_off_not_duplicated(self):
@@ -842,7 +840,11 @@ class TestGap9_UrgencyKeywordFalsePositives:
         # 'down' is an urgency keyword with weight 0.6 → 0.6*40 = 24 pts
         # 24 > 0 but < 30, so level may be LOW still
         assert isinstance(level, str)
-        assert level in (UrgencyLevel.LOW, UrgencyLevel.MEDIUM, UrgencyLevel.HIGH, UrgencyLevel.CRITICAL)
+        assert level in (
+            UrgencyLevel.LOW,
+            UrgencyLevel.MEDIUM,
+            UrgencyLevel.HIGH,
+            UrgencyLevel.CRITICAL)
 
     def test_happy_hours_triggers_urgency(self):
         """'We had happy hours at the event' — 'hours' triggers urgency.
@@ -865,7 +867,8 @@ class TestGap9_UrgencyKeywordFalsePositives:
     def test_clear_urgency_vs_false_positive(self):
         """Clear urgency should score higher than false positive contexts."""
         clear = self.scorer.score("EMERGENCY! The system is down!")
-        false_positive = self.scorer.score("The system is never down during happy hours")
+        false_positive = self.scorer.score(
+            "The system is never down during happy hours")
         # Clear urgency has more keywords + caps + exclamation
         # False positive may or may not be higher due to 'down' + 'hours'
         assert isinstance(clear, str)
@@ -908,7 +911,8 @@ class TestGap10_LanguagePipelineCache:
 
     def setup_method(self):
         self.pipeline = None
-        # Import here to avoid import errors if language_pipeline has heavy deps
+        # Import here to avoid import errors if language_pipeline has heavy
+        # deps
         from app.core.language_pipeline import LanguagePipeline
         self.pipeline = LanguagePipeline()
 

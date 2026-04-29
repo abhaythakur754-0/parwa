@@ -26,7 +26,6 @@ import pytest
 from app.core.shared_gsd import (
     SharedGSDManager,
     TransitionLogEntry,
-    RecoverySuggestion,
 )
 
 

@@ -15,10 +15,27 @@ Tests cover:
 """
 
 from __future__ import annotations
+from app.core.technique_router import (
+    QuerySignals,
+    TechniqueID,
+)
+from app.core.techniques.base import (
+    BaseTechniqueNode,
+    ConversationState,
+)
+from app.core.techniques.react_tools import ToolRegistry
+from app.core.techniques.react import (
+    ActionType,
+    ReActConfig,
+    ReActNode,
+    ReActProcessor,
+    ReActResult,
+    ReActStep,
+)
 
 import os
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -28,25 +45,9 @@ os.environ.setdefault("SECRET_KEY", "test_secret")
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET_KEY", "test_jwt")
-os.environ.setdefault("DATA_ENCRYPTION_KEY", "12345678901234567890123456789012")
-
-from app.core.techniques.react import (
-    ActionType,
-    ReActConfig,
-    ReActNode,
-    ReActProcessor,
-    ReActResult,
-    ReActStep,
-)
-from app.core.techniques.react_tools import ToolRegistry
-from app.core.techniques.base import (
-    BaseTechniqueNode,
-    ConversationState,
-)
-from app.core.technique_router import (
-    QuerySignals,
-    TechniqueID,
-)
+os.environ.setdefault(
+    "DATA_ENCRYPTION_KEY",
+    "12345678901234567890123456789012")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -392,7 +393,8 @@ class TestQueryCategoryDetection:
         assert "order_reference" in cats
 
     def test_order_reference_word_order(self, processor):
-        cats = processor._detect_query_categories("What is my order number 456?")
+        cats = processor._detect_query_categories(
+            "What is my order number 456?")
         assert "order_reference" in cats
 
     def test_customer_reference(self, processor):
@@ -432,7 +434,8 @@ class TestQueryCategoryDetection:
         assert "technical_issue" in cats
 
     def test_policy_faq(self, processor):
-        cats = processor._detect_query_categories("What is your return policy?")
+        cats = processor._detect_query_categories(
+            "What is your return policy?")
         assert "policy_faq" in cats
 
     def test_policy_how_to(self, processor):
@@ -444,7 +447,8 @@ class TestQueryCategoryDetection:
         assert "past_issue" in cats
 
     def test_past_issue_ticket(self, processor):
-        cats = processor._detect_query_categories("Ticket #456 was not resolved")
+        cats = processor._detect_query_categories(
+            "Ticket #456 was not resolved")
         assert "past_issue" in cats
 
     def test_multiple_categories(self, processor):
@@ -464,7 +468,8 @@ class TestQueryCategoryDetection:
         assert cats == []
 
     def test_none_query(self, processor):
-        cats = processor._detect_query_categories("")  # None becomes empty handled
+        cats = processor._detect_query_categories(
+            "")  # None becomes empty handled
         assert cats == []
 
 
@@ -940,7 +945,9 @@ class TestLoopContinuation:
         ) is False
 
     def test_max_iterations_custom(self, custom_config, mock_registry):
-        proc = ReActProcessor(config=custom_config, tool_registry=mock_registry)
+        proc = ReActProcessor(
+            config=custom_config,
+            tool_registry=mock_registry)
         assert proc._should_continue(
             "Need more info", 2, ["billing"], set(),
         ) is False
@@ -1070,7 +1077,9 @@ class TestMaxIterations:
 
     @pytest.mark.asyncio
     async def test_custom_max_iterations(self, custom_config, mock_registry):
-        proc = ReActProcessor(config=custom_config, tool_registry=mock_registry)
+        proc = ReActProcessor(
+            config=custom_config,
+            tool_registry=mock_registry)
         result = await proc.process("Order ORD-1 and billing question")
         assert result.iterations_used <= 2
 
@@ -1231,7 +1240,8 @@ class TestErrorFallback:
         assert result.iterations_used >= 1
 
     @pytest.mark.asyncio
-    async def test_processor_handles_exception_in_process(self, default_config):
+    async def test_processor_handles_exception_in_process(
+            self, default_config):
         """Processor catches internal exceptions."""
         registry = ToolRegistry()
         registry.execute_tool = AsyncMock(
@@ -1269,7 +1279,8 @@ class TestErrorFallback:
         )
         state = _make_state(query="Where is ORD-123?")
         result_state = await node.execute(state)
-        react_result = result_state.technique_results.get(TechniqueID.REACT.value)
+        react_result = result_state.technique_results.get(
+            TechniqueID.REACT.value)
         # Either error recording or skip recording
         assert react_result is not None
 
@@ -1318,7 +1329,9 @@ class TestEdgeCases:
     async def test_no_tools_in_registry(self, default_config):
         """Processor handles empty tool registry."""
         empty_registry = ToolRegistry()
-        proc = ReActProcessor(config=default_config, tool_registry=empty_registry)
+        proc = ReActProcessor(
+            config=default_config,
+            tool_registry=empty_registry)
         result = await proc.process("Where is ORD-123?")
         assert result.iterations_used >= 1
 
@@ -1351,7 +1364,8 @@ class TestEdgeCases:
         """Multiple process calls don't interfere."""
         r1 = await processor.process("Where is ORD-1?")
         r2 = await processor.process("Why was I charged?")
-        assert r1.tools_used != r2.tools_used or len(r1.tools_used) == len(r2.tools_used)
+        assert r1.tools_used != r2.tools_used or len(
+            r1.tools_used) == len(r2.tools_used)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1414,7 +1428,8 @@ class TestToolSelectionMapping:
             ["billing_query", "technical_issue"],
         )
         # Both map to knowledge_base_search, should only appear once
-        kb_count = sum(1 for c in calls if c["tool_name"] == "knowledge_base_search")
+        kb_count = sum(
+            1 for c in calls if c["tool_name"] == "knowledge_base_search")
         assert kb_count == 1
 
     def test_order_params_have_order_id(self, processor):

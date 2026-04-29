@@ -95,6 +95,7 @@ class RateLimitError(ParwaBaseError):
 
 class ConflictError(ParwaBaseError):
     """409 Conflict — raised on optimistic locking version mismatch."""
+
     def __init__(
         self,
         message: str = "Resource conflict — version mismatch",

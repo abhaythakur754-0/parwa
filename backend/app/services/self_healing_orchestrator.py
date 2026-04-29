@@ -33,14 +33,13 @@ Building Codes: BC-001 (multi-tenant), BC-004 (Celery tasks),
                BC-005 (real-time), BC-012 (resilience)
 """
 
-import asyncio
 import json
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
 from app.logger import get_logger
@@ -314,7 +313,8 @@ class QueueDrainAction(BaseHealingAction):
         try:
             from app.core.health import check_celery_queues
             sub = await check_celery_queues()
-            queue_depth = sub.details.get("total_pending", 0) if sub.details else 0
+            queue_depth = sub.details.get(
+                "total_pending", 0) if sub.details else 0
 
             if queue_depth > QUEUE_DEPTH_THRESHOLD:
                 return (
@@ -337,8 +337,10 @@ class QueueDrainAction(BaseHealingAction):
         try:
             from app.core.health import check_celery_queues
             sub = await check_celery_queues()
-            queue_depth = sub.details.get("total_pending", 0) if sub.details else 0
-            queue_names = sub.details.get("queue_names", []) if sub.details else []
+            queue_depth = sub.details.get(
+                "total_pending", 0) if sub.details else 0
+            queue_names = sub.details.get(
+                "queue_names", []) if sub.details else []
 
             # Recommendation logic
             recommended_workers = max(4, queue_depth // 200)
@@ -385,7 +387,7 @@ class MemoryPressureAction(BaseHealingAction):
         self, company_id: str, context: Dict[str, Any],
     ) -> Tuple[bool, str]:
         try:
-            from app.core.redis import get_redis, make_key
+            from app.core.redis import get_redis
             redis = await get_redis()
             info = await redis.info("memory")
             used_memory = info.get("used_memory", 0)
@@ -621,7 +623,8 @@ class IntegrationRecoveryAction(BaseHealingAction):
                     pass
 
                 if attempt < INTEGRATION_RETRY_MAX:
-                    backoff = INTEGRATION_RETRY_BACKOFF_BASE * (2 ** (attempt - 1))
+                    backoff = INTEGRATION_RETRY_BACKOFF_BASE * \
+                        (2 ** (attempt - 1))
                     await _asyncio.sleep(min(backoff, 30))
 
             results[name] = {
@@ -670,7 +673,8 @@ class StuckTicketRecoveryAction(BaseHealingAction):
             stuck_list = stuck.get("sessions", [])
             if stuck_list:
                 count = len(stuck_list)
-                sample_tickets = [s.get("ticket_id", "") for s in stuck_list[:3]]
+                sample_tickets = [s.get("ticket_id", "")
+                                  for s in stuck_list[:3]]
                 return (
                     True,
                     f"{count} ticket(s) stuck in GSD state "

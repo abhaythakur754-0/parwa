@@ -98,9 +98,7 @@ _RE_SELF_HARM = re.compile(
 
 _RE_CHILD_EXPLOITATION = re.compile(
     r"\b(child pornography|child exploitation|underage exploitation|minor abuse|"
-    r"pedophil|child grooming|child sex|sex with minor)\b",
-    re.IGNORECASE,
-)
+    r"pedophil|child grooming|child sex|sex with minor)\b", re.IGNORECASE, )
 
 # Severity: HIGH
 _RE_ILLEGAL_ACTIVITIES = re.compile(
@@ -272,9 +270,7 @@ _RE_HALLUCINATION_MARKERS = re.compile(
     r"a (recent|new|latest) (report|study|survey) (from|in) 202[0-4]|"
     r"the (current|latest) version is \d+\.\d+\.?\d*|"
     r"the (official|current) website (is|states)|"
-    r"(breaking|just announced|just confirmed) (news|update))\b",
-    re.IGNORECASE,
-)
+    r"(breaking|just announced|just confirmed) (news|update))\b", re.IGNORECASE, )
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -516,23 +512,23 @@ def _build_config(
             variant_type=override_config.variant_type or variant_type,
             strictness_level=override_config.strictness_level or strictness.value,
             enabled_layers=override_config.enabled_layers
-                if override_config.enabled_layers
-                else [layer.value for layer in GuardrailLayer],
+            if override_config.enabled_layers
+            else [layer.value for layer in GuardrailLayer],
             custom_rules=override_config.custom_rules,
             blocked_keywords=override_config.blocked_keywords,
             max_response_length=override_config.max_response_length
-                if override_config.max_response_length != 2000
-                else 2000,
+            if override_config.max_response_length != 2000
+            else 2000,
             min_response_length=override_config.min_response_length
-                if override_config.min_response_length != 20
-                else 20,
+            if override_config.min_response_length != 20
+            else 20,
             tone_requirements=override_config.tone_requirements
-                if override_config.tone_requirements
-                else ["professional", "empathetic"],
+            if override_config.tone_requirements
+            else ["professional", "empathetic"],
             pii_check_enabled=override_config.pii_check_enabled,
             confidence_threshold=override_config.confidence_threshold
-                if override_config.confidence_threshold != 85.0
-                else confidence,
+            if override_config.confidence_threshold != 85.0
+            else confidence,
         )
         return merged
 
@@ -1051,7 +1047,8 @@ class ToneValidationGuard:
                 # Casual tone is only a violation if the context
                 # requires a serious tone
                 if tone_category == "overly_casual":
-                    if self._SERIOUS_TONES.intersection(config.tone_requirements):
+                    if self._SERIOUS_TONES.intersection(
+                            config.tone_requirements):
                         tone_violations.append({
                             "match": match.group(),
                             "tone_category": tone_category,
@@ -1335,7 +1332,8 @@ class PIILeakGuard:
         if category == "ssn":
             return "***-**-" + value[-4:] if len(value) >= 4 else "***"
         if category == "credit_card":
-            return "****-****-****-" + value[-4:] if len(value) >= 4 else "****"
+            return "****-****-****-" + \
+                value[-4:] if len(value) >= 4 else "****"
         if category == "email":
             parts = value.split("@")
             if len(parts) == 2:
@@ -1556,7 +1554,8 @@ class GuardrailsEngine:
                     passed=True,
                     layer=layer_name,
                     reason=f"Guard {layer_name} failed internally, allowed by default",
-                    metadata={"internal_error": True},
+                    metadata={
+                        "internal_error": True},
                 )
 
             report.results.append(result)
@@ -1827,7 +1826,8 @@ class BlockedResponseManager:
                     raw = await redis.get(key)
                     if raw:
                         entry = json.loads(raw)
-                        entry.pop("response", None)  # Don't return full response in list
+                        # Don't return full response in list
+                        entry.pop("response", None)
                         entries.append(entry)
                 except (json.JSONDecodeError, TypeError):
                     continue
@@ -1933,7 +1933,8 @@ class BlockedResponseManager:
             severity = guard_result.severity
             if "by_severity" not in stats:
                 stats["by_severity"] = {}
-            stats["by_severity"][severity] = stats["by_severity"].get(severity, 0) + 1
+            stats["by_severity"][severity] = stats["by_severity"].get(
+                severity, 0) + 1
 
             # Serialize and store
             await redis.set(

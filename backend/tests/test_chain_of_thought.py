@@ -9,7 +9,7 @@ Target: 80+ tests.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from app.core.technique_router import TechniqueID, QuerySignals
 from app.core.techniques.base import (
@@ -60,7 +60,8 @@ def node() -> ChainOfThoughtNode:
 def complex_state() -> ConversationState:
     return ConversationState(
         query="How do I cancel my subscription and get a refund? Also what happens to my data?",
-        signals=QuerySignals(query_complexity=0.6),
+        signals=QuerySignals(
+            query_complexity=0.6),
     )
 
 
@@ -92,7 +93,8 @@ def empty_state() -> ConversationState:
 def high_complexity_state() -> ConversationState:
     return ConversationState(
         query="First, check the order. Then, verify the payment. Finally, confirm delivery.",
-        signals=QuerySignals(query_complexity=0.8),
+        signals=QuerySignals(
+            query_complexity=0.8),
     )
 
 
@@ -103,7 +105,12 @@ class TestQueryType:
     """Tests for the QueryType enum."""
 
     def test_all_values_exist(self):
-        expected = {"multi_part", "sequential", "comparison", "causal", "single"}
+        expected = {
+            "multi_part",
+            "sequential",
+            "comparison",
+            "causal",
+            "single"}
         actual = {qt.value for qt in QueryType}
         assert actual == expected
 
@@ -314,10 +321,18 @@ class TestCoTResult:
 
     def test_to_dict_steps_applied(self):
         result = CoTResult(
-            steps_applied=["decomposition", "reasoning", "validation", "synthesis"],
+            steps_applied=[
+                "decomposition",
+                "reasoning",
+                "validation",
+                "synthesis"],
         )
         d = result.to_dict()
-        assert d["steps_applied"] == ["decomposition", "reasoning", "validation", "synthesis"]
+        assert d["steps_applied"] == [
+            "decomposition",
+            "reasoning",
+            "validation",
+            "synthesis"]
 
     def test_mutable(self):
         result = CoTResult()
@@ -369,7 +384,8 @@ class TestShouldActivate:
         assert await node.should_activate(complex_state) is True
 
     @pytest.mark.asyncio
-    async def test_complexity_exactly_04_does_not_activate(self, node, boundary_state):
+    async def test_complexity_exactly_04_does_not_activate(
+            self, node, boundary_state):
         assert await node.should_activate(boundary_state) is False
 
     @pytest.mark.asyncio
@@ -417,7 +433,8 @@ class TestShouldActivate:
         assert await node.should_activate(state) is False
 
     @pytest.mark.asyncio
-    async def test_high_complexity_activates(self, node, high_complexity_state):
+    async def test_high_complexity_activates(
+            self, node, high_complexity_state):
         assert await node.should_activate(high_complexity_state) is True
 
 
@@ -616,8 +633,16 @@ class TestStepByStepReasoning:
     @pytest.mark.asyncio
     async def test_multi_part_reasoning(self, processor):
         steps = [
-            CoTStep(step_number=1, step_type="multi_part", description="Cancel subscription", key_terms=["cancel"]),
-            CoTStep(step_number=2, step_type="multi_part", description="Get refund", key_terms=["refund"]),
+            CoTStep(
+                step_number=1,
+                step_type="multi_part",
+                description="Cancel subscription",
+                key_terms=["cancel"]),
+            CoTStep(
+                step_number=2,
+                step_type="multi_part",
+                description="Get refund",
+                key_terms=["refund"]),
         ]
         result = await processor.generate_reasoning(steps)
         assert len(result) == 2
@@ -660,8 +685,16 @@ class TestStepByStepReasoning:
     @pytest.mark.asyncio
     async def test_preserves_step_numbers(self, processor):
         steps = [
-            CoTStep(step_number=1, step_type="single", description="A", key_terms=["a"]),
-            CoTStep(step_number=2, step_type="single", description="B", key_terms=["b"]),
+            CoTStep(
+                step_number=1,
+                step_type="single",
+                description="A",
+                key_terms=["a"]),
+            CoTStep(
+                step_number=2,
+                step_type="single",
+                description="B",
+                key_terms=["b"]),
         ]
         result = await processor.generate_reasoning(steps)
         assert result[0].step_number == 1
@@ -1098,7 +1131,8 @@ class TestErrorFallback:
     """BC-008: Never crash — return original state on error."""
 
     @pytest.mark.asyncio
-    async def test_execute_returns_original_on_exception(self, node, complex_state):
+    async def test_execute_returns_original_on_exception(
+            self, node, complex_state):
         """Force an exception inside execute() and verify original state returned."""
         with patch.object(
             node._processor, 'process',
@@ -1200,8 +1234,7 @@ class TestEdgeCases:
     def test_key_terms_max_five(self):
         """Key terms should be limited to 5."""
         terms = ChainOfThoughtProcessor._extract_key_terms(
-            "billing invoice charge payment subscription account profile settings",
-        )
+            "billing invoice charge payment subscription account profile settings", )
         assert len(terms) <= 5
 
     def test_key_terms_deduplication(self):
@@ -1259,7 +1292,8 @@ class TestConstants:
 
     def test_synthesis_templates_are_strings(self):
         for qt, template in _SYNTHESIS_TEMPLATES.items():
-            assert isinstance(template, str), f"Template for {qt} is not a string"
+            assert isinstance(
+                template, str), f"Template for {qt} is not a string"
             assert "{step_count}" in template, f"Missing {{step_count}} for {qt}"
             assert "{step_summaries}" in template, f"Missing {{step_summaries}} for {qt}"
 

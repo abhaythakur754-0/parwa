@@ -22,7 +22,8 @@ logger = get_logger("event_emitter")
 
 # ── Per-tenant rate limiting (BC-005) ──────────────────────
 # Tracks emit timestamps per (company_id, event_type) in a sliding window.
-# NOT thread-safe — acceptable because Socket.io server is single-threaded asyncio.
+# NOT thread-safe — acceptable because Socket.io server is single-threaded
+# asyncio.
 _rate_tracker: Dict[str, list] = defaultdict(list)
 RATE_WINDOW_SECONDS = 1.0
 

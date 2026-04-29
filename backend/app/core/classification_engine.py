@@ -18,7 +18,7 @@ from __future__ import annotations
 import time
 import re
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -70,7 +70,8 @@ class IntentResult:
 
     primary_intent: str  # IntentType value
     primary_confidence: float  # 0.0-1.0
-    secondary_intents: List[Tuple[str, float]]  # [(intent, confidence), ...] max 3
+    # [(intent, confidence), ...] max 3
+    secondary_intents: List[Tuple[str, float]]
     all_scores: Dict[str, float]  # intent -> confidence for all types
     classification_method: str  # "keyword", "ai", "fallback"
     processing_time_ms: float
@@ -198,11 +199,13 @@ class KeywordClassifier:
             weight = config.get("weight", 1.0)
             keywords = config.get("keywords", [])
             if not keywords:
-                # General: give tiny base score (won't dominate after normalization)
+                # General: give tiny base score (won't dominate after
+                # normalization)
                 scores[intent] = 0.01
                 continue
 
-            raw_score = sum(len(kw.split()) for kw in keywords if kw in text_lower)
+            raw_score = sum(len(kw.split())
+                            for kw in keywords if kw in text_lower)
             scores[intent] = raw_score * weight
 
     # Ensure general has a small presence if nothing else matched
@@ -301,7 +304,8 @@ class ClassificationEngine:
             return self._default_result("too_short")
 
         # ── AI classification (parwa/high_parwa only) ────────────
-        if use_ai and self.smart_router and variant_type in ("parwa", "high_parwa"):
+        if use_ai and self.smart_router and variant_type in (
+                "parwa", "high_parwa"):
             try:
                 return await self._classify_with_ai(
                     cleaned, company_id, variant_type,
@@ -332,7 +336,11 @@ class ClassificationEngine:
 
         # Route through Smart Router light tier
         from app.core.smart_router import SmartRouter
-        if not isinstance(self.smart_router, SmartRouter) and not hasattr(self.smart_router, 'async_execute_llm_call'):
+        if not isinstance(
+                self.smart_router,
+                SmartRouter) and not hasattr(
+                self.smart_router,
+                'async_execute_llm_call'):
             return self._keyword_classifier.classify(text)
 
         response = await self.smart_router.async_execute_llm_call(
@@ -363,7 +371,8 @@ class ClassificationEngine:
         # Extract JSON from response
         try:
             # Handle markdown fences
-            json_match = re.search(r"```(?:json)?\s*(.*?)```", content, re.DOTALL)
+            json_match = re.search(
+                r"```(?:json)?\s*(.*?)```", content, re.DOTALL)
             json_str = json_match.group(1) if json_match else content
             data = json.loads(json_str)
         except (json.JSONDecodeError, AttributeError):

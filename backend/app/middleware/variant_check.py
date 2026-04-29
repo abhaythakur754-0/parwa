@@ -28,7 +28,6 @@ import logging
 from typing import Callable, Dict, List, Optional
 from uuid import UUID
 
-from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 logger = logging.getLogger("parwa.middleware.variant_check")
@@ -226,15 +225,22 @@ class VariantCheckMiddleware:
         headers = dict(scope.get("headers", []))
 
         # 1. Check X-Company-ID header
-        raw_header = headers.get(b"x-company-id", b"").decode("utf-8", errors="ignore").strip()
+        raw_header = headers.get(
+            b"x-company-id",
+            b"").decode(
+            "utf-8",
+            errors="ignore").strip()
         if raw_header:
             return raw_header
 
         # 2. Check Authorization header for JWT
-        auth_header = headers.get(b"authorization", b"").decode("utf-8", errors="ignore").strip()
+        auth_header = headers.get(
+            b"authorization", b"").decode(
+            "utf-8", errors="ignore").strip()
         if auth_header and auth_header.lower().startswith("bearer "):
             token = auth_header[7:].strip()
-            company_id = VariantCheckMiddleware._decode_company_id_from_jwt(token)
+            company_id = VariantCheckMiddleware._decode_company_id_from_jwt(
+                token)
             if company_id:
                 return company_id
 
@@ -269,7 +275,8 @@ class VariantCheckMiddleware:
             payload = json.loads(payload_json)
 
             company_id = payload.get("company_id")
-            if company_id and isinstance(company_id, str) and company_id.strip():
+            if company_id and isinstance(
+                    company_id, str) and company_id.strip():
                 return company_id.strip()
 
             return None
@@ -311,8 +318,13 @@ class VariantCheckMiddleware:
                 result = limit_service.enforce_limit(company_id, limit_type)
                 return result  # Returns {"allowed": True} on success
             except Exception as limit_err:
-                logger.error("variant_check_enforcement_failed limit_type=%s error=%s", limit_type, str(limit_err))
-                return {"allowed": False, "error": f"Unable to verify {limit_type} limit"}
+                logger.error(
+                    "variant_check_enforcement_failed limit_type=%s error=%s",
+                    limit_type,
+                    str(limit_err))
+                return {
+                    "allowed": False,
+                    "error": f"Unable to verify {limit_type} limit"}
 
         try:
             from app.services.variant_limit_service import (
@@ -329,4 +341,6 @@ class VariantCheckMiddleware:
                 limit_type,
                 str(exc)[:200],
             )
-            return {"allowed": False, "error": "Unable to verify resource limit. Please try again."}
+            return {
+                "allowed": False,
+                "error": "Unable to verify resource limit. Please try again."}

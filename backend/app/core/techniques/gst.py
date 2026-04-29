@@ -21,7 +21,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from app.core.technique_router import TechniqueID
 from app.core.techniques.base import (
@@ -552,8 +552,10 @@ class GSTProcessor:
             return {}
 
         scope = self._classify_scope(query)
-        stakeholders = _SCOPE_STAKEHOLDERS.get(scope, _SCOPE_STAKEHOLDERS[DecisionScope.GENERAL])
-        constraints = _SCOPE_CONSTRAINTS.get(scope, _SCOPE_CONSTRAINTS[DecisionScope.GENERAL])
+        stakeholders = _SCOPE_STAKEHOLDERS.get(
+            scope, _SCOPE_STAKEHOLDERS[DecisionScope.GENERAL])
+        constraints = _SCOPE_CONSTRAINTS.get(
+            scope, _SCOPE_CONSTRAINTS[DecisionScope.GENERAL])
 
         return {
             "scope": scope.value,
@@ -580,7 +582,8 @@ class GSTProcessor:
         Returns:
             List of GSTOption objects with base scores and risks.
         """
-        templates = _SCOPE_OPTIONS.get(scope, _SCOPE_OPTIONS[DecisionScope.GENERAL])
+        templates = _SCOPE_OPTIONS.get(
+            scope, _SCOPE_OPTIONS[DecisionScope.GENERAL])
 
         # Limit by max_options config
         selected = templates[: self.config.max_options]
@@ -684,7 +687,11 @@ class GSTProcessor:
                 else:
                     sev_enum = RiskSeverity(sev)
 
-                if severity_order.get(sev_enum, 0) > severity_order.get(max_sev, 0):
+                if severity_order.get(
+                        sev_enum,
+                        0) > severity_order.get(
+                        max_sev,
+                        0):
                     max_sev = sev_enum
 
                 risk_score += severity_order.get(sev_enum, 0) * 0.25
@@ -692,7 +699,9 @@ class GSTProcessor:
 
             risk_score = min(risk_score, 1.0)
 
-            if severity_order.get(max_sev, 0) > severity_order.get(overall_max_severity, 0):
+            if severity_order.get(
+                    max_sev, 0) > severity_order.get(
+                    overall_max_severity, 0):
                 overall_max_severity = max_sev
 
             option_risks.append({
@@ -704,10 +713,14 @@ class GSTProcessor:
 
         return {
             "per_option": option_risks,
-            "overall_max_severity": overall_max_severity.value if isinstance(overall_max_severity, RiskSeverity) else str(overall_max_severity),
+            "overall_max_severity": overall_max_severity.value if isinstance(
+                overall_max_severity,
+                RiskSeverity) else str(overall_max_severity),
             "risk_categories": sorted(overall_risk_categories),
             "overall_risk_score": round(
-                max((r["risk_score"] for r in option_risks), default=0.0),
+                max(
+                    (r["risk_score"] for r in option_risks),
+                    default=0.0),
                 4,
             ),
         }
@@ -745,9 +758,11 @@ class GSTProcessor:
 
         # Filter options that pass risk threshold
         safe_options = [
-            o for o in options
-            if (1.0 - risk_lookup.get(o.option_id, 0.0)) >= self.config.risk_threshold
-        ]
+            o for o in options if (
+                1.0 -
+                risk_lookup.get(
+                    o.option_id,
+                    0.0)) >= self.config.risk_threshold]
 
         # If no safe options, pick the one with lowest risk
         if not safe_options:
@@ -889,8 +904,8 @@ class GSTProcessor:
                 problem_definition=problem_definition if 'problem_definition' in dir() else {},
                 options=options if 'options' in dir() else [],
                 checkpoints=checkpoints if 'checkpoints' in dir() else [],
-                steps_applied=steps_applied + ["error_fallback"]
-                if 'steps_applied' in dir() else ["error_fallback"],
+                steps_applied=steps_applied +
+                ["error_fallback"] if 'steps_applied' in dir() else ["error_fallback"],
                 risk_summary=risk_summary if 'risk_summary' in dir() else {},
             )
 
@@ -979,7 +994,8 @@ class GSTNode(BaseTechniqueNode):
             self.record_result(state, result.to_dict())
 
             # If we have a recommendation, append to response parts
-            if result.recommendation and result.recommendation.get("selected_option"):
+            if result.recommendation and result.recommendation.get(
+                    "selected_option"):
                 rec_text = result.recommendation.get("rationale", "")
                 if rec_text:
                     state.response_parts.append(rec_text)

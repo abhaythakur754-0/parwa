@@ -466,7 +466,11 @@ def process_audit_queue() -> dict:
             "process_audit_queue failed error=%s",
             exc,
         )
-        return {"status": "failed", "processed": processed, "error": str(exc)[:200]}
+        return {
+            "status": "failed",
+            "processed": processed,
+            "error": str(exc)[
+                :200]}
 
     return {"status": "ok", "processed": processed}
 

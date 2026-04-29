@@ -25,7 +25,8 @@ class RuleMigrationService:
 
     # Migration modes
     MODE_STATIC = "static"        # All hardcoded rules
-    MODE_SHADOW = "shadow"        # AI rules evaluated but not applied (shadow mode)
+    # AI rules evaluated but not applied (shadow mode)
+    MODE_SHADOW = "shadow"
     MODE_CANARY = "canary"        # AI rules applied for X% of requests
     MODE_GRADUAL = "gradual"      # Percentage increases over time
     MODE_ACTIVE = "active"        # AI rules fully active
@@ -68,8 +69,7 @@ class RuleMigrationService:
         ]
         if mode not in valid_modes:
             raise ValidationError(
-                f"Invalid migration mode: {mode}. Must be one of: {valid_modes}"
-            )
+                f"Invalid migration mode: {mode}. Must be one of: {valid_modes}")
         if not 0 <= percentage <= 100:
             raise ValidationError("Percentage must be between 0 and 100")
 

@@ -21,19 +21,17 @@ GAP 6: Failed document handling.
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import List
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
 from app.services.file_storage_service import FileStorageService
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_roles
 from app.exceptions import ValidationError
 from app.services.onboarding_service import (
-    get_knowledge_documents,
-    remove_failed_document,
     retry_document_processing,
 )
 from database.base import get_db
@@ -136,9 +134,10 @@ async def api_upload_document(
     ext = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     if ext not in ALLOWED_EXTENSIONS:
         raise ValidationError(
-            message=f"File type '{ext}' not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
-            details={"allowed_extensions": sorted(ALLOWED_EXTENSIONS)},
-        )
+            message=f"File type '{ext}' not allowed. Allowed: {
+                ', '.join(
+                    sorted(ALLOWED_EXTENSIONS))}", details={
+                "allowed_extensions": sorted(ALLOWED_EXTENSIONS)}, )
 
     # Read file content
     content = await file.read()
@@ -170,16 +169,26 @@ async def api_upload_document(
             content=content,
             file_name=file.filename,
             content_type=file.content_type or "application/octet-stream",
-            uploaded_by=str(user.id),
-            metadata={"document_id": str(document.id), "source": "knowledge_base"},
+            uploaded_by=str(
+                user.id),
+            metadata={
+                "document_id": str(
+                    document.id),
+                "source": "knowledge_base"},
         )
         # Store file reference on document for Celery task to retrieve
-        document.file_path = storage_result.get("file_path", storage_result.get("id"))
+        document.file_path = storage_result.get(
+            "file_path", storage_result.get("id"))
         document.storage_file_id = storage_result.get("id")
         db.flush()
     except Exception as e:
-        logger.error("kb_file_storage_failed", document_id=str(document.id), error=str(e))
-        # Continue processing even if storage fails - Celery task will handle gracefully
+        logger.error(
+            "kb_file_storage_failed",
+            document_id=str(
+                document.id),
+            error=str(e))
+        # Continue processing even if storage fails - Celery task will handle
+        # gracefully
 
     # Trigger async processing via Celery
     try:
@@ -190,7 +199,8 @@ async def api_upload_document(
         document.status = "pending"
 
     return UploadResponse(
-        id=str(document.id),
+        id=str(
+            document.id),
         filename=filename,
         status=document.status,
         message="Document uploaded successfully. Processing will begin shortly.",

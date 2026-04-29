@@ -7,10 +7,9 @@ Schemas for inbound email processing, loop detection,
 auto-reply detection, and email thread management.
 """
 
-from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, EmailStr
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ── Inbound Email Schemas ──────────────────────────────────────
@@ -18,17 +17,28 @@ from pydantic import BaseModel, ConfigDict, Field, EmailStr
 class InboundEmailCreate(BaseModel):
     """Schema for creating an inbound email record from webhook data."""
 
-    sender_email: str = Field(..., max_length=254, description="Sender email address")
-    sender_name: Optional[str] = Field(None, max_length=200, description="Sender display name")
-    recipient_email: str = Field(..., max_length=254, description="Recipient email address")
-    subject: Optional[str] = Field(None, max_length=500, description="Email subject line")
+    sender_email: str = Field(..., max_length=254,
+                              description="Sender email address")
+    sender_name: Optional[str] = Field(
+        None, max_length=200, description="Sender display name")
+    recipient_email: str = Field(...,
+                                 max_length=254,
+                                 description="Recipient email address")
+    subject: Optional[str] = Field(
+        None, max_length=500, description="Email subject line")
     body_html: Optional[str] = Field(None, description="HTML body content")
-    body_text: Optional[str] = Field(None, description="Plain text body content")
-    message_id: Optional[str] = Field(None, max_length=255, description="RFC 2822 Message-ID header")
-    in_reply_to: Optional[str] = Field(None, max_length=255, description="In-Reply-To header")
-    references: Optional[str] = Field(None, description="References header (Message-ID chain)")
-    attachments: Optional[List[dict]] = Field(default_factory=list, description="Attachment metadata list")
-    headers_json: Optional[str] = Field("{}", description="All email headers as JSON string")
+    body_text: Optional[str] = Field(
+        None, description="Plain text body content")
+    message_id: Optional[str] = Field(
+        None, max_length=255, description="RFC 2822 Message-ID header")
+    in_reply_to: Optional[str] = Field(
+        None, max_length=255, description="In-Reply-To header")
+    references: Optional[str] = Field(
+        None, description="References header (Message-ID chain)")
+    attachments: Optional[List[dict]] = Field(
+        default_factory=list, description="Attachment metadata list")
+    headers_json: Optional[str] = Field(
+        "{}", description="All email headers as JSON string")
 
 
 class InboundEmailResponse(BaseModel):

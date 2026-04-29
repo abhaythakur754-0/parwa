@@ -32,8 +32,6 @@ from typing import (
 
 from app.core.technique_router import (
     TechniqueID,
-    TechniqueTier,
-    TECHNIQUE_REGISTRY,
 )
 
 

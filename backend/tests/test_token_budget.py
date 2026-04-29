@@ -11,10 +11,8 @@ CRITICAL: effective_max = raw_max * (1 - SAFETY_MARGIN_PERCENT) = raw_max * 0.9
   parwa_high: 16384 * 0.9 = 14745
 """
 
-import asyncio
-import threading
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -48,7 +46,8 @@ def _effective_max(raw: int) -> int:
 
 # Precompute: raw - int(raw * 0.10)
 # 4096 - 409 = 3687, 8192 - 819 = 7373, 16384 - 1638 = 14746
-EFFECTIVE = {v: _effective_max(c["max_tokens"]) for v, c in VARIANT_TOKEN_BUDGETS.items()}
+EFFECTIVE = {v: _effective_max(c["max_tokens"])
+             for v, c in VARIANT_TOKEN_BUDGETS.items()}
 
 
 def _make_service(redis=None):
@@ -78,7 +77,8 @@ class TestConstantsAndConfig:
     """Tests for module-level constants and variant configuration."""
 
     def test_variant_budgets_has_three_variants(self):
-        assert set(VARIANT_TOKEN_BUDGETS.keys()) == {"mini_parwa", "parwa", "parwa_high"}
+        assert set(VARIANT_TOKEN_BUDGETS.keys()) == {
+            "mini_parwa", "parwa", "parwa_high"}
 
     def test_mini_parwa_max_tokens(self):
         assert VARIANT_TOKEN_BUDGETS["mini_parwa"]["max_tokens"] == 4096
@@ -128,7 +128,8 @@ class TestEffectiveMaxTokens:
 
     def test_mini_parwa_effective_max(self):
         svc = _make_service()
-        assert svc._effective_max_tokens("mini_parwa") == EFFECTIVE["mini_parwa"]
+        assert svc._effective_max_tokens(
+            "mini_parwa") == EFFECTIVE["mini_parwa"]
 
     def test_parwa_effective_max(self):
         svc = _make_service()
@@ -136,15 +137,18 @@ class TestEffectiveMaxTokens:
 
     def test_parwa_high_effective_max(self):
         svc = _make_service()
-        assert svc._effective_max_tokens("parwa_high") == EFFECTIVE["parwa_high"]
+        assert svc._effective_max_tokens(
+            "parwa_high") == EFFECTIVE["parwa_high"]
 
     def test_unknown_variant_falls_back_to_parwa(self):
         svc = _make_service()
-        assert svc._effective_max_tokens("unknown_variant") == EFFECTIVE["parwa"]
+        assert svc._effective_max_tokens(
+            "unknown_variant") == EFFECTIVE["parwa"]
 
     def test_effective_max_matches_source_formula(self):
         # Source formula: raw - int(raw * SAFETY_MARGIN_PERCENT)
-        for variant, raw in [("mini_parwa", 4096), ("parwa", 8192), ("parwa_high", 16384)]:
+        for variant, raw in [
+                ("mini_parwa", 4096), ("parwa", 8192), ("parwa_high", 16384)]:
             svc = _make_service()
             effective = svc._effective_max_tokens(variant)
             expected = raw - int(raw * SAFETY_MARGIN_PERCENT)
@@ -166,22 +170,28 @@ class TestRedisKeyHelpers:
     """Tests for static Redis key generation methods."""
 
     def test_key_used(self):
-        assert TokenBudgetService._key_used("conv123") == "token_budget:conv123:used"
+        assert TokenBudgetService._key_used(
+            "conv123") == "token_budget:conv123:used"
 
     def test_key_reserved(self):
-        assert TokenBudgetService._key_reserved("conv123") == "token_budget:conv123:reserved"
+        assert TokenBudgetService._key_reserved(
+            "conv123") == "token_budget:conv123:reserved"
 
     def test_key_max(self):
-        assert TokenBudgetService._key_max("conv123") == "token_budget:conv123:max"
+        assert TokenBudgetService._key_max(
+            "conv123") == "token_budget:conv123:max"
 
     def test_key_info(self):
-        assert TokenBudgetService._key_info("conv123") == "token_budget:conv123:info"
+        assert TokenBudgetService._key_info(
+            "conv123") == "token_budget:conv123:info"
 
     def test_key_messages(self):
-        assert TokenBudgetService._key_messages("conv123") == "token_budget:conv123:messages"
+        assert TokenBudgetService._key_messages(
+            "conv123") == "token_budget:conv123:messages"
 
     def test_key_used_different_conversation(self):
-        assert TokenBudgetService._key_used("abc") != TokenBudgetService._key_used("xyz")
+        assert TokenBudgetService._key_used(
+            "abc") != TokenBudgetService._key_used("xyz")
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -230,12 +240,20 @@ class TestDataClasses:
         assert tb.available_tokens == 7372
 
     def test_reserve_result_success(self):
-        r = ReserveResult(success=True, reserved_amount=100, remaining_after_reserve=7272, error=None)
+        r = ReserveResult(
+            success=True,
+            reserved_amount=100,
+            remaining_after_reserve=7272,
+            error=None)
         assert r.success is True
         assert r.error is None
 
     def test_reserve_result_failure(self):
-        r = ReserveResult(success=False, reserved_amount=0, remaining_after_reserve=0, error="overflow")
+        r = ReserveResult(
+            success=False,
+            reserved_amount=0,
+            remaining_after_reserve=0,
+            error="overflow")
         assert r.success is False
         assert "overflow" in r.error
 
@@ -248,19 +266,31 @@ class TestDataClasses:
         assert s.warning_level == "normal"
 
     def test_overflow_check_fit(self):
-        o = OverflowCheck(can_fit=True, remaining_tokens=7000, overflow_amount=0,
-                          truncation_needed=False, suggested_truncation_tokens=0)
+        o = OverflowCheck(
+            can_fit=True,
+            remaining_tokens=7000,
+            overflow_amount=0,
+            truncation_needed=False,
+            suggested_truncation_tokens=0)
         assert o.can_fit is True
 
     def test_overflow_check_no_fit(self):
-        o = OverflowCheck(can_fit=False, remaining_tokens=100, overflow_amount=500,
-                          truncation_needed=True, suggested_truncation_tokens=550)
+        o = OverflowCheck(
+            can_fit=False,
+            remaining_tokens=100,
+            overflow_amount=500,
+            truncation_needed=True,
+            suggested_truncation_tokens=550)
         assert o.can_fit is False
         assert o.truncation_needed is True
 
     def test_context_strategy(self):
-        c = ContextStrategy(strategy="keep_all", reason="plenty of room",
-                            tokens_to_remove=0, messages_to_remove=0, priority_messages=[])
+        c = ContextStrategy(
+            strategy="keep_all",
+            reason="plenty of room",
+            tokens_to_remove=0,
+            messages_to_remove=0,
+            priority_messages=[])
         assert c.strategy == "keep_all"
 
     def test_token_entry(self):
@@ -546,6 +576,7 @@ class TestReserveTokensRedis:
         redis = _make_mock_redis()
         script_mock = MagicMock(return_value=1000)
         redis.register_script = MagicMock(return_value=script_mock)
+
         def mock_get(key):
             if ":max" in str(key):
                 return str(EFFECTIVE["parwa"])
@@ -563,6 +594,7 @@ class TestReserveTokensRedis:
         redis = _make_mock_redis()
         script_mock = MagicMock(return_value=-1)
         redis.register_script = MagicMock(return_value=script_mock)
+
         def mock_get(key):
             if ":max" in str(key):
                 return str(EFFECTIVE["parwa"])
@@ -1160,7 +1192,8 @@ class TestEdgeCases:
         s1 = await svc.get_budget_status("c1")
         s2 = await svc.get_budget_status("c2")
         assert s1.used_tokens == 3000
-        # c2 had no reserve, finalize adjusts from 0: reserved(1000)>actual(500), diff=500, new=max(0,0-500)=0
+        # c2 had no reserve, finalize adjusts from 0:
+        # reserved(1000)>actual(500), diff=500, new=max(0,0-500)=0
         assert s2.used_tokens == 0
 
 

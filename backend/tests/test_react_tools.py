@@ -17,11 +17,22 @@ All tools use in-memory mock data and require no external services.
 """
 
 from __future__ import annotations
+from app.core.react_tools import ReActToolRegistry
+from app.core.react_tools.ticket_tool import TicketTool
+from app.core.react_tools.order_tool import OrderTool
+from app.core.react_tools.crm_tool import CRMTool
+from app.core.react_tools.billing_tool import BillingTool
+from app.core.react_tools.base import (
+    ActionSchema,
+    BaseReactTool,
+    ToolCall,
+    ToolResult,
+    ToolSchema,
+    ValidationResult,
+)
 
 import asyncio
-import time
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -33,21 +44,9 @@ os.environ.setdefault("SECRET_KEY", "test_secret")
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET_KEY", "test_jwt")
-os.environ.setdefault("DATA_ENCRYPTION_KEY", "12345678901234567890123456789012")
-
-from app.core.react_tools.base import (
-    ActionSchema,
-    BaseReactTool,
-    ToolCall,
-    ToolResult,
-    ToolSchema,
-    ValidationResult,
-)
-from app.core.react_tools.billing_tool import BillingTool
-from app.core.react_tools.crm_tool import CRMTool
-from app.core.react_tools.order_tool import OrderTool
-from app.core.react_tools.ticket_tool import TicketTool
-from app.core.react_tools import ReActToolRegistry
+os.environ.setdefault(
+    "DATA_ENCRYPTION_KEY",
+    "12345678901234567890123456789012")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -175,7 +174,9 @@ class _SlowTool(BaseReactTool):
         self, action: str, company_id: str, **params: Any,
     ) -> ToolResult:
         await asyncio.sleep(self._delay)
-        return ToolResult(success=True, error=None, data={"ok": True}, execution_time_ms=0)
+        return ToolResult(
+            success=True, error=None, data={
+                "ok": True}, execution_time_ms=0)
 
 
 # ══════════════════════════════════════════════════════════════════

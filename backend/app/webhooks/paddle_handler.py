@@ -113,14 +113,30 @@ def _extract_transaction_data(payload: dict) -> dict:
         "subscription_id": transaction.get("subscription_id"),
         "customer_id": transaction.get("customer_id"),
         "invoice_id": transaction.get("invoice_id"),
-        "status": transaction.get("status", "pending"),
-        "amount": details.get("totals", {}).get("total") or transaction.get("total"),
-        "currency": details.get("currency_code") or transaction.get("currency_code", "USD"),
-        "tax": details.get("totals", {}).get("tax"),
-        "discount": details.get("totals", {}).get("discount"),
-        "payment_method": transaction.get("payment_method", "card"),
-        "error_code": transaction.get("error", {}).get("code"),
-        "error_detail": transaction.get("error", {}).get("detail"),
+        "status": transaction.get(
+            "status",
+            "pending"),
+        "amount": details.get(
+            "totals",
+            {}).get("total") or transaction.get("total"),
+        "currency": details.get("currency_code") or transaction.get(
+                "currency_code",
+                "USD"),
+        "tax": details.get(
+            "totals",
+            {}).get("tax"),
+        "discount": details.get(
+            "totals",
+            {}).get("discount"),
+        "payment_method": transaction.get(
+            "payment_method",
+            "card"),
+        "error_code": transaction.get(
+            "error",
+            {}).get("code"),
+        "error_detail": transaction.get(
+            "error",
+            {}).get("detail"),
         "created_at": transaction.get("created_at"),
         "updated_at": transaction.get("updated_at"),
         "billed_at": transaction.get("billed_at"),
@@ -152,10 +168,20 @@ def _extract_price_data(payload: dict) -> dict:
         "price_id": price.get("id") or price.get("price_id"),
         "product_id": price.get("product_id"),
         "name": price.get("name"),
-        "status": price.get("status", "active"),
+        "status": price.get(
+            "status",
+            "active"),
         "unit_price": price.get("unit_price"),
-        "currency_code": price.get("unit_price", {}).get("currency_code") if isinstance(price.get("unit_price"), dict) else None,
-        "amount": price.get("unit_price", {}).get("amount") if isinstance(price.get("unit_price"), dict) else None,
+        "currency_code": price.get(
+            "unit_price",
+            {}).get("currency_code") if isinstance(
+                price.get("unit_price"),
+                dict) else None,
+        "amount": price.get(
+            "unit_price",
+            {}).get("amount") if isinstance(
+            price.get("unit_price"),
+            dict) else None,
         "created_at": price.get("created_at"),
         "updated_at": price.get("updated_at"),
     }
@@ -237,9 +263,13 @@ def _extract_chargeback_data(payload: dict) -> dict:
     return {
         "transaction_id": chargeback.get("transaction_id") or chargeback.get("id"),
         "amount": chargeback.get("amount"),
-        "currency": chargeback.get("currency_code", "USD"),
+        "currency": chargeback.get(
+            "currency_code",
+            "USD"),
         "reason": chargeback.get("reason"),
-        "status": chargeback.get("status", "received"),
+        "status": chargeback.get(
+            "status",
+            "received"),
         "created_at": chargeback.get("created_at"),
     }
 
@@ -980,8 +1010,12 @@ def handle_adjustment_created(event: dict) -> dict:
     logger.info(
         "paddle_adjustment_created adjustment_id=%s transaction_id=%s amount=%s",
         adj_data["adjustment_id"],
-        adj_data.get("transaction_id", ""),
-        adj_data.get("amount", ""),
+        adj_data.get(
+            "transaction_id",
+            ""),
+        adj_data.get(
+            "amount",
+            ""),
         extra={
             "company_id": event.get("company_id"),
             "event_id": event.get("event_id"),
@@ -1135,7 +1169,6 @@ def _sync_billing_cycle_dates(company_id: str, sub_data: dict) -> None:
     try:
         from database.base import SessionLocal
         from database.models.billing import Subscription
-        from decimal import Decimal
 
         subscription_id = sub_data.get("subscription_id")
         next_billing_date = sub_data.get("next_billing_date")
@@ -1334,7 +1367,8 @@ def _trigger_payment_failure_stop(
 
         # Parse amount to Decimal
         try:
-            amount_decimal = Decimal(str(amount)) if amount else Decimal("0.00")
+            amount_decimal = Decimal(
+                str(amount)) if amount else Decimal("0.00")
         except Exception:
             amount_decimal = Decimal("0.00")
 
@@ -1351,8 +1385,7 @@ def _trigger_payment_failure_stop(
                     amount_attempted=amount_decimal,
                     paddle_subscription_id=subscription_id,
                     currency=currency,
-                )
-            )
+                ))
         finally:
             loop.close()
 

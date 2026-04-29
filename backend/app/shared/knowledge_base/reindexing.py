@@ -112,7 +112,9 @@ class ReindexingManager:
                 company_id=company_id,
             )
             return False
-        if job.status in (ReindexStatus.PENDING.value, ReindexStatus.RUNNING.value):
+        if job.status in (
+                ReindexStatus.PENDING.value,
+                ReindexStatus.RUNNING.value):
             job.status = ReindexStatus.CANCELLED.value
             job.completed_at = time.time()
             return True

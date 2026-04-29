@@ -349,9 +349,8 @@ class ChainOfThoughtProcessor:
             if match:
                 for pos in range(match.start(), match.end()):
                     matched_positions.add(pos)
-        extra_question_marks = sum(
-            1 for i, ch in enumerate(query) if ch == "?" and i not in matched_positions
-        )
+        extra_question_marks = sum(1 for i, ch in enumerate(
+            query) if ch == "?" and i not in matched_positions)
         question_count += extra_question_marks
 
         if conjunction_count >= 2 or question_count >= 3:
@@ -453,7 +452,8 @@ class ChainOfThoughtProcessor:
         """Decompose a sequential query by splitting on sequential keywords."""
         steps: List[CoTStep] = []
 
-        # Sort sequential keywords by length (longest first) for correct splitting
+        # Sort sequential keywords by length (longest first) for correct
+        # splitting
         sorted_keywords = sorted(_SEQUENTIAL_KEYWORDS, key=len, reverse=True)
 
         # Build a regex to split on sequential keywords
@@ -501,12 +501,15 @@ class ChainOfThoughtProcessor:
                 description=f"Identify key features of: {subjects[1]}",
                 key_terms=self._extract_key_terms(subjects[1]),
             ))
-            steps.append(CoTStep(
-                step_number=3,
-                step_type=QueryType.COMPARISON.value,
-                description=f"Compare {subjects[0]} and {subjects[1]} across identified dimensions",
-                key_terms=self._extract_key_terms(query),
-            ))
+            steps.append(
+                CoTStep(
+                    step_number=3,
+                    step_type=QueryType.COMPARISON.value,
+                    description=f"Compare {
+                        subjects[0]} and {
+                        subjects[1]} across identified dimensions",
+                    key_terms=self._extract_key_terms(query),
+                ))
         else:
             # Fallback: generic comparison decomposition
             steps.append(CoTStep(
@@ -546,12 +549,13 @@ class ChainOfThoughtProcessor:
             description="Enumerate potential causes and contributing factors",
             key_terms=self._extract_key_terms(query),
         ))
-        steps.append(CoTStep(
-            step_number=3,
-            step_type=QueryType.CAUSAL.value,
-            description="Evaluate most likely root cause based on available evidence",
-            key_terms=self._extract_key_terms(query),
-        ))
+        steps.append(
+            CoTStep(
+                step_number=3,
+                step_type=QueryType.CAUSAL.value,
+                description="Evaluate most likely root cause based on available evidence",
+                key_terms=self._extract_key_terms(query),
+            ))
 
         return steps
 
@@ -625,12 +629,14 @@ class ChainOfThoughtProcessor:
 
         updated: List[CoTStep] = []
         for step in steps:
-            query_type = QueryType(step.step_type) if step.step_type else QueryType.SINGLE
+            query_type = QueryType(
+                step.step_type) if step.step_type else QueryType.SINGLE
             template_data = _REASONING_TEMPLATES.get(
                 query_type, _REASONING_TEMPLATES[QueryType.SINGLE],
             )
 
-            key_terms_str = ", ".join(step.key_terms) if step.key_terms else "general context"
+            key_terms_str = ", ".join(
+                step.key_terms) if step.key_terms else "general context"
 
             reasoning = template_data["template"].format(
                 description=step.description,
@@ -760,7 +766,7 @@ class ChainOfThoughtProcessor:
 
         step_count = len(steps)
         summaries_text = " ".join(
-            f"[{i+1}] {s}." for i, s in enumerate(step_summaries)
+            f"[{i + 1}] {s}." for i, s in enumerate(step_summaries)
         )
 
         template = _SYNTHESIS_TEMPLATES.get(
@@ -820,8 +826,7 @@ class ChainOfThoughtProcessor:
                 )
                 steps_applied.append("validation")
                 passed_count = sum(
-                    1 for s in validated_steps if s.validation_status == "passed"
-                )
+                    1 for s in validated_steps if s.validation_status == "passed")
                 total_count = len(validated_steps)
                 if total_count > 0 and passed_count == total_count:
                     confidence_boost += 0.1

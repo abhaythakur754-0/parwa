@@ -8,7 +8,7 @@ Target: 120+ tests
 """
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -19,6 +19,7 @@ import pytest
 
 # Runtime-injected by _mock_logger fixture — satisfies flake8 F821
 BrandVoiceConfig = CLARAQualityGate = CLARAStage = CLARAResult = StageOutput = StageResult = None
+
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
@@ -103,7 +104,8 @@ class TestStructureCheck:
         gate = CLARAQualityGate()
         text = "Response text.\n\n\n\n\n\nMore text."
         result = await gate._structure_check(text, "query")
-        assert any("blank lines" in i.lower() or "whitespace" in i.lower() for i in result.issues)
+        assert any("blank lines" in i.lower() or "whitespace" in i.lower()
+                   for i in result.issues)
 
     @pytest.mark.asyncio
     async def test_no_repeated_phrases(self):
@@ -230,14 +232,16 @@ class TestLogicCheck:
             "help",
             context={"customer_name": "John"},
         )
-        name_issues = [i for i in result.issues if "customer_name" in i.lower()]
+        name_issues = [
+            i for i in result.issues if "customer_name" in i.lower()]
         assert len(name_issues) == 0  # John is referenced
 
     @pytest.mark.asyncio
     async def test_empty_context_no_entity_check(self):
         gate = CLARAQualityGate()
         result = await gate._logic_check("I can help you.", "help", context={})
-        entity_issues = [i for i in result.issues if "context key" in i.lower()]
+        entity_issues = [
+            i for i in result.issues if "context key" in i.lower()]
         assert len(entity_issues) == 0
 
     @pytest.mark.asyncio
@@ -277,7 +281,8 @@ class TestLogicCheck:
             "We can't do this but we can certainly try harder.",
             "test",
         )
-        assert any("can" in i.lower() and "can't" in i.lower() for i in result.issues)
+        assert any("can" in i.lower() and "can't" in i.lower()
+                   for i in result.issues)
 
     @pytest.mark.asyncio
     async def test_no_contradiction(self):
@@ -286,7 +291,8 @@ class TestLogicCheck:
             "I will process your refund within 5 business days.",
             "refund",
         )
-        contradiction_issues = [i for i in result.issues if "contradiction" in i.lower()]
+        contradiction_issues = [
+            i for i in result.issues if "contradiction" in i.lower()]
         assert len(contradiction_issues) == 0
 
 
@@ -325,7 +331,8 @@ class TestBrandCheck:
         gate = CLARAQualityGate(brand_voice=bv)
         result = await gate._brand_check(" ".join(["word"] * 20))
         assert result.result == StageResult.FAIL
-        assert any("max length" in i.lower() or "exceeds" in i.lower() for i in result.issues)
+        assert any("max length" in i.lower() or "exceeds" in i.lower()
+                   for i in result.issues)
 
     @pytest.mark.asyncio
     async def test_max_length_ok(self):
@@ -447,7 +454,8 @@ class TestToneCheck:
             customer_sentiment=0.9,
         )
         assert result.result == StageResult.FAIL
-        assert any("cold" in i.lower() or "warm" in i.lower() or "positive" in i.lower() for i in result.issues)
+        assert any("cold" in i.lower() or "warm" in i.lower()
+                   or "positive" in i.lower() for i in result.issues)
 
     @pytest.mark.asyncio
     async def test_neutral_customer(self):
@@ -486,7 +494,8 @@ class TestToneCheck:
             customer_sentiment=0.5,
         )
         assert result.result == StageResult.FAIL
-        aggressive_issues = [i for i in result.issues if "aggressive" in i.lower()]
+        aggressive_issues = [
+            i for i in result.issues if "aggressive" in i.lower()]
         assert len(aggressive_issues) >= 1
 
     @pytest.mark.asyncio
@@ -496,7 +505,8 @@ class TestToneCheck:
             "I understand and will help you right away.",
             customer_sentiment=0.5,
         )
-        aggressive_issues = [i for i in result.issues if "aggressive" in i.lower()]
+        aggressive_issues = [
+            i for i in result.issues if "aggressive" in i.lower()]
         assert len(aggressive_issues) == 0
 
     @pytest.mark.asyncio
@@ -564,7 +574,8 @@ class TestDeliveryCheck:
         gate = CLARAQualityGate()
         result = await gate._delivery_check("Contact us at support@example.com")
         assert result.result == StageResult.FAIL
-        assert any("pii" in i.lower() or "email" in i.lower() for i in result.issues)
+        assert any("pii" in i.lower() or "email" in i.lower()
+                   for i in result.issues)
 
     @pytest.mark.asyncio
     async def test_phone_pii(self):
@@ -621,7 +632,8 @@ class TestDeliveryCheck:
         gate = CLARAQualityGate()
         result = await gate._delivery_check("Click [here]() for more info.")
         assert result.result == StageResult.FAIL
-        assert any("broken" in i.lower() or "markdown" in i.lower() for i in result.issues)
+        assert any("broken" in i.lower() or "markdown" in i.lower()
+                   for i in result.issues)
 
     @pytest.mark.asyncio
     async def test_excessive_emojis(self):
@@ -678,7 +690,7 @@ class TestPipelineIntegration:
         gate = CLARAQualityGate()
         result = await gate.evaluate(
             response="Thank you for your patience regarding the refund. "
-                    "I have processed your refund of $50.00.",
+            "I have processed your refund of $50.00.",
             query="refund my order",
         )
         stage_names = {s.stage for s in result.stages}
@@ -693,8 +705,8 @@ class TestPipelineIntegration:
         gate = CLARAQualityGate()
         result = await gate.evaluate(
             response="Thank you for your patience regarding the refund. "
-                    "I have processed your refund of $50.00. You should see "
-                    "the credit within 5-7 business days. Best regards.",
+            "I have processed your refund of $50.00. You should see "
+            "the credit within 5-7 business days. Best regards.",
             query="refund my order",
             customer_sentiment=0.5,
         )
@@ -778,7 +790,8 @@ class TestPipelineTimeoutGAP002:
         with patch.object(gate, '_run_all_stages', side_effect=slow_run_all):
             result = await gate.evaluate(response="test response", query="test")
         assert result.pipeline_timed_out is True
-        timeout_stages = [s for s in result.stages if s.result == StageResult.TIMEOUT_PASS]
+        timeout_stages = [
+            s for s in result.stages if s.result == StageResult.TIMEOUT_PASS]
         assert len(timeout_stages) > 0
 
     @pytest.mark.asyncio
@@ -790,7 +803,8 @@ class TestPipelineTimeoutGAP002:
 
         with patch.object(gate, '_run_all_stages', side_effect=slow_run_all):
             result = await gate.evaluate(response="test", query="test")
-        timeout_stages = [s for s in result.stages if s.result == StageResult.TIMEOUT_PASS]
+        timeout_stages = [
+            s for s in result.stages if s.result == StageResult.TIMEOUT_PASS]
         for ts in timeout_stages:
             assert ts.metadata.get("timeout") is True
 
@@ -804,7 +818,8 @@ class TestPipelineTimeoutGAP002:
 
         with patch.object(gate, '_run_all_stages', side_effect=slow_run_all):
             result = await gate.evaluate(response="test", query="test")
-        fail_stages = [s for s in result.stages if s.result == StageResult.FAIL]
+        fail_stages = [
+            s for s in result.stages if s.result == StageResult.FAIL]
         if not fail_stages:
             assert result.overall_pass is True
 
@@ -817,7 +832,8 @@ class TestPipelineTimeoutGAP002:
 
         with patch.object(gate, '_run_all_stages', side_effect=slow_run_all):
             result = await gate.evaluate(response="test", query="test")
-        timeout_stages = [s for s in result.stages if s.result == StageResult.TIMEOUT_PASS]
+        timeout_stages = [
+            s for s in result.stages if s.result == StageResult.TIMEOUT_PASS]
         for ts in timeout_stages:
             assert ts.score == 0.5
 
@@ -1030,7 +1046,8 @@ class TestApplySuggestions:
             suggestions=["Clean up whitespace"],
             processing_time_ms=0,
         )]
-        result = gate._apply_suggestions("Response.\n\n\n\n\nMore text.", stages)
+        result = gate._apply_suggestions(
+            "Response.\n\n\n\n\nMore text.", stages)
         assert "\n\n\n" not in result
 
     def test_no_change_when_all_pass(self):
@@ -1087,7 +1104,12 @@ class TestEnums:
         assert len(CLARAStage) == 5
 
     def test_clara_stage_values(self):
-        expected = {"structure_check", "logic_check", "brand_check", "tone_check", "delivery_check"}
+        expected = {
+            "structure_check",
+            "logic_check",
+            "brand_check",
+            "tone_check",
+            "delivery_check"}
         assert {s.value for s in CLARAStage} == expected
 
     def test_stage_result_values(self):

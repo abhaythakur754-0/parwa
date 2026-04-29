@@ -18,8 +18,6 @@ TOTP_CODE_REGEX = re.compile(r"^\d{6}$")
 class MFASetupInitiateRequest(BaseModel):
     """Request to initiate MFA setup (empty body)."""
 
-    pass
-
 
 class MFASetupVerifyRequest(BaseModel):
     """Request to verify MFA setup with TOTP code."""

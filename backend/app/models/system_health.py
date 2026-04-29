@@ -21,7 +21,6 @@ import uuid
 from sqlalchemy import (
     Boolean, CheckConstraint, Column, DateTime, Integer, String, Text,
 )
-from sqlalchemy.orm import relationship
 
 from database.base import Base
 
@@ -58,7 +57,10 @@ class SystemHealthSnapshot(Base):
     # Extra data: provider details, queue depths, etc.
     metadata_json = Column(Text, default="{}")
     recorded_at = Column(
-        DateTime, default=lambda: datetime.utcnow(), nullable=False, index=True,
+        DateTime,
+        default=lambda: datetime.utcnow(),
+        nullable=False,
+        index=True,
     )
 
     __table_args__ = (
@@ -83,7 +85,10 @@ class SystemIncident(Base):
     status = Column(String(20), nullable=False, default="detected")
     description = Column(Text, nullable=True)
     detected_at = Column(
-        DateTime, default=lambda: datetime.utcnow(), nullable=False, index=True,
+        DateTime,
+        default=lambda: datetime.utcnow(),
+        nullable=False,
+        index=True,
     )
     resolved_at = Column(DateTime, nullable=True)
     resolution_notes = Column(Text, nullable=True)
@@ -120,7 +125,10 @@ class ErrorLog(Base):
     dismissed = Column(Boolean, nullable=False, default=False)
     dismissed_by = Column(String(36), nullable=True)
     created_at = Column(
-        DateTime, default=lambda: datetime.utcnow(), nullable=False, index=True,
+        DateTime,
+        default=lambda: datetime.utcnow(),
+        nullable=False,
+        index=True,
     )
 
     __table_args__ = (
@@ -153,7 +161,10 @@ class TrainingDataPoint(Base):
     created_by = Column(String(36), nullable=True)
     reviewed_by = Column(String(36), nullable=True)
     created_at = Column(
-        DateTime, default=lambda: datetime.utcnow(), nullable=False, index=True,
+        DateTime,
+        default=lambda: datetime.utcnow(),
+        nullable=False,
+        index=True,
     )
     reviewed_at = Column(DateTime, nullable=True)
 

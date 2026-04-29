@@ -26,7 +26,6 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from app.core.redis import get_redis, make_key
-from app.exceptions import InternalError
 from app.logger import get_logger
 
 logger = get_logger("pii_redaction_engine")
@@ -77,7 +76,8 @@ ALL_PII_TYPES: Set[str] = {
 # ── Compiled Regex Patterns (module-level, compiled ONCE) ─────────
 # Naming: _PAT_<TYPE>. All patterns use named groups where applicable.
 
-# 1. SSN: 123-45-6789 or 123 45 6789 (not 000-xx-xxxx, 666-xx-xxxx, 9xx-xx-xxxx)
+# 1. SSN: 123-45-6789 or 123 45 6789 (not 000-xx-xxxx, 666-xx-xxxx,
+# 9xx-xx-xxxx)
 _PAT_SSN = re.compile(
     r"\b(?!000|666|9\d{2})(\d{3})[-\s](?!00)\d{2}[-\s](?!0000)\d{4}\b"
 )
@@ -142,15 +142,16 @@ _PAT_DOB_YMD = re.compile(
 )
 _PAT_DOB_DMY = re.compile(
     r"\b(0[1-9]|[12]\d|3[01])[\-](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
-    r"[\-](19|20)\d{2}\b"
-)
+    r"[\-](19|20)\d{2}\b")
 
-# 8. Passport: US passport (9 digits), UK (8 digits + check), EU (2 letters + 7 digits)
+# 8. Passport: US passport (9 digits), UK (8 digits + check), EU (2
+# letters + 7 digits)
 _PAT_PASSPORT_US = re.compile(r"\b[1-9]\d{8}\b")
 _PAT_PASSPORT_UK = re.compile(r"\b\d{8}[A-Z]\b")
 _PAT_PASSPORT_EU = re.compile(r"\b[A-Z]{2}\d{7}\b")
 
-# 9. Driver's License: US state patterns (alphanumeric 1-2 letters + 6-12 digits)
+# 9. Driver's License: US state patterns (alphanumeric 1-2 letters + 6-12
+# digits)
 _PAT_DL = re.compile(
     r"\b(?:[A-Z]{1,2}[-\s]?)?\d{6,12}\b"
 )
@@ -183,8 +184,7 @@ _PAT_STREET_ADDRESS = re.compile(
     r"Way|Court|Ct|Place|Pl|Circle|Cir|Crescent|Cres|Trail|Trl|"
     r"Parkway|Pkwy|Highway|Hwy|Terrace|Ter)\b"
     r"(?:[,\s]+(?:#[\w\s]+|(?:Apt|Suite|Ste|Unit|Fl|Floor|Rm|Room)\s*\.?\s*[\w]+))?"
-    r"(?:[,\s]+[A-Za-z\s]{2,25})?"
-)
+    r"(?:[,\s]+[A-Za-z\s]{2,25})?")
 
 # 14. API Keys: sk-..., key_..., ghp_..., csk-..., xox[bpra]-...
 _PAT_API_KEY = re.compile(
@@ -619,9 +619,7 @@ class PIIDetector:
                 # Find the capitalized word after the action verb
                 name_match = re.search(
                     r"(?:contact|reach|call|email|ask for|speak to|message|notify)\s+"
-                    r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
-                    raw, re.IGNORECASE,
-                )
+                    r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)", raw, re.IGNORECASE, )
                 if name_match:
                     name = name_match.group(1)
                     first_word = name.split()[0]

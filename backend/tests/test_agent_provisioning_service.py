@@ -18,7 +18,7 @@ Tests the AgentProvisioningService covering:
 Building Codes: BC-001, BC-002, BC-003, BC-004, BC-012
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -110,7 +110,13 @@ class TestConstants:
         assert len(VALID_SPECIALTIES) == 9
 
     def test_valid_channels(self):
-        assert VALID_CHANNELS == {"chat", "email", "sms", "voice", "slack", "webchat"}
+        assert VALID_CHANNELS == {
+            "chat",
+            "email",
+            "sms",
+            "voice",
+            "slack",
+            "webchat"}
 
     def test_payment_timeout_hours(self):
         assert PAYMENT_TIMEOUT_HOURS == 24
@@ -317,7 +323,13 @@ class TestGetAgentLimit:
 class TestCreateCheckout:
     @patch.object(AgentProvisioningService, "_create_paddle_checkout")
     @patch.object(AgentProvisioningService, "_check_agent_limit")
-    def test_valid_checkout(self, mock_check, mock_paddle, service, mock_db, company_id):
+    def test_valid_checkout(
+            self,
+            mock_check,
+            mock_paddle,
+            service,
+            mock_db,
+            company_id):
         mock_paddle.return_value = "https://checkout.paddle.com/agent/pending-1"
 
         result = service.create_checkout(
@@ -377,7 +389,8 @@ class TestCreateCheckout:
 
     @patch.object(AgentProvisioningService, "_create_paddle_checkout")
     @patch.object(AgentProvisioningService, "_check_agent_limit")
-    def test_paddle_failure_raises_internal(self, mock_check, mock_paddle, service, company_id):
+    def test_paddle_failure_raises_internal(
+            self, mock_check, mock_paddle, service, company_id):
         mock_paddle.side_effect = Exception("Paddle API error")
 
         with pytest.raises(InternalError) as exc:
@@ -429,7 +442,9 @@ class TestProcessWebhook:
             result = service.process_webhook(
                 company_id=company_id,
                 event_type="transaction.completed",
-                event_data={"transaction_id": "txn-456", "subscription_id": "sub-1"},
+                event_data={
+                    "transaction_id": "txn-456",
+                    "subscription_id": "sub-1"},
                 event_id="evt-002",
             )
 
@@ -481,7 +496,8 @@ class TestProcessWebhook:
 
         assert result["action"] == "no_pending_agent_found"
 
-    def test_dispatch_failure_still_records(self, service, mock_db, company_id):
+    def test_dispatch_failure_still_records(
+            self, service, mock_db, company_id):
         pending = _make_pending_agent(payment_status="pending")
         chain = MagicMock()
         chain.filter.return_value = chain
@@ -509,7 +525,9 @@ class TestProcessWebhook:
 class TestProvisionAgent:
     @patch.object(AgentProvisioningService, "_create_default_metric_threshold")
     def test_valid_flow(self, mock_threshold, service, mock_db, company_id):
-        pending = _make_pending_agent(payment_status="paid", provisioning_status="awaiting_payment")
+        pending = _make_pending_agent(
+            payment_status="paid",
+            provisioning_status="awaiting_payment")
 
         mock_db.query.return_value.filter.return_value.first.return_value = pending
 
@@ -536,7 +554,9 @@ class TestProvisionAgent:
         assert "Payment must be completed" in exc.value.message
 
     def test_already_provisioned_returns(self, service, mock_db, company_id):
-        pending = _make_pending_agent(payment_status="paid", provisioning_status="training")
+        pending = _make_pending_agent(
+            payment_status="paid",
+            provisioning_status="training")
         mock_db.query.return_value.filter.return_value.first.return_value = pending
 
         result = service.provision_agent("pending-1", company_id)
@@ -545,7 +565,12 @@ class TestProvisionAgent:
         assert "already provisioned" in result["message"].lower()
 
     @patch.object(AgentProvisioningService, "_create_default_metric_threshold")
-    def test_db_failure_marks_failed(self, mock_threshold, service, mock_db, company_id):
+    def test_db_failure_marks_failed(
+            self,
+            mock_threshold,
+            service,
+            mock_db,
+            company_id):
         pending = _make_pending_agent(payment_status="paid")
         mock_db.query.return_value.filter.return_value.first.return_value = pending
         mock_db.add.side_effect = Exception("DB constraint error")
@@ -600,9 +625,12 @@ class TestGetProvisioningStatus:
 
 class TestCleanupStalePending:
     def test_expired_agents(self, service, mock_db):
-        stale1 = _make_pending_agent(pending_id="old-1", payment_status="pending")
-        stale2 = _make_pending_agent(pending_id="old-2", payment_status="pending")
-        mock_db.query.return_value.filter.return_value.all.return_value = [stale1, stale2]
+        stale1 = _make_pending_agent(
+            pending_id="old-1", payment_status="pending")
+        stale2 = _make_pending_agent(
+            pending_id="old-2", payment_status="pending")
+        mock_db.query.return_value.filter.return_value.all.return_value = [
+            stale1, stale2]
 
         count = service.cleanup_stale_pending()
 

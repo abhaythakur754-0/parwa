@@ -19,7 +19,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import List, Optional
+from typing import Optional
 
 from app.exceptions import ParwaBaseError
 from database.models.variant_engine import AITokenBudget
@@ -71,7 +71,9 @@ TIER_DAILY_REQUEST_LIMITS = {
 }
 
 VALID_VARIANT_TYPES = set(DEFAULT_VARIANT_LIMITS.keys())
-VALID_BUDGET_TYPES = {BudgetPeriodType.DAILY.value, BudgetPeriodType.MONTHLY.value}
+VALID_BUDGET_TYPES = {
+    BudgetPeriodType.DAILY.value,
+    BudgetPeriodType.MONTHLY.value}
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -87,7 +89,9 @@ class TokenUsageRecord:
     tier: str = ""
     tokens_used: int = 0
     atomic_step_type: str = ""
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(
+        default_factory=lambda: datetime.now(
+            timezone.utc).isoformat())
     budget_period: str = ""
     budget_type: str = ""
 
@@ -299,15 +303,19 @@ class CostProtectionService:
             if budget.status == "disabled":
                 return BudgetCheckResult(
                     allowed=True,
-                    remaining_tokens=budget.max_tokens - budget.used_tokens,
-                    usage_pct=self._calc_usage_pct(budget.used_tokens, budget.max_tokens),
+                    remaining_tokens=budget.max_tokens -
+                    budget.used_tokens,
+                    usage_pct=self._calc_usage_pct(
+                        budget.used_tokens,
+                        budget.max_tokens),
                     alert_level=AlertLevel.NONE,
                     budget_status=BudgetStatus.DISABLED,
                     reason="Budget disabled — request allowed",
                 )
 
             remaining = budget.max_tokens - budget.used_tokens
-            usage_pct = self._calc_usage_pct(budget.used_tokens, budget.max_tokens)
+            usage_pct = self._calc_usage_pct(
+                budget.used_tokens, budget.max_tokens)
             alert_level = self._check_alert(budget)
 
             # Request exceeds remaining tokens
@@ -321,14 +329,16 @@ class CostProtectionService:
                     reason=f"Requested {requested_tokens} tokens exceeds remaining {remaining}",
                 )
 
-            # Check if this request would push to/exceed limit AND hard_stop is on
+            # Check if this request would push to/exceed limit AND hard_stop is
+            # on
             new_used = budget.used_tokens + requested_tokens
             if new_used >= budget.max_tokens and budget.hard_stop:
                 # Only block if this specific request pushes OVER the limit
                 if new_used > budget.max_tokens:
                     return BudgetCheckResult(
                         allowed=False,
-                        remaining_tokens=budget.max_tokens - budget.used_tokens,
+                        remaining_tokens=budget.max_tokens -
+                        budget.used_tokens,
                         usage_pct=usage_pct,
                         alert_level=alert_level,
                         budget_status=BudgetStatus.EXHAUSTED,
@@ -358,7 +368,8 @@ class CostProtectionService:
                 usage_pct=0.0,
                 alert_level=AlertLevel.NONE,
                 budget_status=BudgetStatus.ACTIVE,
-                reason=f"Budget check error — request allowed (graceful degradation): {str(exc)}",
+                reason=f"Budget check error — request allowed (graceful degradation): {
+                    str(exc)}",
             )
 
     # ── Usage Recording ──────────────────────────────────────────
@@ -520,7 +531,8 @@ class CostProtectionService:
                     "found": False,
                 }
 
-            usage_pct = self._calc_usage_pct(budget.used_tokens, budget.max_tokens)
+            usage_pct = self._calc_usage_pct(
+                budget.used_tokens, budget.max_tokens)
             alert_level = self._check_alert(budget)
 
             return {
@@ -584,7 +596,8 @@ class CostProtectionService:
                     "used_tokens": monthly_budget.used_tokens if monthly_budget else 0,
                     "max_tokens": monthly_budget.max_tokens if monthly_budget else 0,
                     "status": monthly_budget.status if monthly_budget else "no_budget",
-                } if monthly_budget else {"status": "no_budget"},
+                } if monthly_budget else {
+                    "status": "no_budget"},
                 "daily_breakdown": daily_breakdown,
                 "total_daily_tokens": total_used,
             }
@@ -975,7 +988,8 @@ class CostProtectionService:
 
             tier_limit = TIER_DAILY_REQUEST_LIMITS[tier_lower]
             remaining = max(0, tier_limit - (budget.used_tokens or 0))
-            usage_pct = self._calc_usage_pct(budget.used_tokens or 0, tier_limit)
+            usage_pct = self._calc_usage_pct(
+                budget.used_tokens or 0, tier_limit)
 
             if remaining <= 0:
                 return BudgetCheckResult(
@@ -1001,7 +1015,10 @@ class CostProtectionService:
         except Exception as exc:
             logger.error(
                 "tier_budget_check_failed",
-                extra={"company_id": company_id, "tier": tier, "error": str(exc)},
+                extra={
+                    "company_id": company_id,
+                    "tier": tier,
+                    "error": str(exc)},
             )
             # BC-008: Allow on error
             return BudgetCheckResult(
@@ -1010,7 +1027,8 @@ class CostProtectionService:
                 usage_pct=0.0,
                 alert_level=AlertLevel.NONE,
                 budget_status=BudgetStatus.ACTIVE,
-                reason=f"Tier budget check error — allowed (graceful degradation): {str(exc)}",
+                reason=f"Tier budget check error — allowed (graceful degradation): {
+                    str(exc)}",
             )
 
     def record_tier_usage(
@@ -1073,7 +1091,10 @@ class CostProtectionService:
         except Exception as exc:
             logger.error(
                 "tier_usage_record_failed",
-                extra={"company_id": company_id, "tier": tier, "error": str(exc)},
+                extra={
+                    "company_id": company_id,
+                    "tier": tier,
+                    "error": str(exc)},
             )
             # BC-008: Don't crash
 

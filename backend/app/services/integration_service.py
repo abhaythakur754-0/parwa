@@ -18,7 +18,6 @@ BC-001: All operations scoped to company_id.
 """
 
 import json
-import logging
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 
@@ -104,9 +103,9 @@ class IntegrationService:
         missing_fields = [f for f in required_fields if not config.get(f)]
         if missing_fields:
             raise ValidationError(
-                message=f"Missing required fields: {', '.join(missing_fields)}",
-                details={"missing_fields": missing_fields},
-            )
+                message=f"Missing required fields: {
+                    ', '.join(missing_fields)}", details={
+                    "missing_fields": missing_fields}, )
 
         # Initial status
         status = STATUS_PENDING
@@ -115,7 +114,8 @@ class IntegrationService:
         # Validate credentials before saving
         if validate:
             test_result = self._test_credentials(integration_type, config)
-            status = STATUS_ACTIVE if test_result.get("success") else STATUS_ERROR
+            status = STATUS_ACTIVE if test_result.get(
+                "success") else STATUS_ERROR
 
         integration = Integration(
             company_id=company_id,
@@ -125,8 +125,10 @@ class IntegrationService:
             credentials_encrypted=_encrypt_config(config),
             settings="{}",
             error_message=test_result.get("message") if test_result and not test_result.get("success") else None,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(
+                timezone.utc),
+            updated_at=datetime.now(
+                timezone.utc),
         )
 
         self.db.add(integration)
@@ -158,7 +160,8 @@ class IntegrationService:
             query = query.filter(Integration.status == status)
 
         if integration_type:
-            query = query.filter(Integration.integration_type == integration_type.lower())
+            query = query.filter(
+                Integration.integration_type == integration_type.lower())
 
         if active_only:
             query = query.filter(Integration.status == STATUS_ACTIVE)
@@ -167,7 +170,8 @@ class IntegrationService:
 
         return [self._to_dict(i, mask_credentials=True) for i in integrations]
 
-    def get_integration(self, integration_id: str, company_id: str) -> Optional[Dict[str, Any]]:
+    def get_integration(self, integration_id: str,
+                        company_id: str) -> Optional[Dict[str, Any]]:
         """Get a single integration by ID, scoped to company."""
         integration = self.db.query(Integration).filter(
             and_(
@@ -206,7 +210,8 @@ class IntegrationService:
         # Update status on the integration record
         new_status = STATUS_ACTIVE if result.get("success") else STATUS_ERROR
         integration.status = new_status
-        integration.error_message = None if result.get("success") else result.get("message")
+        integration.error_message = None if result.get(
+            "success") else result.get("message")
         integration.updated_at = datetime.now(timezone.utc)
         self.db.flush()
 
@@ -245,10 +250,16 @@ class IntegrationService:
                 details={"integration_id": integration_id},
             )
 
-        allowed_fields = {"name", "status", "credentials_encrypted", "settings", "error_message"}
+        allowed_fields = {
+            "name",
+            "status",
+            "credentials_encrypted",
+            "settings",
+            "error_message"}
         for field, value in updates.items():
             if field in allowed_fields:
-                if field == "credentials_encrypted" and isinstance(value, dict):
+                if field == "credentials_encrypted" and isinstance(
+                        value, dict):
                     value = _encrypt_config(value)
                 if field == "settings" and isinstance(value, dict):
                     value = json.dumps(value)
@@ -282,9 +293,9 @@ class IntegrationService:
         missing_fields = [f for f in required_fields if not config.get(f)]
         if missing_fields:
             raise ValidationError(
-                message=f"Missing required fields: {', '.join(missing_fields)}",
-                details={"missing_fields": missing_fields},
-            )
+                message=f"Missing required fields: {
+                    ', '.join(missing_fields)}", details={
+                    "missing_fields": missing_fields}, )
 
         result = self._test_credentials(integration_type, config)
 
@@ -330,9 +341,11 @@ class IntegrationService:
         """Get all active integrations for a company."""
         return self.get_integrations(company_id, status=STATUS_ACTIVE)
 
-    def get_integrations_by_type(self, company_id: str, integration_type: str) -> List[Dict[str, Any]]:
+    def get_integrations_by_type(
+            self, company_id: str, integration_type: str) -> List[Dict[str, Any]]:
         """Get integrations filtered by type."""
-        return self.get_integrations(company_id, integration_type=integration_type)
+        return self.get_integrations(
+            company_id, integration_type=integration_type)
 
     # ── Connection Test Methods ───────────────────────────────────
 
@@ -343,7 +356,9 @@ class IntegrationService:
     ) -> Dict[str, Any]:
         """Test integration credentials by making a real API call."""
         if integration_type not in INTEGRATION_TYPES:
-            return {"success": False, "message": f"Unknown integration type: {integration_type}"}
+            return {
+                "success": False,
+                "message": f"Unknown integration type: {integration_type}"}
 
         try:
             if integration_type == "zendesk":
@@ -359,9 +374,14 @@ class IntegrationService:
             elif integration_type == "intercom":
                 return self._test_intercom(config)
             else:
-                return {"success": True, "message": f"{integration_type} integration config saved"}
+                return {
+                    "success": True,
+                    "message": f"{integration_type} integration config saved"}
         except Exception as e:
-            return {"success": False, "message": f"Connection test failed: {str(e)}"}
+            return {
+                "success": False,
+                "message": f"Connection test failed: {
+                    str(e)}"}
 
     def _test_zendesk(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Test Zendesk API connectivity."""
@@ -370,10 +390,16 @@ class IntegrationService:
         email = config.get("email")
 
         if not all([subdomain, api_token, email]):
-            return {"success": False, "message": "Missing required fields: subdomain, api_token, email"}
+            return {
+                "success": False,
+                "message": "Missing required fields: subdomain, api_token, email"}
 
         url = f"https://{subdomain}.zendesk.com/api/v2/users/me.json"
-        headers = {"Authorization": f"Basic {_encode_basic_auth(email + '/token', api_token)}"}
+        headers = {
+            "Authorization": f"Basic {
+                _encode_basic_auth(
+                    email + '/token',
+                    api_token)}"}
 
         try:
             with httpx.Client(timeout=10) as client:
@@ -382,7 +408,12 @@ class IntegrationService:
                     data = response.json()
                     return {
                         "success": True,
-                        "message": f"Connected to Zendesk account: {data.get('user', {}).get('name', 'Unknown')}",
+                        "message": f"Connected to Zendesk account: {
+                            data.get(
+                                'user',
+                                {}).get(
+                                'name',
+                                'Unknown')}",
                     }
                 else:
                     return {
@@ -390,9 +421,14 @@ class IntegrationService:
                         "message": f"Zendesk API returned {response.status_code}: {response.text[:200]}",
                     }
         except httpx.TimeoutException:
-            return {"success": False, "message": "Connection to Zendesk timed out"}
+            return {
+                "success": False,
+                "message": "Connection to Zendesk timed out"}
         except Exception as e:
-            return {"success": False, "message": f"Zendesk connection failed: {str(e)}"}
+            return {
+                "success": False,
+                "message": f"Zendesk connection failed: {
+                    str(e)}"}
 
     def _test_shopify(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Test Shopify API connectivity."""
@@ -400,9 +436,15 @@ class IntegrationService:
         access_token = config.get("access_token")
 
         if not all([shop_domain, access_token]):
-            return {"success": False, "message": "Missing required fields: shop_domain, access_token"}
+            return {
+                "success": False,
+                "message": "Missing required fields: shop_domain, access_token"}
 
-        shop_domain = shop_domain.replace("https://", "").replace("http://", "").rstrip("/")
+        shop_domain = shop_domain.replace(
+            "https://",
+            "").replace(
+            "http://",
+            "").rstrip("/")
         url = f"https://{shop_domain}/admin/api/2024-01/shop.json"
         headers = {"X-Shopify-Access-Token": access_token}
 
@@ -413,7 +455,12 @@ class IntegrationService:
                     data = response.json()
                     return {
                         "success": True,
-                        "message": f"Connected to Shopify store: {data.get('shop', {}).get('name', 'Unknown')}",
+                        "message": f"Connected to Shopify store: {
+                            data.get(
+                                'shop',
+                                {}).get(
+                                'name',
+                                'Unknown')}",
                     }
                 else:
                     return {
@@ -421,16 +468,23 @@ class IntegrationService:
                         "message": f"Shopify API returned {response.status_code}: {response.text[:200]}",
                     }
         except httpx.TimeoutException:
-            return {"success": False, "message": "Connection to Shopify timed out"}
+            return {
+                "success": False,
+                "message": "Connection to Shopify timed out"}
         except Exception as e:
-            return {"success": False, "message": f"Shopify connection failed: {str(e)}"}
+            return {
+                "success": False,
+                "message": f"Shopify connection failed: {
+                    str(e)}"}
 
     def _test_slack(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Test Slack API connectivity."""
         bot_token = config.get("bot_token") or config.get("access_token")
 
         if not bot_token:
-            return {"success": False, "message": "Missing required field: bot_token or access_token"}
+            return {
+                "success": False,
+                "message": "Missing required field: bot_token or access_token"}
 
         url = "https://slack.com/api/auth.test"
         headers = {"Authorization": f"Bearer {bot_token}"}
@@ -442,12 +496,23 @@ class IntegrationService:
                 if data.get("ok"):
                     return {
                         "success": True,
-                        "message": f"Connected to Slack workspace: {data.get('team', 'Unknown')}",
+                        "message": f"Connected to Slack workspace: {
+                            data.get(
+                                'team',
+                                'Unknown')}",
                     }
                 else:
-                    return {"success": False, "message": f"Slack API error: {data.get('error', 'Unknown error')}"}
+                    return {
+                        "success": False,
+                        "message": f"Slack API error: {
+                            data.get(
+                                'error',
+                                'Unknown error')}"}
         except Exception as e:
-            return {"success": False, "message": f"Slack connection failed: {str(e)}"}
+            return {
+                "success": False,
+                "message": f"Slack connection failed: {
+                    str(e)}"}
 
     def _test_gmail(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Test Gmail API connectivity.
@@ -460,7 +525,9 @@ class IntegrationService:
         refresh_token = config.get("refresh_token")
 
         if not all([client_id, client_secret, refresh_token]):
-            return {"success": False, "message": "Missing required fields: client_id, client_secret, refresh_token"}
+            return {
+                "success": False,
+                "message": "Missing required fields: client_id, client_secret, refresh_token"}
 
         # Step 1: Exchange refresh_token for access_token
         access_token = None
@@ -478,14 +545,25 @@ class IntegrationService:
                 if token_resp.status_code == 200:
                     access_token = token_resp.json().get("access_token")
                 else:
-                    error_data = token_resp.json() if token_resp.headers.get("content-type", "").startswith("application/json") else {}
-                    error_desc = error_data.get("error_description", error_data.get("error", f"HTTP {token_resp.status_code}"))
-                    return {"success": False, "message": f"Gmail OAuth token exchange failed: {error_desc}"}
+                    error_data = token_resp.json() if token_resp.headers.get(
+                        "content-type", "").startswith("application/json") else {}
+                    error_desc = error_data.get(
+                        "error_description", error_data.get(
+                            "error", f"HTTP {
+                                token_resp.status_code}"))
+                    return {
+                        "success": False,
+                        "message": f"Gmail OAuth token exchange failed: {error_desc}"}
         except Exception as e:
-            return {"success": False, "message": f"Gmail OAuth request failed: {str(e)}"}
+            return {
+                "success": False,
+                "message": f"Gmail OAuth request failed: {
+                    str(e)}"}
 
         if not access_token:
-            return {"success": False, "message": "Gmail OAuth returned no access_token"}
+            return {
+                "success": False,
+                "message": "Gmail OAuth returned no access_token"}
 
         # Step 2: Test the Gmail profile API with the access_token
         url = "https://www.googleapis.com/gmail/v1/users/me/profile"
@@ -498,14 +576,25 @@ class IntegrationService:
                     data = response.json()
                     return {
                         "success": True,
-                        "message": f"Connected to Gmail: {data.get('emailAddress', 'Unknown')}",
+                        "message": f"Connected to Gmail: {
+                            data.get(
+                                'emailAddress',
+                                'Unknown')}",
                     }
                 elif response.status_code == 401:
-                    return {"success": False, "message": "Gmail token expired or invalid. Please re-authenticate."}
+                    return {
+                        "success": False,
+                        "message": "Gmail token expired or invalid. Please re-authenticate."}
                 else:
-                    return {"success": False, "message": f"Gmail API returned {response.status_code}"}
+                    return {
+                        "success": False,
+                        "message": f"Gmail API returned {
+                            response.status_code}"}
         except Exception as e:
-            return {"success": False, "message": f"Gmail connection failed: {str(e)}"}
+            return {
+                "success": False,
+                "message": f"Gmail connection failed: {
+                    str(e)}"}
 
     def _test_freshdesk(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Test Freshdesk API connectivity."""
@@ -513,12 +602,21 @@ class IntegrationService:
         api_key = config.get("api_key")
 
         if not all([domain, api_key]):
-            return {"success": False, "message": "Missing required fields: domain, api_key"}
+            return {
+                "success": False,
+                "message": "Missing required fields: domain, api_key"}
 
-        domain = domain.replace("https://", "").replace("http://", "").rstrip("/")
+        domain = domain.replace(
+            "https://",
+            "").replace(
+            "http://",
+            "").rstrip("/")
         url = f"https://{domain}.freshdesk.com/api/v2/agents/me"
         # Freshdesk uses API key as username with "X" as password
-        headers = {"Authorization": f"Basic {_encode_basic_auth(api_key, 'X')}"}
+        headers = {
+            "Authorization": f"Basic {
+                _encode_basic_auth(
+                    api_key, 'X')}"}
 
         try:
             with httpx.Client(timeout=10) as client:
@@ -527,19 +625,32 @@ class IntegrationService:
                     data = response.json()
                     return {
                         "success": True,
-                        "message": f"Connected to Freshdesk: {data.get('contact', {}).get('name', 'Unknown')}",
+                        "message": f"Connected to Freshdesk: {
+                            data.get(
+                                'contact',
+                                {}).get(
+                                'name',
+                                'Unknown')}",
                     }
                 else:
-                    return {"success": False, "message": f"Freshdesk API returned {response.status_code}"}
+                    return {
+                        "success": False,
+                        "message": f"Freshdesk API returned {
+                            response.status_code}"}
         except Exception as e:
-            return {"success": False, "message": f"Freshdesk connection failed: {str(e)}"}
+            return {
+                "success": False,
+                "message": f"Freshdesk connection failed: {
+                    str(e)}"}
 
     def _test_intercom(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Test Intercom API connectivity."""
         access_token = config.get("access_token")
 
         if not access_token:
-            return {"success": False, "message": "Missing required field: access_token"}
+            return {
+                "success": False,
+                "message": "Missing required field: access_token"}
 
         url = "https://api.intercom.io/me"
         headers = {
@@ -554,7 +665,12 @@ class IntegrationService:
                     data = response.json()
                     return {
                         "success": True,
-                        "message": f"Connected to Intercom: {data.get('name', data.get('email', 'Unknown'))}",
+                        "message": f"Connected to Intercom: {
+                            data.get(
+                                'name',
+                                data.get(
+                                    'email',
+                                    'Unknown'))}",
                     }
                 else:
                     return {
@@ -562,11 +678,15 @@ class IntegrationService:
                         "message": f"Intercom API returned {response.status_code}: {response.text[:200]}",
                     }
         except Exception as e:
-            return {"success": False, "message": f"Intercom connection failed: {str(e)}"}
+            return {
+                "success": False,
+                "message": f"Intercom connection failed: {
+                    str(e)}"}
 
     # ── Helpers ───────────────────────────────────────────────────
 
-    def _to_dict(self, integration: Integration, mask_credentials: bool = False) -> Dict[str, Any]:
+    def _to_dict(self, integration: Integration,
+                 mask_credentials: bool = False) -> Dict[str, Any]:
         """Convert Integration ORM object to dict."""
         config = _decrypt_config(integration.credentials_encrypted) or {}
         settings = self._parse_json(integration.settings) or {}

@@ -16,7 +16,7 @@ Tests for:
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -773,7 +773,8 @@ class TestEffectiveLimits:
         mock_db = MagicMock()
         mock_db.query.return_value.filter.return_value \
             .order_by.return_value.first.return_value = mock_sub
-        # Only return active (not archived) since the query filters status.in_(active, inactive)
+        # Only return active (not archived) since the query filters
+        # status.in_(active, inactive)
         mock_db.query.return_value.filter.return_value \
             .all.return_value = [mock_v1]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
@@ -923,7 +924,8 @@ class TestPeriodEndVariantArchival:
         mock_v1.id = "v1"
 
         mock_db = MagicMock()
-        # Query filters deactivated_at <= now, so future-deactivated variant is excluded
+        # Query filters deactivated_at <= now, so future-deactivated variant is
+        # excluded
         mock_db.query.return_value.filter.return_value \
             .all.return_value = []
         mock_db.__enter__ = MagicMock(return_value=mock_db)
@@ -1122,7 +1124,8 @@ class TestVariantLimitServiceStacking:
         mock_db.__exit__ = MagicMock(return_value=False)
 
         with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
-            result = service.check_team_member_limit(company_id, current_count=8)
+            result = service.check_team_member_limit(
+                company_id, current_count=8)
 
         assert result["limit"] == 10  # Base only, no addon
         assert result["addon_amount"] == 0
@@ -1144,7 +1147,8 @@ class TestVariantLimitServiceStacking:
         mock_db.__exit__ = MagicMock(return_value=False)
 
         with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
-            result = service.check_voice_slot_limit(company_id, current_count=1)
+            result = service.check_voice_slot_limit(
+                company_id, current_count=1)
 
         assert result["limit"] == 2  # Base only, no addon
         assert result["addon_amount"] == 0
@@ -1424,7 +1428,8 @@ class TestVariantInvoiceIntegration:
         mock_db.__exit__ = MagicMock(return_value=False)
 
         mock_paddle = MagicMock()
-        mock_paddle.update_subscription.return_value = {"id": "paddle_item_456"}
+        mock_paddle.update_subscription.return_value = {
+            "id": "paddle_item_456"}
 
         with patch("app.services.variant_addon_service.SessionLocal", return_value=mock_db):
             with patch.object(service, "_get_paddle_client", return_value=mock_paddle):
@@ -1454,7 +1459,6 @@ class TestOverageWithVariantStacking:
         # in the test environment. This is an integration-level test that verifies
         # the concept; actual integration is verified through the effective limits
         # tests above (test_tickets_stack, etc.)
-        pass
 
 
 # ═══════════════════════════════════════════════════════════════════════

@@ -8,7 +8,7 @@ and edge cases (empty thread, very long thread, single turn).
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from app.core.technique_router import TechniqueID, QuerySignals
 from app.core.techniques.base import ConversationState, GSDState
@@ -476,7 +476,8 @@ class TestContinuityCheck:
         assert analysis.loop_detected is False
 
     @pytest.mark.asyncio
-    async def test_low_continuity_complete_shift(self, processor, sample_thread):
+    async def test_low_continuity_complete_shift(
+            self, processor, sample_thread):
         analysis = await processor.check_continuity(
             sample_thread, "The API is broken", TopicShift.COMPLETE,
         )
@@ -731,7 +732,8 @@ class TestContextEnhancement:
         assert "Partial topic shift" in prefix
 
     @pytest.mark.asyncio
-    async def test_low_threshold_processor_enhances(self, low_threshold_processor):
+    async def test_low_threshold_processor_enhances(
+            self, low_threshold_processor):
         """With low threshold (0.3), a score of 0.4 should NOT enhance."""
         analysis = ThreadAnalysis(topic_continuity=0.4)
         prefix, enhanced = await low_threshold_processor.enhance_context(
@@ -802,11 +804,13 @@ class TestFullPipeline:
         result = await processor.process(sample_thread, "query")
         steps = result.steps_applied
         if "thread_extraction" in steps and "continuity_check" in steps:
-            assert steps.index("thread_extraction") < steps.index("continuity_check")
+            assert steps.index("thread_extraction") < steps.index(
+                "continuity_check")
 
     @pytest.mark.asyncio
     async def test_pipeline_very_long_thread(self, processor):
-        thread = [f"Entry number {i} about billing charges" for i in range(100)]
+        thread = [
+            f"Entry number {i} about billing charges" for i in range(100)]
         result = await processor.process(thread, "What about the refund?")
         assert "thread_extraction" in result.steps_applied
         # Thread should be truncated to max_thread_length
@@ -942,8 +946,11 @@ class TestCompanyIsolation:
 
     @pytest.mark.asyncio
     async def test_company_isolation_different_thresholds(self):
-        analysis_low = ThreadAnalysis(topic_continuity=0.5, summary="Topic: billing")
-        analysis_high = ThreadAnalysis(topic_continuity=0.5, summary="Topic: billing")
+        analysis_low = ThreadAnalysis(
+            topic_continuity=0.5,
+            summary="Topic: billing")
+        analysis_high = ThreadAnalysis(
+            topic_continuity=0.5, summary="Topic: billing")
 
         p_low = ThoTProcessor(ThoTConfig(continuity_threshold=0.3))
         p_high = ThoTProcessor(ThoTConfig(continuity_threshold=0.7))
@@ -996,7 +1003,8 @@ class TestErrorFallback:
             result_state = await node.execute(state)
             assert result_state is state
             # Should record a skip
-            recorded = result_state.technique_results.get("thread_of_thought", {})
+            recorded = result_state.technique_results.get(
+                "thread_of_thought", {})
             assert recorded.get("status") in ("skipped_budget", "error")
 
 

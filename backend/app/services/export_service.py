@@ -25,14 +25,12 @@ from __future__ import annotations
 
 import csv
 import io
-import json
 import os
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import and_, desc, func
-from sqlalchemy.orm import Session
+from sqlalchemy import desc
 
 from app.logger import get_logger
 
@@ -84,12 +82,12 @@ def create_export_job(
     if report_type not in VALID_REPORT_TYPES:
         return {
             "error": f"Invalid report_type '{report_type}'. "
-                     f"Must be one of: {', '.join(sorted(VALID_REPORT_TYPES))}",
+            f"Must be one of: {', '.join(sorted(VALID_REPORT_TYPES))}",
         }
     if format not in VALID_FORMATS:
         return {
             "error": f"Invalid format '{format}'. "
-                     f"Must be one of: {', '.join(sorted(VALID_FORMATS))}",
+            f"Must be one of: {', '.join(sorted(VALID_FORMATS))}",
         }
 
     job = {
@@ -214,21 +212,32 @@ def generate_csv_report(
 
         # Get data based on report type
         if report_type == "tickets":
-            rows = _get_ticket_csv_data(company_id, date_range_start, date_range_end, filters)
+            rows = _get_ticket_csv_data(
+                company_id, date_range_start, date_range_end, filters)
         elif report_type == "summary":
-            rows = _get_summary_csv_data(company_id, date_range_start, date_range_end, filters)
+            rows = _get_summary_csv_data(
+                company_id, date_range_start, date_range_end, filters)
         elif report_type == "agents":
-            rows = _get_agents_csv_data(company_id, date_range_start, date_range_end, filters)
+            rows = _get_agents_csv_data(
+                company_id, date_range_start, date_range_end, filters)
         elif report_type == "sla":
-            rows = _get_sla_csv_data(company_id, date_range_start, date_range_end, filters)
+            rows = _get_sla_csv_data(
+                company_id,
+                date_range_start,
+                date_range_end,
+                filters)
         elif report_type == "csat":
-            rows = _get_csat_csv_data(company_id, date_range_start, date_range_end, filters)
+            rows = _get_csat_csv_data(
+                company_id, date_range_start, date_range_end, filters)
         elif report_type == "forecast":
-            rows = _get_forecast_csv_data(company_id, date_range_start, date_range_end, filters)
+            rows = _get_forecast_csv_data(
+                company_id, date_range_start, date_range_end, filters)
         elif report_type == "full":
-            rows = _get_full_csv_data(company_id, date_range_start, date_range_end, filters)
+            rows = _get_full_csv_data(
+                company_id, date_range_start, date_range_end, filters)
         else:
-            rows = _get_summary_csv_data(company_id, date_range_start, date_range_end, filters)
+            rows = _get_summary_csv_data(
+                company_id, date_range_start, date_range_end, filters)
 
         if not rows:
             return {"error": "No data available for the selected filters"}
@@ -289,15 +298,16 @@ def generate_pdf_report(
         # Try to use ReportLab
         try:
             from reportlab.lib import colors
-            from reportlab.lib.pagesizes import A4, landscape
+            from reportlab.lib.pagesizes import A4
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-            from reportlab.lib.units import inch, mm
+            from reportlab.lib.units import mm
             from reportlab.platypus import (
                 SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
-                PageBreak,
             )
 
-            file_path = os.path.join(EXPORT_DIR, f"{job_id or uuid.uuid4()}.pdf")
+            file_path = os.path.join(
+                EXPORT_DIR, f"{
+                    job_id or uuid.uuid4()}.pdf")
 
             doc = SimpleDocTemplate(
                 file_path,
@@ -349,21 +359,29 @@ def generate_pdf_report(
 
             # Get CSV data and convert to table
             if report_type == "tickets":
-                rows = _get_ticket_csv_data(company_id, date_range_start, date_range_end, filters)
+                rows = _get_ticket_csv_data(
+                    company_id, date_range_start, date_range_end, filters)
             elif report_type == "summary":
-                rows = _get_summary_csv_data(company_id, date_range_start, date_range_end, filters)
+                rows = _get_summary_csv_data(
+                    company_id, date_range_start, date_range_end, filters)
             elif report_type == "agents":
-                rows = _get_agents_csv_data(company_id, date_range_start, date_range_end, filters)
+                rows = _get_agents_csv_data(
+                    company_id, date_range_start, date_range_end, filters)
             elif report_type == "sla":
-                rows = _get_sla_csv_data(company_id, date_range_start, date_range_end, filters)
+                rows = _get_sla_csv_data(
+                    company_id, date_range_start, date_range_end, filters)
             elif report_type == "csat":
-                rows = _get_csat_csv_data(company_id, date_range_start, date_range_end, filters)
+                rows = _get_csat_csv_data(
+                    company_id, date_range_start, date_range_end, filters)
             elif report_type == "forecast":
-                rows = _get_forecast_csv_data(company_id, date_range_start, date_range_end, filters)
+                rows = _get_forecast_csv_data(
+                    company_id, date_range_start, date_range_end, filters)
             elif report_type == "full":
-                rows = _get_full_csv_data(company_id, date_range_start, date_range_end, filters)
+                rows = _get_full_csv_data(
+                    company_id, date_range_start, date_range_end, filters)
             else:
-                rows = _get_summary_csv_data(company_id, date_range_start, date_range_end, filters)
+                rows = _get_summary_csv_data(
+                    company_id, date_range_start, date_range_end, filters)
 
             if rows:
                 # Build table
@@ -591,13 +609,16 @@ def _get_sla_csv_data(
             sla = svc.get_sla_metrics(dr)
 
             rows = [["SLA Metric", "Value"]]
-            rows.append(["Total Tickets with SLA", str(sla.total_tickets_with_sla)])
+            rows.append(["Total Tickets with SLA",
+                        str(sla.total_tickets_with_sla)])
             rows.append(["Breached Count", str(sla.breached_count)])
             rows.append(["Approaching Count", str(sla.approaching_count)])
             rows.append(["Compliant Count", str(sla.compliant_count)])
             rows.append(["Compliance Rate", f"{sla.compliance_rate:.1%}"])
-            rows.append(["Avg First Response (min)", str(sla.avg_first_response_minutes or "")])
-            rows.append(["Avg Resolution (min)", str(sla.avg_resolution_minutes or "")])
+            rows.append(["Avg First Response (min)", str(
+                sla.avg_first_response_minutes or "")])
+            rows.append(["Avg Resolution (min)", str(
+                sla.avg_resolution_minutes or "")])
 
             return rows
         finally:
@@ -690,8 +711,10 @@ def _get_forecast_csv_data(
             rows.append(["Metric", "Value"])
             rows.append(["Model", data.get("model_type", "")])
             rows.append(["Trend Direction", data.get("trend_direction", "")])
-            rows.append(["Avg Daily Volume", str(data.get("avg_daily_volume", ""))])
-            rows.append(["Seasonality Detected", str(data.get("seasonality_detected", ""))])
+            rows.append(["Avg Daily Volume", str(
+                data.get("avg_daily_volume", ""))])
+            rows.append(["Seasonality Detected", str(
+                data.get("seasonality_detected", ""))])
 
             return rows
         finally:

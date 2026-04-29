@@ -4,16 +4,17 @@ from app.providers.base import ChatProvider, ChatMessage, ProviderResult, Provid
 from typing import Any, Dict
 import httpx
 
+
 class SlackChatProvider(ChatProvider):
     provider_name = "slack"
     display_name = "Slack"
     required_config_fields = ["bot_token"]
-    
+
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
         self.bot_token = config["bot_token"]
         self._status = ProviderStatus.ACTIVE
-    
+
     def test_connection(self) -> ProviderResult:
         try:
             response = httpx.post(
@@ -42,10 +43,10 @@ class SlackChatProvider(ChatProvider):
                 operation="test_connection",
                 error_message=str(e)[:200],
             )
-    
+
     def get_rate_limits(self) -> Dict[str, Any]:
         return {"tier": "Tier 3 - ~50+ calls per minute"}
-    
+
     def send_message(self, message: ChatMessage) -> ProviderResult:
         payload = {
             "channel": message.channel_id,
@@ -57,7 +58,7 @@ class SlackChatProvider(ChatProvider):
             payload["attachments"] = message.attachments
         if message.thread_ts:
             payload["thread_ts"] = message.thread_ts
-        
+
         try:
             response = httpx.post(
                 "https://slack.com/api/chat.postMessage",
@@ -89,7 +90,7 @@ class SlackChatProvider(ChatProvider):
                 operation="send_message",
                 error_message=str(e)[:200],
             )
-    
+
     def get_channel_info(self, channel_id: str) -> Dict[str, Any]:
         try:
             response = httpx.post(

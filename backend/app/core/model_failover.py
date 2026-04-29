@@ -15,11 +15,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import math
 import re
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -204,7 +203,8 @@ class DegradedResponseDetector:
         text = response_text.strip()
 
         if len(text) < expected_min_length:
-            return True, f"too_short ({len(text)} < {expected_min_length} chars)"
+            return True, f"too_short ({
+                len(text)} < {expected_min_length} chars)"
 
         for pattern in self.ERROR_PATTERNS:
             if re.search(pattern, text, re.IGNORECASE):
@@ -235,7 +235,8 @@ class DegradedResponseDetector:
             (is_good, quality_score_0_to_1, reason)
         """
         # Extract text from various response formats
-        text = response.get("content") or response.get("text") or response.get("message", "")
+        text = response.get("content") or response.get(
+            "text") or response.get("message", "")
 
         if isinstance(text, dict):
             text = text.get("content", "")
@@ -315,7 +316,8 @@ class DegradedResponseDetector:
         unique_ratio = unique_chars / total_chars if total_chars > 0 else 0
 
         # Very low uniqueness = repetitive (but normal English
-        # text at 300 chars has ~0.10-0.15 ratio, so use conservative threshold)
+        # text at 300 chars has ~0.10-0.15 ratio, so use conservative
+        # threshold)
         if unique_ratio < 0.06:
             return True
 
@@ -357,7 +359,8 @@ class FailoverManager:
         self._circuits: Dict[str, CircuitBreaker] = {}
         self._events: List[FailoverEvent] = []
         self._max_events = 10000  # Prevent unbounded memory growth
-        self._stats_per_company: Dict[str, List[FailoverEvent]] = defaultdict(list)
+        self._stats_per_company: Dict[str,
+                                      List[FailoverEvent]] = defaultdict(list)
 
         self._init_circuits()
 
@@ -412,7 +415,9 @@ class FailoverManager:
         circuit.last_success_at = now
 
         # Close circuit if half-open or degraded
-        if circuit.state in (ProviderState.DEGRADED, ProviderState.CIRCUIT_OPEN):
+        if circuit.state in (
+                ProviderState.DEGRADED,
+                ProviderState.CIRCUIT_OPEN):
             circuit.state = ProviderState.HEALTHY
             circuit.failure_count = 0
             circuit.half_open_call_count = 0
@@ -488,7 +493,10 @@ class FailoverManager:
 
     # ── State Queries ────────────────────────────────────────────
 
-    def get_provider_state(self, provider: str, model_id: str) -> ProviderState:
+    def get_provider_state(
+            self,
+            provider: str,
+            model_id: str) -> ProviderState:
         """Return current circuit state, checking recovery timeouts."""
         self._check_recovery(provider, model_id)
         circuit = self._get_circuit(provider, model_id)
@@ -551,7 +559,8 @@ class FailoverManager:
         recent = []
         for event in events:
             try:
-                event_time = datetime.fromisoformat(event.timestamp).timestamp()
+                event_time = datetime.fromisoformat(
+                    event.timestamp).timestamp()
                 if event_time >= cutoff:
                     recent.append(event)
             except (ValueError, TypeError):
@@ -714,8 +723,7 @@ class FailoverChainExecutor:
                         response_text = str(response_text)
 
                     is_degraded, degradation_reason = self.detector.is_degraded(
-                        response_text
-                    )
+                        response_text)
 
                     if is_degraded:
                         logger.warning(
@@ -724,7 +732,8 @@ class FailoverChainExecutor:
                             model_id,
                             degradation_reason,
                         )
-                        # Report as degraded but still use it if no other option
+                        # Report as degraded but still use it if no other
+                        # option
                         self.manager.report_failure(
                             provider=provider,
                             model_id=model_id,
@@ -827,7 +836,9 @@ class FailoverChainExecutor:
         and awaits async call_fn.
         """
         if not chain:
-            logger.error("Empty async failover chain for company %s", company_id)
+            logger.error(
+                "Empty async failover chain for company %s",
+                company_id)
             return self._build_error_response([])
 
         failover_events: List[FailoverEvent] = []
@@ -867,8 +878,7 @@ class FailoverChainExecutor:
                         response_text = str(response_text)
 
                     is_degraded, degradation_reason = self.detector.is_degraded(
-                        response_text
-                    )
+                        response_text)
 
                     if is_degraded:
                         logger.warning(
@@ -997,7 +1007,9 @@ class FailoverChainExecutor:
 
         return FailoverReason.UNKNOWN, 0
 
-    def _build_error_response(self, failover_events: List[FailoverEvent]) -> dict:
+    def _build_error_response(
+            self,
+            failover_events: List[FailoverEvent]) -> dict:
         """
         Build a graceful error response when ALL providers fail.
 

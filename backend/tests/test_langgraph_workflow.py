@@ -10,7 +10,8 @@ import pytest
 
 
 # Runtime-injected by _mock_logger fixture — satisfies flake8 F821
-LangGraphWorkflow = WorkflowConfig = WorkflowStep = WorkflowStepResult = WorkflowResult = WorkflowError = WORKFLOW_STEP_DEFINITIONS = VARIANT_PIPELINE_CONFIG = None  # type: ignore[assignment,misc]
+# type: ignore[assignment,misc]
+LangGraphWorkflow = WorkflowConfig = WorkflowStep = WorkflowStepResult = WorkflowResult = WorkflowError = WORKFLOW_STEP_DEFINITIONS = VARIANT_PIPELINE_CONFIG = None
 
 
 @pytest.fixture(autouse=True)
@@ -125,8 +126,16 @@ class TestWorkflowStep:
             assert step.step_type == stype
 
     def test_equality_same_values(self):
-        s1 = WorkflowStep(step_id="a", step_name="A", step_type="core", estimated_tokens=10)
-        s2 = WorkflowStep(step_id="a", step_name="A", step_type="core", estimated_tokens=10)
+        s1 = WorkflowStep(
+            step_id="a",
+            step_name="A",
+            step_type="core",
+            estimated_tokens=10)
+        s2 = WorkflowStep(
+            step_id="a",
+            step_name="A",
+            step_type="core",
+            estimated_tokens=10)
         assert s1 == s2
 
 
@@ -137,7 +146,10 @@ class TestWorkflowStep:
 
 class TestWorkflowStepResult:
     def test_success_status(self):
-        r = WorkflowStepResult(step_id="classify", status="success", tokens_used=50)
+        r = WorkflowStepResult(
+            step_id="classify",
+            status="success",
+            tokens_used=50)
         assert r.status == "success"
         assert r.tokens_used == 50
 
@@ -146,7 +158,10 @@ class TestWorkflowStepResult:
         assert r.status == "skipped"
 
     def test_error_status_with_message(self):
-        r = WorkflowStepResult(step_id="x", status="error", error="Something went wrong")
+        r = WorkflowStepResult(
+            step_id="x",
+            status="error",
+            error="Something went wrong")
         assert r.status == "error"
         assert r.error == "Something went wrong"
 
@@ -175,42 +190,69 @@ class TestWorkflowStepResult:
 
 class TestWorkflowResult:
     def test_creation_with_required_fields(self):
-        r = WorkflowResult(workflow_id="w1", variant_type="parwa", status="success")
+        r = WorkflowResult(
+            workflow_id="w1",
+            variant_type="parwa",
+            status="success")
         assert r.workflow_id == "w1"
         assert r.variant_type == "parwa"
         assert r.status == "success"
 
     def test_default_steps_completed_empty(self):
-        r = WorkflowResult(workflow_id="w1", variant_type="parwa", status="success")
+        r = WorkflowResult(
+            workflow_id="w1",
+            variant_type="parwa",
+            status="success")
         assert r.steps_completed == []
 
     def test_default_step_results_empty(self):
-        r = WorkflowResult(workflow_id="w1", variant_type="parwa", status="success")
+        r = WorkflowResult(
+            workflow_id="w1",
+            variant_type="parwa",
+            status="success")
         assert r.step_results == {}
 
     def test_default_final_response_empty(self):
-        r = WorkflowResult(workflow_id="w1", variant_type="parwa", status="success")
+        r = WorkflowResult(
+            workflow_id="w1",
+            variant_type="parwa",
+            status="success")
         assert r.final_response == ""
 
     def test_default_total_tokens_zero(self):
-        r = WorkflowResult(workflow_id="w1", variant_type="parwa", status="success")
+        r = WorkflowResult(
+            workflow_id="w1",
+            variant_type="parwa",
+            status="success")
         assert r.total_tokens_used == 0
 
     def test_default_total_duration_zero(self):
-        r = WorkflowResult(workflow_id="w1", variant_type="parwa", status="success")
+        r = WorkflowResult(
+            workflow_id="w1",
+            variant_type="parwa",
+            status="success")
         assert r.total_duration_ms == 0.0
 
     def test_default_compression_applied_false(self):
-        r = WorkflowResult(workflow_id="w1", variant_type="parwa", status="success")
+        r = WorkflowResult(
+            workflow_id="w1",
+            variant_type="parwa",
+            status="success")
         assert r.context_compression_applied is False
 
     def test_default_health_score_one(self):
-        r = WorkflowResult(workflow_id="w1", variant_type="parwa", status="success")
+        r = WorkflowResult(
+            workflow_id="w1",
+            variant_type="parwa",
+            status="success")
         assert r.context_health_score == 1.0
 
     def test_status_values(self):
         for s in ("success", "partial", "failed", "timeout"):
-            r = WorkflowResult(workflow_id="w1", variant_type="parwa", status=s)
+            r = WorkflowResult(
+                workflow_id="w1",
+                variant_type="parwa",
+                status=s)
             assert r.status == s
 
 
@@ -544,7 +586,12 @@ class TestStepDefinitions:
         assert len(WORKFLOW_STEP_DEFINITIONS) == 9
 
     def test_all_have_required_keys(self):
-        required = {"step_id", "step_name", "step_type", "estimated_tokens", "timeout_seconds"}
+        required = {
+            "step_id",
+            "step_name",
+            "step_type",
+            "estimated_tokens",
+            "timeout_seconds"}
         for step_id, defn in WORKFLOW_STEP_DEFINITIONS.items():
             assert required.issubset(defn.keys()), f"Missing keys in {step_id}"
 
@@ -552,7 +599,8 @@ class TestStepDefinitions:
         assert "mini_parwa" in VARIANT_PIPELINE_CONFIG
         assert "parwa" in VARIANT_PIPELINE_CONFIG
         assert "parwa_high" in VARIANT_PIPELINE_CONFIG
-        assert VARIANT_PIPELINE_CONFIG["mini_parwa"]["steps"] == ["classify", "generate", "format"]
+        assert VARIANT_PIPELINE_CONFIG["mini_parwa"]["steps"] == [
+            "classify", "generate", "format"]
         assert len(VARIANT_PIPELINE_CONFIG["parwa_high"]["steps"]) == 9
 
 

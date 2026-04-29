@@ -15,9 +15,9 @@ Tests the AgentMetricsService covering:
 Building Codes: BC-001 (multi-tenant), BC-012 (graceful errors)
 """
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from decimal import Decimal
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -126,7 +126,11 @@ def _make_alert(
 
 class TestConstants:
     def test_default_thresholds_keys(self):
-        expected = {"resolution_rate_min", "confidence_min", "csat_min", "escalation_max_pct"}
+        expected = {
+            "resolution_rate_min",
+            "confidence_min",
+            "csat_min",
+            "escalation_max_pct"}
         assert set(DEFAULT_THRESHOLDS.keys()) == expected
 
     def test_default_thresholds_values(self):
@@ -163,11 +167,17 @@ class TestConstants:
 # ══════════════════════════════════════════════════════════════════
 
 class TestGetMetrics:
-    def test_valid_period_and_granularity(self, service, mock_db, agent_id, company_id):
+    def test_valid_period_and_granularity(
+            self, service, mock_db, agent_id, company_id):
         row = _make_metrics_row(tickets_handled=10)
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [row]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [
+            row]
 
-        result = service.get_metrics(agent_id, company_id, period="7d", granularity="daily")
+        result = service.get_metrics(
+            agent_id,
+            company_id,
+            period="7d",
+            granularity="daily")
 
         assert result["agent_id"] == agent_id
         assert result["period"] == "7d"
@@ -186,7 +196,8 @@ class TestGetMetrics:
             service.get_metrics(agent_id, company_id, granularity="monthly")
         assert "Invalid granularity" in exc.value.message
 
-    def test_empty_data_returns_empty_points(self, service, mock_db, agent_id, company_id):
+    def test_empty_data_returns_empty_points(
+            self, service, mock_db, agent_id, company_id):
         mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
 
         result = service.get_metrics(agent_id, company_id)
@@ -197,8 +208,14 @@ class TestGetMetrics:
 
     def test_with_multiple_rows(self, service, mock_db, agent_id, company_id):
         rows = [
-            _make_metrics_row("2025-01-14", resolution_rate=70.0, tickets_handled=5),
-            _make_metrics_row("2025-01-15", resolution_rate=90.0, tickets_handled=8),
+            _make_metrics_row(
+                "2025-01-14",
+                resolution_rate=70.0,
+                tickets_handled=5),
+            _make_metrics_row(
+                "2025-01-15",
+                resolution_rate=90.0,
+                tickets_handled=8),
         ]
         mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = rows
 
@@ -215,16 +232,26 @@ class TestGetMetrics:
         ]
         mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = rows
 
-        result = service.get_metrics(agent_id, company_id, period="7d", granularity="weekly")
+        result = service.get_metrics(
+            agent_id,
+            company_id,
+            period="7d",
+            granularity="weekly")
 
         # All 3 dates are in the same ISO week, so should be 1 weekly bucket
         assert len(result["data_points"]) >= 1
         # Weekly key should be like "2025-W03"
         assert "W" in result["data_points"][0]["date"]
 
-    def test_insufficient_data_flag(self, service, mock_db, agent_id, company_id):
+    def test_insufficient_data_flag(
+            self,
+            service,
+            mock_db,
+            agent_id,
+            company_id):
         row = _make_metrics_row(tickets_handled=2)
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [row]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [
+            row]
 
         result = service.get_metrics(agent_id, company_id)
 
@@ -243,8 +270,18 @@ class TestGetMetrics:
 
     def test_summary_averages(self, service, mock_db, agent_id, company_id):
         rows = [
-            _make_metrics_row("2025-01-14", resolution_rate=60.0, avg_confidence=80.0, avg_csat=4.0, escalation_rate=5.0),
-            _make_metrics_row("2025-01-15", resolution_rate=80.0, avg_confidence=90.0, avg_csat=5.0, escalation_rate=15.0),
+            _make_metrics_row(
+                "2025-01-14",
+                resolution_rate=60.0,
+                avg_confidence=80.0,
+                avg_csat=4.0,
+                escalation_rate=5.0),
+            _make_metrics_row(
+                "2025-01-15",
+                resolution_rate=80.0,
+                avg_confidence=90.0,
+                avg_csat=5.0,
+                escalation_rate=15.0),
         ]
         mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = rows
 
@@ -255,7 +292,8 @@ class TestGetMetrics:
         assert result["summary"]["avg_csat"] == 4.5
         assert result["summary"]["avg_escalation_rate"] == 10.0
 
-    def test_null_metric_values_handled(self, service, mock_db, agent_id, company_id):
+    def test_null_metric_values_handled(
+            self, service, mock_db, agent_id, company_id):
         row = MagicMock()
         row.date = date(2025, 1, 15)
         row.resolution_rate = None
@@ -264,7 +302,8 @@ class TestGetMetrics:
         row.escalation_rate = None
         row.avg_handle_time_seconds = None
         row.tickets_handled = 10
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [row]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [
+            row]
 
         result = service.get_metrics(agent_id, company_id)
 
@@ -278,7 +317,8 @@ class TestGetMetrics:
 # ══════════════════════════════════════════════════════════════════
 
 class TestGetThresholds:
-    def test_returns_existing_threshold(self, service, mock_db, agent_id, company_id):
+    def test_returns_existing_threshold(
+            self, service, mock_db, agent_id, company_id):
         threshold = _make_threshold()
         mock_db.query.return_value.filter.return_value.first.return_value = threshold
 
@@ -290,7 +330,8 @@ class TestGetThresholds:
         assert result["csat_min"] == 3.5
         assert result["escalation_max_pct"] == 15.0
 
-    def test_creates_default_if_not_found(self, service, mock_db, agent_id, company_id):
+    def test_creates_default_if_not_found(
+            self, service, mock_db, agent_id, company_id):
         # First call: .filter().first() returns None (no threshold exists)
         mock_db.query.return_value.filter.return_value.first.return_value = None
 
@@ -303,7 +344,8 @@ class TestGetThresholds:
         # Values should match DEFAULT_THRESHOLDS
         assert result["resolution_rate_min"] == 70.0
 
-    def test_error_fallback_returns_defaults(self, service, mock_db, agent_id, company_id):
+    def test_error_fallback_returns_defaults(
+            self, service, mock_db, agent_id, company_id):
         mock_db.query.return_value.filter.side_effect = Exception("DB error")
 
         result = service.get_thresholds(agent_id, company_id)
@@ -370,7 +412,8 @@ class TestUpdateThresholds:
         assert result["escalation_max_pct"] == 10.0
 
     def test_error_reraises(self, service, mock_db, agent_id, company_id):
-        mock_db.query.return_value.filter.return_value.first.side_effect = Exception("DB error")
+        mock_db.query.return_value.filter.return_value.first.side_effect = Exception(
+            "DB error")
 
         with pytest.raises(Exception):
             service.update_thresholds(
@@ -389,8 +432,12 @@ class TestCompareAgents:
         assert result == []
 
     def test_single_agent_with_data(self, service, mock_db, company_id):
-        row = _make_metrics_row("2025-01-14", resolution_rate=80.0, tickets_handled=10)
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [row]
+        row = _make_metrics_row(
+            "2025-01-14",
+            resolution_rate=80.0,
+            tickets_handled=10)
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [
+            row]
 
         result = service.compare_agents(["agent-1"], company_id, period="7d")
 
@@ -403,15 +450,18 @@ class TestCompareAgents:
         row1 = _make_metrics_row("2025-01-14", tickets_handled=10)
         row2 = _make_metrics_row("2025-01-14", tickets_handled=10)
         # Both calls to get_metrics return the same row mock
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [row1]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [
+            row1]
 
         result = service.compare_agents(["agent-1", "agent-2"], company_id)
 
         assert len(result) == 2
 
     def test_excludes_insufficient_data(self, service, mock_db, company_id):
-        row = _make_metrics_row(tickets_handled=2)  # below MIN_TICKETS_FOR_ALERTS
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [row]
+        # below MIN_TICKETS_FOR_ALERTS
+        row = _make_metrics_row(tickets_handled=2)
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [
+            row]
 
         result = service.compare_agents(["agent-1"], company_id)
 
@@ -440,13 +490,15 @@ class TestComputeDailyMetrics:
         assert result["errors"] == 0
         assert result["metrics"] == []
 
-    def test_with_active_agent_zero_tickets(self, service, mock_db, company_id):
+    def test_with_active_agent_zero_tickets(
+            self, service, mock_db, company_id):
         agent = MagicMock()
         agent.id = "agent-1"
         agent.name = "Support Bot"
 
         # First query (Agent list), second query (tickets count → 0)
-        mock_db.query.return_value.filter.return_value.all.return_value = [agent]
+        mock_db.query.return_value.filter.return_value.all.return_value = [
+            agent]
         # scalar returns 0 for tickets_handled
         mock_db.query.return_value.join.return_value.filter.return_value.scalar.return_value = 0
 
@@ -464,7 +516,8 @@ class TestComputeDailyMetrics:
         existing = MagicMock()
 
         # Agent list query returns agent
-        mock_db.query.return_value.filter.return_value.all.return_value = [agent]
+        mock_db.query.return_value.filter.return_value.all.return_value = [
+            agent]
         # Tickets handled = 0 → early return with zeroed metrics
         mock_db.query.return_value.join.return_value.filter.return_value.scalar.return_value = 0
         # Existing record found
@@ -486,7 +539,8 @@ class TestComputeDailyMetrics:
         # The error is logged. agents_processed will be 1 because the metrics
         # dict IS returned (just with zeroed values). To force an actual error,
         # we make the AgentMetricsDaily filter call raise.
-        mock_db.query.return_value.filter.return_value.all.return_value = [agent]
+        mock_db.query.return_value.filter.return_value.all.return_value = [
+            agent]
         # scalar returns 0 for tickets_handled (first call succeeds)
         # but the second query (AgentMetricsDaily filter for upsert) raises
         call_count = [0]
@@ -527,10 +581,17 @@ class TestEvaluateAlerts:
         threshold = _make_threshold()
 
         # All metrics above threshold (no breach)
-        dm1 = _make_metrics_row("2025-01-15", resolution_rate=90.0, avg_confidence=85.0,
-                                avg_csat=4.5, escalation_rate=5.0, tickets_handled=10)
-        mock_db.query.return_value.filter.return_value.all.return_value = [agent]
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [dm1]
+        dm1 = _make_metrics_row(
+            "2025-01-15",
+            resolution_rate=90.0,
+            avg_confidence=85.0,
+            avg_csat=4.5,
+            escalation_rate=5.0,
+            tickets_handled=10)
+        mock_db.query.return_value.filter.return_value.all.return_value = [
+            agent]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [
+            dm1]
         mock_db.query.return_value.filter.return_value.first.return_value = threshold
 
         result = service.evaluate_alerts(company_id)
@@ -541,17 +602,28 @@ class TestEvaluateAlerts:
         # No active alert exists → nothing in result
         assert isinstance(result, list)
 
-    def test_consecutive_days_creates_alert(self, service, mock_db, company_id):
+    def test_consecutive_days_creates_alert(
+            self, service, mock_db, company_id):
         agent = MagicMock()
         agent.id = "agent-1"
 
         threshold = _make_threshold(resolution_rate_min=70.0)
 
         # 2 consecutive days below threshold for resolution_rate
-        dm1 = _make_metrics_row("2025-01-15", resolution_rate=55.0, avg_confidence=80.0,
-                                avg_csat=4.0, escalation_rate=5.0, tickets_handled=5)
-        dm2 = _make_metrics_row("2025-01-14", resolution_rate=60.0, avg_confidence=85.0,
-                                avg_csat=4.5, escalation_rate=5.0, tickets_handled=5)
+        dm1 = _make_metrics_row(
+            "2025-01-15",
+            resolution_rate=55.0,
+            avg_confidence=80.0,
+            avg_csat=4.0,
+            escalation_rate=5.0,
+            tickets_handled=5)
+        dm2 = _make_metrics_row(
+            "2025-01-14",
+            resolution_rate=60.0,
+            avg_confidence=85.0,
+            avg_csat=4.5,
+            escalation_rate=5.0,
+            tickets_handled=5)
 
         # Query sequence: query().all()=[agent], query().first()=threshold,
         # query().order_by().all()=[dm1,dm2], query().first()=None x N
@@ -575,10 +647,20 @@ class TestEvaluateAlerts:
         threshold = _make_threshold(escalation_max_pct=10.0)
 
         # 2 consecutive days with escalation above threshold
-        dm1 = _make_metrics_row("2025-01-15", escalation_rate=20.0, tickets_handled=5,
-                                resolution_rate=80.0, avg_confidence=80.0, avg_csat=4.0)
-        dm2 = _make_metrics_row("2025-01-14", escalation_rate=25.0, tickets_handled=5,
-                                resolution_rate=80.0, avg_confidence=80.0, avg_csat=4.0)
+        dm1 = _make_metrics_row(
+            "2025-01-15",
+            escalation_rate=20.0,
+            tickets_handled=5,
+            resolution_rate=80.0,
+            avg_confidence=80.0,
+            avg_csat=4.0)
+        dm2 = _make_metrics_row(
+            "2025-01-14",
+            escalation_rate=25.0,
+            tickets_handled=5,
+            resolution_rate=80.0,
+            avg_confidence=80.0,
+            avg_csat=4.0)
 
         chain = MagicMock()
         chain.filter.return_value = chain
@@ -590,7 +672,8 @@ class TestEvaluateAlerts:
         result = service.evaluate_alerts(company_id)
 
         created = [a for a in result if a["action"] == "created"]
-        escalation_alerts = [a for a in created if a["metric_name"] == "escalation_rate"]
+        escalation_alerts = [
+            a for a in created if a["metric_name"] == "escalation_rate"]
         assert len(escalation_alerts) >= 1
 
     def test_resolved_alert_on_recovery(self, service, mock_db, company_id):
@@ -601,8 +684,13 @@ class TestEvaluateAlerts:
         alert = _make_alert(status="active")
 
         # Metrics above threshold → recovery
-        dm1 = _make_metrics_row("2025-01-15", resolution_rate=90.0, avg_confidence=90.0,
-                                avg_csat=5.0, escalation_rate=5.0, tickets_handled=5)
+        dm1 = _make_metrics_row(
+            "2025-01-15",
+            resolution_rate=90.0,
+            avg_confidence=90.0,
+            avg_csat=5.0,
+            escalation_rate=5.0,
+            tickets_handled=5)
 
         chain = MagicMock()
         chain.filter.return_value = chain
@@ -621,12 +709,23 @@ class TestEvaluateAlerts:
         agent.id = "agent-1"
 
         threshold = _make_threshold(resolution_rate_min=70.0)
-        existing_alert = _make_alert(status="active", metric_name="resolution_rate")
+        existing_alert = _make_alert(
+            status="active", metric_name="resolution_rate")
 
-        dm1 = _make_metrics_row("2025-01-15", resolution_rate=50.0, tickets_handled=5,
-                                avg_confidence=80.0, avg_csat=4.0, escalation_rate=5.0)
-        dm2 = _make_metrics_row("2025-01-14", resolution_rate=55.0, tickets_handled=5,
-                                avg_confidence=80.0, avg_csat=4.0, escalation_rate=5.0)
+        dm1 = _make_metrics_row(
+            "2025-01-15",
+            resolution_rate=50.0,
+            tickets_handled=5,
+            avg_confidence=80.0,
+            avg_csat=4.0,
+            escalation_rate=5.0)
+        dm2 = _make_metrics_row(
+            "2025-01-14",
+            resolution_rate=55.0,
+            tickets_handled=5,
+            avg_confidence=80.0,
+            avg_csat=4.0,
+            escalation_rate=5.0)
 
         chain = MagicMock()
         chain.filter.return_value = chain
@@ -644,7 +743,8 @@ class TestEvaluateAlerts:
         agent = MagicMock()
         agent.id = "agent-1"
 
-        mock_db.query.return_value.filter.return_value.all.return_value = [agent]
+        mock_db.query.return_value.filter.return_value.all.return_value = [
+            agent]
         mock_db.query.return_value.filter.return_value.first.return_value = None
         mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
 
@@ -659,13 +759,25 @@ class TestEvaluateAlerts:
         threshold = _make_threshold(resolution_rate_min=70.0)
 
         # Only 2 tickets total (below MIN_TICKETS_FOR_ALERTS)
-        dm1 = _make_metrics_row("2025-01-15", resolution_rate=50.0, tickets_handled=1,
-                                avg_confidence=50.0, avg_csat=2.0, escalation_rate=20.0)
-        dm2 = _make_metrics_row("2025-01-14", resolution_rate=55.0, tickets_handled=1,
-                                avg_confidence=50.0, avg_csat=2.0, escalation_rate=20.0)
+        dm1 = _make_metrics_row(
+            "2025-01-15",
+            resolution_rate=50.0,
+            tickets_handled=1,
+            avg_confidence=50.0,
+            avg_csat=2.0,
+            escalation_rate=20.0)
+        dm2 = _make_metrics_row(
+            "2025-01-14",
+            resolution_rate=55.0,
+            tickets_handled=1,
+            avg_confidence=50.0,
+            avg_csat=2.0,
+            escalation_rate=20.0)
 
-        mock_db.query.return_value.filter.return_value.all.return_value = [agent]
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [dm1, dm2]
+        mock_db.query.return_value.filter.return_value.all.return_value = [
+            agent]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [
+            dm1, dm2]
         mock_db.query.return_value.filter.return_value.first.return_value = threshold
 
         result = service.evaluate_alerts(company_id)
@@ -735,13 +847,16 @@ class TestAggregateWeekly:
 class TestDetermineTrend:
     def test_upward_trend(self):
         # Need 6+ values so prev window is non-empty
-        assert AgentMetricsService._determine_trend([60.0, 62.0, 64.0, 70.0, 75.0, 80.0]) == "up"
+        assert AgentMetricsService._determine_trend(
+            [60.0, 62.0, 64.0, 70.0, 75.0, 80.0]) == "up"
 
     def test_downward_trend(self):
-        assert AgentMetricsService._determine_trend([90.0, 88.0, 85.0, 80.0, 75.0, 70.0]) == "down"
+        assert AgentMetricsService._determine_trend(
+            [90.0, 88.0, 85.0, 80.0, 75.0, 70.0]) == "down"
 
     def test_stable_trend(self):
-        assert AgentMetricsService._determine_trend([75.0, 75.0, 75.0]) == "stable"
+        assert AgentMetricsService._determine_trend(
+            [75.0, 75.0, 75.0]) == "stable"
 
     def test_insufficient_data(self):
         assert AgentMetricsService._determine_trend([80.0]) == "stable"

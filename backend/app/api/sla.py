@@ -23,10 +23,7 @@ from app.schemas.sla import (
     SLAPolicyUpdate,
     SLAPolicyResponse,
     SLATimerResponse,
-    SLABreachAlert,
     SLAStats,
-    Priority,
-    PlanTier,
 )
 from app.services.sla_service import (
     SLAService,
@@ -58,13 +55,13 @@ async def create_policy(
 ) -> Any:
     """
     Create a new SLA policy for a plan tier and priority combination.
-    
+
     Each plan_tier × priority combination can have one active policy.
     """
     company_id = current_user.get("company_id")
-    
+
     service = SLAService(db)
-    
+
     try:
         policy = service.create_policy(
             company_id=company_id,
@@ -75,7 +72,7 @@ async def create_policy(
             update_frequency_minutes=data.update_frequency_minutes,
             is_active=data.is_active,
         )
-        
+
         return SLAPolicyResponse(
             id=policy.id,
             company_id=policy.company_id,
@@ -88,7 +85,7 @@ async def create_policy(
             created_at=policy.created_at,
             updated_at=policy.updated_at,
         )
-        
+
     except DuplicateSLAPolicyError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -117,16 +114,16 @@ async def list_policies(
     List SLA policies with optional filters.
     """
     company_id = current_user.get("company_id")
-    
+
     service = SLAService(db)
-    
+
     policies = service.list_policies(
         company_id=company_id,
         plan_tier=plan_tier,
         priority=priority,
         is_active=is_active,
     )
-    
+
     return [
         SLAPolicyResponse(
             id=p.id,
@@ -158,17 +155,17 @@ async def get_policy(
     Get an SLA policy by ID.
     """
     company_id = current_user.get("company_id")
-    
+
     service = SLAService(db)
-    
+
     policy = service.get_policy(company_id, policy_id)
-    
+
     if not policy:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="SLA policy not found",
         )
-    
+
     return SLAPolicyResponse(
         id=policy.id,
         company_id=policy.company_id,
@@ -198,16 +195,16 @@ async def update_policy(
     Update an SLA policy.
     """
     company_id = current_user.get("company_id")
-    
+
     service = SLAService(db)
-    
+
     try:
         policy = service.update_policy(
             company_id=company_id,
             policy_id=policy_id,
             **data.model_dump(exclude_unset=True),
         )
-        
+
         return SLAPolicyResponse(
             id=policy.id,
             company_id=policy.company_id,
@@ -220,7 +217,7 @@ async def update_policy(
             created_at=policy.created_at,
             updated_at=policy.updated_at,
         )
-        
+
     except SLAPolicyNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -242,13 +239,13 @@ async def delete_policy(
     Delete an SLA policy.
     """
     company_id = current_user.get("company_id")
-    
+
     service = SLAService(db)
-    
+
     try:
         service.delete_policy(company_id, policy_id)
         return {"deleted": True, "policy_id": policy_id}
-        
+
     except SLAPolicyNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -268,18 +265,18 @@ async def seed_default_policies(
 ) -> Any:
     """
     Seed default SLA policies for the company.
-    
+
     Default policies:
     - Starter: critical 1h/8h, high 4h/24h, medium 12h/48h, low 24h/72h
     - Growth: Half of Starter times
     - High: Half of Growth times
     """
     company_id = current_user.get("company_id")
-    
+
     service = SLAService(db)
-    
+
     created = service.seed_default_policies(company_id, plan_tier)
-    
+
     return {
         "seeded": len(created),
         "policies": [
@@ -309,25 +306,25 @@ async def get_ticket_sla(
 ) -> Any:
     """
     Get SLA timer status for a ticket.
-    
+
     Returns time remaining, breach status, and approaching status.
     """
     company_id = current_user.get("company_id")
-    
+
     service = SLAService(db)
-    
+
     timer = service.get_timer(company_id, ticket_id)
-    
+
     if not timer:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="SLA timer not found for ticket",
         )
-    
+
     # Get ticket for resolution target
     from database.models.tickets import Ticket
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
-    
+
     return SLATimerResponse(
         id=timer.id,
         ticket_id=timer.ticket_id,
@@ -355,15 +352,15 @@ async def list_breached_tickets(
 ) -> Any:
     """
     List all tickets with breached SLA.
-    
+
     PS11: Breached tickets should be escalated.
     """
     company_id = current_user.get("company_id")
-    
+
     service = SLAService(db)
-    
+
     tickets = service.get_breached_tickets(company_id, limit)
-    
+
     return {
         "items": [
             {
@@ -392,15 +389,15 @@ async def list_approaching_tickets(
 ) -> Any:
     """
     List tickets approaching SLA breach (75% threshold).
-    
+
     PS17: Send warning notifications for these tickets.
     """
     company_id = current_user.get("company_id")
-    
+
     service = SLAService(db)
-    
+
     approaching = service.get_approaching_tickets(company_id, limit)
-    
+
     return {
         "items": [
             {
@@ -433,19 +430,19 @@ async def get_sla_stats(
 ) -> Any:
     """
     Get SLA performance statistics for the company.
-    
+
     Returns compliance rate, average times, and counts.
     """
     company_id = current_user.get("company_id")
-    
+
     service = SLAService(db)
-    
+
     stats = service.get_sla_stats(
         company_id=company_id,
         start_date=start_date,
         end_date=end_date,
     )
-    
+
     return SLAStats(
         total_tickets=stats["total_tickets"],
         breached_count=stats["breached_count"],

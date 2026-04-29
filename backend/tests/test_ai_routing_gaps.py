@@ -23,10 +23,9 @@ All external dependencies are mocked — no real API calls.
 from __future__ import annotations
 
 import asyncio
-import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -35,23 +34,18 @@ from app.core.smart_router import (
     ModelProvider,
     ModelTier,
     ProviderHealthTracker,
-    ProviderUsage,
     SmartRouter,
     RoutingDecision,
     VARIANT_MODEL_ACCESS,
     MODEL_REGISTRY,
     STEP_TIER_MAPPING,
-    TIER_FALLBACK_ORDER,
-    RateLimitError,
 )
 from app.core.model_failover import (
     FailoverChainExecutor,
     FailoverManager,
     FailoverReason,
     ProviderState,
-    CircuitBreaker,
     DegradedResponseDetector,
-    FAILOVER_CHAINS,
 )
 
 
@@ -157,7 +151,8 @@ class TestTierBoundaryOverflow:
         )
         assert decision.tier in (ModelTier.LIGHT, ModelTier.GUARDRAIL)
 
-    def test_unknown_variant_never_exceeds_light_boundary(self, router: SmartRouter):
+    def test_unknown_variant_never_exceeds_light_boundary(
+            self, router: SmartRouter):
         """Unknown variants default to mini_parwa and must never
         exceed LIGHT tier."""
         decision = router.route(
@@ -166,7 +161,8 @@ class TestTierBoundaryOverflow:
         )
         assert decision.tier in (ModelTier.LIGHT, ModelTier.GUARDRAIL)
 
-    def test_heavy_step_under_parwa_degrades_not_upgrades(self, router: SmartRouter):
+    def test_heavy_step_under_parwa_degrades_not_upgrades(
+            self, router: SmartRouter):
         """A step that would normally need HEAVY, under parwa (no HEAVY),
         must degrade to MEDIUM, never exceed parwa's allowed tiers."""
         decision = router.route(
@@ -191,9 +187,10 @@ class TestTierBoundaryOverflow:
         decisions = router.route_batch(COMPANY_A, "mini_parwa", steps)
         assert len(decisions) == len(steps)
         for d in decisions:
-            assert d.tier in (ModelTier.LIGHT, ModelTier.GUARDRAIL), (
-                f"Step {d.atomic_step_type.value} leaked to tier {d.tier.value}"
-            )
+            assert d.tier in (
+                ModelTier.LIGHT, ModelTier.GUARDRAIL), (f"Step {
+                    d.atomic_step_type.value} leaked to tier {
+                    d.tier.value}")
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -207,7 +204,8 @@ class TestRaceConditionFailover:
     or get stuck in an infinite retry loop.
     """
 
-    def test_concurrent_failover_all_complete(self, executor: FailoverChainExecutor):
+    def test_concurrent_failover_all_complete(
+            self, executor: FailoverChainExecutor):
         """10 concurrent requests hitting a failing primary must all
         complete within a bounded time."""
         call_count = {"n": 0}
@@ -218,7 +216,9 @@ class TestRaceConditionFailover:
             if provider == "cerebras" and call_count["n"] <= 5:
                 fail_count["n"] += 1
                 raise ConnectionError("Cerebras intermittent failure")
-            return {"content": f"OK from {provider}/{model_id}", "latency_ms": 10}
+            return {
+                "content": f"OK from {provider}/{model_id}",
+                "latency_ms": 10}
 
         chain = [("cerebras", "llama-3.1-8b"), ("groq", "llama-3.1-8b")]
 
@@ -259,7 +259,8 @@ class TestRaceConditionFailover:
         assert "content" in result
 
     @pytest.mark.asyncio
-    async def test_async_concurrent_failover_all_complete(self, failover_manager: FailoverManager):
+    async def test_async_concurrent_failover_all_complete(
+            self, failover_manager: FailoverManager):
         """Async concurrent requests during provider failure must all
         complete without hanging."""
         async_exec = FailoverChainExecutor(failover_manager)
@@ -288,7 +289,8 @@ class TestRaceConditionFailover:
             assert not isinstance(r, Exception), f"Request raised: {r}"
             assert "content" in r
 
-    def test_circuit_breaker_opens_on_threshold(self, failover_manager: FailoverManager):
+    def test_circuit_breaker_opens_on_threshold(
+            self, failover_manager: FailoverManager):
         """Circuit breaker must open after recovery_threshold failures."""
         failover_manager.report_failure(
             "cerebras", "llama-3.1-8b",
@@ -313,7 +315,8 @@ class TestRaceConditionFailover:
         state = failover_manager.get_provider_state("cerebras", "llama-3.1-8b")
         assert state == ProviderState.CIRCUIT_OPEN
 
-    def test_concurrent_requests_skip_open_circuit(self, executor: FailoverChainExecutor):
+    def test_concurrent_requests_skip_open_circuit(
+            self, executor: FailoverChainExecutor):
         """When a circuit is open, concurrent requests should immediately
         skip that provider, not attempt and retry."""
         # Open the circuit for cerebras
@@ -351,7 +354,8 @@ class TestVariantIsolationBreach:
     constant so this tests that the router respects boundaries.
     """
 
-    def test_light_variant_does_not_affect_medium_tier_models(self, router: SmartRouter):
+    def test_light_variant_does_not_affect_medium_tier_models(
+            self, router: SmartRouter):
         """Routing decisions for MEDIUM steps under parwa must use
         MEDIUM-tier models, regardless of any LIGHT-tier config."""
         medium_step = AtomicStepType.MAD_ATOM_REASONING
@@ -379,7 +383,8 @@ class TestVariantIsolationBreach:
         assert ModelTier.HEAVY not in mini_tiers
         assert ModelTier.MEDIUM not in mini_tiers
 
-    def test_modifying_variant_access_for_one_does_not_affect_another(self, router: SmartRouter):
+    def test_modifying_variant_access_for_one_does_not_affect_another(
+            self, router: SmartRouter):
         """Even when we mutate a variant's allowed tiers (simulating a
         config change), the other variants remain unchanged."""
         # Snapshot original access
@@ -416,7 +421,8 @@ class TestVariantIsolationBreach:
             )
             assert decision.tier == ModelTier.GUARDRAIL
 
-    def test_step_tier_mapping_not_mutated_by_routing(self, router: SmartRouter):
+    def test_step_tier_mapping_not_mutated_by_routing(
+            self, router: SmartRouter):
         """Routing many requests must not mutate the global
         STEP_TIER_MAPPING dictionary."""
         original_mapping = dict(STEP_TIER_MAPPING)
@@ -440,14 +446,16 @@ class TestSilentHealthCheckFailure:
     should accumulate failures and eventually mark the provider unhealthy.
     """
 
-    def test_single_failure_does_not_mark_unhealthy(self, tracker: ProviderHealthTracker):
+    def test_single_failure_does_not_mark_unhealthy(
+            self, tracker: ProviderHealthTracker):
         """One failure should not mark a provider as unhealthy."""
         tracker.record_failure(
             ModelProvider.CEREBRAS, "llama-3.1-8b", "timeout",
         )
         assert tracker.is_available(ModelProvider.CEREBRAS, "llama-3.1-8b")
 
-    def test_two_failures_mark_degraded_still_available(self, tracker: ProviderHealthTracker):
+    def test_two_failures_mark_degraded_still_available(
+            self, tracker: ProviderHealthTracker):
         """Two consecutive failures should not yet mark unavailable
         (threshold is 3)."""
         tracker.record_failure(
@@ -463,7 +471,8 @@ class TestSilentHealthCheckFailure:
         assert usage is not None
         assert usage.consecutive_failures == 2
 
-    def test_three_failures_mark_unhealthy(self, tracker: ProviderHealthTracker):
+    def test_three_failures_mark_unhealthy(
+            self, tracker: ProviderHealthTracker):
         """Three consecutive failures must mark provider as unhealthy."""
         tracker.record_failure(
             ModelProvider.CEREBRAS, "llama-3.1-8b", "fail1",
@@ -476,7 +485,8 @@ class TestSilentHealthCheckFailure:
         )
         assert not tracker.is_available(ModelProvider.CEREBRAS, "llama-3.1-8b")
 
-    def test_success_resets_failure_counter(self, tracker: ProviderHealthTracker):
+    def test_success_resets_failure_counter(
+            self, tracker: ProviderHealthTracker):
         """A successful call must reset the consecutive failure counter."""
         tracker.record_failure(
             ModelProvider.CEREBRAS, "llama-3.1-8b", "fail1",
@@ -492,7 +502,8 @@ class TestSilentHealthCheckFailure:
         key = "llama-3.1-8b-cerebras"
         assert tracker._usage[key].consecutive_failures == 0
 
-    def test_intermittent_30p_failure_detected(self, tracker: ProviderHealthTracker):
+    def test_intermittent_30p_failure_detected(
+            self, tracker: ProviderHealthTracker):
         """Simulate 30% failure rate over 10 calls: should accumulate
         enough consecutive failures to trigger unhealthy state."""
         import random
@@ -503,7 +514,9 @@ class TestSilentHealthCheckFailure:
         for i in range(10):
             if random.random() < 0.3:
                 tracker.record_failure(
-                    ModelProvider.CEREBRAS, "llama-3.1-8b", f"intermittent-{i}",
+                    ModelProvider.CEREBRAS,
+                    "llama-3.1-8b",
+                    f"intermittent-{i}",
                 )
                 fail_count += 1
             else:
@@ -520,7 +533,8 @@ class TestSilentHealthCheckFailure:
         # consecutive failures
         assert tracker.is_available(ModelProvider.CEREBRAS, "llama-3.1-8b")
 
-    def test_rate_limit_sets_cooldown_and_blocks(self, tracker: ProviderHealthTracker):
+    def test_rate_limit_sets_cooldown_and_blocks(
+            self, tracker: ProviderHealthTracker):
         """Rate-limit recording must block the provider for the cooldown
         duration."""
         tracker.record_rate_limit(
@@ -529,7 +543,8 @@ class TestSilentHealthCheckFailure:
         assert not tracker.is_available(ModelProvider.GROQ, "llama-3.1-8b")
         assert tracker.check_rate_limit(ModelProvider.GROQ, "llama-3.1-8b")
 
-    def test_rate_limit_with_zero_retry_uses_default(self, tracker: ProviderHealthTracker):
+    def test_rate_limit_with_zero_retry_uses_default(
+            self, tracker: ProviderHealthTracker):
         """When retry_after is 0, the default cooldown must be used."""
         tracker.record_rate_limit(
             ModelProvider.GROQ, "llama-3.1-8b", retry_after_seconds=0,
@@ -539,14 +554,16 @@ class TestSilentHealthCheckFailure:
         usage = tracker._usage[key]
         assert usage.rate_limited_until > time.time()
 
-    def test_unknown_provider_always_available(self, tracker: ProviderHealthTracker):
+    def test_unknown_provider_always_available(
+            self, tracker: ProviderHealthTracker):
         """A provider that has never been tracked should be assumed
         available (no usage data = available)."""
         assert tracker.is_available(
             ModelProvider.CEREBRAS, "unknown-model-id",
         )
 
-    def test_get_all_status_tracks_tracked_models(self, tracker: ProviderHealthTracker):
+    def test_get_all_status_tracks_tracked_models(
+            self, tracker: ProviderHealthTracker):
         """get_all_status must return entries for all tracked models."""
         tracker.record_success(ModelProvider.CEREBRAS, "llama-3.1-8b")
         tracker.record_failure(ModelProvider.GROQ, "llama-3.1-8b", "fail")
@@ -582,7 +599,8 @@ class TestIdempotencyViolation:
         assert decision1.provider == decision2.provider
         assert decision1.tier == decision2.tier
 
-    def test_same_inputs_different_companies_same_model(self, router: SmartRouter):
+    def test_same_inputs_different_companies_same_model(
+            self, router: SmartRouter):
         """Same step+variant but different companies should route to
         the same model (routing is not company-specific for model choice)."""
         d_a = router.route(COMPANY_A, "parwa", AtomicStepType.FAKE_VOTING)
@@ -634,7 +652,8 @@ class TestTenantIsolationVariantConfig:
     health state or configuration.
     """
 
-    def test_tenant_a_failure_does_not_affect_tenant_b(self, router: SmartRouter):
+    def test_tenant_a_failure_does_not_affect_tenant_b(
+            self, router: SmartRouter):
         """Provider failures for tenant A's requests must not affect
         tenant B's routing decisions (shared tracker means they DO
         share health state — this test documents the actual behavior)."""
@@ -652,14 +671,16 @@ class TestTenantIsolationVariantConfig:
         assert isinstance(decision_b, RoutingDecision)
         assert decision_b.tier in (ModelTier.LIGHT, ModelTier.GUARDRAIL)
 
-    def test_different_companies_get_same_variant_tiers(self, router: SmartRouter):
+    def test_different_companies_get_same_variant_tiers(
+            self, router: SmartRouter):
         """Both tenants should see the same variant tier access
         (VARIANT_MODEL_ACCESS is global, not per-tenant)."""
         allowed_a = router._get_allowed_tiers("parwa")
         allowed_b = router._get_allowed_tiers("parwa")
         assert allowed_a == allowed_b
 
-    def test_tenant_a_rate_limit_does_not_block_tenant_b_route(self, router: SmartRouter):
+    def test_tenant_a_rate_limit_does_not_block_tenant_b_route(
+            self, router: SmartRouter):
         """Rate limiting tenant A must still allow tenant B to route
         (BC-008: routing never crashes even if primary is blocked)."""
         router._health.record_rate_limit(
@@ -764,7 +785,8 @@ class TestGracefulDegradationEdgeCases:
 
     def test_route_with_malformed_variant_type(self, router: SmartRouter):
         """Non-string or empty variant must not crash."""
-        decision = router.route(COMPANY_A, 42, AtomicStepType.FAKE_VOTING)  # type: ignore
+        decision = router.route(
+            COMPANY_A, 42, AtomicStepType.FAKE_VOTING)  # type: ignore
         assert isinstance(decision, RoutingDecision)
 
     def test_route_with_none_query_signals(self, router: SmartRouter):
@@ -775,7 +797,8 @@ class TestGracefulDegradationEdgeCases:
         )
         assert isinstance(decision, RoutingDecision)
 
-    def test_execute_llm_call_returns_content_on_error(self, router: SmartRouter):
+    def test_execute_llm_call_returns_content_on_error(
+            self, router: SmartRouter):
         """execute_llm_call must always return a dict with 'content'."""
         decision = router.route(
             COMPANY_A, "parwa", AtomicStepType.INTENT_CLASSIFICATION,
@@ -793,7 +816,8 @@ class TestGracefulDegradationEdgeCases:
         assert result.get("error") is not None
 
     @pytest.mark.asyncio
-    async def test_async_execute_llm_call_returns_content_on_error(self, router: SmartRouter):
+    async def test_async_execute_llm_call_returns_content_on_error(
+            self, router: SmartRouter):
         """async_execute_llm_call must always return a dict with 'content'."""
         decision = router.route(
             COMPANY_A, "parwa", AtomicStepType.INTENT_CLASSIFICATION,
@@ -808,14 +832,17 @@ class TestGracefulDegradationEdgeCases:
         assert "content" in result
         assert result.get("fallback_used") is True
 
-    def test_daily_usage_resets_on_new_day(self, tracker: ProviderHealthTracker):
+    def test_daily_usage_resets_on_new_day(
+            self, tracker: ProviderHealthTracker):
         """After simulated daily reset, usage should be 0."""
         tracker.record_success(ModelProvider.CEREBRAS, "llama-3.1-8b")
         tracker.record_success(ModelProvider.CEREBRAS, "llama-3.1-8b")
-        assert tracker.get_daily_usage(ModelProvider.CEREBRAS, "llama-3.1-8b") == 2
+        assert tracker.get_daily_usage(
+            ModelProvider.CEREBRAS, "llama-3.1-8b") == 2
 
         tracker.reset_daily_counts()
-        assert tracker.get_daily_usage(ModelProvider.CEREBRAS, "llama-3.1-8b") == 0
+        assert tracker.get_daily_usage(
+            ModelProvider.CEREBRAS, "llama-3.1-8b") == 0
 
     def test_failover_event_trimming(self, failover_manager: FailoverManager):
         """FailoverManager must trim events to prevent memory growth."""
@@ -854,7 +881,8 @@ class TestGracefulDegradationEdgeCases:
         )
         assert is_degraded is False
 
-    def test_failover_chain_executor_empty_chain(self, executor: FailoverChainExecutor):
+    def test_failover_chain_executor_empty_chain(
+            self, executor: FailoverChainExecutor):
         """Empty failover chain must return graceful error (BC-008)."""
         result = executor.execute_with_failover(
             COMPANY_A, [], lambda p, m: {"content": "ok"},

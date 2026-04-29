@@ -21,8 +21,6 @@ import sys
 import types
 import unittest.mock as mock
 
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # Module import — we import individual helper functions from jarvis_service
@@ -45,7 +43,8 @@ _mock_db_jarvis.JarvisMessage = mock.MagicMock
 _mock_db_jarvis.JarvisKnowledgeUsed = mock.MagicMock
 _mock_db_jarvis.JarvisActionTicket = mock.MagicMock
 _mock_app_exceptions.NotFoundError = type("NotFoundError", (Exception,), {})
-_mock_app_exceptions.ValidationError = type("ValidationError", (Exception,), {})
+_mock_app_exceptions.ValidationError = type(
+    "ValidationError", (Exception,), {})
 _mock_app_exceptions.RateLimitError = type("RateLimitError", (Exception,), {})
 _mock_app_exceptions.InternalError = type("InternalError", (Exception,), {})
 
@@ -60,6 +59,8 @@ for mod_name, mod_obj in [
 # Use a dynamic module class that auto-creates submodules on access.
 # This allows mock.patch("app.core.xxx.Class") to work without pre-registering
 # every single service module.
+
+
 class _DynamicModule(types.ModuleType):
     """Module that auto-creates submodules and registers them in sys.modules.
 
@@ -67,6 +68,7 @@ class _DynamicModule(types.ModuleType):
     Python will try getattr(app, "core") then getattr(app.core, "prompt_injection_defense").
     This class makes both work dynamically.
     """
+
     def __getattr__(self, name):
         full_name = f"{self.__name__}.{name}"
         if full_name in sys.modules:
@@ -77,12 +79,19 @@ class _DynamicModule(types.ModuleType):
         super().__setattr__(name, mod)
         return mod
 
+
 _mock_app = _DynamicModule("app")
 sys.modules["app"] = _mock_app
 
 # Load jarvis_service module directly from file using importlib
-_JARVIS_PATH = os.path.join(os.path.dirname(__file__), "..", "app", "services", "jarvis_service.py")
-_spec = importlib.util.spec_from_file_location("app.services.jarvis_service", _JARVIS_PATH)
+_JARVIS_PATH = os.path.join(
+    os.path.dirname(__file__),
+    "..",
+    "app",
+    "services",
+    "jarvis_service.py")
+_spec = importlib.util.spec_from_file_location(
+    "app.services.jarvis_service", _JARVIS_PATH)
 jarvis_service = importlib.util.module_from_spec(_spec)
 sys.modules["app.services"] = jarvis_service
 sys.modules["app.services.jarvis_service"] = jarvis_service
@@ -111,7 +120,8 @@ def _mock_service_module(module_path, class_name):
         if child:
             parent_mod = sys.modules[parent]
             if not hasattr(parent_mod, child):
-                setattr(parent_mod, child, sys.modules.get(".".join(parts[:i + 2]), types.ModuleType(".".join(parts[:i + 2]))))
+                setattr(parent_mod, child, sys.modules.get(
+                    ".".join(parts[:i + 2]), types.ModuleType(".".join(parts[:i + 2]))))
     return cls
 
 
@@ -148,7 +158,11 @@ FRUSTRATED_MESSAGES = [
 ]
 
 
-def _make_sentiment_data(frustration=0, emotion="neutral", urgency="low", tone="standard"):
+def _make_sentiment_data(
+        frustration=0,
+        emotion="neutral",
+        urgency="low",
+        tone="standard"):
     """Build a sentiment_data dict matching what _run_sentiment_analysis returns."""
     return {
         "frustration_score": frustration,
@@ -176,7 +190,8 @@ class TestBeforeStatePromptInjection:
                 jarvis_service, "_scan_prompt_injection",
                 wraps=lambda m, c, u: jarvis_service.__dict__.get("_scan_prompt_injection_original", lambda *a: None)(m, c, u)
             ):
-                # Direct approach: call the real function but make the inner import fail
+                # Direct approach: call the real function but make the inner
+                # import fail
                 pass
 
         # Instead, simulate by patching the import directly
@@ -265,7 +280,8 @@ class TestAfterStatePromptInjection:
 
         with mock.patch("app.core.prompt_injection_defense.PromptInjectionDefense") as MockDef:
             MockDef.return_value.detect.return_value = mock_result
-            result = jarvis_service._scan_prompt_injection("jailbreak attempt", "co", "u")
+            result = jarvis_service._scan_prompt_injection(
+                "jailbreak attempt", "co", "u")
             assert result is not None
             assert result["action"] == "blocked"
 
@@ -278,7 +294,8 @@ class TestAfterStatePromptInjection:
 
         with mock.patch("app.core.prompt_injection_defense.PromptInjectionDefense") as MockDef:
             MockDef.return_value.detect.return_value = mock_result
-            result = jarvis_service._scan_prompt_injection("pretend you are", "co", "u")
+            result = jarvis_service._scan_prompt_injection(
+                "pretend you are", "co", "u")
             assert result["attack_type"] == "role_play"
 
 
@@ -336,12 +353,14 @@ class TestBeforeStatePII:
 
     def test_email_not_redacted(self):
         with mock.patch("builtins.__import__", side_effect=ImportError):
-            result = jarvis_service._redact_pii("My email is john@example.com", "co")
+            result = jarvis_service._redact_pii(
+                "My email is john@example.com", "co")
         assert result is None
 
     def test_phone_not_redacted(self):
         with mock.patch("builtins.__import__", side_effect=ImportError):
-            result = jarvis_service._redact_pii("Call me at 555-123-4567", "co")
+            result = jarvis_service._redact_pii(
+                "Call me at 555-123-4567", "co")
         assert result is None
 
     def test_ssn_not_redacted(self):
@@ -362,11 +381,13 @@ class TestAfterStatePII:
         mock_result = mock.MagicMock()
         mock_result.has_pii = True
         mock_result.redacted_text = "My email is [REDACTED_EMAIL_1]"
-        mock_result.detected_pii = [{"type": "email", "value": "john@example.com"}]
+        mock_result.detected_pii = [
+            {"type": "email", "value": "john@example.com"}]
 
         with mock.patch("app.core.pii_redaction_engine.PIIRedactionEngine") as MockEngine:
             MockEngine.return_value.redact.return_value = mock_result
-            result = jarvis_service._redact_pii("My email is john@example.com", "co")
+            result = jarvis_service._redact_pii(
+                "My email is john@example.com", "co")
 
         assert result is not None
         assert result["pii_found"] is True
@@ -382,7 +403,8 @@ class TestAfterStatePII:
 
         with mock.patch("app.core.pii_redaction_engine.PIIRedactionEngine") as MockEngine:
             MockEngine.return_value.redact.return_value = mock_result
-            result = jarvis_service._redact_pii("Call me at 555-123-4567", "co")
+            result = jarvis_service._redact_pii(
+                "Call me at 555-123-4567", "co")
 
         assert result is not None
         assert result["pii_found"] is True
@@ -432,7 +454,8 @@ class TestBehavioralComparisonPII:
         mock_result = mock.MagicMock()
         mock_result.has_pii = True
         mock_result.redacted_text = "My email is [REDACTED_EMAIL_1]"
-        mock_result.detected_pii = [{"type": "email", "value": "john@example.com"}]
+        mock_result.detected_pii = [
+            {"type": "email", "value": "john@example.com"}]
         with mock.patch("app.core.pii_redaction_engine.PIIRedactionEngine") as MockEngine:
             MockEngine.return_value.redact.return_value = mock_result
             after = jarvis_service._redact_pii(msg, "co")
@@ -768,7 +791,8 @@ class TestBeforeStateContextCompression:
     """BEFORE: Context compression not available → falls back to truncation or None."""
 
     def test_long_history_returns_none_when_service_missing(self):
-        history = [{"role": "user", "content": f"Message {i}"} for i in range(25)]
+        history = [{"role": "user", "content": f"Message {i}"}
+                   for i in range(25)]
         with mock.patch("builtins.__import__", side_effect=ImportError):
             result = jarvis_service._compress_context(history, "co", "sess")
         # Falls back to simple truncation when > 20 items
@@ -786,7 +810,8 @@ class TestAfterStateContextCompression:
     """AFTER: Context compression IS connected."""
 
     def test_smart_compression(self):
-        history = [{"role": "user", "content": f"Message {i}" * 50} for i in range(15)]
+        history = [{"role": "user", "content": f"Message {i}" * 50}
+                   for i in range(15)]
         compressed = [{"role": "system", "content": "Compressed summary"}]
 
         with mock.patch("app.core.context_compression.ContextCompressor") as MockComp:
@@ -814,7 +839,8 @@ class TestBehavioralComparisonContextCompression:
         with mock.patch("builtins.__import__", side_effect=ImportError):
             before = jarvis_service._compress_context(history, "co", "sess")
 
-        compressed = [{"role": "system", "content": "Smart summary of 25 messages"}]
+        compressed = [{"role": "system",
+                       "content": "Smart summary of 25 messages"}]
         with mock.patch("app.core.context_compression.ContextCompressor") as MockComp:
             MockComp.return_value.compress.return_value = compressed
             after = jarvis_service._compress_context(history, "co", "sess")
@@ -934,7 +960,7 @@ class TestAfterStateRAG:
         mock_reranked = [mock_doc]
 
         with mock.patch("app.services.rag_retrieval.RAGRetrieval") as MockRAG, \
-             mock.patch("app.services.rag_reranking.RAGReranker") as MockRerank:
+                mock.patch("app.services.rag_reranking.RAGReranker") as MockRerank:
             MockRAG.return_value.retrieve.return_value = [mock_doc]
             MockRerank.return_value.rerank.return_value = mock_reranked
             knowledge, snippets = jarvis_service._rag_retrieve(
@@ -957,9 +983,10 @@ class TestAfterStateRAG:
         mock_doc2.score = 0.95
 
         with mock.patch("app.services.rag_retrieval.RAGRetrieval") as MockRAG, \
-             mock.patch("app.services.rag_reranking.RAGReranker") as MockRerank:
+                mock.patch("app.services.rag_reranking.RAGReranker") as MockRerank:
             MockRAG.return_value.retrieve.return_value = [mock_doc1, mock_doc2]
-            MockRerank.return_value.rerank.return_value = [mock_doc2, mock_doc1]
+            MockRerank.return_value.rerank.return_value = [
+                mock_doc2, mock_doc1]
             knowledge, snippets = jarvis_service._rag_retrieve(
                 "features", "co", {},
             )
@@ -969,7 +996,7 @@ class TestAfterStateRAG:
 
     def test_empty_query_returns_empty(self):
         with mock.patch("app.services.rag_retrieval.RAGRetrieval") as MockRAG, \
-             mock.patch("app.services.rag_reranking.RAGReranker") as MockRerank:
+                mock.patch("app.services.rag_reranking.RAGReranker") as MockRerank:
             MockRAG.return_value.retrieve.return_value = []
             knowledge, snippets = jarvis_service._rag_retrieve("", "co", {})
 
@@ -991,7 +1018,7 @@ class TestBehavioralComparisonRAG:
         mock_doc.content = "PARWA has 3 pricing tiers starting at $29/month"
         mock_doc.score = 0.88
         with mock.patch("app.services.rag_retrieval.RAGRetrieval") as MockRAG, \
-             mock.patch("app.services.rag_reranking.RAGReranker") as MockRerank:
+                mock.patch("app.services.rag_reranking.RAGReranker") as MockRerank:
             MockRAG.return_value.retrieve.return_value = [mock_doc]
             MockRerank.return_value.rerank.return_value = [mock_doc]
             after_k, after_s = jarvis_service._rag_retrieve(query, "co", {})
@@ -1024,7 +1051,8 @@ class TestAfterStateClassification:
 
         with mock.patch("app.services.classification_service.ClassificationService") as MockSvc:
             MockSvc.return_value.classify.return_value = mock_result
-            result = jarvis_service._classify_message("How much does it cost?", "co")
+            result = jarvis_service._classify_message(
+                "How much does it cost?", "co")
 
         assert result is not None
         assert result["intent"] == "sales"
@@ -1038,7 +1066,8 @@ class TestAfterStateClassification:
 
         with mock.patch("app.services.classification_service.ClassificationService") as MockSvc:
             MockSvc.return_value.classify.return_value = mock_result
-            result = jarvis_service._classify_message("The system is broken", "co")
+            result = jarvis_service._classify_message(
+                "The system is broken", "co")
 
         assert result is not None
         assert result["intent"] == "support"
@@ -1253,8 +1282,7 @@ class TestAfterStateSentiment:
         mock_analyzer = mock.MagicMock()
         mock_result = mock.MagicMock()
         mock_result.to_dict.return_value = _make_sentiment_data(
-            frustration=85, emotion="angry", urgency="high", tone="de-escalation",
-        )
+            frustration=85, emotion="angry", urgency="high", tone="de-escalation", )
         mock_analyzer.analyze = mock.AsyncMock(return_value=mock_result)
 
         with mock.patch("app.core.sentiment_engine.SentimentAnalyzer", return_value=mock_analyzer):
@@ -1287,9 +1315,13 @@ class TestAfterStateSentiment:
         assert result["emotion"] == "neutral"
 
     def test_sentiment_injected_into_prompt(self):
-        sentiment = _make_sentiment_data(frustration=70, emotion="frustrated", tone="de-escalation")
+        sentiment = _make_sentiment_data(
+            frustration=70,
+            emotion="frustrated",
+            tone="de-escalation")
         prompt = "You are Jarvis."
-        result = jarvis_service._inject_sentiment_into_prompt(prompt, sentiment, "de-escalation")
+        result = jarvis_service._inject_sentiment_into_prompt(
+            prompt, sentiment, "de-escalation")
 
         assert "Frustration: 70" in result
         assert "extreme empathy" in result
@@ -1311,7 +1343,8 @@ class TestBehavioralComparisonSentiment:
         mock_analyzer.analyze = mock.AsyncMock(return_value=mock_result)
         with mock.patch("app.core.sentiment_engine.SentimentAnalyzer", return_value=mock_analyzer):
             with mock.patch("asyncio.run", return_value=mock_result):
-                after = jarvis_service._run_sentiment_analysis(msg, [], "co", {})
+                after = jarvis_service._run_sentiment_analysis(
+                    msg, [], "co", {})
 
         assert before is None, "BEFORE: frustration not detected"
         assert after is not None, "AFTER: frustration detected"
@@ -1366,11 +1399,16 @@ class TestAfterStateAnalytics:
             assert call_kwargs["event_type"] == "session_created"
 
     def test_analytics_category_mapping(self):
-        assert jarvis_service._get_analytics_category("message_sent") == "message"
-        assert jarvis_service._get_analytics_category("session_created") == "session"
-        assert jarvis_service._get_analytics_category("email_verified") == "lead"
-        assert jarvis_service._get_analytics_category("payment_completed") == "payment"
-        assert jarvis_service._get_analytics_category("unknown_event") == "other"
+        assert jarvis_service._get_analytics_category(
+            "message_sent") == "message"
+        assert jarvis_service._get_analytics_category(
+            "session_created") == "session"
+        assert jarvis_service._get_analytics_category(
+            "email_verified") == "lead"
+        assert jarvis_service._get_analytics_category(
+            "payment_completed") == "payment"
+        assert jarvis_service._get_analytics_category(
+            "unknown_event") == "other"
 
 
 class TestBehavioralComparisonAnalytics:
@@ -1415,11 +1453,14 @@ class TestAfterStateLeadCapture:
     def test_lead_captured_with_email(self):
         mock_session = mock.MagicMock()
         mock_session.company_id = "c1"
-        ctx = {"business_email": "john@example.com", "industry": "SaaS", "email_verified": False}
+        ctx = {
+            "business_email": "john@example.com",
+            "industry": "SaaS",
+            "email_verified": False}
 
         with mock.patch("app.services.lead_service.capture_lead") as mock_capture, \
-             mock.patch("app.services.lead_service.update_lead_status") as mock_update, \
-             mock.patch.object(jarvis_service, "_track_analytics_event"):
+                mock.patch("app.services.lead_service.update_lead_status") as mock_update, \
+                mock.patch.object(jarvis_service, "_track_analytics_event"):
             jarvis_service._capture_lead_from_session(
                 db=mock.MagicMock(),
                 session_id="s1",
@@ -1435,11 +1476,14 @@ class TestAfterStateLeadCapture:
     def test_lead_updated_when_email_verified(self):
         mock_session = mock.MagicMock()
         mock_session.company_id = "c1"
-        ctx = {"business_email": "john@example.com", "industry": "SaaS", "email_verified": True}
+        ctx = {
+            "business_email": "john@example.com",
+            "industry": "SaaS",
+            "email_verified": True}
 
         with mock.patch("app.services.lead_service.capture_lead"), \
-             mock.patch("app.services.lead_service.update_lead_status") as mock_update, \
-             mock.patch.object(jarvis_service, "_track_analytics_event"):
+                mock.patch("app.services.lead_service.update_lead_status") as mock_update, \
+                mock.patch.object(jarvis_service, "_track_analytics_event"):
             jarvis_service._capture_lead_from_session(
                 db=mock.MagicMock(),
                 session_id="s1",
@@ -1448,7 +1492,8 @@ class TestAfterStateLeadCapture:
                 ctx=ctx,
                 stage="pricing",
             )
-            mock_update.assert_called_once_with("u1", "contacted", email_verified=True)
+            mock_update.assert_called_once_with(
+                "u1", "contacted", email_verified=True)
 
     def test_analytics_events_fired_for_lead_signals(self):
         mock_session = mock.MagicMock()
@@ -1461,8 +1506,8 @@ class TestAfterStateLeadCapture:
         }
 
         with mock.patch("app.services.lead_service.capture_lead"), \
-             mock.patch("app.services.lead_service.update_lead_status"), \
-             mock.patch.object(jarvis_service, "_track_analytics_event") as mock_analytics:
+                mock.patch("app.services.lead_service.update_lead_status"), \
+                mock.patch.object(jarvis_service, "_track_analytics_event") as mock_analytics:
             jarvis_service._capture_lead_from_session(
                 db=mock.MagicMock(),
                 session_id="s1",
@@ -1470,7 +1515,8 @@ class TestAfterStateLeadCapture:
                 session=mock_session,
                 ctx=ctx,
             )
-            # Should fire analytics for: email_provided, email_verified, industry_provided, variants_selected
+            # Should fire analytics for: email_provided, email_verified,
+            # industry_provided, variants_selected
             assert mock_analytics.call_count >= 3
 
 
@@ -1490,7 +1536,7 @@ class TestBehavioralComparisonLeadCapture:
             )
 
         with mock.patch("app.services.lead_service.capture_lead") as mock_cap, \
-             mock.patch.object(jarvis_service, "_track_analytics_event"):
+                mock.patch.object(jarvis_service, "_track_analytics_event"):
             jarvis_service._capture_lead_from_session(
                 db=mock.MagicMock(), session_id="s1", user_id="u1",
                 session=mock_session, ctx=ctx,
@@ -1506,7 +1552,8 @@ class TestBeforeStateEscalation:
     """BEFORE: Escalation service not connected → returns None."""
 
     def test_escalation_not_triggered(self):
-        sentiment = _make_sentiment_data(frustration=90, emotion="angry", urgency="critical")
+        sentiment = _make_sentiment_data(
+            frustration=90, emotion="angry", urgency="critical")
         with mock.patch("builtins.__import__", side_effect=ImportError):
             result = jarvis_service._evaluate_escalation(
                 "s1", "u1", "c1", "I am furious!", sentiment, {},
@@ -1518,18 +1565,20 @@ class TestAfterStateEscalation:
     """AFTER: Escalation service IS connected."""
 
     def test_escalation_triggered_for_high_frustration(self):
-        sentiment = _make_sentiment_data(frustration=85, emotion="angry", urgency="high")
+        sentiment = _make_sentiment_data(
+            frustration=85, emotion="angry", urgency="high")
 
         mock_manager = mock.MagicMock()
-        mock_manager.evaluate_escalation.return_value = (True, ["high_frustration"], "high")
+        mock_manager.evaluate_escalation.return_value = (
+            True, ["high_frustration"], "high")
         mock_record = mock.MagicMock()
         mock_record.escalation_id = "esc_123"
         mock_record.channel = "human_agent"
         mock_manager.create_escalation.return_value = mock_record
 
         with mock.patch("app.core.graceful_escalation.GracefulEscalationManager", return_value=mock_manager), \
-             mock.patch("app.core.graceful_escalation.EscalationContext"), \
-             mock.patch("app.core.graceful_escalation.EscalationTrigger") as MockTrigger:
+                mock.patch("app.core.graceful_escalation.EscalationContext"), \
+                mock.patch("app.core.graceful_escalation.EscalationTrigger") as MockTrigger:
             MockTrigger.HIGH_FRUSTRATION.value = "high_frustration"
             result = jarvis_service._evaluate_escalation(
                 "s1", "u1", "c1", "I am furious!", sentiment, {},
@@ -1540,14 +1589,15 @@ class TestAfterStateEscalation:
         assert result["severity"] == "high"
 
     def test_no_escalation_for_low_frustration(self):
-        sentiment = _make_sentiment_data(frustration=20, emotion="neutral", urgency="low")
+        sentiment = _make_sentiment_data(
+            frustration=20, emotion="neutral", urgency="low")
 
         mock_manager = mock.MagicMock()
         mock_manager.evaluate_escalation.return_value = (False, [], "none")
 
         with mock.patch("app.core.graceful_escalation.GracefulEscalationManager", return_value=mock_manager), \
-             mock.patch("app.core.graceful_escalation.EscalationContext"), \
-             mock.patch("app.core.graceful_escalation.EscalationTrigger") as MockTrigger:
+                mock.patch("app.core.graceful_escalation.EscalationContext"), \
+                mock.patch("app.core.graceful_escalation.EscalationTrigger") as MockTrigger:
             MockTrigger.HIGH_FRUSTRATION.value = "high_frustration"
             result = jarvis_service._evaluate_escalation(
                 "s1", "u1", "c1", "Nice product!", sentiment, {},
@@ -1560,15 +1610,16 @@ class TestAfterStateEscalation:
         for frustration_level in [60, 75, 90]:
             sentiment = _make_sentiment_data(frustration=frustration_level)
             mock_manager = mock.MagicMock()
-            mock_manager.evaluate_escalation.return_value = (True, [], "medium")
+            mock_manager.evaluate_escalation.return_value = (
+                True, [], "medium")
             mock_record = mock.MagicMock()
             mock_record.escalation_id = f"esc_{frustration_level}"
             mock_record.channel = "human_agent"
             mock_manager.create_escalation.return_value = mock_record
 
             with mock.patch("app.core.graceful_escalation.GracefulEscalationManager", return_value=mock_manager), \
-                 mock.patch("app.core.graceful_escalation.EscalationContext"), \
-                 mock.patch("app.core.graceful_escalation.EscalationTrigger") as MockTrigger:
+                    mock.patch("app.core.graceful_escalation.EscalationContext"), \
+                    mock.patch("app.core.graceful_escalation.EscalationTrigger") as MockTrigger:
                 MockTrigger.HIGH_FRUSTRATION.value = "high_frustration"
                 result = jarvis_service._evaluate_escalation(
                     "s1", "u1", "c1", "frustrated", sentiment, {},
@@ -1580,7 +1631,8 @@ class TestBehavioralComparisonEscalation:
     """BEFORE vs AFTER: Escalation handling."""
 
     def test_before_escalation_missed_after_triggered(self):
-        sentiment = _make_sentiment_data(frustration=90, emotion="angry", urgency="critical")
+        sentiment = _make_sentiment_data(
+            frustration=90, emotion="angry", urgency="critical")
 
         with mock.patch("builtins.__import__", side_effect=ImportError):
             before = jarvis_service._evaluate_escalation(
@@ -1588,14 +1640,15 @@ class TestBehavioralComparisonEscalation:
             )
 
         mock_manager = mock.MagicMock()
-        mock_manager.evaluate_escalation.return_value = (True, ["high_frustration"], "high")
+        mock_manager.evaluate_escalation.return_value = (
+            True, ["high_frustration"], "high")
         mock_record = mock.MagicMock()
         mock_record.escalation_id = "esc_456"
         mock_record.channel = "human_agent"
         mock_manager.create_escalation.return_value = mock_record
         with mock.patch("app.core.graceful_escalation.GracefulEscalationManager", return_value=mock_manager), \
-             mock.patch("app.core.graceful_escalation.EscalationContext"), \
-             mock.patch("app.core.graceful_escalation.EscalationTrigger") as MockTrigger:
+                mock.patch("app.core.graceful_escalation.EscalationContext"), \
+                mock.patch("app.core.graceful_escalation.EscalationTrigger") as MockTrigger:
             MockTrigger.HIGH_FRUSTRATION.value = "high_frustration"
             after = jarvis_service._evaluate_escalation(
                 "s1", "u1", "c1", "I am furious!", sentiment, {},
@@ -1621,8 +1674,7 @@ class TestSpamDetection:
 
     def test_too_many_urls_detected(self):
         result = jarvis_service._check_spam(
-            "Visit http://a.com http://b.com http://c.com http://d.com", "co", "u",
-        )
+            "Visit http://a.com http://b.com http://c.com http://d.com", "co", "u", )
         assert result is not None
         assert result["is_spam"] is True
         assert result["reason"] == "too_many_urls"
@@ -1635,7 +1687,8 @@ class TestSpamDetection:
         assert result["is_spam"] is True
 
     def test_normal_message_not_spam(self):
-        result = jarvis_service._check_spam("What features does PARWA have?", "co", "u")
+        result = jarvis_service._check_spam(
+            "What features does PARWA have?", "co", "u")
         assert result is not None
         assert result["is_spam"] is False
 
@@ -1670,20 +1723,23 @@ class TestContextHealth:
     """_check_context_health is inline."""
 
     def test_healthy_context(self):
-        history = [{"role": "user", "content": f"Message {i}"} for i in range(5)]
+        history = [{"role": "user", "content": f"Message {i}"}
+                   for i in range(5)]
         result = jarvis_service._check_context_health("co", "sess", history)
         assert result is not None
         assert result["status"] == "HEALTHY"
         assert result["overall_score"] == 1.0
 
     def test_warning_context(self):
-        history = [{"role": "user", "content": f"Message {i}"} for i in range(35)]
+        history = [{"role": "user", "content": f"Message {i}"}
+                   for i in range(35)]
         result = jarvis_service._check_context_health("co", "sess", history)
         assert result is not None
         assert result["status"] == "WARNING"
 
     def test_critical_context(self):
-        history = [{"role": "user", "content": f"Message {i}"} for i in range(55)]
+        history = [{"role": "user", "content": f"Message {i}"}
+                   for i in range(55)]
         result = jarvis_service._check_context_health("co", "sess", history)
         assert result is not None
         assert result["status"] == "CRITICAL"
@@ -1722,13 +1778,15 @@ class TestHallucinationDetection:
 
     def test_normal_response_clean(self):
         response = "PARWA offers AI-powered customer support for various industries."
-        result = jarvis_service._detect_hallucination(response, "features", "co")
+        result = jarvis_service._detect_hallucination(
+            response, "features", "co")
         assert result is not None
         assert result["detected"] is False
 
     def test_excessive_pricing_claims(self):
         response = "Prices are $29.99, $49.99, $99.99, $199.99, $399.99"
-        result = jarvis_service._detect_hallucination(response, "pricing", "co")
+        result = jarvis_service._detect_hallucination(
+            response, "pricing", "co")
         assert result is not None
         if result["detected"]:
             assert any("pricing" in f for f in result["flags"])
@@ -1738,11 +1796,13 @@ class TestResponseFormatters:
     """_apply_response_formatters is inline."""
 
     def test_excessive_whitespace_removed(self):
-        result = jarvis_service._apply_response_formatters("Hello\n\n\n\nWorld", "co", None)
+        result = jarvis_service._apply_response_formatters(
+            "Hello\n\n\n\nWorld", "co", None)
         assert "\n\n\n" not in result
 
     def test_sentence_ending_added(self):
-        result = jarvis_service._apply_response_formatters("Hello world", "co", None)
+        result = jarvis_service._apply_response_formatters(
+            "Hello world", "co", None)
         assert result.endswith(".")
 
     def test_empathy_injected_for_frustrated_users(self):
@@ -1767,19 +1827,22 @@ class TestPromptTemplate:
 
     def test_before_no_template(self):
         with mock.patch("builtins.__import__", side_effect=ImportError):
-            result = jarvis_service._get_prompt_template("base prompt", "co", {"detected_stage": "welcome"})
+            result = jarvis_service._get_prompt_template(
+                "base prompt", "co", {"detected_stage": "welcome"})
         assert result == "base prompt"  # Falls back to base
 
     def test_after_uses_template(self):
         with mock.patch("app.services.response_template_service.ResponseTemplateService") as MockSvc:
             MockSvc.return_value.get_template.return_value = "Welcome template for {stage}"
-            result = jarvis_service._get_prompt_template("base prompt", "co", {"detected_stage": "welcome"})
+            result = jarvis_service._get_prompt_template(
+                "base prompt", "co", {"detected_stage": "welcome"})
         assert result == "Welcome template for {stage}"
 
     def test_after_falls_back_if_no_template(self):
         with mock.patch("app.services.response_template_service.ResponseTemplateService") as MockSvc:
             MockSvc.return_value.get_template.return_value = None
-            result = jarvis_service._get_prompt_template("base prompt", "co", {"detected_stage": "pricing"})
+            result = jarvis_service._get_prompt_template(
+                "base prompt", "co", {"detected_stage": "pricing"})
         assert result == "base prompt"
 
 
@@ -1798,12 +1861,14 @@ class TestSessionContinuity:
     def test_acquire_calls_service_when_available(self):
         with mock.patch("app.core.session_continuity.SessionContinuityService") as MockSvc:
             jarvis_service._acquire_session_lock("co", "sess", "jarvis")
-            MockSvc.return_value.acquire_lock.assert_called_once_with("co", "sess", "jarvis")
+            MockSvc.return_value.acquire_lock.assert_called_once_with(
+                "co", "sess", "jarvis")
 
     def test_release_calls_service_when_available(self):
         with mock.patch("app.core.session_continuity.SessionContinuityService") as MockSvc:
             jarvis_service._release_session_lock("co", "sess", "jarvis")
-            MockSvc.return_value.release_lock.assert_called_once_with("co", "sess", "jarvis")
+            MockSvc.return_value.release_lock.assert_called_once_with(
+                "co", "sess", "jarvis")
 
 
 class TestOperationsHelpers:
@@ -1838,7 +1903,8 @@ class TestOperationsHelpers:
 
     def test_summarize_conversation_long(self):
         """Should attempt summarization for long history."""
-        history = [{"role": "user", "content": f"Message {i}"} for i in range(20)]
+        history = [{"role": "user", "content": f"Message {i}"}
+                   for i in range(20)]
         jarvis_service._summarize_conversation("co", "sess", history)
         # No exception = pass
 
@@ -1877,7 +1943,8 @@ class TestDeredaction:
     """_deredact_pii restores PII tokens."""
 
     def test_no_placeholders_returns_none(self):
-        result = jarvis_service._deredact_pii("No placeholders here", "co", "id123")
+        result = jarvis_service._deredact_pii(
+            "No placeholders here", "co", "id123")
         assert result is None
 
     def test_with_placeholders_returns_response(self):
@@ -1900,13 +1967,18 @@ class TestConversationServiceIntegration:
     """_init_conversation_context and _track_conversation_message."""
 
     def test_init_conversation_fire_and_forget(self):
-        jarvis_service._init_conversation_context("s1", "u1", "c1", {"type": "onboarding"})
+        jarvis_service._init_conversation_context(
+            "s1", "u1", "c1", {"type": "onboarding"})
 
     def test_init_conversation_calls_service(self):
         with mock.patch("app.services.conversation_service.create_conversation") as mock_fn:
-            jarvis_service._init_conversation_context("s1", "u1", "c1", {"type": "onboarding"})
+            jarvis_service._init_conversation_context(
+                "s1", "u1", "c1", {"type": "onboarding"})
             mock_fn.assert_called_once_with(
-                conversation_id="s1", user_id="u1", company_id="c1", session_type="onboarding",
+                conversation_id="s1",
+                user_id="u1",
+                company_id="c1",
+                session_type="onboarding",
             )
 
     def test_track_conversation_message_fire_and_forget(self):
@@ -1914,9 +1986,10 @@ class TestConversationServiceIntegration:
 
     def test_track_conversation_calls_service(self):
         with mock.patch("app.services.conversation_service.add_message_to_context") as mock_add, \
-             mock.patch("app.services.conversation_service.get_conversation_context") as mock_get:
+                mock.patch("app.services.conversation_service.get_conversation_context") as mock_get:
             mock_get.return_value = mock.MagicMock()
-            jarvis_service._track_conversation_message("s1", "user", "Hello", {})
+            jarvis_service._track_conversation_message(
+                "s1", "user", "Hello", {})
             mock_add.assert_called_once()
 
 
@@ -1940,17 +2013,20 @@ class TestPageTracking:
 
     def test_detects_pricing_page(self):
         ctx = {"pages_visited": []}
-        jarvis_service._track_pages_visited(ctx, "Tell me about your pricing plans")
+        jarvis_service._track_pages_visited(
+            ctx, "Tell me about your pricing plans")
         assert "pricing_page" in ctx["pages_visited"]
 
     def test_detects_features_page(self):
         ctx = {"pages_visited": []}
-        jarvis_service._track_pages_visited(ctx, "What features can you offer?")
+        jarvis_service._track_pages_visited(
+            ctx, "What features can you offer?")
         assert "features_page" in ctx["pages_visited"]
 
     def test_detects_integrations_page(self):
         ctx = {"pages_visited": []}
-        jarvis_service._track_pages_visited(ctx, "Do you have API integrations?")
+        jarvis_service._track_pages_visited(
+            ctx, "Do you have API integrations?")
         assert "integrations_page" in ctx["pages_visited"]
 
     def test_no_duplicate_pages(self):
@@ -1960,7 +2036,8 @@ class TestPageTracking:
 
     def test_detects_roi_page(self):
         ctx = {"pages_visited": []}
-        jarvis_service._track_pages_visited(ctx, "What is the return on investment?")
+        jarvis_service._track_pages_visited(
+            ctx, "What is the return on investment?")
         assert "roi_page" in ctx["pages_visited"]
 
 
@@ -1990,7 +2067,8 @@ class TestCrossServicePipeline:
         mock_inj.attack_type = "direct_injection"
         with mock.patch("app.core.prompt_injection_defense.PromptInjectionDefense") as MockDef:
             MockDef.return_value.detect.return_value = mock_inj
-            result = jarvis_service._scan_prompt_injection(malicious, "co", "u")
+            result = jarvis_service._scan_prompt_injection(
+                malicious, "co", "u")
             assert result["action"] == "blocked"
 
     def test_normal_message_passes_through_all_checks(self):
@@ -2028,7 +2106,8 @@ class TestCrossServicePipeline:
         mock_clara.suggested_fix = None
         with mock.patch("app.core.clara_quality_gate.CLARAQualityGate") as MockGate:
             MockGate.return_value.validate_response.return_value = mock_clara
-            clara = jarvis_service._run_clara_quality_gate("PARWA offers AI support.", msg, "co", None)
+            clara = jarvis_service._run_clara_quality_gate(
+                "PARWA offers AI support.", msg, "co", None)
             assert clara["overall_pass"] is True
 
         # Guardrails: allows
@@ -2039,7 +2118,8 @@ class TestCrossServicePipeline:
         mock_guard.risk_score = 0.05
         with mock.patch("app.core.guardrails_engine.GuardrailsEngine") as MockEng:
             MockEng.return_value.check_output.return_value = mock_guard
-            guard = jarvis_service._run_guardrails(msg, "PARWA offers AI support.", "co")
+            guard = jarvis_service._run_guardrails(
+                msg, "PARWA offers AI support.", "co")
             assert guard["overall_action"] == "allow"
 
     def test_malicious_message_blocked_at_injection_stage(self):
@@ -2058,25 +2138,32 @@ class TestCrossServicePipeline:
 
     def test_frustrated_user_gets_escalation_and_empathy(self):
         """High frustration should trigger escalation + empathy in response."""
-        sentiment = _make_sentiment_data(frustration=80, emotion="angry", urgency="high", tone="de-escalation")
+        sentiment = _make_sentiment_data(
+            frustration=80,
+            emotion="angry",
+            urgency="high",
+            tone="de-escalation")
 
         # Escalation triggered
         mock_manager = mock.MagicMock()
-        mock_manager.evaluate_escalation.return_value = (True, ["high_frustration"], "high")
+        mock_manager.evaluate_escalation.return_value = (
+            True, ["high_frustration"], "high")
         mock_record = mock.MagicMock()
         mock_record.escalation_id = "esc_789"
         mock_record.channel = "human_agent"
         mock_manager.create_escalation.return_value = mock_record
         with mock.patch("app.core.graceful_escalation.GracefulEscalationManager", return_value=mock_manager), \
-             mock.patch("app.core.graceful_escalation.EscalationContext"), \
-             mock.patch("app.core.graceful_escalation.EscalationTrigger") as MockTrigger:
+                mock.patch("app.core.graceful_escalation.EscalationContext"), \
+                mock.patch("app.core.graceful_escalation.EscalationTrigger") as MockTrigger:
             MockTrigger.HIGH_FRUSTRATION.value = "high_frustration"
-            esc = jarvis_service._evaluate_escalation("s1", "u1", "c1", "Furious!", sentiment, {})
+            esc = jarvis_service._evaluate_escalation(
+                "s1", "u1", "c1", "Furious!", sentiment, {})
         assert esc is not None
         assert esc["severity"] == "high"
 
         # Empathy in response formatting
-        formatted = jarvis_service._apply_response_formatters("Here is a response", "co", sentiment)
+        formatted = jarvis_service._apply_response_formatters(
+            "Here is a response", "co", sentiment)
         assert "I understand" in formatted
 
     def test_pii_redacted_and_deredacted(self):
@@ -2088,7 +2175,8 @@ class TestCrossServicePipeline:
         mock_pii = mock.MagicMock()
         mock_pii.has_pii = True
         mock_pii.redacted_text = redacted
-        mock_pii.detected_pii = [{"type": "email", "value": "john@example.com"}]
+        mock_pii.detected_pii = [
+            {"type": "email", "value": "john@example.com"}]
         with mock.patch("app.core.pii_redaction_engine.PIIRedactionEngine") as MockEng:
             MockEng.return_value.redact.return_value = mock_pii
             redact_result = jarvis_service._redact_pii(original, "co")
@@ -2098,5 +2186,6 @@ class TestCrossServicePipeline:
         mock_engine = mock.MagicMock()
         mock_engine.deredact.return_value = original
         with mock.patch("app.core.pii_redaction_engine.PIIRedactionEngine", return_value=mock_engine):
-            deredacted = jarvis_service._deredact_pii(redacted, "co", redact_result["redaction_id"])
+            deredacted = jarvis_service._deredact_pii(
+                redacted, "co", redact_result["redaction_id"])
         assert deredacted == original

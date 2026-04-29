@@ -5,7 +5,7 @@ Implementation of the SMSProvider interface for Sinch.
 Uses the Sinch SMS API: https://sms.api.sinch.com
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import httpx
 
@@ -152,7 +152,8 @@ class SinchSMSProvider(SMSProvider):
                     },
                 )
             else:
-                data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+                data = response.json() if response.headers.get(
+                    "content-type", "").startswith("application/json") else {}
                 return ProviderResult(
                     success=False,
                     provider_name=self.provider_name,

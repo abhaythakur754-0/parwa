@@ -164,7 +164,11 @@ class EventRegistry:
         """Get event type by string, or None if not found."""
         return self._events.get(type_str)
 
-    def validate(self, type_str: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def validate(self,
+                 type_str: str,
+                 payload: Dict[str,
+                               Any]) -> Dict[str,
+                                             Any]:
         """Validate event type and payload. Returns cleaned payload."""
         et = self._events.get(type_str)
         if et is None:

@@ -13,7 +13,7 @@ BC-012: All timestamps UTC.
 
 import threading
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -50,7 +50,8 @@ def _get_manager():
 
 
 class AcknowledgeRequest(BaseModel):
-    note: Optional[str] = Field(default=None, description="Optional acknowledgment note")
+    note: Optional[str] = Field(default=None,
+                                description="Optional acknowledgment note")
 
 
 class ResolveRequest(BaseModel):
@@ -62,16 +63,25 @@ class ResolveRequest(BaseModel):
 
 
 class ManualEscalationRequest(BaseModel):
-    trigger_type: str = Field(default="manual_request", description="Trigger type for the manual escalation")
-    severity: str = Field(default="medium", description="Severity level: low, medium, high, critical")
-    description: str = Field(..., description="Human-readable description of the escalation reason")
-    ticket_id: Optional[str] = Field(default=None, description="Associated ticket ID")
-    customer_id: Optional[str] = Field(default=None, description="Associated customer ID")
+    trigger_type: str = Field(
+        default="manual_request",
+        description="Trigger type for the manual escalation")
+    severity: str = Field(
+        default="medium",
+        description="Severity level: low, medium, high, critical")
+    description: str = Field(...,
+                             description="Human-readable description of the escalation reason")
+    ticket_id: Optional[str] = Field(
+        default=None, description="Associated ticket ID")
+    customer_id: Optional[str] = Field(
+        default=None, description="Associated customer ID")
 
 
 class PeerReviewSubmitRequest(BaseModel):
-    decision: str = Field(..., description="Review decision: approve, request_changes, reject")
-    feedback: Optional[str] = Field(default=None, description="Feedback for the junior agent")
+    decision: str = Field(...,
+                          description="Review decision: approve, request_changes, reject")
+    feedback: Optional[str] = Field(
+        default=None, description="Feedback for the junior agent")
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────
@@ -110,10 +120,17 @@ def _peer_review_service(db: Session):
 
 @router.get("/active")
 def list_active_escalations(
-    severity: Optional[str] = Query(None, description="Filter by severity: low, medium, high, critical"),
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
-    user: User = Depends(get_current_user),
+        severity: Optional[str] = Query(
+            None,
+            description="Filter by severity: low, medium, high, critical"),
+    limit: int = Query(
+            50,
+            ge=1,
+            le=200),
+        offset: int = Query(
+            0,
+            ge=0),
+        user: User = Depends(get_current_user),
 ):
     """List active (non-resolved) escalations for the current company.
 
@@ -128,7 +145,7 @@ def list_active_escalations(
         records = mgr.get_active_escalations(company_id)
 
     total = len(records)
-    page = records[offset : offset + limit]
+    page = records[offset: offset + limit]
 
     return {
         "items": [_record_to_dict(r) for r in page],
@@ -170,18 +187,16 @@ def list_resolved_escalations(
         try:
             dt_from = datetime.fromisoformat(date_from)
             all_company = [
-                r for r in all_company
-                if r.resolved_at and datetime.fromisoformat(r.resolved_at) >= dt_from
-            ]
+                r for r in all_company if r.resolved_at and datetime.fromisoformat(
+                    r.resolved_at) >= dt_from]
         except ValueError:
             pass
     if date_to:
         try:
             dt_to = datetime.fromisoformat(date_to)
             all_company = [
-                r for r in all_company
-                if r.resolved_at and datetime.fromisoformat(r.resolved_at) <= dt_to
-            ]
+                r for r in all_company if r.resolved_at and datetime.fromisoformat(
+                    r.resolved_at) <= dt_to]
         except ValueError:
             pass
 
@@ -189,7 +204,7 @@ def list_resolved_escalations(
     all_company.sort(key=lambda r: r.resolved_at or "", reverse=True)
 
     total = len(all_company)
-    page = all_company[offset : offset + limit]
+    page = all_company[offset: offset + limit]
 
     return {
         "items": [_record_to_dict(r) for r in page],
@@ -284,7 +299,10 @@ def resolve_escalation(
     if body.outcome not in valid_outcomes:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid outcome: {body.outcome}. Must be one of: {', '.join(sorted(valid_outcomes))}",
+            detail=f"Invalid outcome: {
+                body.outcome}. Must be one of: {
+                ', '.join(
+                    sorted(valid_outcomes))}",
         )
 
     record = mgr.resolve_escalation(
@@ -318,9 +336,10 @@ def create_manual_escalation(
     valid_severities = [s.value for s in EscalationSeverity]
     if body.severity not in valid_severities:
         raise HTTPException(
-            status_code=400,
-            detail=f"Invalid severity: {body.severity}. Must be one of: {', '.join(sorted(valid_severities))}",
-        )
+            status_code=400, detail=f"Invalid severity: {
+                body.severity}. Must be one of: {
+                ', '.join(
+                    sorted(valid_severities))}", )
 
     from app.core.graceful_escalation import EscalationContext
 
@@ -394,12 +413,14 @@ def submit_peer_review(
     valid_decisions = ("approve", "request_changes", "reject")
     if body.decision not in valid_decisions:
         raise HTTPException(
-            status_code=400,
-            detail=f"Invalid decision: {body.decision}. Must be one of: {', '.join(valid_decisions)}",
-        )
+            status_code=400, detail=f"Invalid decision: {
+                body.decision}. Must be one of: {
+                ', '.join(valid_decisions)}", )
 
     approved = body.decision == "approve"
-    reviewed_response = f"Peer review {body.decision}d by {user.full_name or user.id}"
+    reviewed_response = f"Peer review {
+        body.decision}d by {
+        user.full_name or user.id}"
 
     result = svc.submit_review(
         company_id=company_id,

@@ -14,11 +14,10 @@ BC-002: All money calculations use Decimal
 import logging
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 from sqlalchemy import desc
-from sqlalchemy.orm import Session
 
 from app.clients.paddle_client import (
     PaddleClient,
@@ -26,7 +25,7 @@ from app.clients.paddle_client import (
     get_paddle_client,
 )
 from database.base import SessionLocal
-from database.models.billing import Invoice, Subscription
+from database.models.billing import Invoice
 from database.models.core import Company
 
 logger = logging.getLogger("parwa.services.invoice")
@@ -34,17 +33,14 @@ logger = logging.getLogger("parwa.services.invoice")
 
 class InvoiceError(Exception):
     """Base exception for invoice errors."""
-    pass
 
 
 class InvoiceNotFoundError(InvoiceError):
     """Invoice not found."""
-    pass
 
 
 class InvoiceAccessDeniedError(InvoiceError):
     """Access denied to invoice."""
-    pass
 
 
 class InvoiceService:
@@ -162,7 +158,8 @@ class InvoiceService:
                 "id": invoice.id,
                 "company_id": invoice.company_id,
                 "paddle_invoice_id": invoice.paddle_invoice_id,
-                "amount": str(invoice.amount) if invoice.amount else "0.00",
+                "amount": str(
+                    invoice.amount) if invoice.amount else "0.00",
                 "currency": invoice.currency or "USD",
                 "status": invoice.status,
                 "invoice_date": invoice.invoice_date.isoformat() if invoice.invoice_date else None,
@@ -262,9 +259,17 @@ class InvoiceService:
 
             c.drawString(inch, y, f"Invoice ID: {invoice.get('id', 'N/A')}")
             y -= 0.3 * inch
-            c.drawString(inch, y, f"Amount: {invoice.get('amount', '0.00')} {invoice.get('currency', 'USD')}")
+            c.drawString(
+                inch, y, f"Amount: {
+                    invoice.get(
+                        'amount', '0.00')} {
+                    invoice.get(
+                        'currency', 'USD')}")
             y -= 0.3 * inch
-            c.drawString(inch, y, f"Status: {invoice.get('status', 'pending')}")
+            c.drawString(
+                inch, y, f"Status: {
+                    invoice.get(
+                        'status', 'pending')}")
             y -= 0.3 * inch
 
             if invoice.get("invoice_date"):

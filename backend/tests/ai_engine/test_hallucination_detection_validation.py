@@ -101,11 +101,13 @@ class TestP01KBContradiction:
     # ── Edge cases ──
 
     def test_empty_kb_context(self, detector):
-        result = detector._detect_kb_contradiction("PARWA doesn't support X.", "")
+        result = detector._detect_kb_contradiction(
+            "PARWA doesn't support X.", "")
         assert result is None
 
     def test_none_kb_context(self, detector):
-        result = detector._detect_kb_contradiction("PARWA doesn't support X.", None)
+        result = detector._detect_kb_contradiction(
+            "PARWA doesn't support X.", None)
         assert result is None
 
     def test_short_kb_context(self, detector):
@@ -166,7 +168,8 @@ class TestP02FabricatedURLs:
         assert result is None, f"False positive: {desc}"
 
     def test_no_urls_returns_none(self, detector):
-        result = detector._detect_fabricated_urls("No URLs in this text at all.")
+        result = detector._detect_fabricated_urls(
+            "No URLs in this text at all.")
         assert result is None
 
     def test_mixed_placeholder_internal_high_confidence(self, detector):
@@ -206,7 +209,8 @@ class TestP03OverconfidentClaims:
         ("This is definitely the right answer, but it likely has some limitations.",
          "definitely + likely"),
     ])
-    def test_overconfident_speculative_detected(self, detector, response, desc):
+    def test_overconfident_speculative_detected(
+            self, detector, response, desc):
         result = detector._detect_overconfident_claims(response, 0.7)
         assert result is not None, f"Failed to detect: {desc}"
         assert result.pattern_id == "P03_overconfident_claims"
@@ -275,7 +279,8 @@ class TestP04PlausibleNonsense:
         assert result is None, f"False positive: {desc}"
 
     def test_short_sentence_returns_none(self, detector):
-        result = detector._detect_plausible_nonsense("This is leverage optimize.")
+        result = detector._detect_plausible_nonsense(
+            "This is leverage optimize.")
         assert result is None
 
 
@@ -404,11 +409,14 @@ class TestP07PolicyFabrication:
         assert result.pattern_id == "P07_policy_fabrication"
         assert result.confidence >= 0.60
 
-    @pytest.mark.parametrize("response,desc", [
-        ("Here is your account info.", "no policy language"),
-        ("Our policy states that this is a great product.", "policy no specifics"),
-        ("Thank you for your inquiry.", "no policy at all"),
-    ])
+    @pytest.mark.parametrize("response,desc",
+                             [("Here is your account info.",
+                               "no policy language"),
+                              ("Our policy states that this is a great product.",
+                               "policy no specifics"),
+                                 ("Thank you for your inquiry.",
+                                  "no policy at all"),
+                              ])
     def test_no_fabrication_not_flagged(self, detector, response, desc):
         result = detector._detect_policy_fabrication(response)
         assert result is None, f"False positive: {desc}"
@@ -473,8 +481,7 @@ class TestP08FalseFeatureClaims:
     def test_multiple_fake_claims_boosts_confidence(self, detector):
         result = detector._detect_false_feature_claims(
             "Our platform offers quantum teleportation and telepathic integration. "
-            "PARWA also supports time-travel analytics."
-        )
+            "PARWA also supports time-travel analytics.")
         if result:
             assert result.confidence >= 0.75
 
@@ -509,11 +516,14 @@ class TestP09CircularReasoning:
         assert result is not None, f"Failed to detect: {desc}"
         assert result.pattern_id == "P09_circular_reasoning"
 
-    @pytest.mark.parametrize("response,desc", [
-        ("To reset your password, visit the settings page and click reset.", "clear instructions"),
-        ("The system processes requests using a queue-based architecture.", "technical explanation"),
-        ("Your account was updated on January 15, 2024.", "factual statement"),
-    ])
+    @pytest.mark.parametrize("response,desc",
+                             [("To reset your password, visit the settings page and click reset.",
+                               "clear instructions"),
+                              ("The system processes requests using a queue-based architecture.",
+                               "technical explanation"),
+                                 ("Your account was updated on January 15, 2024.",
+                                  "factual statement"),
+                              ])
     def test_normal_reasoning_not_flagged(self, detector, response, desc):
         result = detector._detect_circular_reasoning(response)
         assert result is None, f"False positive: {desc}"
@@ -625,7 +635,8 @@ class TestP12TemporalInconsistency:
         ([{"role": "assistant", "content": "You joined on April 5, 2023."}],
          "You joined on December 1, 2022.", "join date"),
     ])
-    def test_temporal_inconsistency_detected(self, detector, history, response, desc):
+    def test_temporal_inconsistency_detected(
+            self, detector, history, response, desc):
         result = detector._detect_temporal_inconsistency(response, history)
         assert result is not None, f"Failed to detect: {desc}"
         assert result.pattern_id == "P12_temporal_inconsistency"
@@ -637,7 +648,8 @@ class TestP12TemporalInconsistency:
         ([{"role": "assistant", "content": "Hello! How can I help?"}],
          "The event was on 03/15/2024.", "no prior date"),
     ])
-    def test_consistent_temporal_not_flagged(self, detector, history, response, desc):
+    def test_consistent_temporal_not_flagged(
+            self, detector, history, response, desc):
         result = detector._detect_temporal_inconsistency(response, history)
         assert result is None, f"False positive: {desc}"
 
@@ -681,7 +693,8 @@ class TestAggregateDetectionRate:
         ("Download from https://fakeurl.com/files/report.pdf.", "P02", "fakeurl"),
         ("Admin panel at https://parwa.ai/admin/dashboard.", "P02", "admin_path"),
         ("API docs at https://parwa.ai/internal/api/specs.", "P02", "internal_api"),
-        ("See https://example.com/docs and https://parwa.ai/dev/tools.", "P02", "mixed_urls"),
+        ("See https://example.com/docs and https://parwa.ai/dev/tools.",
+         "P02", "mixed_urls"),
         ("Debug at https://parwa.ai/support/debug-panel.", "P02", "support_path"),
         # P05 (10)
         ("Subscription started on 02/30/2023.", "P05", "feb30"),
@@ -769,8 +782,7 @@ class TestAggregateDetectionRate:
             "PARWA supports knowledge base features and semantic search "
             "capabilities for all plans. The platform includes multi-language "
             "support, sentiment analysis, intent classification, ticket routing, "
-            "and human handoff features."
-        )
+            "and human handoff features.")
         p12_history = [
             {"role": "assistant", "content": "Your account was created on January 15, 2024. "
              "Subscription expires on 12/31/2025. Last login was 01/05/2025. "
@@ -781,7 +793,8 @@ class TestAggregateDetectionRate:
         for response, pattern_id, desc in self.HALLUCINATION_EXAMPLES:
             try:
                 if pattern_id == "P01":
-                    result = detector._detect_kb_contradiction(response, kb_ctx)
+                    result = detector._detect_kb_contradiction(
+                        response, kb_ctx)
                 elif pattern_id == "P02":
                     result = detector._detect_fabricated_urls(response)
                 elif pattern_id == "P05":
@@ -795,11 +808,14 @@ class TestAggregateDetectionRate:
                 elif pattern_id == "P10":
                     result = detector._detect_fake_source_attribution(response)
                 elif pattern_id == "P11":
-                    result = detector._detect_numerical_precision_hallucination(response)
+                    result = detector._detect_numerical_precision_hallucination(
+                        response)
                 elif pattern_id == "P12":
-                    result = detector._detect_temporal_inconsistency(response, p12_history)
+                    result = detector._detect_temporal_inconsistency(
+                        response, p12_history)
                 else:
-                    result = detector.detect(response, "query", company_id="test")
+                    result = detector.detect(
+                        response, "query", company_id="test")
 
                 if result is not None:
                     detected += 1
@@ -807,9 +823,8 @@ class TestAggregateDetectionRate:
                 pass  # BC-012: pattern failures don't count
 
         rate = detected / total
-        assert rate >= 0.65, (
-            f"Detection rate {rate:.1%} ({detected}/{total}) is below 65% threshold"
-        )
+        assert rate >= 0.65, (f"Detection rate {
+            rate:.1%} ({detected}/{total}) is below 65% threshold")
 
     def test_full_detect_runs_all_12_patterns(self, detector):
         report = detector.detect(
@@ -843,7 +858,8 @@ class TestFalsePositiveRate:
         ("Contact support for more details.", "no specific claims"),
         # NOTE: 'Mini PARWA is $999 per month.' and 'PARWA High is $3,999 per month.'
         # removed from safe examples — source detector false-positives due to
-        # KNOWN_PLANS having duplicate underscore/space variants (mini_parwa vs mini parwa).
+        # KNOWN_PLANS having duplicate underscore/space variants (mini_parwa vs
+        # mini parwa).
         ("Your account was created on January 15, 2024.", "normal date"),
         ("The system handles about 50 requests per minute.", "round number"),
         ("Here are the steps to update your settings.", "instructional"),
@@ -872,9 +888,8 @@ class TestFalsePositiveRate:
                 false_positives += 1
 
         rate = false_positives / total
-        assert rate < 0.05, (
-            f"False positive rate {rate:.1%} ({false_positives}/{total}) exceeds 5% threshold"
-        )
+        assert rate < 0.05, (f"False positive rate {
+            rate:.1%} ({false_positives}/{total}) exceeds 5% threshold")
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -885,7 +900,6 @@ class TestReportBuilding:
     """Report aggregation, thresholds, severity logic."""
 
     def test_no_matches_safe(self, detector):
-        from app.core.hallucination_detector import HallucinationMatch
         report = detector._build_report([], "query", "response")
         assert report.is_hallucination is False
         assert report.overall_confidence == 0.0
@@ -1019,21 +1033,27 @@ class TestHallucinationReportValidation:
     def test_safe_report(self):
         from app.core.hallucination_detector import HallucinationReport
         r = HallucinationReport(
-            is_hallucination=False, overall_confidence=0.0, recommendation="safe",
+            is_hallucination=False,
+            overall_confidence=0.0,
+            recommendation="safe",
         )
         assert r.recommendation == "safe"
 
     def test_block_report(self):
         from app.core.hallucination_detector import HallucinationReport
         r = HallucinationReport(
-            is_hallucination=True, overall_confidence=0.90, recommendation="block",
+            is_hallucination=True,
+            overall_confidence=0.90,
+            recommendation="block",
         )
         assert r.recommendation == "block"
 
     def test_invalid_recommendation_defaults_review(self):
         from app.core.hallucination_detector import HallucinationReport
         r = HallucinationReport(
-            is_hallucination=True, overall_confidence=0.6, recommendation="invalid",
+            is_hallucination=True,
+            overall_confidence=0.6,
+            recommendation="invalid",
         )
         assert r.recommendation == "review"
 
@@ -1074,7 +1094,10 @@ class TestFullPipelineIntegration:
             "money-back guarantee. For details, see Section 3.2.1 at "
             "https://example.com/docs. The system achieves 99.73% uptime."
         )
-        report = detector.detect(response, "pricing query", company_id="test_co")
+        report = detector.detect(
+            response,
+            "pricing query",
+            company_id="test_co")
         assert report.is_hallucination is True
         assert len(report.matches) >= 2
 
@@ -1089,7 +1112,8 @@ class TestFullPipelineIntegration:
             "query", knowledge_context=kb, company_id="test",
         )
         assert report.is_hallucination is True
-        assert any(m.pattern_id == "P01_kb_contradiction" for m in report.matches)
+        assert any(
+            m.pattern_id == "P01_kb_contradiction" for m in report.matches)
 
     def test_conversation_history_passes_through(self, detector):
         history = [
@@ -1114,7 +1138,8 @@ class TestBC012GracefulFailure:
 
     def test_exception_in_pattern_continues(self, detector):
         original = detector._detect_date_math_errors
-        detector._detect_date_math_errors = lambda: (_ for _ in ()).throw(Exception("test"))
+        detector._detect_date_math_errors = lambda: (
+            _ for _ in ()).throw(Exception("test"))
         try:
             report = detector.detect("Feb 30, 2023", "query", company_id="co1")
             assert report is not None

@@ -225,7 +225,6 @@ def api_get_warmup_status(
         # D8-P1: Tenant activated but this instance doesn't have warmup state.
         # This happens with horizontal scaling (multiple pods behind a LB).
         # Check if the session is actually completed in the DB.
-        from app.services.onboarding_service import get_session_with_lock
         from database.models.onboarding import OnboardingSession
         from database.models.user_details import UserDetails
 
@@ -255,10 +254,12 @@ def api_get_warmup_status(
                 "501_1000": "high_parwa",
                 "1000_plus": "high_parwa",
             }
-            variant_type = size_to_variant.get(details.company_size, "mini_parwa")
+            variant_type = size_to_variant.get(
+                details.company_size, "mini_parwa")
 
         # Run warmup in background thread so the poll response isn't blocked
         import threading
+
         def _recovery_warmup():
             try:
                 cold_start.recover_tenant_warmup(user.company_id, variant_type)

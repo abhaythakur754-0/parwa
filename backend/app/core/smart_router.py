@@ -18,8 +18,6 @@ BC-012: All timestamps UTC.
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 import logging
 import os
 import time
@@ -433,7 +431,10 @@ class ProviderHealthTracker:
             for usage in self._usage.values():
                 usage.daily_count = 0
 
-    def _ensure_usage(self, registry_key: str, config: ModelConfig) -> ProviderUsage:
+    def _ensure_usage(
+            self,
+            registry_key: str,
+            config: ModelConfig) -> ProviderUsage:
         """Get or create ProviderUsage for a registry key."""
         if registry_key not in self._usage:
             self._usage[registry_key] = ProviderUsage(
@@ -570,7 +571,9 @@ class ProviderHealthTracker:
             usage.is_healthy = False
             logger.warning(
                 "Provider %s marked UNHEALTHY after %d consecutive failures: %s",
-                registry_key, usage.consecutive_failures, error_msg,
+                registry_key,
+                usage.consecutive_failures,
+                error_msg,
             )
         else:
             logger.debug(
@@ -647,7 +650,8 @@ class ProviderHealthTracker:
         """Force-reset all daily counters."""
         for usage in self._usage.values():
             usage.daily_count = 0
-        self._last_daily_reset = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        self._last_daily_reset = datetime.now(
+            timezone.utc).strftime("%Y-%m-%d")
         logger.info("Daily counts force-reset")
 
     def get_all_status(self) -> dict:
@@ -661,7 +665,9 @@ class ProviderHealthTracker:
                 "is_healthy": usage.is_healthy,
                 "daily_count": usage.daily_count,
                 "daily_limit": usage.daily_limit,
-                "daily_remaining": max(0, usage.daily_limit - usage.daily_count),
+                "daily_remaining": max(
+                    0,
+                    usage.daily_limit - usage.daily_count),
                 "minute_count": usage.minute_count,
                 "minute_limit": usage.minute_limit,
                 "consecutive_failures": usage.consecutive_failures,
@@ -1002,7 +1008,8 @@ class SmartRouter:
             # BC-008: Guardrails failure should not block the response
             logger.exception(
                 "Guardrails integration failed for company_id=%s, returning original: %s",
-                company_id, str(e),
+                company_id,
+                str(e),
             )
             result["guardrails_error"] = str(e)
             result["guardrails_action"] = "allow"  # Fail open
@@ -1077,11 +1084,13 @@ class SmartRouter:
     ) -> RoutingDecision:
         """Safe routing with fallback chain."""
         allowed_tiers = self._get_allowed_tiers(variant_type)
-        target_tier = self._get_step_tier(atomic_step, allowed_tiers, query_signals)
+        target_tier = self._get_step_tier(
+            atomic_step, allowed_tiers, query_signals)
 
         # GUARDRAIL is special -- always allowed, never downgraded
         if target_tier == ModelTier.GUARDRAIL:
-            model, fallbacks = self._select_model(ModelTier.GUARDRAIL, query_signals)
+            model, fallbacks = self._select_model(
+                ModelTier.GUARDRAIL, query_signals)
             return RoutingDecision(
                 atomic_step_type=atomic_step,
                 model_config=model,
@@ -1156,7 +1165,8 @@ class SmartRouter:
         first_light = self._get_first_light_model()
         logger.error(
             "All tiers exhausted for step=%s, using absolute LIGHT fallback: %s",
-            atomic_step.value, first_light.display_name,
+            atomic_step.value,
+            first_light.display_name,
         )
         return RoutingDecision(
             atomic_step_type=atomic_step,
@@ -1418,7 +1428,8 @@ class SmartRouter:
                     )
                     return result
                 else:
-                    # Fallback to raw HTTP if litellm not available or no API key
+                    # Fallback to raw HTTP if litellm not available or no API
+                    # key
                     result = self._call_provider(
                         provider=provider,
                         model_id=model_id,
@@ -1445,8 +1456,10 @@ class SmartRouter:
                 if attempt < self.MAX_RETRIES:
                     continue
             except Exception as exc:
-                # If litellm auth fails, switch to raw HTTP for remaining retries
-                if use_litellm and api_key and ("auth" in str(exc).lower() or "api_key" in str(exc).lower()):
+                # If litellm auth fails, switch to raw HTTP for remaining
+                # retries
+                if use_litellm and api_key and (
+                        "auth" in str(exc).lower() or "api_key" in str(exc).lower()):
                     logger.warning(
                         "LiteLLM auth failed, switching to raw HTTP: %s",
                         str(exc),
@@ -1599,7 +1612,9 @@ class SmartRouter:
     # ── LiteLLM Integration (BC-007) ──────────────────────────────
 
     @staticmethod
-    def _build_litellm_model_name(provider: ModelProvider, model_id: str) -> str:
+    def _build_litellm_model_name(
+            provider: ModelProvider,
+            model_id: str) -> str:
         """Build the LiteLLM model name from provider and model_id.
 
         LiteLLM uses format: provider/model_id for custom providers.
@@ -1681,7 +1696,8 @@ class SmartRouter:
         if api_key:
             kwargs["api_key"] = api_key
 
-        response = await litellm.acompletion(**kwargs)  # type: ignore[union-attr]
+        # type: ignore[union-attr]
+        response = await litellm.acompletion(**kwargs)
         choice = response.choices[0]
         content = choice.message.content or ""
         usage = response.usage
@@ -1785,14 +1801,17 @@ class SmartRouter:
                 role = msg.get("role", "user")
                 content = msg.get("content", "")
                 if isinstance(content, str):
-                    body["contents"].append({"role": role, "parts": [{"text": content}]})
+                    body["contents"].append(
+                        {"role": role, "parts": [{"text": content}]})
                 elif isinstance(content, list):
-                    parts = [{"text": p.get("text", "")} for p in content if isinstance(p, dict)]
+                    parts = [{"text": p.get("text", "")}
+                             for p in content if isinstance(p, dict)]
                     body["contents"].append({"role": role, "parts": parts})
 
         try:
             with httpx.Client(timeout=30.0) as client:
-                response = client.post(model_config.base_url, headers=headers, json=body)
+                response = client.post(
+                    model_config.base_url, headers=headers, json=body)
                 response.raise_for_status()
                 data = response.json()
 
@@ -1802,16 +1821,20 @@ class SmartRouter:
                 # Parse Google format
                 candidates = data.get("candidates", [])
                 if candidates:
-                    text_parts = candidates[0].get("content", {}).get("parts", [])
+                    text_parts = candidates[0].get(
+                        "content", {}).get("parts", [])
                     return {
                         "choices": [{
                             "message": {"role": "assistant", "content": text_parts[0].get("text", "")}
                         }],
                         "usage": data.get("usageMetadata", {}),
                     }
-                return {"choices": [{"message": {"role": "assistant", "content": ""}}]}
+                return {"choices": [
+                    {"message": {"role": "assistant", "content": ""}}]}
         except Exception as exc:
-            raise RuntimeError(f"LLM call failed for {model_config.model_id}: {exc}") from exc
+            raise RuntimeError(
+                f"LLM call failed for {
+                    model_config.model_id}: {exc}") from exc
 
     @staticmethod
     async def _call_google_async(
@@ -1872,7 +1895,8 @@ class SmartRouter:
                     # Rate limited — extract Retry-After if present
                     retry_after = int(resp.headers.get("Retry-After", 0))
                     text = await resp.text()
-                    # Raise a specific exception so caller can record rate limit
+                    # Raise a specific exception so caller can record rate
+                    # limit
                     raise RateLimitError(
                         provider=model_config.provider,
                         model_id=model_config.model_id,

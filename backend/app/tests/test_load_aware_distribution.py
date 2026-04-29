@@ -26,16 +26,9 @@ from app.core.load_aware_distribution import (
     LoadAwareDistributor,
     InstanceInfo,
     InstanceStatus,
-    StickySession,
-    DistributionResult,
-    FailoverEvent,
-    DistributionStats,
     RoutingMethod,
-    FailoverReason,
-    DEFAULT_STICKY_TTL_SECONDS,
     DEFAULT_MAX_CONCURRENT_TICKETS,
     DEFAULT_INSTANCE_WEIGHT,
-    OVERLOAD_THRESHOLD_PCT,
 )
 
 
@@ -120,9 +113,8 @@ class TestRegisterInstance:
     def test_register_with_custom_capacity(self, dist):
         """Should accept custom capacity_config."""
         info = dist.register_instance(
-            "co_1", "inst_1", "parwa",
-            capacity_config={"max_concurrent_tickets": 100, "token_budget_share": 500_000},
-        )
+            "co_1", "inst_1", "parwa", capacity_config={
+                "max_concurrent_tickets": 100, "token_budget_share": 500_000}, )
         assert info.max_concurrent == 100
         assert info.token_budget == 500_000
 
@@ -200,11 +192,13 @@ class TestUpdateInstanceLoad:
     def test_update_existing_instance(self, dist):
         """Should return True when instance is found."""
         dist.register_instance("co_1", "inst_1", "parwa")
-        assert dist.update_instance_load("co_1", "inst_1", active_tickets=10) is True
+        assert dist.update_instance_load(
+            "co_1", "inst_1", active_tickets=10) is True
 
     def test_update_nonexistent_instance(self, dist):
         """Should return False when instance not found."""
-        assert dist.update_instance_load("co_1", "inst_99", active_tickets=5) is False
+        assert dist.update_instance_load(
+            "co_1", "inst_99", active_tickets=5) is False
 
     def test_active_tickets_set(self, dist):
         """Should update current_load to active_tickets."""
@@ -238,7 +232,11 @@ class TestUpdateInstanceLoad:
     def test_negative_values_clamped_to_zero(self, dist):
         """Negative values should be clamped to zero."""
         dist.register_instance("co_1", "inst_1", "parwa")
-        dist.update_instance_load("co_1", "inst_1", active_tickets=-5, queued_tickets=-3)
+        dist.update_instance_load(
+            "co_1",
+            "inst_1",
+            active_tickets=-5,
+            queued_tickets=-3)
         instances = dist.get_all_instances("co_1")
         assert instances[0].current_load == 0
         assert instances[0].queued_count == 0
@@ -271,18 +269,21 @@ class TestUpdateInstanceStatus:
     def test_mark_unhealthy(self, dist):
         """Should mark instance as UNHEALTHY."""
         dist.register_instance("co_1", "inst_1", "parwa")
-        assert dist.update_instance_status("co_1", "inst_1", InstanceStatus.UNHEALTHY)
+        assert dist.update_instance_status(
+            "co_1", "inst_1", InstanceStatus.UNHEALTHY)
         instances = dist.get_all_instances("co_1")
         assert instances[0].status == InstanceStatus.UNHEALTHY
 
     def test_mark_inactive(self, dist):
         """Should mark instance as INACTIVE."""
         dist.register_instance("co_1", "inst_1", "parwa")
-        assert dist.update_instance_status("co_1", "inst_1", InstanceStatus.INACTIVE)
+        assert dist.update_instance_status(
+            "co_1", "inst_1", InstanceStatus.INACTIVE)
 
     def test_unhealthy_nonexistent(self, dist):
         """Should return False for nonexistent instance."""
-        assert dist.update_instance_status("co_1", "inst_99", InstanceStatus.UNHEALTHY) is False
+        assert dist.update_instance_status(
+            "co_1", "inst_99", InstanceStatus.UNHEALTHY) is False
 
     def test_unhealthy_clears_sticky_sessions(self, dist):
         """Going UNHEALTHY should clear all sticky sessions for the instance."""
@@ -337,7 +338,8 @@ class TestDistribute:
         """Preferred channel should filter eligible instances."""
         dist.register_instance("co_1", "inst_1", "parwa", "email")
         dist.register_instance("co_1", "inst_2", "parwa", "chat")
-        result = dist.distribute("co_1", "parwa", "tkt_1", preferred_channel="chat")
+        result = dist.distribute(
+            "co_1", "parwa", "tkt_1", preferred_channel="chat")
         assert result.instance_id == "inst_2"
 
     def test_variant_type_filtering(self, dist):
@@ -395,7 +397,8 @@ class TestStickySessions:
 
     def test_register_sticky_nonexistent_instance(self, dist):
         """Should return False for nonexistent instance."""
-        assert dist.register_sticky_session("co_1", "tkt_1", "inst_99") is False
+        assert dist.register_sticky_session(
+            "co_1", "tkt_1", "inst_99") is False
 
     def test_get_sticky_instance(self, dist):
         """Should return the pinned instance_id."""
@@ -434,7 +437,8 @@ class TestCleanupExpiredSessions:
         """Should remove sessions that have expired."""
         dist.register_instance("co_1", "inst_1", "parwa")
         # Register with very short TTL
-        dist.register_sticky_session("co_1", "tkt_old", "inst_1", ttl_seconds=0.001)
+        dist.register_sticky_session(
+            "co_1", "tkt_old", "inst_1", ttl_seconds=0.001)
         time.sleep(0.01)
         cleaned = dist.cleanup_expired_sessions("co_1")
         assert cleaned >= 1
@@ -443,7 +447,8 @@ class TestCleanupExpiredSessions:
     def test_cleanup_respects_max_age(self, dist):
         """Should remove sessions exceeding max_age_seconds."""
         dist.register_instance("co_1", "inst_1", "parwa")
-        dist.register_sticky_session("co_1", "tkt_old", "inst_1", ttl_seconds=9999)
+        dist.register_sticky_session(
+            "co_1", "tkt_old", "inst_1", ttl_seconds=9999)
         time.sleep(0.01)
         cleaned = dist.cleanup_expired_sessions("co_1", max_age_seconds=0.001)
         assert cleaned >= 1
@@ -466,7 +471,8 @@ class TestFailover:
         """Should reroute ticket to least-loaded alternate instance."""
         dist.register_instance("co_1", "inst_1", "parwa")
         dist.register_instance("co_1", "inst_2", "parwa")
-        result = dist.failover_ticket("co_1", "tkt_1", "inst_1", "health_check_failed")
+        result = dist.failover_ticket(
+            "co_1", "tkt_1", "inst_1", "health_check_failed")
         assert result is not None
         assert result.instance_id == "inst_2"
         assert result.routing_method == RoutingMethod.FAILOVER.value
@@ -528,8 +534,16 @@ class TestGetLoadSummary:
         """Summary should aggregate totals across instances."""
         dist.register_instance("co_1", "inst_1", "parwa")
         dist.register_instance("co_1", "inst_2", "parwa")
-        dist.update_instance_load("co_1", "inst_1", active_tickets=10, queued_tickets=5)
-        dist.update_instance_load("co_1", "inst_2", active_tickets=20, queued_tickets=3)
+        dist.update_instance_load(
+            "co_1",
+            "inst_1",
+            active_tickets=10,
+            queued_tickets=5)
+        dist.update_instance_load(
+            "co_1",
+            "inst_2",
+            active_tickets=20,
+            queued_tickets=3)
 
         summary = dist.get_instance_load_summary("co_1")
         assert summary["total_instances"] == 2
@@ -826,13 +840,17 @@ class TestThreadSafety:
         dist.register_instance("co_1", "inst_2", "parwa")
 
         errors = []
+
         def do_distribute(i):
             try:
                 dist.distribute("co_1", "parwa", f"tkt_{i}")
             except Exception as e:
                 errors.append(str(e))
 
-        threads = [threading.Thread(target=do_distribute, args=(i,)) for i in range(100)]
+        threads = [
+            threading.Thread(
+                target=do_distribute, args=(
+                    i,)) for i in range(100)]
         for t in threads:
             t.start()
         for t in threads:

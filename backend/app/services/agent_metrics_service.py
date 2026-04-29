@@ -101,18 +101,18 @@ class AgentMetricsService:
         # Validate period
         if period not in VALID_PERIODS:
             raise ValidationError(
-                message=f"Invalid period: {period}. "
-                        f"Must be one of {list(VALID_PERIODS.keys())}",
-                details={"field": "period", "valid_values": list(VALID_PERIODS.keys())},
-            )
+                message=f"Invalid period: {period}. " f"Must be one of {
+                    list(
+                        VALID_PERIODS.keys())}", details={
+                    "field": "period", "valid_values": list(
+                        VALID_PERIODS.keys())}, )
 
         # Validate granularity
         if granularity not in VALID_GRANULARITIES:
             raise ValidationError(
-                message=f"Invalid granularity: {granularity}. "
-                        f"Must be one of {list(VALID_GRANULARITIES)}",
-                details={"field": "granularity", "valid_values": list(VALID_GRANULARITIES)},
-            )
+                message=f"Invalid granularity: {granularity}. " f"Must be one of {
+                    list(VALID_GRANULARITIES)}", details={
+                    "field": "granularity", "valid_values": list(VALID_GRANULARITIES)}, )
 
         try:
             from database.models.agent_metrics import AgentMetricsDaily
@@ -160,7 +160,8 @@ class AgentMetricsService:
                 data_points = self._aggregate_weekly(data_points)
 
             # Compute summary
-            total_tickets = sum(dp.get("tickets_handled", 0) for dp in data_points)
+            total_tickets = sum(dp.get("tickets_handled", 0)
+                                for dp in data_points)
             resolution_rates = [
                 dp["resolution_rate"] for dp in data_points
                 if dp.get("resolution_rate") is not None
@@ -324,13 +325,16 @@ class AgentMetricsService:
             now = datetime.utcnow()
 
             if "resolution_rate_min" in updates:
-                threshold.resolution_rate_min = Decimal(str(updates["resolution_rate_min"]))
+                threshold.resolution_rate_min = Decimal(
+                    str(updates["resolution_rate_min"]))
             if "confidence_min" in updates:
-                threshold.confidence_min = Decimal(str(updates["confidence_min"]))
+                threshold.confidence_min = Decimal(
+                    str(updates["confidence_min"]))
             if "csat_min" in updates:
                 threshold.csat_min = Decimal(str(updates["csat_min"]))
             if "escalation_max_pct" in updates:
-                threshold.escalation_max_pct = Decimal(str(updates["escalation_max_pct"]))
+                threshold.escalation_max_pct = Decimal(
+                    str(updates["escalation_max_pct"]))
 
             threshold.updated_at = now
             self.db.flush()
@@ -480,9 +484,12 @@ class AgentMetricsService:
                         existing.escalated_count = metrics["escalated_count"]
                         existing.avg_confidence = metrics.get("avg_confidence")
                         existing.avg_csat = metrics.get("avg_csat")
-                        existing.avg_handle_time_seconds = metrics.get("avg_handle_time_seconds")
-                        existing.resolution_rate = metrics.get("resolution_rate")
-                        existing.escalation_rate = metrics.get("escalation_rate")
+                        existing.avg_handle_time_seconds = metrics.get(
+                            "avg_handle_time_seconds")
+                        existing.resolution_rate = metrics.get(
+                            "resolution_rate")
+                        existing.escalation_rate = metrics.get(
+                            "escalation_rate")
                     else:
                         record = AgentMetricsDaily(
                             agent_id=agent.id,
@@ -599,11 +606,11 @@ class AgentMetricsService:
 
                     # Map metric names to threshold values
                     metric_threshold_map = {
-                        "resolution_rate": float(threshold.resolution_rate_min),
-                        "avg_confidence": float(threshold.confidence_min),
-                        "avg_csat": float(threshold.csat_min),
-                        "escalation_rate": float(threshold.escalation_max_pct),
-                    }
+                        "resolution_rate": float(
+                            threshold.resolution_rate_min), "avg_confidence": float(
+                            threshold.confidence_min), "avg_csat": float(
+                            threshold.csat_min), "escalation_rate": float(
+                            threshold.escalation_max_pct), }
 
                     for metric_name, threshold_val in metric_threshold_map.items():
                         consecutive_below = 0
@@ -616,7 +623,8 @@ class AgentMetricsService:
                                 break
                             value = float(value)
                             if metric_name == "escalation_rate":
-                                # For escalation_rate, breach is ABOVE threshold
+                                # For escalation_rate, breach is ABOVE
+                                # threshold
                                 if value > threshold_val:
                                     consecutive_below += 1
                                 else:
@@ -652,7 +660,8 @@ class AgentMetricsService:
 
                         # Get the latest value for the alert
                         latest_dm = daily_metrics[0]
-                        latest_value = float(getattr(latest_dm, metric_name, 0))
+                        latest_value = float(
+                            getattr(latest_dm, metric_name, 0))
 
                         # Check minimum ticket threshold for first entry
                         total_tickets = sum(
@@ -672,7 +681,8 @@ class AgentMetricsService:
                         ).first()
 
                         if existing_alert:
-                            existing_alert.current_value = Decimal(str(latest_value))
+                            existing_alert.current_value = Decimal(
+                                str(latest_value))
                             existing_alert.consecutive_days_below = consecutive_below
                             self.db.flush()
                             alerts_result.append({
@@ -902,7 +912,8 @@ class AgentMetricsService:
                 TicketFeedback.created_at >= day_start,
                 TicketFeedback.created_at < day_end,
             ).scalar()
-            avg_csat = Decimal(str(round(float(avg_csat_val), 1))) if avg_csat_val else None
+            avg_csat = Decimal(
+                str(round(float(avg_csat_val), 1))) if avg_csat_val else None
 
             # Avg confidence
             avg_confidence_val = self._get_avg_confidence_for_date(
@@ -921,8 +932,10 @@ class AgentMetricsService:
                 "avg_confidence": avg_confidence_val,
                 "avg_csat": avg_csat,
                 "avg_handle_time_seconds": avg_handle_time,
-                "resolution_rate": Decimal(str(resolution_rate)) if resolution_rate is not None else None,
-                "escalation_rate": Decimal(str(escalation_rate)) if escalation_rate is not None else None,
+                "resolution_rate": Decimal(
+                    str(resolution_rate)) if resolution_rate is not None else None,
+                "escalation_rate": Decimal(
+                    str(escalation_rate)) if escalation_rate is not None else None,
             }
 
         except Exception as exc:
@@ -969,7 +982,8 @@ class AgentMetricsService:
                 Ticket.ai_confidence.isnot(None),
             ).scalar()
 
-            return Decimal(str(round(float(avg_conf), 2))) if avg_conf else None
+            return Decimal(str(round(float(avg_conf), 2))
+                           ) if avg_conf else None
 
         except Exception:
             return None
@@ -1045,7 +1059,8 @@ class AgentMetricsService:
         result: List[Dict[str, Any]] = []
         for week_key in sorted(weeks.keys()):
             week_data = weeks[week_key]
-            total_tickets = sum(dp.get("tickets_handled", 0) for dp in week_data)
+            total_tickets = sum(dp.get("tickets_handled", 0)
+                                for dp in week_data)
 
             resolution_rates = [
                 dp["resolution_rate"] for dp in week_data

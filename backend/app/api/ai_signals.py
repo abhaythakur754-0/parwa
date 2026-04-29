@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/ai/signals", tags=["Signal Extraction"])
@@ -31,7 +31,8 @@ class SignalExtractRequest(BaseModel):
 
 
 class BatchSignalRequest(BaseModel):
-    requests: List[SignalExtractRequest] = Field(..., min_length=1, max_length=20)
+    requests: List[SignalExtractRequest] = Field(
+        ..., min_length=1, max_length=20)
 
 
 class CLARAEvaluateRequest(BaseModel):
@@ -151,9 +152,16 @@ async def signal_info() -> Dict[str, Any]:
     extractor = SignalExtractor()
     return {
         "supported_signals": [
-            "intent", "sentiment", "complexity", "monetary_value",
-            "customer_tier", "turn_count", "previous_response_status",
-            "reasoning_loop_detected", "resolution_path_count", "query_breadth",
+            "intent",
+            "sentiment",
+            "complexity",
+            "monetary_value",
+            "customer_tier",
+            "turn_count",
+            "previous_response_status",
+            "reasoning_loop_detected",
+            "resolution_path_count",
+            "query_breadth",
         ],
         "variant_weights": extractor.VARIANT_WEIGHTS,
         "cache_ttl_seconds": extractor.CACHE_TTL_SECONDS,

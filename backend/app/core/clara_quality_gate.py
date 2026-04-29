@@ -156,7 +156,7 @@ class CLARAQualityGate:
             # GAP-002: Wrap entire pipeline in timeout
             await asyncio.wait_for(
                 self._run_all_stages(stage_funcs, stages, response, query,
-                                    customer_sentiment, context, company_id),
+                                     customer_sentiment, context, company_id),
                 timeout=self.pipeline_timeout,
             )
         except asyncio.TimeoutError:
@@ -190,7 +190,8 @@ class CLARAQualityGate:
         ]
 
         if scored_stages:
-            overall_score = sum(s.score for s in scored_stages) / len(scored_stages)
+            overall_score = sum(
+                s.score for s in scored_stages) / len(scored_stages)
         elif timeout_stages:
             overall_score = 0.5
         else:
@@ -389,8 +390,10 @@ class CLARAQualityGate:
                 ctx_val_lower = ctx_val.lower()
                 # If context has order_id, ticket_id, etc., check they appear
                 if ctx_key in ('order_id', 'ticket_id', 'customer_name'):
-                    if ctx_val_lower not in response_lower and len(ctx_val) > 3:
-                        issues.append(f"Context key '{ctx_key}' value not referenced in response")
+                    if ctx_val_lower not in response_lower and len(
+                            ctx_val) > 3:
+                        issues.append(
+                            f"Context key '{ctx_key}' value not referenced in response")
                         score -= 0.05
 
         # Check for contradictions
@@ -406,7 +409,9 @@ class CLARAQualityGate:
                 score -= 0.2
 
         # Check "I don't know" followed by detailed answer
-        if re.search(r"(?:i don'?t know|i'?m not sure|uncertain)", response_lower):
+        if re.search(
+            r"(?:i don'?t know|i'?m not sure|uncertain)",
+                response_lower):
             # If response is long after "I don't know", that's odd
             after_unknown = re.split(
                 r"i don'?t know|i'?m not sure|uncertain",
@@ -474,8 +479,8 @@ class CLARAQualityGate:
                 f"({word_count}/{self.brand_voice.max_length} words)"
             )
             suggestions.append(
-                f"Shorten response to under {self.brand_voice.max_length} words"
-            )
+                f"Shorten response to under {
+                    self.brand_voice.max_length} words")
             score -= 0.25
 
         # Check required sign-off
@@ -493,9 +498,10 @@ class CLARAQualityGate:
                         r"\bwanna\b", r"\blol\b", r"\bbtw\b", r"\bbrb\b"]
         if formality in ("medium", "high"):
             found_casual = [w.strip(r"\b") for w in casual_words
-                           if re.search(w, response_lower)]
+                            if re.search(w, response_lower)]
             if found_casual:
-                issues.append(f"Informal language for {formality} formality: {found_casual}")
+                issues.append(
+                    f"Informal language for {formality} formality: {found_casual}")
                 score -= 0.3
 
         score = max(0.0, min(1.0, score))
@@ -557,7 +563,11 @@ class CLARAQualityGate:
                 score -= 0.35
 
         # Check for aggressive language (never OK) — per-word deduction
-        aggressive_words = ["calm down", "obviously", "clearly", "you should know"]
+        aggressive_words = [
+            "calm down",
+            "obviously",
+            "clearly",
+            "you should know"]
         found_aggressive = [w for w in aggressive_words if w in response_lower]
         if found_aggressive:
             issues.append(f"Aggressive language detected: {found_aggressive}")
@@ -612,7 +622,8 @@ class CLARAQualityGate:
                 continue
             # D6-GAP-03: Context-aware filtering for phone numbers
             if pii_type == "phone number":
-                filtered_matches = self._filter_phone_false_positives(matches, response, context)
+                filtered_matches = self._filter_phone_false_positives(
+                    matches, response, context)
                 if filtered_matches:
                     issues.append(f"PII detected: {pii_type}")
                     suggestions.append(f"Remove {pii_type} from response")
@@ -633,14 +644,18 @@ class CLARAQualityGate:
         for i, para in enumerate(paragraphs):
             if not para.strip():
                 continue
-            emoji_count = len(re.findall(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF'
-                                        r'\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF'
-                                        r'\U00002702-\U000027B0\U0000FE00-\U0000FE0F'
-                                        r'\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F'
-                                        r'\U0001FA70-\U0001FAFF\U00002600-\U000026FF'
-                                        r'\U00002700-\U000027BF]', para))
+            emoji_count = len(
+                re.findall(
+                    r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF'
+                    r'\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF'
+                    r'\U00002702-\U000027B0\U0000FE00-\U0000FE0F'
+                    r'\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F'
+                    r'\U0001FA70-\U0001FAFF\U00002600-\U000026FF'
+                    r'\U00002700-\U000027BF]', para))
             if emoji_count > 3:
-                issues.append(f"Excessive emojis in paragraph {i+1}: {emoji_count}")
+                issues.append(
+                    f"Excessive emojis in paragraph {
+                        i + 1}: {emoji_count}")
                 score -= 0.3
 
         score = max(0.0, min(1.0, score))
@@ -677,17 +692,23 @@ class CLARAQualityGate:
             match_pos = response_lower.find(match)
             if match_pos > 0:
                 preceding = response_lower[max(0, match_pos - 30):match_pos]
-                following = response_lower[match_pos + len(match):match_pos + len(match) + 30]
+                following = response_lower[match_pos + \
+                    len(match):match_pos + len(match) + 30]
                 surrounding = preceding + " " + following
-                if any(indicator in surrounding for indicator in tracking_indicators):
+                if any(
+                        indicator in surrounding for indicator in tracking_indicators):
                     continue  # Likely an order/tracking number, not a phone
             # Check if context explicitly marks this as a tracking/order number
-            if context.get("has_tracking_number") or context.get("has_order_id"):
+            if context.get("has_tracking_number") or context.get(
+                    "has_order_id"):
                 continue
             filtered.append(match)
         return filtered
 
-    def _apply_suggestions(self, response: str, stages: List[StageOutput]) -> str:
+    def _apply_suggestions(
+            self,
+            response: str,
+            stages: List[StageOutput]) -> str:
         """Apply basic fixes based on stage suggestions."""
         if not response:
             return response

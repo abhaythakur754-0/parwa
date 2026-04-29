@@ -13,22 +13,19 @@ BC-001: All queries are tenant-scoped via company_id.
 
 from __future__ import annotations
 
-import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
-from sqlalchemy import and_, case, func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database.models.tickets import (
     Ticket,
-    TicketMessage,
     TicketFeedback,
     TicketStatus,
     TicketPriority,
-    TicketCategory,
     SLATimer,
     TicketAssignment,
 )
@@ -90,18 +87,18 @@ class TicketSummary:
     closed_tickets: int = 0
     awaiting_client_tickets: int = 0
     awaiting_human_tickets: int = 0
-    
+
     # Priority breakdown
     critical_tickets: int = 0
     high_tickets: int = 0
     medium_tickets: int = 0
     low_tickets: int = 0
-    
+
     # Rates
     resolution_rate: float = 0.0
     avg_resolution_time_hours: Optional[float] = None
     avg_first_response_time_hours: Optional[float] = None
-    
+
     # Date range
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
@@ -158,7 +155,9 @@ class TicketAnalyticsService:
         self.db = db
         self.company_id = company_id
 
-    def get_summary(self, date_range: Optional[DateRange] = None) -> TicketSummary:
+    def get_summary(
+            self,
+            date_range: Optional[DateRange] = None) -> TicketSummary:
         """Get summary statistics for tickets.
 
         Args:
@@ -186,7 +185,8 @@ class TicketAnalyticsService:
             status_counts[status.value] = 0
 
         for ticket in tickets:
-            status_counts[ticket.status] = status_counts.get(ticket.status, 0) + 1
+            status_counts[ticket.status] = status_counts.get(
+                ticket.status, 0) + 1
 
         # Count by priority
         priority_counts = {}
@@ -194,7 +194,8 @@ class TicketAnalyticsService:
             priority_counts[priority.value] = 0
 
         for ticket in tickets:
-            priority_counts[ticket.priority] = priority_counts.get(ticket.priority, 0) + 1
+            priority_counts[ticket.priority] = priority_counts.get(
+                ticket.priority, 0) + 1
 
         total = len(tickets)
         resolved_count = status_counts.get(TicketStatus.resolved.value, 0)
@@ -363,7 +364,8 @@ class TicketAnalyticsService:
         first_response_times = []
         for t in timers:
             if t.first_response_at and t.created_at:
-                minutes = (t.first_response_at - t.created_at).total_seconds() / 60
+                minutes = (t.first_response_at -
+                           t.created_at).total_seconds() / 60
                 first_response_times.append(minutes)
 
         resolution_times = []
@@ -454,7 +456,9 @@ class TicketAnalyticsService:
             if not agent_id or agent_id not in agent_data:
                 continue
 
-            if ticket.status in [TicketStatus.resolved.value, TicketStatus.closed.value]:
+            if ticket.status in [
+                    TicketStatus.resolved.value,
+                    TicketStatus.closed.value]:
                 agent_data[agent_id]["resolved"].add(ticket.id)
             else:
                 agent_data[agent_id]["open"].add(ticket.id)
@@ -477,7 +481,10 @@ class TicketAnalyticsService:
                 TicketFeedback.created_at <= date_range.end_date,
             )
 
-        csat_data = {row.assigned_to: (row.avg_rating, row.count) for row in csat_query.all()}
+        csat_data = {
+            row.assigned_to: (
+                row.avg_rating,
+                row.count) for row in csat_query.all()}
 
         # Get user names
         user_ids = list(agent_data.keys())
@@ -513,22 +520,26 @@ class TicketAnalyticsService:
 
     # ── Helper Methods ─────────────────────────────────────────────────────
 
-    def _calculate_avg_resolution_time(self, tickets: List[Ticket]) -> Optional[float]:
+    def _calculate_avg_resolution_time(
+            self, tickets: List[Ticket]) -> Optional[float]:
         """Calculate average resolution time in hours."""
         times = []
         for ticket in tickets:
             if ticket.closed_at and ticket.created_at:
-                hours = (ticket.closed_at - ticket.created_at).total_seconds() / 3600
+                hours = (
+                    ticket.closed_at - ticket.created_at).total_seconds() / 3600
                 times.append(hours)
 
         return sum(times) / len(times) if times else None
 
-    def _calculate_avg_first_response_time(self, tickets: List[Ticket]) -> Optional[float]:
+    def _calculate_avg_first_response_time(
+            self, tickets: List[Ticket]) -> Optional[float]:
         """Calculate average first response time in hours."""
         times = []
         for ticket in tickets:
             if ticket.first_response_at and ticket.created_at:
-                hours = (ticket.first_response_at - ticket.created_at).total_seconds() / 3600
+                hours = (ticket.first_response_at -
+                         ticket.created_at).total_seconds() / 3600
                 times.append(hours)
 
         return sum(times) / len(times) if times else None
@@ -553,7 +564,10 @@ class TicketAnalyticsService:
         }
         return labels[interval]
 
-    def _increment_by_interval(self, dt: datetime, interval: IntervalType) -> datetime:
+    def _increment_by_interval(
+            self,
+            dt: datetime,
+            interval: IntervalType) -> datetime:
         """Increment datetime by interval."""
         deltas = {
             IntervalType.HOUR: timedelta(hours=1),

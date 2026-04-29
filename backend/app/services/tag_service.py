@@ -11,10 +11,9 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timezone
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database.models.tickets import Ticket
@@ -287,7 +286,10 @@ class TagService:
 
         return tickets, total
 
-    def suggest_tags(self, text: str, existing_tags: List[str] = None) -> List[str]:
+    def suggest_tags(
+            self,
+            text: str,
+            existing_tags: List[str] = None) -> List[str]:
         """Suggest tags based on text content.
 
         Args:

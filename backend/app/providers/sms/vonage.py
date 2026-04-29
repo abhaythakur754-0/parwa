@@ -5,7 +5,7 @@ Implementation of the SMSProvider interface for Vonage (formerly Nexmo).
 Uses the Vonage REST API: https://rest.nexmo.com
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import httpx
 
@@ -120,7 +120,8 @@ class VonageSMSProvider(SMSProvider):
             payload["callback"] = message.status_callback
 
         if message.validity_period:
-            payload["ttl"] = message.validity_period // 1000  # Vonage uses milliseconds
+            # Vonage uses milliseconds
+            payload["ttl"] = message.validity_period // 1000
 
         try:
             response = httpx.post(
@@ -151,8 +152,12 @@ class VonageSMSProvider(SMSProvider):
                         success=False,
                         provider_name=self.provider_name,
                         operation="send_sms",
-                        error_code=msg.get("status", "unknown"),
-                        error_message=msg.get("error-text", "Unknown Vonage error"),
+                        error_code=msg.get(
+                            "status",
+                            "unknown"),
+                        error_message=msg.get(
+                            "error-text",
+                            "Unknown Vonage error"),
                     )
             else:
                 return ProviderResult(

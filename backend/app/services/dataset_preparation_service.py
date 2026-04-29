@@ -16,12 +16,10 @@ Building Codes:
 import json
 import logging
 import os
-import hashlib
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any, List
+from datetime import datetime, timezone
+from typing import Optional, Dict, List
 from uuid import uuid4
 
-from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger("parwa.dataset_preparation")
@@ -177,18 +175,21 @@ class DatasetPreparationService:
             if source == SOURCE_MISTAKES:
                 samples = self._collect_from_mistakes(company_id, agent_id)
             elif source == SOURCE_MANUAL:
-                samples = self._collect_from_manual_labels(company_id, agent_id)
+                samples = self._collect_from_manual_labels(
+                    company_id, agent_id)
             elif source == SOURCE_EXPORT:
                 samples = self._collect_from_exports(company_id, agent_id)
             elif source == SOURCE_KB:
-                samples = self._collect_from_knowledge_base(company_id, agent_id)
+                samples = self._collect_from_knowledge_base(
+                    company_id, agent_id)
             else:
                 raise ValueError(f"Unknown source type: {source}")
 
             # Check minimum samples
             if not force_prepare and len(samples) < min_samples:
                 dataset.status = DATASET_STATUS_FAILED
-                dataset.error_message = f"Insufficient samples: {len(samples)} < {min_samples}"
+                dataset.error_message = f"Insufficient samples: {
+                    len(samples)} < {min_samples}"
                 self.db.commit()
                 return {
                     "status": "error",
@@ -204,7 +205,8 @@ class DatasetPreparationService:
             quality_score = self._calculate_quality_score(training_data)
 
             # Store dataset
-            storage_path = self._store_dataset(company_id, dataset_id, training_data)
+            storage_path = self._store_dataset(
+                company_id, dataset_id, training_data)
 
             # Update dataset record
             dataset.status = DATASET_STATUS_READY
@@ -348,7 +350,9 @@ class DatasetPreparationService:
             return {"status": "error", "error": "Dataset not found"}
 
         if dataset.status == DATASET_STATUS_IN_USE:
-            return {"status": "error", "error": "Cannot archive dataset in use"}
+            return {
+                "status": "error",
+                "error": "Cannot archive dataset in use"}
 
         dataset.status = DATASET_STATUS_ARCHIVED
         self.db.commit()
@@ -421,7 +425,8 @@ class DatasetPreparationService:
             quality_score = self._calculate_quality_score(training_data)
 
             # Store dataset
-            storage_path = self._store_dataset(company_id, dataset_id, training_data)
+            storage_path = self._store_dataset(
+                company_id, dataset_id, training_data)
 
             # Update dataset record
             dataset.status = DATASET_STATUS_READY
@@ -473,7 +478,10 @@ class DatasetPreparationService:
     # Data Collection Methods
     # ══════════════════════════════════════════════════════════════════════════
 
-    def _collect_from_mistakes(self, company_id: str, agent_id: str) -> List[Dict]:
+    def _collect_from_mistakes(
+            self,
+            company_id: str,
+            agent_id: str) -> List[Dict]:
         """Collect training samples from agent mistakes.
 
         Args:
@@ -516,7 +524,10 @@ class DatasetPreparationService:
 
         return samples
 
-    def _collect_from_manual_labels(self, company_id: str, agent_id: str) -> List[Dict]:
+    def _collect_from_manual_labels(
+            self,
+            company_id: str,
+            agent_id: str) -> List[Dict]:
         """Collect training samples from manually labeled data.
 
         Args:
@@ -535,7 +546,10 @@ class DatasetPreparationService:
         )
         return []
 
-    def _collect_from_exports(self, company_id: str, agent_id: str) -> List[Dict]:
+    def _collect_from_exports(
+            self,
+            company_id: str,
+            agent_id: str) -> List[Dict]:
         """Collect training samples from ticket history exports.
 
         Args:
@@ -553,7 +567,10 @@ class DatasetPreparationService:
         )
         return []
 
-    def _collect_from_knowledge_base(self, company_id: str, agent_id: str) -> List[Dict]:
+    def _collect_from_knowledge_base(
+            self,
+            company_id: str,
+            agent_id: str) -> List[Dict]:
         """Collect training samples from knowledge base documents.
 
         Args:
@@ -586,7 +603,8 @@ class DatasetPreparationService:
                         "document_title": doc.title,
                         "document_type": doc.doc_type,
                     },
-                    "expected_output": doc.content[:1000],  # Truncate for training
+                    # Truncate for training
+                    "expected_output": doc.content[:1000],
                     "metadata": {
                         "source": "knowledge_base",
                         "created_at": doc.created_at.isoformat() if doc.created_at else None,
@@ -599,7 +617,10 @@ class DatasetPreparationService:
     # Transformation Methods
     # ══════════════════════════════════════════════════════════════════════════
 
-    def _transform_to_training_format(self, samples: List[Dict], source: str) -> List[Dict]:
+    def _transform_to_training_format(
+            self,
+            samples: List[Dict],
+            source: str) -> List[Dict]:
         """Transform samples to standard training format.
 
         Args:
@@ -689,7 +710,11 @@ class DatasetPreparationService:
         # Return average quality score
         return round(sum(scores) / len(scores), 3)
 
-    def _store_dataset(self, company_id: str, dataset_id: str, training_data: List[Dict]) -> str:
+    def _store_dataset(
+            self,
+            company_id: str,
+            dataset_id: str,
+            training_data: List[Dict]) -> str:
         """Store training dataset to disk/storage.
 
         Args:
