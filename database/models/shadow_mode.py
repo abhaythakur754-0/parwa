@@ -313,7 +313,7 @@ class ChatShadowQueue(Base):
     )
     # Chat session details
     session_id = Column(String(100), nullable=False)
-    conversation_id = Column(String(36), ForeignKey("conversations.id"), nullable=True)
+    conversation_id = Column(String(36), nullable=True)  # Reference to conversation (no FK - table may not exist)
     # Message details
     message_text = Column(Text, nullable=False)
     message_type = Column(String(20), default="text")  # text, card, carousel, etc.
