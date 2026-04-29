@@ -349,6 +349,9 @@ class Chargeback(Base):
         onupdate=lambda: datetime.utcnow(),
     )
 
+    # Relationships
+    company = relationship("Company", back_populates="chargebacks")
+
 
 # ── Credit Balance Model (Day 5: RF3) ────────────────────────────────────────
 
@@ -382,6 +385,9 @@ class CreditBalance(Base):
         onupdate=lambda: datetime.utcnow(),
     )
 
+    # Relationships
+    company = relationship("Company", back_populates="credit_balances")
+
 
 # ── Spending Cap Model (Day 5: SC1) ──────────────────────────────────────────
 
@@ -411,6 +417,9 @@ class SpendingCap(Base):
         default=lambda: datetime.utcnow(),
         onupdate=lambda: datetime.utcnow(),
     )
+
+    # Relationships
+    company = relationship("Company", back_populates="spending_caps")
 
 
 # ── Dead Letter Webhook Model (Day 5: WH3) ───────────────────────────────────
@@ -493,6 +502,9 @@ class RefundAudit(Base):
     credit_balance_id = Column(String(36), nullable=True)
     status = Column(String(20), default="pending")  # pending/approved/rejected/processed/failed
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+    # Relationships
+    company = relationship("Company", back_populates="refund_audits")
 
 
 # ═══════════════════════════════════════════════════════════════════════
