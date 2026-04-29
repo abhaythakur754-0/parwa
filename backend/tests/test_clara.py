@@ -28,8 +28,8 @@ def _mock_logger():
         from app.core.clara_quality_gate import (  # noqa: F811,F401
             BrandVoiceConfig,
             CLARAQualityGate,
-            CLARAStage,
             CLARAResult,
+            CLARAStage,
             StageOutput,
             StageResult,
         )

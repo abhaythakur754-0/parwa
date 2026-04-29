@@ -11,8 +11,8 @@ This script tests the complete demo flow with REAL AI responses:
 Run: python backend/tests/test_live_demo.py
 """
 
-import sys
 import json
+import sys
 import uuid
 from datetime import datetime
 
@@ -155,10 +155,11 @@ def test_demo_chat_flow():
 
     try:
         from app.services.jarvis_service import (
+            check_message_limit,
             create_or_resume_session,
             send_message,
-            check_message_limit,
         )
+
         from database.base import SessionLocal
 
         db = SessionLocal()
@@ -212,13 +213,14 @@ def test_onboarding_integration():
 
     try:
         from app.services.onboarding_service import (
-            get_or_create_session,
+            _generate_ai_greeting,
             accept_legal_consents,
             activate_ai,
-            _generate_ai_greeting,
+            get_or_create_session,
         )
+
         from database.base import SessionLocal
-        from database.models.core import User, Company
+        from database.models.core import Company, User
 
         db = SessionLocal()
 

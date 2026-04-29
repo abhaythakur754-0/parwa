@@ -15,22 +15,21 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from app.services.token_budget_service import (
-    TokenBudgetService,
-    TokenBudget,
-    ReserveResult,
-    TokenBudgetStatus,
-    OverflowCheck,
-    ContextStrategy,
-    TokenEntry,
-    VARIANT_TOKEN_BUDGETS,
+    ADD_TOKENS_LUA,
     DEFAULT_VARIANT_TYPE,
-    SAFETY_MARGIN_PERCENT,
+    FINALIZE_LUA,
     REDIS_KEY_TTL_SECONDS,
     RESERVE_LUA,
-    FINALIZE_LUA,
-    ADD_TOKENS_LUA,
+    SAFETY_MARGIN_PERCENT,
+    VARIANT_TOKEN_BUDGETS,
+    ContextStrategy,
+    OverflowCheck,
+    ReserveResult,
+    TokenBudget,
+    TokenBudgetService,
+    TokenBudgetStatus,
+    TokenEntry,
 )
 
 # ═══════════════════════════════════════════════════════════════════

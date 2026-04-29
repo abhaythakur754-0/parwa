@@ -63,8 +63,8 @@ def evaluate_sms_shadow(
     """
     try:
         # Lazy import to avoid circular dependencies
-        from app.services.shadow_mode_service import ShadowModeService
         from app.interceptors.base_interceptor import ShadowInterceptor
+        from app.services.shadow_mode_service import ShadowModeService
 
         service = shadow_service or ShadowModeService()
         interceptor = ShadowInterceptor()

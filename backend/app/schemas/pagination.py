@@ -17,8 +17,8 @@ from pydantic import BaseModel, Field, model_validator
 
 from shared.utils.pagination import (
     DEFAULT_PAGE_SIZE,
-    MAX_PAGE_SIZE,
     MAX_OFFSET,
+    MAX_PAGE_SIZE,
 )
 
 T = TypeVar("T")

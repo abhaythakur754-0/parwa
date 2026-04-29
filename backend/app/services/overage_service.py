@@ -20,34 +20,33 @@ BC-006: Email notification via Brevo
 """
 
 import logging
+import os
 from datetime import date, datetime, timedelta, timezone
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import func
-
-from app.schemas.billing import (
-    OverageChargeInfo,
-    UsageInfo,
-    VariantType,
-    VARIANT_LIMITS,
-)
 from app.clients.paddle_client import (
     PaddleClient,
     PaddleError,
     get_paddle_client,
 )
+from app.schemas.billing import (
+    VARIANT_LIMITS,
+    OverageChargeInfo,
+    UsageInfo,
+    VariantType,
+)
+from sqlalchemy import func
+
 from database.base import SessionLocal
-from database.models.billing import Subscription, OverageCharge
+from database.models.billing import OverageCharge, Subscription
 from database.models.billing_extended import (
-    UsageRecord,
     CompanyVariant,
+    UsageRecord,
     get_variant_limits,
 )
 from database.models.core import Company
-
-import os
 
 logger = logging.getLogger("parwa.services.overage")
 

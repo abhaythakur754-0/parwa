@@ -5,9 +5,6 @@ CRUD endpoints for API key management.
 All scoped by company_id from JWT (BC-001).
 """
 
-from fastapi import APIRouter, Depends, Request
-from sqlalchemy.orm import Session
-
 from app.api.deps import get_current_user
 from app.middleware.api_key_auth import require_scope
 from app.schemas.api_key import (
@@ -23,6 +20,9 @@ from app.services.api_key_service import (
     revoke_key,
     rotate_key,
 )
+from fastapi import APIRouter, Depends, Request
+from sqlalchemy.orm import Session
+
 from database.base import get_db
 from database.models.core import User
 

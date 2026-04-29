@@ -6,13 +6,12 @@ T1 fallback, blocked techniques.
 """
 
 import pytest
-
 from app.core.technique_router import TechniqueID, TechniqueTier
 from app.services.intent_technique_mapper import (
-    IntentTechniqueMapper,
-    MappingResult,
     TECHNIQUE_TIER1_FALLBACKS,
     VARIANT_TIER_LIMITS,
+    IntentTechniqueMapper,
+    MappingResult,
 )
 
 

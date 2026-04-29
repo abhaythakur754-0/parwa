@@ -22,8 +22,8 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from database.base import SessionLocal
-from database.models.webhook_event import WebhookEvent
 from database.models.billing_extended import WebhookSequence
+from database.models.webhook_event import WebhookEvent
 
 logger = logging.getLogger("parwa.services.webhook_health")
 
@@ -123,7 +123,9 @@ class WebhookHealthService:
         if self._dlq_table_available is False:
             return None
         try:
-            from database.models.billing_extended import DeadLetterWebhook  # type: ignore
+            from database.models.billing_extended import (
+                DeadLetterWebhook,  # type: ignore
+            )
 
             self._dlq_table_available = True
             return DeadLetterWebhook
@@ -137,7 +139,9 @@ class WebhookHealthService:
         if self._health_table_available is False:
             return None
         try:
-            from database.models.billing_extended import WebhookHealthStat  # type: ignore
+            from database.models.billing_extended import (
+                WebhookHealthStat,  # type: ignore
+            )
 
             self._health_table_available = True
             return WebhookHealthStat
@@ -1044,8 +1048,9 @@ class WebhookHealthService:
             List of event dicts from Paddle
         """
         try:
-            from app.clients.paddle_client import get_paddle_client
             import asyncio
+
+            from app.clients.paddle_client import get_paddle_client
 
             paddle = get_paddle_client()
 

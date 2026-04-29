@@ -16,6 +16,9 @@ Usage:
     pytest tests/test_jarvis_behavioral_before_after.py -v
 """
 
+# We need to make sure we can import the module functions.
+# The module itself has top-level SQLAlchemy imports that need mocking.
+import importlib.util
 import os
 import sys
 import types
@@ -26,9 +29,6 @@ import unittest.mock as mock
 # so we can patch them in isolation.
 # ---------------------------------------------------------------------------
 
-# We need to make sure we can import the module functions.
-# The module itself has top-level SQLAlchemy imports that need mocking.
-import importlib.util
 
 # Create mock modules for database and app layers so jarvis_service.py can be imported
 # without a real database or app package

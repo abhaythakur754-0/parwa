@@ -173,19 +173,19 @@ class ResponseGenerator:
     """
 
     def __init__(self, redis_client: Any = None) -> None:
-        from app.core.sentiment_engine import SentimentAnalyzer
-        from app.core.rag_retrieval import RAGRetriever
-        from app.core.rag_reranking import (
-            CrossEncoderReranker,
-            ContextWindowAssembler,
-        )
         from app.core.clara_quality_gate import CLARAQualityGate
+        from app.core.rag_reranking import (
+            ContextWindowAssembler,
+            CrossEncoderReranker,
+        )
+        from app.core.rag_retrieval import RAGRetriever
+        from app.core.sentiment_engine import SentimentAnalyzer
         from app.core.smart_router import SmartRouter
         from app.services.brand_voice_service import BrandVoiceService
-        from app.services.token_budget_service import TokenBudgetService
         from app.services.response_template_service import (
             ResponseTemplateService,
         )
+        from app.services.token_budget_service import TokenBudgetService
 
         self.redis_client = redis_client
         self.sentiment_analyzer = SentimentAnalyzer()

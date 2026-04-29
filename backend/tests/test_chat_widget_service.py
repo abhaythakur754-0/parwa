@@ -11,9 +11,10 @@ Tests for:
 - Canned response CRUD
 """
 
-import sys
 import os
+import sys
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 # Ensure conftest runs first

@@ -17,7 +17,6 @@ import uuid
 from unittest.mock import MagicMock
 
 import pytest
-
 from app.exceptions import ParwaBaseError
 from app.services.provider_management_service import (
     ProviderAlert,

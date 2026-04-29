@@ -18,17 +18,17 @@ Comprehensive unit tests for LoadAwareDistributor covering:
 - Channel-based filtering
 """
 
-import pytest
 import threading
 import time
 
+import pytest
 from app.core.load_aware_distribution import (
-    LoadAwareDistributor,
+    DEFAULT_INSTANCE_WEIGHT,
+    DEFAULT_MAX_CONCURRENT_TICKETS,
     InstanceInfo,
     InstanceStatus,
+    LoadAwareDistributor,
     RoutingMethod,
-    DEFAULT_MAX_CONCURRENT_TICKETS,
-    DEFAULT_INSTANCE_WEIGHT,
 )
 
 # ═══════════════════════════════════════════════════════════════════

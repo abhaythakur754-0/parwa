@@ -7,7 +7,6 @@ TechniqueMetricsCollector + TECHNIQUE_NODES.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from app.core.technique_executor import (
     ExecutionDetail,
     PipelineResult,

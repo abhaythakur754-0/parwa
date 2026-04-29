@@ -35,10 +35,10 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
+from app.core.email_utils import run_async_coro, strip_html
 from sqlalchemy.orm import Session
 
 from database.models.tickets import Ticket, TicketMessage
-from app.core.email_utils import strip_html, run_async_coro
 
 logger = logging.getLogger("parwa.channel_dispatcher")
 

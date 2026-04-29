@@ -13,10 +13,10 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
+from app.exceptions import NotFoundError, ValidationError
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from app.exceptions import NotFoundError, ValidationError
 from database.models.tickets import NotificationTemplate
 
 

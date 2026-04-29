@@ -22,17 +22,19 @@ BC-002: All money calculations use Decimal (never float)
 
 import logging
 from datetime import date, datetime, timedelta, timezone
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-
 from app.schemas.billing import (
-    ProrationResult,
-    ProrationAudit as ProrationAuditSchema,
-    VariantType,
     VARIANT_LIMITS,
 )
+from app.schemas.billing import ProrationAudit as ProrationAuditSchema
+from app.schemas.billing import (
+    ProrationResult,
+    VariantType,
+)
+
 from database.base import SessionLocal
 from database.models.billing_extended import ProrationAudit
 

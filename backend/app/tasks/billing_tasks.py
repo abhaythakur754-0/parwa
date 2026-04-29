@@ -10,14 +10,15 @@ Celery tasks for billing operations:
 """
 
 import logging
-from datetime import datetime, timedelta, timezone, date
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from app.tasks.base import ParwaBaseTask, with_company_id
 from app.tasks.celery_app import app
+
 from database.base import SessionLocal
-from database.models.core import Company
 from database.models.billing import Subscription
+from database.models.core import Company
 
 logger = logging.getLogger("parwa.tasks.billing")
 
@@ -55,8 +56,9 @@ def daily_overage_charge(self, company_id: str) -> dict:
         Dict with charge status and details
     """
     try:
-        from app.services.overage_service import get_overage_service
         import asyncio
+
+        from app.services.overage_service import get_overage_service
 
         overage_service = get_overage_service()
 
@@ -224,9 +226,11 @@ def invoice_sync(self, company_id: str) -> dict:
         Dict with sync status and invoice count
     """
     try:
-        from app.clients.paddle_client import get_paddle_client
-        from database.models.billing import Invoice
         import asyncio
+
+        from app.clients.paddle_client import get_paddle_client
+
+        from database.models.billing import Invoice
 
         with SessionLocal() as db:
             company = db.query(Company).filter(Company.id == company_id).first()
@@ -355,8 +359,9 @@ def subscription_check(self, company_id: str) -> dict:
         Dict with subscription status
     """
     try:
-        from app.clients.paddle_client import get_paddle_client
         import asyncio
+
+        from app.clients.paddle_client import get_paddle_client
 
         with SessionLocal() as db:
             subscription = (
@@ -454,8 +459,9 @@ def send_usage_warning(self, company_id: str, threshold: float = 80.0) -> dict:
         Dict with warning status
     """
     try:
-        from app.services.overage_service import get_overage_service
         import asyncio
+
+        from app.services.overage_service import get_overage_service
 
         overage_service = get_overage_service()
 

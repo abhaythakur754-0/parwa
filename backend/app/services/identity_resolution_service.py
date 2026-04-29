@@ -20,10 +20,10 @@ from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.services.customer_service import CustomerService
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
-from app.services.customer_service import CustomerService
 from database.models.tickets import (
     Customer,
     IdentityMatchLog,

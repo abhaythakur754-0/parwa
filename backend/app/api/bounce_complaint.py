@@ -15,16 +15,15 @@ BC-012: Structured JSON error responses.
 
 import logging
 
-from fastapi import APIRouter, Query, Request
-from fastapi.responses import JSONResponse
-
 from app.schemas.bounce_complaint import (
+    BounceDigestResponse,
     BounceListResponse,
+    BounceStatsResponse,
     WhitelistRequest,
     WhitelistResponse,
-    BounceStatsResponse,
-    BounceDigestResponse,
 )
+from fastapi import APIRouter, Query, Request
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger("parwa.bounce_api")
 
@@ -120,6 +119,7 @@ async def whitelist_bounced_email(
     try:
         db = _get_db(request)
         from app.services.bounce_complaint_service import BounceComplaintService
+
         from database.models.email_bounces import EmailBounce
 
         service = BounceComplaintService(db)

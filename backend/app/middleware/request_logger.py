@@ -10,11 +10,11 @@ Only non-sensitive information is logged — no passwords, tokens, or PII.
 
 import time
 
+from app.logger import get_logger
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from app.logger import get_logger
 from shared.utils.datetime import format_duration
 
 logger = get_logger("request_logger")

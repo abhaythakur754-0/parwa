@@ -8,14 +8,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy.orm import Session
-
 from app.api.deps import get_current_user, get_db, require_roles
-from app.services.identity_resolution_service import IdentityResolutionService
 from app.schemas.customer import (
     IdentityMatchRequest,
 )
+from app.services.identity_resolution_service import IdentityResolutionService
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy.orm import Session
 
 router = APIRouter(
     prefix="/api/identity",

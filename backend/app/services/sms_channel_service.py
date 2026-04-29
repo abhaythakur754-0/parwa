@@ -1391,8 +1391,8 @@ class SMSChannelService:
             Dict with success, message_sid, error.
         """
         try:
-            from twilio.rest import Client
             from app.config import get_settings
+            from twilio.rest import Client
 
             settings = get_settings()
             auth_token = self._decrypt_credential(
@@ -1563,6 +1563,7 @@ class SMSChannelService:
         """
         try:
             import asyncio
+
             from app.core.socketio import emit_to_tenant
 
             loop = asyncio.get_event_loop()

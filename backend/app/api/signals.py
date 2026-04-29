@@ -15,11 +15,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
-
 from app.api.deps import require_roles
 from app.logger import get_logger
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
 
 logger = get_logger("signals_api")
 

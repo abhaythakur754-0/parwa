@@ -1110,9 +1110,9 @@ class HallucinationDetector:
         # Try to import FEATURE_REGISTRY from variant_capability_service
         known_features: Set[str] = set(KNOWN_FEATURE_PHRASES)
         try:
-            from app.services.variant_capability_service import (
+            from app.services.variant_capability_service import (  # noqa: E501
                 FEATURE_REGISTRY as _FR,
-            )  # noqa: E501
+            )
 
             for _fid, finfo in _FR.items():
                 feat_name = finfo.get("name", "").lower()

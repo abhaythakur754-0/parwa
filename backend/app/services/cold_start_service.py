@@ -20,7 +20,7 @@ Building Codes:
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional, Dict, List
+from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -352,7 +352,7 @@ class ColdStartService:
             Dict with cold start status.
         """
         from database.models.agent import Agent
-        from database.models.training import TrainingRun, AgentMistake
+        from database.models.training import AgentMistake, TrainingRun
 
         agent = (
             self.db.query(Agent)

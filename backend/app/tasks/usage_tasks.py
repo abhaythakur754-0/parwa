@@ -14,17 +14,17 @@ BC-004: All tasks use ParwaBaseTask with retry config
 """
 
 import logging
-from datetime import datetime, timedelta, timezone, date
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
-
-from sqlalchemy import func
 
 from app.tasks.base import ParwaBaseTask, with_company_id
 from app.tasks.celery_app import app
+from sqlalchemy import func
+
 from database.base import SessionLocal
-from database.models.core import Company
 from database.models.billing import Subscription
 from database.models.billing_extended import UsageRecord
+from database.models.core import Company
 
 logger = logging.getLogger("parwa.tasks.usage")
 
@@ -440,8 +440,9 @@ def check_usage_limits(self, company_id: str) -> dict:
             if limit_exceeded:
                 overage_amount = tickets_used - ticket_limit
                 try:
-                    from app.core.event_emitter import emit_billing_event
                     import asyncio
+
+                    from app.core.event_emitter import emit_billing_event
 
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)

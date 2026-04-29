@@ -17,17 +17,16 @@ import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from app.api.deps import require_roles
+from app.core.technique_router import (
+    TECHNIQUE_REGISTRY,
+    TechniqueID,
+    TechniqueTier,
+)
+from app.logger import get_logger
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-
-from app.api.deps import require_roles
-from app.core.technique_router import (
-    TechniqueID,
-    TechniqueTier,
-    TECHNIQUE_REGISTRY,
-)
-from app.logger import get_logger
 
 logger = get_logger("technique_config_api")
 

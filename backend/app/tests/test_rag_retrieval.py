@@ -16,23 +16,23 @@ import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
-from shared.knowledge_base.vector_search import (
-    MockVectorStore,
-    VectorStore,
-    SearchResult,
-    vector_search,
-    get_vector_store,
+from app.core.rag_retrieval import (
+    QUERY_SYNONYMS,
+    VARIANT_CONFIG,
+    RAGChunk,
+    RAGResult,
+    RAGRetriever,
 )
+
 from shared.knowledge_base.reindexing import (
     ReindexingManager,
 )
-from app.core.rag_retrieval import (
-    RAGChunk,
-    RAGRetriever,
-    RAGResult,
-    VARIANT_CONFIG,
-    QUERY_SYNONYMS,
+from shared.knowledge_base.vector_search import (
+    MockVectorStore,
+    SearchResult,
+    VectorStore,
+    get_vector_store,
+    vector_search,
 )
 
 # =========================================================================

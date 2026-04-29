@@ -27,8 +27,8 @@ Building Codes:
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional, Dict
 from decimal import Decimal
+from typing import Dict, Optional
 
 from sqlalchemy.orm import Session
 
@@ -112,7 +112,7 @@ class AgentTrainingService:
         Returns:
             Dict with run_id, status, and estimated completion time.
         """
-        from database.models.training import TrainingRun, TrainingDataset
+        from database.models.training import TrainingDataset, TrainingRun
 
         # Validate dataset exists and has enough samples
         dataset = (

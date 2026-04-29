@@ -798,8 +798,9 @@ class ApprovalQueueBacklogAction(BaseHealingAction):
             if not db:
                 return (False, "")
 
-            from database.models.approval import Approval
             from sqlalchemy import func
+
+            from database.models.approval import Approval
 
             pending_count = (
                 db.query(func.count(Approval.id))
@@ -841,8 +842,9 @@ class ApprovalQueueBacklogAction(BaseHealingAction):
                     "error": "No database session available",
                 }
 
-            from database.models.approval import Approval
             from sqlalchemy import func
+
+            from database.models.approval import Approval
 
             pending_count = (
                 db.query(func.count(Approval.id))

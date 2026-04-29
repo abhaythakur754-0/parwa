@@ -45,10 +45,10 @@ ParwaBaseError = None  # type: ignore[assignment,misc]
 @pytest.fixture(autouse=True)
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
-        from app.core.signal_extraction import (  # noqa: F811,F401
-            ExtractedSignals,
-            SignalExtractionRequest,
-            SignalExtractor,
+        from app.core.rag_retrieval import (  # noqa: F811,F401
+            RAGChunk,
+            RAGResult,
+            RAGRetriever,
         )
         from app.core.sentiment_engine import (  # noqa: F811,F401
             EmotionClassifier,
@@ -58,21 +58,22 @@ def _mock_logger():
             ToneAdvisor,
             UrgencyScorer,
         )
-        from app.core.rag_retrieval import (  # noqa: F811,F401
-            RAGChunk,
-            RAGResult,
-            RAGRetriever,
+        from app.core.signal_extraction import (  # noqa: F811,F401
+            ExtractedSignals,
+            SignalExtractionRequest,
+            SignalExtractor,
         )
         from app.exceptions import ParwaBaseError as _PBE  # noqa: F811,F401
         from app.services.training_data_isolation import (  # noqa: F811,F401
+            VALID_VARIANT_TYPES,
             DatasetIsolationResult,
             TrainingDataIsolationService,
             TrainingDataset,
-            VALID_VARIANT_TYPES,
         )
-        from shared.knowledge_base.vector_search import (
+
+        from shared.knowledge_base.vector_search import (  # noqa: F811,F401
             MockVectorStore as _MVS,
-        )  # noqa: F811,F401
+        )
 
         globals().update(
             {

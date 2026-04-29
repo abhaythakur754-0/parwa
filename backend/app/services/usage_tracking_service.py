@@ -24,17 +24,17 @@ BC-002: All money calculations use Decimal (never float)
 import logging
 import uuid
 from datetime import date, datetime, timezone
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
+from app.schemas.billing import VARIANT_LIMITS, VariantType
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database.base import SessionLocal
-from database.models.billing_extended import UsageRecord, get_variant_limits
 from database.models.billing import Subscription
-from app.schemas.billing import VARIANT_LIMITS, VariantType
+from database.models.billing_extended import UsageRecord, get_variant_limits
 
 logger = logging.getLogger("parwa.services.usage_tracking")
 

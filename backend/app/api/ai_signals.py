@@ -60,7 +60,7 @@ def _get_extractor():
 def _get_clara(brand_voice_config=None):
     global _clara
     if _clara is None or brand_voice_config is not None:
-        from app.core.clara_quality_gate import CLARAQualityGate, BrandVoiceConfig
+        from app.core.clara_quality_gate import BrandVoiceConfig, CLARAQualityGate
 
         bv = None
         if brand_voice_config:

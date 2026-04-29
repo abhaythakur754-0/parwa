@@ -26,18 +26,18 @@ _CACHE_TTL_SECONDS = None  # type: ignore[assignment,misc]
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
         from app.core.technique_tier_access import (
-            TechniqueTierAccessChecker,
-            TierAccessDecision,
-            TierAccessResult,
-            VariantTierConfig,
+            _CACHE_TTL_SECONDS,
+            _DOWNGRADE_FALLBACK,
+            _FALLBACK_T2_TO_T1,
+            _FALLBACK_T3_TO_T1,
             _TECHNIQUE_TO_TIER,
             _TIER_1_TECHNIQUES,
             _TIER_2_TECHNIQUES,
             _TIER_3_TECHNIQUES,
-            _DOWNGRADE_FALLBACK,
-            _FALLBACK_T3_TO_T1,
-            _FALLBACK_T2_TO_T1,
-            _CACHE_TTL_SECONDS,
+            TechniqueTierAccessChecker,
+            TierAccessDecision,
+            TierAccessResult,
+            VariantTierConfig,
         )
 
         globals().update(

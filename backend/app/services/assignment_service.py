@@ -18,17 +18,17 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.exceptions import NotFoundError, ValidationError
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
+from database.models.core import User
 from database.models.tickets import (
+    AssignmentRule,
     Ticket,
     TicketAssignment,
-    AssignmentRule,
     TicketStatus,
 )
-from database.models.core import User
-from app.exceptions import NotFoundError, ValidationError
 
 
 class AssigneeType:

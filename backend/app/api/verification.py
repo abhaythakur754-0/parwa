@@ -10,18 +10,18 @@ Flow:
 BC-001: All operations scoped to authenticated user's company_id.
 """
 
+from app.api.deps import get_current_user
+from app.exceptions import RateLimitError, ValidationError
+from app.logger import get_logger
+from app.services.business_email_otp_service import (
+    check_business_email_verified,
+    send_business_email_otp,
+    verify_business_email_otp,
+)
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, validator
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
-from app.exceptions import ValidationError, RateLimitError
-from app.logger import get_logger
-from app.services.business_email_otp_service import (
-    send_business_email_otp,
-    verify_business_email_otp,
-    check_business_email_verified,
-)
 from database.base import get_db
 from database.models.core import User
 

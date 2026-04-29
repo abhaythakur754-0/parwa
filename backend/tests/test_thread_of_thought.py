@@ -7,22 +7,22 @@ context enhancement, full pipeline, company isolation, error fallback,
 and edge cases (empty thread, very long thread, single turn).
 """
 
-import pytest
 from unittest.mock import patch
 
-from app.core.technique_router import TechniqueID, QuerySignals
+import pytest
+from app.core.technique_router import QuerySignals, TechniqueID
 from app.core.techniques.base import ConversationState, GSDState
 from app.core.techniques.thread_of_thought import (
-    ThoTConfig,
-    ThoTResult,
-    ThoTProcessor,
-    ThreadOfThoughtNode,
-    ThreadAnalysis,
-    TopicShift,
-    _STOP_WORDS,
-    _TOPIC_DOMAINS,
     _CONTRADICTION_PAIRS,
     _NEGATION_WORDS,
+    _STOP_WORDS,
+    _TOPIC_DOMAINS,
+    ThoTConfig,
+    ThoTProcessor,
+    ThoTResult,
+    ThreadAnalysis,
+    ThreadOfThoughtNode,
+    TopicShift,
 )
 
 # ── Fixtures ────────────────────────────────────────────────────────

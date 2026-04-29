@@ -7,28 +7,28 @@ all edge cases. Uses the in-memory store (no DB/Redis required).
 """
 
 from __future__ import annotations
-from app.exceptions import (
-    ValidationError,
-    NotFoundError,
-)
-from app.services.response_template_service import (
-    ResponseTemplateService,
-    ResponseTemplate,
-    TemplateVariable,
-    VALID_CATEGORIES,
-    VALID_LANGUAGES,
-    _extract_variables,
-    _validate_company_id,
-    _KNOWN_VARIABLES,
-    sanitize_template_variable,
-)
 
-import sys
 import os
+import sys
 from datetime import datetime, timezone
 
 import pytest
 import pytest_asyncio
+from app.exceptions import (
+    NotFoundError,
+    ValidationError,
+)
+from app.services.response_template_service import (
+    _KNOWN_VARIABLES,
+    VALID_CATEGORIES,
+    VALID_LANGUAGES,
+    ResponseTemplate,
+    ResponseTemplateService,
+    TemplateVariable,
+    _extract_variables,
+    _validate_company_id,
+    sanitize_template_variable,
+)
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 

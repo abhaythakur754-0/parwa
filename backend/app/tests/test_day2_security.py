@@ -17,6 +17,7 @@ Tests for all 12 Day 2 infrastructure & docker hardening fixes:
 """
 
 import os
+
 import pytest
 
 PROJECT_ROOT = os.path.abspath(

@@ -11,10 +11,10 @@ This module is kept for backward compatibility only.
 """
 
 from app.security.hmac_verification import (
-    verify_paddle_signature,
-    verify_twilio_signature,
-    verify_shopify_hmac,
     verify_brevo_ip,
+    verify_paddle_signature,
+    verify_shopify_hmac,
+    verify_twilio_signature,
 )
 
 # Alias — kept as the SAME object so identity checks (is) pass

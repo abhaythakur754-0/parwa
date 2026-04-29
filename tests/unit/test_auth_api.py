@@ -498,9 +498,15 @@ class TestMeEndpoint:
 class TestGoogleEndpoint:
     """Tests for POST /api/auth/google."""
 
+    @patch("backend.app.services.auth_service.get_settings")
     @patch("backend.app.services.auth_service.httpx")
-    def test_google_new_user(self, mock_httpx, client):
+    def test_google_new_user(self, mock_httpx, mock_get_settings, client):
         """New Google user gets registered and gets tokens."""
+        # Mock settings to return None for GOOGLE_CLIENT_ID to bypass audience check
+        mock_settings = MagicMock()
+        mock_settings.GOOGLE_CLIENT_ID = None
+        mock_get_settings.return_value = mock_settings
+
         mock_httpx.get.return_value = MagicMock(
             status_code=200,
             json=lambda: {
@@ -521,11 +527,17 @@ class TestGoogleEndpoint:
         assert data["user"]["is_verified"] is True
         assert data["is_new_user"] is True
 
+    @patch("backend.app.services.auth_service.get_settings")
     @patch("backend.app.services.auth_service.httpx")
     def test_google_verification_fails(
-        self, mock_httpx, client
+        self, mock_httpx, mock_get_settings, client
     ):
         """Failed Google verification returns 401."""
+        # Mock settings to return None for GOOGLE_CLIENT_ID to bypass audience check
+        mock_settings = MagicMock()
+        mock_settings.GOOGLE_CLIENT_ID = None
+        mock_get_settings.return_value = mock_settings
+
         mock_httpx.get.return_value = MagicMock(
             status_code=400,
             json=lambda: {"error": "invalid"},

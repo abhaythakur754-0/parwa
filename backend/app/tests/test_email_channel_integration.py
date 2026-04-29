@@ -17,7 +17,7 @@ by using actual database operations.
 
 import json
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 # ── Test: BC-006 Rate Limit ────────────────────────────────────────
 
@@ -27,10 +27,12 @@ class TestBC006RateLimit:
 
     def test_rate_limit_allows_under_limit(self, db_session):
         """Should allow adding emails when under the 5/24h limit."""
+        from uuid import uuid4
+
         from app.services.email_channel_service import EmailChannelService
+
         from database.models.email_channel import EmailThread
         from database.models.tickets import Ticket
-        from uuid import uuid4
 
         company_id = str(uuid4())
         ticket_id = str(uuid4())
@@ -62,10 +64,12 @@ class TestBC006RateLimit:
 
     def test_rate_limit_blocks_at_limit(self, db_session):
         """Should block when 5 customer emails already exist in 24h."""
+        from uuid import uuid4
+
         from app.services.email_channel_service import EmailChannelService
+
         from database.models.email_channel import EmailThread
         from database.models.tickets import Ticket, TicketMessage
-        from uuid import uuid4
 
         company_id = str(uuid4())
         ticket_id = str(uuid4())
@@ -111,10 +115,12 @@ class TestBC006RateLimit:
 
     def test_rate_limit_allows_old_emails(self, db_session):
         """Should NOT count emails older than 24 hours."""
+        from uuid import uuid4
+
         from app.services.email_channel_service import EmailChannelService
+
         from database.models.email_channel import EmailThread
         from database.models.tickets import Ticket, TicketMessage
-        from uuid import uuid4
 
         company_id = str(uuid4())
         ticket_id = str(uuid4())
@@ -235,8 +241,9 @@ class TestSpamDetectionIntegration:
 
     def test_check_spam_returns_none_on_failure(self, db_session):
         """Should return None when spam detection fails (advisory)."""
-        from app.services.email_channel_service import EmailChannelService
         from uuid import uuid4
+
+        from app.services.email_channel_service import EmailChannelService
 
         company_id = str(uuid4())
         service = EmailChannelService(db_session)
@@ -252,8 +259,9 @@ class TestSpamDetectionIntegration:
     @patch("app.services.email_channel_service.SpamDetectionService")
     def test_check_spam_auto_flag_blocks_email(self, mock_spam_cls, db_session):
         """Should return auto-flag result when spam score is high."""
-        from app.services.email_channel_service import EmailChannelService
         from uuid import uuid4
+
+        from app.services.email_channel_service import EmailChannelService
 
         company_id = str(uuid4())
         mock_spam_instance = MagicMock()
@@ -283,8 +291,9 @@ class TestClassificationIntegration:
 
     def test_classify_email_returns_none_for_short_text(self, db_session):
         """Should return None for emails with very short content."""
-        from app.services.email_channel_service import EmailChannelService
         from uuid import uuid4
+
+        from app.services.email_channel_service import EmailChannelService
 
         company_id = str(uuid4())
         service = EmailChannelService(db_session)
@@ -297,8 +306,9 @@ class TestClassificationIntegration:
     @patch("app.services.email_channel_service.ClassificationEngine")
     def test_classify_email_returns_result(self, mock_engine_cls, db_session):
         """Should return classification result when engine succeeds."""
-        from app.services.email_channel_service import EmailChannelService
         from uuid import uuid4
+
+        from app.services.email_channel_service import EmailChannelService
 
         company_id = str(uuid4())
         mock_engine = MagicMock()
@@ -326,8 +336,9 @@ class TestClassificationIntegration:
 
     def test_classify_email_falls_back_to_html_strip(self, db_session):
         """Should strip HTML and classify when body_text is empty."""
-        from app.services.email_channel_service import EmailChannelService
         from uuid import uuid4
+
+        from app.services.email_channel_service import EmailChannelService
 
         company_id = str(uuid4())
         service = EmailChannelService(db_session)

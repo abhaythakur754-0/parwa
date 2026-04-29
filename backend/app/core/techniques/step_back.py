@@ -26,8 +26,8 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from app.core.technique_router import (
-    TechniqueID,
     TECHNIQUE_REGISTRY,
+    TechniqueID,
 )
 from app.core.techniques.base import (
     BaseTechniqueNode,

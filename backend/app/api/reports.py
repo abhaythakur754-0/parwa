@@ -13,17 +13,17 @@ Building Codes: BC-001 (tenant isolation), BC-010 (GDPR),
                BC-011 (auth), BC-012 (error handling)
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
-
 from app.api.deps import (
-    get_current_user,
     get_company_id,
+    get_current_user,
     require_roles,
 )
 from app.exceptions import ValidationError
 from app.logger import get_logger
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+
 from database.base import get_db
 from database.models.core import User
 
@@ -191,8 +191,9 @@ async def download_report(
     BC-011: Requires authentication.
     """
     try:
-        from app.services.export_service import get_export_job_status, EXPORT_DIR
         import os
+
+        from app.services.export_service import EXPORT_DIR, get_export_job_status
 
         result = get_export_job_status(job_id)
 

@@ -12,12 +12,12 @@ BC-011: All endpoints require authentication.
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
-
 from app.api.deps import get_current_user
 from app.exceptions import AuthorizationError
 from app.logger import get_logger
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+
 from database.models.core import User
 
 logger = get_logger("parwa.shadow")
@@ -97,7 +97,7 @@ def set_mode(
     user: User = Depends(get_current_user),
 ):
     """Change the system mode (shadow/supervised/graduated)."""
-    from app.services.shadow_mode_service import ShadowModeService, VALID_MODES
+    from app.services.shadow_mode_service import VALID_MODES, ShadowModeService
 
     company_id = user.company_id
     if not company_id:
@@ -129,8 +129,9 @@ def set_mode(
 
     # Emit real-time event
     try:
-        from app.core.event_emitter import emit_shadow_event
         import asyncio
+
+        from app.core.event_emitter import emit_shadow_event
 
         asyncio.get_event_loop().create_task(
             emit_shadow_event(
@@ -176,7 +177,7 @@ def set_preference(
     user: User = Depends(get_current_user),
 ):
     """Set or update a shadow mode preference for an action category."""
-    from app.services.shadow_mode_service import ShadowModeService, VALID_MODES
+    from app.services.shadow_mode_service import VALID_MODES, ShadowModeService
 
     company_id = user.company_id
     if not company_id:
@@ -313,7 +314,7 @@ def batch_resolve_actions(
     Processes all provided IDs in a single transaction. Items that
     have already been resolved are skipped.
     """
-    from app.services.shadow_mode_service import ShadowModeService, VALID_DECISIONS
+    from app.services.shadow_mode_service import VALID_DECISIONS, ShadowModeService
 
     company_id = user.company_id
     if not company_id:
@@ -340,8 +341,9 @@ def batch_resolve_actions(
 
     # Emit batch resolve event
     try:
-        from app.core.event_emitter import emit_shadow_event
         import asyncio
+
+        from app.core.event_emitter import emit_shadow_event
 
         asyncio.get_event_loop().create_task(
             emit_shadow_event(
@@ -393,8 +395,9 @@ def approve_action(
 
     # Emit approval event
     try:
-        from app.core.event_emitter import emit_shadow_event
         import asyncio
+
+        from app.core.event_emitter import emit_shadow_event
 
         asyncio.get_event_loop().create_task(
             emit_shadow_event(
@@ -444,8 +447,9 @@ def reject_action(
 
     # Emit rejection event
     try:
-        from app.core.event_emitter import emit_shadow_event
         import asyncio
+
+        from app.core.event_emitter import emit_shadow_event
 
         asyncio.get_event_loop().create_task(
             emit_shadow_event(
@@ -507,8 +511,9 @@ def get_undo_history(
     the original action data, undo reason, and who performed the undo.
     """
     from sqlalchemy import desc
+
     from database.base import SessionLocal
-    from database.models.approval import UndoLog, ExecutedAction
+    from database.models.approval import ExecutedAction, UndoLog
 
     company_id = user.company_id
     if not company_id:

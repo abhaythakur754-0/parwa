@@ -12,16 +12,16 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from celery import shared_task
-
 from app.core.tenant_context import TenantContext
+from app.services.notification_preference_service import NotificationPreferenceService
 from app.services.notification_service import NotificationService
 from app.services.notification_template_service import NotificationTemplateService
-from app.services.notification_preference_service import NotificationPreferenceService
+from celery import shared_task
+
 from database.base import get_db
-from database.models.tickets import Ticket
 from database.models.core import User
 from database.models.remaining import Notification
+from database.models.tickets import Ticket
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)

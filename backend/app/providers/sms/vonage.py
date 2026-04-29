@@ -8,13 +8,12 @@ Uses the Vonage REST API: https://rest.nexmo.com
 from typing import Any, Dict
 
 import httpx
-
 from app.providers.base import (
-    SMSProvider,
-    SMSMessage,
+    ProviderCapability,
     ProviderResult,
     ProviderStatus,
-    ProviderCapability,
+    SMSMessage,
+    SMSProvider,
 )
 
 

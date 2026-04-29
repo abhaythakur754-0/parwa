@@ -1,8 +1,9 @@
 """Slack Chat Provider."""
 
-from app.providers.base import ChatProvider, ChatMessage, ProviderResult, ProviderStatus
 from typing import Any, Dict
+
 import httpx
+from app.providers.base import ChatMessage, ChatProvider, ProviderResult, ProviderStatus
 
 
 class SlackChatProvider(ChatProvider):

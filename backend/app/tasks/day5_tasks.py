@@ -13,7 +13,7 @@ Celery tasks for:
 import logging
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Dict, Any
+from typing import Any, Dict
 
 from app.tasks.base import ParwaBaseTask
 from app.tasks.celery_app import app
@@ -302,6 +302,7 @@ def check_spending_caps(self) -> dict:
                 try:
                     # Calculate current month overage for this company
                     from sqlalchemy import func
+
                     from database.models.billing_extended import UsageRecord
 
                     current_month = datetime.now(timezone.utc).strftime("%Y-%m")

@@ -31,18 +31,18 @@ Building Codes: BC-001 (tenant isolation), BC-007 (AI model),
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy.orm import Session
-
 from app.api.deps import (
-    get_current_user,
     get_company_id,
+    get_current_user,
 )
 from app.exceptions import (
     AuthorizationError,
     ValidationError,
 )
 from app.logger import get_logger
+from fastapi import APIRouter, Depends, Query, Request
+from sqlalchemy.orm import Session
+
 from database.base import get_db
 from database.models.core import User
 

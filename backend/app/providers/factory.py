@@ -36,15 +36,15 @@ from typing import Any, Dict, List
 
 from app.providers.base import (
     BaseProvider,
-    ProviderType,
-    EmailProvider,
-    SMSProvider,
-    VoiceProvider,
+    ChatMessage,
     ChatProvider,
     EmailMessage,
+    EmailProvider,
+    ProviderType,
     SMSMessage,
+    SMSProvider,
     VoiceCall,
-    ChatMessage,
+    VoiceProvider,
 )
 from app.providers.registry import ProviderRegistry
 

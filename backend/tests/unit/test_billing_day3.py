@@ -185,8 +185,8 @@ class TestDay3Schemas:
 
     def test_company_variant_create_schema_validates(self):
         """V2: CompanyVariantCreate should validate variant_id."""
-        from pydantic import ValidationError
         from app.schemas.billing import CompanyVariantCreate
+        from pydantic import ValidationError
 
         # Valid
         req = CompanyVariantCreate(variant_id="ecommerce")
@@ -203,8 +203,8 @@ class TestDay3Schemas:
     def test_company_variant_list_schema(self):
         """V4: CompanyVariantList schema should work."""
         from app.schemas.billing import (
-            CompanyVariantList,
             CompanyVariantInfo,
+            CompanyVariantList,
             IndustryAddOnStatus,
         )
 
@@ -261,8 +261,8 @@ class TestAddVariant:
     def test_add_variant_requires_subscription(self):
         """V2: Adding variant should fail if no active subscription."""
         from app.services.variant_addon_service import (
-            VariantAddonService,
             VariantAddonError,
+            VariantAddonService,
         )
 
         service = VariantAddonService()
@@ -284,8 +284,8 @@ class TestAddVariant:
     def test_add_variant_rejects_duplicate(self):
         """V2: Adding same variant twice should fail."""
         from app.services.variant_addon_service import (
-            VariantAddonService,
             VariantAddonError,
+            VariantAddonService,
         )
 
         service = VariantAddonService()
@@ -317,8 +317,10 @@ class TestAddVariant:
 
     def test_add_variant_invalid_id(self):
         """V2: Adding invalid variant should fail."""
-        from app.services.variant_addon_service import VariantAddonError
-        from app.services.variant_addon_service import VariantAddonService
+        from app.services.variant_addon_service import (
+            VariantAddonError,
+            VariantAddonService,
+        )
 
         service = VariantAddonService()
 
@@ -435,8 +437,8 @@ class TestRemoveVariant:
     def test_remove_already_inactive_fails(self):
         """V3: Removing already inactive variant should fail."""
         from app.services.variant_addon_service import (
-            VariantAddonService,
             VariantAddonError,
+            VariantAddonService,
         )
 
         service = VariantAddonService()
@@ -460,8 +462,8 @@ class TestRemoveVariant:
     def test_remove_already_archived_fails(self):
         """V3: Removing already archived variant should fail."""
         from app.services.variant_addon_service import (
-            VariantAddonService,
             VariantAddonError,
+            VariantAddonService,
         )
 
         service = VariantAddonService()
@@ -485,8 +487,8 @@ class TestRemoveVariant:
     def test_remove_not_found_fails(self):
         """V3: Removing non-existent variant should fail."""
         from app.services.variant_addon_service import (
-            VariantAddonService,
             VariantAddonError,
+            VariantAddonService,
         )
 
         service = VariantAddonService()
@@ -1268,8 +1270,8 @@ class TestVariantRestore:
     def test_restore_non_archived_fails(self):
         """V8: Restoring non-archived variant should fail."""
         from app.services.variant_addon_service import (
-            VariantAddonService,
             VariantAddonError,
+            VariantAddonService,
         )
 
         service = VariantAddonService()

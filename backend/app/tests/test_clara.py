@@ -8,7 +8,6 @@ overall scoring, edge cases.
 import asyncio
 
 import pytest
-
 from app.core.clara_quality_gate import (
     BrandVoiceConfig,
     CLARAQualityGate,

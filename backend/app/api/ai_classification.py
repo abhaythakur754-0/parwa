@@ -11,10 +11,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from app.api.deps import require_roles
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-
-from app.api.deps import require_roles
 
 router = APIRouter(
     prefix="/api/ai/classification",

@@ -22,9 +22,8 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
-from sqlalchemy.orm import Session
-
 from app.security.hmac_verification import verify_twilio_signature
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger("parwa.channels.twilio")
 

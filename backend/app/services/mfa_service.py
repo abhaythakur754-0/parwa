@@ -16,18 +16,17 @@ import hashlib
 import io
 import secrets
 import time
-
 from datetime import timezone
 
 import pyotp
 import qrcode
-from sqlalchemy.orm import Session
-
 from app.exceptions import (
     AuthenticationError,
     ValidationError,
 )
 from app.logger import get_logger
+from sqlalchemy.orm import Session
+
 from database.models.core import (
     BackupCode,
     MFASecret,

@@ -13,9 +13,10 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+from app.interceptors.base_interceptor import ShadowInterceptor
+
 from database.base import SessionLocal
 from database.models.shadow_mode import ChatShadowQueue
-from app.interceptors.base_interceptor import ShadowInterceptor
 
 logger = logging.getLogger("parwa.interceptors.chat")
 

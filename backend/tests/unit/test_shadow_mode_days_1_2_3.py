@@ -10,10 +10,11 @@ BC-001: All operations are company-scoped.
 BC-008: Never crash the caller - defensive error handling.
 """
 
-import pytest
-from datetime import datetime
-from unittest.mock import patch, MagicMock
 import uuid
+from datetime import datetime
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Day 1 Tests - ShadowModeService
@@ -443,8 +444,8 @@ class TestEmailShadowInterceptorDay2:
     def test_evaluate_email_shadow_low_risk(self):
         """Test email evaluation for low-risk content."""
         from app.interceptors.email_shadow import (
-            evaluate_email_shadow,
             EmailShadowResult,
+            evaluate_email_shadow,
         )
 
         company_id = str(uuid.uuid4())
@@ -565,7 +566,7 @@ class TestSMSShadowInterceptorDay2:
 
     def test_evaluate_sms_shadow_low_risk(self):
         """Test SMS evaluation for low-risk content."""
-        from app.interceptors.sms_shadow import evaluate_sms_shadow, SMSShadowResult
+        from app.interceptors.sms_shadow import SMSShadowResult, evaluate_sms_shadow
 
         company_id = str(uuid.uuid4())
 
@@ -631,8 +632,8 @@ class TestVoiceShadowInterceptorDay2:
     def test_evaluate_voice_shadow(self):
         """Test voice/TTS evaluation."""
         from app.interceptors.voice_shadow import (
-            evaluate_voice_shadow,
             VoiceShadowResult,
+            evaluate_voice_shadow,
         )
 
         company_id = str(uuid.uuid4())

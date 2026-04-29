@@ -9,11 +9,10 @@ Backward compatible with old in-memory key_store.
 
 import time
 
+from app.middleware.error_handler import build_error_response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-
-from app.middleware.error_handler import build_error_response
 
 # Paths that skip API key auth (public endpoints)
 SKIP_PATHS = {"/health", "/ready", "/metrics"}
@@ -135,8 +134,9 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
     ):
         """Validate key against database."""
         try:
-            from database.base import SessionLocal
             from app.services import api_key_service
+
+            from database.base import SessionLocal
 
             db = SessionLocal()
             try:

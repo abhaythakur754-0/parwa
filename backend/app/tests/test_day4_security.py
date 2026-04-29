@@ -563,7 +563,7 @@ class TestGuardrailsDay4Integration(unittest.TestCase):
 
     def test_info_leak_guard_importable(self):
         """Info leak guard should be importable."""
-        from app.core.info_leak_guard import InfoLeakGuard, CANNED_REFUSAL_RESPONSE
+        from app.core.info_leak_guard import CANNED_REFUSAL_RESPONSE, InfoLeakGuard
 
         self.assertTrue(callable(InfoLeakGuard))
         self.assertIsInstance(CANNED_REFUSAL_RESPONSE, str)

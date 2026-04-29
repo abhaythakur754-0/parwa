@@ -33,18 +33,26 @@ def _mock_logger_and_lock():
         _orig_lock = _svc_mod.threading.Lock
         _svc_mod.threading.Lock = _svc_mod.threading.RLock
         try:
+            from app.services.audit_log_service import AuditCategory as _AuditCategory
+            from app.services.audit_log_service import (
+                AuditExportResult as _AuditExportResult,
+            )
+            from app.services.audit_log_service import (
+                AuditIntegrityReport as _AuditIntegrityReport,
+            )
+            from app.services.audit_log_service import AuditLogConfig as _AuditLogConfig
+            from app.services.audit_log_service import AuditLogEntry as _AuditLogEntry
+            from app.services.audit_log_service import AuditLogError as _AuditLogError
             from app.services.audit_log_service import (
                 AuditLogService as _AuditLogService,
-                AuditLogError as _AuditLogError,
-                AuditLogConfig as _AuditLogConfig,
-                AuditLogEntry as _AuditLogEntry,
+            )
+            from app.services.audit_log_service import (
                 AuditRetentionPolicy as _AuditRetentionPolicy,
-                AuditStats as _AuditStats,
-                AuditIntegrityReport as _AuditIntegrityReport,
-                AuditExportResult as _AuditExportResult,
-                AuditSeverity as _AuditSeverity,
-                AuditCategory as _AuditCategory,
-                ExportFormat as _ExportFormat,
+            )
+            from app.services.audit_log_service import AuditSeverity as _AuditSeverity
+            from app.services.audit_log_service import AuditStats as _AuditStats
+            from app.services.audit_log_service import ExportFormat as _ExportFormat
+            from app.services.audit_log_service import (
                 IntegrityStatus as _IntegrityStatus,
             )
 

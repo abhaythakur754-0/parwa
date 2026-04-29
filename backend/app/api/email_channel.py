@@ -13,14 +13,13 @@ BC-001: All endpoints scoped to company_id (via middleware).
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Query, Request
-from fastapi.responses import JSONResponse
-
 from app.schemas.email_channel import (
+    EmailThreadResponse,
     InboundEmailListResponse,
     InboundEmailResponse,
-    EmailThreadResponse,
 )
+from fastapi import APIRouter, Query, Request
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger("parwa.email_channel_api")
 

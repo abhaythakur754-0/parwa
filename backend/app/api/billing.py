@@ -27,93 +27,92 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import Response
-from pydantic import BaseModel, Field
-
-from app.schemas.billing import (
-    SubscriptionCreate,
-    SubscriptionUpdate,
-    SubscriptionCancel,
-    SubscriptionInfo,
-    VariantType,
-    ProrationResult,
-    CompanyVariantCreate,
-    CompanyVariantList,
-    CompanyVariantInfo,
-    EffectiveLimitsInfo,
-    CancelFeedbackRequest,
-    SaveOfferResponse,
+from app.api.deps import require_roles
+from app.schemas.billing import (  # Day 6 schemas
+    BudgetAlert,
     CancelConfirmRequest,
-    ResubscriptionRequest,
-    ResubscriptionResponse,
-    RetentionStatusResponse,
+    CancelFeedbackRequest,
+    CompanyVariantCreate,
+    CompanyVariantInfo,
+    CompanyVariantList,
+    CurrencyResponse,
+    DashboardSummary,
     DataExportRequestResponse,
+    EffectiveLimitsInfo,
+    EnhancedInvoiceHistory,
+    EnterpriseBillingRequest,
+    InvoiceAmendmentInfo,
+    InvoiceAmendmentRequest,
+    ManualInvoiceRequest,
+    MessageResponse,
+    PauseResponse,
+    PaymentFailureStatusResponse,
     PaymentMethodUpdateRequest,
     PaymentMethodUpdateResponse,
-    PaymentFailureStatusResponse,
-    MessageResponse,
-    # Day 6 schemas
+    PaymentSchedule,
+    PlanComparison,
+    PromoApplyRequest,
+    PromoCodeCreateRequest,
+    PromoCodeInfo,
+    PromoValidateResponse,
+    ProrationResult,
+    ResubscriptionRequest,
+    ResubscriptionResponse,
+    ResumeResponse,
+    RetentionStatusResponse,
+    SaveOfferResponse,
+    SmsUsageInfo,
+    SpendingTrend,
+    SubscriptionCancel,
+    SubscriptionCreate,
+    SubscriptionInfo,
+    SubscriptionUpdate,
+    TimezoneResponse,
     TrialStartRequest,
     TrialStatusResponse,
-    PauseResponse,
-    ResumeResponse,
-    PromoApplyRequest,
-    PromoValidateResponse,
-    PromoCodeInfo,
-    PromoCodeCreateRequest,
-    CurrencyResponse,
-    TimezoneResponse,
-    EnterpriseBillingRequest,
-    ManualInvoiceRequest,
-    InvoiceAmendmentRequest,
-    InvoiceAmendmentInfo,
-    SpendingTrend,
-    BudgetAlert,
-    VoiceUsageInfo,
-    SmsUsageInfo,
-    DashboardSummary,
-    PlanComparison,
     VariantCatalog,
     VariantCatalogItem,
-    EnhancedInvoiceHistory,
-    PaymentSchedule,
-)
-from app.api.deps import require_roles
-from app.services.subscription_service import (
-    SubscriptionError,
-    SubscriptionNotFoundError,
-    SubscriptionAlreadyExistsError,
-    InvalidVariantError,
-    InvalidStatusTransitionError,
-    get_subscription_service,
-)
-from app.services.proration_service import (
-    get_proration_service,
-)
-from app.services.invoice_service import (
-    InvoiceNotFoundError,
-    InvoiceAccessDeniedError,
-    get_invoice_service,
+    VariantType,
+    VoiceUsageInfo,
 )
 from app.services.client_refund_service import (
     ClientRefundError,
     ClientRefundNotFoundError,
     get_client_refund_service,
 )
+from app.services.data_retention_service import (
+    DataExportInProgressError,
+    DataExportNotFoundError,
+    DataRetentionExpiredError,
+    DataRetentionService,
+)
+from app.services.invoice_service import (
+    InvoiceAccessDeniedError,
+    InvoiceNotFoundError,
+    get_invoice_service,
+)
 from app.services.overage_service import (
     get_overage_service,
+)
+from app.services.proration_service import (
+    get_proration_service,
+)
+from app.services.subscription_service import (
+    InvalidStatusTransitionError,
+    InvalidVariantError,
+    SubscriptionAlreadyExistsError,
+    SubscriptionError,
+    SubscriptionNotFoundError,
+    get_subscription_service,
 )
 from app.services.variant_addon_service import (
     VariantAddonError,
     get_variant_addon_service,
 )
-from app.services.data_retention_service import (
-    DataRetentionService,
-    DataExportNotFoundError,
-    DataRetentionExpiredError,
-    DataExportInProgressError,
-)
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
+
 from database.base import SessionLocal
 
 logger = logging.getLogger("parwa.api.billing")
@@ -1744,7 +1743,7 @@ async def get_trial_status(request: Request):
 @router.post("/pause", response_model=PauseResponse)
 async def pause_subscription(request: Request):
     """MF2: Pause subscription temporarily."""
-    from app.services.pause_service import get_pause_service, PauseError
+    from app.services.pause_service import PauseError, get_pause_service
 
     svc = get_pause_service()
     company_id = getattr(request.state, "company_id", None)
@@ -1764,7 +1763,7 @@ async def pause_subscription(request: Request):
 @router.post("/resume", response_model=ResumeResponse)
 async def resume_subscription(request: Request):
     """MF2: Resume a paused subscription."""
-    from app.services.pause_service import get_pause_service, NotPausedError
+    from app.services.pause_service import NotPausedError, get_pause_service
 
     svc = get_pause_service()
     company_id = getattr(request.state, "company_id", None)
@@ -1800,7 +1799,7 @@ async def get_pause_status(request: Request):
 @router.post("/apply-promo", response_model=MessageResponse)
 async def apply_promo_code(request: Request, body: PromoApplyRequest):
     """MF3: Apply a promo code."""
-    from app.services.promo_service import get_promo_service, PromoError
+    from app.services.promo_service import PromoError, get_promo_service
 
     svc = get_promo_service()
     company_id = getattr(request.state, "company_id", None)
@@ -1819,7 +1818,7 @@ async def apply_promo_code(request: Request, body: PromoApplyRequest):
 @router.get("/promo/validate/{code}", response_model=PromoValidateResponse)
 async def validate_promo_code(code: str, request: Request):
     """MF3: Validate a promo code without applying."""
-    from app.services.promo_service import get_promo_service, PromoError
+    from app.services.promo_service import PromoError, get_promo_service
 
     svc = get_promo_service()
     company_id = getattr(request.state, "company_id", None)
@@ -1958,7 +1957,7 @@ async def list_invoice_amendments(invoice_id: str, request: Request):
 @router.post("/admin/promo-codes", response_model=MessageResponse)
 async def create_promo_code(request: Request, body: PromoCodeCreateRequest):
     """MF3: Admin create promo code."""
-    from app.services.promo_service import get_promo_service, PromoError
+    from app.services.promo_service import PromoError, get_promo_service
 
     svc = get_promo_service()
     admin_id = getattr(request.state, "user_id", None)
@@ -2003,7 +2002,7 @@ async def list_promo_codes(request: Request):
 @router.patch("/admin/promo-codes/{promo_id}/deactivate")
 async def deactivate_promo_code(promo_id: str, request: Request):
     """MF3: Admin deactivate a promo code."""
-    from app.services.promo_service import get_promo_service, PromoError
+    from app.services.promo_service import PromoError, get_promo_service
 
     svc = get_promo_service()
     try:

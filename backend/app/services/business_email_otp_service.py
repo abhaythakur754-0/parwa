@@ -23,15 +23,15 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from app.core.email_renderer import render_email_template
+from app.exceptions import RateLimitError, ValidationError
+from app.logger import get_logger
+from app.services.email_service import send_email
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from app.logger import get_logger
-from app.exceptions import ValidationError, RateLimitError
-from app.services.email_service import send_email
-from app.core.email_renderer import render_email_template
-from shared.utils.security import constant_time_compare
 from database.models.business_email_otp import BusinessEmailOTP
+from shared.utils.security import constant_time_compare
 
 logger = get_logger("business_email_otp_service")
 

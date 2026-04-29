@@ -14,23 +14,22 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
-
 from app.api.deps import get_current_user, get_db, require_roles
 from app.schemas.sla import (
     SLAPolicyCreate,
-    SLAPolicyUpdate,
     SLAPolicyResponse,
-    SLATimerResponse,
+    SLAPolicyUpdate,
     SLAStats,
+    SLATimerResponse,
 )
 from app.services.sla_service import (
-    SLAService,
+    DuplicateSLAPolicyError,
     SLAError,
     SLAPolicyNotFoundError,
-    DuplicateSLAPolicyError,
+    SLAService,
 )
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session
 
 router = APIRouter(
     prefix="/sla",

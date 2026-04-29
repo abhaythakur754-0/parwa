@@ -24,56 +24,56 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock
 
 import pytest
-
-# ── Module imports ────────────────────────────────────────────────────────
-
-from app.core.state_serialization import (
-    StateSerializer,
-    StorageBackend,
-    _build_state_key,
-    _build_checkpoint_key,
-    _build_lock_key,
-    _build_checkpoint_index_key,
-    _safe_json_dumps,
-    _safe_json_loads,
-    StateSerializationError,
-)
-from app.core.langgraph_workflow import (
-    LangGraphWorkflow,
-    WorkflowConfig,
-    WorkflowStep,
-    WorkflowStepResult,
-    WorkflowResult,
-    VARIANT_PIPELINE_CONFIG,
-)
 from app.core.context_compression import (
-    ContextCompressor,
     CompressionConfig,
     CompressionInput,
+    CompressionLevel,
     CompressionOutput,
     CompressionStrategy,
-    CompressionLevel,
+    ContextCompressor,
 )
 from app.core.context_health import (
+    _MAX_HISTORY_LENGTH,
     ContextHealthMeter,
+    HealthAlertType,
     HealthConfig,
     HealthMetrics,
     HealthStatus,
-    HealthAlertType,
-    _MAX_HISTORY_LENGTH,
 )
 from app.core.gsd_engine import (
-    GSDEngine,
-    GSDConfig,
-    InvalidTransitionError,
-    EscalationCooldownError,
     FULL_TRANSITION_TABLE,
     MINI_TRANSITION_TABLE,
+    EscalationCooldownError,
+    GSDConfig,
+    GSDEngine,
+    InvalidTransitionError,
+)
+from app.core.langgraph_workflow import (
+    VARIANT_PIPELINE_CONFIG,
+    LangGraphWorkflow,
+    WorkflowConfig,
+    WorkflowResult,
+    WorkflowStep,
+    WorkflowStepResult,
+)
+from app.core.state_serialization import (
+    StateSerializationError,
+    StateSerializer,
+    StorageBackend,
+    _build_checkpoint_index_key,
+    _build_checkpoint_key,
+    _build_lock_key,
+    _build_state_key,
+    _safe_json_dumps,
+    _safe_json_loads,
 )
 from app.core.techniques.base import (
     ConversationState,
     GSDState,
 )
+
+# ── Module imports ────────────────────────────────────────────────────────
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # HELPERS

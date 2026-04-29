@@ -22,8 +22,8 @@ Usage:
 """
 
 import threading
-from contextvars import ContextVar
 from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Generator, Optional
 
 from app.logger import get_logger

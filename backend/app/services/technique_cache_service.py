@@ -9,15 +9,16 @@ BC-001: All queries filtered by company_id.
 BC-008: Graceful degradation on malformed JSON.
 """
 
-import json
 import hashlib
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from app.exceptions import ParwaBaseError
+
 from database.base import SessionLocal
 from database.models.variant_engine import TechniqueCache
-from app.exceptions import ParwaBaseError
 
 logger = logging.getLogger("parwa.technique_cache")
 

@@ -32,14 +32,14 @@ def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
         from app.core.signal_extraction import (  # noqa: F811,F401
             CURRENCY_TO_USD,
-            ExtractedSignals,
             INTENT_KEYWORDS,
             MONETARY_REGEX,
             NEGATIVE_WORDS,
             POSITIVE_WORDS,
+            TOPIC_CLUSTERS,
+            ExtractedSignals,
             SignalExtractionRequest,
             SignalExtractor,
-            TOPIC_CLUSTERS,
         )
 
         globals().update(

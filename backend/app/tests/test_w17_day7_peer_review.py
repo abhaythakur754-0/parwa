@@ -11,8 +11,9 @@ Building Codes tested:
 - BC-012: Error handling
 """
 
+from unittest.mock import MagicMock, Mock
+
 import pytest
-from unittest.mock import Mock, MagicMock
 
 # ─────────────────────────────────────────────────────────────────────────────
 # F-108: Peer Review Service Tests
@@ -37,9 +38,9 @@ class TestPeerReviewService:
     def test_escalation_constants_exist(self):
         """Test that escalation constants are properly defined."""
         from app.services.peer_review_service import (
-            ESCALATION_LOW_CONFIDENCE,
             ESCALATION_COMPLEX_QUERY,
             ESCALATION_CONFIDENCE_THRESHOLD,
+            ESCALATION_LOW_CONFIDENCE,
         )
 
         assert ESCALATION_LOW_CONFIDENCE == "low_confidence"
@@ -203,6 +204,9 @@ class TestFullTrainingPipeline:
         # Cold Start
         from app.services.cold_start_service import INDUSTRY_TEMPLATES
 
+        # Fallback Training
+        from app.services.fallback_training_service import RETRAINING_INTERVAL_DAYS
+
         # Mistake Threshold
         from app.services.mistake_threshold_service import MISTAKE_THRESHOLD
 
@@ -216,8 +220,6 @@ class TestFullTrainingPipeline:
 
         # Model Deployment
 
-        # Fallback Training
-        from app.services.fallback_training_service import RETRAINING_INTERVAL_DAYS
 
         # Peer Review
 
@@ -261,12 +263,12 @@ class TestFullTrainingPipeline:
     def test_escalation_reasons_complete(self):
         """Test escalation reasons are complete."""
         from app.services.peer_review_service import (
-            ESCALATION_LOW_CONFIDENCE,
             ESCALATION_COMPLEX_QUERY,
-            ESCALATION_POLICY_VIOLATION_RISK,
             ESCALATION_CUSTOMER_ESCALATION,
-            ESCALATION_UNCERTAINTY,
             ESCALATION_KNOWLEDGE_GAP,
+            ESCALATION_LOW_CONFIDENCE,
+            ESCALATION_POLICY_VIOLATION_RISK,
+            ESCALATION_UNCERTAINTY,
         )
 
         reasons = [
@@ -284,10 +286,10 @@ class TestFullTrainingPipeline:
     def test_agent_tiers_complete(self):
         """Test agent tiers are complete."""
         from app.services.peer_review_service import (
+            TIER_EXPERT,
             TIER_JUNIOR,
             TIER_MID,
             TIER_SENIOR,
-            TIER_EXPERT,
         )
 
         assert TIER_JUNIOR == "junior"

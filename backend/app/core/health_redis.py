@@ -13,9 +13,9 @@ This enables horizontal scaling of workers with shared health state.
 
 import logging
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
 
 import redis.asyncio as aioredis
 

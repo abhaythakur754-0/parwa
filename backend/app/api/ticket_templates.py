@@ -7,13 +7,13 @@ Endpoints for managing response templates/macros.
 import json
 from typing import Any, Dict, List, Optional
 
+from app.api.deps import get_current_user, get_db, require_roles
+from app.exceptions import NotFoundError, ValidationError
+from app.services.template_service import TemplateService
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, require_roles
-from app.exceptions import NotFoundError, ValidationError
-from app.services.template_service import TemplateService
 from database.models.core import User
 
 router = APIRouter(

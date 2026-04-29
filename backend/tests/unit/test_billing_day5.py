@@ -389,8 +389,8 @@ class TestRefundService:
     def test_cooling_off_refund_expired_window(self, mock_session_cls):
         """RF4: Cooling-off refund after 24h should raise CoolingOffExpiredError."""
         from app.services.refund_service import (
-            get_refund_service,
             CoolingOffExpiredError,
+            get_refund_service,
         )
 
         mock_db = MagicMock()

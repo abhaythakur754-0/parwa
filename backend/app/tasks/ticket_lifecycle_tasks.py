@@ -12,9 +12,9 @@ Celery tasks for:
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from app.core.tenant_context import TenantContext
 from celery import shared_task
 
-from app.core.tenant_context import TenantContext
 from database.base import get_db
 from database.models.tickets import Ticket
 

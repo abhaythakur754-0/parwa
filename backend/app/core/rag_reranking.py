@@ -33,11 +33,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from app.logger import get_logger
 from app.core.rag_retrieval import (
     RAGChunk,
     RAGResult,
 )
+from app.logger import get_logger
 
 logger = get_logger("rag_reranking")
 

@@ -15,14 +15,14 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
+from app.exceptions import (
+    AuthorizationError,
+    NotFoundError,
+    ValidationError,
+)
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from app.exceptions import (
-    NotFoundError,
-    AuthorizationError,
-    ValidationError,
-)
 from database.models.tickets import (
     Ticket,
     TicketInternalNote,

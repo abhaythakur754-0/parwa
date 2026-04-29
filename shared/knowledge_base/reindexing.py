@@ -102,7 +102,7 @@ class ReindexingService:
     CACHE_TTL_SECONDS = 120
 
     def __init__(self, vector_store=None):
-        from shared.knowledge_base.vector_search import VectorStore, MockVectorStore
+        from shared.knowledge_base.vector_search import MockVectorStore, VectorStore
 
         self._store = vector_store
 

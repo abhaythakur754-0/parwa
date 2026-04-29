@@ -7,30 +7,30 @@ SaveResult, key builders, utility functions, and StateSerializer class.
 """
 
 import json
-import pytest
-from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from app.core.state_serialization import (
-    StateSerializationError,
-    SnapshotType,
-    StorageBackend,
-    StateSerializerConfig,
-    StateDiff,
     CheckpointMeta,
-    StateHistoryEntry,
     SaveResult,
+    SnapshotType,
+    StateDiff,
+    StateHistoryEntry,
+    StateSerializationError,
     StateSerializer,
-    _build_state_key,
-    _build_checkpoint_key,
+    StateSerializerConfig,
+    StorageBackend,
     _build_checkpoint_index_key,
+    _build_checkpoint_key,
     _build_lock_key,
-    _utcnow,
+    _build_state_key,
     _new_uuid,
-    _serialize_enum,
+    _safe_json,
     _safe_json_dumps,
     _safe_json_loads,
-    _safe_json,
+    _serialize_enum,
+    _utcnow,
 )
 from app.core.techniques.base import (
     ConversationState,

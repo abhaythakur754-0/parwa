@@ -25,8 +25,8 @@ Building Codes:
 """
 
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, List
+from datetime import datetime, timedelta, timezone
+from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -91,7 +91,7 @@ class FallbackTrainingService:
             List of agents with retraining eligibility info.
         """
         from database.models.agent import Agent
-        from database.models.training import TrainingRun, AgentMistake
+        from database.models.training import AgentMistake, TrainingRun
 
         # Get all active agents
         agents = (
@@ -490,7 +490,7 @@ class FallbackTrainingService:
         Returns:
             Dict with effectiveness metrics.
         """
-        from database.models.training import TrainingRun, AgentMistake
+        from database.models.training import AgentMistake, TrainingRun
 
         query = self.db.query(TrainingRun).filter(
             TrainingRun.company_id == company_id,

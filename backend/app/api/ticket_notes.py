@@ -16,15 +16,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Dict, List, Optional
 
+from app.api.deps import get_company_id, get_current_user, get_db, require_roles
+from app.core.event_emitter import emit_event
+from app.exceptions import AuthorizationError, NotFoundError, ValidationError
+from app.services.internal_note_service import InternalNoteService
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as http_status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-
-from app.api.deps import get_db, get_current_user, get_company_id, require_roles
-from app.services.internal_note_service import InternalNoteService
-from app.exceptions import NotFoundError, ValidationError, AuthorizationError
-from app.core.event_emitter import emit_event
 
 router = APIRouter(
     prefix="/tickets",

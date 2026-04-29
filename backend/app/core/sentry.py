@@ -32,11 +32,11 @@ def init_sentry() -> bool:
 
     try:
         import sentry_sdk
-        from sentry_sdk.integrations.fastapi import FastApiIntegration
-        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
-        from sentry_sdk.integrations.redis import RedisIntegration
         from sentry_sdk.integrations.celery import CeleryIntegration
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
         from sentry_sdk.integrations.logging import LoggingIntegration
+        from sentry_sdk.integrations.redis import RedisIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
         sentry_sdk.init(
             dsn=dsn,

@@ -21,6 +21,8 @@ ContextCompressor = CompressionConfig = CompressionInput = CompressionOutput = (
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
         from app.core.context_compression import (  # noqa: F811,F401
+            _COMPRESSION_TTL_SECONDS,
+            _VARIANT_COMPRESSION_LEVELS,
             CompressionConfig,
             CompressionInput,
             CompressionLevel,
@@ -28,8 +30,6 @@ def _mock_logger():
             CompressionStrategy,
             ContextCompressionError,
             ContextCompressor,
-            _COMPRESSION_TTL_SECONDS,
-            _VARIANT_COMPRESSION_LEVELS,
         )
 
         globals().update(

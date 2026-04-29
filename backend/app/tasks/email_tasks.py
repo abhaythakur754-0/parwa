@@ -366,8 +366,9 @@ def send_outbound_reply(
     Retries with exponential backoff.
     """
     try:
-        from database.session import get_db_session
         from app.services.outbound_email_service import OutboundEmailService
+
+        from database.session import get_db_session
 
         db = get_db_session()
         try:
@@ -426,8 +427,8 @@ def _update_outbound_status(
     if not outbound_email_id:
         return
     try:
-        from database.session import get_db_session
         from database.models.outbound_email import OutboundEmail
+        from database.session import get_db_session
 
         db = get_db_session()
         try:

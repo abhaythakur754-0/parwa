@@ -9,28 +9,28 @@ pipeline, company isolation (BC-001), and error fallback (BC-008).
 Target: 80+ tests.
 """
 
-import pytest
 from unittest.mock import patch
 
-from app.core.technique_router import TechniqueID, QuerySignals
+import pytest
+from app.core.technique_router import QuerySignals, TechniqueID
 from app.core.techniques.base import (
     BaseTechniqueNode,
     ConversationState,
 )
 from app.core.techniques.gst import (
-    GSTConfig,
-    GSTNode,
-    GSTProcessor,
-    GSTCheckpoint,
-    GSTOption,
-    GSTResult,
-    DecisionScope,
-    RiskCategory,
-    RiskSeverity,
+    _DEFAULT_WEIGHTS,
+    _SCOPE_CONSTRAINTS,
     _SCOPE_OPTIONS,
     _SCOPE_STAKEHOLDERS,
-    _SCOPE_CONSTRAINTS,
-    _DEFAULT_WEIGHTS,
+    DecisionScope,
+    GSTCheckpoint,
+    GSTConfig,
+    GSTNode,
+    GSTOption,
+    GSTProcessor,
+    GSTResult,
+    RiskCategory,
+    RiskSeverity,
 )
 
 # ── Fixtures ────────────────────────────────────────────────────────

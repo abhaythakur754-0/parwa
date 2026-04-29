@@ -16,9 +16,6 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
-
 from app.api.deps import get_current_user, get_db, require_roles
 from app.schemas.bulk_action import (
     BulkActionRequest,
@@ -26,12 +23,14 @@ from app.schemas.bulk_action import (
     BulkActionType,
 )
 from app.services.bulk_action_service import (
-    BulkActionService,
+    BulkActionAlreadyUndoneError,
     BulkActionError,
     BulkActionNotFoundError,
-    BulkActionAlreadyUndoneError,
+    BulkActionService,
     BulkActionUndoExpiredError,
 )
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session
 
 router = APIRouter(
     prefix="/tickets/bulk",

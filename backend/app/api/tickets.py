@@ -18,36 +18,35 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy.orm import Session
-
 from app.api.deps import get_current_user, get_db, require_roles
-from app.exceptions import NotFoundError, AuthorizationError, ValidationError
-from app.services.ticket_service import TicketService
-from app.services.priority_service import PriorityService
-from app.services.category_service import CategoryService
-from app.services.attachment_service import AttachmentService
-from app.services.pii_scan_service import PIIScanService
+from app.exceptions import AuthorizationError, NotFoundError, ValidationError
 from app.schemas.ticket import (
-    TicketCreate,
-    TicketUpdate,
-    TicketResponse,
-    TicketListResponse,
-    TicketStatusUpdate,
-    TicketAssign,
-    TicketStatusUpdateResponse,
-    TicketAssignResponse,
-    TicketBulkStatusUpdate,
-    TicketBulkAssign,
-    TicketBulkOperationResponse,
-    TicketResolveWithShadowRequest,
-    TicketResolveWithShadowResponse,
     TicketApproveResolutionRequest,
     TicketApproveResolutionResponse,
+    TicketAssign,
+    TicketAssignResponse,
+    TicketBulkAssign,
+    TicketBulkOperationResponse,
+    TicketBulkStatusUpdate,
+    TicketCreate,
+    TicketListResponse,
+    TicketResolveWithShadowRequest,
+    TicketResolveWithShadowResponse,
+    TicketResponse,
+    TicketShadowDetailsResponse,
+    TicketStatusUpdate,
+    TicketStatusUpdateResponse,
     TicketUndoResolutionRequest,
     TicketUndoResolutionResponse,
-    TicketShadowDetailsResponse,
+    TicketUpdate,
 )
+from app.services.attachment_service import AttachmentService
+from app.services.category_service import CategoryService
+from app.services.pii_scan_service import PIIScanService
+from app.services.priority_service import PriorityService
+from app.services.ticket_service import TicketService
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy.orm import Session
 
 router = APIRouter(
     prefix="/tickets",

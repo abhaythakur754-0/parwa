@@ -29,11 +29,12 @@ def _mock_logger():
         from app.core.rag_retrieval import (  # noqa: F811,F401
             CACHE_TTL_SECONDS,
             QUERY_SYNONYMS,
+            VARIANT_CONFIG,
             RAGChunk,
             RAGResult,
             RAGRetriever,
-            VARIANT_CONFIG,
         )
+
         from shared.knowledge_base.vector_search import (  # noqa: F811,F401
             MockVectorStore,
             SearchResult,

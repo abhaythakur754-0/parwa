@@ -9,11 +9,12 @@ Tests:
 - Checkpoint management
 """
 
-import pytest
 import os
 from datetime import datetime, timezone
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
 from uuid import uuid4
+
+import pytest
 
 # ══════════════════════════════════════════════════════════════════════════
 # F-103: Dataset Preparation Service Tests
@@ -259,9 +260,9 @@ class TestGPUProviderService:
     def test_gpu_cost_mapping(self):
         """Test GPU cost mapping."""
         from app.services.gpu_provider_service import (
+            GPU_A100,
             GPU_COSTS,
             GPU_T4,
-            GPU_A100,
             GPU_V100,
         )
 

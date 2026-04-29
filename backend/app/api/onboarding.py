@@ -16,28 +16,28 @@ BC-001: All operations scoped to authenticated user's company_id.
 
 from typing import List
 
-from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
-
 from app.api.deps import get_current_user
+from app.core.cold_start_service import get_cold_start_service
 from app.schemas.onboarding import (
-    LegalConsentRequest,
-    LegalConsentResponse,
     AIConfigRequest,
     AIConfigResponse,
+    LegalConsentRequest,
+    LegalConsentResponse,
     MessageResponse,
     StepCompleteResponse,
 )
 from app.services.onboarding_service import (
-    complete_step,
     accept_legal_consents,
     activate_ai,
-    get_first_victory_status,
     complete_first_victory,
+    complete_step,
+    get_first_victory_status,
 )
 from app.services.user_details_service import check_ai_activation_prerequisites
-from app.core.cold_start_service import get_cold_start_service
+from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
 from database.base import get_db
 from database.models.core import User
 

@@ -108,6 +108,7 @@ def _recover_company_webhooks(company_id: str, subscription_id: str) -> int:
     Returns count of recovered events.
     """
     from app.clients.paddle_client import get_paddle_client
+
     from database.base import SessionLocal
     from database.models.billing_extended import WebhookSequence
 
@@ -176,9 +177,9 @@ def _process_recovered_event(company_id: str, event: dict) -> None:
     """Process a recovered webhook event."""
     from app.services.webhook_ordering_service import (
         get_or_create_webhook_sequence,
-        mark_sequence_processing,
-        mark_sequence_processed,
         mark_sequence_failed,
+        mark_sequence_processed,
+        mark_sequence_processing,
     )
     from app.webhooks.paddle_handler import handle_paddle_event
 
@@ -358,11 +359,11 @@ def process_pending_events(self, company_id: str):
     logger.info("pending_events_processing_started company_id=%s", company_id)
 
     from app.services.webhook_ordering_service import (
-        get_pending_events_ordered,
-        mark_sequence_processing,
-        mark_sequence_processed,
-        mark_sequence_failed,
         get_next_processing_order,
+        get_pending_events_ordered,
+        mark_sequence_failed,
+        mark_sequence_processed,
+        mark_sequence_processing,
     )
     from app.webhooks.paddle_handler import handle_paddle_event
 

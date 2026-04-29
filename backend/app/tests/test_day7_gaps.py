@@ -24,17 +24,10 @@ Parent: Week 9 Day 7 (Sunday)
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from app.core.rag_retrieval import (
+    VARIANT_CONFIG,
     RAGResult,
     RAGRetriever,
-    VARIANT_CONFIG,
-)
-from app.core.sentiment_engine import (
-    FrustrationDetector,
-    SentimentAnalyzer,
-    UrgencyLevel,
-    UrgencyScorer,
 )
 from app.core.response_formatters import (
     BoldFormatter,
@@ -42,11 +35,18 @@ from app.core.response_formatters import (
     FormattingContext,
     SignatureFormatter,
 )
+from app.core.sentiment_engine import (
+    FrustrationDetector,
+    SentimentAnalyzer,
+    UrgencyLevel,
+    UrgencyScorer,
+)
 from app.services.sentiment_technique_mapper import (
     SentimentTechniqueMapper,
 )
-from shared.knowledge_base.vector_search import MockVectorStore
+
 from shared.knowledge_base.reindexing import ReindexingManager
+from shared.knowledge_base.vector_search import MockVectorStore
 
 # =========================================================================
 # GAP 1 (HIGH): RAG Empty Query Validation — BC-008

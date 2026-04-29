@@ -5,18 +5,18 @@ Implementation of the EmailProvider interface for any SMTP server.
 """
 
 import smtplib
+from email import encoders
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
 from typing import Any, Dict
 
 from app.providers.base import (
-    EmailProvider,
     EmailMessage,
+    EmailProvider,
+    ProviderCapability,
     ProviderResult,
     ProviderStatus,
-    ProviderCapability,
 )
 
 

@@ -24,15 +24,15 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, Query, Request, HTTPException
-from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
-
-from app.api.deps import get_current_user, get_company_id
+from app.api.deps import get_company_id, get_current_user
 from app.logger import get_logger
+from app.services import jarvis_production_service as jps
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
 from database.base import get_db
 from database.models.core import User
-from app.services import jarvis_production_service as jps
 
 logger = get_logger("jarvis_production_api")
 

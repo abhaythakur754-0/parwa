@@ -416,9 +416,10 @@ class LangGraphWorkflow:
         when langgraph is not installed (BC-008).
         """
         try:
-            from langgraph.graph import StateGraph, END
-            from typing import TypedDict, Annotated
             import operator
+            from typing import Annotated, TypedDict
+
+            from langgraph.graph import END, StateGraph
 
             # Define the graph state schema
             class WorkflowState(TypedDict):
@@ -1239,8 +1240,8 @@ class LangGraphWorkflow:
     ) -> Tuple[Dict[str, Any], int]:
         """Use SignalExtractor for real signal extraction."""
         from app.core.signal_extraction import (
-            SignalExtractor,
             SignalExtractionRequest,
+            SignalExtractor,
         )
 
         extractor = SignalExtractor()
@@ -1269,8 +1270,8 @@ class LangGraphWorkflow:
         frustration (inverted: low sentiment = high frustration).
         """
         from app.core.technique_router import (
-            TechniqueRouter,
             QuerySignals,
+            TechniqueRouter,
         )
 
         # Build QuerySignals from classify & extract_signals results
@@ -1333,8 +1334,8 @@ class LangGraphWorkflow:
     ) -> Tuple[Dict[str, Any], int]:
         """Use ContextCompressor for real context compression."""
         from app.core.context_compression import (
-            ContextCompressor,
             CompressionInput,
+            ContextCompressor,
         )
 
         compressor = ContextCompressor()
@@ -1380,8 +1381,8 @@ class LangGraphWorkflow:
     ) -> Tuple[Dict[str, Any], int]:
         """Use SmartRouter for real LLM response generation."""
         from app.core.smart_router import (
-            SmartRouter,
             AtomicStepType,
+            SmartRouter,
         )
 
         router = SmartRouter()

@@ -599,9 +599,9 @@ class TestTechniqueRouter:
     def test_plan_based_availability(self):
         """Free plan should only get Tier 1 techniques."""
         from app.core.technique_router import (
-            TechniqueRouter,
-            TechniqueID,
             QuerySignals,
+            TechniqueID,
+            TechniqueRouter,
         )
 
         router = TechniqueRouter(
@@ -628,7 +628,7 @@ class TestPackageCompatibility:
 
     def test_langgraph_import(self):
         """langgraph should be importable."""
-        from langgraph.graph import StateGraph, END
+        from langgraph.graph import END, StateGraph
 
         assert StateGraph is not None
         assert END is not None
@@ -647,9 +647,9 @@ class TestPackageCompatibility:
 
     def test_all_three_together(self):
         """All three should coexist without conflicts."""
-        from langgraph.graph import StateGraph
         import dspy
         import litellm
+        from langgraph.graph import StateGraph
 
         assert StateGraph is not None and dspy is not None and litellm is not None
 
@@ -683,7 +683,7 @@ class TestGSDEngine:
 
     def test_gsd_technique_registered(self):
         """GSD should be registered as Tier 1 technique."""
-        from app.core.technique_router import TechniqueID, TECHNIQUE_REGISTRY
+        from app.core.technique_router import TECHNIQUE_REGISTRY, TechniqueID
 
         assert TechniqueID.GSD in TECHNIQUE_REGISTRY
         assert TECHNIQUE_REGISTRY[TechniqueID.GSD].tier.value == "tier_1"
@@ -744,8 +744,8 @@ class TestCLARAQualityGate:
     def test_clara_registered_as_tier1(self):
         """CLARA should be Tier 1 always-active technique."""
         from app.core.technique_router import (
-            TechniqueID,
             TECHNIQUE_REGISTRY,
+            TechniqueID,
             TechniqueTier,
         )
 
@@ -827,8 +827,8 @@ class TestFullPipelineIntegration:
     @pytest.mark.asyncio
     async def test_signal_to_classification_pipeline(self):
         """Signal extraction output should feed into classification."""
-        from app.core.signal_extraction import SignalExtractor, SignalExtractionRequest
         from app.core.classification_engine import ClassificationEngine
+        from app.core.signal_extraction import SignalExtractionRequest, SignalExtractor
 
         extractor = SignalExtractor()
         engine = ClassificationEngine(smart_router=None)
@@ -860,7 +860,7 @@ class TestFullPipelineIntegration:
         Tests specific trigger rules with a focused scenario that fits
         within budget constraints. Uses heavy budget (3000 tokens).
         """
-        from app.core.technique_router import TechniqueRouter, QuerySignals, TechniqueID
+        from app.core.technique_router import QuerySignals, TechniqueID, TechniqueRouter
 
         # Use heavy budget (3000 tokens)
         router = TechniqueRouter(model_tier="heavy")
@@ -915,7 +915,7 @@ class TestFullPipelineIntegration:
     @pytest.mark.asyncio
     async def test_smart_router_to_workflow_integration(self):
         """Smart Router decisions should be compatible with workflow steps."""
-        from app.core.smart_router import SmartRouter, AtomicStepType
+        from app.core.smart_router import AtomicStepType, SmartRouter
 
         router = SmartRouter()
 
@@ -947,8 +947,9 @@ class TestTenantIsolation:
 
     def test_smart_router_route_company_id_first(self):
         """SmartRouter.route should have company_id as first param."""
-        from app.core.smart_router import SmartRouter
         import inspect
+
+        from app.core.smart_router import SmartRouter
 
         sig = inspect.signature(SmartRouter.route)
         params = list(sig.parameters.keys())
@@ -957,8 +958,9 @@ class TestTenantIsolation:
 
     def test_workflow_execute_company_id_first(self):
         """LangGraphWorkflow.execute should have company_id as first param."""
-        from app.core.langgraph_workflow import LangGraphWorkflow
         import inspect
+
+        from app.core.langgraph_workflow import LangGraphWorkflow
 
         sig = inspect.signature(LangGraphWorkflow.execute)
         params = list(sig.parameters.keys())
@@ -967,8 +969,9 @@ class TestTenantIsolation:
 
     def test_classification_company_id_present(self):
         """ClassificationEngine.classify should accept company_id."""
-        from app.core.classification_engine import ClassificationEngine
         import inspect
+
+        from app.core.classification_engine import ClassificationEngine
 
         sig = inspect.signature(ClassificationEngine.classify)
         params = list(sig.parameters.keys())
@@ -976,8 +979,9 @@ class TestTenantIsolation:
 
     def test_signal_extraction_request_has_company_id(self):
         """SignalExtractionRequest should have company_id field."""
-        from app.core.signal_extraction import SignalExtractionRequest
         import dataclasses
+
+        from app.core.signal_extraction import SignalExtractionRequest
 
         fields = [f.name for f in dataclasses.fields(SignalExtractionRequest)]
         assert "company_id" in fields

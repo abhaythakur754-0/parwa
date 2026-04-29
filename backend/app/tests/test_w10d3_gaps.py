@@ -15,13 +15,13 @@ import threading
 import time
 from unittest.mock import MagicMock
 
-from app.core.technique_metrics import TechniqueMetricsCollector
-from app.core.technique_caching import TechniqueCache
-from app.core.per_tenant_config import TenantConfigManager
-from app.core.state_migration import StateMigrator
-from app.core.shared_gsd import SharedGSDManager
 from app.core.capacity_monitor import CapacityMonitor
 from app.core.dspy_integration import DSPyIntegration, StubModule, StubOptimizer
+from app.core.per_tenant_config import TenantConfigManager
+from app.core.shared_gsd import SharedGSDManager
+from app.core.state_migration import StateMigrator
+from app.core.technique_caching import TechniqueCache
+from app.core.technique_metrics import TechniqueMetricsCollector
 
 # ═══════════════════════════════════════════════════════════════════
 # MODULE 1: technique_metrics.py (Gaps 1-8)

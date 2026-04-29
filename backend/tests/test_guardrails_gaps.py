@@ -56,40 +56,40 @@ sanitize_query = None  # type: ignore[assignment,misc]
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
         from app.core.confidence_scoring_engine import (  # noqa: F401
-            ConfidenceScoringEngine,
             ConfidenceConfig,
             ConfidenceResult,
-            SignalScore,
+            ConfidenceScoringEngine,
             SignalName,
+            SignalScore,
         )
         from app.core.guardrails_engine import (  # noqa: F401
-            GuardrailsEngine,
-            GuardrailConfig,
-            GuardrailResult,
-            GuardrailsReport,
-            GuardrailLayer,
-            GuardAction,
-            SeverityLevel,
-            StrictnessLevel,
-            _build_config,
+            ConfidenceGateGuard,
             ContentSafetyGuard,
-            TopicRelevanceGuard,
+            GuardAction,
+            GuardrailConfig,
+            GuardrailLayer,
+            GuardrailResult,
+            GuardrailsEngine,
+            GuardrailsReport,
             HallucinationCheckGuard,
-            PolicyComplianceGuard,
-            ToneValidationGuard,
             LengthControlGuard,
             PIILeakGuard,
-            ConfidenceGateGuard,
+            PolicyComplianceGuard,
+            SeverityLevel,
+            StrictnessLevel,
+            ToneValidationGuard,
+            TopicRelevanceGuard,
+            _build_config,
         )
         from app.core.hallucination_detector import (  # noqa: F401
             HallucinationDetector,
-            HallucinationReport,
             HallucinationMatch,
+            HallucinationReport,
         )
         from app.core.prompt_injection_defense import (  # noqa: F401
-            PromptInjectionDetector,
-            InjectionScanResult,
             InjectionMatch,
+            InjectionScanResult,
+            PromptInjectionDetector,
             sanitize_query,
         )
 

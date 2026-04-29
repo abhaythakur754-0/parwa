@@ -22,27 +22,27 @@ INTEGRATIONS:
 - AI: Personalized greetings via z-ai-web-dev-sdk
 """
 
-import os
 import json
+import os
 import threading
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
-
-from sqlalchemy.orm import Session
-from sqlalchemy import select, and_
-from sqlalchemy.exc import IntegrityError
+from typing import Any, Dict, List, Optional
 
 from app.exceptions import ValidationError
 from app.logger import get_logger
 from app.services.user_details_service import check_ai_activation_prerequisites
 from app.tasks.knowledge_tasks import process_knowledge_document
+from sqlalchemy import and_, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from database.models.core import Company, User
 from database.models.onboarding import (
-    OnboardingSession,
-    KnowledgeDocument,
     ConsentRecord,
+    KnowledgeDocument,
+    OnboardingSession,
 )
 from database.models.user_details import UserDetails
-from database.models.core import User, Company
 
 logger = get_logger("onboarding_service")
 
@@ -81,8 +81,9 @@ def _send_onboarding_sms(phone: str, company_name: str, ai_name: str) -> bool:
             return False
 
         # Simple notification via environment Twilio config
-        import httpx
         import base64
+
+        import httpx
 
         account_sid = os.environ.get("TWILIO_ACCOUNT_SID", "")
         auth_token = os.environ.get("TWILIO_AUTH_TOKEN", "")

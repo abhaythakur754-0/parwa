@@ -5,16 +5,16 @@ Covers filler elimination, compression, redundancy removal,
 token budget enforcement, full pipeline, and edge cases.
 """
 
-import pytest
 from unittest.mock import patch
 
+import pytest
 from app.core.techniques.crp import (
+    _COMPRESSION_RULES,
+    _RESERVED_PHRASES,
+    DEFAULT_FILLERS,
     CRPConfig,
     CRPProcessor,
     CRPResult,
-    DEFAULT_FILLERS,
-    _COMPRESSION_RULES,
-    _RESERVED_PHRASES,
 )
 
 # ── Fixtures ────────────────────────────────────────────────────────

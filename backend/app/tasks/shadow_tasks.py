@@ -531,9 +531,11 @@ def aggregate_shadow_stats() -> Dict[str, Any]:
 
     try:
         import json
+
+        from app.services.shadow_mode_service import ShadowModeService
+
         from database.base import SessionLocal
         from database.models.core import Company
-        from app.services.shadow_mode_service import ShadowModeService
 
         with SessionLocal() as db:
             companies = db.query(Company).filter(Company.system_mode.isnot(None)).all()

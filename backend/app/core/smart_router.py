@@ -2010,7 +2010,6 @@ class SmartRouter:
     ) -> dict:
         """Call OpenAI-compatible API -- Cerebras or Groq (async)."""
         import aiohttp
-
         from app.config import get_settings
 
         settings = get_settings()

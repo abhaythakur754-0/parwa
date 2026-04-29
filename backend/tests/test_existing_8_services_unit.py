@@ -19,8 +19,9 @@ and verifying the jarvis helper function interacts with it correctly.
 Run:  pytest tests/test_existing_8_services_unit.py -v
 """
 
-import json
 import concurrent.futures
+import importlib.util
+import json
 import os
 import sys
 import types
@@ -32,7 +33,6 @@ import pytest
 # Module import — use same approach as test_jarvis_behavioral_before_after.py
 # ---------------------------------------------------------------------------
 
-import importlib.util
 
 # Create mock modules for database and app layers
 _mock_db = types.ModuleType("database")

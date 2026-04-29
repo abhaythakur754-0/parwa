@@ -1,44 +1,11 @@
 """PARWA Pydantic schemas package."""
 
 # Ticket schemas - Day 25
-from app.schemas.ticket import (
-    TicketCreate,
-    TicketUpdate,
-    TicketResponse,
-    TicketListResponse,
-    TicketFilter,
-    TicketStatusUpdate,
-    TicketAssign,
-    TicketBulkStatusUpdate,
-    TicketBulkAssign,
-)
-
-# Ticket message schemas - Day 25
-from app.schemas.ticket_message import (
-    MessageCreate,
-    MessageUpdate,
-    MessageResponse,
-    AttachmentUpload,
-    AttachmentResponse,
-    MessageWithAttachmentsCreate,
-    MessageWithAttachmentsResponse,
-)
-
-# SLA schemas - Day 25
-from app.schemas.sla import (
-    SLAPolicyCreate,
-    SLAPolicyUpdate,
-    SLAPolicyResponse,
-    SLATimerResponse,
-    SLABreachAlert,
-    SLAStats,
-)
-
 # Assignment schemas - Day 25
 from app.schemas.assignment import (
     AssignmentRuleCreate,
-    AssignmentRuleUpdate,
     AssignmentRuleResponse,
+    AssignmentRuleUpdate,
     AssignmentScore,
     TicketAssignmentResponse,
 )
@@ -49,34 +16,66 @@ from app.schemas.bulk_action import (
     BulkActionResponse,
     BulkActionUndo,
     TicketMergeRequest,
-    TicketUnmergeRequest,
     TicketMergeResponse,
-)
-
-# Notification schemas - Day 25
-from app.schemas.notification import (
-    NotificationTemplateCreate,
-    NotificationTemplateUpdate,
-    NotificationTemplateResponse,
-    NotificationPreferenceUpdate,
-    NotificationSendRequest,
-    NotificationSendResponse,
+    TicketUnmergeRequest,
 )
 
 # Customer schemas - Day 25
 from app.schemas.customer import (
-    CustomerCreate,
-    CustomerUpdate,
-    CustomerResponse,
-    CustomerMergeRequest,
-    IdentityMatchRequest,
-    IdentityMatchResponse,
     CustomerChannelCreate,
     CustomerChannelResponse,
+    CustomerCreate,
+    CustomerMergeRequest,
+    CustomerResponse,
+    CustomerUpdate,
+    IdentityMatchRequest,
+    IdentityMatchResponse,
+)
+
+# Notification schemas - Day 25
+from app.schemas.notification import (
+    NotificationPreferenceUpdate,
+    NotificationSendRequest,
+    NotificationSendResponse,
+    NotificationTemplateCreate,
+    NotificationTemplateResponse,
+    NotificationTemplateUpdate,
 )
 
 # Existing schemas - using correct class names
 from app.schemas.pagination import PaginatedResponseSchema
+
+# SLA schemas - Day 25
+from app.schemas.sla import (
+    SLABreachAlert,
+    SLAPolicyCreate,
+    SLAPolicyResponse,
+    SLAPolicyUpdate,
+    SLAStats,
+    SLATimerResponse,
+)
+from app.schemas.ticket import (
+    TicketAssign,
+    TicketBulkAssign,
+    TicketBulkStatusUpdate,
+    TicketCreate,
+    TicketFilter,
+    TicketListResponse,
+    TicketResponse,
+    TicketStatusUpdate,
+    TicketUpdate,
+)
+
+# Ticket message schemas - Day 25
+from app.schemas.ticket_message import (
+    AttachmentResponse,
+    AttachmentUpload,
+    MessageCreate,
+    MessageResponse,
+    MessageUpdate,
+    MessageWithAttachmentsCreate,
+    MessageWithAttachmentsResponse,
+)
 
 # Alias for backward compatibility
 PaginatedResponse = PaginatedResponseSchema

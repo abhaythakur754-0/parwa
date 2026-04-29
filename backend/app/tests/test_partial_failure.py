@@ -19,18 +19,18 @@ Comprehensive unit tests for PartialFailureHandler covering:
 - Edge cases
 """
 
-import pytest
 import threading
 
+import pytest
 from app.core.partial_failure import (
+    DegradationLevel,
     PartialFailureHandler,
     PipelineContext,
-    PipelineStageStatus,
-    DegradationLevel,
     PipelineFinalStatus,
+    PipelineStageStatus,
     StageFailure,
-    _count_failures,
     _count_all_non_success,
+    _count_failures,
 )
 
 # ═══════════════════════════════════════════════════════════════════

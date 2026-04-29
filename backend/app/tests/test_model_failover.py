@@ -13,15 +13,15 @@ Covers:
 from __future__ import annotations
 
 import time
-import pytest
 
+import pytest
 from app.core.model_failover import (
-    FailoverManager,
-    FailoverChainExecutor,
+    FAILOVER_CHAINS,
     DegradedResponseDetector,
+    FailoverChainExecutor,
+    FailoverManager,
     FailoverReason,
     ProviderState,
-    FAILOVER_CHAINS,
 )
 
 # ── Fixtures ─────────────────────────────────────────────────────

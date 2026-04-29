@@ -302,10 +302,11 @@ def process_shopify_webhook(
             pass
 
 
+import app.webhooks.brevo_handler  # noqa: E402, F401
+
 # ── Provider handlers now use registry (Day 23) ──────────
 # Import handlers to register them with the registry.
 # Actual processing is in backend.app.webhooks.{provider}_handler
 import app.webhooks.paddle_handler  # noqa: E402, F401
-import app.webhooks.brevo_handler  # noqa: E402, F401
-import app.webhooks.twilio_handler  # noqa: E402, F401
 import app.webhooks.shopify_handler  # noqa: E402, F401
+import app.webhooks.twilio_handler  # noqa: E402, F401

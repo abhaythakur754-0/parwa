@@ -6,8 +6,9 @@ all 7 detection layers, _determine_action logic, InjectionDefenseService,
 BC-008 graceful failure.
 """
 
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 # ══════════════════════════════════════════════════════════════════
 # Utility Function Tests

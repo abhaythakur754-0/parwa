@@ -12,8 +12,9 @@ import pytest
 
 # ── Mock external dependencies before importing source ────────────
 with patch("app.logger.get_logger", return_value=MagicMock()):
-    from app.core.rag_retrieval import RAGChunk, RAGResult
     from app.core.rag_reranking import (
+        _CHARS_PER_TOKEN,
+        VARIANT_RERANK_CONFIG,
         AssembledContext,
         Citation,
         CitationTracker,
@@ -22,9 +23,8 @@ with patch("app.logger.get_logger", return_value=MagicMock()):
         MetadataFilter,
         QueryRewriter,
         RerankStrategy,
-        VARIANT_RERANK_CONFIG,
-        _CHARS_PER_TOKEN,
     )
+    from app.core.rag_retrieval import RAGChunk, RAGResult
 
 
 # ── Helpers ────────────────────────────────────────────────────────

@@ -17,15 +17,15 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.logger import get_logger
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.logger import get_logger
 from database.models.tickets import (
-    Ticket,
-    TicketFeedback,
-    TicketAssignment,
     SLATimer,
+    Ticket,
+    TicketAssignment,
+    TicketFeedback,
 )
 
 logger = get_logger("analytics_intelligence_service")

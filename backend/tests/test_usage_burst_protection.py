@@ -29,14 +29,14 @@ def _mock_logger_and_lock():
         _svc_mod.threading.Lock = _svc_mod.threading.RLock
         try:
             from app.services.usage_burst_protection import (
-                BurstSeverity,
                 BurstAction,
-                UsageMetrics,
                 BurstDetection,
-                ThrottleDecision,
                 BurstProtectionConfig,
                 BurstProtectionError,
+                BurstSeverity,
+                ThrottleDecision,
                 UsageBurstProtectionService,
+                UsageMetrics,
             )
 
             globals().update(

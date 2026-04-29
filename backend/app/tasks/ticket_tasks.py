@@ -18,9 +18,9 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-
 from app.tasks.base import ParwaTask
 from app.tasks.celery_app import app
+
 from database.base import SessionLocal
 from database.models.tickets import (
     Ticket,
@@ -744,9 +744,9 @@ def send_sla_warning(
 
     with SessionLocal() as db:
         try:
-            from app.services.sla_service import SLAService
-            from app.services.notification_service import NotificationService
             from app.core.ticket_events import emit_sla_warning
+            from app.services.notification_service import NotificationService
+            from app.services.sla_service import SLAService
 
             sla_service = SLAService(db)
 
@@ -864,9 +864,9 @@ def send_sla_breach(
 
     with SessionLocal() as db:
         try:
-            from app.services.sla_service import SLAService
-            from app.services.notification_service import NotificationService
             from app.core.ticket_events import emit_sla_breach
+            from app.services.notification_service import NotificationService
+            from app.services.sla_service import SLAService
 
             sla_service = SLAService(db)
 

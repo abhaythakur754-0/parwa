@@ -22,10 +22,9 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
+from app.logger import get_logger
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-
-from app.logger import get_logger
 
 logger = get_logger("agent_metrics_service")
 
@@ -596,8 +595,8 @@ class AgentMetricsService:
         try:
             from database.models.agent import Agent
             from database.models.agent_metrics import (
-                AgentMetricThreshold,
                 AgentMetricsDaily,
+                AgentMetricThreshold,
                 AgentPerformanceAlert,
             )
 
@@ -887,8 +886,8 @@ class AgentMetricsService:
         try:
             from database.models.tickets import (
                 Ticket,
-                TicketFeedback,
                 TicketAssignment,
+                TicketFeedback,
             )
 
             day_start = datetime.combine(target_date, datetime.min.time())

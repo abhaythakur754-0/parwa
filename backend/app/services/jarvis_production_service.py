@@ -11,24 +11,24 @@ The AI control center for post-onboarding users. Jarvis has:
 Based on: JARVIS_Production_Documentation.md
 """
 
+import asyncio
 import json
 import logging
-import asyncio
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
 from enum import Enum
-
-from sqlalchemy.orm import Session
-from sqlalchemy import desc, or_
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.exceptions import ValidationError
+from sqlalchemy import desc, or_
+from sqlalchemy.orm import Session
+
 from database.models.jarvis_production import (
-    JarvisProductionSession,
-    JarvisActivityEvent,
-    JarvisMemory,
-    JarvisDraft,
-    JarvisAlert,
     JarvisActionLog,
+    JarvisActivityEvent,
+    JarvisAlert,
+    JarvisDraft,
+    JarvisMemory,
+    JarvisProductionSession,
 )
 
 logger = logging.getLogger(__name__)
@@ -970,8 +970,8 @@ async def _execute_send_sms(
     except Exception as e:
         # Try Twilio directly
         try:
-            from app.providers.sms.twilio import TwilioSMSProvider
             from app.core.config import get_settings
+            from app.providers.sms.twilio import TwilioSMSProvider
 
             settings = get_settings()
             provider = TwilioSMSProvider(
@@ -1008,8 +1008,8 @@ async def _execute_send_email(
     except Exception as e:
         # Try Brevo directly
         try:
-            from app.providers.email.brevo import BrevoEmailProvider
             from app.core.config import get_settings
+            from app.providers.email.brevo import BrevoEmailProvider
 
             settings = get_settings()
             provider = BrevoEmailProvider(

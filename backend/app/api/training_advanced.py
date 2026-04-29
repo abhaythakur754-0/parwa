@@ -23,10 +23,9 @@ BC-012: Structured JSON error responses.
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request, Path
-from fastapi.responses import JSONResponse
-
 from app.api.deps import require_roles
+from fastapi import APIRouter, Depends, Path, Query, Request
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger("parwa.training_advanced_api")
 

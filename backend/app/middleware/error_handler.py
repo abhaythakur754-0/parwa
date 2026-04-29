@@ -20,13 +20,12 @@ BC-012 Requirements:
 
 import uuid
 
+from app.exceptions import ParwaBaseError
+from app.logger import get_logger
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-
-from app.exceptions import ParwaBaseError
-from app.logger import get_logger
 
 # Header names
 CORRELATION_ID_HEADER = "X-Correlation-ID"

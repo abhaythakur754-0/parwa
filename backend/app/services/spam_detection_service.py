@@ -13,12 +13,12 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.exceptions import NotFoundError, ValidationError
 from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 
-from app.exceptions import NotFoundError, ValidationError
-from database.models.tickets import Ticket, TicketStatus
 from database.models.core import User
+from database.models.tickets import Ticket, TicketStatus
 
 
 class SpamDetectionService:

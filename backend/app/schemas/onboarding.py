@@ -13,7 +13,7 @@ BC-001: All responses include company_id for tenant context.
 """
 
 import re
-from typing import Optional, List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 

@@ -18,13 +18,13 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List
 
-from app.tasks.base import ParwaBaseTask
-from app.tasks.celery_app import app
-
 from app.clients.paddle_client import (
     PaddleError,
     get_paddle_client,
 )
+from app.tasks.base import ParwaBaseTask
+from app.tasks.celery_app import app
+
 from database.base import SessionLocal
 from database.models.billing import Subscription, Transaction
 from database.models.billing_extended import UsageRecord
@@ -353,8 +353,9 @@ def reconcile_usage(self) -> Dict[str, Any]:
 
                 if not usage:
                     # Calculate from tickets table if no usage record
-                    from database.models.tickets import Ticket
                     from sqlalchemy import func
+
+                    from database.models.tickets import Ticket
 
                     month_start = datetime.now(timezone.utc).replace(
                         day=1, hour=0, minute=0, second=0, microsecond=0

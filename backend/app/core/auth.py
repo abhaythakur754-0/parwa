@@ -14,10 +14,9 @@ import os
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from jose import JWTError, jwt
-
 from app.config import get_settings
 from app.exceptions import AuthenticationError
+from jose import JWTError, jwt
 
 # JWT algorithm — HS256 is industry standard for symmetric keys
 JWT_ALGORITHM = "HS256"

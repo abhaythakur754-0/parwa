@@ -16,11 +16,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from sqlalchemy.orm import Session
-
 from app.exceptions import ValidationError
 from app.logger import get_logger
 from app.services.audit_service import log_audit
+from sqlalchemy.orm import Session
+
 from database.models.core import (
     Agent,
     Company,

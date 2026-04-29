@@ -6,7 +6,6 @@ variant filtering, field population.
 """
 
 import pytest
-
 from app.services.intent_prompt_templates import (
     PromptTemplateRegistry,
 )

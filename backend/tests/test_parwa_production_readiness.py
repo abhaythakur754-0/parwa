@@ -14,13 +14,14 @@ Tests cover:
 Run with: pytest tests/test_parwa_production_readiness.py -v --tb=short
 """
 
-import pytest
-from datetime import datetime, timedelta
-from decimal import Decimal
 import json
-import uuid
 import os
 import sys
+import uuid
+from datetime import datetime, timedelta
+from decimal import Decimal
+
+import pytest
 
 # Add app to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -241,8 +242,8 @@ class TestBuildingCodesCompliance:
     # BC-003: Webhook Handling
     def test_bc003_hmac_verification(self):
         """BC-003: Webhooks must use HMAC verification."""
-        import hmac
         import hashlib
+        import hmac
 
         secret = "webhook_secret_123"
         payload = json.dumps({"event": "refund.created", "data": {"id": "123"}})

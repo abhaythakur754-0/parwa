@@ -16,9 +16,9 @@ Building Codes:
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional, Dict
-from uuid import uuid4
 from enum import Enum
+from typing import Dict, Optional
+from uuid import uuid4
 
 from sqlalchemy.orm import Session
 

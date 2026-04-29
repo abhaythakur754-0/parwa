@@ -24,7 +24,6 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-
 from database.base import SessionLocal
 from database.models.billing import Subscription
 from database.models.billing_extended import PaymentFailure
@@ -206,6 +205,7 @@ class PaymentFailureService:
                 # Send payment failure notification email with grace period
                 # info
                 from app.services.email_service import send_email
+
                 from database.models.core import User
 
                 company_owner = (
@@ -271,8 +271,9 @@ class PaymentFailureService:
 
                 # Emit Socket.io event for real-time UI update
                 try:
-                    from app.core.event_buffer import store_event
                     import asyncio
+
+                    from app.core.event_buffer import store_event
 
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
@@ -439,6 +440,7 @@ class PaymentFailureService:
                     # Send final suspension email
                     try:
                         from app.services.email_service import send_email
+
                         from database.models.core import User
 
                         owner = (
@@ -686,6 +688,7 @@ class PaymentFailureService:
             try:
                 # Send payment failure notification email
                 from app.services.email_service import send_email
+
                 from database.models.core import User
 
                 company_owner = (
@@ -980,6 +983,7 @@ class PaymentFailureService:
                 # Send service_resumed email notification
                 try:
                     from app.services.email_service import send_email
+
                     from database.models.core import User
 
                     company_owner = (

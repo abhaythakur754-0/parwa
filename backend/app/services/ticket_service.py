@@ -18,27 +18,28 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import desc, or_, update as sa_update
-from sqlalchemy.orm import Session
-
 from app.exceptions import (
+    AuthorizationError,
     ConflictError,
     NotFoundError,
-    AuthorizationError,
     ValidationError,
 )
 from app.services.rate_limit_service import RateLimitService
 from app.services.shadow_mode_service import ShadowModeService
+from sqlalchemy import desc, or_
+from sqlalchemy import update as sa_update
+from sqlalchemy.orm import Session
+
+from database.models.core import Company
+from database.models.shadow_mode import ShadowLog
 from database.models.tickets import (
     Customer,
     Ticket,
     TicketAssignment,
-    TicketStatusChange,
-    TicketStatus,
     TicketPriority,
+    TicketStatus,
+    TicketStatusChange,
 )
-from database.models.core import Company
-from database.models.shadow_mode import ShadowLog
 
 
 class TicketService:

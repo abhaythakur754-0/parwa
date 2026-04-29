@@ -7,13 +7,13 @@ Endpoints for managing automated trigger rules.
 import json
 from typing import Any, Dict, Optional
 
+from app.api.deps import get_current_user, get_db, require_roles
+from app.exceptions import NotFoundError, ValidationError
+from app.services.trigger_service import TriggerService
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, require_roles
-from app.exceptions import NotFoundError, ValidationError
-from app.services.trigger_service import TriggerService
 from database.models.core import User
 
 router = APIRouter(

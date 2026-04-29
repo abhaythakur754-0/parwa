@@ -30,9 +30,6 @@ import os
 import re
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
-
 from app.api.deps import (
     get_current_user,
 )
@@ -45,6 +42,9 @@ from app.schemas.admin import (
     SubscriptionUpdateRequest,
 )
 from app.services.audit_service import log_audit
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+
 from database.base import get_db
 from database.models.ai_pipeline import APIProvider
 from database.models.core import Company, User

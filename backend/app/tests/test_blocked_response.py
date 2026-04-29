@@ -12,25 +12,26 @@ Comprehensive tests covering:
 """
 
 from __future__ import annotations
+
+import os
+from datetime import datetime, timedelta, timezone
+
+import pytest
 from app.core.blocked_response_manager import (
     BlockedResponse,
     BlockedResponseManager,
     BlockReason,
     QueueStatus,
     ReviewAction,
+    ReviewerAssignment,
     ReviewPriority,
     ReviewQueueStats,
-    ReviewerAssignment,
     _compute_auto_reject_at,
     _determine_priority,
     _now_utc,
     _parse_iso,
     _safe_truncate,
 )
-import pytest
-from datetime import datetime, timedelta, timezone
-
-import os
 
 # MUST be set BEFORE importing any app module
 os.environ["ENVIRONMENT"] = "test"

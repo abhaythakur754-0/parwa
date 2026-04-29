@@ -23,6 +23,7 @@ VARIANTS:
 
 import json
 import os
+import subprocess
 import threading
 import time
 import uuid
@@ -31,7 +32,6 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, List, Optional
-import subprocess
 
 from app.logger import get_logger
 
@@ -649,8 +649,9 @@ class DemoService:
             if not all([account_sid, auth_token, twilio_phone]):
                 return False
 
-            import httpx
             import base64
+
+            import httpx
 
             capabilities = VARIANT_DEMO_CAPABILITIES.get(variant, {})
             display_name = capabilities.get("display_name", "Parwa")

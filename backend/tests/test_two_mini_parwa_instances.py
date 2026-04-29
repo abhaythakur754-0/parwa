@@ -5,12 +5,13 @@ Scenario: A company hires 2 Mini PARWA instances
 Tests ALL functionality from scratch
 """
 
-from app.config.variant_features import VARIANT_LIMITS
-import sys
 import os
-from datetime import datetime
-from typing import Dict, List, Any
+import sys
 from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Dict, List
+
+from app.config.variant_features import VARIANT_LIMITS
 
 # Add backend to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))

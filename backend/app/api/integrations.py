@@ -18,15 +18,15 @@ GAP 7: Integration validation bypass prevention.
 
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
-
 from app.api.deps import require_roles
 from app.services.integration_service import (
     INTEGRATION_TYPES,
     IntegrationService,
 )
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
 from database.base import get_db
 from database.models.core import User
 

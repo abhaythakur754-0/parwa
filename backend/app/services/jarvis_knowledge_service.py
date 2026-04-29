@@ -8,9 +8,9 @@ This service is the source of truth for all product-related answers:
 pricing, variants, integrations, demo scenarios, and objections.
 """
 
-import os
 import json
 import logging
+import os
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)

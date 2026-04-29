@@ -22,9 +22,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
-from httpx import HTTPError, TimeoutException
-from sqlalchemy.orm import Session
-
 from app.config import get_settings
 from app.core.auth import (
     create_access_token,
@@ -42,6 +39,9 @@ from app.schemas.auth import (
     TokenResponse,
     UserResponse,
 )
+from httpx import HTTPError, TimeoutException
+from sqlalchemy.orm import Session
+
 from database.models.core import (
     Company,
     OAuthAccount,

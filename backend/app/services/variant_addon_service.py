@@ -18,9 +18,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from database.base import SessionLocal
-from database.models.billing import Subscription
-from database.models.billing_extended import CompanyVariant, ProrationAudit
+from app.clients.paddle_client import PaddleClient, PaddleError
 from app.schemas.billing import (
     INDUSTRY_ADD_ONS,
     VARIANT_LIMITS,
@@ -28,7 +26,10 @@ from app.schemas.billing import (
     EffectiveLimitsInfo,
     VariantType,
 )
-from app.clients.paddle_client import PaddleClient, PaddleError
+
+from database.base import SessionLocal
+from database.models.billing import Subscription
+from database.models.billing_extended import CompanyVariant, ProrationAudit
 
 logger = logging.getLogger("parwa.services.variant_addon")
 
@@ -519,8 +520,9 @@ class VariantAddonService:
 
                     # V7: Send notification about variant archival
                     try:
-                        from app.core.event_emitter import emit_billing_event
                         import asyncio
+
+                        from app.core.event_emitter import emit_billing_event
 
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)

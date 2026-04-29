@@ -30,7 +30,6 @@ import time
 from typing import Any, Callable, Coroutine, List, Optional
 
 import redis.asyncio as aioredis
-
 from app.config import get_settings
 from app.logger import get_logger
 

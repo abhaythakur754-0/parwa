@@ -26,7 +26,7 @@ BC-001: All configs scoped by company_id.
 import copy
 import json
 import threading
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 

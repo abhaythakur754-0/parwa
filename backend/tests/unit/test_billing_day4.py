@@ -21,13 +21,13 @@ Run: PYTHONPATH=backend pytest backend/tests/unit/test_billing_day4.py -v
 """
 
 import asyncio
+import io
 import sys
 import uuid
 import zipfile
-import io
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -181,8 +181,8 @@ class TestCancelSaveOffer:
     def test_apply_save_offer_no_subscription_raises(self):
         """C1: apply_save_offer should raise if no active subscription."""
         from app.services.subscription_service import (
-            SubscriptionService,
             SubscriptionNotFoundError,
+            SubscriptionService,
         )
 
         service = SubscriptionService()
@@ -714,8 +714,8 @@ class TestDataRetentionStatus:
     def test_in_retention_returns_countdown(self):
         """C4: Within 30-day retention should return 'in_retention' with days_remaining."""
         from app.services.data_retention_service import (
-            DataRetentionService,
             RETENTION_PERIOD_DAYS,
+            DataRetentionService,
         )
 
         service = DataRetentionService()
@@ -840,8 +840,8 @@ class TestDataExport:
     def test_request_data_export_in_progress_raises(self):
         """C5: Should raise DataExportInProgressError if export already in progress."""
         from app.services.data_retention_service import (
-            DataRetentionService,
             DataExportInProgressError,
+            DataRetentionService,
         )
 
         service = DataRetentionService()
@@ -893,8 +893,8 @@ class TestDataExport:
     def test_get_export_not_found_raises(self):
         """C5: Should raise DataExportNotFoundError for missing export."""
         from app.services.data_retention_service import (
-            DataRetentionService,
             DataExportNotFoundError,
+            DataRetentionService,
         )
 
         service = DataRetentionService()
@@ -915,8 +915,8 @@ class TestDataExport:
     def test_get_export_expired_raises(self):
         """C5: Should raise DataRetentionExpiredError for expired export."""
         from app.services.data_retention_service import (
-            DataRetentionService,
             DataRetentionExpiredError,
+            DataRetentionService,
         )
 
         service = DataRetentionService()
@@ -1334,8 +1334,8 @@ class TestResubscribeAfterRetention:
     def test_resubscribe_no_canceled_sub_raises(self):
         """R2: Should raise SubscriptionError if no canceled subscription found."""
         from app.services.subscription_service import (
-            SubscriptionService,
             SubscriptionError,
+            SubscriptionService,
         )
 
         service = SubscriptionService()
@@ -1364,8 +1364,8 @@ class TestResubscribeAfterRetention:
     def test_resubscribe_active_sub_raises(self):
         """R2: Should raise SubscriptionAlreadyExistsError if active subscription exists."""
         from app.services.subscription_service import (
-            SubscriptionService,
             SubscriptionAlreadyExistsError,
+            SubscriptionService,
         )
 
         service = SubscriptionService()
@@ -1456,8 +1456,8 @@ class TestResubscribePlanChange:
     def test_resubscribe_validates_variant(self):
         """R3: Should validate variant even for re-subscription."""
         from app.services.subscription_service import (
-            SubscriptionService,
             InvalidVariantError,
+            SubscriptionService,
         )
 
         service = SubscriptionService()
@@ -1793,8 +1793,8 @@ class TestAutoRetryPayments:
     def test_retry_no_subscription_raises(self):
         """G3: retry_failed_payment should raise if no payment_failed subscription."""
         from app.services.subscription_service import (
-            SubscriptionService,
             SubscriptionNotFoundError,
+            SubscriptionService,
         )
 
         service = SubscriptionService()
@@ -1869,8 +1869,8 @@ class TestPaymentMethodUpdate:
     def test_generate_portal_url_no_company_raises(self):
         """G4: Should raise if company not found."""
         from app.services.subscription_service import (
-            SubscriptionService,
             SubscriptionError,
+            SubscriptionService,
         )
 
         service = SubscriptionService()

@@ -395,7 +395,7 @@ class TestPromoService:
     @patch("app.services.promo_service.SessionLocal")
     def test_create_promo_duplicate_fails(self, mock_session_cls):
         """MF3: Duplicate promo code should raise PromoError."""
-        from app.services.promo_service import get_promo_service, PromoError
+        from app.services.promo_service import PromoError, get_promo_service
 
         mock_db = MagicMock()
         mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
@@ -445,7 +445,7 @@ class TestPromoService:
     @patch("app.services.promo_service.SessionLocal")
     def test_validate_promo_not_found(self, mock_session_cls):
         """MF3: Non-existent promo should raise PromoNotFoundError."""
-        from app.services.promo_service import get_promo_service, PromoNotFoundError
+        from app.services.promo_service import PromoNotFoundError, get_promo_service
 
         mock_db = MagicMock()
         mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)

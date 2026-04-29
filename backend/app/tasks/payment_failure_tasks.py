@@ -17,9 +17,10 @@ from datetime import datetime, timezone
 
 from app.tasks.base import ParwaBaseTask, with_company_id
 from app.tasks.celery_app import app
+
 from database.base import SessionLocal
-from database.models.core import Company
 from database.models.billing import Subscription
+from database.models.core import Company
 
 logger = logging.getLogger("parwa.tasks.payment_failure")
 
@@ -413,8 +414,9 @@ def send_payment_failed_notification(
 
             # Emit Socket.io event for real-time UI update
             try:
-                from app.core.event_buffer import store_event
                 import asyncio
+
+                from app.core.event_buffer import store_event
 
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
@@ -497,8 +499,9 @@ def send_service_resumed_notification(
 
             # Emit Socket.io event for real-time UI update
             try:
-                from app.core.event_buffer import store_event
                 import asyncio
+
+                from app.core.event_buffer import store_event
 
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
@@ -560,6 +563,7 @@ def suspend_expired_grace_periods(self) -> dict:
     """
     try:
         import asyncio
+
         from app.services.payment_failure_service import get_payment_failure_service
 
         service = get_payment_failure_service()

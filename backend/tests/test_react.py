@@ -15,6 +15,12 @@ Tests cover:
 """
 
 from __future__ import annotations
+
+import os
+from typing import Any
+from unittest.mock import AsyncMock
+
+import pytest
 from app.core.technique_router import (
     QuerySignals,
     TechniqueID,
@@ -23,7 +29,6 @@ from app.core.techniques.base import (
     BaseTechniqueNode,
     ConversationState,
 )
-from app.core.techniques.react_tools import ToolRegistry
 from app.core.techniques.react import (
     ActionType,
     ReActConfig,
@@ -32,12 +37,7 @@ from app.core.techniques.react import (
     ReActResult,
     ReActStep,
 )
-
-import os
-from typing import Any
-from unittest.mock import AsyncMock
-
-import pytest
+from app.core.techniques.react_tools import ToolRegistry
 
 # ── Environment bootstrap ─────────────────────────────────────────
 os.environ.setdefault("ENVIRONMENT", "test")

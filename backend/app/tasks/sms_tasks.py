@@ -61,8 +61,9 @@ def schedule_sms_auto_reply(
         Dict with status.
     """
     try:
-        from database.base import SessionLocal
         from app.services.sms_channel_service import SMSChannelService
+
+        from database.base import SessionLocal
 
         db = SessionLocal()
         try:
@@ -77,8 +78,9 @@ def schedule_sms_auto_reply(
                 return {"status": "skipped_opted_out"}
 
             # Check if an agent has already replied (don't auto-reply)
-            from database.models.sms_channel import SMSMessage
             from datetime import datetime, timedelta
+
+            from database.models.sms_channel import SMSMessage
 
             task_created_time = datetime.utcnow() - timedelta(
                 seconds=60,  # account for task scheduling delay
@@ -148,8 +150,9 @@ def process_sms_inbound_task(
         Dict with processing status.
     """
     try:
-        from database.base import SessionLocal
         from app.services.sms_channel_service import SMSChannelService
+
+        from database.base import SessionLocal
 
         db = SessionLocal()
         try:
@@ -185,9 +188,10 @@ def cleanup_expired_sms_conversations(self) -> dict:
         Dict with cleanup results.
     """
     try:
+        from datetime import datetime, timedelta
+
         from database.base import SessionLocal
         from database.models.sms_channel import SMSConversation
-        from datetime import datetime, timedelta
 
         db = SessionLocal()
         try:

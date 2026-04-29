@@ -20,8 +20,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from database.models.tickets import (
-    BulkActionLog,
     BulkActionFailure,
+    BulkActionLog,
     Ticket,
     TicketStatus,
 )

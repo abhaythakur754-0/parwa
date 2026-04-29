@@ -33,11 +33,11 @@ VALID_VARIANT_TYPES = None  # type: ignore[assignment,misc]
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
         from app.services.training_data_isolation import (  # noqa: F811,F401
+            VALID_VARIANT_TYPES,
             DatasetIsolationResult,
             TrainingDataIsolationService,
             TrainingDataRecord,
             TrainingDataset,
-            VALID_VARIANT_TYPES,
         )
 
         globals().update(

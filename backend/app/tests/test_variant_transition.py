@@ -21,18 +21,18 @@ Comprehensive unit tests for VariantTransitionHandler covering:
 - Edge cases: no tickets in-flight, ticket not found, double transition
 """
 
-import pytest
 import threading
 import time
 
+import pytest
 from app.core.variant_transition import (
-    VariantTransitionHandler,
-    VariantCapabilities,
-    InFlightTicket,
-    TransitionType,
-    TransitionStatus,
     _TIER_1_TECHNIQUES,
     _TIER_2_TECHNIQUES,
+    InFlightTicket,
+    TransitionStatus,
+    TransitionType,
+    VariantCapabilities,
+    VariantTransitionHandler,
 )
 
 # ═══════════════════════════════════════════════════════════════════

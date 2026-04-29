@@ -19,8 +19,8 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from app.exceptions import (
-    ValidationError,
     NotFoundError,
+    ValidationError,
 )
 
 # ══════════════════════════════════════════════════════════════════

@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from app.logger import get_logger
+
 from shared.knowledge_base.vector_search import (
     VectorStore,
     get_vector_store,

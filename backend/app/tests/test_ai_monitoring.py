@@ -18,6 +18,10 @@ Comprehensive tests covering:
 """
 
 from __future__ import annotations
+
+import os
+
+import pytest
 from app.core.ai_monitoring_service import (
     AIMonitoringService,
     AlertCondition,
@@ -38,9 +42,6 @@ from app.core.ai_monitoring_service import (
     _percentile,
     _window_cutoff,
 )
-import pytest
-
-import os
 
 os.environ["ENVIRONMENT"] = "test"
 

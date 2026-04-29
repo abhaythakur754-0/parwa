@@ -30,12 +30,12 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from database.models.tickets import (
-    TicketStatusChange,
     TicketAssignment,
-    TicketMessage,
-    TicketInternalNote,
     TicketAttachment,
+    TicketInternalNote,
     TicketMerge,
+    TicketMessage,
+    TicketStatusChange,
 )
 
 

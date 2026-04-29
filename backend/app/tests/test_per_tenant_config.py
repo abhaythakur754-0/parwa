@@ -20,14 +20,13 @@ import threading
 from dataclasses import asdict
 
 import pytest
-
 from app.core.per_tenant_config import (
-    TenantConfigManager,
-    TenantFullConfig,
     VALID_LEVELS,
     VALID_STRATEGIES,
     VALID_VARIANT_TYPES,
     VARIANT_DEFAULTS,
+    TenantConfigManager,
+    TenantFullConfig,
 )
 
 # ── Fixtures ────────────────────────────────────────────────────

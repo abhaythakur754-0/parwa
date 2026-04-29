@@ -23,11 +23,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional
 
-from app.logger import get_logger
 from app.core.technique_router import (
     TechniqueID,
     TechniqueTier,
 )
+from app.logger import get_logger
 
 logger = get_logger(__name__)
 

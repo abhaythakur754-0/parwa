@@ -17,10 +17,6 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
-
 from app.api.deps import (
     get_company_id,
     get_current_user,
@@ -33,6 +29,10 @@ from app.services.audit_service import (
     get_audit_stats,
     query_audit_trail,
 )
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
+
 from database.models.core import User
 
 logger = logging.getLogger("parwa.audit")

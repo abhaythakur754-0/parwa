@@ -10,11 +10,12 @@ Tests cover:
 - Merge operations
 """
 
-import pytest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
-from app.services.identity_resolution_service import IdentityResolutionService
+import pytest
 from app.services.customer_service import CustomerService
+from app.services.identity_resolution_service import IdentityResolutionService
+
 from database.models.tickets import Customer, CustomerChannel, IdentityMatchLog
 
 
@@ -421,8 +422,8 @@ class TestCustomerService:
                 existing_channel
             )
 
-            from app.schemas.customer import ChannelType
             from app.exceptions import ValidationError
+            from app.schemas.customer import ChannelType
 
             with pytest.raises(ValidationError):
                 service.link_channel(

@@ -20,23 +20,23 @@ Services:
 """
 
 import hashlib
-import secrets
 import re
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy.orm import Session
-
+from app.config import get_settings
 from app.exceptions import ValidationError
 from app.logger import get_logger
 from app.schemas.onboarding import (
-    UserDetailsResponse,
     OnboardingStateResponse,
+    UserDetailsResponse,
 )
-from database.models.user_details import UserDetails
-from database.models.onboarding import OnboardingSession, KnowledgeDocument
 from app.services.email_service import send_verification_email
-from app.config import get_settings
+from sqlalchemy.orm import Session
+
+from database.models.onboarding import KnowledgeDocument, OnboardingSession
+from database.models.user_details import UserDetails
 
 logger = get_logger("user_details_service")
 

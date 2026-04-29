@@ -19,14 +19,14 @@ import sys
 from typing import Generator
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
 # Import technique_router directly (no problematic deps)
 from app.core.technique_router import (
-    TechniqueID,
     TECHNIQUE_REGISTRY,
+    TechniqueID,
 )
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 # Load technique_config module directly to avoid app.api.__init__
 # which imports auth/sqlalchemy/etc.

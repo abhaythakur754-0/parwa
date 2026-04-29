@@ -532,7 +532,9 @@ class PgVectorStore(VectorStore):
             else:
                 # Try the shared database module first
                 try:
-                    from database.base import SessionLocal  # type: ignore[import-untyped]
+                    from database.base import (
+                        SessionLocal,  # type: ignore[import-untyped]
+                    )
 
                     self._session_factory = SessionLocal
                     logger.debug("PgVectorStore: using database.base.SessionLocal")

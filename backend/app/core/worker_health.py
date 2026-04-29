@@ -17,10 +17,11 @@ import logging
 import os
 import threading
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from typing import Dict, Any, Optional
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Any, Dict, Optional
+
 import psutil
 
 logger = logging.getLogger("parwa.worker_health")

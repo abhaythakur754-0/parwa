@@ -15,13 +15,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
+from app.exceptions import NotFoundError, ValidationError
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from app.exceptions import NotFoundError, ValidationError
-from database.models.tickets import Ticket, NotificationTemplate
 from database.models.core import User
 from database.models.remaining import Notification, NotificationPreference
+from database.models.tickets import NotificationTemplate, Ticket
 
 logger = logging.getLogger(__name__)
 
@@ -565,8 +565,8 @@ class NotificationService:
         """
         try:
             # Get user's push token from user_details/metadata
-            from database.models.user_details import UserDetail
             from database.models.core import User
+            from database.models.user_details import UserDetail
 
             user = self.db.query(User).filter(User.id == notification.user_id).first()
 
@@ -745,9 +745,10 @@ class NotificationService:
         Returns:
             Access token string, or None if token exchange failed.
         """
-        import time
-        import json as _json
         import base64
+        import json as _json
+        import time
+
         import httpx
 
         try:

@@ -24,6 +24,10 @@ Comprehensive tests covering:
 """
 
 from __future__ import annotations
+
+import os
+
+import pytest
 from app.core.self_healing_engine import (
     ActionType,
     HealingAction,
@@ -41,9 +45,6 @@ from app.core.self_healing_engine import (
     _provider_key,
     _seconds_since,
 )
-import pytest
-
-import os
 
 os.environ["ENVIRONMENT"] = "test"
 

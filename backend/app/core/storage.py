@@ -22,9 +22,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from pydantic import BaseModel, Field
-
 from app.config import get_settings
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -844,8 +843,9 @@ class GCPStorageBackend(StorageBackend):
         Uses chunked upload for files > 5MB for reliability.
         Includes retry logic for transient errors.
         """
-        from google.cloud import storage
         import time
+
+        from google.cloud import storage
 
         _validate_company_id(company_id)
         _validate_file_path(file_path)
@@ -1081,8 +1081,9 @@ class GCPStorageBackend(StorageBackend):
         expires_in: int = 3600,
     ) -> str:
         """Generate GCS signed URL for direct file access."""
-        from google.cloud import storage
         from datetime import timedelta
+
+        from google.cloud import storage
 
         _validate_company_id(company_id)
         _validate_file_path(file_path)

@@ -26,7 +26,7 @@ Broken references fixed in this session (21 total):
 - search_knowledge_base → removed, fallback to jarvis_knowledge_service
 """
 
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 # ════════════════════════════════════════════════════════════════════
 # P0: SAFETY & QUALITY TESTS
@@ -474,8 +474,8 @@ class TestRAGRetrieval:
 
     def test_imports_correct_classes(self):
         """Verify RAGRetriever and CrossEncoderReranker exist in core."""
-        from app.core.rag_retrieval import RAGRetriever
         from app.core.rag_reranking import CrossEncoderReranker
+        from app.core.rag_retrieval import RAGRetriever
 
         assert RAGRetriever is not None
         assert CrossEncoderReranker is not None
@@ -872,8 +872,8 @@ class TestConversationService:
 
     def test_functions_exist(self):
         from app.services.conversation_service import (
-            create_conversation,
             add_message_to_context,
+            create_conversation,
             get_conversation_context,
         )
 

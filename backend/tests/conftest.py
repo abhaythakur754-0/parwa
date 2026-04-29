@@ -10,12 +10,13 @@ Instead, we set env vars and let app.config's Settings class validate
 against them, then override get_settings to return a mock.
 """
 
-import pytest
-from decimal import Decimal as _Decimal
+import os
 import sys
 import types
-import os
+from decimal import Decimal as _Decimal
 from unittest.mock import MagicMock
+
+import pytest
 
 # ════════════════════════════════════════════════════════════════════════
 # Phase 1: Set required env vars BEFORE any app imports

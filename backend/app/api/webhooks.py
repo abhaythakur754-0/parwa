@@ -18,14 +18,14 @@ All endpoints:
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse
-
 from app.api.deps import get_current_user
 from app.schemas.webhook import (
     WebhookResponse,
 )
 from app.services import webhook_service
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
+
 from database.models.core import User
 
 logger = logging.getLogger("parwa.webhook_api")
@@ -143,10 +143,10 @@ def _verify_provider_signature(
 
     try:
         if provider == "paddle":
+            from app.config import get_settings
             from app.security.hmac_verification import (
                 verify_paddle_signature,
             )
-            from app.config import get_settings
 
             settings = get_settings()
             signature = request.headers.get(
@@ -165,10 +165,10 @@ def _verify_provider_signature(
             return result
 
         if provider == "shopify":
+            from app.config import get_settings
             from app.security.hmac_verification import (
                 verify_shopify_hmac,
             )
-            from app.config import get_settings
 
             settings = get_settings()
             signature = request.headers.get(
@@ -189,10 +189,10 @@ def _verify_provider_signature(
             return result
 
         if provider == "twilio":
+            from app.config import get_settings
             from app.security.hmac_verification import (
                 verify_twilio_signature,
             )
-            from app.config import get_settings
 
             settings = get_settings()
             signature = request.headers.get(
@@ -212,10 +212,10 @@ def _verify_provider_signature(
             return result
 
         if provider == "brevo":
+            from app.config import get_settings
             from app.security.hmac_verification import (
                 verify_brevo_ip,
             )
-            from app.config import get_settings
 
             settings = get_settings()
             forwarded = request.headers.get(

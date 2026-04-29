@@ -19,16 +19,15 @@ BC-001: All operations scoped to company_id.
 
 import json
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
 
 import httpx
-from sqlalchemy.orm import Session
-from sqlalchemy import and_
-
-from app.services.custom_integration_service import _encrypt_config, _decrypt_config
-
 from app.exceptions import ValidationError
 from app.logger import get_logger
+from app.services.custom_integration_service import _decrypt_config, _encrypt_config
+from sqlalchemy import and_
+from sqlalchemy.orm import Session
+
 from database.models.integration import Integration
 
 logger = get_logger("integration_service")

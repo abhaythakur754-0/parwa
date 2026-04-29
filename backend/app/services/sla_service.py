@@ -16,8 +16,9 @@ Default SLA policies by plan tier:
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Tuple, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple
 
+from app.schemas.sla import PlanTier, Priority
 from sqlalchemy.orm import Session
 
 from database.models.tickets import (
@@ -26,7 +27,6 @@ from database.models.tickets import (
     Ticket,
     TicketStatus,
 )
-from app.schemas.sla import Priority, PlanTier
 
 
 class SLAError(Exception):

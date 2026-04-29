@@ -13,15 +13,14 @@ Covers:
 
 from __future__ import annotations
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 from app.core.cold_start_service import (
-    ColdStartService,
-    VARIANT_TIER_MAP,
-    PREWARM_COMBOS,
     HEAVY_WARMUP_TIMEOUT_MS,
+    PREWARM_COMBOS,
+    VARIANT_TIER_MAP,
+    ColdStartService,
     _utcnow,
 )
 

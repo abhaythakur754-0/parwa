@@ -243,9 +243,9 @@ def execute_training_run(self, company_id: str, run_id: str) -> dict:
     """
     from app.services.agent_training_service import AgentTrainingService
     from app.services.gpu_provider_service import (
-        GPUProviderServiceSync,
-        PROVIDER_LOCAL,
         GPU_T4,
+        PROVIDER_LOCAL,
+        GPUProviderServiceSync,
     )
 
     try:
@@ -538,8 +538,8 @@ def auto_trigger_training(self, company_id: str, agent_id: str) -> dict:
         Dict with training run details.
     """
     try:
-        from app.services.dataset_preparation_service import DatasetPreparationService
         from app.services.agent_training_service import AgentTrainingService
+        from app.services.dataset_preparation_service import DatasetPreparationService
 
         # Prepare dataset from mistakes
         dataset_service = DatasetPreparationService(self._get_db())

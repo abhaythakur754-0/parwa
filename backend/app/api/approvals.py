@@ -12,12 +12,12 @@ BC-011: All endpoints require authentication.
 
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
-
 from app.api.deps import get_current_user
 from app.exceptions import AuthorizationError
 from app.logger import get_logger
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+
 from database.models.core import User
 
 logger = get_logger("parwa.approvals")
@@ -155,8 +155,9 @@ def approve(
 
     # Emit real-time approval event
     try:
-        from app.core.event_emitter import emit_approval_event
         import asyncio
+
+        from app.core.event_emitter import emit_approval_event
 
         asyncio.get_event_loop().create_task(
             emit_approval_event(
@@ -206,8 +207,9 @@ def reject(
 
     # Emit real-time rejection event
     try:
-        from app.core.event_emitter import emit_approval_event
         import asyncio
+
+        from app.core.event_emitter import emit_approval_event
 
         asyncio.get_event_loop().create_task(
             emit_approval_event(
@@ -272,7 +274,7 @@ def batch_resolve(
     Processes all provided IDs in a single transaction. Items that
     have already been resolved are skipped.
     """
-    from app.services.shadow_mode_service import ShadowModeService, VALID_DECISIONS
+    from app.services.shadow_mode_service import VALID_DECISIONS, ShadowModeService
 
     company_id = user.company_id
     if not company_id:
@@ -299,8 +301,9 @@ def batch_resolve(
 
     # Emit batch event
     try:
-        from app.core.event_emitter import emit_approval_event
         import asyncio
+
+        from app.core.event_emitter import emit_approval_event
 
         asyncio.get_event_loop().create_task(
             emit_approval_event(

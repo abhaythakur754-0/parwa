@@ -104,9 +104,10 @@ def calculate_roi(self, company_id: str, period_days: int = 30) -> dict:
         ai_accuracy = float(DEFAULT_AI_ACCURACY)
 
         try:
+            import os
+
             from sqlalchemy import create_engine
             from sqlalchemy.orm import sessionmaker
-            import os
 
             # Database connection
             database_url = os.environ.get("DATABASE_URL", "sqlite:///./parwa.db")

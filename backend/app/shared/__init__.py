@@ -10,7 +10,7 @@ Bug Fix Day 4: Ensures the shared/ directory is importable as both
 
 # Re-export knowledge base for backward compatibility
 from app.shared.knowledge_base import (  # noqa: F401
-    KnowledgeBaseManager,
     DocumentChunker,
+    KnowledgeBaseManager,
     KnowledgeRetriever,
 )

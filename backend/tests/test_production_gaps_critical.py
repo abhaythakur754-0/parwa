@@ -17,7 +17,7 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -231,7 +231,7 @@ class TestGuardrailChunkingBypass:
 
     def test_guardrails_engine_handles_chunked_content(self):
         """Test that the guardrails engine can process chunked content."""
-        from app.core.guardrails_engine import GuardrailsEngine, GuardrailConfig
+        from app.core.guardrails_engine import GuardrailConfig, GuardrailsEngine
 
         # Create config
         config = GuardrailConfig(

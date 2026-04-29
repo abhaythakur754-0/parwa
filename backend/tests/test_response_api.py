@@ -6,29 +6,30 @@ Auth dependencies and service layers are fully mocked.
 """
 
 from __future__ import annotations
-import pytest
-from app.exceptions import NotFoundError
-from app.api.deps import (
-    get_current_user,
-    get_company_id,
-    require_roles,
-)
-from app.api.response import (
-    response_router,
-    brand_voice_router,
-    assignment_router,
-    migration_router,
-)
-from fastapi.testclient import TestClient
-from fastapi import FastAPI
-import types as _types
 
 import os
 import sys
+import types as _types
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from app.api.deps import (
+    get_company_id,
+    get_current_user,
+    require_roles,
+)
+from app.api.response import (
+    assignment_router,
+    brand_voice_router,
+    migration_router,
+    response_router,
+)
+from app.exceptions import NotFoundError
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 # ---------------------------------------------------------------------------
 # Ensure project root is on sys.path

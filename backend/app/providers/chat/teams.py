@@ -25,13 +25,12 @@ import logging
 from typing import Any, Dict, Optional
 
 import httpx
-
 from app.providers.base import (
-    ChatProvider,
     ChatMessage,
+    ChatProvider,
+    ProviderCapability,
     ProviderResult,
     ProviderStatus,
-    ProviderCapability,
 )
 
 logger = logging.getLogger(__name__)

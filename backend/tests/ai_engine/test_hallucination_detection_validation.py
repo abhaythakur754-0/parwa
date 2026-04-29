@@ -20,8 +20,9 @@ Pattern categories:
     12. P12 — Temporal inconsistency
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 # ── Fixtures ────────────────────────────────────────────────────
 

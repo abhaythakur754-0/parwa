@@ -7,13 +7,12 @@ Implementation of the SMSProvider interface for Twilio.
 from typing import Any, Dict
 
 import httpx
-
 from app.providers.base import (
-    SMSProvider,
-    SMSMessage,
+    ProviderCapability,
     ProviderResult,
     ProviderStatus,
-    ProviderCapability,
+    SMSMessage,
+    SMSProvider,
 )
 
 

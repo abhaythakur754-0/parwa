@@ -27,11 +27,11 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
-    from app.core.guardrails_engine import GuardrailsReport, GuardrailsEngine
     from app.core.blocked_response_manager import BlockedResponseManager
+    from app.core.guardrails_engine import GuardrailsEngine, GuardrailsReport
 
 logger = logging.getLogger("parwa.guardrails_integration")
 

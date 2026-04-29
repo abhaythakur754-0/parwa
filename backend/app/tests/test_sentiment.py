@@ -16,7 +16,6 @@ import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from app.core.sentiment_engine import (
     ConversationTrendAnalyzer,
     EmotionClassifier,
@@ -31,12 +30,12 @@ from app.core.sentiment_engine import (
     UrgencyLevel,
     UrgencyScorer,
 )
+from app.core.technique_router import (
+    TechniqueID,
+)
 from app.services.sentiment_technique_mapper import (
     SentimentMappingResult,
     SentimentTechniqueMapper,
-)
-from app.core.technique_router import (
-    TechniqueID,
 )
 
 # =========================================================================

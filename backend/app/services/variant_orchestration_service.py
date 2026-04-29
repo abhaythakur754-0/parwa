@@ -25,13 +25,13 @@ from datetime import datetime, timezone
 from typing import Any
 
 import sqlalchemy as sa
+from app.exceptions import ParwaBaseError
 
 from database.base import SessionLocal
 from database.models.variant_engine import (
     VariantInstance,
     VariantWorkloadDistribution,
 )
-from app.exceptions import ParwaBaseError
 
 logger = logging.getLogger("parwa.orchestration")
 

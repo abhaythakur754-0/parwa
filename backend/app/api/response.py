@@ -47,9 +47,6 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
-
 from app.api.deps import (
     get_company_id,
     get_current_user,
@@ -60,6 +57,9 @@ from app.exceptions import (
     ValidationError,
 )
 from app.logger import get_logger
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+
 from database.models.core import User
 
 logger = get_logger("response_api")
@@ -363,8 +363,8 @@ async def generate_response(
     """
     try:
         from app.core.response_generator import (
-            ResponseGenerator,
             ResponseGenerationRequest,
+            ResponseGenerator,
         )
 
         generator = ResponseGenerator()
@@ -412,8 +412,8 @@ async def generate_batch_responses(
     """
     try:
         from app.core.response_generator import (
-            ResponseGenerator,
             ResponseGenerationRequest,
+            ResponseGenerator,
         )
 
         generator = ResponseGenerator()

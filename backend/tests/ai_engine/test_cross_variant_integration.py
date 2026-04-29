@@ -60,41 +60,41 @@ ResolutionStrategy = None  # type: ignore[assignment,misc]
 @pytest.fixture(autouse=True)
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
-        from app.core.cross_variant_routing import (
-            CrossVariantRouter,
-            CrossVariantRoutingError,
-            ChannelType,
-            RoutingDecisionType,
-            EscalationReason,
-            ChannelMapping,
-            EscalationPath,
-            RoutingResult,
-            CapacitySnapshot,
-            QueuedTicket,
-            CAPACITY_THRESHOLD_PCT,
-            ESCALATION_FALLBACK_SECONDS,
-            AI_OVERLOAD_FLAG,
-            ESCALATION_CHAIN,
-            VALID_VARIANTS,
-            DEFAULT_CHANNEL_MAPPINGS,
-        )
-        from app.core.variant_transition import (
-            VariantTransitionHandler,
-            TransitionType,
-            TransitionStatus,
-            VariantCapabilities,
-            InFlightTicket,
-            TransitionRecord,
-            DeactivationNotice,
-            VARIANT_RANKING,
-        )
         from app.core.cross_variant_interaction import (
-            CrossVariantInteractionService,
             ConfidenceEscalationResult,
+            ConflictSeverity,
+            CrossVariantInteractionService,
             HandoffContext,
             HandoffResult,
-            ConflictSeverity,
             ResolutionStrategy,
+        )
+        from app.core.cross_variant_routing import (
+            AI_OVERLOAD_FLAG,
+            CAPACITY_THRESHOLD_PCT,
+            DEFAULT_CHANNEL_MAPPINGS,
+            ESCALATION_CHAIN,
+            ESCALATION_FALLBACK_SECONDS,
+            VALID_VARIANTS,
+            CapacitySnapshot,
+            ChannelMapping,
+            ChannelType,
+            CrossVariantRouter,
+            CrossVariantRoutingError,
+            EscalationPath,
+            EscalationReason,
+            QueuedTicket,
+            RoutingDecisionType,
+            RoutingResult,
+        )
+        from app.core.variant_transition import (
+            VARIANT_RANKING,
+            DeactivationNotice,
+            InFlightTicket,
+            TransitionRecord,
+            TransitionStatus,
+            TransitionType,
+            VariantCapabilities,
+            VariantTransitionHandler,
         )
 
         globals().update(

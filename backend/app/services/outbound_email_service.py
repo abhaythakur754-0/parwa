@@ -26,14 +26,13 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from app.core.email_utils import run_async_coro, strip_html
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database.models.email_channel import EmailThread, InboundEmail
 from database.models.outbound_email import OutboundEmail
-from database.models.tickets import Ticket, TicketMessage, Customer
-
-from app.core.email_utils import strip_html, run_async_coro
+from database.models.tickets import Customer, Ticket, TicketMessage
 
 logger = logging.getLogger("parwa.outbound_email")
 

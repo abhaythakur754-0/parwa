@@ -17,15 +17,13 @@ Target: 45+ tests
 
 from __future__ import annotations
 
-
 import pytest
-
 from app.core.dspy_integration import (
+    _DSPY_AVAILABLE,
+    PREDEFINED_SIGNATURES,
     DSPyIntegration,
     StubModule,
     StubPrediction,
-    PREDEFINED_SIGNATURES,
-    _DSPY_AVAILABLE,
 )
 
 # ── Fixtures ──────────────────────────────────────────────────────

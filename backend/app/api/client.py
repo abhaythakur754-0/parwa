@@ -11,9 +11,6 @@ All queries filtered by company_id (BC-001).
 
 import math
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
-
 from app.api.deps import (
     get_current_company,
     get_current_user,
@@ -29,8 +26,11 @@ from app.schemas.admin import (
 )
 from app.services import company_service
 from app.services.audit_service import log_audit
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+
 from database.base import get_db
-from database.models.core import User, Company
+from database.models.core import Company, User
 
 router = APIRouter(prefix="/api/client", tags=["client"])
 

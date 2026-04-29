@@ -23,15 +23,16 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from database.models.variant_engine import VariantAICapability
+from app.exceptions import ParwaBaseError
 from app.services.variant_capability_service import (
-    VARIANT_LEVELS,
     FEATURE_REGISTRY,
-    check_feature_enabled,
+    VARIANT_LEVELS,
     _validate_company_id,
     _validate_variant_type,
+    check_feature_enabled,
 )
-from app.exceptions import ParwaBaseError
+
+from database.models.variant_engine import VariantAICapability
 
 # ══════════════════════════════════════════════════════════════════
 # PLAN DISPLAY NAMES FOR UPGRADE NUDGES

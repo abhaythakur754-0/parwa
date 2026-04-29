@@ -19,18 +19,18 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.logger import get_logger
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
-from app.logger import get_logger
 from database.models.tickets import (
+    SLATimer,
     Ticket,
+    TicketAssignment,
     TicketFeedback,
+    TicketPriority,
     TicketStatus,
     TicketStatusChange,
-    TicketAssignment,
-    TicketPriority,
-    SLATimer,
 )
 
 logger = get_logger("dashboard_service")
@@ -600,8 +600,8 @@ def _get_ticket_summary(
     """Get ticket summary counts."""
     try:
         from app.services.ticket_analytics_service import (
-            TicketAnalyticsService,
             DateRange,
+            TicketAnalyticsService,
         )
 
         svc = TicketAnalyticsService(db, company_id)
@@ -644,8 +644,8 @@ def _get_kpi_cards(
     """Get top KPI cards for dashboard."""
     try:
         from app.services.ticket_analytics_service import (
-            TicketAnalyticsService,
             DateRange,
+            TicketAnalyticsService,
         )
 
         svc = TicketAnalyticsService(db, company_id)
@@ -678,8 +678,8 @@ def _get_sla_summary(
     """Get SLA summary."""
     try:
         from app.services.ticket_analytics_service import (
-            TicketAnalyticsService,
             DateRange,
+            TicketAnalyticsService,
         )
 
         svc = TicketAnalyticsService(db, company_id)
@@ -713,9 +713,9 @@ def _get_volume_trend(
     """Get daily ticket volume trend."""
     try:
         from app.services.ticket_analytics_service import (
-            TicketAnalyticsService,
             DateRange,
             IntervalType,
+            TicketAnalyticsService,
         )
 
         svc = TicketAnalyticsService(db, company_id)
@@ -746,8 +746,8 @@ def _get_category_breakdown(
     """Get category distribution."""
     try:
         from app.services.ticket_analytics_service import (
-            TicketAnalyticsService,
             DateRange,
+            TicketAnalyticsService,
         )
 
         svc = TicketAnalyticsService(db, company_id)

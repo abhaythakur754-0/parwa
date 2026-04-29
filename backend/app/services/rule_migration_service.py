@@ -108,7 +108,7 @@ class RuleMigrationService:
 
         Used in shadow mode to evaluate AI rule quality.
         """
-        from app.core.technique_router import TechniqueRouter, QuerySignals
+        from app.core.technique_router import QuerySignals, TechniqueRouter
 
         # Build signals
         signals = QuerySignals(

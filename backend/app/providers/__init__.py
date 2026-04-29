@@ -66,14 +66,14 @@ Usage:
 
 from app.providers.base import (
     BaseProvider,
-    ProviderType,
-    ProviderCapability,
-    ProviderStatus,
-    ProviderResult,
+    ChatProvider,
     EmailProvider,
+    ProviderCapability,
+    ProviderResult,
+    ProviderStatus,
+    ProviderType,
     SMSProvider,
     VoiceProvider,
-    ChatProvider,
 )
 from app.providers.factory import ProviderFactory
 from app.providers.registry import ProviderRegistry

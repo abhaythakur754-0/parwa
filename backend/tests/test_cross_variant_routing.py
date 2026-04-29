@@ -33,22 +33,22 @@ DEFAULT_CHANNEL_MAPPINGS = None  # type: ignore[assignment,misc]
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
         from app.core.cross_variant_routing import (
+            AI_OVERLOAD_FLAG,
+            CAPACITY_THRESHOLD_PCT,
+            DEFAULT_CHANNEL_MAPPINGS,
+            ESCALATION_CHAIN,
+            ESCALATION_FALLBACK_SECONDS,
+            VALID_VARIANTS,
+            CapacitySnapshot,
+            ChannelMapping,
+            ChannelType,
             CrossVariantRouter,
             CrossVariantRoutingError,
-            ChannelType,
-            RoutingDecisionType,
-            EscalationReason,
-            ChannelMapping,
             EscalationPath,
-            RoutingResult,
-            CapacitySnapshot,
+            EscalationReason,
             QueuedTicket,
-            CAPACITY_THRESHOLD_PCT,
-            ESCALATION_FALLBACK_SECONDS,
-            AI_OVERLOAD_FLAG,
-            ESCALATION_CHAIN,
-            VALID_VARIANTS,
-            DEFAULT_CHANNEL_MAPPINGS,
+            RoutingDecisionType,
+            RoutingResult,
         )
 
         globals().update(

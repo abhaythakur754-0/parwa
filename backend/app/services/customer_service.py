@@ -18,13 +18,14 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import desc, func, or_
-from sqlalchemy.orm import Session
-
 from app.exceptions import (
     NotFoundError,
     ValidationError,
 )
+from app.schemas.customer import ChannelType
+from sqlalchemy import desc, func, or_
+from sqlalchemy.orm import Session
+
 from database.models.tickets import (
     Customer,
     CustomerChannel,
@@ -32,7 +33,6 @@ from database.models.tickets import (
     Ticket,
     TicketStatus,
 )
-from app.schemas.customer import ChannelType
 
 
 class CustomerService:

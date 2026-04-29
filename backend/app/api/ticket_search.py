@@ -14,12 +14,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from app.api.deps import get_current_user, get_db, require_roles
+from app.services.ticket_search_service import TicketSearchService
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-
-from app.api.deps import get_current_user, get_db, require_roles
-from app.services.ticket_search_service import TicketSearchService
 
 router = APIRouter(
     prefix="/tickets",

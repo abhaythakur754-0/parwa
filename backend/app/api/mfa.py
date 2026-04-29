@@ -18,20 +18,17 @@ Session endpoints (authenticated):
 - DELETE /api/auth/sessions/revoke-others
 """
 
-from fastapi import APIRouter, Depends, Request
-from sqlalchemy.orm import Session
-
 from app.api.deps import get_current_user
 from app.core.auth import hash_refresh_token
 from app.schemas.mfa import (
     BackupCodeRegenerateRequest,
-    BackupCodeUseRequest,
     BackupCodesResponse,
+    BackupCodeUseRequest,
+    MFALoginVerifyRequest,
     MFASetupInitiateRequest,
     MFASetupResponse,
     MFASetupVerifyRequest,
     MFAVerifyResponse,
-    MFALoginVerifyRequest,
     RevokeOthersResponse,
     SessionListResponse,
     SessionRevokeResponse,
@@ -49,6 +46,9 @@ from app.services.session_service import (
     revoke_other_sessions,
     revoke_session,
 )
+from fastapi import APIRouter, Depends, Request
+from sqlalchemy.orm import Session
+
 from database.base import get_db
 from database.models.core import User
 

@@ -14,13 +14,12 @@ can access the current tenant without explicit parameter passing.
 
 import logging
 
-from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
-
 from app.core.tenant_context import (
     clear_tenant_context,
     set_tenant_context,
 )
+from fastapi import Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger("parwa.tenant_middleware")
 

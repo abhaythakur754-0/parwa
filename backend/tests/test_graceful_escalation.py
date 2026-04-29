@@ -9,15 +9,15 @@ import time
 import unittest
 
 from app.core.graceful_escalation import (
-    GracefulEscalationManager,
-    EscalationTrigger,
-    EscalationSeverity,
     EscalationChannel,
-    EscalationOutcome,
+    EscalationConfig,
     EscalationContext,
+    EscalationOutcome,
     EscalationRecord,
     EscalationRule,
-    EscalationConfig,
+    EscalationSeverity,
+    EscalationTrigger,
+    GracefulEscalationManager,
 )
 
 COMPANY_ID = "test_company_001"

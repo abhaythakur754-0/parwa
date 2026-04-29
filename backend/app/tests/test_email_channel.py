@@ -14,8 +14,9 @@ Comprehensive tests for:
 - Brevo handler dispatch
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 # Service under test — must be imported before use in test classes
 from app.services.email_channel_service import EmailChannelService
@@ -159,7 +160,7 @@ class TestImports:
 
     def test_import_email_channel_models(self):
         """Email channel models should be importable."""
-        from database.models.email_channel import InboundEmail, EmailThread
+        from database.models.email_channel import EmailThread, InboundEmail
 
         assert InboundEmail is not None
         assert EmailThread is not None
@@ -167,12 +168,12 @@ class TestImports:
     def test_import_email_channel_schemas(self):
         """Email channel schemas should be importable."""
         from app.schemas.email_channel import (
+            AutoReplyDetection,
+            EmailLoopDetection,
+            EmailProcessResult,
+            EmailThreadResponse,
             InboundEmailCreate,
             InboundEmailResponse,
-            EmailThreadResponse,
-            EmailLoopDetection,
-            AutoReplyDetection,
-            EmailProcessResult,
         )
 
         assert all(
@@ -195,9 +196,9 @@ class TestImports:
     def test_import_email_channel_tasks(self):
         """Email channel Celery tasks should be importable."""
         from app.tasks.email_channel_tasks import (
-            process_inbound_email_task,
             process_bounce_event_task,
             process_complaint_event_task,
+            process_inbound_email_task,
         )
 
         assert all(
@@ -552,7 +553,7 @@ class TestBrevoHandler:
 
     def test_inbound_email_body_size_truncation(self):
         """Inbound email handler should truncate oversized body."""
-        from app.webhooks.brevo_handler import handle_inbound_email, MAX_EMAIL_BODY_SIZE
+        from app.webhooks.brevo_handler import MAX_EMAIL_BODY_SIZE, handle_inbound_email
 
         big_body = "x" * (MAX_EMAIL_BODY_SIZE + 1000)
         event = {

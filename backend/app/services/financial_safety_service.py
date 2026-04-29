@@ -12,7 +12,7 @@ BC-002: All money calculations use Decimal
 
 import logging
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -20,8 +20,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database.base import SessionLocal
+from database.models.billing import Invoice, Subscription
 from database.models.billing_extended import UsageRecord
-from database.models.billing import Subscription, Invoice
 from database.models.core import Company
 
 logger = logging.getLogger("parwa.services.financial_safety")
@@ -429,8 +429,9 @@ class FinancialSafetyService:
 
                         # Emit alert event
                         try:
-                            from app.core.event_emitter import emit_billing_event
                             import asyncio
+
+                            from app.core.event_emitter import emit_billing_event
 
                             loop = asyncio.new_event_loop()
                             asyncio.set_event_loop(loop)
@@ -657,8 +658,9 @@ class FinancialSafetyService:
             List of invoice dicts from Paddle
         """
         try:
-            from app.clients.paddle_client import get_paddle_client
             import asyncio
+
+            from app.clients.paddle_client import get_paddle_client
 
             with SessionLocal() as db:
                 company = db.query(Company).filter(Company.id == company_id).first()
@@ -766,8 +768,9 @@ class FinancialSafetyService:
 
                         # Emit alert
                         try:
-                            from app.core.event_emitter import emit_billing_event
                             import asyncio
+
+                            from app.core.event_emitter import emit_billing_event
 
                             loop = asyncio.new_event_loop()
                             asyncio.set_event_loop(loop)

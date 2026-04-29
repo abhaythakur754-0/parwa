@@ -36,9 +36,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 from app.logger import get_logger
 
 if TYPE_CHECKING:
-    from app.core.techniques.base import (
+    from app.core.techniques.base import (  # noqa: F401
         ConversationState as _ConversationState,
-    )  # noqa: F401
+    )
 
     ConversationState = _ConversationState
 

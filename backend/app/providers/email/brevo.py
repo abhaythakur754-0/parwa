@@ -8,13 +8,12 @@ Brevo is a popular transactional email service.
 from typing import Any, Dict
 
 import httpx
-
 from app.providers.base import (
-    EmailProvider,
     EmailMessage,
+    EmailProvider,
+    ProviderCapability,
     ProviderResult,
     ProviderStatus,
-    ProviderCapability,
 )
 
 

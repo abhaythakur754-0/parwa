@@ -13,11 +13,12 @@ This test suite checks ALL integration gaps between components:
 Run with: pytest tests/test_parwa_integration_gaps.py -v --tb=short
 """
 
-import pytest
 import os
 import sys
 from datetime import datetime
 from decimal import Decimal
+
+import pytest
 
 # Add app to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

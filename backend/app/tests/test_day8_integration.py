@@ -80,9 +80,9 @@ class TestMiddlewareImportable(unittest.TestCase):
         self.assertTrue(True)
 
     def test_import_security_headers_middleware(self):
-        from app.middleware.security_headers import (
+        from app.middleware.security_headers import (  # noqa: F401
             SecurityHeadersMiddleware,
-        )  # noqa: F401
+        )
 
         self.assertTrue(True)
 
@@ -320,27 +320,27 @@ class TestCrossModuleImports(unittest.TestCase):
     """Verify that security modules can import each other without circular issues."""
 
     def test_import_info_leak_guard(self):
-        from app.core.info_leak_guard import (
-            InfoLeakGuard,
+        from app.core.info_leak_guard import (  # noqa: F401
             CANNED_REFUSAL_RESPONSE,
-        )  # noqa: F401
+            InfoLeakGuard,
+        )
 
         self.assertTrue(True)
 
     def test_import_pii_detector(self):
-        from app.core.pii_redaction_engine import (
-            PIIDetector,
+        from app.core.pii_redaction_engine import (  # noqa: F401
             ALL_PII_TYPES,
-        )  # noqa: F401
+            PIIDetector,
+        )
 
         self.assertTrue(isinstance(ALL_PII_TYPES, (list, tuple, set)))
         self.assertTrue(len(ALL_PII_TYPES) > 0)
 
     def test_import_prompt_injection_defense(self):
-        from app.core.prompt_injection_defense import (
-            PromptInjectionDetector,
+        from app.core.prompt_injection_defense import (  # noqa: F401
             _ALL_RULES,
-        )  # noqa: F401
+            PromptInjectionDetector,
+        )
 
         self.assertTrue(isinstance(_ALL_RULES, list))
         self.assertTrue(len(_ALL_RULES) > 0)

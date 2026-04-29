@@ -20,7 +20,6 @@ Categories:
 import copy
 
 import pytest
-
 from app.core.state_migration import (
     BatchMigrationResult,
     MigrationResult,

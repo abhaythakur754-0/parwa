@@ -33,13 +33,10 @@ Import patterns:
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
-
 from app.api.deps import (
-    require_roles,
     get_company_id,
     get_current_user,
+    require_roles,
 )
 from app.api.schemas.workflow import (
     CapacityConfigureRequest,
@@ -72,6 +69,9 @@ from app.api.schemas.workflow import (
     WorkflowStateResponse,
 )
 from app.exceptions import NotFoundError, ValidationError
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+
 from database.base import get_db
 from database.models.core import User
 
@@ -335,8 +335,8 @@ def force_state_transition(
     and recovery scenarios.
     """
     try:
-        from app.core.state_serialization import StateSerializer
         from app.core.gsd_engine import GSDEngine
+        from app.core.state_serialization import StateSerializer
         from app.core.techniques.base import GSDState
 
         serializer = StateSerializer()
@@ -1013,8 +1013,9 @@ def get_tenant_config(
     per-company overrides) for all categories.
     """
     try:
-        from app.core.per_tenant_config import TenantConfigManager
         from dataclasses import asdict
+
+        from app.core.per_tenant_config import TenantConfigManager
 
         manager = TenantConfigManager()
         config = manager.get_config(company_id)
@@ -1074,8 +1075,9 @@ def update_tenant_config(
         )
 
     try:
-        from app.core.per_tenant_config import TenantConfigManager
         from dataclasses import asdict
+
+        from app.core.per_tenant_config import TenantConfigManager
 
         manager = TenantConfigManager()
         updated = manager.update_config(
@@ -1140,8 +1142,8 @@ def get_gsd_transitions(
     recorded during the conversation.
     """
     try:
-        from app.core.state_serialization import StateSerializer
         from app.core.shared_gsd import SharedGSDManager
+        from app.core.state_serialization import StateSerializer
 
         serializer = StateSerializer()
         state = serializer.load_state(
@@ -1226,8 +1228,8 @@ def get_gsd_analytics(
     resolution time estimates, and state distribution analytics.
     """
     try:
-        from app.core.state_serialization import StateSerializer
         from app.core.gsd_engine import GSDEngine
+        from app.core.state_serialization import StateSerializer
 
         serializer = StateSerializer()
         state = serializer.load_state(

@@ -11,8 +11,9 @@ Tests for all 7 Day 1 fixes:
   D1: CORS — no wildcard fallback with credentials
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 # ============================================================
 # A1: Refresh Token Pepper Tests

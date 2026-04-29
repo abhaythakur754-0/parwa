@@ -8,7 +8,6 @@ GAP-017 (multi-currency), edge cases.
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from app.core.signal_extraction import (
     ExtractedSignals,
     SignalExtractionRequest,

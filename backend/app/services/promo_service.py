@@ -13,10 +13,9 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-
 from database.base import SessionLocal
 from database.models.billing import Subscription
-from database.models.billing_extended import PromoCode, CompanyPromoUse
+from database.models.billing_extended import CompanyPromoUse, PromoCode
 
 logger = logging.getLogger(__name__)
 

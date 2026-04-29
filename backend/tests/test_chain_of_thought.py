@@ -8,28 +8,28 @@ detection, company isolation (BC-001), and error fallback (BC-008).
 Target: 80+ tests.
 """
 
-import pytest
 from unittest.mock import patch
 
-from app.core.technique_router import TechniqueID, QuerySignals
+import pytest
+from app.core.technique_router import QuerySignals, TechniqueID
 from app.core.techniques.base import (
     BaseTechniqueNode,
     ConversationState,
 )
 from app.core.techniques.chain_of_thought import (
-    CoTConfig,
-    CoTStep,
-    CoTResult,
+    _CAUSAL_PATTERNS,
+    _COMPARISON_PATTERNS,
+    _CONJUNCTIONS,
+    _REASONING_TEMPLATES,
+    _SEQUENTIAL_KEYWORDS,
+    _STOP_WORDS,
+    _SYNTHESIS_TEMPLATES,
     ChainOfThoughtNode,
     ChainOfThoughtProcessor,
+    CoTConfig,
+    CoTResult,
+    CoTStep,
     QueryType,
-    _CONJUNCTIONS,
-    _SEQUENTIAL_KEYWORDS,
-    _COMPARISON_PATTERNS,
-    _CAUSAL_PATTERNS,
-    _STOP_WORDS,
-    _REASONING_TEMPLATES,
-    _SYNTHESIS_TEMPLATES,
 )
 
 # ── Fixtures ────────────────────────────────────────────────────────

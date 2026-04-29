@@ -8,13 +8,12 @@ Uses the Plivo REST API: https://api.plivo.com/v1/Account/{auth_id}
 from typing import Any, Dict
 
 import httpx
-
 from app.providers.base import (
-    SMSProvider,
-    SMSMessage,
+    ProviderCapability,
     ProviderResult,
     ProviderStatus,
-    ProviderCapability,
+    SMSMessage,
+    SMSProvider,
 )
 
 

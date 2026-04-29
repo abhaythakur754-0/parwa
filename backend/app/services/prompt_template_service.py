@@ -18,13 +18,12 @@ from __future__ import annotations
 
 import re
 import uuid
-
-from app.exceptions import ParwaBaseError
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from app.exceptions import ParwaBaseError
 from app.logger import get_logger
 
 logger = get_logger("prompt_template")

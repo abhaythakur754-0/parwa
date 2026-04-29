@@ -14,11 +14,11 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
+from app.exceptions import NotFoundError, ValidationError
 from sqlalchemy.orm import Session
 
-from app.exceptions import NotFoundError, ValidationError
-from database.models.tickets import Ticket
 from database.models.core import User
+from database.models.tickets import Ticket
 
 
 class Incident:
@@ -472,8 +472,9 @@ class IncidentService:
         """Store incident (placeholder for actual DB storage)."""
         # In production, this would save to an incidents table
         # For now, we'll use a simple file-based or Redis storage
-        import redis
         import os
+
+        import redis
 
         redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
         try:
@@ -490,8 +491,9 @@ class IncidentService:
         incident_id: str,
     ) -> Dict[str, Any]:
         """Get incident from storage."""
-        import redis
         import os
+
+        import redis
 
         redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
         try:
@@ -509,8 +511,9 @@ class IncidentService:
         self,
     ) -> List[Dict[str, Any]]:
         """Get all incidents for the company."""
-        import redis
         import os
+
+        import redis
 
         incidents = []
 

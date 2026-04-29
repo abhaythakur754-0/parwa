@@ -11,7 +11,7 @@ import asyncio
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -26,8 +26,8 @@ class Test30DayPeriodCalculation:
     def test_monthly_period_is_exactly_30_days(self):
         """P1: Monthly period should be exactly 30 days, not calendar month."""
         from app.services.subscription_service import (
-            SubscriptionService,
             BILLING_PERIOD_DAYS,
+            SubscriptionService,
         )
 
         service = SubscriptionService()
@@ -552,8 +552,8 @@ class TestDowngradeUndo:
     def test_undo_expired_raises_error(self):
         """D6: Undo after 24 hours should raise DowngradeUndoExpiredError."""
         from app.services.subscription_service import (
-            SubscriptionService,
             DowngradeUndoExpiredError,
+            SubscriptionService,
         )
 
         service = SubscriptionService()
@@ -583,8 +583,8 @@ class TestDowngradeUndo:
     def test_undo_no_downgrade_raises_error(self):
         """D6: Undo when no downgrade was executed should raise error."""
         from app.services.subscription_service import (
-            SubscriptionService,
             SubscriptionError,
+            SubscriptionService,
         )
 
         service = SubscriptionService()
@@ -822,8 +822,8 @@ class TestUsagePeriodAlignment:
     def test_get_billing_period_returns_correct_window(self):
         """P4: get_current_billing_period should return billing period window."""
         from app.services.subscription_service import (
-            SubscriptionService,
             BILLING_PERIOD_DAYS,
+            SubscriptionService,
         )
 
         service = SubscriptionService()
@@ -999,8 +999,8 @@ class TestValidationEdgeCases:
     def test_validate_frequency_rejects_invalid(self):
         """Should reject invalid frequency."""
         from app.services.subscription_service import (
-            SubscriptionService,
             SubscriptionError,
+            SubscriptionService,
         )
 
         service = SubscriptionService()
@@ -1022,7 +1022,7 @@ class TestValidationEdgeCases:
 
     def test_subscription_info_has_day2_fields(self):
         """SubscriptionInfo schema should include Day 2 fields."""
-        from app.schemas.billing import SubscriptionInfo, BillingFrequency
+        from app.schemas.billing import BillingFrequency, SubscriptionInfo
 
         info = SubscriptionInfo(
             id=uuid.uuid4(),

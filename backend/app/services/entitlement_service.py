@@ -25,12 +25,12 @@ from enum import Enum
 from typing import Any, Dict, Optional
 from uuid import UUID
 
+from app.schemas.billing import VARIANT_LIMITS, VariantType
 from sqlalchemy.orm import Session
 
 from database.base import SessionLocal
 from database.models.billing import Subscription
 from database.models.core import Company, User
-from app.schemas.billing import VARIANT_LIMITS, VariantType
 
 logger = logging.getLogger("parwa.services.entitlement")
 

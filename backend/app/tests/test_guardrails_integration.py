@@ -5,13 +5,12 @@ Tests the wiring of GuardrailsEngine to Smart Router / AI Pipeline.
 """
 
 import pytest
-
 from app.core.guardrails_integration import (
     GuardrailsAction,
     GuardrailsCheckResult,
+    apply_guardrails_to_llm_result,
     check_llm_response,
     handle_blocked_response,
-    apply_guardrails_to_llm_result,
 )
 
 # ── Fixtures ────────────────────────────────────────────────────

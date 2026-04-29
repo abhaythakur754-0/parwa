@@ -11,9 +11,9 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from app.logger import get_logger
 from sqlalchemy.orm import Session
 
-from app.logger import get_logger
 from database.models.api_key_audit import APIKeyAuditLog
 from database.models.core import APIKey
 from security.api_keys import (

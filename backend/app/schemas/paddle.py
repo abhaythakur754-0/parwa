@@ -9,8 +9,8 @@ Reference: https://developer.paddle.com/webhooks/overview
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 

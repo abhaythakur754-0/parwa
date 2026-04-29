@@ -15,16 +15,16 @@ Building Codes: BC-001 (tenant isolation), BC-011 (auth), BC-012 (errors)
 
 from typing import Optional
 
+from app.api.deps import (
+    get_company_id,
+    get_current_user,
+)
+from app.exceptions import ValidationError
+from app.logger import get_logger
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import (
-    get_current_user,
-    get_company_id,
-)
-from app.exceptions import ValidationError
-from app.logger import get_logger
 from database.base import get_db
 from database.models.core import User
 
@@ -102,8 +102,8 @@ async def get_agent_metrics(
         return result
 
     except (ValidationError, Exception) as exc:
-        from app.exceptions import ValidationError as VE
         from app.exceptions import NotFoundError
+        from app.exceptions import ValidationError as VE
 
         if isinstance(exc, (ValidationError, VE, NotFoundError)):
             raise

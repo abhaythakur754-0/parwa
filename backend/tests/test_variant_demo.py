@@ -28,9 +28,9 @@ def test_demo_service():
 
     try:
         from app.services.demo_service import (
-            get_demo_service,
-            DemoVariant,
             VARIANT_DEMO_CAPABILITIES,
+            DemoVariant,
+            get_demo_service,
         )
 
         demo_service = get_demo_service()
@@ -67,7 +67,7 @@ def test_demo_session_creation():
     print("=" * 60)
 
     try:
-        from app.services.demo_service import get_demo_service, DemoVariant
+        from app.services.demo_service import DemoVariant, get_demo_service
 
         demo_service = get_demo_service()
 
@@ -104,7 +104,7 @@ def test_demo_chat():
     print("=" * 60)
 
     try:
-        from app.services.demo_service import get_demo_service, DemoVariant
+        from app.services.demo_service import DemoVariant, get_demo_service
 
         demo_service = get_demo_service()
 
@@ -183,7 +183,7 @@ def test_demo_scenarios():
     print("=" * 60)
 
     try:
-        from app.services.demo_service import get_demo_service, DemoVariant
+        from app.services.demo_service import DemoVariant, get_demo_service
 
         demo_service = get_demo_service()
 
@@ -220,7 +220,7 @@ def test_demo_completion():
     print("=" * 60)
 
     try:
-        from app.services.demo_service import get_demo_service, DemoVariant
+        from app.services.demo_service import DemoVariant, get_demo_service
 
         demo_service = get_demo_service()
 

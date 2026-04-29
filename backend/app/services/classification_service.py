@@ -17,17 +17,17 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.exceptions import NotFoundError
 from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import Session
 
 from database.models.tickets import (
-    Ticket,
-    TicketMessage,
-    TicketIntent,
     ClassificationCorrection,
+    Ticket,
+    TicketIntent,
+    TicketMessage,
     TicketPriority,
 )
-from app.exceptions import NotFoundError
 
 
 class IntentCategory:

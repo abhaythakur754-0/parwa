@@ -7,13 +7,12 @@ Implementation of the EmailProvider interface for Postmark.
 from typing import Any, Dict
 
 import httpx
-
 from app.providers.base import (
-    EmailProvider,
     EmailMessage,
+    EmailProvider,
+    ProviderCapability,
     ProviderResult,
     ProviderStatus,
-    ProviderCapability,
 )
 
 

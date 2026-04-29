@@ -20,13 +20,12 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pytest
-
 from app.core.technique_caching import (
-    CacheEntry,
-    TechniqueCache,
     DEFAULT_MAX_SIZE,
     DEFAULT_TTL_BY_TIER,
     DEFAULT_TTL_SECONDS,
+    CacheEntry,
+    TechniqueCache,
 )
 from app.core.technique_router import TechniqueID
 

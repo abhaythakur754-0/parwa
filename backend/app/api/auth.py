@@ -23,9 +23,6 @@ Protected endpoints (JWT required):
 - GET  /api/auth/me
 """
 
-from fastapi import APIRouter, Depends, Query, Response
-from sqlalchemy.orm import Session
-
 from app.api.deps import get_current_user
 from app.schemas.auth import (
     AuthResponse,
@@ -61,14 +58,17 @@ from app.services.password_reset_service import (
     initiate_password_reset,
     reset_password,
 )
-from app.services.verification_service import (
-    resend_verification_email,
-    verify_email,
-)
 from app.services.phone_otp_service import (
     send_otp,
     verify_otp,
 )
+from app.services.verification_service import (
+    resend_verification_email,
+    verify_email,
+)
+from fastapi import APIRouter, Depends, Query, Response
+from sqlalchemy.orm import Session
+
 from database.base import get_db
 from database.models.core import Company, User
 

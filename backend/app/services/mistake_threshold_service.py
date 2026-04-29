@@ -16,7 +16,7 @@ Building Codes:
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional, Dict
+from typing import Dict, Optional
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -412,13 +412,14 @@ class MistakeThresholdService:
         Returns:
             Tuple of (training_triggered: bool, training_run_id: Optional[str]).
         """
-        from database.models.training import TrainingRun
         from app.services.agent_training_service import (
-            AgentTrainingService,
-            TRAINING_STATUS_QUEUED,
             TRAINING_STATUS_INITIALIZING,
+            TRAINING_STATUS_QUEUED,
             TRAINING_STATUS_RUNNING,
+            AgentTrainingService,
         )
+
+        from database.models.training import TrainingRun
 
         # Check if agent is already training
         existing_run = (
@@ -513,7 +514,7 @@ class MistakeThresholdService:
         Returns:
             Dict with dataset_id or None on failure.
         """
-        from database.models.training import TrainingDataset, AgentMistake
+        from database.models.training import AgentMistake, TrainingDataset
 
         # Get unprocessed mistakes
         mistakes = (

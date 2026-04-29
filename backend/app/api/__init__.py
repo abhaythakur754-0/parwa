@@ -6,22 +6,25 @@ All FastAPI routers are registered here.
 
 from fastapi import APIRouter
 
-from app.api import auth, health, admin, api_keys, mfa, client, webhooks
-
-# Day 26: Ticket API
-from app.api import tickets
-
-# Day 35: Public API (Landing Page)
-from app.api import public
-
-# Week 10.5 Day 17: Technique Configuration Admin API
-from app.api import technique_config
-
-# Week 6 Day 2: Jarvis Onboarding Chat API
-from app.api import jarvis
-
 # Week 14 Day 1: Jarvis Command Center API
-from app.api import jarvis_control
+# Week 6 Day 2: Jarvis Onboarding Chat API
+# Week 10.5 Day 17: Technique Configuration Admin API
+# Day 35: Public API (Landing Page)
+# Day 26: Ticket API
+from app.api import (
+    admin,
+    api_keys,
+    auth,
+    client,
+    health,
+    jarvis,
+    jarvis_control,
+    mfa,
+    public,
+    technique_config,
+    tickets,
+    webhooks,
+)
 
 api_router = APIRouter()
 

@@ -12,10 +12,11 @@ BC-008: Graceful degradation.
 
 import json
 
-from database.base import SessionLocal
-from database.models.variant_engine import VariantInstance
 from app.exceptions import ParwaBaseError
 from app.logger import get_logger
+
+from database.base import SessionLocal
+from database.models.variant_engine import VariantInstance
 
 logger = get_logger("variant_instance_service")
 
@@ -664,8 +665,9 @@ def increment_active_tickets(
     # Gap 8: Atomic SQL UPDATE with capacity guard.
     # The WHERE clause ensures that even under concurrent load,
     # we never exceed max capacity at the DB level.
-    import sqlalchemy as sa
     from datetime import datetime, timezone
+
+    import sqlalchemy as sa
 
     result = db.execute(
         sa.text(
@@ -739,8 +741,9 @@ def decrement_active_tickets(
 
     # Gap 1: Atomic SQL UPDATE using GREATEST to prevent
     # counter underflow (DB CheckConstraint is the safety net)
-    import sqlalchemy as sa
     from datetime import datetime, timezone
+
+    import sqlalchemy as sa
 
     db.execute(
         sa.text(

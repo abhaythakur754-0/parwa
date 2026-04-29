@@ -17,13 +17,13 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from sqlalchemy import desc
-
 from app.clients.paddle_client import (
     PaddleClient,
     PaddleError,
     get_paddle_client,
 )
+from sqlalchemy import desc
+
 from database.base import SessionLocal
 from database.models.billing import Invoice
 from database.models.core import Company
@@ -253,10 +253,11 @@ class InvoiceService:
         # Simple PDF generation using reportlab-style approach
         # In production, would use reportlab or weasyprint
         try:
+            from io import BytesIO
+
             from reportlab.lib.pagesizes import letter
             from reportlab.lib.units import inch
             from reportlab.pdfgen import canvas
-            from io import BytesIO
 
             buffer = BytesIO()
             c = canvas.Canvas(buffer, pagesize=letter)

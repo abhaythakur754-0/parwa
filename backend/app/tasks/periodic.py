@@ -43,6 +43,7 @@ def cleanup_stale_sessions(self):
             # FIX L40: Cutoff should be 7 days ago, NOT now()
             # Previous bug would delete ALL sessions immediately
             from datetime import timedelta
+
             from sqlalchemy import text
 
             cutoff = datetime.now(timezone.utc) - timedelta(
@@ -136,9 +137,10 @@ def check_webhook_health(self):
     BC-004: Runs every 5 minutes via Celery Beat.
     """
     try:
+        from datetime import datetime, timedelta, timezone
+
         from database.base import SessionLocal
         from database.models.webhook_event import WebhookEvent
-        from datetime import datetime, timezone, timedelta
 
         db = SessionLocal()
         try:
@@ -652,9 +654,10 @@ def rebalance_workload_all_companies(self):
     BC-004: Runs every 60 seconds via Celery Beat.
     """
     try:
+        from app.services.variant_orchestration_service import rebalance_workload
+
         from database.base import SessionLocal
         from database.models.core import Company
-        from app.services.variant_orchestration_service import rebalance_workload
 
         db = SessionLocal()
         try:
@@ -725,8 +728,9 @@ def reindex_all_knowledge_documents(self):
     BC-004: Runs weekly via Celery Beat.
     """
     try:
-        from database.base import SessionLocal
         from sqlalchemy import text
+
+        from database.base import SessionLocal
 
         db = SessionLocal()
         try:

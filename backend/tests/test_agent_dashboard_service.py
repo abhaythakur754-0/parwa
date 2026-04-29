@@ -18,17 +18,17 @@ Tests the AgentDashboardService covering:
 Building Codes: BC-001, BC-005, BC-007, BC-012
 """
 
-import pytest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-from app.exceptions import ValidationError, NotFoundError
+import pytest
+from app.exceptions import NotFoundError, ValidationError
 from app.services.agent_dashboard_service import (
-    AgentDashboardService,
-    get_agent_dashboard_service,
-    SPARKLINE_DAYS,
     _PAUSE_ALLOWED_FROM,
     _RESUME_ALLOWED_FROM,
+    SPARKLINE_DAYS,
+    AgentDashboardService,
+    get_agent_dashboard_service,
 )
 
 # ══════════════════════════════════════════════════════════════════

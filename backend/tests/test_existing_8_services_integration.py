@@ -13,17 +13,17 @@ Each test simulates a complete message flow and verifies:
 Run:  pytest tests/test_existing_8_services_integration.py -v
 """
 
+import importlib.util
+import json
 import os
 import sys
 import types
-import json
 import unittest.mock as mock
 
 # ---------------------------------------------------------------------------
 # Module import setup (same as unit tests)
 # ---------------------------------------------------------------------------
 
-import importlib.util
 
 _mock_db = types.ModuleType("database")
 _mock_db_models = types.ModuleType("database.models")

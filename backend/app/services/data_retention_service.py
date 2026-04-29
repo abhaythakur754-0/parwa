@@ -19,7 +19,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-
 from database.base import SessionLocal
 
 # Lazy imports to avoid DB connection at module load time in tests

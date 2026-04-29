@@ -23,9 +23,9 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import httpx
+from app.logger import get_logger
 from sqlalchemy import and_
 
-from app.logger import get_logger
 from database.base import get_db_context
 from database.models.integration import (
     CustomIntegration,

@@ -20,11 +20,11 @@ from sqlalchemy.orm import Session
 
 from database.models.tickets import (
     Ticket,
-    TicketMessage,
-    TicketMerge,
-    TicketStatus,
     TicketAttachment,
     TicketInternalNote,
+    TicketMerge,
+    TicketMessage,
+    TicketStatus,
 )
 
 

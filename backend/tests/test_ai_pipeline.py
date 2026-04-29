@@ -14,9 +14,10 @@ Tests the full end-to-end AI pipeline:
 """
 
 import asyncio
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # ── Test Fixtures ───────────────────────────────────────────────
 

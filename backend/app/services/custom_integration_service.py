@@ -31,11 +31,11 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 import httpx
+from app.exceptions import ValidationError
+from app.logger import get_logger
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from app.exceptions import ValidationError
-from app.logger import get_logger
 from database.models.integration import CustomIntegration
 
 logger = get_logger("custom_integration_service")
@@ -159,8 +159,8 @@ def _encrypt_config(config: Dict[str, Any]) -> str:
     integrity_hmac = _compute_hmac(key, plaintext)
 
     # AES-256-CBC with PKCS7 padding
-    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
     from cryptography.hazmat.primitives import padding
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
     iv = secrets.token_bytes(16)
     padder = padding.PKCS7(128).padder()
@@ -196,8 +196,8 @@ def _decrypt_config(encrypted: str) -> Dict[str, Any]:
         iv = raw[32:48]
         ciphertext = raw[48:]
 
-        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
         from cryptography.hazmat.primitives import padding
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
         cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
         decryptor = cipher.decryptor()

@@ -19,9 +19,8 @@ import functools
 import logging
 from typing import Callable, Dict, Optional
 
-from celery import Task
-
 from app.tasks.celery_app import app
+from celery import Task
 
 logger = logging.getLogger("parwa.tasks")
 

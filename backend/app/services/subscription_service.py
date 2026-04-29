@@ -24,23 +24,23 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from sqlalchemy.orm import Session
-
 from app.clients.paddle_client import (
     PaddleClient,
     PaddleError,
     get_paddle_client,
 )
 from app.schemas.billing import (
+    VARIANT_LIMITS,
     BillingFrequency,
     SubscriptionInfo,
     SubscriptionStatus,
-    VariantType,
-    VARIANT_LIMITS,
     VariantLimits,
+    VariantType,
 )
+from sqlalchemy.orm import Session
+
 from database.base import SessionLocal
-from database.models.billing import Subscription, CancellationRequest
+from database.models.billing import CancellationRequest, Subscription
 from database.models.billing_extended import ProrationAudit
 from database.models.core import Company
 
@@ -1567,8 +1567,9 @@ class SubscriptionService:
                     warning_data = self._build_downgrade_warning_data(db, sub)
                     # Send notification (email + socket.io)
                     try:
-                        from app.core.event_emitter import emit_billing_event
                         import asyncio
+
+                        from app.core.event_emitter import emit_billing_event
 
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)

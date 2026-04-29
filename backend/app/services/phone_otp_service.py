@@ -11,10 +11,10 @@ import os
 import secrets
 from datetime import datetime, timedelta, timezone
 
+from app.logger import get_logger
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from app.logger import get_logger
 from shared.utils.security import constant_time_compare
 
 logger = get_logger("phone_otp_service")

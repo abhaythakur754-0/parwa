@@ -12,25 +12,26 @@ Parent: Week 9 Gap Fix Sprint
 """
 
 import hashlib
-import pytest
 from unittest.mock import patch
 
-from app.core.sentiment_engine import (
-    SentimentAnalyzer,
-    FrustrationDetector,
-    UrgencyScorer,
-)
+import pytest
+from app.core.clara_quality_gate import CLARAQualityGate
+from app.core.classification_engine import ClassificationEngine
+from app.core.language_pipeline import LanguagePipeline
+from app.core.prompt_templates import PromptTemplateManager
 from app.core.rag_retrieval import RAGRetriever
 from app.core.response_formatters import (
     BoldFormatter,
     FormattingContext,
 )
-from app.core.language_pipeline import LanguagePipeline
+from app.core.sentiment_engine import (
+    FrustrationDetector,
+    SentimentAnalyzer,
+    UrgencyScorer,
+)
+from app.core.signal_extraction import SignalExtractionRequest, SignalExtractor
 from app.services.sentiment_technique_mapper import SentimentTechniqueMapper
-from app.core.clara_quality_gate import CLARAQualityGate
-from app.core.classification_engine import ClassificationEngine
-from app.core.prompt_templates import PromptTemplateManager
-from app.core.signal_extraction import SignalExtractor, SignalExtractionRequest
+
 from shared.knowledge_base.vector_search import MockVectorStore
 
 # ══════════════════════════════════════════════════════════════════════════

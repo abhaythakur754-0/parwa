@@ -14,9 +14,8 @@ PARWA pattern established in database/models/jarvis.py.
 Based on: JARVIS_ROADMAP.md v4.0, PARWA_Building_Codes_v1.md
 """
 
-from datetime import datetime
-
 import uuid
+from datetime import datetime
 
 from sqlalchemy import (
     Boolean,

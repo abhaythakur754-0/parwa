@@ -729,16 +729,16 @@ class TestBeforeAfterBehavioralComparison:
         }
 
         # Verify all broken imports are now fixed
-        from app.core.prompt_injection_defense import PromptInjectionDetector
-        from app.core.pii_redaction_engine import PIIRedactor
-        from app.core.session_continuity import SessionContinuityManager
-        from app.core.rag_retrieval import RAGRetriever
-        from app.core.rag_reranking import CrossEncoderReranker
         from app.core.clara_quality_gate import CLARAQualityGate
         from app.core.guardrails_engine import GuardrailsEngine
+        from app.core.pii_redaction_engine import PIIRedactor
+        from app.core.prompt_injection_defense import PromptInjectionDetector
+        from app.core.rag_reranking import CrossEncoderReranker
+        from app.core.rag_retrieval import RAGRetriever
+        from app.core.session_continuity import SessionContinuityManager
         from app.services.brand_voice_service import BrandVoiceService
-        from app.services.usage_tracking_service import UsageTrackingService
         from app.services.cost_protection_service import CostProtectionService
+        from app.services.usage_tracking_service import UsageTrackingService
 
         # Verify correct classes/methods exist
         assert hasattr(PromptInjectionDetector, "scan")
@@ -879,8 +879,8 @@ class TestSessionLifecycle:
 
     def test_error_handling(self):
         """Verify all error types have user-friendly messages."""
+        from app.exceptions import NotFoundError, RateLimitError, ValidationError
         from app.services.jarvis_service import handle_error
-        from app.exceptions import RateLimitError, ValidationError, NotFoundError
 
         errors = [
             RateLimitError("Too fast"),

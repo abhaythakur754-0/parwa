@@ -8,9 +8,10 @@ Tests cover:
 - XSS sanitization
 """
 
-import pytest
-from unittest.mock import Mock, MagicMock
 from datetime import datetime, timezone
+from unittest.mock import MagicMock, Mock
+
+import pytest
 
 
 class TestTemplateService:

@@ -25,10 +25,10 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from app.schemas.email_channel import AutoReplyDetection, EmailLoopDetection
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.schemas.email_channel import AutoReplyDetection, EmailLoopDetection
 from database.models.email_channel import EmailThread, InboundEmail
 from database.models.tickets import Ticket, TicketMessage
 

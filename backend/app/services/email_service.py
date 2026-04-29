@@ -20,12 +20,12 @@ from httpx import HTTPError, TimeoutException
 try:
     import sib_api_v3_sdk
     from sib_api_v3_sdk.api import TransactionalEmailsApi
+    from sib_api_v3_sdk.configuration import Configuration
     from sib_api_v3_sdk.models import (
         SendSmtpEmail,
-        SendSmtpEmailTo,
         SendSmtpEmailSender,
+        SendSmtpEmailTo,
     )
-    from sib_api_v3_sdk.configuration import Configuration
 
     _BREVO_SDK_AVAILABLE = True
 except ImportError:

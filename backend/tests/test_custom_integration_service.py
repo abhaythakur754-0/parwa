@@ -14,23 +14,23 @@ Tests the CustomIntegrationService covering:
 Building Codes: BC-001, BC-003, BC-004, BC-011, BC-012
 """
 
-import pytest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
+import pytest
 from app.exceptions import ValidationError
 from app.services.custom_integration_service import (
-    CustomIntegrationService,
-    VALID_INTEGRATION_TYPES,
+    DB_TIMEOUT_SECONDS,
+    MAX_CONSECUTIVE_ERRORS,
+    PLAN_LIMITS,
+    REQUIRED_CONFIG_FIELDS,
+    REST_TIMEOUT_SECONDS,
     VALID_AUTH_TYPES,
     VALID_HTTP_METHODS,
-    PLAN_LIMITS,
-    MAX_CONSECUTIVE_ERRORS,
-    REST_TIMEOUT_SECONDS,
-    DB_TIMEOUT_SECONDS,
-    REQUIRED_CONFIG_FIELDS,
-    _encrypt_config,
+    VALID_INTEGRATION_TYPES,
+    CustomIntegrationService,
     _decrypt_config,
+    _encrypt_config,
     _mask_config,
     _parse_json,
 )

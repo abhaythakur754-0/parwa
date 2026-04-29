@@ -10,13 +10,13 @@ Service layer wrapping PaddleClient for Jarvis-specific operations:
 Uses the existing PaddleClient (BC-002) for all Paddle API calls.
 """
 
-import logging
 import json
-from datetime import datetime, timezone, timedelta
+import logging
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-from app.clients.paddle_client import PaddleClient, get_paddle_client, PaddleError
+from app.clients.paddle_client import PaddleClient, PaddleError, get_paddle_client
 
 logger = logging.getLogger("parwa.services.paddle")
 

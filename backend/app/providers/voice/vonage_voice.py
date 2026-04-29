@@ -8,13 +8,12 @@ Uses the Vonage Voice API: https://api.nexmo.com/v1/calls
 from typing import Any, Dict
 
 import httpx
-
 from app.providers.base import (
-    VoiceProvider,
-    VoiceCall,
+    ProviderCapability,
     ProviderResult,
     ProviderStatus,
-    ProviderCapability,
+    VoiceCall,
+    VoiceProvider,
 )
 
 

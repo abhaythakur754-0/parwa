@@ -13,17 +13,17 @@ All responses use structured JSON (BC-012).
 """
 
 import json
-from typing import Optional, List
+from typing import List, Optional
 
+from app.api.deps import require_roles
+from app.exceptions import NotFoundError
+from app.services import agent_assignment_service
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_roles
-from app.exceptions import NotFoundError
 from database.base import get_db
 from database.models.core import User
-from app.services import agent_assignment_service
 
 router = APIRouter(prefix="/api/ai/agents", tags=["ai-agents"])
 

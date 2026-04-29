@@ -20,9 +20,9 @@ from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
 from database.base import SessionLocal
+from database.models.approval import ExecutedAction, UndoLog
 from database.models.core import Company
 from database.models.shadow_mode import ShadowLog, ShadowPreference
-from database.models.approval import UndoLog, ExecutedAction
 
 logger = logging.getLogger("parwa.services.shadow_mode")
 

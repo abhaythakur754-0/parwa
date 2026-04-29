@@ -28,22 +28,22 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# ── Smart Router imports ──────────────────────────────────────────
-from app.core.smart_router import (
-    AtomicStepType,
-    ModelTier,
-    ProviderHealthTracker,
-    RoutingDecision,
-    SmartRouter,
-    MODEL_REGISTRY,
-)
-
 # ── Prompt Template imports ───────────────────────────────────────
 from app.core.prompt_templates import (
     PromptTemplate,
     PromptTemplateManager,
     _extract_variables,
     _render_variables,
+)
+
+# ── Smart Router imports ──────────────────────────────────────────
+from app.core.smart_router import (
+    MODEL_REGISTRY,
+    AtomicStepType,
+    ModelTier,
+    ProviderHealthTracker,
+    RoutingDecision,
+    SmartRouter,
 )
 
 # ── Technique Cache imports (deferred to avoid database import at
@@ -524,16 +524,24 @@ class TestCacheInvalidationRaceCondition:
 
         try:
             from app.services.technique_cache_service import (
-                _safe_parse_json as _spj,
-                _validate_cache_result as _vcr,
-                _validate_company_id as _vci,
-                compute_query_hash as _cqh,
-                get_cached_result as _gcr,
-                set_cached_result as _scr,
-                invalidate_cached_result as _icr,
-                cleanup_expired_entries as _cee,
                 DEFAULT_CACHE_TTL_HOURS as _dtth,
             )
+            from app.services.technique_cache_service import _safe_parse_json as _spj
+            from app.services.technique_cache_service import (
+                _validate_cache_result as _vcr,
+            )
+            from app.services.technique_cache_service import (
+                _validate_company_id as _vci,
+            )
+            from app.services.technique_cache_service import (
+                cleanup_expired_entries as _cee,
+            )
+            from app.services.technique_cache_service import compute_query_hash as _cqh
+            from app.services.technique_cache_service import get_cached_result as _gcr
+            from app.services.technique_cache_service import (
+                invalidate_cached_result as _icr,
+            )
+            from app.services.technique_cache_service import set_cached_result as _scr
 
             # Bind to self for test methods
             self.safe_parse_json = _spj

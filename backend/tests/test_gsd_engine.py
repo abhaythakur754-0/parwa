@@ -10,24 +10,23 @@ Uses unittest.mock for all external dependencies. No real API calls.
 from datetime import datetime, timezone
 
 import pytest
-
 from app.core.gsd_engine import (
     DEFAULT_RESOLUTION_ESTIMATE,
     DIAGNOSTIC_QUESTIONS,
     ESCALATION_ELIGIBLE_STATES,
-    EscalationCooldownError,
     FULL_TRANSITION_TABLE,
-    GSDConfig,
-    GSDVariant,
-    GSDEngine,
-    GSDEngineError,
-    InvalidTransitionError,
     LEGAL_INTENTS,
     MINI_TRANSITION_TABLE,
     NEW_ISSUE_PHRASES,
     RESOLUTION_TIME_ESTIMATES,
     SATISFACTION_PHRASES,
     SIMPLE_RESOLUTION_INTENTS,
+    EscalationCooldownError,
+    GSDConfig,
+    GSDEngine,
+    GSDEngineError,
+    GSDVariant,
+    InvalidTransitionError,
     TransitionEvent,
     TransitionRecord,
     get_gsd_engine,
@@ -35,8 +34,8 @@ from app.core.gsd_engine import (
     should_escalate,
     transition_state,
 )
-from app.core.techniques.base import ConversationState, GSDState
 from app.core.technique_router import QuerySignals
+from app.core.techniques.base import ConversationState, GSDState
 
 # ══════════════════════════════════════════════════════════════════
 # TEST HELPERS

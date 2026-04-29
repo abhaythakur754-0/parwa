@@ -32,7 +32,7 @@ import asyncio
 import logging
 import os
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("parwa.ai_pipeline")
@@ -244,26 +244,26 @@ class AIPipeline:
         if self._edge_case_handlers is None:
             try:
                 from app.core.edge_case_handlers import (
-                    EmptyQueryHandler,
-                    TooLongQueryHandler,
-                    UnsupportedLanguageHandler,
-                    EmojisOnlyHandler,
+                    BelowConfidenceHandler,
+                    BlockedUserHandler,
                     CodeBlocksHandler,
+                    CompetitorMentionHandler,
                     DuplicateQueryHandler,
                     EmbeddedImagesHandler,
+                    EmojisOnlyHandler,
+                    EmptyQueryHandler,
+                    ExpiredContextHandler,
+                    FAQMatchHandler,
+                    LegalTerminologyHandler,
+                    MaintenanceModeHandler,
+                    MaliciousHTMLHandler,
                     MultiQuestionHandler,
                     NonExistentTicketHandler,
-                    MaliciousHTMLHandler,
-                    FAQMatchHandler,
-                    BelowConfidenceHandler,
-                    MaintenanceModeHandler,
-                    ExpiredContextHandler,
-                    BlockedUserHandler,
                     PricingRequestHandler,
-                    LegalTerminologyHandler,
-                    CompetitorMentionHandler,
                     SystemCommandsHandler,
                     TimeoutHandler,
+                    TooLongQueryHandler,
+                    UnsupportedLanguageHandler,
                 )
 
                 # Instantiate handlers in priority order

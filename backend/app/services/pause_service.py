@@ -11,7 +11,6 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
-
 from database.base import SessionLocal
 from database.models.billing import Subscription
 from database.models.billing_extended import PauseRecord

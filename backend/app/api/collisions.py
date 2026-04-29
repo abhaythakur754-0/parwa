@@ -6,13 +6,13 @@ Endpoints for tracking ticket viewers and collision detection.
 
 from typing import Optional
 
+from app.api.deps import get_current_user, get_db
+from app.exceptions import NotFoundError
+from app.services.collision_service import CollisionService
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
-from app.exceptions import NotFoundError
-from app.services.collision_service import CollisionService
 from database.models.core import User
 
 router = APIRouter(prefix="/tickets", tags=["Collisions"])

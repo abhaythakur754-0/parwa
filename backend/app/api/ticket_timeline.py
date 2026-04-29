@@ -26,13 +26,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from app.api.deps import get_company_id, get_current_user, get_db, require_roles
+from app.exceptions import NotFoundError
+from app.services.activity_log_service import ActivityLogService
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-
-from app.api.deps import get_db, get_current_user, get_company_id, require_roles
-from app.services.activity_log_service import ActivityLogService
-from app.exceptions import NotFoundError
 
 router = APIRouter(
     prefix="/tickets",

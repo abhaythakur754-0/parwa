@@ -14,10 +14,10 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+from app.logger import get_logger
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
-from app.logger import get_logger
 from database.models.analytics import DriftReport, QAScore
 from database.models.tickets import TicketMessage
 

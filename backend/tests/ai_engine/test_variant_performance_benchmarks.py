@@ -29,8 +29,8 @@ Target: 70+ test functions
 Uses: pytest, unittest.mock, threading for concurrency
 """
 
-import time
 import threading
+import time
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -59,23 +59,41 @@ REBALANCE_MIN_DIFFERENCE = None  # type: ignore[assignment,misc]
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
         from app.core.load_aware_distribution import (
-            LoadAwareDistributor as _LoadAwareDistributor,
-            InstanceInfo as _InstanceInfo,
-            InstanceStatus as _InstanceStatus,
-            RoutingMethod as _RoutingMethod,
-            FailoverReason as _FailoverReason,
-            StickySession as _StickySession,
-            DistributionResult as _DistributionResult,
-            FailoverEvent as _FailoverEvent,
-            DistributionStats as _DistributionStats,
-            DEFAULT_STICKY_TTL_SECONDS as _DEFAULT_STICKY_TTL_SECONDS,
-            DEFAULT_MAX_CONCURRENT_TICKETS as _DEFAULT_MAX_CONCURRENT_TICKETS,
-            DEFAULT_TOKEN_BUDGET_SHARE as _DEFAULT_TOKEN_BUDGET_SHARE,
             DEFAULT_INSTANCE_WEIGHT as _DEFAULT_INSTANCE_WEIGHT,
+        )
+        from app.core.load_aware_distribution import (
+            DEFAULT_MAX_CONCURRENT_TICKETS as _DEFAULT_MAX_CONCURRENT_TICKETS,
+        )
+        from app.core.load_aware_distribution import (
+            DEFAULT_STICKY_TTL_SECONDS as _DEFAULT_STICKY_TTL_SECONDS,
+        )
+        from app.core.load_aware_distribution import (
+            DEFAULT_TOKEN_BUDGET_SHARE as _DEFAULT_TOKEN_BUDGET_SHARE,
+        )
+        from app.core.load_aware_distribution import (
             OVERLOAD_THRESHOLD_PCT as _OVERLOAD_THRESHOLD_PCT,
+        )
+        from app.core.load_aware_distribution import (
             QUEUE_PRESSURE_WEIGHT_FACTOR as _QUEUE_PRESSURE_WEIGHT_FACTOR,
+        )
+        from app.core.load_aware_distribution import (
             REBALANCE_MIN_DIFFERENCE as _REBALANCE_MIN_DIFFERENCE,
         )
+        from app.core.load_aware_distribution import (
+            DistributionResult as _DistributionResult,
+        )
+        from app.core.load_aware_distribution import (
+            DistributionStats as _DistributionStats,
+        )
+        from app.core.load_aware_distribution import FailoverEvent as _FailoverEvent
+        from app.core.load_aware_distribution import FailoverReason as _FailoverReason
+        from app.core.load_aware_distribution import InstanceInfo as _InstanceInfo
+        from app.core.load_aware_distribution import InstanceStatus as _InstanceStatus
+        from app.core.load_aware_distribution import (
+            LoadAwareDistributor as _LoadAwareDistributor,
+        )
+        from app.core.load_aware_distribution import RoutingMethod as _RoutingMethod
+        from app.core.load_aware_distribution import StickySession as _StickySession
 
         globals().update(
             {

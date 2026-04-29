@@ -14,10 +14,10 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from app.core.technique_router import (
-    TechniqueID,
+    TECHNIQUE_REGISTRY,
     ExecutionResultStatus,
     QuerySignals,
-    TECHNIQUE_REGISTRY,
+    TechniqueID,
 )
 
 # ── GSD State Engine ──────────────────────────────────────────────

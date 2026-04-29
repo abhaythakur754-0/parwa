@@ -19,7 +19,7 @@ Building Codes:
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional, Dict, List
+from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 

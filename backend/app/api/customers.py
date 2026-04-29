@@ -8,19 +8,18 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
-
 from app.api.deps import get_current_user, get_db, require_roles
 from app.exceptions import NotFoundError, ValidationError
-from app.services.customer_service import CustomerService
 from app.schemas.customer import (
-    CustomerCreate,
-    CustomerUpdate,
-    CustomerResponse,
-    CustomerMergeRequest,
     CustomerChannelCreate,
+    CustomerCreate,
+    CustomerMergeRequest,
+    CustomerResponse,
+    CustomerUpdate,
 )
+from app.services.customer_service import CustomerService
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session
 
 router = APIRouter(
     prefix="/api/customers",

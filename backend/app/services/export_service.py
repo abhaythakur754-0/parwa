@@ -30,9 +30,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import desc
-
 from app.logger import get_logger
+from sqlalchemy import desc
 
 logger = get_logger("export_service")
 
@@ -310,14 +309,14 @@ def generate_pdf_report(
         try:
             from reportlab.lib import colors
             from reportlab.lib.pagesizes import A4
-            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
             from reportlab.lib.units import mm
             from reportlab.platypus import (
+                Paragraph,
                 SimpleDocTemplate,
+                Spacer,
                 Table,
                 TableStyle,
-                Paragraph,
-                Spacer,
             )
 
             file_path = os.path.join(EXPORT_DIR, f"{
@@ -490,6 +489,7 @@ def _get_summary_csv_data(
     """Get summary report CSV data."""
     try:
         from app.services.dashboard_service import get_key_metrics
+
         from database.base import SessionLocal
 
         db = SessionLocal()
@@ -586,9 +586,10 @@ def _get_agents_csv_data(
     """Get agent performance report CSV data."""
     try:
         from app.services.ticket_analytics_service import (
-            TicketAnalyticsService,
             DateRange,
+            TicketAnalyticsService,
         )
+
         from database.base import SessionLocal
 
         db = SessionLocal()
@@ -650,9 +651,10 @@ def _get_sla_csv_data(
     """Get SLA report CSV data."""
     try:
         from app.services.ticket_analytics_service import (
-            TicketAnalyticsService,
             DateRange,
+            TicketAnalyticsService,
         )
+
         from database.base import SessionLocal
 
         db = SessionLocal()
@@ -699,6 +701,7 @@ def _get_csat_csv_data(
     """Get CSAT report CSV data."""
     try:
         from app.services.analytics_intelligence_service import get_csat_trends
+
         from database.base import SessionLocal
 
         db = SessionLocal()
@@ -754,6 +757,7 @@ def _get_forecast_csv_data(
     """Get forecast report CSV data."""
     try:
         from app.services.analytics_intelligence_service import get_ticket_forecast
+
         from database.base import SessionLocal
 
         db = SessionLocal()

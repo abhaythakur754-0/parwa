@@ -7,8 +7,8 @@ Wraps the core health check system and reformats for the dashboard.
 The frontend SystemHealthStrip.tsx polls this endpoint every 30s.
 """
 
-from fastapi import APIRouter
 from app.logger import get_logger
+from fastapi import APIRouter
 
 logger = get_logger("system_status_api")
 
@@ -40,7 +40,7 @@ async def system_status():
     }
     """
     try:
-        from app.core.health import run_health_checks, HealthStatus
+        from app.core.health import HealthStatus, run_health_checks
 
         result = await run_health_checks(use_cache=True)
 

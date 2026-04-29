@@ -21,6 +21,8 @@ ContextHealthMeter = HealthConfig = HealthMetrics = HealthReport = HealthAlert =
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
         from app.core.context_health import (  # noqa: F811,F401
+            _HEALTH_WEIGHTS,
+            _VARIANT_HEALTH_CONFIGS,
             ContextHealthError,
             ContextHealthMeter,
             HealthAlert,
@@ -29,8 +31,6 @@ def _mock_logger():
             HealthMetrics,
             HealthReport,
             HealthStatus,
-            _HEALTH_WEIGHTS,
-            _VARIANT_HEALTH_CONFIGS,
         )
 
         globals().update(

@@ -11,16 +11,16 @@ Endpoints for:
 
 from typing import Dict, List, Optional
 
+from app.api.deps import get_current_user, get_db, get_tenant_context, require_roles
+from app.services.incident_service import IncidentService
+from app.services.spam_detection_service import SpamDetectionService
+from app.services.stale_ticket_service import StaleTicketService
+from app.services.ticket_lifecycle_service import TicketLifecycleService
+from app.services.ticket_state_machine import TicketStateMachine, TransitionValidator
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, get_tenant_context, require_roles
-from app.services.ticket_lifecycle_service import TicketLifecycleService
-from app.services.ticket_state_machine import TicketStateMachine, TransitionValidator
-from app.services.stale_ticket_service import StaleTicketService
-from app.services.incident_service import IncidentService
-from app.services.spam_detection_service import SpamDetectionService
 from database.models.core import User
 from database.models.tickets import Ticket, TicketStatus
 

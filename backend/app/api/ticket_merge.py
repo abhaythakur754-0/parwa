@@ -14,22 +14,21 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-
 from app.api.deps import get_current_user, get_db, require_roles
 from app.schemas.bulk_action import (
     TicketMergeRequest,
     TicketMergeResponse,
 )
 from app.services.ticket_merge_service import (
-    TicketMergeService,
-    TicketMergeError,
-    TicketNotFoundError,
-    TicketAlreadyMergedError,
-    MergeAlreadyUndoneError,
     CrossTenantMergeError,
+    MergeAlreadyUndoneError,
+    TicketAlreadyMergedError,
+    TicketMergeError,
+    TicketMergeService,
+    TicketNotFoundError,
 )
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
 router = APIRouter(
     prefix="/tickets/merge",

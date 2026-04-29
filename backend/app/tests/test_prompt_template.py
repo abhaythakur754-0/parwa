@@ -14,8 +14,13 @@ Covers:
 from __future__ import annotations
 
 import pytest
-
+from app.exceptions import (
+    NotFoundError,
+    ParwaBaseError,
+    ValidationError,
+)
 from app.services.prompt_template_service import (
+    VALID_VARIANT_TYPES,
     ABTestConfig,
     ABTestStatus,
     PromptTemplate,
@@ -24,14 +29,8 @@ from app.services.prompt_template_service import (
     TemplateCategory,
     TemplateStatus,
     TemplateVersion,
-    VALID_VARIANT_TYPES,
     extract_variables,
     render_variables,
-)
-from app.exceptions import (
-    NotFoundError,
-    ParwaBaseError,
-    ValidationError,
 )
 
 COMPANY_ID = "test-company-001"

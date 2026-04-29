@@ -15,15 +15,14 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-
-from app.core.technique_metrics import TechniqueMetricsCollector
-from app.core.technique_caching import TechniqueCache
-from app.core.per_tenant_config import TenantConfigManager
-from app.core.state_migration import StateMigrator
-from app.core.shared_gsd import SharedGSDManager
 from app.core.capacity_monitor import CapacityMonitor
 from app.core.dspy_integration import DSPyIntegration
-from app.core.technique_router import TechniqueID, QuerySignals
+from app.core.per_tenant_config import TenantConfigManager
+from app.core.shared_gsd import SharedGSDManager
+from app.core.state_migration import StateMigrator
+from app.core.technique_caching import TechniqueCache
+from app.core.technique_metrics import TechniqueMetricsCollector
+from app.core.technique_router import QuerySignals, TechniqueID
 from app.core.techniques.base import ConversationState, GSDState
 
 # ════════════════════════════════════════════════════════════════════

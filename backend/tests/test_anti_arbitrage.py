@@ -31,14 +31,28 @@ def _mock_logger_and_lock():
         _svc_mod.threading.Lock = _svc_mod.threading.RLock
         try:
             from app.services.anti_arbitrage_service import (
-                AntiArbitrageService as _AntiArbitrageService,
-                AntiArbitrageError as _AntiArbitrageError,
                 AntiArbitrageConfig as _AntiArbitrageConfig,
-                ArbitrageAlertLevel as _ArbitrageAlertLevel,
-                InstanceAction as _InstanceAction,
-                VariantInstance as _VariantInstance,
-                CapacityCheck as _CapacityCheck,
+            )
+            from app.services.anti_arbitrage_service import (
+                AntiArbitrageError as _AntiArbitrageError,
+            )
+            from app.services.anti_arbitrage_service import (
+                AntiArbitrageService as _AntiArbitrageService,
+            )
+            from app.services.anti_arbitrage_service import (
                 ArbitrageAlert as _ArbitrageAlert,
+            )
+            from app.services.anti_arbitrage_service import (
+                ArbitrageAlertLevel as _ArbitrageAlertLevel,
+            )
+            from app.services.anti_arbitrage_service import (
+                CapacityCheck as _CapacityCheck,
+            )
+            from app.services.anti_arbitrage_service import (
+                InstanceAction as _InstanceAction,
+            )
+            from app.services.anti_arbitrage_service import (
+                VariantInstance as _VariantInstance,
             )
 
             globals()["AntiArbitrageService"] = _AntiArbitrageService

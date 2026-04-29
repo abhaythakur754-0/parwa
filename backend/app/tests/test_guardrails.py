@@ -6,6 +6,7 @@ ConfidenceGateGuard, GuardrailsEngine, _build_config merging.
 """
 
 import importlib
+
 import pytest
 
 # ── Fixtures ────────────────────────────────────────────────────
@@ -528,8 +529,8 @@ class TestConfidenceGateGuard:
 class TestBuildConfig:
     def test_default_config_no_override(self):
         from app.core.guardrails_engine import (
-            _build_config,
             StrictnessLevel,
+            _build_config,
         )
 
         config = _build_config("co1", "parwa")
@@ -540,8 +541,8 @@ class TestBuildConfig:
 
     def test_mini_parwa_defaults(self):
         from app.core.guardrails_engine import (
-            _build_config,
             StrictnessLevel,
+            _build_config,
         )
 
         config = _build_config("co1", "mini_parwa")
@@ -550,8 +551,8 @@ class TestBuildConfig:
 
     def test_high_parwa_defaults(self):
         from app.core.guardrails_engine import (
-            _build_config,
             StrictnessLevel,
+            _build_config,
         )
 
         config = _build_config("co1", "high_parwa")
@@ -561,8 +562,8 @@ class TestBuildConfig:
     def test_override_merges_confidence(self):
         """GAP FIX: Override with partial config should keep variant defaults."""
         from app.core.guardrails_engine import (
-            _build_config,
             GuardrailConfig,
+            _build_config,
         )
 
         override = GuardrailConfig(
@@ -577,8 +578,8 @@ class TestBuildConfig:
     def test_override_explicit_confidence(self):
         """Explicitly set confidence should be preserved."""
         from app.core.guardrails_engine import (
-            _build_config,
             GuardrailConfig,
+            _build_config,
         )
 
         override = GuardrailConfig(
@@ -591,8 +592,8 @@ class TestBuildConfig:
     def test_override_with_tone(self):
         """Override tone requirements should be preserved."""
         from app.core.guardrails_engine import (
-            _build_config,
             GuardrailConfig,
+            _build_config,
         )
 
         override = GuardrailConfig(

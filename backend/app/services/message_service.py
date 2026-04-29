@@ -17,17 +17,17 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import desc
-from sqlalchemy.orm import Session
-
 from app.exceptions import (
     NotFoundError,
     ValidationError,
 )
+from sqlalchemy import desc
+from sqlalchemy.orm import Session
+
 from database.models.tickets import (
     Ticket,
-    TicketMessage,
     TicketAttachment,
+    TicketMessage,
 )
 
 

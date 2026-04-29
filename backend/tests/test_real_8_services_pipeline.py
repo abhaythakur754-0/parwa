@@ -133,8 +133,8 @@ class TestRealServiceImports:
     def test_conversation_service_importable(self):
         """ConversationService functions can be imported."""
         from app.services.conversation_service import (
-            create_conversation,
             add_message_to_context,
+            create_conversation,
             get_conversation_context,
         )
 
@@ -505,8 +505,8 @@ class TestRealConversationService:
     def test_add_message_increments_turn_count(self):
         """add_message_to_context increments turn_count for user messages."""
         from app.services.conversation_service import (
-            create_conversation,
             add_message_to_context,
+            create_conversation,
         )
 
         ctx = create_conversation("c1", "u1", "co1")
@@ -525,8 +525,8 @@ class TestRealConversationService:
     def test_add_message_updates_sentiment(self):
         """add_message_to_context stores sentiment data."""
         from app.services.conversation_service import (
-            create_conversation,
             add_message_to_context,
+            create_conversation,
         )
 
         ctx = create_conversation("c1", "u1", "co1")
@@ -582,7 +582,7 @@ class TestRealAnalyticsService:
 
     def test_track_event_stores_event(self):
         """track_event creates and stores an AnalyticsEvent."""
-        from app.services.analytics_service import track_event, get_recent_events
+        from app.services.analytics_service import get_recent_events, track_event
 
         event = track_event(
             event_type="test_event",
@@ -606,7 +606,7 @@ class TestRealAnalyticsService:
 
     def test_track_message_sent_event(self):
         """Simulate the actual message_sent event from jarvis pipeline."""
-        from app.services.analytics_service import track_event, get_metrics
+        from app.services.analytics_service import get_metrics, track_event
 
         track_event(
             event_type="message_sent",
@@ -633,7 +633,7 @@ class TestRealAnalyticsService:
 
     def test_track_multiple_funnel_events(self):
         """Track full funnel: session_created → industry → variants → email → verified."""
-        from app.services.analytics_service import track_event, get_funnel_metrics
+        from app.services.analytics_service import get_funnel_metrics, track_event
 
         for evt in [
             ("session_created", "session"),
@@ -800,8 +800,8 @@ class TestRealGracefulEscalation:
     def test_evaluate_escalation_callable(self):
         """evaluate_escalation can be called."""
         from app.core.graceful_escalation import (
-            GracefulEscalationManager,
             EscalationContext,
+            GracefulEscalationManager,
         )
 
         manager = GracefulEscalationManager()
@@ -828,8 +828,8 @@ class TestRealGracefulEscalation:
     def test_create_escalation_callable(self):
         """create_escalation can be called."""
         from app.core.graceful_escalation import (
-            GracefulEscalationManager,
             EscalationContext,
+            GracefulEscalationManager,
         )
 
         manager = GracefulEscalationManager()

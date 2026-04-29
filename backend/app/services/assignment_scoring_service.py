@@ -17,15 +17,14 @@ Building Codes: BC-001 (multi-tenant), BC-012 (graceful errors)
 """
 
 from __future__ import annotations
-from collections import OrderedDict
 
+from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.logger import get_logger
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-
-from app.logger import get_logger
 
 logger = get_logger("assignment_scoring_service")
 
@@ -92,8 +91,8 @@ class AssignmentScoringService:
                 - recommended_assignee: Best match with score breakdown
                 - scoring_method: "5-factor-ai"
         """
-        from database.models.tickets import Ticket
         from database.models.core import User
+        from database.models.tickets import Ticket
 
         # Get ticket
         ticket = (
@@ -188,8 +187,8 @@ class AssignmentScoringService:
         Returns:
             Detailed score breakdown with explanations
         """
-        from database.models.tickets import Ticket
         from database.models.core import User
+        from database.models.tickets import Ticket
 
         ticket = (
             self.db.query(Ticket)
@@ -605,8 +604,8 @@ class AssignmentScoringService:
 
     def _get_available_agents(self) -> List[Any]:
         """Get all available agents for assignment."""
-        from database.models.core import User
         from database.models.agent import Agent
+        from database.models.core import User
 
         # Get both human agents (Users) and AI agents
         human_agents = (
@@ -696,7 +695,7 @@ class AssignmentScoringService:
 
     def _compute_sla_compliance(self, agent_id: str) -> Optional[float]:
         """Compute SLA compliance rate for an agent."""
-        from database.models.tickets import Ticket, SLATimer, TicketStatus
+        from database.models.tickets import SLATimer, Ticket, TicketStatus
 
         try:
             # Get resolved tickets with SLA info

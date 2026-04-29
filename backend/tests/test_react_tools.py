@@ -17,11 +17,15 @@ All tools use in-memory mock data and require no external services.
 """
 
 from __future__ import annotations
+
+import asyncio
+
+# ── Environment bootstrap ─────────────────────────────────────────
+import os
+from typing import Any
+
+import pytest
 from app.core.react_tools import ReActToolRegistry
-from app.core.react_tools.ticket_tool import TicketTool
-from app.core.react_tools.order_tool import OrderTool
-from app.core.react_tools.crm_tool import CRMTool
-from app.core.react_tools.billing_tool import BillingTool
 from app.core.react_tools.base import (
     ActionSchema,
     BaseReactTool,
@@ -30,14 +34,10 @@ from app.core.react_tools.base import (
     ToolSchema,
     ValidationResult,
 )
-
-import asyncio
-from typing import Any
-
-import pytest
-
-# ── Environment bootstrap ─────────────────────────────────────────
-import os
+from app.core.react_tools.billing_tool import BillingTool
+from app.core.react_tools.crm_tool import CRMTool
+from app.core.react_tools.order_tool import OrderTool
+from app.core.react_tools.ticket_tool import TicketTool
 
 os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("SECRET_KEY", "test_secret")

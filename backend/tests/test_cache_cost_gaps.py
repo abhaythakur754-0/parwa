@@ -39,15 +39,15 @@ def _mock_logger():
     """Mock logger to allow importing source modules without real logging."""
     with patch("app.logger.get_logger", return_value=MagicMock()):
         from app.core.redis import (
+            NAMESPACE_PREFIX,
+            cache_delete,
             cache_get,
             cache_set,
-            cache_delete,
             make_key,
-            validate_tenant_key,
-            validate_tenant_keys,
             safe_get,
             safe_mget,
-            NAMESPACE_PREFIX,
+            validate_tenant_key,
+            validate_tenant_keys,
         )
 
         globals().update(

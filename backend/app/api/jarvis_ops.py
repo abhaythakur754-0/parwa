@@ -36,18 +36,18 @@ Building Codes: BC-001 (tenant isolation), BC-005 (real-time),
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy.orm import Session
-
 from app.api.deps import (
-    get_current_user,
     get_company_id,
+    get_current_user,
 )
 from app.exceptions import (
     AuthorizationError,
     ValidationError,
 )
 from app.logger import get_logger
+from fastapi import APIRouter, Depends, Query, Request
+from sqlalchemy.orm import Session
+
 from database.base import get_db
 from database.models.core import User
 
@@ -120,8 +120,8 @@ async def execute_quick_command(
     """
     try:
         from app.services.quick_command_service import (
-            execute_quick_command,
             QUICK_COMMANDS,
+            execute_quick_command,
         )
 
         # Check admin requirement

@@ -23,17 +23,16 @@ GAP 6: Failed document handling.
 import logging
 from typing import List
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-
-from app.services.file_storage_service import FileStorageService
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
-
 from app.api.deps import get_current_user, require_roles
 from app.exceptions import ValidationError
+from app.services.file_storage_service import FileStorageService
 from app.services.onboarding_service import (
     retry_document_processing,
 )
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
 from database.base import get_db
 from database.models.core import User
 from database.models.onboarding import KnowledgeDocument
@@ -403,6 +402,7 @@ def api_kb_stats(
     BC-001: Scoped to user's company_id.
     """
     from sqlalchemy import func
+
     from database.models.onboarding import DocumentChunk
 
     # Document counts by status

@@ -16,16 +16,15 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from app.api.deps import get_current_user, get_db, require_roles
+from app.services.ticket_analytics_service import (
+    DateRange,
+    IntervalType,
+    TicketAnalyticsService,
+)
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-
-from app.api.deps import get_current_user, get_db, require_roles
-from app.services.ticket_analytics_service import (
-    TicketAnalyticsService,
-    DateRange,
-    IntervalType,
-)
 
 router = APIRouter(
     prefix="/analytics/tickets",

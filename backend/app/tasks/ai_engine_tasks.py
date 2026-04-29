@@ -14,7 +14,7 @@ Building Codes:
 """
 
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from app.tasks.base import ParwaBaseTask, with_company_id
@@ -46,10 +46,11 @@ def rebalance_workload(self, company_id: Optional[str] = None) -> dict:
     Calls into variant_orchestration_service.rebalance_workload().
     """
     try:
-        from database.base import SessionLocal
         from app.services.variant_orchestration_service import (
             rebalance_workload as _rebalance,
         )
+
+        from database.base import SessionLocal
 
         db = SessionLocal()
         try:

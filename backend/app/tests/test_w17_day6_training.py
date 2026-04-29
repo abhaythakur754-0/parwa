@@ -11,9 +11,10 @@ Building Codes tested:
 - BC-012: Error handling
 """
 
+from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock, Mock
+
 import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import Mock, MagicMock
 
 # ─────────────────────────────────────────────────────────────────────────────
 # F-106: Fallback Training Service Tests
@@ -401,8 +402,8 @@ class TestTrainingEndpointsIntegration:
         """Test that cold start related constants are accessible."""
         from app.services.cold_start_service import (
             INDUSTRY_ECOMMERCE,
-            INDUSTRY_SAAS,
             INDUSTRY_GENERIC,
+            INDUSTRY_SAAS,
         )
 
         assert INDUSTRY_ECOMMERCE == "ecommerce"
@@ -412,9 +413,9 @@ class TestTrainingEndpointsIntegration:
     def test_fallback_training_constants(self):
         """Test fallback training constants."""
         from app.services.fallback_training_service import (
-            RETRAINING_INTERVAL_DAYS,
-            MIN_NEW_MISTAKES_FOR_RETRAINING,
             MIN_DAYS_SINCE_TRAINING,
+            MIN_NEW_MISTAKES_FOR_RETRAINING,
+            RETRAINING_INTERVAL_DAYS,
         )
 
         assert RETRAINING_INTERVAL_DAYS == 14

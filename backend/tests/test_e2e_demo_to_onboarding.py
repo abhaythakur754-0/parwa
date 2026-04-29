@@ -18,10 +18,11 @@ All integrations tested:
 - Paddle (Payment)
 """
 
-import pytest
 import json
 import uuid
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 from sqlalchemy.orm import Session
 
 # Test markers
@@ -95,9 +96,9 @@ class TestDemoFlow:
     def test_demo_message_limit(self, db: Session):
         """Test: Free demo has 20 messages/day limit."""
         from app.services.jarvis_service import (
-            create_or_resume_session,
-            check_message_limit,
             FREE_DAILY_LIMIT,
+            check_message_limit,
+            create_or_resume_session,
         )
 
         user_id = str(uuid.uuid4())
@@ -214,6 +215,7 @@ class TestLoginFlow:
     def test_user_login(self, db: Session):
         """Test: User can login with correct credentials."""
         from app.services.auth_service import authenticate_user
+
         from database.models.core import User
 
         # Create test user
@@ -246,12 +248,13 @@ class TestOnboardingFlow:
     def test_complete_onboarding_step_by_step(self, db: Session):
         """Test: User completes all onboarding steps."""
         from app.services.onboarding_service import (
-            get_or_create_session,
-            complete_step,
             accept_legal_consents,
             activate_ai,
+            complete_step,
+            get_or_create_session,
         )
-        from database.models.core import User, Company
+
+        from database.models.core import Company, User
 
         # Create test user and company
         user_id = str(uuid.uuid4())
@@ -352,7 +355,7 @@ class TestIntegrationConnections:
 
     def test_ai_sdk_primary_provider(self):
         """Test: z-ai-web-dev-sdk is the primary AI provider."""
-        from app.services.jarvis_service import _try_ai_providers, _call_zai_sdk
+        from app.services.jarvis_service import _call_zai_sdk, _try_ai_providers
 
         # Both functions should exist
         assert _try_ai_providers is not None

@@ -17,17 +17,17 @@ BC-001: All operations are company-scoped.
 BC-008: Never crash the caller - defensive error handling.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
 import uuid
+from unittest.mock import MagicMock, patch
 
+import pytest
+from app.api.shadow import router as shadow_router
+from app.services.shadow_mode_service import ShadowModeService
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.shadow import router as shadow_router
-from app.services.shadow_mode_service import ShadowModeService
+from database.models.core import Company, User
 from database.models.shadow_mode import ShadowLog
-from database.models.core import User, Company
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures

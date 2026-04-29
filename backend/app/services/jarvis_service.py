@@ -38,30 +38,31 @@ Entry Routing: URL params → context-aware welcome message
 Based on: JARVIS_SPECIFICATION.md v3.0 / JARVIS_ROADMAP.md v4.0
 """
 
-from app.core.email_renderer import render_email_template
-from app.services.email_service import send_email
-from database.models.jarvis import (
-    JarvisSession,
-    JarvisMessage,
-    JarvisKnowledgeUsed,
-    JarvisActionTicket,
-)
-from app.exceptions import (
-    NotFoundError,
-    ValidationError,
-    RateLimitError,
-)
-from sqlalchemy.orm import Session
 import asyncio
+import concurrent.futures
 import json
 import logging
 import secrets
-import concurrent.futures
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from app.services.paddle_service import get_paddle_service
 from app.clients.paddle_client import get_paddle_client
+from app.core.email_renderer import render_email_template
+from app.exceptions import (
+    NotFoundError,
+    RateLimitError,
+    ValidationError,
+)
+from app.services.email_service import send_email
+from app.services.paddle_service import get_paddle_service
+from sqlalchemy.orm import Session
+
+from database.models.jarvis import (
+    JarvisActionTicket,
+    JarvisKnowledgeUsed,
+    JarvisMessage,
+    JarvisSession,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1518,8 +1519,9 @@ def _handle_subscription_success(
     session.context_json = json.dumps(ctx)
 
     # Update company subscription tier if possible
-    from database.models.core import User
     from app.models.company import Company
+
+    from database.models.core import User
 
     user = db.query(User).filter(User.id == session.user_id).first()
     if user and user.company_id:
@@ -1681,8 +1683,8 @@ def initiate_demo_call(
     call_status = "pending_twilio"
 
     try:
-        from twilio.rest import Client
         from app.core.config import get_settings
+        from twilio.rest import Client
 
         settings = get_settings()
         twilio_account_sid = getattr(settings, "TWILIO_ACCOUNT_SID", None)
@@ -1807,8 +1809,8 @@ def get_call_summary(
     # If Twilio call was real, fetch actual details
     if result.get("call_sid"):
         try:
-            from twilio.rest import Client
             from app.core.config import get_settings
+            from twilio.rest import Client
 
             settings = get_settings()
             client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
@@ -4371,8 +4373,8 @@ def _call_zai_sdk(messages: List[Dict[str, str]]) -> Optional[str]:
     This SDK provides the best AI experience for demos.
     Uses Node.js subprocess for JavaScript SDK integration.
     """
-    import subprocess
     import json as json_mod
+    import subprocess
 
     # Convert messages to JSON string for Node.js
     messages_json = json_mod.dumps(messages)
@@ -4692,7 +4694,7 @@ def jarvis_shadow_set_preference(
     Returns:
         Dict with preference details and success status.
     """
-    from app.services.shadow_mode_service import ShadowModeService, VALID_MODES
+    from app.services.shadow_mode_service import VALID_MODES, ShadowModeService
 
     if preferred_mode not in VALID_MODES:
         return {
@@ -4713,6 +4715,7 @@ def jarvis_shadow_set_preference(
     # Emit WebSocket event to sync dashboard
     try:
         import asyncio
+
         from app.core.event_emitter import emit_shadow_event
 
         asyncio.get_event_loop().create_task(
@@ -4907,6 +4910,7 @@ def jarvis_shadow_approve_last(
     # Emit WebSocket event
     try:
         import asyncio
+
         from app.core.event_emitter import emit_shadow_event
 
         asyncio.get_event_loop().create_task(
@@ -4993,6 +4997,7 @@ def jarvis_shadow_reject_last(
     # Emit WebSocket event
     try:
         import asyncio
+
         from app.core.event_emitter import emit_shadow_event
 
         asyncio.get_event_loop().create_task(
@@ -5042,7 +5047,7 @@ def jarvis_shadow_switch_mode(
     Returns:
         Dict with mode change result.
     """
-    from app.services.shadow_mode_service import ShadowModeService, VALID_MODES
+    from app.services.shadow_mode_service import VALID_MODES, ShadowModeService
 
     if new_mode not in VALID_MODES:
         return {
@@ -5063,6 +5068,7 @@ def jarvis_shadow_switch_mode(
     # Emit WebSocket event to sync dashboard
     try:
         import asyncio
+
         from app.core.event_emitter import emit_shadow_event
 
         asyncio.get_event_loop().create_task(
@@ -5161,6 +5167,7 @@ def jarvis_shadow_undo_last(
     # Emit WebSocket event
     try:
         import asyncio
+
         from app.core.event_emitter import emit_shadow_event
 
         asyncio.get_event_loop().create_task(

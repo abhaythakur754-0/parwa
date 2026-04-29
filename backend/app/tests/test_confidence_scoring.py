@@ -16,20 +16,19 @@ Comprehensive tests covering:
 from __future__ import annotations
 
 import pytest
-
 from app.core.confidence_scoring_engine import (
-    ConfidenceScoringEngine,
-    ConfidenceConfig,
-    ConfidenceResult,
-    SignalScore,
-    SignalName,
+    ALL_SIGNAL_NAMES,
     DEFAULT_SIGNAL_WEIGHTS,
     DEFAULT_THRESHOLDS,
-    ALL_SIGNAL_NAMES,
     MODEL_TIER_RELIABILITY,
-    _tokenize,
+    ConfidenceConfig,
+    ConfidenceResult,
+    ConfidenceScoringEngine,
+    SignalName,
+    SignalScore,
     _jaccard_similarity,
     _safe_divide,
+    _tokenize,
 )
 
 # ── Fixtures ─────────────────────────────────────────────────────

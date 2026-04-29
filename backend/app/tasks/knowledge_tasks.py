@@ -20,12 +20,12 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
+from app.exceptions import ValidationError
+from app.services.embedding_service import EmbeddingService, generate_embedding_sync
 from celery import shared_task
 
-from app.exceptions import ValidationError
 from database.base import get_db_context
-from database.models.onboarding import KnowledgeDocument, DocumentChunk
-from app.services.embedding_service import generate_embedding_sync, EmbeddingService
+from database.models.onboarding import DocumentChunk, KnowledgeDocument
 
 logger = logging.getLogger("parwa.knowledge_tasks")
 

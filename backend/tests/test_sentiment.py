@@ -43,16 +43,16 @@ UrgencyScorer = None  # type: ignore[assignment,misc]
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
         from app.core.sentiment_engine import (  # noqa: F811,F401
-            ConversationTrendAnalyzer,
-            EmotionClassifier,
-            EmotionType,
             EMPATHY_PATTERNS,
-            EmpathySignalDetector,
             FRUSTRATION_MILD,
             FRUSTRATION_MODERATE,
             FRUSTRATION_STRONG,
-            FrustrationDetector,
             POSITIVE_WORDS,
+            ConversationTrendAnalyzer,
+            EmotionClassifier,
+            EmotionType,
+            EmpathySignalDetector,
+            FrustrationDetector,
             SentimentAnalyzer,
             SentimentResult,
             ToneAdvisor,

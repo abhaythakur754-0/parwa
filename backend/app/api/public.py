@@ -8,8 +8,9 @@ Public endpoints for landing page data (no authentication required).
 Based on ONBOARDING_SPEC.md v2.0 Section 2.3
 """
 
+from typing import Any, Dict, List
+
 from fastapi import APIRouter
-from typing import List, Dict, Any
 
 router = APIRouter(prefix="/public", tags=["public"])
 

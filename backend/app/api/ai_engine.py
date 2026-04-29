@@ -22,15 +22,15 @@ Import patterns:
 import json
 from typing import Optional
 
+from app.api.deps import (
+    get_company_id,
+    get_current_user,
+    require_roles,
+)
+from app.exceptions import NotFoundError, ValidationError
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.api.deps import (
-    require_roles,
-    get_company_id,
-    get_current_user,
-)
-from app.exceptions import NotFoundError, ValidationError
 from database.base import get_db
 from database.models.core import User
 
@@ -371,9 +371,7 @@ def get_instance(
     user: User = Depends(require_roles("owner", "admin")),
 ) -> dict:
     """Get single instance detail by ID."""
-    from app.services.variant_instance_service import (
-        get_instance as svc_get_instance,
-    )
+    from app.services.variant_instance_service import get_instance as svc_get_instance
 
     instance = svc_get_instance(
         db,
@@ -404,8 +402,8 @@ def update_instance(
     'capacity_config' (dict).
     """
     from app.services.variant_instance_service import (
-        update_channel_assignment,
         update_capacity_config,
+        update_channel_assignment,
     )
 
     channels = body.get("channel_assignment")

@@ -17,7 +17,7 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Optional, Dict, List
+from typing import Dict, List, Optional
 from uuid import uuid4
 
 from sqlalchemy.orm import Session

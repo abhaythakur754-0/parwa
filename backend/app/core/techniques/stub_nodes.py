@@ -20,9 +20,9 @@ from typing import TYPE_CHECKING
 
 from app.core.technique_router import TechniqueID
 from app.core.techniques.base import (
+    TECHNIQUE_NODES,
     BaseTechniqueNode,
     ConversationState,
-    TECHNIQUE_NODES,
 )
 
 if TYPE_CHECKING:

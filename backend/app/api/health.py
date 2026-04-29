@@ -13,17 +13,16 @@ import time
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Query
-from fastapi.responses import PlainTextResponse
-
 from app.core.health import (
     HealthStatus,
+    clear_health_cache,
     run_health_checks,
     run_readiness_check,
-    clear_health_cache,
 )
-from app.core.metrics import registry, record_http_request
+from app.core.metrics import record_http_request, registry
 from app.logger import get_logger
+from fastapi import APIRouter, Query
+from fastapi.responses import PlainTextResponse
 
 logger = get_logger("health_api")
 

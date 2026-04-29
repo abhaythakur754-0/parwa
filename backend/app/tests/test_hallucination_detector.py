@@ -704,8 +704,8 @@ class TestConstants:
 
     def test_all_pii_types_defined(self):
         from app.core.hallucination_detector import (
-            KNOWN_FEATURE_PHRASES,
             BUZZWORDS,
+            KNOWN_FEATURE_PHRASES,
         )
 
         assert len(KNOWN_FEATURE_PHRASES) > 20

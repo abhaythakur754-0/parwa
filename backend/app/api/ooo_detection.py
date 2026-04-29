@@ -16,18 +16,17 @@ BC-012: Structured JSON error responses.
 
 import logging
 
-from fastapi import APIRouter, Query, Request
-from fastapi.responses import JSONResponse
-
 from app.schemas.ooo_detection import (
     OOOCheckRequest,
     OOOCheckResponse,
-    OOORuleCreate,
-    OOORuleUpdate,
     OOORuleActionResponse,
+    OOORuleCreate,
     OOORulesListResponse,
+    OOORuleUpdate,
     OOOStatsResponse,
 )
+from fastapi import APIRouter, Query, Request
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger("parwa.ooo_api")
 

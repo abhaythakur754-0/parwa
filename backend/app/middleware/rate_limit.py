@@ -12,13 +12,12 @@ module (the old limiter is still available but not used here).
 
 import os
 
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-
 from app.middleware.error_handler import build_error_response
 from app.services.rate_limit_service import (
     get_rate_limit_service,
 )
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
 # Shared service instance (per-process)
 _rate_limit_svc = get_rate_limit_service()

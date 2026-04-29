@@ -14,18 +14,18 @@ These tasks implement:
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Any
-
-from celery import shared_task
+from typing import Any, Dict
 
 from app.tasks.base import ParwaTask
+from celery import shared_task
+
 from database.base import SessionLocal
 from database.models.tickets import (
     SLAPolicy,
     SLATimer,
     Ticket,
-    TicketStatus,
     TicketPriority,
+    TicketStatus,
 )
 
 logger = logging.getLogger(__name__)

@@ -102,8 +102,9 @@ def _process_brevo_inbound_email(
         Dict with processing result.
     """
     try:
-        from database.base import get_db_context
         from app.services.email_channel_service import EmailChannelService
+
+        from database.base import get_db_context
 
         with get_db_context() as db:
             service = EmailChannelService(db)
@@ -168,10 +169,11 @@ def _process_brevo_bounce(
         Dict with processing result.
     """
     try:
-        from database.base import get_db_context
         from app.services.bounce_complaint_service import (
             BounceComplaintService,
         )
+
+        from database.base import get_db_context
 
         with get_db_context() as db:
             service = BounceComplaintService(db)
@@ -217,10 +219,11 @@ def _process_brevo_complaint(
         Dict with processing result.
     """
     try:
-        from database.base import get_db_context
         from app.services.bounce_complaint_service import (
             BounceComplaintService,
         )
+
+        from database.base import get_db_context
 
         with get_db_context() as db:
             service = BounceComplaintService(db)

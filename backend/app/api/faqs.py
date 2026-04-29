@@ -5,12 +5,12 @@ REST API for managing Frequently Asked Questions.
 These FAQs are used by the AI pipeline for quick answers.
 """
 
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from typing import List, Optional
 
 from app.api.deps import get_current_user
-from app.services.faq_service import get_faq_service, FAQService
+from app.services.faq_service import FAQService, get_faq_service
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/v1/faqs", tags=["FAQs"])
 

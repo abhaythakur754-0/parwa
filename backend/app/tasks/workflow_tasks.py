@@ -229,8 +229,8 @@ def export_metrics(self, window: str = "1hr") -> dict:
     """
     try:
         from app.core.technique_metrics import (
-            TechniqueMetricsCollector,
             TIME_WINDOWS_SECONDS,
+            TechniqueMetricsCollector,
         )
 
         collector = TechniqueMetricsCollector()
@@ -819,8 +819,9 @@ def migrate_stale_states(self, batch_size: int = 100) -> dict:
 
         # Try to load states from PostgreSQL
         try:
-            from database.base import SessionLocal
             from app.core.state_serialization import _safe_json_loads
+
+            from database.base import SessionLocal
 
             db = SessionLocal()
             try:

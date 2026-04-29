@@ -25,6 +25,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from app.core.event_emitter import emit_ticket_event
 from app.core.events import (
     EventCategory,
     EventRegistry,
@@ -32,7 +33,6 @@ from app.core.events import (
     TicketEventPayload,
     get_event_registry,
 )
-from app.core.event_emitter import emit_ticket_event
 from app.logger import get_logger
 
 logger = get_logger("ticket_events")

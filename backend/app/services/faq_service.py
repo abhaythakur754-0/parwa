@@ -11,11 +11,11 @@ Features:
 - AI-friendly formatting
 """
 
+import json
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
-import json
 
 from sqlalchemy.orm import Session
 

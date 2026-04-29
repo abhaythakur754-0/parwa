@@ -15,15 +15,15 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
+from app.logger import get_logger
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
-from app.logger import get_logger
 from database.models.tickets import (
     Ticket,
+    TicketAssignment,
     TicketFeedback,
     TicketStatus,
-    TicketAssignment,
 )
 
 logger = get_logger("analytics_advanced_service")

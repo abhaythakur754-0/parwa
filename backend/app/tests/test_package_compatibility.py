@@ -35,9 +35,9 @@ def test_litellm_import():
 @pytest.mark.skip(reason="Packages not installed in test environment")
 def test_all_three_import_together():
     """Verify all three can be imported in the same session without conflicts."""
-    from langgraph.graph import StateGraph
     import dspy
     import litellm
+    from langgraph.graph import StateGraph
 
     # If we get here without errors, compatibility is verified
     assert StateGraph is not None and dspy is not None and litellm is not None

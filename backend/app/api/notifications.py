@@ -10,14 +10,14 @@ Endpoints for:
 
 from typing import Any, Dict, List, Optional
 
+from app.api.deps import get_current_user, get_db, get_tenant_context, require_roles
+from app.services.notification_preference_service import NotificationPreferenceService
+from app.services.notification_service import NotificationService
+from app.services.notification_template_service import NotificationTemplateService
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, get_tenant_context, require_roles
-from app.services.notification_service import NotificationService
-from app.services.notification_template_service import NotificationTemplateService
-from app.services.notification_preference_service import NotificationPreferenceService
 from database.models.core import User
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])

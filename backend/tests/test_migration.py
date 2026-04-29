@@ -19,6 +19,12 @@ Covers:
 """
 
 from __future__ import annotations
+
+import os
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock
+
+import pytest
 from app.core.rule_to_ai_migration import (
     CircuitBreaker,
     CircuitBreakerState,
@@ -39,12 +45,6 @@ from app.core.rule_to_ai_migration import (
     RolloutStrategy,
     create_migration_engine,
 )
-
-import os
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock
-
-import pytest
 
 # ── Environment bootstrap ──────────────────────────────────────────
 os.environ.setdefault("ENVIRONMENT", "test")

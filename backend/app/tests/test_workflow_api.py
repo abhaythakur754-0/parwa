@@ -8,9 +8,9 @@ Tests for:
 """
 
 from __future__ import annotations
-import typing as _typing
 
 import os
+import typing as _typing
 from pathlib import Path
 
 import pytest
@@ -518,10 +518,9 @@ class TestCeleryWorkflowTasks:
         Note: CapacityMonitor is in-memory, so the task creates its own
         instance. We verify the task returns a valid result structure.
         """
-        from app.tasks.workflow_tasks import check_capacity_alerts
-
         # Pre-configure a company on a shared monitor instance
         from app.core.capacity_monitor import CapacityMonitor
+        from app.tasks.workflow_tasks import check_capacity_alerts
 
         monitor = CapacityMonitor()
         monitor.configure_limits("co_test", "parwa", 5)

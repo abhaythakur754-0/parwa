@@ -18,14 +18,12 @@ Target: 55+ tests
 
 from __future__ import annotations
 
-
 import pytest
-
 from app.core.capacity_monitor import (
+    ALL_VARIANTS,
+    DEFAULT_MAX_CONCURRENT,
     CapacityMonitor,
     QueueItem,
-    DEFAULT_MAX_CONCURRENT,
-    ALL_VARIANTS,
 )
 
 # ── Fixtures ──────────────────────────────────────────────────────

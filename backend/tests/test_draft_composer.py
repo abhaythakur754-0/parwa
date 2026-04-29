@@ -33,14 +33,14 @@ _VARIANT_MAX_DRAFTS = None  # type: ignore[assignment,misc]
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
         from app.core.draft_composer import (
+            _DEDUP_SIMILARITY_THRESHOLD,
+            _TECHNIQUE_MAP,
+            _VARIANT_MAX_DRAFTS,
             DraftComposer,
             DraftComposerResponse,
             DraftOptions,
             DraftRequest,
             DraftResult,
-            _DEDUP_SIMILARITY_THRESHOLD,
-            _TECHNIQUE_MAP,
-            _VARIANT_MAX_DRAFTS,
         )
 
         globals().update(

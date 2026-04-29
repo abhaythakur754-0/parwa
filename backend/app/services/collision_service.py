@@ -17,12 +17,12 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set
 
-from sqlalchemy.orm import Session
-
 from app.core.redis import get_redis
 from app.exceptions import NotFoundError
-from database.models.tickets import TicketCollision, Ticket
+from sqlalchemy.orm import Session
+
 from database.models.core import User
+from database.models.tickets import Ticket, TicketCollision
 
 
 class CollisionService:

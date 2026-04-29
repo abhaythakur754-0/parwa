@@ -7,9 +7,10 @@ Tests:
 - Deployment strategies: Canary, Blue-green, Rolling
 """
 
-import pytest
 from unittest.mock import Mock, patch
 from uuid import uuid4
+
+import pytest
 
 # ══════════════════════════════════════════════════════════════════════════
 # F-104: Model Validation Service Tests
@@ -226,8 +227,8 @@ class TestValidationDeploymentIntegration:
 
     def test_full_pipeline_success(self):
         """Test successful validation to deployment pipeline."""
-        from app.services.model_validation_service import ModelValidationService
         from app.services.model_deployment_service import ModelDeploymentService
+        from app.services.model_validation_service import ModelValidationService
 
         mock_db = Mock()
         validation_service = ModelValidationService(mock_db)

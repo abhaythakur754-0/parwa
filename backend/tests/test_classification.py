@@ -24,12 +24,12 @@ ClassificationEngine = IntentType = IntentResult = KeywordClassifier = (
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
         from app.core.classification_engine import (  # noqa: F811,F401
-            ClassificationEngine,
-            IntentType,
-            IntentResult,
-            KeywordClassifier,
             INTENT_PATTERNS,
             INTENT_TO_CATEGORY_MAP,
+            ClassificationEngine,
+            IntentResult,
+            IntentType,
+            KeywordClassifier,
         )
 
         globals().update(

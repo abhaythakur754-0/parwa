@@ -11,10 +11,10 @@ Handles:
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+from app.exceptions import NotFoundError, ValidationError
 from sqlalchemy.orm import Session
 
-from app.exceptions import NotFoundError, ValidationError
-from database.models.tickets import Ticket, TicketStatus, TicketPriority
+from database.models.tickets import Ticket, TicketPriority, TicketStatus
 
 
 class StaleTicketService:

@@ -14,6 +14,13 @@ Covers:
 """
 
 from __future__ import annotations
+
+import os
+from datetime import datetime, timedelta, timezone
+from typing import List, Optional
+from unittest.mock import AsyncMock
+
+import pytest
 from app.core.ticket_assignment import (
     AgentProfile,
     AgentStatus,
@@ -26,8 +33,8 @@ from app.core.ticket_assignment import (
     ChannelType,
     HybridAssigner,
     RuleBasedAssigner,
-    SLAHelper,
     ScoreBasedAssigner,
+    SLAHelper,
     TicketContext,
     TicketPriority,
     create_agents,
@@ -35,13 +42,6 @@ from app.core.ticket_assignment import (
     create_tickets,
     deterministic_jitter,
 )
-
-import os
-from datetime import datetime, timedelta, timezone
-from typing import List, Optional
-from unittest.mock import AsyncMock
-
-import pytest
 
 # ── Environment bootstrap ──────────────────────────────────────────
 os.environ.setdefault("ENVIRONMENT", "test")

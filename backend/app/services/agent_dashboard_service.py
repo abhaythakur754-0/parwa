@@ -18,16 +18,15 @@ Building Codes: BC-001 (multi-tenant), BC-005 (real-time / Socket.io),
 """
 
 from __future__ import annotations
-from collections import OrderedDict
 
 import json
+from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+from app.logger import get_logger
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-
-from app.logger import get_logger
 
 logger = get_logger("agent_dashboard_service")
 
@@ -142,8 +141,9 @@ class AgentDashboardService:
         Raises:
             NotFoundError: If agent not found.
         """
-        from database.models.agent import Agent, InstructionSet
         from app.exceptions import NotFoundError
+
+        from database.models.agent import Agent, InstructionSet
 
         agent = (
             db.query(Agent)
@@ -281,8 +281,9 @@ class AgentDashboardService:
         Raises:
             NotFoundError: If agent not found.
         """
-        from database.models.agent import Agent
         from app.exceptions import NotFoundError
+
+        from database.models.agent import Agent
 
         agent = (
             db.query(Agent)
@@ -331,8 +332,9 @@ class AgentDashboardService:
             NotFoundError: If agent not found.
             ValidationError: If agent cannot be paused.
         """
-        from database.models.agent import Agent
         from app.exceptions import NotFoundError, ValidationError
+
+        from database.models.agent import Agent
 
         agent = (
             db.query(Agent)
@@ -413,8 +415,9 @@ class AgentDashboardService:
             NotFoundError: If agent not found.
             ValidationError: If agent cannot be resumed.
         """
-        from database.models.agent import Agent
         from app.exceptions import NotFoundError, ValidationError
+
+        from database.models.agent import Agent
 
         agent = (
             db.query(Agent)
@@ -553,8 +556,8 @@ class AgentDashboardService:
         try:
             from database.models.tickets import (
                 Ticket,
-                TicketFeedback,
                 TicketAssignment,
+                TicketFeedback,
             )
 
             # ── Tickets handled in last 24h ──
@@ -742,9 +745,9 @@ class AgentDashboardService:
     ) -> Optional[float]:
         """Get average handling time in minutes for agent's tickets."""
         try:
-            from database.models.tickets import Ticket, TicketAssignment
-
             from sqlalchemy import func as sa_func
+
+            from database.models.tickets import Ticket, TicketAssignment
 
             avg_minutes = (
                 db.query(

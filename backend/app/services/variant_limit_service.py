@@ -27,8 +27,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database.base import SessionLocal
-from database.models.billing_extended import VariantLimit, get_variant_limits
 from database.models.billing import Subscription
+from database.models.billing_extended import VariantLimit, get_variant_limits
 from database.models.core import Company
 
 logger = logging.getLogger("parwa.services.variant_limit")

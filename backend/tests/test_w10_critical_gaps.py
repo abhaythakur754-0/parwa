@@ -13,11 +13,6 @@ import asyncio
 from typing import Any, Dict, List, Optional
 
 import pytest
-
-from app.core.langgraph_workflow import (
-    LangGraphWorkflow,
-    WorkflowConfig,
-)
 from app.core.context_compression import (
     CompressionConfig,
     CompressionInput,
@@ -25,16 +20,20 @@ from app.core.context_compression import (
     CompressionStrategy,
     ContextCompressor,
 )
+from app.core.langgraph_workflow import (
+    LangGraphWorkflow,
+    WorkflowConfig,
+)
 from app.core.state_serialization import (
     StateSerializer,
     _safe_json_dumps,
     _safe_json_loads,
 )
+from app.core.technique_router import QuerySignals
 from app.core.techniques.base import (
     ConversationState,
     GSDState,
 )
-from app.core.technique_router import QuerySignals
 
 # ════════════════════════════════════════════════════════════════════
 # HELPERS

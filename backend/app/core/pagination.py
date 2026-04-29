@@ -32,7 +32,7 @@ from typing import (
 )
 
 from pydantic import BaseModel
-from sqlalchemy import func, select, Select
+from sqlalchemy import Select, func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Query
 from sqlalchemy.sql.expression import ColumnElement

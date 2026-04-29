@@ -23,10 +23,9 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from app.core.email_utils import run_async_coro, validate_email_address
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-
-from app.core.email_utils import run_async_coro, validate_email_address
 
 logger = logging.getLogger("parwa.email_bounce")
 
@@ -93,8 +92,8 @@ class BounceComplaintService:
         Returns:
             Dict with status, bounce_type, action_taken.
         """
-        from database.models.email_delivery_event import EmailDeliveryEvent
         from database.models.email_bounces import EmailBounce
+        from database.models.email_delivery_event import EmailDeliveryEvent
 
         email = bounce_data.get("email", "")
         reason = bounce_data.get("reason", "").lower()
@@ -269,8 +268,8 @@ class BounceComplaintService:
         Returns:
             Dict with status and action_taken.
         """
-        from database.models.email_delivery_event import EmailDeliveryEvent
         from database.models.email_bounces import EmailBounce
+        from database.models.email_delivery_event import EmailDeliveryEvent
 
         email = complaint_data.get("email", "")
         reason = complaint_data.get("reason", "")
@@ -567,7 +566,7 @@ class BounceComplaintService:
         Returns:
             Dict with status.
         """
-        from database.models.email_bounces import EmailBounce, CustomerEmailStatus
+        from database.models.email_bounces import CustomerEmailStatus, EmailBounce
 
         email = email.lower().strip()
 
@@ -682,7 +681,7 @@ class BounceComplaintService:
         Returns:
             Dict with bounce stats and trends.
         """
-        from database.models.email_bounces import EmailBounce, CustomerEmailStatus
+        from database.models.email_bounces import CustomerEmailStatus, EmailBounce
 
         since = datetime.now(timezone.utc) - timedelta(days=range_days)
         prev_since = since - timedelta(days=range_days)
@@ -828,7 +827,7 @@ class BounceComplaintService:
         Returns:
             Dict with critical_alerts and summary.
         """
-        from database.models.email_bounces import EmailDeliverabilityAlert, EmailBounce
+        from database.models.email_bounces import EmailBounce, EmailDeliverabilityAlert
 
         # Get unacknowledged critical alerts
         try:

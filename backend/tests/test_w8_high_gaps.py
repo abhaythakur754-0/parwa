@@ -10,59 +10,67 @@ Tests cover six critical gap areas:
 6. Alert false positives — normal metric variance doesn't trigger alerts
 """
 
-from app.exceptions import ParwaBaseError
-from app.core.ai_monitoring_service import (
-    AIMonitoringService,
-)
-from app.core.self_healing_engine import (
-    SelfHealingEngine,
-    HealingRule,
-    ConditionType,
-    ActionType,
-    ProviderState as SHProviderState,
-    _CONSECUTIVE_FAILURE_LIMIT,
-    _LOW_SCORE_CONSECUTIVE,
-    _RECOVERY_HIGH_SCORE_CONSECUTIVE,
-)
-from app.services.technique_cache_service import (
-    _validate_company_id,
-    _safe_parse_json,
-    _validate_cache_result,
-    compute_query_hash,
-    get_cached_result as tcs_get_cached_result,
-    set_cached_result as tcs_set_cached_result,
-    invalidate_cached_result as tcs_invalidate_cached_result,
-)
-from app.services.prompt_template_service import (
-    PromptTemplateService,
-)
-from app.core.prompt_templates import (
-    PromptTemplateManager,
-)
-from app.core.guardrails_engine import (
-    GuardrailsEngine,
-    GuardAction,
-)
-from app.core.confidence_scoring_engine import (
-    ConfidenceScoringEngine,
-    ConfidenceResult,
-)
-from app.core.model_failover import (
-    FailoverManager,
-    FailoverChainExecutor,
-    FailoverReason,
-    ProviderState,
-    DegradedResponseDetector,
-    FAILOVER_CHAINS,
-)
 import json
 import sys
-import types
 import threading
+import types
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import pytest
+from app.core.ai_monitoring_service import (
+    AIMonitoringService,
+)
+from app.core.confidence_scoring_engine import (
+    ConfidenceResult,
+    ConfidenceScoringEngine,
+)
+from app.core.guardrails_engine import (
+    GuardAction,
+    GuardrailsEngine,
+)
+from app.core.model_failover import (
+    FAILOVER_CHAINS,
+    DegradedResponseDetector,
+    FailoverChainExecutor,
+    FailoverManager,
+    FailoverReason,
+    ProviderState,
+)
+from app.core.prompt_templates import (
+    PromptTemplateManager,
+)
+from app.core.self_healing_engine import (
+    _CONSECUTIVE_FAILURE_LIMIT,
+    _LOW_SCORE_CONSECUTIVE,
+    _RECOVERY_HIGH_SCORE_CONSECUTIVE,
+    ActionType,
+    ConditionType,
+    HealingRule,
+)
+from app.core.self_healing_engine import ProviderState as SHProviderState
+from app.core.self_healing_engine import (
+    SelfHealingEngine,
+)
+from app.exceptions import ParwaBaseError
+from app.services.prompt_template_service import (
+    PromptTemplateService,
+)
+from app.services.technique_cache_service import (
+    _safe_parse_json,
+    _validate_cache_result,
+    _validate_company_id,
+    compute_query_hash,
+)
+from app.services.technique_cache_service import (
+    get_cached_result as tcs_get_cached_result,
+)
+from app.services.technique_cache_service import (
+    invalidate_cached_result as tcs_invalidate_cached_result,
+)
+from app.services.technique_cache_service import (
+    set_cached_result as tcs_set_cached_result,
+)
 
 # ── Mock database modules before importing technique_cache_service ──
 _mock_db_base = types.ModuleType("database.base")

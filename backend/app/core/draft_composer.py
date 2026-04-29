@@ -315,8 +315,8 @@ class DraftComposer:
             brand_voice_service: Brand Voice Service for tone matching.
                 Defaults to ``BrandVoiceService()`` if not provided.
         """
-        from app.core.smart_router import SmartRouter
         from app.core.clara_quality_gate import CLARAQualityGate
+        from app.core.smart_router import SmartRouter
         from app.services.brand_voice_service import (
             BrandVoiceService,
         )
@@ -595,8 +595,8 @@ class DraftComposer:
         """
         try:
             from app.core.signal_extraction import (
-                SignalExtractor,
                 SignalExtractionRequest,
+                SignalExtractor,
             )
 
             extractor = SignalExtractor()

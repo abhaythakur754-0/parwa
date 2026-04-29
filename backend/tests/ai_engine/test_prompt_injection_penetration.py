@@ -1326,8 +1326,8 @@ class TestAnomalyDetection:
     def test_high_entropy_payload(self):
         """ANOM-06: High entropy string (near-random) should be flagged."""
         # Generate a high-entropy string
-        import string as _string
         import random as _random
+        import string as _string
 
         _random.seed(42)
         high_entropy = "".join(

@@ -7,11 +7,11 @@ Implementation of the EmailProvider interface for Amazon SES.
 from typing import Any, Dict
 
 from app.providers.base import (
-    EmailProvider,
     EmailMessage,
+    EmailProvider,
+    ProviderCapability,
     ProviderResult,
     ProviderStatus,
-    ProviderCapability,
 )
 
 
@@ -136,8 +136,9 @@ class SESEmailProvider(EmailProvider):
         self, template_id: str, to: str, variables: Dict[str, Any]
     ) -> ProviderResult:
         try:
-            import boto3
             import json
+
+            import boto3
 
             client = boto3.client(
                 "ses",

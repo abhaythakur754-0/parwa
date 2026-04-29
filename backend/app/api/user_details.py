@@ -14,26 +14,26 @@ Public context (after payment, before onboarding):
 BC-001: All operations scoped to authenticated user's company_id.
 """
 
+from app.api.deps import get_current_user
+from app.schemas.onboarding import (
+    MessageResponse,
+    OnboardingStateResponse,
+    UserDetailsRequest,
+    UserDetailsResponse,
+    VerifyWorkEmailRequest,
+    WorkEmailVerificationRequest,
+    WorkEmailVerificationResponse,
+)
+from app.services.user_details_service import (
+    create_or_update_user_details,
+    get_onboarding_state,
+    get_user_details,
+    send_work_email_verification,
+    verify_work_email,
+)
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
-from app.schemas.onboarding import (
-    UserDetailsRequest,
-    UserDetailsResponse,
-    WorkEmailVerificationRequest,
-    WorkEmailVerificationResponse,
-    VerifyWorkEmailRequest,
-    OnboardingStateResponse,
-    MessageResponse,
-)
-from app.services.user_details_service import (
-    get_user_details,
-    create_or_update_user_details,
-    send_work_email_verification,
-    verify_work_email,
-    get_onboarding_state,
-)
 from database.base import get_db
 from database.models.core import User
 

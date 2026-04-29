@@ -22,6 +22,7 @@ from enum import Enum
 from typing import Optional
 
 from app.exceptions import ParwaBaseError
+
 from database.models.variant_engine import AITokenBudget
 
 logger = logging.getLogger("parwa.cost_protection")

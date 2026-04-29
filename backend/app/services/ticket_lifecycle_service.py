@@ -18,11 +18,11 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+from app.exceptions import NotFoundError, ValidationError
 from sqlalchemy.orm import Session
 
-from app.exceptions import NotFoundError, ValidationError
-from database.models.tickets import Ticket, TicketStatus
 from database.models.core import Company
+from database.models.tickets import Ticket, TicketStatus
 
 
 class TicketLifecycleService:

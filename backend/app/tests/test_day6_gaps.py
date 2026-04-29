@@ -15,24 +15,23 @@ import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
-from app.core.signal_extraction import (
-    SignalExtractor,
-    SignalExtractionRequest,
-    ExtractedSignals,
+from app.core.clara_quality_gate import (
+    BrandVoiceConfig,
+    CLARAQualityGate,
+    CLARAStage,
+    StageResult,
 )
 from app.core.classification_engine import (
     ClassificationEngine,
     IntentType,
 )
-from app.core.clara_quality_gate import (
-    CLARAQualityGate,
-    BrandVoiceConfig,
-    CLARAStage,
-    StageResult,
+from app.core.signal_extraction import (
+    ExtractedSignals,
+    SignalExtractionRequest,
+    SignalExtractor,
 )
-from app.services.intent_technique_mapper import IntentTechniqueMapper
 from app.core.technique_router import TechniqueID
+from app.services.intent_technique_mapper import IntentTechniqueMapper
 
 # =========================================================================
 # CATEGORY 1: UNIT GAPS — Edge cases not covered

@@ -8,27 +8,27 @@ individually, full pipeline execution, edge cases, company isolation
 Target: 60+ tests.
 """
 
-import pytest
 from unittest.mock import patch
 
-from app.core.technique_router import TechniqueID, QuerySignals
+import pytest
+from app.core.technique_router import QuerySignals, TechniqueID
 from app.core.techniques.base import (
     BaseTechniqueNode,
     ConversationState,
 )
 from app.core.techniques.reverse_thinking import (
+    _CATEGORY_PATTERNS,
+    _DEFAULT_CATEGORY,
+    _RESERVED_PHRASES,
+    _VALIDATION_ANCHORS,
+    _WRONG_ANSWER_TEMPLATES,
+    ErrorType,
+    InversionHypothesis,
+    ProblemCategory,
     ReverseThinkingConfig,
     ReverseThinkingNode,
     ReverseThinkingProcessor,
     ReverseThinkingResult,
-    InversionHypothesis,
-    ErrorType,
-    ProblemCategory,
-    _CATEGORY_PATTERNS,
-    _WRONG_ANSWER_TEMPLATES,
-    _RESERVED_PHRASES,
-    _VALIDATION_ANCHORS,
-    _DEFAULT_CATEGORY,
 )
 
 # ── Fixtures ────────────────────────────────────────────────────────

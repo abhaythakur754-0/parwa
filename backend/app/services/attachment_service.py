@@ -21,9 +21,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
+from app.exceptions import ValidationError
 from sqlalchemy.orm import Session
 
-from app.exceptions import ValidationError
 from database.models.tickets import TicketAttachment
 
 

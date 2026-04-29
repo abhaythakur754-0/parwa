@@ -41,21 +41,21 @@ def _mock_logger():
     """Mock logger to allow importing source modules without real logging."""
     with patch("app.logger.get_logger", return_value=MagicMock()):
         from app.core.ai_monitoring_service import (
-            AIMonitoringService,
             _MAX_DATA_POINTS,
+            AIMonitoringService,
         )
         from app.core.self_healing_engine import (
-            SelfHealingEngine,
-            HealingRule,
-            HealingAction,
-            HealingStatus,
-            ActionType,
-            ConditionType,
-            ProviderState,
-            ThresholdAdjustment,
-            VariantHealingState,
             _LOW_SCORE_CONSECUTIVE,
             _RECOVERY_HIGH_SCORE_CONSECUTIVE,
+            ActionType,
+            ConditionType,
+            HealingAction,
+            HealingRule,
+            HealingStatus,
+            ProviderState,
+            SelfHealingEngine,
+            ThresholdAdjustment,
+            VariantHealingState,
         )
 
         globals().update(

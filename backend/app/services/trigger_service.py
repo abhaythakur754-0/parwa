@@ -17,11 +17,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.exceptions import NotFoundError, ValidationError
 from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 
-from app.exceptions import NotFoundError, ValidationError
-from database.models.tickets import TicketTrigger, Ticket
+from database.models.tickets import Ticket, TicketTrigger
 
 
 class TriggerService:

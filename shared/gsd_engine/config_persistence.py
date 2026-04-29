@@ -14,10 +14,10 @@ This enables:
 
 import json
 import logging
-from dataclasses import dataclass, asdict, field
+import time
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
-import time
 
 import redis.asyncio as aioredis
 

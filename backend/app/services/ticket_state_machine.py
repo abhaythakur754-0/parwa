@@ -20,9 +20,9 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from app.exceptions import ValidationError
 from sqlalchemy.orm import Session
 
-from app.exceptions import ValidationError
 from database.models.tickets import Ticket, TicketStatus, TicketStatusChange
 
 logger = logging.getLogger("parwa.services.ticket_state_machine")

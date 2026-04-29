@@ -14,13 +14,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from app.api.deps import get_current_user, get_db, require_roles
+from app.exceptions import NotFoundError, ValidationError
+from app.services.assignment_service import AssignmentService
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-
-from app.api.deps import get_current_user, get_db, require_roles
-from app.services.assignment_service import AssignmentService
-from app.exceptions import NotFoundError, ValidationError
 
 router = APIRouter(
     prefix="/tickets",

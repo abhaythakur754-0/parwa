@@ -22,7 +22,6 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from app.exceptions import InternalError, NotFoundError, ValidationError
 from app.services.agent_provisioning_service import (
     MAX_PROVISIONING_RETRIES,

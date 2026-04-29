@@ -17,20 +17,20 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
 from difflib import SequenceMatcher
+from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import desc, or_, case
+from app.core.redis import get_redis, make_key
+from sqlalchemy import case, desc, or_
 from sqlalchemy.orm import Session
 
 from database.models.tickets import (
+    Customer,
     Ticket,
     TicketMessage,
-    Customer,
-    TicketStatus,
     TicketPriority,
+    TicketStatus,
 )
-from app.core.redis import get_redis, make_key
 
 
 class TicketSearchService:

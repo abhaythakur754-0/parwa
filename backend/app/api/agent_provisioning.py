@@ -13,16 +13,16 @@ Building Codes: BC-001 (tenant isolation), BC-002 (financial),
 
 from typing import List
 
+from app.api.deps import (
+    get_company_id,
+    get_current_user,
+)
+from app.exceptions import NotFoundError
+from app.logger import get_logger
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import (
-    get_current_user,
-    get_company_id,
-)
-from app.exceptions import NotFoundError
-from app.logger import get_logger
 from database.base import get_db
 from database.models.core import User
 
@@ -161,8 +161,8 @@ def create_checkout(
 
     except (NotFoundError, Exception) as exc:
         from app.exceptions import (
-            ValidationError,
             InternalError,
+            ValidationError,
         )
 
         if isinstance(exc, (ValidationError, NotFoundError, InternalError)):

@@ -13,17 +13,17 @@ Endpoints:
 - POST /api/demo/complete - Complete demo session
 """
 
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List, Dict, Any
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from app.logger import get_logger
 from app.services.demo_service import (
-    get_demo_service,
     DemoVariant,
+    get_demo_service,
 )
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, EmailStr, Field
 
 logger = get_logger("demo_api")
 router = APIRouter(prefix="/demo", tags=["demo"])

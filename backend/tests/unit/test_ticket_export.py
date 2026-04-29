@@ -9,10 +9,11 @@ Tests cover:
 - Merge preview
 """
 
-import pytest
-from unittest.mock import Mock, MagicMock
-from datetime import datetime, timezone
 import io
+from datetime import datetime, timezone
+from unittest.mock import MagicMock, Mock
+
+import pytest
 
 
 class TestTicketExportService:

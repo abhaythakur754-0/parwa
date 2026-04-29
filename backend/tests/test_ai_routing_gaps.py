@@ -28,24 +28,23 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from unittest.mock import patch
 
 import pytest
-
-from app.core.smart_router import (
-    AtomicStepType,
-    ModelProvider,
-    ModelTier,
-    ProviderHealthTracker,
-    SmartRouter,
-    RoutingDecision,
-    VARIANT_MODEL_ACCESS,
-    MODEL_REGISTRY,
-    STEP_TIER_MAPPING,
-)
 from app.core.model_failover import (
+    DegradedResponseDetector,
     FailoverChainExecutor,
     FailoverManager,
     FailoverReason,
     ProviderState,
-    DegradedResponseDetector,
+)
+from app.core.smart_router import (
+    MODEL_REGISTRY,
+    STEP_TIER_MAPPING,
+    VARIANT_MODEL_ACCESS,
+    AtomicStepType,
+    ModelProvider,
+    ModelTier,
+    ProviderHealthTracker,
+    RoutingDecision,
+    SmartRouter,
 )
 
 # ═══════════════════════════════════════════════════════════════════════

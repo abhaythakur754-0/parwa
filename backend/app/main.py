@@ -27,174 +27,164 @@ _backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _backend_dir not in sys.path:
     sys.path.insert(0, _backend_dir)
 
-from app.api.demo import router as demo_router  # Demo: Pre-purchase variant demo
+from contextlib import asynccontextmanager
 
-# FAQ Management (Mini Parwa Feature)
-from app.api.faqs import router as faqs_router
-from app.api.escalation import router as escalation_router  # Escalation framework API
-from app.api.workflow import router as workflow_router  # Workflow management
-from app.api.triggers import router as triggers_router  # Triggers
+import app.webhooks.brevo_handler as _wh_brevo  # noqa: F401, E402
 
-# Technique configuration
-from app.api.technique_config import router as technique_config_router
-from app.api.sla import router as sla_router  # SLA management
-from app.api.signals import router as signals_router  # Signals
+# Import webhook handlers so their @register_handler decorators fire and
+# populate the registry. These modules have no other import side-effects.
+import app.webhooks.paddle_handler as _wh_paddle  # noqa: F401, E402
+import app.webhooks.shopify_handler as _wh_shopify  # noqa: F401, E402
+import app.webhooks.twilio_handler as _wh_twilio  # noqa: F401, E402
+from app.api.admin import router as admin_router
 
-# Response, brand voice, assignment
-from app.api.response import response_router, brand_voice_router, assignment_router
-from app.api.custom_fields import router as custom_fields_router  # Custom fields
-from app.api.collisions import router as collisions_router  # Collision detection
-from app.api.classification import router as classification_router  # Classification
-from app.api.channels import router as channels_router  # Channel management
-from app.api.ai_signals import router as ai_signals_router  # AI signals
-
-# AI classification
-from app.api.ai_classification import router as ai_classification_router
+# Week 15 Day 5: Agent Dashboard (F-097)
+from app.api.agent_dashboard import router as agent_dashboard_router
+from app.api.agent_metrics import router as agent_metrics_router  # Agent metrics
 
 # Agent provisioning
 from app.api.agent_provisioning import router as agent_provisioning_router
-from app.api.agent_metrics import router as agent_metrics_router  # Agent metrics
-from app.api.rag import router as rag_router  # RAG retrieval
-from app.api.peer_review import router as peer_review_router  # Peer review
 
-# Advanced training
-from app.api.training_advanced import router as training_advanced_router
-from app.api.training import router as training_router  # Training pipeline
-from app.api.ticket_templates import (
-    router as ticket_templates_router,
-)  # Ticket templates
+# Week 14 Day 4: Agent Provisioning (F-095), Dynamic Instructions (F-096)
+from app.api.agents import router as agents_router
+from app.api.ai_agent import router as ai_agent_router
 
-# Ticket classification
-from app.api.ticket_classification import router as ticket_classification_router
-from app.api.ticket_timeline import router as ticket_timeline_router  # Ticket timeline
-from app.api.ticket_merge import router as ticket_merge_router  # Ticket merge
-
-# Ticket assignment
-from app.api.ticket_assignment import router as ticket_assignment_router
-from app.api.ticket_export import router as ticket_export_router  # Ticket export
-from app.api.ticket_bulk import router as ticket_bulk_router  # Ticket bulk actions
-from app.api.ticket_search import router as ticket_search_router  # Ticket search
-from app.api.ticket_notes import router as ticket_notes_router  # Ticket notes
-from app.api.ticket_messages import router as ticket_messages_router  # Ticket messages
-from app.api.ticket_lifecycle import (
-    router as ticket_lifecycle_router,
-)  # Ticket lifecycle
-from app.api.tickets import router as tickets_router  # Ticket CRUD
-
-# Audit log: trail, stats, export
-from app.api.audit import router as audit_router
-
-# Notifications: templates, preferences
-from app.api.notifications import router as notifications_router
-from app.api.billing_webhooks import (
-    router as billing_webhooks_router,
-)  # Billing webhooks
-
-# Billing: subscription, invoices, usage
-from app.api.billing import router as billing_router
-
-# Day 7: Twilio SMS/Voice webhooks
-from app.api.twilio_channels import router as twilio_channels_router
-
-# Shadow Mode: Approvals bridge
-from app.api.approvals import router as approvals_router
-
-# Shadow Mode: Dual Control System
-from app.api.shadow import router as shadow_router
-
-# Day 5: Identity resolution endpoints
-from app.api.identity import router as identity_router
-
-# Day 5: Customer CRM endpoints (C1-C10)
-from app.api.customers import router as customers_router
-
-# Day 3: GDPR data privacy endpoints (E3)
-from app.api.gdpr import router as gdpr_router
-
-# Week 17: Custom Integration Builder (F-031)
-from app.api.custom_integrations import router as custom_integrations_router
-
-# Week 15 Day 4: Export Reports (F-045)
-from app.api.reports import router as reports_router
-
-# Week 15 Day 3: Growth Nudge (F-042), Forecast (F-043), CSAT Trends (F-044)
-from app.api.analytics_intelligence import router as analytics_intelligence_router
+# AI classification
+from app.api.ai_classification import router as ai_classification_router
+from app.api.ai_engine import router as ai_engine_router
+from app.api.ai_signals import router as ai_signals_router  # AI signals
 
 # Week 15 Day 2: Adaptation (F-039), Savings (F-040), Workforce (F-041)
 from app.api.analytics_advanced import router as analytics_advanced_router
 
-# F-088: System status for frontend health strip
-from app.api.system_status import router as system_status_router
+# Week 15 Day 3: Growth Nudge (F-042), Forecast (F-043), CSAT Trends (F-044)
+from app.api.analytics_intelligence import router as analytics_intelligence_router
+from app.api.api_keys import router as api_keys_router
+
+# Shadow Mode: Approvals bridge
+from app.api.approvals import router as approvals_router
+
+# Audit log: trail, stats, export
+from app.api.audit import router as audit_router
+
+# Billing: subscription, invoices, usage
+from app.api.billing import router as billing_router
+from app.api.billing_webhooks import (
+    router as billing_webhooks_router,  # Billing webhooks
+)
+
+# Week 13 Day 3: Bounce/complaint endpoints (F-124)
+from app.api.bounce_complaint import router as bounce_complaint_router
+from app.api.channels import router as channels_router  # Channel management
+
+# Week 13 Day 4: Chat widget endpoints (F-122)
+from app.api.chat_widget import router as chat_widget_router
+from app.api.classification import router as classification_router  # Classification
+from app.api.client import router as client_router
+from app.api.collisions import router as collisions_router  # Collision detection
+from app.api.custom_fields import router as custom_fields_router  # Custom fields
+
+# Week 17: Custom Integration Builder (F-031)
+from app.api.custom_integrations import router as custom_integrations_router
+
+# Day 5: Customer CRM endpoints (C1-C10)
+from app.api.customers import router as customers_router
 
 # Week 15 Day 1: Dashboard Home (F-036), Activity Feed (F-037), KPI
 # Metrics (F-038)
 from app.api.dashboard import router as dashboard_router
+from app.api.demo import router as demo_router  # Demo: Pre-purchase variant demo
 
-# Week 15 Day 5: Agent Dashboard (F-097)
-from app.api.agent_dashboard import router as agent_dashboard_router
+# Week 13 Day 1: Email channel admin endpoints
+from app.api.email_channel import router as email_channel_router
+from app.api.escalation import router as escalation_router  # Escalation framework API
 
-# Week 14 Day 4: Agent Provisioning (F-095), Dynamic Instructions (F-096)
-from app.api.agents import router as agents_router
+# FAQ Management (Mini Parwa Feature)
+from app.api.faqs import router as faqs_router
 
-# Week 14 Day 2: Quick Commands (F-090), Error Panel (F-091), Train from
-# Error (F-092)
-from app.api.jarvis_ops import router as jarvis_ops_router
+# Day 3: GDPR data privacy endpoints (E3)
+from app.api.gdpr import router as gdpr_router
+from app.api.health import router as health_router
+
+# Day 5: Identity resolution endpoints
+from app.api.identity import router as identity_router
 
 # Week 14 Day 1: Jarvis Command Center (F-087, F-088, F-089)
 from app.api.jarvis_control import router as jarvis_control_router
 
-# Week 13 Day 5: SMS channel endpoints (F-123)
-from app.api.sms_channel import router as sms_channel_router
+# Week 14 Day 2: Quick Commands (F-090), Error Panel (F-091), Train from
+# Error (F-092)
+from app.api.jarvis_ops import router as jarvis_ops_router
+from app.api.knowledge_base import router as knowledge_base_router
+from app.api.mfa import router as mfa_router
 
-# Week 13 Day 4: Chat widget endpoints (F-122)
-from app.api.chat_widget import router as chat_widget_router
-
-# Week 13 Day 3: Bounce/complaint endpoints (F-124)
-from app.api.bounce_complaint import router as bounce_complaint_router
+# Notifications: templates, preferences
+from app.api.notifications import router as notifications_router
 
 # Week 13 Day 3: OOO detection endpoints (F-122)
 from app.api.ooo_detection import router as ooo_detection_router
+from app.api.peer_review import router as peer_review_router  # Peer review
+from app.api.pricing import router as pricing_router
+from app.api.public import router as public_router
+from app.api.rag import router as rag_router  # RAG retrieval
 
-# Week 13 Day 1: Email channel admin endpoints
-from app.api.email_channel import router as email_channel_router
+# Week 15 Day 4: Export Reports (F-045)
+from app.api.reports import router as reports_router
+
+# Response, brand voice, assignment
+from app.api.response import assignment_router, brand_voice_router, response_router
+
+# Shadow Mode: Dual Control System
+from app.api.shadow import router as shadow_router
+from app.api.signals import router as signals_router  # Signals
+from app.api.sla import router as sla_router  # SLA management
+
+# Week 13 Day 5: SMS channel endpoints (F-123)
+from app.api.sms_channel import router as sms_channel_router
+
+# F-088: System status for frontend health strip
+from app.api.system_status import router as system_status_router
+
+# Technique configuration
+from app.api.technique_config import router as technique_config_router
 
 # Phase 4: Ticket analytics dashboard
 from app.api.ticket_analytics import router as analytics_router
 
+# Ticket assignment
+from app.api.ticket_assignment import router as ticket_assignment_router
+from app.api.ticket_bulk import router as ticket_bulk_router  # Ticket bulk actions
+
+# Ticket classification
+from app.api.ticket_classification import router as ticket_classification_router
+from app.api.ticket_export import router as ticket_export_router  # Ticket export
+from app.api.ticket_lifecycle import (
+    router as ticket_lifecycle_router,  # Ticket lifecycle
+)
+from app.api.ticket_merge import router as ticket_merge_router  # Ticket merge
+from app.api.ticket_messages import router as ticket_messages_router  # Ticket messages
+from app.api.ticket_notes import router as ticket_notes_router  # Ticket notes
+from app.api.ticket_search import router as ticket_search_router  # Ticket search
+from app.api.ticket_templates import (
+    router as ticket_templates_router,  # Ticket templates
+)
+from app.api.ticket_timeline import router as ticket_timeline_router  # Ticket timeline
+from app.api.tickets import router as tickets_router  # Ticket CRUD
+from app.api.training import router as training_router  # Training pipeline
+
+# Advanced training
+from app.api.training_advanced import router as training_advanced_router
+from app.api.triggers import router as triggers_router  # Triggers
+
+# Day 7: Twilio SMS/Voice webhooks
+from app.api.twilio_channels import router as twilio_channels_router
+from app.api.user_details import router as user_details_router
+
 # Week 6 Day 10-11: Business Email OTP
 from app.api.verification import router as verification_router
-from app.api.knowledge_base import router as knowledge_base_router
-from app.api.integrations import router as integrations_router
-from app.api.onboarding import router as onboarding_router
-from app.api.jarvis import router as jarvis_router
-from app.api.ai_agent import router as ai_agent_router
-from app.api.ai_engine import router as ai_engine_router
-from app.api.pricing import router as pricing_router
-from app.api.public import router as public_router
-from app.api.user_details import router as user_details_router
-from app.api.health import router as health_router
 from app.api.webhooks import router as webhook_router
-from app.api.admin import router as admin_router
-from app.api.client import router as client_router
-from app.api.api_keys import router as api_keys_router
-from app.api.mfa import router as mfa_router
-from app.api.auth import router as auth_router
-from app.middleware.csrf import CSRFMiddleware  # FIX A3: CSRF protection
-from app.middleware.ai_entitlement import (
-    AIEntitlementMiddleware,
-)
-from app.middleware.ip_allowlist import (
-    IPAllowlistMiddleware,
-)
-from app.middleware.api_key_auth import APIKeyAuthMiddleware
-from app.middleware.security_headers import (
-    SecurityHeadersMiddleware,
-)
-from app.middleware.request_logger import RequestLoggerMiddleware
-from app.middleware.rate_limit import RateLimitMiddleware
-from app.middleware.tenant import TenantMiddleware
-from app.middleware.error_handler import ErrorHandlerMiddleware
-from app.logger import configure_logging, get_logger
+from app.api.workflow import router as workflow_router  # Workflow management
+from app.config import get_settings
 from app.exceptions import (
     AuthenticationError,
     AuthorizationError,
@@ -203,18 +193,30 @@ from app.exceptions import (
     RateLimitError,
     ValidationError,
 )
-from app.config import get_settings
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
+from app.logger import configure_logging, get_logger
+from app.middleware.ai_entitlement import (
+    AIEntitlementMiddleware,
+)
+from app.middleware.api_key_auth import APIKeyAuthMiddleware
+from app.middleware.csrf import CSRFMiddleware  # FIX A3: CSRF protection
+from app.middleware.error_handler import ErrorHandlerMiddleware
+from app.middleware.ip_allowlist import (
+    IPAllowlistMiddleware,
+)
+from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.request_logger import RequestLoggerMiddleware
+from app.middleware.security_headers import (
+    SecurityHeadersMiddleware,
+)
+from app.middleware.tenant import TenantMiddleware
 from fastapi import FastAPI, Query, Request
-from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
-# Import webhook handlers so their @register_handler decorators fire and
-# populate the registry. These modules have no other import side-effects.
-import app.webhooks.paddle_handler as _wh_paddle  # noqa: F401, E402
-import app.webhooks.brevo_handler as _wh_brevo  # noqa: F401, E402
-import app.webhooks.twilio_handler as _wh_twilio  # noqa: F401, E402
-import app.webhooks.shopify_handler as _wh_shopify  # noqa: F401, E402
+from app.api.auth import router as auth_router
+from app.api.integrations import router as integrations_router
+from app.api.jarvis import router as jarvis_router
+from app.api.onboarding import router as onboarding_router
 
 # Track if logging has been configured (idempotent)
 _logging_configured = False

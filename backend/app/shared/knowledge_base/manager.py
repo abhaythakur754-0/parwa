@@ -20,12 +20,12 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import httpx
-from sqlalchemy.orm import Session
-
 from app.config import get_settings
 from app.exceptions import NotFoundError
 from app.shared.knowledge_base.chunker import DocumentChunker
 from app.shared.knowledge_base.retriever import KnowledgeRetriever
+from sqlalchemy.orm import Session
+
 from database.models.onboarding import DocumentChunk, KnowledgeDocument
 
 logger = logging.getLogger("parwa.knowledge_base.manager")

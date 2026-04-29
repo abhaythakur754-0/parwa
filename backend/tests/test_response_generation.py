@@ -23,14 +23,9 @@ source module path so that no real service dependencies are needed.
 """
 
 from __future__ import annotations
-from app.core.response_generator import (
-    RATE_LIMIT_DAILY_MAX,
-    RATE_LIMIT_HOURLY_MAX,
-    ResponseGenerationRequest,
-    ResponseGenerationResult,
-    ResponseGenerator,
-)
 
+# ── Environment bootstrap (must precede any app imports) ──────────
+import os
 import time
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -38,9 +33,13 @@ from typing import Any, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-# ── Environment bootstrap (must precede any app imports) ──────────
-import os
+from app.core.response_generator import (
+    RATE_LIMIT_DAILY_MAX,
+    RATE_LIMIT_HOURLY_MAX,
+    ResponseGenerationRequest,
+    ResponseGenerationResult,
+    ResponseGenerator,
+)
 
 os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("SECRET_KEY", "test_secret")

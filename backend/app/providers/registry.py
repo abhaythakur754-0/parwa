@@ -10,28 +10,28 @@ To add a new provider:
 3. The factory will automatically make it available
 """
 
-from app.providers.chat.teams import TeamsChatProvider
-from app.providers.chat.discord import DiscordChatProvider
-from app.providers.chat.slack import SlackChatProvider
-from app.providers.voice.vonage_voice import VonageVoiceProvider
-from app.providers.voice.twilio_voice import TwilioVoiceProvider
-from app.providers.sms.sinch import SinchSMSProvider
-from app.providers.sms.plivo import PlivoSMSProvider
-from app.providers.sms.vonage import VonageSMSProvider
-from app.providers.sms.messagebird import MessageBirdSMSProvider
-from app.providers.sms.twilio import TwilioSMSProvider
-from app.providers.email.smtp import SMTPEmailProvider
-from app.providers.email.postmark import PostmarkEmailProvider
-from app.providers.email.ses import SESEmailProvider
-from app.providers.email.mailgun import MailgunEmailProvider
-from app.providers.email.sendgrid import SendGridEmailProvider
-from app.providers.email.brevo import BrevoEmailProvider
-from typing import Dict, List, Type, Any
+from typing import Any, Dict, List, Type
 
 from app.providers.base import (
     BaseProvider,
     ProviderType,
 )
+from app.providers.chat.discord import DiscordChatProvider
+from app.providers.chat.slack import SlackChatProvider
+from app.providers.chat.teams import TeamsChatProvider
+from app.providers.email.brevo import BrevoEmailProvider
+from app.providers.email.mailgun import MailgunEmailProvider
+from app.providers.email.postmark import PostmarkEmailProvider
+from app.providers.email.sendgrid import SendGridEmailProvider
+from app.providers.email.ses import SESEmailProvider
+from app.providers.email.smtp import SMTPEmailProvider
+from app.providers.sms.messagebird import MessageBirdSMSProvider
+from app.providers.sms.plivo import PlivoSMSProvider
+from app.providers.sms.sinch import SinchSMSProvider
+from app.providers.sms.twilio import TwilioSMSProvider
+from app.providers.sms.vonage import VonageSMSProvider
+from app.providers.voice.twilio_voice import TwilioVoiceProvider
+from app.providers.voice.vonage_voice import VonageVoiceProvider
 
 
 class ProviderRegistry:

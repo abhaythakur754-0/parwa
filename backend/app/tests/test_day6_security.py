@@ -18,8 +18,10 @@ import importlib
 import math
 import os
 import sys
+import types as _types
+from typing import Any, Dict, List
+
 import pytest
-from typing import List, Dict, Any
 
 # Import vector_search.py by manipulating sys.path so that
 # "app.shared.knowledge_base.vector_search" resolves to the file
@@ -31,7 +33,6 @@ from typing import List, Dict, Any
 # so that other submodules (app.core, app.middleware, etc.) remain
 # importable for sibling test files.
 
-import types as _types
 
 _kb_dir = os.path.normpath(
     os.path.join(os.path.dirname(__file__), "..", "shared", "knowledge_base"),

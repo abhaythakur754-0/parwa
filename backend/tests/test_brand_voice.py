@@ -13,9 +13,12 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from app.exceptions import ValidationError
 from app.services.brand_voice_service import (
+    _AVOID_PHRASES_BY_EMPATHY,
+    _EMPATHY_CLOSINGS,
+    _EMPATHY_OPENINGS,
+    _RESPONSE_LENGTH_BOUNDS,
     VALID_APOLOGY_STYLES,
     VALID_EMOJI_USAGE,
     VALID_ESCALATION_TONES,
@@ -27,10 +30,6 @@ from app.services.brand_voice_service import (
     ProhibitedWordCheck,
     ResponseGuidelines,
     ValidationResult,
-    _AVOID_PHRASES_BY_EMPATHY,
-    _EMPATHY_CLOSINGS,
-    _EMPATHY_OPENINGS,
-    _RESPONSE_LENGTH_BOUNDS,
     _count_sentences,
     _estimate_formality,
     _normalize_text,
@@ -38,8 +37,8 @@ from app.services.brand_voice_service import (
     _now_utc,
     _validate_apology_style,
     _validate_company_id,
-    _validate_escalation_tone,
     _validate_emoji_usage,
+    _validate_escalation_tone,
     _validate_formality,
     _validate_industry,
     _validate_response_length,

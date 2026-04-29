@@ -21,14 +21,14 @@ import pytest
 
 # Mock the database import before importing the service
 with patch.dict("sys.modules", {"database.models.variant_engine": MagicMock()}):
+    from app.exceptions import ParwaBaseError
     from app.services.cost_protection_service import (
-        CostProtectionService,
-        BudgetCheckResult,
-        AlertLevel,
         TIER_DAILY_REQUEST_LIMITS,
+        AlertLevel,
+        BudgetCheckResult,
+        CostProtectionService,
         _validate_tokens_non_negative,
     )
-    from app.exceptions import ParwaBaseError
 
 
 # ── Fixtures ─────────────────────────────────────────────────────

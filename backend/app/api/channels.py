@@ -8,12 +8,11 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy.orm import Session
-
 from app.api.deps import get_current_user, get_db, require_roles
 from app.exceptions import NotFoundError, ValidationError
 from app.services.channel_service import ChannelService
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.orm import Session
 
 router = APIRouter(
     prefix="/api/channels",

@@ -14,9 +14,10 @@ BC-013: Single source of truth (FEATURE_REGISTRY).
 import json
 from datetime import datetime, timezone
 
+from app.exceptions import ParwaBaseError
+
 from database.base import SessionLocal
 from database.models.variant_engine import VariantAICapability
-from app.exceptions import ParwaBaseError
 
 # ══════════════════════════════════════════════════════════════════
 # FEATURE REGISTRY — Single Source of Truth (BC-013)

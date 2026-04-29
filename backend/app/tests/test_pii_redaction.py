@@ -4,8 +4,9 @@ Tests cover: PIIDetector, PIIRedactor, PIIDeredactor, PIIRedactionCache,
 overlap deduplication, token determinism, factory functions.
 """
 
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 # ── Fixtures ────────────────────────────────────────────────────
 
@@ -192,7 +193,7 @@ class TestPIIDetectorOverlap:
 
     def test_dedup_keeps_higher_confidence(self, detector):
         """When overlapping, the first match (sorted by start, -len) is kept."""
-        from app.core.pii_redaction_engine import PII_SSN, PII_PHONE
+        from app.core.pii_redaction_engine import PII_PHONE, PII_SSN
 
         matches = detector.detect("SSN: 123-45-6789", {PII_SSN, PII_PHONE})
         if len(matches) == 1:
@@ -447,8 +448,8 @@ class TestPIIDeredactor:
 class TestFactoryFunctions:
     def test_get_pii_detector_returns_instance(self):
         from app.core.pii_redaction_engine import (
-            get_pii_detector,
             PIIDetector,
+            get_pii_detector,
         )
 
         detector = get_pii_detector()
@@ -456,8 +457,8 @@ class TestFactoryFunctions:
 
     def test_get_pii_redactor_returns_instance(self):
         from app.core.pii_redaction_engine import (
-            get_pii_redactor,
             PIIRedactor,
+            get_pii_redactor,
         )
 
         redactor = get_pii_redactor()
@@ -465,8 +466,8 @@ class TestFactoryFunctions:
 
     def test_get_pii_deredactor_returns_instance(self):
         from app.core.pii_redaction_engine import (
-            get_pii_deredactor,
             PIIDeredactor,
+            get_pii_deredactor,
         )
 
         deredactor = get_pii_deredactor()

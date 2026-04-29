@@ -14,16 +14,15 @@ Covers:
 from __future__ import annotations
 
 import pytest
-
 from app.core.smart_router import (
+    MODEL_REGISTRY,
     AtomicStepType,
     ModelProvider,
     ModelTier,
-    SmartRouter,
     ProviderHealthTracker,
     RateLimitError,
     RoutingDecision,
-    MODEL_REGISTRY,
+    SmartRouter,
 )
 
 # ── Fixtures ─────────────────────────────────────────────────────

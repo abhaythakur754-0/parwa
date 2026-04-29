@@ -370,10 +370,10 @@ class TestInternalHelpers(unittest.TestCase):
         self.assertFalse(_detect_seasonality(flat_data))
 
     def test_detect_seasonality_variable(self):
-        from app.services.analytics_intelligence_service import _detect_seasonality
-
         # Create data with high variance between weekdays
         import datetime
+
+        from app.services.analytics_intelligence_service import _detect_seasonality
 
         base = datetime.datetime(2025, 1, 6)  # Monday
         variable_data = []

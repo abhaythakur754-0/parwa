@@ -17,13 +17,13 @@ Covers:
 """
 
 from __future__ import annotations
-from app.exceptions import ValidationError
 
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pytest
+from app.exceptions import ValidationError
 
 # Mock structlog and app.logger before importing service modules
 # (same pattern as test_cost_protection_service.py)
@@ -36,13 +36,13 @@ with patch.dict(
     },
 ):
     from app.services.agent_metrics_service import (
-        AgentMetricsService,
-        DEFAULT_THRESHOLDS,
-        MIN_TICKETS_FOR_ALERTS,
         CONSECUTIVE_DAYS_THRESHOLD,
-        VALID_PERIODS,
-        VALID_GRANULARITIES,
+        DEFAULT_THRESHOLDS,
         METRIC_BELOW_CHECKS,
+        MIN_TICKETS_FOR_ALERTS,
+        VALID_GRANULARITIES,
+        VALID_PERIODS,
+        AgentMetricsService,
     )
 
 

@@ -24,23 +24,23 @@ structured by category for easy data portability.
 import logging
 from datetime import datetime, timezone
 
+from app.api.deps import get_current_user, require_roles
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_roles
 from database.base import get_db
 from database.models.core import (
-    User,
-    Company,
-    RefreshToken,
-    BackupCode,
-    OAuthAccount,
     APIKey,
+    BackupCode,
+    Company,
+    MFASecret,
+    OAuthAccount,
+    PasswordResetToken,
+    RefreshToken,
+    User,
     UserNotificationPreference,
     VerificationToken,
-    PasswordResetToken,
-    MFASecret,
 )
 
 logger = logging.getLogger("parwa.gdpr")

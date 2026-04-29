@@ -17,13 +17,13 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Dict
 
+from app.api.deps import get_current_user, get_db, require_roles
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
 from sqlalchemy import desc
+from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, require_roles
-from database.models.tickets import Ticket, TicketMessage, TicketAttachment
+from database.models.tickets import Ticket, TicketAttachment, TicketMessage
 
 router = APIRouter(
     prefix="/tickets/export",
@@ -274,14 +274,14 @@ async def export_ticket_pdf(
     try:
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
         from reportlab.lib.units import mm
         from reportlab.platypus import (
+            Paragraph,
             SimpleDocTemplate,
+            Spacer,
             Table,
             TableStyle,
-            Paragraph,
-            Spacer,
         )
 
         os.makedirs(EXPORT_DIR, exist_ok=True)

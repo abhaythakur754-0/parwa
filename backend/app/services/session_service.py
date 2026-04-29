@@ -10,13 +10,13 @@ Business logic for session management.
 
 from datetime import timezone
 
-from sqlalchemy.orm import Session
-
 from app.exceptions import (
     NotFoundError,
     ValidationError,
 )
 from app.logger import get_logger
+from sqlalchemy.orm import Session
+
 from database.models.core import RefreshToken
 
 logger = get_logger("session_service")

@@ -18,18 +18,18 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from app.logger import get_logger
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database.models.tickets import (
-    Ticket,
-    TicketFeedback,
-    TicketStatus,
-    TicketPriority,
     SLATimer,
+    Ticket,
     TicketAssignment,
+    TicketFeedback,
+    TicketPriority,
+    TicketStatus,
 )
-from app.logger import get_logger
 
 logger = get_logger("ticket_analytics")
 

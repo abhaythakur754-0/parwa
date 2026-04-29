@@ -6,21 +6,21 @@ pipeline steps, full pipeline, reasoning loops, edge cases, company
 isolation, and error fallback (BC-008).
 """
 
-import pytest
 from unittest.mock import patch
 
-from app.core.technique_router import TechniqueID, QuerySignals
+import pytest
+from app.core.technique_router import QuerySignals, TechniqueID
 from app.core.techniques.base import ConversationState, GSDState
 from app.core.techniques.step_back import (
-    StepBackConfig,
-    StepBackResult,
-    StepBackProcessor,
-    StepBackNode,
-    NarrowQueryDetector,
     _AMBIGUOUS_WORDS,
     _BROADENING_TEMPLATES,
     _ENTITY_PATTERNS,
     _TECHNICAL_JARGON,
+    NarrowQueryDetector,
+    StepBackConfig,
+    StepBackNode,
+    StepBackProcessor,
+    StepBackResult,
 )
 
 # ── Fixtures ────────────────────────────────────────────────────────

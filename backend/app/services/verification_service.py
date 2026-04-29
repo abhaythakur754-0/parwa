@@ -12,13 +12,13 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy.orm import Session
-
 from app.exceptions import RateLimitError
 from app.logger import get_logger
 from app.services.email_service import (
     send_verification_email,
 )
+from sqlalchemy.orm import Session
+
 from database.models.core import (
     User,
     VerificationToken,

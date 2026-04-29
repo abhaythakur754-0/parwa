@@ -20,16 +20,15 @@ from decimal import Decimal
 from unittest.mock import MagicMock
 
 import pytest
-
 from app.exceptions import ValidationError
 from app.services.agent_metrics_service import (
-    AgentMetricsService,
     CONSECUTIVE_DAYS_THRESHOLD,
     DEFAULT_THRESHOLDS,
     METRIC_BELOW_CHECKS,
     MIN_TICKETS_FOR_ALERTS,
     VALID_GRANULARITIES,
     VALID_PERIODS,
+    AgentMetricsService,
 )
 
 # ══════════════════════════════════════════════════════════════════

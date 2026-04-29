@@ -10,14 +10,13 @@ BC-011: JWT verification on every protected endpoint.
 
 from typing import Dict, Optional
 
+from app.core.auth import verify_access_token
+from app.exceptions import AuthenticationError, AuthorizationError
 from fastapi import Depends, Header, Request
 from sqlalchemy.orm import Session
 
-from app.core.auth import verify_access_token
-from app.exceptions import AuthenticationError
-from app.exceptions import AuthorizationError
 from database.base import get_db
-from database.models.core import User, Company
+from database.models.core import Company, User
 
 
 def get_current_user(

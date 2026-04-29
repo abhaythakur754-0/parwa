@@ -43,9 +43,8 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from sqlalchemy.orm import Session
-
 from app.logger import get_logger
+from sqlalchemy.orm import Session
 
 logger = get_logger("instruction_workflow_service")
 
@@ -996,8 +995,8 @@ class InstructionWorkflowService:
             Statistical evaluation result.
         """
         from database.models.agent import (
-            InstructionABTest,
             InstructionABAssignment,
+            InstructionABTest,
         )
 
         ab_test = (
@@ -1243,8 +1242,8 @@ class InstructionWorkflowService:
             Assignment result with variant and set ID.
         """
         from database.models.agent import (
-            InstructionABTest,
             InstructionABAssignment,
+            InstructionABTest,
         )
 
         # Check for active A/B test

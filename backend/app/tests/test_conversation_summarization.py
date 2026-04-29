@@ -2,9 +2,9 @@
 Tests for F-160 Conversation Summarization — Week 9 Day 10
 """
 
-import time
 import threading
-from datetime import datetime, timezone, timedelta
+import time
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -27,16 +27,30 @@ ConversationState = None  # type: ignore[assignment,misc]
 def _mock_logger():
     with patch("app.logger.get_logger", return_value=MagicMock()):
         from app.core.conversation_summarization import (
-            ConversationSummarizationService as _ConversationSummarizationService,
-            ConversationMessage as _ConversationMessage,
-            ConversationSummary as _ConversationSummary,
             ConversationContext as _ConversationContext,
-            SummarizationRequest as _SummarizationRequest,
-            SummarizationResult as _SummarizationResult,
-            SummarizationMode as _SummarizationMode,
-            SummaryStatus as _SummaryStatus,
+        )
+        from app.core.conversation_summarization import (
+            ConversationMessage as _ConversationMessage,
+        )
+        from app.core.conversation_summarization import (
             ConversationState as _ConversationState,
         )
+        from app.core.conversation_summarization import (
+            ConversationSummarizationService as _ConversationSummarizationService,
+        )
+        from app.core.conversation_summarization import (
+            ConversationSummary as _ConversationSummary,
+        )
+        from app.core.conversation_summarization import (
+            SummarizationMode as _SummarizationMode,
+        )
+        from app.core.conversation_summarization import (
+            SummarizationRequest as _SummarizationRequest,
+        )
+        from app.core.conversation_summarization import (
+            SummarizationResult as _SummarizationResult,
+        )
+        from app.core.conversation_summarization import SummaryStatus as _SummaryStatus
 
         globals()[
             "ConversationSummarizationService"

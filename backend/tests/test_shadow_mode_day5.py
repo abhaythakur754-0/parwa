@@ -8,15 +8,16 @@ Tests for:
 - B5.4 What-If Simulator (Evaluate Action)
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+from app.api.shadow import router
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.shadow import router
+from database.models.approval import ExecutedAction, UndoLog
 from database.models.core import User
-from database.models.approval import UndoLog, ExecutedAction
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 

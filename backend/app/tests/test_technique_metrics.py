@@ -19,15 +19,14 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pytest
-
 from app.core.technique_metrics import (
+    TIME_WINDOWS_SECONDS,
+    VALID_VARIANTS,
     ExecutionRecord,
     ExecutionStatus,
     LeaderboardEntry,
     TechniqueMetricsCollector,
     TechniqueStats,
-    TIME_WINDOWS_SECONDS,
-    VALID_VARIANTS,
     VariantSummary,
 )
 from app.core.technique_router import TechniqueID

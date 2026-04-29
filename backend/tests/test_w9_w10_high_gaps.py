@@ -11,62 +11,63 @@ Covers:
 7. Distributed lock contention (state_serialization)
 """
 
-import pytest
 from datetime import datetime, timezone
 from unittest.mock import patch
 
-# ── Imports under test ─────────────────────────────────────────────
-
-from app.core.signal_extraction import (
-    SignalExtractor,
-    SignalExtractionRequest,
-)
+import pytest
 from app.core.classification_engine import (
     ClassificationEngine,
 )
-from app.core.technique_tier_access import (
-    TechniqueTierAccessChecker,
-    TierAccessDecision,
+from app.core.cross_variant_routing import (
+    ESCALATION_CHAIN,
+    ChannelType,
+    CrossVariantRouter,
+    EscalationReason,
+    RoutingDecisionType,
 )
-from app.core.technique_router import TechniqueID
 from app.core.edge_case_handlers import (
-    EdgeCaseRegistry,
+    CHAIN_TIMEOUT_SECONDS,
+    VARIANT_HANDLER_WHITELIST,
     EdgeCaseAction,
+    EdgeCaseRegistry,
     EmptyQueryHandler,
     SystemCommandsHandler,
-    VARIANT_HANDLER_WHITELIST,
-    CHAIN_TIMEOUT_SECONDS,
 )
-from app.core.cross_variant_routing import (
-    CrossVariantRouter,
-    ChannelType,
-    RoutingDecisionType,
-    EscalationReason,
-    ESCALATION_CHAIN,
+from app.core.gsd_engine import (
+    ESCALATION_ELIGIBLE_STATES,
+    FULL_TRANSITION_TABLE,
+    EscalationCooldownError,
+    GSDConfig,
+    GSDEngine,
+    InvalidTransitionError,
 )
 from app.core.langgraph_workflow import (
     LangGraphWorkflow,
     WorkflowConfig,
     WorkflowResult,
 )
-from app.core.gsd_engine import (
-    GSDEngine,
-    GSDConfig,
-    InvalidTransitionError,
-    EscalationCooldownError,
-    FULL_TRANSITION_TABLE,
-    ESCALATION_ELIGIBLE_STATES,
+from app.core.signal_extraction import (
+    SignalExtractionRequest,
+    SignalExtractor,
 )
 from app.core.state_serialization import (
+    StateSerializationError,
     StateSerializer,
     StateSerializerConfig,
-    StateSerializationError,
-    _safe_json_dumps,
-    _safe_json_loads,
     _build_lock_key,
     _build_state_key,
+    _safe_json_dumps,
+    _safe_json_loads,
 )
-from app.core.techniques.base import GSDState, ConversationState
+from app.core.technique_router import TechniqueID
+from app.core.technique_tier_access import (
+    TechniqueTierAccessChecker,
+    TierAccessDecision,
+)
+from app.core.techniques.base import ConversationState, GSDState
+
+# ── Imports under test ─────────────────────────────────────────────
+
 
 # ══════════════════════════════════════════════════════════════════
 # 1. INTENT CLASSIFICATION AMBIGUITY
