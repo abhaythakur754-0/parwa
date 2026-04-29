@@ -442,11 +442,23 @@ _MockPauseRecord = type("PauseRecord", (object,), {
     "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
 })
 
+_MockDataExport = type("DataExport", (object,), {
+    "__tablename__": "data_exports",
+    "id": None, "company_id": None,
+    "status": "processing", "format": "zip",
+    "file_size_bytes": None, "export_data_json": None,
+    "error_message": None, "requested_at": None,
+    "completed_at": None, "expires_at": None,
+    "created_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
 for _name, _cls in [
     ("PromoCode", _MockPromoCode),
     ("CompanyPromoUse", _MockCompanyPromoUse),
     ("InvoiceAmendment", _MockInvoiceAmendment),
     ("PauseRecord", _MockPauseRecord),
+    ("DataExport", _MockDataExport),
 ]:
     setattr(_fake_billing_extended, _name, _cls)
 
