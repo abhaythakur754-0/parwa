@@ -20,6 +20,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.core.auth import hash_refresh_token
 from app.exceptions import (
     AuthenticationError,
     ValidationError,
@@ -662,10 +663,8 @@ class TestRefreshReuseInvalidation:
         # Manually expire the token
         from datetime import datetime, timedelta
         from database.models.core import RefreshToken, User
-        import hashlib
-        token_hash = hashlib.sha256(
-            raw_token.encode("utf-8")
-        ).hexdigest()
+
+        token_hash = hash_refresh_token(raw_token)
         stored = db.query(RefreshToken).filter(
             RefreshToken.token_hash == token_hash
         ).first()
