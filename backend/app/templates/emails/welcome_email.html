@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block body %}
+<h2>Welcome to PARWA AI Workforce</h2>
+<p>Hi {{ user_name }},</p>
+<p>Welcome to PARWA! Your AI workforce platform is ready to use.
+We're excited to have you on board and look forward to helping you
+automate and scale your customer support operations.</p>
+<p>Here's what you can do to get started:</p>
+<ul>
+<li><strong>Connect your channels</strong> — Link email, SMS, and social media</li>
+<li><strong>Configure AI settings</strong> — Train your AI assistant on your brand voice</li>
+<li><strong>Invite your team</strong> — Add agents and set up collaboration</li>
+</ul>
+<p style="text-align:center">
+<a href="{{ dashboard_url }}" class="btn">
+Go to Dashboard
+</a>
+</p>
+<p>If you have any questions, our support team is always here to help.
+Reply to this email or reach out through the in-app chat.</p>
+{% endblock %}

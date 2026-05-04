@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block body %}
+<h2>API Key Created</h2>
+<p>Hi {{ user_name }},</p>
+<p>A new API key has been created for your PARWA account. API keys
+allow programmatic access to PARWA services and should be kept
+secure.</p>
+<p><strong>API Key Details:</strong></p>
+<ul>
+<li>Key Name: {{ key_name }}</li>
+<li>Created at: {{ timestamp }}</li>
+<li>Expires: {{ expires_at }}</li>
+<li>Permissions: {{ permissions }}</li>
+</ul>
+<div style="background:#f8f9fa;padding:15px;border-radius:6px;font-family:monospace;font-size:14px;word-break:break-all">
+{{ api_key }}
+</div>
+<p><strong>Important:</strong> This is the only time the full API key
+will be displayed. Store it securely. You will not be able to see
+it again.</p>
+<p style="text-align:center">
+<a href="{{ dashboard_url }}" class="btn">
+Manage API Keys
+</a>
+</p>
+<p>If you did not create this API key, revoke it immediately and
+contact support.</p>
+{% endblock %}
