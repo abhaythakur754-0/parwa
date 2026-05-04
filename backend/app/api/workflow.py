@@ -54,6 +54,8 @@ from app.api.schemas.workflow import (
     HealthAlertSchema,
     HealthMetricsSchema,
     HealthStatus,
+    LangGraphProcessRequest,
+    LangGraphProcessResponse,
     LeaderboardEntrySchema,
     LeaderboardResponse,
     MetricsResponse,
@@ -1373,3 +1375,107 @@ def migrate_state(
             extra={"error": str(exc)[:500]},
         )
         raise
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 10. LANGGRAPH MULTI-AGENT PROCESSING
+# ═══════════════════════════════════════════════════════════════════
+
+
+@router.post("/langgraph/process", response_model=LangGraphProcessResponse)
+async def langgraph_process(
+    body: LangGraphProcessRequest,
+    company_id: str = Depends(get_company_id),
+    user: User = Depends(require_roles("owner", "admin", "agent")),
+) -> LangGraphProcessResponse:
+    """Process a customer message through the multi-agent LangGraph system.
+
+    This is the NEW multi-agent pipeline that replaces the old sequential
+    workflow. It uses ParwaGraphState with 18 groups, variant_tier-driven
+    routing, MAKER K-solution validation, and tier-aware approval workflows.
+
+    Flow:
+      PII Redaction → Empathy Engine → Router Agent → Domain Agent
+      → MAKER Validator → Control System → DSPy Optimizer
+      → Guardrails → Channel Delivery → Delivery Agent → State Update
+
+    variant_tier drives everything:
+      - mini: 3 agents, T1 techniques, MAKER efficiency (K=3, 50%)
+      - pro: 6 agents, T1+T2 techniques, MAKER balanced (K=3-5, 60%)
+      - high: all agents, all techniques, MAKER conservative (K=5-7, 75%)
+
+    BC-001: Tenant-scoped via company_id.
+    BC-008: Never crashes — returns error response on failure.
+    """
+    import time
+    import asyncio
+
+    from app.logger import get_logger
+
+    logger = get_logger("workflow_api")
+    start = time.monotonic()
+
+    try:
+        from app.core.langgraph.graph import invoke_parwa_graph
+
+        result = await invoke_parwa_graph(
+            message=body.message,
+            channel=body.channel,
+            customer_id=body.customer_id,
+            tenant_id=company_id,
+            variant_tier=body.variant_tier,
+            customer_tier=body.customer_tier,
+            industry=body.industry,
+            language=body.language,
+            conversation_id=body.conversation_id,
+            ticket_id=body.ticket_id,
+            session_id=body.session_id,
+        )
+
+        elapsed_ms = round((time.monotonic() - start) * 1000, 2)
+
+        return LangGraphProcessResponse(
+            status="ok",
+            conversation_id=result.get("conversation_id", body.conversation_id),
+            ticket_id=result.get("ticket_id", body.ticket_id),
+            variant_tier=result.get("variant_tier", body.variant_tier),
+            intent=result.get("intent", "general"),
+            target_agent=result.get("target_agent", "faq"),
+            agent_response=result.get("agent_response", ""),
+            delivery_status=result.get("delivery_status", "pending"),
+            delivery_channel=result.get("delivery_channel", body.channel),
+            maker_mode=result.get("maker_mode", ""),
+            approval_decision=result.get("approval_decision", ""),
+            sentiment_score=result.get("sentiment_score", 0.5),
+            tokens_consumed=result.get("tokens_consumed", 0),
+            error=result.get("error", ""),
+            metadata={
+                "execution_time_ms": elapsed_ms,
+                "total_llm_calls": result.get("total_llm_calls", 0),
+                "red_flag": result.get("red_flag", False),
+                "guardrails_passed": result.get("guardrails_passed", False),
+                "gsd_state": result.get("gsd_state", "new"),
+            },
+        )
+
+    except Exception as exc:
+        from app.logger import get_logger
+
+        logger = get_logger("workflow_api")
+        logger.error(
+            "langgraph_process_failed",
+            extra={
+                "company_id": company_id,
+                "variant_tier": body.variant_tier,
+                "channel": body.channel,
+                "error": str(exc)[:500],
+            },
+        )
+
+        return LangGraphProcessResponse(
+            status="error",
+            conversation_id=body.conversation_id,
+            ticket_id=body.ticket_id,
+            variant_tier=body.variant_tier,
+            error=str(exc)[:500],
+        )

@@ -43,7 +43,7 @@ def get_checkpointer() -> Optional[Any]:
     """
     global _checkpointer_instance
 
-    if _checkpointer is not None:
+    if _checkpointer_instance is not None:
         return _checkpointer_instance
 
     # Try PostgresSaver

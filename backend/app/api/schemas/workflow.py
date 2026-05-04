@@ -640,3 +640,97 @@ class StateMigrateResponse(BaseModel):
         default_factory=dict,
         description="The state after migration (or preview)",
     )
+
+
+# ══════════════════════════════════════════════════════════════════
+# LANGGRAPH MULTI-AGENT PROCESSING
+# ══════════════════════════════════════════════════════════════════
+
+
+class LangGraphProcessRequest(BaseModel):
+    """Request body for POST /langgraph/process.
+
+    Processes a customer message through the multi-agent LangGraph
+    system with variant_tier-driven routing, MAKER validation,
+    and tier-aware approval workflows.
+    """
+
+    message: str = Field(
+        ...,
+        min_length=1,
+        max_length=10000,
+        description="Raw incoming message from customer",
+    )
+    channel: str = Field(
+        default="email",
+        description="Origin channel: email, sms, voice, chat, api",
+    )
+    customer_id: str = Field(
+        ...,
+        description="Customer identifier",
+    )
+    variant_tier: str = Field(
+        default="mini",
+        description="Variant tier: mini, pro, high",
+    )
+    customer_tier: str = Field(
+        default="free",
+        description="Customer segment: free, pro, enterprise, vip",
+    )
+    industry: str = Field(
+        default="general",
+        description="Industry vertical",
+    )
+    language: str = Field(
+        default="en",
+        description="Language code (en, hi, es, etc.)",
+    )
+    conversation_id: str = Field(
+        default="",
+        description="Conversation ID (empty = new conversation)",
+    )
+    ticket_id: str = Field(
+        default="",
+        description="Ticket ID (empty = new ticket)",
+    )
+    session_id: str = Field(
+        default="",
+        description="Session ID (empty = new session)",
+    )
+
+
+class LangGraphProcessResponse(BaseModel):
+    """Response body for POST /langgraph/process.
+
+    Returns the final state after the LangGraph multi-agent
+    system has processed the message through all nodes.
+    """
+
+    status: str = Field(description="Processing status (ok, error)")
+    conversation_id: str = Field(description="Conversation ID")
+    ticket_id: str = Field(description="Ticket ID")
+    variant_tier: str = Field(description="Variant tier used")
+    intent: str = Field(default="general", description="Classified intent")
+    target_agent: str = Field(default="faq", description="Domain agent selected")
+    agent_response: str = Field(default="", description="Generated response")
+    delivery_status: str = Field(
+        default="pending", description="Delivery status",
+    )
+    delivery_channel: str = Field(
+        default="", description="Actual delivery channel",
+    )
+    maker_mode: str = Field(
+        default="", description="MAKER mode used (efficiency/balanced/conservative)",
+    )
+    approval_decision: str = Field(
+        default="", description="Control system approval decision",
+    )
+    sentiment_score: float = Field(
+        default=0.5, description="Sentiment score 0.0-1.0",
+    )
+    tokens_consumed: int = Field(default=0, description="Total tokens consumed")
+    error: str = Field(default="", description="Error message, if any")
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional processing metadata",
+    )
