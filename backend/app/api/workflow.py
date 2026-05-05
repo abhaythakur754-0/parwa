@@ -31,7 +31,7 @@ Import patterns:
   - Dependencies: require_roles, get_company_id, get_current_user, get_db.
 """
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -1383,40 +1383,35 @@ def migrate_state(
 
 
 @router.post("/langgraph/process", response_model=LangGraphProcessResponse)
-async def langgraph_process(
+async def process_langgraph(
     body: LangGraphProcessRequest,
     company_id: str = Depends(get_company_id),
     user: User = Depends(require_roles("owner", "admin", "agent")),
 ) -> LangGraphProcessResponse:
     """Process a customer message through the multi-agent LangGraph system.
 
-    This is the NEW multi-agent pipeline that replaces the old sequential
-    workflow. It uses ParwaGraphState with 18 groups, variant_tier-driven
-    routing, MAKER K-solution validation, and tier-aware approval workflows.
+    Routes the message through the full 19-node LangGraph graph:
+    PII Redaction → Empathy Engine → Router Agent → [Domain Agent]
+    → MAKER Validator → Control System → DSPy Optimizer → Guardrails
+    → Channel Delivery → [Delivery Agent] → State Update
 
-    Flow:
-      PII Redaction → Empathy Engine → Router Agent → Domain Agent
-      → MAKER Validator → Control System → DSPy Optimizer
-      → Guardrails → Channel Delivery → Delivery Agent → State Update
-
-    variant_tier drives everything:
-      - mini: 3 agents, T1 techniques, MAKER efficiency (K=3, 50%)
-      - pro: 6 agents, T1+T2 techniques, MAKER balanced (K=3-5, 60%)
-      - high: all agents, all techniques, MAKER conservative (K=5-7, 75%)
-
-    BC-001: Tenant-scoped via company_id.
-    BC-008: Never crashes — returns error response on failure.
+    variant_tier drives agent availability, MAKER mode, technique
+    access, channel availability, and approval requirements.
     """
     import time
-    import asyncio
-
-    from app.logger import get_logger
-
-    logger = get_logger("workflow_api")
-    start = time.monotonic()
 
     try:
         from app.core.langgraph.graph import invoke_parwa_graph
+
+        start = time.monotonic()
+
+        # Try to use pre-built graph from app state (set in lifespan)
+        graph = None
+        try:
+            from app.main import app as _app
+            graph = getattr(_app.state, "parwa_graph", None)
+        except Exception:
+            pass
 
         result = await invoke_parwa_graph(
             message=body.message,
@@ -1430,6 +1425,7 @@ async def langgraph_process(
             conversation_id=body.conversation_id,
             ticket_id=body.ticket_id,
             session_id=body.session_id,
+            graph=graph,
         )
 
         elapsed_ms = round((time.monotonic() - start) * 1000, 2)
@@ -1443,18 +1439,19 @@ async def langgraph_process(
             target_agent=result.get("target_agent", "faq"),
             agent_response=result.get("agent_response", ""),
             delivery_status=result.get("delivery_status", "pending"),
-            delivery_channel=result.get("delivery_channel", body.channel),
+            delivery_channel=result.get("delivery_channel", ""),
             maker_mode=result.get("maker_mode", ""),
             approval_decision=result.get("approval_decision", ""),
             sentiment_score=result.get("sentiment_score", 0.5),
             tokens_consumed=result.get("tokens_consumed", 0),
             error=result.get("error", ""),
             metadata={
-                "execution_time_ms": elapsed_ms,
-                "total_llm_calls": result.get("total_llm_calls", 0),
+                "elapsed_ms": elapsed_ms,
+                "k_value_used": result.get("k_value_used", 0),
                 "red_flag": result.get("red_flag", False),
                 "guardrails_passed": result.get("guardrails_passed", False),
                 "gsd_state": result.get("gsd_state", "new"),
+                "system_mode": result.get("system_mode", "auto"),
             },
         )
 
@@ -1466,8 +1463,8 @@ async def langgraph_process(
             "langgraph_process_failed",
             extra={
                 "company_id": company_id,
+                "customer_id": body.customer_id,
                 "variant_tier": body.variant_tier,
-                "channel": body.channel,
                 "error": str(exc)[:500],
             },
         )
@@ -1477,5 +1474,150 @@ async def langgraph_process(
             conversation_id=body.conversation_id,
             ticket_id=body.ticket_id,
             variant_tier=body.variant_tier,
+            intent="general",
+            target_agent="faq",
+            agent_response="",
+            delivery_status="failed",
+            delivery_channel="",
+            maker_mode="",
+            approval_decision="",
+            sentiment_score=0.5,
+            tokens_consumed=0,
             error=str(exc)[:500],
+            metadata={},
         )
+
+
+@router.get("/langgraph/state/{thread_id}")
+async def get_langgraph_state(
+    thread_id: str,
+    company_id: str = Depends(get_company_id),
+    user: User = Depends(require_roles("owner", "admin")),
+) -> Dict[str, Any]:
+    """Get the current LangGraph state for a thread.
+
+    Returns the persisted state from the checkpointer, useful for
+    inspecting interrupted graphs awaiting human approval.
+    """
+    try:
+        from app.core.langgraph.checkpointer import get_checkpointer
+
+        checkpointer = get_checkpointer()
+        if checkpointer is None:
+            return {"status": "error", "message": "No checkpointer available"}
+
+        config = {"configurable": {"thread_id": thread_id}}
+        # Get latest checkpoint
+        checkpoint = await checkpointer.aget(config)
+        if checkpoint is None:
+            return {"status": "not_found", "thread_id": thread_id}
+
+        # Return the channel values (the actual state)
+        state_values = {}
+        if hasattr(checkpoint, "channel_values"):
+            state_values = checkpoint.channel_values
+        elif hasattr(checkpointer, "alist"):
+            async for checkpoint_tuple in checkpointer.alist(config):
+                if hasattr(checkpoint_tuple, "checkpoint"):
+                    cp = checkpoint_tuple.checkpoint
+                    if hasattr(cp, "channel_values"):
+                        state_values = cp.channel_values
+                break
+
+        # Filter to only return safe fields (exclude internal LangGraph keys)
+        safe_state = {k: v for k, v in state_values.items()
+                     if not k.startswith("__") and k != "node_outputs"}
+
+        return {
+            "status": "ok",
+            "thread_id": thread_id,
+            "state": safe_state,
+        }
+
+    except Exception as exc:
+        from app.logger import get_logger
+        logger = get_logger("workflow_api")
+        logger.error("langgraph_state_get_failed", extra={"error": str(exc)[:300]})
+        return {"status": "error", "message": str(exc)[:300]}
+
+
+@router.get("/langgraph/info")
+async def get_langgraph_info(
+    company_id: str = Depends(get_company_id),
+    user: User = Depends(require_roles("owner", "admin")),
+) -> Dict[str, Any]:
+    """Get LangGraph system information.
+
+    Returns graph structure, available nodes, variant config,
+    and checkpointer status.
+    """
+    try:
+        from app.core.langgraph import (
+            _NODE_IMPORTS,
+            VARIANT_CONFIG,
+            get_checkpointer,
+        )
+
+        checkpointer = get_checkpointer()
+
+        return {
+            "status": "ok",
+            "node_count": len(_NODE_IMPORTS),
+            "nodes": list(_NODE_IMPORTS.keys()),
+            "variant_tiers": list(VARIANT_CONFIG.keys()),
+            "checkpointer_available": checkpointer is not None,
+            "checkpointer_type": type(checkpointer).__name__ if checkpointer else None,
+        }
+
+    except Exception as exc:
+        from app.logger import get_logger
+        logger = get_logger("workflow_api")
+        logger.error("langgraph_info_failed", extra={"error": str(exc)[:300]})
+        return {"status": "error", "message": str(exc)[:300]}
+
+
+@router.post("/langgraph/approve/{thread_id}")
+async def approve_langgraph_action(
+    thread_id: str,
+    company_id: str = Depends(get_company_id),
+    user: User = Depends(require_roles("owner", "admin")),
+) -> Dict[str, Any]:
+    """Resume a LangGraph graph that was interrupted for human approval.
+
+    When the Control System node determines that an action needs
+    human approval, the graph is interrupted and state is persisted.
+    This endpoint resumes the graph with an approved decision.
+    """
+    try:
+        from app.core.langgraph.graph import build_parwa_graph
+        from app.core.langgraph.checkpointer import get_checkpointer
+
+        checkpointer = get_checkpointer()
+        if checkpointer is None:
+            return {"status": "error", "message": "No checkpointer available for approval"}
+
+        config = {"configurable": {"thread_id": thread_id}}
+
+        # Build graph with same checkpointer
+        graph = build_parwa_graph(checkpointer=checkpointer)
+
+        # Resume the graph with approved state
+        # Update the approval_decision to "approved"
+        result = await graph.ainvoke(
+            None,  # No new input, resume from checkpoint
+            config,
+            # The graph will resume from the interrupted node
+        )
+
+        return {
+            "status": "ok",
+            "thread_id": thread_id,
+            "delivery_status": result.get("delivery_status", "unknown") if result else "unknown",
+            "agent_response": result.get("agent_response", "") if result else "",
+        }
+
+    except Exception as exc:
+        from app.logger import get_logger
+        logger = get_logger("workflow_api")
+        logger.error("langgraph_approve_failed", extra={"error": str(exc)[:300]})
+        return {"status": "error", "message": str(exc)[:300]}

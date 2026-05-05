@@ -187,6 +187,28 @@ async def lifespan(app: FastAPI):
             error=str(exc),
         )
 
+    # Phase 4: Pre-build LangGraph multi-agent graph at startup
+    try:
+        from app.core.langgraph import build_parwa_graph, get_checkpointer
+        checkpointer = get_checkpointer()
+        _parwa_graph = build_parwa_graph(checkpointer=checkpointer)
+        # Store graph on app.state for API endpoints to use
+        app.state.parwa_graph = _parwa_graph
+        logger = get_logger("lifespan")
+        logger.info(
+            "langgraph_graph_initialized",
+            node_count=19,
+            has_checkpointer=checkpointer is not None,
+        )
+    except Exception as exc:
+        logger = get_logger("lifespan")
+        logger.warning(
+            "langgraph_graph_init_failed_fail_open",
+            error=str(exc),
+            message="LangGraph graph will be built on first request",
+        )
+        app.state.parwa_graph = None
+
     logger = get_logger("lifespan")
     logger.info(
         "parwa_startup",

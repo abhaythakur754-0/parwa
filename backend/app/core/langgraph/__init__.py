@@ -7,7 +7,7 @@ that supports conditional routing, MAKER validation, and tier-driven
 agent availability.
 
 Key Components:
-  - state.py:    ParwaGraphState TypedDict (18 groups, ~117 fields)
+  - state.py:    ParwaGraphState TypedDict (24 groups, ~155 fields)
   - config.py:   Variant tier configs, MAKER modes, technique access maps
   - edges.py:    Conditional edge functions for LangGraph routing
   - nodes/:      Individual agent node implementations

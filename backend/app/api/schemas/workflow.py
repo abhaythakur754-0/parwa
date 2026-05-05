@@ -703,7 +703,7 @@ class LangGraphProcessResponse(BaseModel):
     """Response body for POST /langgraph/process.
 
     Returns the final state after the LangGraph multi-agent
-    system has processed the message through all nodes.
+    system has processed the message through all nodes (24 groups, ~155 fields).
     """
 
     status: str = Field(description="Processing status (ok, error)")
@@ -733,4 +733,35 @@ class LangGraphProcessResponse(BaseModel):
     metadata: Dict[str, Any] = Field(
         default_factory=dict,
         description="Additional processing metadata",
+    )
+    # New fields from 24-group ParwaGraphState
+    gsd_state: str = Field(
+        default="new", description="Current GSD state after processing",
+    )
+    urgency: str = Field(
+        default="low", description="Urgency classification",
+    )
+    agent_confidence: float = Field(
+        default=0.0, description="Agent confidence score 0.0-1.0",
+    )
+    red_flag: bool = Field(
+        default=False, description="Whether MAKER detected a red flag",
+    )
+    guardrails_passed: bool = Field(
+        default=False, description="Whether guardrails checks passed",
+    )
+    system_mode: str = Field(
+        default="auto", description="System mode: auto, supervised, shadow, paused",
+    )
+    k_value_used: int = Field(
+        default=0, description="K value used by MAKER validator",
+    )
+    trust_score: float = Field(
+        default=1.0, description="Trust score for the interaction 0.0-1.0",
+    )
+    tcpa_consent_verified: bool = Field(
+        default=False, description="Whether TCPA consent was verified for SMS",
+    )
+    call_id: str = Field(
+        default="", description="Voice call identifier (if voice channel)",
     )

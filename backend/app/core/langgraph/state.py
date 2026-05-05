@@ -2,7 +2,7 @@
 ParwaGraphState — Shared State for the Multi-Agent LangGraph System
 
 This TypedDict defines the single shared state object that flows through
-ALL 18+ agent nodes in the PARWA LangGraph graph. Every node reads from
+ALL 24+ agent nodes in the PARWA LangGraph graph. Every node reads from
 and writes to this state.
 
 Design Principles:
@@ -14,7 +14,7 @@ Design Principles:
   5. Groups are logical, not enforced by Python — they help developers understand
      which fields belong together
 
-Groups (18):
+Groups (24):
   1. INPUT              — Raw query + metadata
   2. PII_REDACTION      — PII-scrubbed message + detected entities
   3. EMPATHY_ENGINE     — Sentiment, urgency, threat detection
@@ -33,6 +33,12 @@ Groups (18):
   16. ANTI_ARBITRAGE     — Gaming detection, risk scoring
   17. BRAND_VOICE_RAG    — Brand voice application, RAG retrieval
   18. COLLECTIVE_INTEL   — Collective intelligence, reward signals
+  19. SELF_HEALING_TRUST — API recovery, circuit breakers, trust scoring
+  20. JARVIS_COMMAND     — NL parsing, Co-Pilot, Feed
+  21. INTEGRATION        — External system health, connector data
+  22. VOICE_CALL         — Call tracking, compliance
+  23. SMS_COMPLIANCE     — TCPA, rate limits
+  24. DYNAMIC_INSTRUCTION— Policy, undo, real-time updates
 
 BC-001: company_id (tenant_id) is always present for multi-tenant isolation.
 BC-008: Never crash — all nodes wrap in try/except, write errors to state.errors.
@@ -73,7 +79,7 @@ def _replace(existing: Any, new: Any) -> Any:
 
 
 # ══════════════════════════════════════════════════════════════════
-# PARWA GRAPH STATE — 18 Groups, ~117 Fields
+# PARWA GRAPH STATE — 24 Groups, ~150 Fields
 # ══════════════════════════════════════════════════════════════════
 
 
@@ -534,6 +540,144 @@ class ParwaGraphState(TypedDict, total=False):
     batch_cluster_id: str
     """Batch processing cluster identifier for analytics."""
 
+    # ──────────────────────────────────────────────────────────────
+    # GROUP 19: SELF-HEALING & TRUST (6 fields)
+    # API recovery + circuit breakers + trust scoring
+    # ──────────────────────────────────────────────────────────────
+
+    self_healing_enabled: bool
+    """Whether self-healing is active for this tenant."""
+
+    api_recovery_attempted: bool
+    """Whether an API recovery was attempted during this flow."""
+
+    api_recovery_success: bool
+    """Whether the API recovery succeeded."""
+
+    circuit_breaker_state: str
+    """Circuit breaker state: closed, open, half_open."""
+
+    trust_score: float
+    """Overall trust score 0.0-1.0 for the current interaction."""
+
+    trust_violation: str
+    """Trust violation type if any: none, confidence_below_threshold, policy_violation, hallucination_detected."""
+
+    # ──────────────────────────────────────────────────────────────
+    # GROUP 20: JARVIS COMMAND CONTEXT (6 fields)
+    # NL parsing + Co-Pilot + Feed
+    # ──────────────────────────────────────────────────────────────
+
+    jarvis_command_parsed: str
+    """Parsed Jarvis command from natural language input."""
+
+    jarvis_command_intent: str
+    """Command intent: query, control, configure, report, override."""
+
+    co_pilot_suggestion: str
+    """Co-Pilot suggestion text for the agent."""
+
+    co_pilot_suggestion_type: str
+    """Suggestion type: response_template, escalation_hint, knowledge_link, policy_reminder."""
+
+    jarvis_feed_entry: Dict[str, Any]
+    """Feed entry to push to Jarvis awareness feed."""
+
+    jarvis_command_metadata: Dict[str, Any]
+    """Additional command metadata: {parsed_at, confidence, source, raw_input}."""
+
+    # ──────────────────────────────────────────────────────────────
+    # GROUP 21: INTEGRATION & CONNECTOR (6 fields)
+    # External system health + data
+    # ──────────────────────────────────────────────────────────────
+
+    connector_health: Dict[str, str]
+    """Per-connector health: {shopify: healthy, zendesk: degraded, slack: healthy}."""
+
+    connector_data_fetched: Annotated[List[Dict[str, Any]], _merge_lists]
+    """Data fetched from external connectors: [{connector, data_type, record_count, fetch_time_ms}]."""
+
+    integration_sync_status: str
+    """Integration sync status: synced, pending, failed, not_configured."""
+
+    webhook_events_pending: int
+    """Number of pending webhook events to process."""
+
+    external_system_errors: Annotated[List[Dict[str, Any]], _merge_lists]
+    """External system errors: [{system, error, timestamp, retry_count}]."""
+
+    connector_last_sync: Dict[str, str]
+    """Last sync timestamps per connector: {shopify: "2024-01-01T00:00:00Z"}."""
+
+    # ──────────────────────────────────────────────────────────────
+    # GROUP 22: VOICE CALL STATE (7 fields)
+    # Call tracking + compliance
+    # ──────────────────────────────────────────────────────────────
+
+    call_id: str
+    """Voice call identifier (Twilio CallSid)."""
+
+    call_status: str
+    """Call status: ringing, in_progress, completed, failed, no_answer, busy."""
+
+    call_duration_seconds: int
+    """Call duration in seconds."""
+
+    call_recording_enabled: bool
+    """Whether call recording is enabled (consent required)."""
+
+    call_transcription: str
+    """Real-time call transcription text."""
+
+    call_participants: Annotated[List[Dict[str, Any]], _merge_lists]
+    """Call participants: [{role, phone_number, joined_at, left_at}]."""
+
+    voice_consent_verified: bool
+    """Whether voice consent was verified before the call."""
+
+    # ──────────────────────────────────────────────────────────────
+    # GROUP 23: SMS COMPLIANCE (5 fields)
+    # TCPA + rate limits
+    # ──────────────────────────────────────────────────────────────
+
+    tcpa_consent_verified: bool
+    """Whether TCPA consent was verified before SMS delivery."""
+
+    tcpa_consent_timestamp: str
+    """UTC ISO timestamp when TCPA consent was verified."""
+
+    sms_rate_limit_remaining: int
+    """Remaining SMS messages in current rate limit window."""
+
+    sms_opt_out: bool
+    """Whether the customer has opted out of SMS communications."""
+
+    sms_compliance_flags: Annotated[List[Dict[str, Any]], _merge_lists]
+    """SMS compliance flags: [{rule, status, message}]."""
+
+    # ──────────────────────────────────────────────────────────────
+    # GROUP 24: DYNAMIC INSTRUCTION (6 fields)
+    # Policy + undo + real-time update
+    # ──────────────────────────────────────────────────────────────
+
+    dynamic_instructions: Annotated[List[Dict[str, Any]], _merge_lists]
+    """Active dynamic instructions: [{instruction_id, type, content, priority, expires_at}]."""
+
+    policy_overrides: Dict[str, Any]
+    """Active policy overrides: {rule_id: override_value}."""
+
+    undo_available: bool
+    """Whether the last action can be undone."""
+
+    undo_action_id: str
+    """ID of the action that can be undone, if available."""
+
+    instruction_version: int
+    """Current version of the dynamic instruction set."""
+
+    instruction_updated_at: str
+    """UTC ISO timestamp of last instruction update."""
+
     node_outputs: Annotated[Dict[str, Any], _merge_dicts]
     """Accumulated outputs from each node: {node_name: output_dict}.
     This is the primary way nodes share data with downstream nodes."""
@@ -737,6 +881,56 @@ def create_initial_state(
         "manager_correction": False,
         "auto_approved_rule_created": False,
         "batch_cluster_id": "",
+
+        # GROUP 19: SELF-HEALING & TRUST
+        "self_healing_enabled": True,
+        "api_recovery_attempted": False,
+        "api_recovery_success": False,
+        "circuit_breaker_state": "closed",
+        "trust_score": 1.0,
+        "trust_violation": "none",
+
+        # GROUP 20: JARVIS COMMAND CONTEXT
+        "jarvis_command_parsed": "",
+        "jarvis_command_intent": "",
+        "co_pilot_suggestion": "",
+        "co_pilot_suggestion_type": "",
+        "jarvis_feed_entry": {},
+        "jarvis_command_metadata": {},
+
+        # GROUP 21: INTEGRATION & CONNECTOR
+        "connector_health": {},
+        "connector_data_fetched": [],
+        "integration_sync_status": "not_configured",
+        "webhook_events_pending": 0,
+        "external_system_errors": [],
+        "connector_last_sync": {},
+
+        # GROUP 22: VOICE CALL STATE
+        "call_id": "",
+        "call_status": "",
+        "call_duration_seconds": 0,
+        "call_recording_enabled": False,
+        "call_transcription": "",
+        "call_participants": [],
+        "voice_consent_verified": False,
+
+        # GROUP 23: SMS COMPLIANCE
+        "tcpa_consent_verified": False,
+        "tcpa_consent_timestamp": "",
+        "sms_rate_limit_remaining": 100,
+        "sms_opt_out": False,
+        "sms_compliance_flags": [],
+
+        # GROUP 24: DYNAMIC INSTRUCTION
+        "dynamic_instructions": [],
+        "policy_overrides": {},
+        "undo_available": False,
+        "undo_action_id": "",
+        "instruction_version": 1,
+        "instruction_updated_at": "",
+
+        # SHARED ACCUMULATORS
         "node_outputs": {},
         "errors": [],
     }
@@ -766,7 +960,13 @@ def _count_fields() -> Dict[str, int]:
         "15_EMERGENCY_CONTROLS": 6,
         "16_ANTI_ARBITRAGE": 4,
         "17_BRAND_VOICE_RAG": 5,
-        "18_COLLECTIVE_INTEL": 5,  # + node_outputs + errors (shared accumulators)
+        "18_COLLECTIVE_INTEL": 4,
+        "19_SELF_HEALING_TRUST": 6,
+        "20_JARVIS_COMMAND": 6,
+        "21_INTEGRATION": 6,
+        "22_VOICE_CALL": 7,
+        "23_SMS_COMPLIANCE": 5,
+        "24_DYNAMIC_INSTRUCTION": 6,
     }
     return group_counts
 
