@@ -12,6 +12,12 @@
  * Uses the useAuth hook for authentication state.
  * Session detection: checks if user has an active Jarvis session
  * (handoff_completed or onboarding_completed flag).
+ *
+ * MINI PARWA INTEGRATION:
+ *   - Maps variant_id from Models page to variant_tier for pipeline routing
+ *     starter → mini_parwa, growth → parwa, high → parwa_high
+ *   - This tier flows through session context to the handoff, where a
+ *     VariantInstance is created for the correct pipeline
  */
 
 'use client';
@@ -22,6 +28,18 @@ import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { JarvisChat } from '@/components/jarvis/JarvisChat';
 import { ChatErrorBoundary } from '@/components/jarvis/ChatErrorBoundary';
+
+/**
+ * Maps frontend variant_id to backend pipeline tier.
+ * Starter (mini_parwa): 10-node pipeline, Tier 1 techniques
+ * Growth (parwa):       15-node pipeline, Tier 1+2 techniques
+ * High (parwa_high):    20-node pipeline, all techniques
+ */
+const VARIANT_ID_TO_TIER: Record<string, string> = {
+  starter: 'mini_parwa',
+  growth: 'parwa',
+  high: 'parwa_high',
+};
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -41,6 +59,15 @@ export default function OnboardingPage() {
     const variant = params.get('variant');
     if (industry) ctx.industry = industry;
     if (variant) ctx.variant = variant;
+
+    // ── MINI PARWA: Map variant_id to pipeline tier ──
+    // The variant param from the Models page URL (starter/growth/high)
+    // gets mapped to the backend pipeline tier (mini_parwa/parwa/parwa_high)
+    if (variant) {
+      const tier = VARIANT_ID_TO_TIER[variant.toLowerCase()];
+      if (tier) ctx.variant_tier = tier;
+    }
+
     // Read bridged context from localStorage (set by other pages)
     // NOTE: Do NOT remove context here — let useJarvisChat's pushContextToBackend handle the sync.
     // Removing it here causes data loss if the push hasn't completed yet.
@@ -57,6 +84,11 @@ export default function OnboardingPage() {
         if (bridged.roi_result) ctx.roi_result = bridged.roi_result;
         if (bridged.interests) ctx.interests = bridged.interests;
         if (bridged.pages_visited) ctx.pages_visited = bridged.pages_visited;
+        // ── MINI PARWA: Map variant_id from localStorage ──
+        if (bridged.variant_id && !ctx.variant_tier) {
+          const tier = VARIANT_ID_TO_TIER[String(bridged.variant_id).toLowerCase()];
+          if (tier) ctx.variant_tier = tier;
+        }
       }
     } catch { /* ignore */ }
     // Also read pricing selection if available
@@ -68,6 +100,11 @@ export default function OnboardingPage() {
         if (pricing.industry && !ctx.industry) ctx.industry = pricing.industry;
         if (pricing.variants && !ctx.selected_variants) ctx.selected_variants = pricing.variants;
         if (pricing.totalMonthly && !ctx.total_price) ctx.total_price = pricing.totalMonthly;
+        // ── MINI PARWA: Map plan from pricing selection ──
+        if (pricing.plan && !ctx.variant_tier) {
+          const tier = VARIANT_ID_TO_TIER[String(pricing.plan).toLowerCase()];
+          if (tier) ctx.variant_tier = tier;
+        }
       }
     } catch { /* ignore */ }
     return ctx;

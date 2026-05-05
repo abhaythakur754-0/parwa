@@ -335,6 +335,14 @@ export default function ModelsPage() {
         context.variant = v.name;
         context.variant_id = v.id;
         context.entry_source = `models_${v.id}_free_chat`;
+        // ── MINI PARWA: Map variant_id to pipeline tier ──
+        // starter → mini_parwa, growth → parwa, high → parwa_high
+        const tierMap: Record<string, string> = {
+          starter: 'mini_parwa',
+          growth: 'parwa',
+          high: 'parwa_high',
+        };
+        context.variant_tier = tierMap[v.id] || 'mini_parwa';
       }
     }
     if (typeof window !== 'undefined') {

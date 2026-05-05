@@ -638,78 +638,135 @@ def send_message(
                 metadata = {"error_type": type(exc).__name__}
                 knowledge = []
     else:
-        # Use existing Week 9-12 Support Pipeline for support sessions
+        # ── Customer Care Path: Route through Variant Pipeline Bridge ──
+        # This connects the Mini Parwa / Parwa / Parwa High LangGraph
+        # pipelines to customer care messages. The variant_tier and
+        # industry were set during the handoff from Onboarding Jarvis.
         try:
-            from app.core.ai_pipeline import process_ai_message
+            from app.core.variant_pipeline_bridge import (
+                process_customer_care_message_sync,
+            )
 
-            conversation_history = [
-                {"role": msg.role, "content": msg.content}
-                for msg in history[-MAX_CONTEXT_HISTORY_MESSAGES:]
-            ]
+            # Get session context (contains variant_tier, industry, instance_id)
+            session_ctx = _parse_context(session.context_json) if session else {}
 
-            pipeline_args = dict(
+            # Route through the correct variant pipeline
+            pipeline_result = process_customer_care_message_sync(
                 query=user_message,
                 company_id=company_id or "",
+                session_context=session_ctx,
                 conversation_id=session_id,
-                variant_type=session.pack_type or "parwa",
+                ticket_id="",
+                channel="chat",
                 customer_id=user_id,
-                conversation_history=conversation_history,
-                language="en",
+                customer_tier=ctx.get("customer_tier", "free"),
             )
 
-            try:
-                system_prompt = build_system_prompt(db, session_id, user_message)
-                pipeline_args["system_prompt"] = system_prompt
-                session_ctx = _parse_context(session.context_json) if session else {}
-                if session_ctx:
-                    pipeline_args["customer_metadata"] = session_ctx
-            except Exception:
-                logger.debug("build_system_prompt failed, pipeline will use default context")
-
-            # Handle async call from sync context
-            try:
-                pipeline_result = asyncio.run(process_ai_message(**pipeline_args))
-            except RuntimeError:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                    future = pool.submit(
-                        asyncio.run, process_ai_message(**pipeline_args),
-                    )
-                    pipeline_result = future.result(timeout=60)
-
-            ai_content = pipeline_result.response
-            ai_message_type = "ai_generated"
+            ai_content = pipeline_result.response_text
+            ai_message_type = "variant_pipeline"
             metadata = pipeline_result.to_dict()
-            knowledge = [
-                {"file": c.get("source", ""), "score": c.get("score", 1.0)}
-                for c in pipeline_result.citations
-            ]
-            
-            # Store pipeline results in context
-            ctx["ai_pipeline"] = {
-                "intent": pipeline_result.intent_type,
-                "confidence": pipeline_result.confidence_score,
-                "auto_action": pipeline_result.auto_action,
-                "technique": pipeline_result.technique_used,
-                "model": pipeline_result.model_used,
+            knowledge = []  # Pipeline handles its own knowledge
+
+            # Store pipeline results in context for analytics
+            ctx["variant_pipeline"] = {
+                "variant_tier": pipeline_result.variant_tier,
+                "industry": pipeline_result.industry,
+                "pipeline_status": pipeline_result.pipeline_status,
+                "quality_score": pipeline_result.quality_score,
+                "total_latency_ms": pipeline_result.total_latency_ms,
+                "billing_tokens": pipeline_result.billing_tokens,
+                "steps_completed": pipeline_result.steps_completed,
+                "technique_used": pipeline_result.technique_used,
+                "emergency_flag": pipeline_result.emergency_flag,
+                "empathy_score": pipeline_result.empathy_score,
+                "classification_intent": pipeline_result.classification_intent,
             }
 
-        except Exception as exc:
-            logger.error("AI Pipeline failed, falling back to legacy: %s", exc)
-            system_prompt = build_system_prompt(db, session_id, user_message)
-            try:
-                ai_content, ai_message_type, metadata, knowledge = (
-                    _call_ai_provider(system_prompt, history, user_message, ctx)
-                )
-            except Exception as inner_exc:
-                ai_content, ai_message_type = _get_friendly_error_message(), "error"
-                metadata = {"error_type": type(inner_exc).__name__}
-                knowledge = []
-        except Exception as inner_exc:
-            ai_content, ai_message_type = (
-                _get_friendly_error_message(), "error"
+            logger.info(
+                "customer_care_pipeline_complete: tier=%s, status=%s, "
+                "quality=%.1f, latency=%sms, steps=%d",
+                pipeline_result.variant_tier,
+                pipeline_result.pipeline_status,
+                pipeline_result.quality_score,
+                pipeline_result.total_latency_ms,
+                len(pipeline_result.steps_completed),
             )
-            metadata = {"error_type": type(inner_exc).__name__}
-            knowledge = []
+
+        except Exception as exc:
+            # Fallback: Use the legacy ai_pipeline if bridge fails
+            logger.error(
+                "Variant Pipeline Bridge failed, falling back to legacy: %s",
+                exc,
+            )
+            try:
+                from app.core.ai_pipeline import process_ai_message
+
+                conversation_history = [
+                    {"role": msg.role, "content": msg.content}
+                    for msg in history[-MAX_CONTEXT_HISTORY_MESSAGES:]
+                ]
+
+                pipeline_args = dict(
+                    query=user_message,
+                    company_id=company_id or "",
+                    conversation_id=session_id,
+                    variant_type=session.pack_type or "parwa",
+                    customer_id=user_id,
+                    conversation_history=conversation_history,
+                    language="en",
+                )
+
+                try:
+                    system_prompt = build_system_prompt(db, session_id, user_message)
+                    pipeline_args["system_prompt"] = system_prompt
+                    session_ctx = _parse_context(session.context_json) if session else {}
+                    if session_ctx:
+                        pipeline_args["customer_metadata"] = session_ctx
+                except Exception:
+                    logger.debug("build_system_prompt failed, pipeline will use default context")
+
+                # Handle async call from sync context
+                try:
+                    pipeline_result = asyncio.run(process_ai_message(**pipeline_args))
+                except RuntimeError:
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                        future = pool.submit(
+                            asyncio.run, process_ai_message(**pipeline_args),
+                        )
+                        pipeline_result = future.result(timeout=60)
+
+                ai_content = pipeline_result.response
+                ai_message_type = "ai_generated"
+                metadata = pipeline_result.to_dict()
+                knowledge = [
+                    {"file": c.get("source", ""), "score": c.get("score", 1.0)}
+                    for c in pipeline_result.citations
+                ]
+
+                # Store pipeline results in context
+                ctx["ai_pipeline"] = {
+                    "intent": pipeline_result.intent_type,
+                    "confidence": pipeline_result.confidence_score,
+                    "auto_action": pipeline_result.auto_action,
+                    "technique": pipeline_result.technique_used,
+                    "model": pipeline_result.model_used,
+                }
+
+            except Exception as inner_exc:
+                # Last resort: direct AI provider call
+                logger.error(
+                    "Legacy pipeline also failed: %s", inner_exc,
+                )
+                try:
+                    system_prompt = build_system_prompt(db, session_id, user_message)
+                    ai_content, ai_message_type, metadata, knowledge = (
+                        _call_ai_provider(system_prompt, history, user_message, ctx)
+                    )
+                except Exception:
+                    ai_content = _get_friendly_error_message()
+                    ai_message_type = "error"
+                    metadata = {"error_type": "all_pipelines_failed"}
+                    knowledge = []
 
     # Ensure we have a response
     if not ai_content:
@@ -1709,6 +1766,15 @@ def execute_handoff(
     Creates a new customer_care session with selective context transfer.
     The onboarding session is marked with handoff_completed=True.
     Chat memory is NOT transferred (fresh entity).
+
+    MINI PARWA INTEGRATION:
+      - Resolves variant_tier from the onboarding context
+        (Starter → mini_parwa, Growth → parwa, High → parwa_high)
+      - Resolves industry from the onboarding context
+      - Creates a VariantInstance record in the database
+      - Stores variant_tier, variant_instance_id, and industry
+        in the customer care session context so the pipeline
+        bridge can route messages correctly
     """
     session = get_session(db, session_id, user_id)
 
@@ -1722,13 +1788,86 @@ def execute_handoff(
 
     # Selective context transfer (NOT full chat memory)
     ctx = _parse_context(session.context_json)
+
+    # ── MINI PARWA: Resolve variant tier from onboarding context ──
+    variant_tier = "mini_parwa"  # safe default
+    variant_instance_id = ""
+    try:
+        from app.core.variant_tier_mapper import (
+            resolve_tier_from_context,
+            resolve_industry_from_context,
+        )
+
+        # Resolve tier from variant_id, variant_name, or selected_variants
+        variant_tier = resolve_tier_from_context(
+            variant_id=ctx.get("variant_id"),
+            variant_name=ctx.get("variant"),
+            selected_variants=ctx.get("selected_variants"),
+        )
+
+        logger.info(
+            "handoff_variant_tier_resolved: tier=%s, variant_id=%s, "
+            "variant_name=%s, company_id=%s",
+            variant_tier,
+            ctx.get("variant_id"),
+            ctx.get("variant"),
+            session.company_id,
+        )
+    except Exception:
+        logger.exception("handoff_variant_tier_resolution_failed — using mini_parwa")
+
+    # ── MINI PARWA: Resolve industry enum value ──
+    industry_enum = "general"
+    try:
+        from app.core.variant_tier_mapper import resolve_industry_from_context
+        industry_enum = resolve_industry_from_context(
+            industry=ctx.get("industry"),
+        )
+    except Exception:
+        logger.exception("handoff_industry_resolution_failed — using general")
+
+    # ── MINI PARWA: Create VariantInstance in database ──
+    try:
+        from app.services.variant_instance_service import register_instance
+
+        if session.company_id:
+            instance_name = f"{variant_tier}_{industry_enum}_{datetime.now(timezone.utc).strftime('%Y%m%d')}"
+            channels = _infer_channels_from_context(ctx, variant_tier)
+
+            variant_instance = register_instance(
+                db=db,
+                company_id=session.company_id,
+                instance_name=instance_name,
+                variant_type=variant_tier,
+                channel_assignment=channels,
+                capacity_config=_get_default_capacity(variant_tier),
+            )
+            variant_instance_id = str(variant_instance.id)
+
+            logger.info(
+                "handoff_variant_instance_created: instance_id=%s, "
+                "tier=%s, industry=%s, company_id=%s",
+                variant_instance_id, variant_tier, industry_enum,
+                session.company_id,
+            )
+    except Exception:
+        logger.exception(
+            "handoff_variant_instance_creation_failed — "
+            "customer care will use tier from context only",
+        )
+
+    # Build care context with variant pipeline info
     care_context = {
-        "industry": ctx.get("industry"),
+        "industry": industry_enum,
+        "industry_label": ctx.get("industry"),  # preserve original label
         "selected_variants": ctx.get("selected_variants", []),
         "business_email": ctx.get("business_email"),
         "email_verified": ctx.get("email_verified", False),
         "onboarding_session_id": session_id,
         "onboarding_completed_at": datetime.now(timezone.utc).isoformat(),
+        # ── MINI PARWA: Pipeline routing keys ──
+        "variant_tier": variant_tier,
+        "variant_instance_id": variant_instance_id,
     }
 
     # Create customer care session (FRESH — no chat history)
@@ -1753,10 +1892,14 @@ def execute_handoff(
     # Create action tickets
     _complete_latest_ticket(db, session_id, "handoff", {
         "care_session_id": care_session.id,
+        "variant_tier": variant_tier,
+        "variant_instance_id": variant_instance_id,
     })
     _create_ticket(db, session_id, "handoff", {
         "care_session_id": care_session.id,
         "transferred_context_keys": list(care_context.keys()),
+        "variant_tier": variant_tier,
+        "variant_instance_id": variant_instance_id,
     })
 
     db.flush()
@@ -1766,7 +1909,69 @@ def execute_handoff(
         "handoff_completed": True,
         "new_session_id": care_session.id,
         "handoff_at": datetime.now(timezone.utc).isoformat(),
+        "variant_tier": variant_tier,
+        "variant_instance_id": variant_instance_id,
     }
+
+
+def _infer_channels_from_context(
+    ctx: Dict[str, Any],
+    variant_tier: str,
+) -> List[str]:
+    """Infer channel assignments from onboarding context + variant tier.
+
+    Starter (mini_parwa): email, chat, phone (2 concurrent)
+    Growth (parwa):       + sms, voice (3 concurrent)
+    High (parwa_high):    + social, video (5 concurrent)
+
+    Args:
+        ctx: Onboarding session context.
+        variant_tier: Resolved pipeline tier.
+
+    Returns:
+        List of channel strings.
+    """
+    try:
+        base_channels = ["email", "chat"]
+
+        if variant_tier in ("parwa", "parwa_high"):
+            base_channels.extend(["sms", "voice"])
+
+        if variant_tier == "parwa_high":
+            base_channels.extend(["social", "whatsapp"])
+
+        return base_channels
+    except Exception:
+        return ["email", "chat"]
+
+
+def _get_default_capacity(variant_tier: str) -> Dict[str, Any]:
+    """Get default capacity config for a variant tier.
+
+    Args:
+        variant_tier: Resolved pipeline tier.
+
+    Returns:
+        Capacity configuration dict.
+    """
+    try:
+        capacities = {
+            "mini_parwa": {
+                "max_concurrent_tickets": 50,
+                "monthly_ticket_limit": 1000,
+            },
+            "parwa": {
+                "max_concurrent_tickets": 200,
+                "monthly_ticket_limit": 5000,
+            },
+            "parwa_high": {
+                "max_concurrent_tickets": 500,
+                "monthly_ticket_limit": 15000,
+            },
+        }
+        return capacities.get(variant_tier, capacities["mini_parwa"])
+    except Exception:
+        return {"max_concurrent_tickets": 50, "monthly_ticket_limit": 1000}
 
 
 def get_handoff_status(
