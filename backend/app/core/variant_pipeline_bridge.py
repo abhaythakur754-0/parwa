@@ -16,7 +16,7 @@ for customer_care type sessions (after handoff).
 Pipeline Selection:
   - mini_parwa (Starter): 10-node pipeline, Tier 1 techniques
   - parwa (Growth):       15-node pipeline, Tier 1+2 techniques
-  - parwa_high (High):    20-node pipeline, all techniques
+  - parwa_high (High):    20-node pipeline, all techniques (falls back to parwa)
 
 Architecture:
   jarvis_service.send_message()
@@ -75,12 +75,13 @@ def _get_mini_parwa_pipeline() -> Any:
 
 
 def _get_parwa_pipeline() -> Any:
-    """Get or create the Pro Parwa pipeline singleton (future)."""
+    """Get or create the Pro Parwa pipeline singleton."""
     global _parwa_pipeline
     if _parwa_pipeline is None:
         try:
-            # Future: from app.core.parwa.graph import ParwaPipeline
-            logger.info("ParwaPipeline not yet implemented — will use Mini fallback")
+            from app.core.parwa.graph import ParwaPipeline
+            _parwa_pipeline = ParwaPipeline()
+            logger.info("ParwaPipeline singleton initialized for bridge")
         except Exception:
             logger.exception("Failed to initialize ParwaPipeline")
     return _parwa_pipeline
@@ -225,13 +226,26 @@ async def process_customer_care_message(
                 customer_id=customer_id,
                 customer_tier=customer_tier,
             )
+        elif variant_tier == "parwa":
+            # Pro Parwa: 15-node pipeline with Tier 1+2 techniques
+            result = await _run_parwa(
+                query=query,
+                company_id=company_id,
+                industry=industry,
+                variant_instance_id=variant_instance_id,
+                conversation_id=conversation_id,
+                ticket_id=ticket_id,
+                channel=channel,
+                customer_id=customer_id,
+                customer_tier=customer_tier,
+            )
         elif variant_tier == "parwa_high":
             # Future: Run ParwaHigh pipeline
-            # For now, falls through to Mini Parwa
+            # For now, falls through to Pro Parwa
             logger.info(
-                "parwa_high not yet implemented — using mini_parwa fallback",
+                "parwa_high not yet implemented — using parwa fallback",
             )
-            result = await _run_mini_parwa(
+            result = await _run_parwa(
                 query=query,
                 company_id=company_id,
                 industry=industry,
@@ -243,11 +257,8 @@ async def process_customer_care_message(
                 customer_tier=customer_tier,
             )
         else:
-            # Default: parwa (Growth) — also falls through to Mini for now
-            logger.info(
-                "parwa not yet implemented — using mini_parwa fallback",
-            )
-            result = await _run_mini_parwa(
+            # Default: parwa (Growth)
+            result = await _run_parwa(
                 query=query,
                 company_id=company_id,
                 industry=industry,
@@ -497,6 +508,155 @@ async def _run_mini_parwa(
         )
 
 
+async def _run_parwa(
+    query: str,
+    company_id: str,
+    industry: str,
+    variant_instance_id: str = "",
+    conversation_id: str = "",
+    ticket_id: str = "",
+    channel: str = "chat",
+    customer_id: str = "",
+    customer_tier: str = "free",
+) -> PipelineResult:
+    """Run a message through the Pro Parwa 15-node pipeline.
+
+    Pipeline: pii_check → empathy_check → emergency_check → gsd_state
+              → classify → extract_signals → technique_select
+              → reasoning_chain → context_enrich → generate
+              → crp_compress → clara_quality_gate → quality_retry
+              → confidence_assess → format
+
+    Connected Frameworks (Tier 1 + Tier 2):
+      - CLARA (Quality Gate, enhanced: threshold 85)
+      - CRP (Token Compression)
+      - GSD (State Engine)
+      - Smart Router (Medium tier)
+      - Technique Router (Tier 1+2)
+      - Confidence Scoring
+      - CoT, ReAct, Reverse Thinking, Step-Back, ThoT (Tier 2 conditional)
+
+    Args:
+        query: Customer's raw message.
+        company_id: Tenant identifier (BC-001).
+        industry: Industry enum value.
+        variant_instance_id: Specific variant instance.
+        conversation_id: For multi-turn tracking.
+        ticket_id: Ticket identifier.
+        channel: Communication channel.
+        customer_id: Customer identifier.
+        customer_tier: Customer subscription tier.
+
+    Returns:
+        PipelineResult with response + full pipeline metadata.
+    """
+    try:
+        pipeline = _get_parwa_pipeline()
+
+        if pipeline is None:
+            logger.error("ParwaPipeline not available — returning fallback")
+            return PipelineResult(
+                response_text=(
+                    "I'm experiencing a temporary issue. "
+                    "Our team has been notified and will respond shortly."
+                ),
+                variant_tier="parwa",
+                industry=industry,
+                pipeline_status="pipeline_unavailable",
+            )
+
+        # Run through Pro Parwa's process_ticket method
+        result = await pipeline.process_ticket(
+            query=query,
+            company_id=company_id,
+            industry=industry,
+            channel=channel,
+            customer_id=customer_id,
+            customer_tier=customer_tier,
+            conversation_id=conversation_id,
+            ticket_id=ticket_id,
+            variant_instance_id=variant_instance_id,
+        )
+
+        # Extract the formatted response from pipeline result
+        response_text = result.get("formatted_response", "") or result.get(
+            "generated_response", ""
+        )
+
+        # If pipeline generated an emergency escalation response
+        if result.get("emergency_flag", False):
+            response_text = result.get("formatted_response", "") or (
+                "Your message has been flagged for priority handling. "
+                "A senior team member will contact you directly within the hour. "
+                f"Reference: {result.get('ticket_id', 'N/A')}"
+            )
+
+        # If no response was generated, use fallback
+        if not response_text:
+            classification = result.get("classification", {})
+            intent = classification.get("intent", "general")
+            from app.core.parwa.nodes import TEMPLATE_RESPONSES
+            response_text = TEMPLATE_RESPONSES.get(
+                intent, TEMPLATE_RESPONSES["general"],
+            )
+
+        # Get technique info (Pro-specific)
+        technique_used = result.get("step_outputs", {}).get(
+            "technique_select", {},
+        ).get("primary_technique", "direct")
+        reasoning_technique = result.get("step_outputs", {}).get(
+            "reasoning_chain", {},
+        ).get("technique", "direct")
+
+        return PipelineResult(
+            response_text=response_text,
+            variant_tier="parwa",
+            industry=industry,
+            pipeline_status=result.get("pipeline_status", "completed"),
+            quality_score=result.get("quality_score", 0.0),
+            total_latency_ms=result.get("total_latency_ms", 0.0),
+            billing_tokens=result.get("billing_tokens", 0),
+            steps_completed=result.get("steps_completed", []),
+            technique_used=technique_used,
+            emergency_flag=result.get("emergency_flag", False),
+            empathy_score=result.get("empathy_score", 0.5),
+            classification_intent=result.get("classification", {}).get("intent", ""),
+            metadata={
+                "ticket_id": result.get("ticket_id", ""),
+                "conversation_id": result.get("conversation_id", ""),
+                "pii_detected": result.get("pii_detected", False),
+                "reasoning_technique": reasoning_technique,
+                "quality_passed": result.get("quality_passed", True),
+                "quality_retry_count": result.get("quality_retry_count", 0),
+                "gsd_state": result.get("step_outputs", {}).get(
+                    "gsd_state", {},
+                ).get("to_state", ""),
+                "crp_compression_ratio": result.get("step_outputs", {}).get(
+                    "crp_compress", {},
+                ).get("compression_ratio", 1.0),
+                "clara_passed": result.get("step_outputs", {}).get(
+                    "clara_quality_gate", {},
+                ).get("passed", True),
+                "confidence_score": result.get("step_outputs", {}).get(
+                    "confidence_assess", {},
+                ).get("confidence_score", 0.5),
+            },
+        )
+
+    except Exception:
+        logger.exception("_run_parwa failed")
+        return PipelineResult(
+            response_text=(
+                "I apologize for the inconvenience. "
+                "Our team will follow up with you shortly."
+            ),
+            variant_tier="parwa",
+            industry=industry,
+            pipeline_status="failed",
+            metadata={"error": "parwa_execution_failed"},
+        )
+
+
 # ══════════════════════════════════════════════════════════════════
 # CONTEXT RESOLUTION HELPERS
 # ══════════════════════════════════════════════════════════════════
@@ -572,8 +732,9 @@ def health_check() -> Dict[str, Any]:
         mini = _get_mini_parwa_pipeline()
         pipelines_available["mini_parwa"] = mini is not None
 
-        # Pro and High not yet implemented
-        pipelines_available["parwa"] = False
+        # Pro Parwa is now implemented
+        pipelines_available["parwa"] = _get_parwa_pipeline() is not None
+        # High not yet implemented
         pipelines_available["parwa_high"] = False
 
         all_ok = any(pipelines_available.values())
