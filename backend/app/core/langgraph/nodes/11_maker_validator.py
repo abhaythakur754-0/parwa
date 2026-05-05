@@ -17,7 +17,8 @@ State Contract:
           pii_redacted_message, tenant_id, complexity_score
   Writes: k_solutions, selected_solution, red_flag, maker_mode,
           k_value_used, fake_threshold, maker_decomposition,
-          maker_audit_trail
+          maker_audit_trail, agent_response (UPDATED with best solution),
+          agent_confidence (UPDATED with best confidence)
 
 BC-008: Never crash — if LLM unavailable, use agent_response as
         single solution with agent_confidence. Always returns valid output.
@@ -612,6 +613,14 @@ def maker_validator_node(state: Dict[str, Any]) -> Dict[str, Any]:
         )
 
         # ── Build state update ──────────────────────────────────
+        #
+        # CRITICAL FIX: Update agent_response with the MAKER-selected
+        # best solution. Without this, downstream nodes (guardrails,
+        # channel delivery, email/SMS/voice agents) read the ORIGINAL
+        # agent_response, completely ignoring MAKER's better solution.
+        #
+        # We also update agent_confidence so downstream nodes see the
+        # MAKER-scored confidence instead of the original agent's.
         result = {
             "k_solutions": solutions,
             "selected_solution": selected_text,
@@ -621,6 +630,10 @@ def maker_validator_node(state: Dict[str, Any]) -> Dict[str, Any]:
             "fake_threshold": threshold,
             "maker_decomposition": decomposition,
             "maker_audit_trail": audit_trail,
+            # BUG FIX: Update agent_response with MAKER's best solution
+            "agent_response": selected_text,
+            # Update confidence to MAKER's scored confidence
+            "agent_confidence": best_confidence,
         }
 
         logger.info(
@@ -633,6 +646,7 @@ def maker_validator_node(state: Dict[str, Any]) -> Dict[str, Any]:
             threshold=threshold,
             red_flag=red_flag,
             num_candidates=len(solutions),
+            agent_response_updated=True,
         )
 
         return result

@@ -48,12 +48,13 @@ class FAQAgent(BaseDomainAgent):
 
     Specializes the base domain agent with:
       - FAQ-oriented system prompt
-      - RAG retrieval from knowledge base
+      - RAG retrieval from knowledge base (BEFORE response generation)
       - Document reranking for relevance
       - Source attribution in responses
 
-    This agent is the default/fallback for all tiers and handles
-    the most common customer interactions.
+    BUG FIX: RAG documents are now retrieved BEFORE response generation
+    by overriding run(). Previously, _extra_state_update() ran AFTER
+    _generate_response(), making retrieved docs useless for the response.
     """
 
     agent_name: str = "faq"
@@ -82,6 +83,118 @@ class FAQAgent(BaseDomainAgent):
         "reranking_enabled": True,
         "fallback_to_general": True,
     }
+
+    def run(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Override run() to retrieve RAG docs BEFORE generating response.
+
+        FIX for Bug #3: Previously _extra_state_update() retrieved RAG
+        docs AFTER response generation. Now we retrieve them first and
+        inject them into the enriched context so the response generator
+        can actually use them.
+        """
+        tenant_id = state.get("tenant_id", "unknown")
+        variant_tier = state.get("variant_tier", "mini")
+
+        self._logger.info(
+            "faq_agent_start",
+            agent_name=self.agent_name,
+            tenant_id=tenant_id,
+            variant_tier=variant_tier,
+        )
+
+        try:
+            message = state.get("pii_redacted_message", "") or state.get("message", "")
+            sentiment_score = state.get("sentiment_score", 0.5)
+            technique_stack = state.get("technique_stack", [])
+            signals_extracted = state.get("signals_extracted", {})
+            conversation_id = state.get("conversation_id", "")
+            gsd_state = state.get("gsd_state", "new")
+            context_health = state.get("context_health", 1.0)
+
+            # Step 0: Retrieve RAG documents FIRST
+            rag_result = self._retrieve_rag_documents(
+                message=message,
+                tenant_id=tenant_id,
+                variant_tier=variant_tier,
+            )
+
+            # Step 1: Apply techniques
+            enriched_context = self._apply_techniques(
+                message=message,
+                technique_stack=technique_stack,
+                signals=signals_extracted,
+                sentiment_score=sentiment_score,
+                tenant_id=tenant_id,
+            )
+
+            # Inject RAG docs into context so response generator can use them
+            if rag_result["documents"]:
+                enriched_context["rag_documents"] = rag_result["documents"]
+                enriched_context["rag_reranked"] = rag_result["reranked"]
+                enriched_context["rag_doc_ids"] = rag_result["doc_ids"]
+
+            # Step 2: Generate response (NOW with RAG context)
+            generation_result = self._generate_response(
+                message=message,
+                enriched_context=enriched_context,
+                tenant_id=tenant_id,
+                conversation_id=conversation_id,
+                gsd_state=gsd_state,
+                context_health=context_health,
+                sentiment_score=sentiment_score,
+            )
+
+            agent_response = generation_result.get("response", "")
+            agent_confidence = round(max(0.0, min(1.0, float(generation_result.get("confidence", 0.0)))), 2)
+            proposed_action = str(generation_result.get("proposed_action", "respond"))
+            agent_reasoning = str(generation_result.get("reasoning", ""))
+
+            # Step 3: Classify action
+            action_type = self._classify_action(proposed_action)
+
+            # Step 4: Build state update with both response AND RAG fields
+            result = {
+                "agent_response": agent_response,
+                "agent_confidence": agent_confidence,
+                "proposed_action": proposed_action,
+                "action_type": action_type,
+                "agent_reasoning": agent_reasoning,
+                "agent_type": self.agent_name,
+                "rag_documents_retrieved": rag_result["documents"],
+                "rag_reranked": rag_result["reranked"],
+                "kb_documents_used": rag_result["doc_ids"],
+            }
+
+            self._logger.info(
+                "faq_agent_success",
+                agent_name=self.agent_name,
+                tenant_id=tenant_id,
+                agent_confidence=agent_confidence,
+                rag_docs_used=len(rag_result["documents"]),
+            )
+
+            return result
+
+        except Exception as exc:
+            self._logger.error(
+                "faq_agent_failed",
+                agent_name=self.agent_name,
+                tenant_id=tenant_id,
+                error=str(exc),
+            )
+            return {
+                "agent_response": "",
+                "agent_confidence": 0.0,
+                "proposed_action": "respond",
+                "action_type": "informational",
+                "agent_reasoning": f"FAQ agent fatal error: {exc}",
+                "agent_type": self.agent_name,
+                "rag_documents_retrieved": [],
+                "rag_reranked": False,
+                "kb_documents_used": [],
+                "errors": [f"FAQ agent fatal error: {exc}"],
+            }
 
     def _retrieve_rag_documents(
         self,

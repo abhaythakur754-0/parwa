@@ -15,7 +15,7 @@ Design Rules:
   - variant_tier is the single source of truth
   - Mini: 3 agents, T1 techniques, MAKER efficiency, no voice
   - Pro:  6 agents, T1+T2 techniques, MAKER balanced, voice enabled
-  - High: All agents, T1+T2+T3 techniques, MAKER conservative, voice+video
+  - High: All agents, T1+T2+T3 techniques, MAKER conservative, voice
 
 BC-001: All configs are tenant-scoped via variant_tier.
 BC-008: Graceful degradation — if variant_tier is unknown, fall back to mini.
@@ -193,20 +193,17 @@ CHANNEL_AVAILABILITY: Dict[str, Dict[str, Any]] = {
     VariantTier.MINI.value: {
         "channels": ["email", "sms", "chat", "api"],
         "voice_enabled": False,
-        "video_enabled": False,
-        "description": "Text-only channels: Email, SMS, Chat, API — no voice/video",
+        "description": "Text-only channels: Email, SMS, Chat, API — no voice",
     },
     VariantTier.PRO.value: {
         "channels": ["email", "sms", "chat", "api", "voice"],
         "voice_enabled": True,
-        "video_enabled": False,
-        "description": "All text channels + Voice calls — no video",
+        "description": "All text channels + Voice calls",
     },
     VariantTier.HIGH.value: {
-        "channels": ["email", "sms", "chat", "api", "voice", "video"],
+        "channels": ["email", "sms", "chat", "api", "voice"],
         "voice_enabled": True,
-        "video_enabled": True,
-        "description": "All channels including Voice and Video",
+        "description": "All channels including Voice",
     },
 }
 
@@ -289,7 +286,7 @@ VARIANT_CONFIG: Dict[str, Dict[str, Any]] = {
         "channels": CHANNEL_AVAILABILITY[VariantTier.HIGH.value],
         "pipeline_timeout_seconds": 45.0,
         "max_tokens_per_response": 2000,
-        "description": "Parwa High — Premium AI customer care, all agents, all techniques, Voice+Video",
+        "description": "Parwa High — Premium AI customer care, all agents, all techniques, Voice",
     },
 }
 
@@ -403,10 +400,9 @@ def is_voice_enabled(variant_tier: str) -> bool:
     return channel_config["voice_enabled"]
 
 
-def is_video_enabled(variant_tier: str) -> bool:
-    """Check if video is enabled for a given tier (High only)."""
-    channel_config = CHANNEL_AVAILABILITY.get(variant_tier, CHANNEL_AVAILABILITY[VariantTier.MINI.value])
-    return channel_config["video_enabled"]
+# NOTE: Video agent has been removed — customers don't use video for support.
+# If video is ever needed, integrate Zoom/Google Meet as a connector instead.
+# is_video_enabled() removed on 2026-05-05 (CEO decision: no ROI on video)
 
 
 def map_intent_to_agent(intent: str, variant_tier: str) -> str:

@@ -13,8 +13,11 @@ Tier Behavior:
 
 State Contract:
   Reads:  variant_tier, pii_redacted_message, intent,
-          agent_response, tenant_id, complexity_score
-  Writes: prompt_optimized, optimized_prompt_version
+          agent_response, tenant_id, complexity_score,
+          technique_stack, signals_extracted, sentiment_score
+  Writes: prompt_optimized, optimized_prompt_version,
+          agent_response (RE-GENERATED if optimization succeeds),
+          agent_confidence (UPDATED if re-generation succeeds)
 
 BC-008: Never crash — if DSPy unavailable, sets prompt_optimized=False.
 BC-001: All log entries include tenant_id for multi-tenant isolation.
@@ -111,6 +114,79 @@ def _apply_dspy_optimization(
         "version": "",
         "optimized_prompt": "",
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# BUG FIX: Re-generate response using DSPy-optimized prompt
+# ═══════════════════════════════════════════════════════════════
+
+
+def _regenerate_with_optimized_prompt(
+    optimized_prompt: str,
+    message: str,
+    intent: str,
+    tenant_id: str,
+    variant_tier: str,
+) -> Dict[str, Any]:
+    """
+    Re-generate the response using the DSPy-optimized prompt.
+
+    This is the FIX for Bug #2: Previously DSPy optimized the prompt
+    but the optimized prompt was never used. Now we feed the optimized
+    prompt back into the response generator to produce a better response.
+
+    Falls back gracefully if response generator is unavailable — the
+    original agent_response will be kept unchanged.
+
+    Args:
+        optimized_prompt: The DSPy-optimized prompt text.
+        message: The PII-redacted customer message.
+        intent: Classified intent string.
+        tenant_id: Tenant identifier (BC-001).
+        variant_tier: Variant tier string.
+
+    Returns:
+        Dict with 'response' and 'confidence', or empty on failure.
+    """
+    try:
+        from app.core.response_generator import generate_response  # type: ignore[import-untyped]
+
+        result = generate_response(
+            message=message,
+            system_prompt=optimized_prompt,
+            enriched_context={"optimized_by_dspy": True, "original_intent": intent},
+            domain_knowledge={"regeneration": True},
+            tenant_id=tenant_id,
+            conversation_id="",
+            gsd_state="new",
+            context_health=1.0,
+            sentiment_score=0.5,
+            agent_name="dspy_optimized",
+        )
+
+        response = result.get("response", "")
+        confidence = float(result.get("confidence", 0.0))
+
+        if response:
+            return {
+                "response": response,
+                "confidence": round(max(0.0, min(1.0, confidence)), 2),
+            }
+
+    except ImportError:
+        logger.info(
+            "dspy_regen_response_generator_unavailable",
+            tenant_id=tenant_id,
+        )
+    except Exception as regen_exc:
+        logger.warning(
+            "dspy_regen_error",
+            tenant_id=tenant_id,
+            error=str(regen_exc),
+        )
+
+    # Fallback: return empty — caller keeps original agent_response
+    return {"response": "", "confidence": 0.0}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -220,6 +296,34 @@ def dspy_optimizer_node(state: Dict[str, Any]) -> Dict[str, Any]:
 
         prompt_optimized = dspy_result.get("optimized", False)
         optimized_prompt_version = dspy_result.get("version", "")
+        optimized_prompt = dspy_result.get("optimized_prompt", "")
+
+        # ── BUG FIX: Re-generate response using optimized prompt ─
+        # Previously, DSPy optimized the prompt but the optimized
+        # prompt was never used — the original agent_response was
+        # sent downstream unchanged. Now we actually USE the
+        # optimized prompt to re-generate a better response.
+        new_agent_response = agent_response
+        new_agent_confidence = float(state.get("agent_confidence", 0.0))
+
+        if prompt_optimized and optimized_prompt:
+            regen_result = _regenerate_with_optimized_prompt(
+                optimized_prompt=optimized_prompt,
+                message=message,
+                intent=intent,
+                tenant_id=tenant_id,
+                variant_tier=variant_tier,
+            )
+            if regen_result.get("response"):
+                new_agent_response = regen_result["response"]
+                new_agent_confidence = float(regen_result.get("confidence", new_agent_confidence))
+                logger.info(
+                    "dspy_response_regenerated",
+                    tenant_id=tenant_id,
+                    variant_tier=variant_tier,
+                    original_length=len(agent_response),
+                    new_length=len(new_agent_response),
+                )
 
         # ── Build state update ──────────────────────────────────
         result = {
@@ -227,12 +331,18 @@ def dspy_optimizer_node(state: Dict[str, Any]) -> Dict[str, Any]:
             "optimized_prompt_version": optimized_prompt_version,
         }
 
+        # Only update agent_response if we actually got a better one
+        if new_agent_response != agent_response:
+            result["agent_response"] = new_agent_response
+            result["agent_confidence"] = round(max(0.0, min(1.0, new_agent_confidence)), 2)
+
         logger.info(
             "dspy_optimizer_node_success",
             tenant_id=tenant_id,
             variant_tier=variant_tier,
             prompt_optimized=prompt_optimized,
             optimized_prompt_version=optimized_prompt_version,
+            response_regenerated=new_agent_response != agent_response,
         )
 
         return result

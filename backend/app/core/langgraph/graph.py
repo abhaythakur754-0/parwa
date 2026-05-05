@@ -10,9 +10,9 @@ Graph Flow:
     → PII Redaction
     → Empathy Engine
     → Router Agent ──(conditional: intent)──→ Domain Agent
-    → MAKER Validator
+    → MAKER Validator (updates agent_response with best solution)
     → Control System (conditional, may interrupt)
-    → DSPy Optimizer (conditional: tier + complexity)
+    → DSPy Optimizer (conditional: tier + complexity, RE-GENERATES response)
     → Guardrails
     → Channel Delivery ──(conditional: channel)──→ Delivery Agent
     → State Update
@@ -73,6 +73,8 @@ _NODE_IMPORTS = {
     "sms_agent": "18_sms_agent",
     "voice_agent": "19_voice_agent",
 }
+# NOTE: video_agent removed — no ROI on video support (CEO decision 2026-05-05)
+# If needed later, integrate Zoom/Google Meet as a connector instead.
 
 _NODE_CACHE: Dict[str, Any] = {}
 

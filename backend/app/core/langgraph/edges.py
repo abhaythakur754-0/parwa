@@ -29,7 +29,6 @@ from app.core.langgraph.config import (
     get_available_agents,
     get_available_channels,
     is_voice_enabled,
-    is_video_enabled,
     map_intent_to_agent,
     needs_human_approval,
     classify_action_type,
@@ -218,9 +217,9 @@ def route_after_delivery(state: Dict) -> str:
     Route to the channel-specific delivery agent.
 
     Respects variant_tier channel availability:
-      - mini: email, sms, chat, api (no voice, no video)
-      - pro:  email, sms, chat, api, voice (no video)
-      - high: email, sms, chat, api, voice, video
+      - mini: email, sms, chat, api (no voice)
+      - pro:  email, sms, chat, api, voice
+      - high: email, sms, chat, api, voice
 
     If the requested channel is not available for this tier,
     falls back to email.
@@ -253,7 +252,6 @@ def route_after_delivery(state: Dict) -> str:
         "chat": "chat_delivery",    # Chat goes through WebSocket, no separate agent
         "api": "api_delivery",      # API delivery is just state_update
         "voice": "voice_agent",
-        "video": "video_agent",
     }
 
     node_name = channel_node_map.get(channel, "email_agent")
