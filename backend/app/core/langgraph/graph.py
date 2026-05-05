@@ -151,16 +151,6 @@ def build_parwa_graph(
         )
 
     from app.core.langgraph.state import ParwaGraphState
-    from app.core.langgraph.edges import (
-        route_after_router,
-        route_after_maker,
-        route_after_control,
-        route_after_guardrails,
-        route_after_delivery,
-        should_use_dspy,
-        route_after_emergency_check,
-        route_after_channel_agent,
-    )
 
     # ── Default interrupt_before for human-in-the-loop ──────────
     if interrupt_before is None:
@@ -176,8 +166,27 @@ def build_parwa_graph(
     # ── Add All Nodes ──────────────────────────────────────────
     _add_nodes(builder)
 
+    # ── Import routing functions (needed by _add_edges) ──────
+    from app.core.langgraph.edges import (
+        route_after_router,
+        route_after_maker,
+        route_after_control,
+        route_after_guardrails,
+        route_after_delivery,
+        should_use_dspy,
+        route_after_emergency_check,
+        route_after_channel_agent,
+    )
+
     # ── Add Edges ──────────────────────────────────────────────
-    _add_edges(builder, START, END)
+    _add_edges(
+        builder, START, END,
+        route_after_router=route_after_router,
+        route_after_maker=route_after_maker,
+        route_after_control=route_after_control,
+        route_after_guardrails=route_after_guardrails,
+        route_after_delivery=route_after_delivery,
+    )
 
     # ── Compile Graph ──────────────────────────────────────────
     compiled = builder.compile(
@@ -213,17 +222,29 @@ def _add_nodes(builder: Any) -> None:
                 error=str(exc),
             )
             # Add a no-op fallback node
-            builder.add_node(node_name, lambda state, _name=node_name: {
+            # Capture exc_str as default arg to avoid Python 3's except-var cleanup
+            exc_str = str(exc)
+            builder.add_node(node_name, lambda state, _name=node_name, _exc=exc_str: {
                 "errors": [f"Node {_name} failed to load"],
                 "node_execution_log": [{
                     "node_name": _name,
                     "status": "error",
-                    "error": str(exc),
+                    "error": _exc,
                 }],
             })
 
 
-def _add_edges(builder: Any, START: Any, END: Any) -> None:
+def _add_edges(
+    builder: Any,
+    START: Any,
+    END: Any,
+    *,
+    route_after_router: Any,
+    route_after_maker: Any,
+    route_after_control: Any,
+    route_after_guardrails: Any,
+    route_after_delivery: Any,
+) -> None:
     """
     Wire all edges (sequential + conditional) in the StateGraph.
 
