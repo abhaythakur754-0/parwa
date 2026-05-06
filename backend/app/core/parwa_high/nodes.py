@@ -1,13 +1,16 @@
 """
-High Parwa Pipeline Nodes — 20 agent-nodes for the LangGraph pipeline.
+High Parwa Pipeline Nodes — 27 agent-nodes for the LangGraph pipeline.
 
 Pipeline: pii_check -> empathy_check -> emergency_check -> gsd_state
-        -> classify -> extract_signals -> technique_select
+        -> classify -> smart_enrichment -> [deep_enrichment_router]
+          -> complaint_handler | retention_negotiator | billing_resolver
+          | tech_diagnostic | shipping_tracker | (skip)
+        -> extract_signals -> technique_select
         -> reasoning_chain -> context_enrich -> context_compress
         -> generate -> crp_compress -> clara_quality_gate
         -> quality_retry (max 2) -> confidence_assess
         -> context_health -> dedup -> strategic_decision
-        -> peer_review -> format -> END
+        -> peer_review -> auto_action -> format -> END
 
 Each node:
   - Takes ParwaGraphState dict as input
@@ -76,6 +79,11 @@ from app.core.response_formatters import (
     create_default_registry,
 )
 from app.core.industry_enum import get_industry_prompt, get_industry_tone
+from app.core.enhancements.emotional_intelligence import EmotionalIntelligenceEngine
+from app.core.enhancements.churn_retention import ChurnRetentionEngine
+from app.core.enhancements.billing_intelligence import BillingIntelligenceEngine
+from app.core.enhancements.tech_diagnostics import TechDiagnosticsEngine
+from app.core.enhancements.shipping_intelligence import ShippingIntelligenceEngine
 from app.core.parwa_high.llm_client import HighLLMClient
 from app.logger import get_logger
 
@@ -217,6 +225,56 @@ def _get_high_llm_client() -> HighLLMClient:
     if _high_llm_client is None:
         _high_llm_client = HighLLMClient()
     return _high_llm_client
+
+
+def _get_ei_engine() -> Any:
+    global _ei_engine
+    if _ei_engine is None:
+        try:
+            _ei_engine = EmotionalIntelligenceEngine()
+        except Exception:
+            pass
+    return _ei_engine
+
+
+def _get_churn_engine() -> Any:
+    global _churn_engine
+    if _churn_engine is None:
+        try:
+            _churn_engine = ChurnRetentionEngine()
+        except Exception:
+            pass
+    return _churn_engine
+
+
+def _get_billing_engine() -> Any:
+    global _billing_engine
+    if _billing_engine is None:
+        try:
+            _billing_engine = BillingIntelligenceEngine()
+        except Exception:
+            pass
+    return _billing_engine
+
+
+def _get_tech_diag_engine() -> Any:
+    global _tech_diag_engine
+    if _tech_diag_engine is None:
+        try:
+            _tech_diag_engine = TechDiagnosticsEngine()
+        except Exception:
+            pass
+    return _tech_diag_engine
+
+
+def _get_shipping_engine() -> Any:
+    global _shipping_engine
+    if _shipping_engine is None:
+        try:
+            _shipping_engine = ShippingIntelligenceEngine()
+        except Exception:
+            pass
+    return _shipping_engine
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1091,7 +1149,7 @@ TECHNIQUE_EXECUTORS: Dict[str, Any] = {
 
 
 # ══════════════════════════════════════════════════════════════════
-# NODE FUNCTIONS — 20 Agent Nodes
+# NODE FUNCTIONS — 22 Agent Nodes
 # ══════════════════════════════════════════════════════════════════
 
 
@@ -2332,4 +2390,670 @@ def format_node(state: ParwaGraphState) -> Dict[str, Any]:
             "current_step": "format",
             "errors": ["format_failed"],
             "step_outputs": {"format": {"status": "failed", "duration_ms": duration_ms}},
+        }
+
+
+# ══════════════════════════════════════════════════════════════════
+# ENHANCEMENT NODE FUNCTIONS (High: 2 new nodes)
+# ══════════════════════════════════════════════════════════════════
+
+
+def smart_enrichment_node(state: ParwaGraphState) -> Dict[str, Any]:
+    """Agent 21: Smart Enrichment (High) — Intent-driven enrichment with richer context."""
+    start = time.monotonic()
+    try:
+        query = state.get("pii_redacted_query", "") or state.get("query", "")
+        classification = state.get("classification", {})
+        signals = state.get("signals", {})
+        empathy_score = state.get("empathy_score", 0.5)
+        empathy_flags = state.get("empathy_flags", [])
+        customer_tier = state.get("customer_tier", "free")
+        intent = classification.get("intent", "general") if classification else "general"
+
+        emotion_profile = {}; recovery_playbook = {}; churn_risk = {}
+        retention_offers = {}; billing_dispute = {}; billing_anomaly = {}
+        known_issue = {}; tech_diagnostics = {}; severity_score_result = {}
+        shipping_issue = {}; shipping_delay = {}; tracking_info = {}
+        prompt_parts = []
+
+        if intent in ("complaint", "cancellation", "refund") or empathy_score < 0.4:
+            ei = _get_ei_engine()
+            if ei:
+                emotion_profile = ei.profile_emotion(query, empathy_score, empathy_flags)
+                recovery_playbook = ei.select_recovery_playbook(emotion_profile)
+                de = ei.generate_de_escalation_prompts(emotion_profile)
+                if de: prompt_parts.append(de)
+                pp = recovery_playbook.get("prompt_addition", "")
+                if pp: prompt_parts.append(pp)
+
+        if intent in ("cancellation", "complaint"):
+            ce = _get_churn_engine()
+            if ce:
+                churn_risk = ce.score_churn_risk(query, classification, signals, customer_tier)
+                if churn_risk.get("churn_probability", 0) > 0.3:
+                    retention_offers = ce.select_retention_offers(churn_risk, customer_tier)
+                    rp = retention_offers.get("prompt_addition", "")
+                    if rp: prompt_parts.append(rp)
+
+        if intent in ("billing", "refund", "payment"):
+            be = _get_billing_engine()
+            if be:
+                billing_dispute = be.classify_dispute(query, classification)
+                billing_anomaly = be.detect_anomaly(query, signals)
+                bc = be.generate_billing_context(billing_dispute, billing_anomaly)
+                if bc: prompt_parts.append(bc)
+
+        if intent in ("technical", "technical_support"):
+            te = _get_tech_diag_engine()
+            if te:
+                known_issue = te.detect_known_issue(query, classification)
+                tech_diagnostics = te.generate_diagnostics(query, known_issue)
+                severity_score_result = te.score_severity(query, signals, customer_tier)
+                dp = tech_diagnostics.get("prompt_addition", "")
+                if dp: prompt_parts.append(dp)
+
+        if intent in ("shipping", "shipping_inquiry", "logistics"):
+            se = _get_shipping_engine()
+            if se:
+                tracking_info = se.detect_tracking_number(query)
+                shipping_issue = se.classify_shipping_issue(query, classification)
+                shipping_delay = se.assess_delay(shipping_issue, query)
+                sc = se.generate_shipping_context(shipping_issue, shipping_delay, tracking_info)
+                if sc: prompt_parts.append(sc)
+
+        enrichment_context = " ".join(p for p in prompt_parts if p)
+        duration_ms = round((time.monotonic() - start) * 1000, 2)
+
+        audit_entry = append_audit_entry(
+            state, step="smart_enrichment", action="enrichment_complete",
+            duration_ms=duration_ms, tokens_used=0,
+            details={"intent": intent, "enrichment_context_length": len(enrichment_context)},
+        )
+
+        return {
+            "emotion_profile": emotion_profile, "recovery_playbook": recovery_playbook,
+            "churn_risk": churn_risk, "retention_offers": retention_offers,
+            "billing_dispute": billing_dispute, "billing_anomaly": billing_anomaly,
+            "known_issue": known_issue, "tech_diagnostics": tech_diagnostics,
+            "severity_score": severity_score_result,
+            "shipping_issue": shipping_issue, "shipping_delay": shipping_delay,
+            "tracking_info": tracking_info, "enrichment_context": enrichment_context,
+            "current_step": "smart_enrichment",
+            "step_outputs": {"smart_enrichment": {"status": "completed", "intent": intent, "duration_ms": duration_ms}},
+            "audit_log": audit_entry["audit_log"],
+        }
+    except Exception as exc:
+        duration_ms = round((time.monotonic() - start) * 1000, 2)
+        logger.exception("smart_enrichment_node_failed", error=str(exc))
+        return {"current_step": "smart_enrichment", "errors": ["smart_enrichment_failed"],
+                "step_outputs": {"smart_enrichment": {"status": "failed", "error": str(exc), "duration_ms": duration_ms}},
+                "enrichment_context": ""}
+
+
+def auto_action_node(state: ParwaGraphState) -> Dict[str, Any]:
+    """Agent 22: Auto Action (High) — Collect automated actions from all engines."""
+    start = time.monotonic()
+    try:
+        all_actions = []
+        classification = state.get("classification", {})
+
+        emotion_profile = state.get("emotion_profile", {})
+        recovery_playbook = state.get("recovery_playbook", {})
+        if emotion_profile and recovery_playbook:
+            ei = _get_ei_engine()
+            if ei: all_actions.extend(ei.get_recovery_actions(emotion_profile, recovery_playbook, classification))
+
+        churn_risk = state.get("churn_risk", {})
+        retention_offers = state.get("retention_offers", {})
+        if churn_risk and churn_risk.get("churn_probability", 0) > 0.3:
+            ce = _get_churn_engine()
+            if ce: all_actions.extend(ce.get_retention_actions(churn_risk, retention_offers))
+
+        billing_dispute = state.get("billing_dispute", {})
+        billing_anomaly = state.get("billing_anomaly", {})
+        if billing_dispute and billing_dispute.get("dispute_category", "unknown") != "unknown":
+            be = _get_billing_engine()
+            if be: all_actions.extend(be.get_resolution_actions(billing_dispute, billing_anomaly))
+
+        known_issue = state.get("known_issue", {})
+        tech_diagnostics = state.get("tech_diagnostics", {})
+        severity_score_result = state.get("severity_score", {})
+        if known_issue and known_issue.get("known_issue_detected"):
+            te = _get_tech_diag_engine()
+            if te: all_actions.extend(te.get_tech_actions(known_issue, tech_diagnostics, severity_score_result))
+
+        shipping_issue = state.get("shipping_issue", {})
+        shipping_delay = state.get("shipping_delay", {})
+        tracking_info = state.get("tracking_info", {})
+        if shipping_issue and shipping_issue.get("issue_detected"):
+            se = _get_shipping_engine()
+            if se: all_actions.extend(se.get_shipping_actions(shipping_issue, shipping_delay, tracking_info))
+
+        duration_ms = round((time.monotonic() - start) * 1000, 2)
+        audit_entry = append_audit_entry(
+            state, step="auto_action", action="actions_collected",
+            duration_ms=duration_ms, tokens_used=0,
+            details={"total_actions": len(all_actions)},
+        )
+
+        return {
+            "current_step": "auto_action",
+            "step_outputs": {"auto_action": {
+                "status": "completed", "total_actions": len(all_actions),
+                "automated_actions": sum(1 for a in all_actions if a.get("automated", False)),
+                "actions": all_actions, "duration_ms": duration_ms}},
+            "audit_log": audit_entry["audit_log"],
+        }
+    except Exception as exc:
+        duration_ms = round((time.monotonic() - start) * 1000, 2)
+        logger.exception("auto_action_node_failed", error=str(exc))
+        return {"current_step": "auto_action", "errors": ["auto_action_failed"],
+                "step_outputs": {"auto_action": {"status": "failed", "error": str(exc), "actions": [], "duration_ms": duration_ms}}}
+
+
+# ══════════════════════════════════════════════════════════════════
+# DEEP ENRICHMENT NODES — 5 Intent-Specific Deep Processing Nodes (High)
+# ══════════════════════════════════════════════════════════════════
+
+
+def complaint_handler_node(state: ParwaGraphState) -> Dict[str, Any]:
+    """Deep enrichment node for complaint handling (High tier).
+
+    Processes complaint-related queries through the enhanced EI engine:
+      - Assesses sentiment escalation with detailed severity profiling
+      - Generates deep complaint resolution strategy with High-specific nuance
+      - Produces de-escalation prompts enriched with emotional context
+      - Evaluates follow-up care pathway for sustained satisfaction
+
+    High Enhancement: Deeper sentiment profiling, multi-stage de-escalation
+    strategy, and proactive follow-up scheduling.
+
+    Improvement Target: Complaint Handling 65% → 88% automation (High).
+    """
+    start = time.monotonic()
+    try:
+        query = state.get("pii_redacted_query", "") or state.get("query", "")
+        classification = state.get("classification", {})
+        emotion_profile = state.get("emotion_profile", {})
+        recovery_playbook = state.get("recovery_playbook", {})
+        customer_tier = state.get("customer_tier", "free")
+        empathy_score = state.get("empathy_score", 0.5)
+
+        ei_engine = _get_ei_engine()
+
+        # Assess sentiment escalation with detailed severity profiling
+        sentiment_escalation = {}
+        if ei_engine:
+            sentiment_escalation = ei_engine.assess_sentiment_escalation(
+                emotion_profile=emotion_profile,
+                classification=classification,
+            )
+
+        # Generate deep complaint resolution with High-specific nuance
+        complaint_resolution = {}
+        if ei_engine:
+            complaint_resolution = ei_engine.resolve_complaint(
+                emotion_profile=emotion_profile,
+                playbook=recovery_playbook,
+                classification=classification,
+                customer_tier=customer_tier,
+            )
+
+        # Build enrichment context for complaint handling (High: more detailed)
+        context_parts = []
+        if complaint_resolution.get("de_escalation_applied"):
+            context_parts.append(
+                "DE-ESCALATION REQUIRED (High Priority): The customer is emotionally distressed. "
+                "Use deeply empathetic language, actively validate their feelings, and avoid any "
+                "language that could be perceived as minimizing their concern. Prioritize emotional "
+                "reconnection before offering solutions."
+            )
+        if complaint_resolution.get("escalation_triggered"):
+            context_parts.append(
+                "ESCALATION TRIGGERED (High Tier): This complaint requires senior attention immediately. "
+                "Explicitly acknowledge the escalation in the response and provide a direct contact path "
+                "to a senior specialist."
+            )
+        if complaint_resolution.get("compensation_type") and complaint_resolution["compensation_type"] != "none":
+            context_parts.append(
+                f"COMPENSATION RECOMMENDED (High): Offer {complaint_resolution['compensation_type'].replace('_', ' ')} "
+                f"as part of the resolution. Present this as a genuine gesture of commitment, not a transaction."
+            )
+        if sentiment_escalation.get("escalation_needed"):
+            context_parts.append(
+                f"SENTIMENT ESCALATION (High Analysis): Level {sentiment_escalation['escalation_level']}. "
+                f"Reason: {sentiment_escalation['trigger_reason']}. "
+                f"Empathy score: {empathy_score:.2f}. Adjust tone accordingly — be more empathetic than usual."
+            )
+        # High-specific: proactive follow-up context
+        if empathy_score < 0.3:
+            context_parts.append(
+                "PROACTIVE FOLLOW-UP (High): Customer shows high distress. Schedule a proactive "
+                "follow-up within 24 hours to ensure satisfaction and prevent escalation."
+            )
+
+        duration_ms = round((time.monotonic() - start) * 1000, 2)
+
+        return {
+            "complaint_resolution": complaint_resolution,
+            "sentiment_escalation": sentiment_escalation,
+            "enrichment_context": (state.get("enrichment_context", "") + " " + " ".join(context_parts)).strip(),
+            "step_outputs": {"complaint_handler": {
+                "tier": "high",
+                "complaint_resolution": complaint_resolution,
+                "sentiment_escalation": sentiment_escalation,
+                "duration_ms": duration_ms,
+            }},
+            **append_audit_entry(state, "complaint_handler", "deep_complaint_enrichment_high", duration_ms),
+        }
+    except Exception:
+        duration_ms = round((time.monotonic() - start) * 1000, 2)
+        logger.exception("complaint_handler_node_failed")
+        return {
+            "complaint_resolution": {},
+            "sentiment_escalation": {},
+            "errors": ["complaint_handler_failed"],
+            **append_audit_entry(state, "complaint_handler", "node_failed_high", duration_ms),
+        }
+
+
+def retention_negotiator_node(state: ParwaGraphState) -> Dict[str, Any]:
+    """Deep enrichment node for cancellation/retention (High tier).
+
+    Processes cancellation-related queries through enhanced churn engine:
+      - Generates retention negotiation strategy with multi-stage approach
+      - Creates win-back automation sequence with personalized touchpoints
+      - Provides offer acceptance likelihood with detailed scoring
+      - Evaluates lifetime value impact for retention priority
+
+    High Enhancement: Multi-stage negotiation, lifetime value scoring,
+    personalized win-back sequences, and proactive save strategies.
+
+    Improvement Target: Cancellation/Retention 70% → 90% automation (High).
+    """
+    start = time.monotonic()
+    try:
+        classification = state.get("classification", {})
+        churn_risk = state.get("churn_risk", {})
+        retention_offers = state.get("retention_offers", {})
+        customer_tier = state.get("customer_tier", "free")
+
+        churn_engine = _get_churn_engine()
+
+        # Generate retention negotiation with multi-stage approach
+        retention_negotiation = {}
+        if churn_engine:
+            retention_negotiation = churn_engine.negotiate_retention(
+                churn_risk=churn_risk,
+                retention_offers=retention_offers,
+                customer_tier=customer_tier,
+            )
+
+        # Generate win-back automation with personalized touchpoints
+        winback_sequence = {}
+        if churn_engine:
+            winback_sequence = churn_engine.generate_winback_automation(
+                churn_risk=churn_risk,
+                retention_offers=retention_offers,
+            )
+
+        # Build enrichment context for retention (High: more detailed)
+        context_parts = []
+        if retention_negotiation.get("negotiation_strategy"):
+            context_parts.append(
+                f"RETENTION STRATEGY (High): {retention_negotiation['negotiation_strategy'].replace('_', ' ')}. "
+                f"Stage: {retention_negotiation.get('negotiation_stage', 'unknown')}. "
+                f"Apply a multi-stage approach — acknowledge the concern first, then present alternatives, "
+                f"then make the save offer."
+            )
+        if retention_negotiation.get("offer_presented"):
+            context_parts.append(
+                f"PRIMARY OFFER (High): {retention_negotiation['offer_presented'].replace('_', ' ')}. "
+                f"Present this as a personalized alternative that addresses their specific concern. "
+                f"Emphasize value, not just savings."
+            )
+        if retention_negotiation.get("counter_offers"):
+            offers_str = ", ".join(o.replace("_", " ") for o in retention_negotiation["counter_offers"])
+            context_parts.append(
+                f"COUNTER OFFERS AVAILABLE (High): {offers_str}. Escalate through offers progressively "
+                f"if the primary offer is declined. Always validate the customer's reasoning first."
+            )
+        if winback_sequence.get("sequence_active"):
+            context_parts.append(
+                f"WIN-BACK SEQUENCE (High): Automated sequence active for "
+                f"{winback_sequence.get('total_duration_days', 0)} days if customer cancels. "
+                f"Personalized touchpoints included. Mention that the door is always open."
+            )
+        # High-specific: lifetime value context
+        if customer_tier in ("premium", "enterprise"):
+            context_parts.append(
+                "HIGH-VALUE CUSTOMER (High): This is a premium/enterprise customer. Apply maximum "
+                "retention effort — escalate to a dedicated account manager if standard offers are declined."
+            )
+
+        duration_ms = round((time.monotonic() - start) * 1000, 2)
+
+        return {
+            "retention_negotiation": retention_negotiation,
+            "winback_sequence": winback_sequence,
+            "enrichment_context": (state.get("enrichment_context", "") + " " + " ".join(context_parts)).strip(),
+            "step_outputs": {"retention_negotiator": {
+                "tier": "high",
+                "retention_negotiation": retention_negotiation,
+                "winback_sequence": winback_sequence,
+                "duration_ms": duration_ms,
+            }},
+            **append_audit_entry(state, "retention_negotiator", "deep_retention_enrichment_high", duration_ms),
+        }
+    except Exception:
+        duration_ms = round((time.monotonic() - start) * 1000, 2)
+        logger.exception("retention_negotiator_node_failed")
+        return {
+            "retention_negotiation": {},
+            "winback_sequence": {},
+            "errors": ["retention_negotiator_failed"],
+            **append_audit_entry(state, "retention_negotiator", "node_failed_high", duration_ms),
+        }
+
+
+def billing_resolver_node(state: ParwaGraphState) -> Dict[str, Any]:
+    """Deep enrichment node for billing inquiries (High tier).
+
+    Processes billing-related queries through enhanced billing engine:
+      - Generates self-service portal context with step-by-step guidance
+      - Auto-resolves Paddle disputes with detailed audit trail
+      - Provides refund eligibility assessment with policy references
+      - Evaluates proactive credit/adjustment opportunities
+
+    High Enhancement: Step-by-step portal guidance, detailed audit trails,
+    proactive credit opportunities, and policy-referenced eligibility.
+
+    Improvement Target: Billing Inquiries 80% → 92% automation (High).
+    """
+    start = time.monotonic()
+    try:
+        billing_dispute = state.get("billing_dispute", {})
+        billing_anomaly = state.get("billing_anomaly", {})
+        customer_tier = state.get("customer_tier", "free")
+
+        billing_engine = _get_billing_engine()
+
+        # Generate self-service billing context with step-by-step guidance
+        billing_self_service = {}
+        if billing_engine:
+            billing_self_service = billing_engine.generate_self_service_context(
+                dispute=billing_dispute,
+                anomaly=billing_anomaly,
+                customer_tier=customer_tier,
+            )
+
+        # Auto-resolve Paddle dispute with detailed audit trail
+        paddle_dispute = {}
+        if billing_engine:
+            paddle_dispute = billing_engine.auto_resolve_paddle_dispute(
+                dispute=billing_dispute,
+                anomaly=billing_anomaly,
+            )
+
+        # Build enrichment context for billing (High: more detailed)
+        context_parts = []
+        if billing_self_service.get("refund_eligible"):
+            context_parts.append(
+                "REFUND ELIGIBLE (High): The customer is eligible for an automatic refund. "
+                "Guide them through the process step by step, or offer to process it immediately "
+                "on their behalf. Provide the expected timeline and confirmation method."
+            )
+        if paddle_dispute.get("auto_resolved"):
+            context_parts.append(
+                f"AUTO-RESOLVED (High Audit): The billing dispute has been automatically resolved via Paddle. "
+                f"Action: {paddle_dispute.get('resolution_action', 'unknown').replace('_', ' ')}. "
+                f"Estimated processing: {paddle_dispute.get('processing_time_hours', 48)} hours. "
+                f"Provide the customer with a reference number and confirmation of the resolution."
+            )
+        if billing_self_service.get("dispute_status") == "manual_review_required":
+            context_parts.append(
+                "MANUAL REVIEW REQUIRED (High): This billing dispute requires manual review by our "
+                "billing specialists. Acknowledge the concern sincerely, provide a clear timeline for "
+                "resolution (typically within 24 hours), and assure them they will receive updates proactively."
+            )
+        if billing_self_service.get("available_actions"):
+            actions_str = ", ".join(a.replace("_", " ") for a in billing_self_service["available_actions"][:5])
+            context_parts.append(
+                f"SELF-SERVICE PORTAL (High): Available actions: {actions_str}. "
+                f"Provide step-by-step portal navigation instructions if the customer prefers self-service."
+            )
+        # High-specific: proactive credit opportunity
+        if billing_anomaly.get("anomaly_detected"):
+            context_parts.append(
+                "PROACTIVE CREDIT (High): A billing anomaly was detected. Consider proactively offering "
+                "a credit adjustment or explaining the discrepancy before the customer asks."
+            )
+
+        duration_ms = round((time.monotonic() - start) * 1000, 2)
+
+        return {
+            "billing_self_service": billing_self_service,
+            "paddle_dispute": paddle_dispute,
+            "enrichment_context": (state.get("enrichment_context", "") + " " + " ".join(context_parts)).strip(),
+            "step_outputs": {"billing_resolver": {
+                "tier": "high",
+                "billing_self_service": billing_self_service,
+                "paddle_dispute": paddle_dispute,
+                "duration_ms": duration_ms,
+            }},
+            **append_audit_entry(state, "billing_resolver", "deep_billing_enrichment_high", duration_ms),
+        }
+    except Exception:
+        duration_ms = round((time.monotonic() - start) * 1000, 2)
+        logger.exception("billing_resolver_node_failed")
+        return {
+            "billing_self_service": {},
+            "paddle_dispute": {},
+            "errors": ["billing_resolver_failed"],
+            **append_audit_entry(state, "billing_resolver", "node_failed_high", duration_ms),
+        }
+
+
+def tech_diagnostic_node(state: ParwaGraphState) -> Dict[str, Any]:
+    """Deep enrichment node for technical support L1 (High tier).
+
+    Processes technical queries through enhanced tech diagnostics engine:
+      - Generates comprehensive diagnostic result with root cause analysis
+      - Makes escalation decisions with severity-based routing
+      - Provides auto-fix availability assessment with guided steps
+      - Evaluates known issue database with detailed workaround info
+
+    High Enhancement: Root cause analysis, guided auto-fix steps,
+    severity-based routing, and detailed known issue workarounds.
+
+    Improvement Target: Technical Support L1 82% → 94% automation (High).
+    """
+    start = time.monotonic()
+    try:
+        query = state.get("pii_redacted_query", "") or state.get("query", "")
+        known_issue = state.get("known_issue", {})
+        tech_diagnostics = state.get("tech_diagnostics", {})
+        severity_score = state.get("severity_score", {})
+        customer_tier = state.get("customer_tier", "free")
+
+        tech_engine = _get_tech_diag_engine()
+
+        # Generate comprehensive diagnostic result with root cause analysis
+        diagnostic_result = {}
+        if tech_engine:
+            diagnostic_result = tech_engine.generate_diagnostic_result(
+                query=query,
+                known_issue=known_issue,
+                diagnostics=tech_diagnostics,
+                severity=severity_score,
+            )
+
+        # Make escalation decision with severity-based routing
+        escalation_decision = {}
+        if tech_engine:
+            escalation_decision = tech_engine.decide_escalation(
+                severity=severity_score,
+                known_issue=known_issue,
+                customer_tier=customer_tier,
+            )
+
+        # Build enrichment context for tech support (High: more detailed)
+        context_parts = []
+        if diagnostic_result.get("known_issue_match"):
+            context_parts.append(
+                f"KNOWN ISSUE DETECTED (High): Reference {known_issue.get('issue_id', 'unknown')}. "
+                f"Share the known status, current resolution progress, and estimated time to fix. "
+                f"If a workaround exists, walk them through it step by step."
+            )
+        if diagnostic_result.get("auto_fix_available"):
+            context_parts.append(
+                "AUTO-FIX AVAILABLE (High): Provide detailed self-service diagnostic steps. "
+                "Walk the customer through each step clearly, include expected outcomes at each stage, "
+                "and provide an alternative path if any step fails."
+            )
+        if escalation_decision.get("escalate"):
+            context_parts.append(
+                f"ESCALATION REQUIRED (High): Issue requires {escalation_decision['escalation_level']} "
+                f"level support. Acknowledge the complexity, set clear expectations for the escalation "
+                f"process, and provide a direct reference for tracking. Assign priority based on "
+                f"customer tier and severity."
+            )
+        if diagnostic_result.get("steps_provided", 0) > 0:
+            context_parts.append(
+                f"DIAGNOSTICS (High): {diagnostic_result['steps_provided']} steps available. "
+                f"Walk the customer through them naturally, explaining the purpose of each step. "
+                f"Provide expected outcomes and what to do if results differ."
+            )
+        # High-specific: severity context
+        if isinstance(severity_score, dict) and severity_score.get("level") in ("high", "critical"):
+            context_parts.append(
+                f"HIGH SEVERITY (High): Severity level is {severity_score['level']}. "
+                f"Prioritize immediate response, provide real-time updates, and ensure the customer "
+                f"feels their issue is being handled with urgency."
+            )
+
+        duration_ms = round((time.monotonic() - start) * 1000, 2)
+
+        return {
+            "diagnostic_result": diagnostic_result,
+            "escalation_decision": escalation_decision,
+            "enrichment_context": (state.get("enrichment_context", "") + " " + " ".join(context_parts)).strip(),
+            "step_outputs": {"tech_diagnostic": {
+                "tier": "high",
+                "diagnostic_result": diagnostic_result,
+                "escalation_decision": escalation_decision,
+                "duration_ms": duration_ms,
+            }},
+            **append_audit_entry(state, "tech_diagnostic", "deep_tech_enrichment_high", duration_ms),
+        }
+    except Exception:
+        duration_ms = round((time.monotonic() - start) * 1000, 2)
+        logger.exception("tech_diagnostic_node_failed")
+        return {
+            "diagnostic_result": {},
+            "escalation_decision": {},
+            "errors": ["tech_diagnostic_failed"],
+            **append_audit_entry(state, "tech_diagnostic", "node_failed_high", duration_ms),
+        }
+
+
+def shipping_tracker_node(state: ParwaGraphState) -> Dict[str, Any]:
+    """Deep enrichment node for shipping/logistics (High tier).
+
+    Processes shipping-related queries through enhanced shipping engine:
+      - Queries multi-carrier API for real-time tracking with full details
+      - Generates proactive delay notifications with revised delivery windows
+      - Provides compensation eligibility with automatic processing
+      - Evaluates alternative delivery options and pickup arrangements
+
+    High Enhancement: Real-time multi-carrier tracking, automatic compensation
+    processing, alternative delivery options, and proactive re-routing.
+
+    Improvement Target: Shipping/Logistics 83% → 92% automation (High).
+    """
+    start = time.monotonic()
+    try:
+        tracking_info = state.get("tracking_info", {})
+        shipping_issue = state.get("shipping_issue", {})
+        shipping_delay = state.get("shipping_delay", {})
+
+        shipping_engine = _get_shipping_engine()
+
+        # Query carrier data with real-time full details
+        shipping_carrier_data = {}
+        if shipping_engine:
+            shipping_carrier_data = shipping_engine.query_carrier_data(
+                tracking_info=tracking_info,
+                shipping_issue=shipping_issue,
+            )
+
+        # Generate proactive delay notification with revised delivery windows
+        delay_notification = {}
+        if shipping_engine:
+            delay_notification = shipping_engine.generate_delay_notification(
+                shipping_issue=shipping_issue,
+                delay_assessment=shipping_delay,
+                carrier_data=shipping_carrier_data,
+            )
+
+        # Build enrichment context for shipping (High: more detailed)
+        context_parts = []
+        if shipping_carrier_data.get("carrier"):
+            context_parts.append(
+                f"CARRIER TRACKING (High): {shipping_carrier_data['carrier']}. "
+                f"Status: {shipping_carrier_data['tracking_status']}. "
+                f"ETA: {shipping_carrier_data.get('estimated_delivery', 'unknown')}. "
+                f"Provide the customer with a detailed tracking summary including "
+                f"last scan location and time."
+            )
+        if delay_notification.get("notification_sent"):
+            context_parts.append(
+                f"DELAY NOTIFICATION (High): {delay_notification['notification_type'].replace('_', ' ')}. "
+                f"Reason: {delay_notification.get('delay_reason', 'unknown').replace('_', ' ')}. "
+                f"Revised ETA: {delay_notification.get('revised_eta', 'unknown')}. "
+                f"Proactively inform the customer with a revised timeline and express genuine concern "
+                f"for the inconvenience."
+            )
+        if delay_notification.get("compensation_offered"):
+            context_parts.append(
+                "COMPENSATION ELIGIBLE (High): Customer is eligible for shipping compensation. "
+                "Offer this proactively and, if possible, process it automatically. Provide clear "
+                "details on what the compensation covers and how it will be applied."
+            )
+        if shipping_issue.get("auto_resolvable"):
+            context_parts.append(
+                f"AUTO-RESOLVABLE (High): Shipping issue '{shipping_issue.get('issue_type', 'unknown').replace('_', ' ')}' "
+                f"can be resolved automatically. Resolution: {shipping_issue.get('resolution', 'unknown').replace('_', ' ')}. "
+                f"Apply the resolution and confirm the updated status with the customer."
+            )
+        # High-specific: alternative delivery options
+        if shipping_delay.get("significant_delay"):
+            context_parts.append(
+                "ALTERNATIVE OPTIONS (High): Significant delay detected. Offer alternative delivery "
+                "options such as expedited shipping, local pickup, or delivery to a different address. "
+                "Proactively arrange the best alternative for the customer."
+            )
+
+        duration_ms = round((time.monotonic() - start) * 1000, 2)
+
+        return {
+            "shipping_carrier_data": shipping_carrier_data,
+            "delay_notification": delay_notification,
+            "enrichment_context": (state.get("enrichment_context", "") + " " + " ".join(context_parts)).strip(),
+            "step_outputs": {"shipping_tracker": {
+                "tier": "high",
+                "shipping_carrier_data": shipping_carrier_data,
+                "delay_notification": delay_notification,
+                "duration_ms": duration_ms,
+            }},
+            **append_audit_entry(state, "shipping_tracker", "deep_shipping_enrichment_high", duration_ms),
+        }
+    except Exception:
+        duration_ms = round((time.monotonic() - start) * 1000, 2)
+        logger.exception("shipping_tracker_node_failed")
+        return {
+            "shipping_carrier_data": {},
+            "delay_notification": {},
+            "errors": ["shipping_tracker_failed"],
+            **append_audit_entry(state, "shipping_tracker", "node_failed_high", duration_ms),
         }

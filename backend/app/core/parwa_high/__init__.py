@@ -1,5 +1,5 @@
 """
-High Parwa -- Highest tier of the Parwa Variant Engine (20-node pipeline).
+High Parwa -- Highest tier of the Parwa Variant Engine (22-node pipeline).
 
 Pipeline: pii_check -> empathy_check -> emergency_check -> gsd_state
         -> classify -> extract_signals -> technique_select
@@ -34,7 +34,7 @@ Connected Frameworks (Tier 1 + Tier 2 + Tier 3):
     - Least-to-Most -- Progressive complexity decomposition
 
 High vs Pro differences:
-  - 20 nodes vs Pro's 15 (adds context_compress, context_health, dedup,
+  - 22 nodes vs Pro's 15 (adds context_compress, context_health, dedup,
     strategic_decision, peer_review)
   - Tier 1+2+3 techniques vs Pro's Tier 1+2
   - Quality gate threshold: 95 (vs Pro's 85) with max 2 retries

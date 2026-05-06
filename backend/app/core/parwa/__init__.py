@@ -1,5 +1,5 @@
 """
-Pro Parwa — Growth tier of the Parwa Variant Engine (15-node pipeline).
+Pro Parwa — Growth tier of the Parwa Variant Engine (17-node pipeline).
 
 Pipeline: pii_check -> empathy_check -> emergency_check -> gsd_state
         -> classify -> extract_signals -> technique_select
@@ -24,7 +24,7 @@ Connected Frameworks (Tier 1 + Tier 2):
     - ThoT (Thread of Thought) — Multi-turn continuity
 
 Pro vs Mini differences:
-  - 15 nodes vs Mini's 10 (adds technique_select, reasoning_chain,
+  - 17 nodes vs Mini's 10 (adds technique_select, reasoning_chain,
     context_enrich, quality_retry, confidence_assess)
   - Tier 1+2 techniques vs Mini's Tier 1 only
   - Quality gate threshold: 85 (vs Mini's 60) with 1 retry

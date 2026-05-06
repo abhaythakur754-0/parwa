@@ -1,11 +1,14 @@
 """
-Pro Parwa LangGraph Pipeline — Builds and runs the 15-node pipeline.
+Pro Parwa LangGraph Pipeline — Builds and runs the 22-node pipeline.
 
 Pipeline: pii_check -> empathy_check -> emergency_check -> gsd_state
-        -> classify -> extract_signals -> technique_select
+        -> classify -> smart_enrichment -> [deep_enrichment_router]
+          -> complaint_handler | retention_negotiator | billing_resolver
+          | tech_diagnostic | shipping_tracker | (skip)
+        -> extract_signals -> technique_select
         -> reasoning_chain -> context_enrich -> generate
         -> crp_compress -> clara_quality_gate -> quality_retry
-        -> confidence_assess -> format -> END
+        -> confidence_assess -> auto_action -> format -> END
 
 Connected Frameworks (Tier 1 + Tier 2):
   - CLARA (Quality Gate) — Enhanced: threshold 85, 5-check + advanced
@@ -54,6 +57,8 @@ from app.core.variant_router import (
     route_after_quality_gate,
 )
 from app.core.parwa.nodes import (
+    smart_enrichment_node,
+    auto_action_node,
     pii_check_node,
     empathy_check_node,
     emergency_check_node,
@@ -69,6 +74,12 @@ from app.core.parwa.nodes import (
     quality_retry_node,
     confidence_assess_node,
     format_node,
+    # Deep enrichment nodes
+    complaint_handler_node,
+    retention_negotiator_node,
+    billing_resolver_node,
+    tech_diagnostic_node,
+    shipping_tracker_node,
 )
 from app.logger import get_logger
 
@@ -102,11 +113,59 @@ def route_after_gsd(state: ParwaGraphState) -> str:
 
 
 def route_after_classify_pro(state: ParwaGraphState) -> str:
-    """Route after classify — Pro goes to extract_signals (not generate).
+    """Route after classify — Pro goes to smart_enrichment first.
 
     Mini: classify -> generate (shortcut)
-    Pro: classify -> extract_signals (go deeper)
+    Pro: classify -> smart_enrichment -> extract_signals (go deeper)
     """
+    return "smart_enrichment"
+
+
+# Intent to deep enrichment mapping
+INTENT_DEEP_ENRICHMENT_MAP = {
+    "complaint": "complaint_handler",
+    "feedback": "complaint_handler",
+    "cancellation": "retention_negotiator",
+    "cancel": "retention_negotiator",
+    "billing": "billing_resolver",
+    "payment": "billing_resolver",
+    "refund": "billing_resolver",
+    "technical": "tech_diagnostic",
+    "bug": "tech_diagnostic",
+    "shipping": "shipping_tracker",
+    "delivery": "shipping_tracker",
+    "tracking": "shipping_tracker",
+    "order": "shipping_tracker",
+}
+
+
+def route_after_smart_enrichment_deep(state: ParwaGraphState) -> str:
+    """Route after smart_enrichment to intent-specific deep enrichment.
+
+    If the intent matches a deep enrichment node, route there.
+    Otherwise, skip directly to extract_signals (no deep enrichment needed).
+    """
+    classification = state.get("classification", {})
+    intent = classification.get("intent", "").lower()
+
+    # Check if intent maps to a deep enrichment node
+    deep_node = INTENT_DEEP_ENRICHMENT_MAP.get(intent)
+    if deep_node:
+        return deep_node
+
+    # Also check secondary intents
+    secondary_intents = classification.get("secondary_intents", [])
+    for sec_intent in secondary_intents:
+        deep_node = INTENT_DEEP_ENRICHMENT_MAP.get(sec_intent.lower())
+        if deep_node:
+            return deep_node
+
+    # No deep enrichment needed
+    return "extract_signals"
+
+
+def route_after_deep_enrichment(state: ParwaGraphState) -> str:
+    """Route after deep enrichment → always extract_signals."""
     return "extract_signals"
 
 
@@ -147,7 +206,12 @@ def route_after_quality_retry(state: ParwaGraphState) -> str:
 
 
 def route_after_confidence(state: ParwaGraphState) -> str:
-    """Route after confidence_assess -> always format."""
+    """Route after confidence_assess -> auto_action (then format)."""
+    return "auto_action"
+
+
+def route_after_auto_action(state: ParwaGraphState) -> str:
+    """Route after auto_action -> always format."""
     return "format"
 
 
@@ -159,12 +223,14 @@ def route_after_confidence(state: ParwaGraphState) -> str:
 def build_parwa_graph() -> StateGraph:
     """Build the Pro Parwa LangGraph StateGraph.
 
-    Creates the graph with all 15 nodes and conditional edges:
+    Creates the graph with all 22 nodes and conditional edges:
       - pii_check -> empathy_check (always)
       - empathy_check -> emergency_check (always)
       - emergency_check -> gsd_state (always — emergency handled in gsd routing)
       - gsd_state -> classify (normal) OR format (emergency/escalate)
-      - classify -> extract_signals (Pro: goes deeper, not generate shortcut)
+      - classify -> smart_enrichment (Pro: enrichment before signals)
+      - smart_enrichment -> deep enrichment (intent-specific) OR extract_signals (skip)
+      - deep enrichment -> extract_signals (all converge)
       - extract_signals -> technique_select (always)
       - technique_select -> reasoning_chain (always)
       - reasoning_chain -> context_enrich (always)
@@ -182,7 +248,9 @@ def build_parwa_graph() -> StateGraph:
     # Create the graph with our state type
     graph = StateGraph(ParwaGraphState)
 
-    # ── Add all 15 nodes ──────────────────────────────────────────
+    # ── Add all 22 nodes ──────────────────────────────────────────
+    graph.add_node("smart_enrichment", smart_enrichment_node)
+    graph.add_node("auto_action", auto_action_node)
     graph.add_node("pii_check", pii_check_node)
     graph.add_node("empathy_check", empathy_check_node)
     graph.add_node("emergency_check", emergency_check_node)
@@ -198,6 +266,12 @@ def build_parwa_graph() -> StateGraph:
     graph.add_node("quality_retry", quality_retry_node)
     graph.add_node("confidence_assess", confidence_assess_node)
     graph.add_node("format", format_node)
+    # Deep enrichment nodes (5 intent-specific)
+    graph.add_node("complaint_handler", complaint_handler_node)
+    graph.add_node("retention_negotiator", retention_negotiator_node)
+    graph.add_node("billing_resolver", billing_resolver_node)
+    graph.add_node("tech_diagnostic", tech_diagnostic_node)
+    graph.add_node("shipping_tracker", shipping_tracker_node)
 
     # ── Set entry point ──────────────────────────────────────────
     graph.set_entry_point("pii_check")
@@ -237,12 +311,34 @@ def build_parwa_graph() -> StateGraph:
         },
     )
 
-    # classify -> extract_signals (Pro: goes deeper, not generate shortcut)
+    # classify -> smart_enrichment (Pro: enrichment before signals)
     graph.add_conditional_edges(
         "classify",
         route_after_classify_pro,
-        {"extract_signals": "extract_signals"},
+        {"smart_enrichment": "smart_enrichment"},
     )
+
+    # smart_enrichment -> deep enrichment (intent-specific) OR extract_signals (skip)
+    graph.add_conditional_edges(
+        "smart_enrichment",
+        route_after_smart_enrichment_deep,
+        {
+            "complaint_handler": "complaint_handler",
+            "retention_negotiator": "retention_negotiator",
+            "billing_resolver": "billing_resolver",
+            "tech_diagnostic": "tech_diagnostic",
+            "shipping_tracker": "shipping_tracker",
+            "extract_signals": "extract_signals",
+        },
+    )
+
+    # Deep enrichment -> extract_signals (all converge)
+    for deep_node in ["complaint_handler", "retention_negotiator", "billing_resolver", "tech_diagnostic", "shipping_tracker"]:
+        graph.add_conditional_edges(
+            deep_node,
+            route_after_deep_enrichment,
+            {"extract_signals": "extract_signals"},
+        )
 
     # extract_signals -> technique_select (always)
     graph.add_conditional_edges(
@@ -298,10 +394,17 @@ def build_parwa_graph() -> StateGraph:
         {"generate": "generate"},
     )
 
-    # confidence_assess -> format (always)
+    # confidence_assess -> auto_action (enrichment actions)
     graph.add_conditional_edges(
         "confidence_assess",
         route_after_confidence,
+        {"auto_action": "auto_action"},
+    )
+
+    # auto_action -> format (always)
+    graph.add_conditional_edges(
+        "auto_action",
+        route_after_auto_action,
         {"format": "format"},
     )
 
@@ -313,8 +416,8 @@ def build_parwa_graph() -> StateGraph:
 
     logger.info(
         "parwa_graph_built",
-        nodes=15,
-        frameworks="CLARA+CRP+GSD+CoT+ReAct+ReverseThinking+StepBack+ThoT",
+        nodes=22,
+        frameworks="CLARA+CRP+GSD+CoT+ReAct+ReverseThinking+StepBack+ThoT+5DeepEnrichment",
     )
 
     return compiled
@@ -357,7 +460,7 @@ class ParwaPipeline:
         """Initialize the pipeline by building the graph."""
         try:
             self._graph = build_parwa_graph()
-            logger.info("ParwaPipeline initialized with 15 nodes + 6 Tier 1 + 5 Tier 2 frameworks")
+            logger.info("ParwaPipeline initialized with 22 nodes + 6 Tier 1 + 5 Tier 2 frameworks + 5 Enhancement Engines + 5 Deep Enrichment")
         except Exception:
             logger.exception("ParwaPipeline init failed — graph build error")
             self._graph = None

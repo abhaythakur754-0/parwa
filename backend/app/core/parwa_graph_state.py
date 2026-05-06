@@ -147,6 +147,225 @@ class ParwaGraphState(TypedDict, total=False):
         'method': str,                 # 'ai' | 'rule' | 'cache'
     }"""
 
+    # -- Smart Enrichment node writes (Pro+ only) --
+    emotion_profile: Dict[str, Any]
+    """Emotional intelligence profile from EI engine:
+    {
+        'primary_emotion': str,
+        'secondary_emotions': List[str],
+        'intensity': float,
+        'risk_level': str,
+        'emotional_needs': List[str],
+        'escalation_trajectory': str,
+        'de_escalation_priority': float,
+    }"""
+
+    recovery_playbook: Dict[str, Any]
+    """Service recovery playbook selection:
+    {
+        'strategy': str,
+        'actions': List[str],
+        'compensation': Optional[str],
+        'escalation': bool,
+        'playbook_name': str,
+    }"""
+
+    churn_risk: Dict[str, Any]
+    """Churn risk scoring result:
+    {
+        'churn_probability': float,
+        'risk_tier': str,
+        'primary_reason': str,
+        'retention_urgency': str,
+    }"""
+
+    retention_offers: Dict[str, Any]
+    """Dynamic retention offer selection:
+    {
+        'recommended_offers': List[Dict],
+        'primary_offer': Dict,
+        'contingency_offers': List[Dict],
+    }"""
+
+    billing_dispute: Dict[str, Any]
+    """Billing dispute classification:
+    {
+        'dispute_category': str,
+        'auto_resolvable': bool,
+        'resolution_type': str,
+        'priority': str,
+    }"""
+
+    billing_anomaly: Dict[str, Any]
+    """Billing anomaly detection:
+    {
+        'anomaly_detected': bool,
+        'anomaly_types': List[str],
+        'severity': str,
+    }"""
+
+    known_issue: Dict[str, Any]
+    """Known issue detection:
+    {
+        'known_issue_detected': bool,
+        'issue_id': str,
+        'severity': str,
+        'message': str,
+        'eta_hours': int,
+    }"""
+
+    tech_diagnostics: Dict[str, Any]
+    """Technical diagnostic steps:
+    {
+        'diagnostic_steps': List[Dict],
+        'diagnostic_categories': List[str],
+        'estimated_resolution_time': str,
+    }"""
+
+    severity_score: Dict[str, Any]
+    """Escalation severity scoring:
+    {
+        'severity_score': float,
+        'severity_level': str,
+        'escalation_path': str,
+        'recommended_actions': List[str],
+    }"""
+
+    shipping_issue: Dict[str, Any]
+    """Shipping issue classification:
+    {
+        'issue_detected': bool,
+        'issue_type': str,
+        'severity': str,
+        'resolution': str,
+    }"""
+
+    shipping_delay: Dict[str, Any]
+    """Shipping delay assessment:
+    {
+        'delay_detected': bool,
+        'delay_reason': str,
+        'compensation_eligible': bool,
+    }"""
+
+    tracking_info: Dict[str, Any]
+    """Tracking number detection:
+    {
+        'tracking_detected': bool,
+        'tracking_numbers': List[Dict],
+        'primary_carrier': str,
+    }"""
+
+    enrichment_context: str
+    """Combined enrichment prompt addition for LLM generation."""
+
+    # -- Deep Enrichment: Complaint Handling Enhancement --
+
+    complaint_resolution: Dict[str, Any]
+    """Deep complaint resolution result:
+    {
+        'resolution_strategy': str,
+        'de_escalation_applied': bool,
+        'compensation_type': str,
+        'follow_up_scheduled': bool,
+        'escalation_triggered': bool,
+        'resolution_confidence': float,
+    }"""
+
+    sentiment_escalation: Dict[str, Any]
+    """Sentiment-based escalation decision:
+    {
+        'escalation_needed': bool,
+        'escalation_level': str,
+        'trigger_reason': str,
+        'priority_score': float,
+    }"""
+
+    # -- Deep Enrichment: Cancellation/Retention Enhancement --
+
+    retention_negotiation: Dict[str, Any]
+    """Retention negotiation result:
+    {
+        'negotiation_strategy': str,
+        'offer_presented': str,
+        'counter_offers': List[str],
+        'acceptance_likelihood': float,
+        'negotiation_stage': str,
+    }"""
+
+    winback_sequence: Dict[str, Any]
+    """Win-back automation sequence:
+    {
+        'sequence_active': bool,
+        'sequence_steps': List[Dict],
+        'total_duration_days': int,
+        'primary_offer': str,
+    }"""
+
+    # -- Deep Enrichment: Billing Enhancement --
+
+    billing_self_service: Dict[str, Any]
+    """Self-service billing portal context:
+    {
+        'portal_url': str,
+        'available_actions': List[str],
+        'dispute_status': str,
+        'refund_eligible': bool,
+    }"""
+
+    paddle_dispute: Dict[str, Any]
+    """Paddle dispute auto-resolution:
+    {
+        'dispute_id': str,
+        'auto_resolved': bool,
+        'resolution_action': str,
+        'refund_amount': Optional[float],
+        'processing_time_hours': int,
+    }"""
+
+    # -- Deep Enrichment: Technical Support Enhancement --
+
+    diagnostic_result: Dict[str, Any]
+    """Deep diagnostic result:
+    {
+        'steps_provided': int,
+        'known_issue_match': bool,
+        'severity_assessment': str,
+        'auto_fix_available': bool,
+        'resolution_path': str,
+    }"""
+
+    escalation_decision: Dict[str, Any]
+    """Escalation severity decision:
+    {
+        'escalate': bool,
+        'escalation_level': str,
+        'severity_factors': Dict[str, float],
+        'recommended_actions': List[str],
+    }"""
+
+    # -- Deep Enrichment: Shipping Enhancement --
+
+    shipping_carrier_data: Dict[str, Any]
+    """Multi-carrier API integration data:
+    {
+        'carrier': str,
+        'tracking_status': str,
+        'estimated_delivery': str,
+        'carrier_api_called': bool,
+        'last_update': str,
+    }"""
+
+    delay_notification: Dict[str, Any]
+    """Proactive delay notification:
+    {
+        'notification_sent': bool,
+        'notification_type': str,
+        'delay_reason': str,
+        'revised_eta': str,
+        'compensation_offered': bool,
+    }"""
+
     # -- Context Compress node writes (High only) --
     context_compressed: bool
     """Whether context compression was applied."""
@@ -326,6 +545,32 @@ def create_initial_state(
         quality_passed=True,  # default pass — Mini doesn't use quality gate
         quality_issues=[],
         quality_retry_count=0,
+        # Enhancement fields — defaults
+        emotion_profile={},
+        recovery_playbook={},
+        churn_risk={},
+        retention_offers={},
+        billing_dispute={},
+        billing_anomaly={},
+        known_issue={},
+        tech_diagnostics={},
+        severity_score={},
+        shipping_issue={},
+        shipping_delay={},
+        tracking_info={},
+        enrichment_context="",
+        # Deep enrichment fields — defaults
+        complaint_resolution={},
+        sentiment_escalation={},
+        retention_negotiation={},
+        winback_sequence={},
+        billing_self_service={},
+        paddle_dispute={},
+        diagnostic_result={},
+        escalation_decision={},
+        shipping_carrier_data={},
+        delay_notification={},
+        # High-specific fields
         context_health={},
         dedup_similarity_score=0.0,
         dedup_is_duplicate=False,
