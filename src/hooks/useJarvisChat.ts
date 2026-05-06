@@ -224,6 +224,14 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
             if (bridgedContext.variant_id) {
               contextPatch.variant_id = bridgedContext.variant_id as string;
             }
+            // CRITICAL: Bridge variant_tier from Models page click
+            // This is what triggers the variant pipeline routing in the backend.
+            // Without variant_tier, onboarding uses direct AI (legacy path).
+            // With variant_tier, onboarding routes through Mini Parwa / Pro Parwa.
+            // starter → mini_parwa, growth → parwa, high → parwa_high
+            if (bridgedContext.variant_tier) {
+              contextPatch.variant_tier = bridgedContext.variant_tier as string;
+            }
             // Bridge entry_source so the backend knows the user's journey origin
             if (bridgedContext.entry_source) {
               contextPatch.entry_source = bridgedContext.entry_source as string;

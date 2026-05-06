@@ -106,6 +106,9 @@ export interface JarvisContext {
   total_price?: number;
   otp?: OtpContextData;
   bill_shown?: boolean;
+  variant?: string;
+  variant_id?: string;
+  variant_tier?: string;  // 'mini_parwa' | 'parwa' | 'parwa_high' — triggers pipeline routing
 }
 
 export interface OtpContextData {

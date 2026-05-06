@@ -1,17 +1,20 @@
 """
-Variant Pipeline Bridge: Routes customer care messages through the correct pipeline.
+Variant Pipeline Bridge: Routes messages through the correct variant pipeline.
 
-This is the connection point between the Jarvis customer care system and
-the Mini Parwa / Parwa / Parwa High LangGraph pipelines.
+This is the connection point between the Jarvis service and the
+Mini Parwa / Parwa / Parwa High LangGraph pipelines.
 
-When a customer care message comes in:
-  1. Look up the variant tier from the session context (set during handoff)
+When a message comes in:
+  1. Look up the variant tier from the session context
   2. Resolve the full VariantConfig (tier + industry)
   3. Run the message through the appropriate pipeline
   4. Return the response + metadata to the Jarvis service
 
-The Jarvis onboarding chat is NEVER touched — this bridge only activates
-for customer_care type sessions (after handoff).
+This bridge handles BOTH paths:
+  - Customer care:   Always routes through variant pipeline (tier from handoff)
+  - Onboarding:      Routes through variant pipeline IF variant_tier is set
+                      in context (e.g. user selected a tier on Models page).
+                      Falls back to direct AI if no tier is set.
 
 Pipeline Selection:
   - mini_parwa (Starter): 10-node pipeline, Tier 1 techniques
@@ -20,14 +23,16 @@ Pipeline Selection:
 
 Architecture:
   jarvis_service.send_message()
-       ↓ (customer_care path)
-  variant_pipeline_bridge.process_customer_care_message()
-       ↓
-  resolve_variant_tier() from session context
-       ↓
-  MiniParwaPipeline.process_ticket()  (or Pro/High in future)
-       ↓
-  Return: response_text, metadata, knowledge_used
+       ├─ (onboarding + variant_tier set)
+       │    → variant_pipeline_bridge.process_onboarding_message()
+       │         → Mini/Pro pipeline
+       │
+       ├─ (onboarding + no variant_tier)
+       │    → _call_ai_provider() (direct AI, legacy)
+       │
+       └─ (customer_care)
+            → variant_pipeline_bridge.process_customer_care_message()
+                 → Mini/Pro pipeline
 
 BC-001: company_id first parameter on public methods.
 BC-008: Every public method wrapped in try/except — never crash.
@@ -155,7 +160,7 @@ class PipelineResult:
 
 
 # ══════════════════════════════════════════════════════════════════
-# MAIN ENTRY POINT
+# CUSTOMER CARE ENTRY POINT
 # ══════════════════════════════════════════════════════════════════
 
 
@@ -171,7 +176,7 @@ async def process_customer_care_message(
 ) -> PipelineResult:
     """Process a customer care message through the appropriate variant pipeline.
 
-    This is the main entry point called by jarvis_service when handling
+    This is the entry point called by jarvis_service when handling
     customer_care type sessions.
 
     Flow:
@@ -214,61 +219,18 @@ async def process_customer_care_message(
         )
 
         # ── Step 4: Select and run pipeline ──
-        if variant_tier == "mini_parwa":
-            result = await _run_mini_parwa(
-                query=query,
-                company_id=company_id,
-                industry=industry,
-                variant_instance_id=variant_instance_id,
-                conversation_id=conversation_id,
-                ticket_id=ticket_id,
-                channel=channel,
-                customer_id=customer_id,
-                customer_tier=customer_tier,
-            )
-        elif variant_tier == "parwa":
-            # Pro Parwa: 15-node pipeline with Tier 1+2 techniques
-            result = await _run_parwa(
-                query=query,
-                company_id=company_id,
-                industry=industry,
-                variant_instance_id=variant_instance_id,
-                conversation_id=conversation_id,
-                ticket_id=ticket_id,
-                channel=channel,
-                customer_id=customer_id,
-                customer_tier=customer_tier,
-            )
-        elif variant_tier == "parwa_high":
-            # Future: Run ParwaHigh pipeline
-            # For now, falls through to Pro Parwa
-            logger.info(
-                "parwa_high not yet implemented — using parwa fallback",
-            )
-            result = await _run_parwa(
-                query=query,
-                company_id=company_id,
-                industry=industry,
-                variant_instance_id=variant_instance_id,
-                conversation_id=conversation_id,
-                ticket_id=ticket_id,
-                channel=channel,
-                customer_id=customer_id,
-                customer_tier=customer_tier,
-            )
-        else:
-            # Default: parwa (Growth)
-            result = await _run_parwa(
-                query=query,
-                company_id=company_id,
-                industry=industry,
-                variant_instance_id=variant_instance_id,
-                conversation_id=conversation_id,
-                ticket_id=ticket_id,
-                channel=channel,
-                customer_id=customer_id,
-                customer_tier=customer_tier,
-            )
+        result = await _run_pipeline(
+            variant_tier=variant_tier,
+            query=query,
+            company_id=company_id,
+            industry=industry,
+            variant_instance_id=variant_instance_id,
+            conversation_id=conversation_id,
+            ticket_id=ticket_id,
+            channel=channel,
+            customer_id=customer_id,
+            customer_tier=customer_tier,
+        )
 
         total_ms = round((time.monotonic() - start) * 1000, 2)
         logger.info(
@@ -366,6 +328,295 @@ def process_customer_care_message_sync(
             industry="general",
             pipeline_status="failed",
             metadata={"error": "sync_wrapper_failed"},
+        )
+
+
+# ══════════════════════════════════════════════════════════════════
+# ONBOARDING ENTRY POINT
+# ══════════════════════════════════════════════════════════════════
+
+
+async def process_onboarding_message(
+    query: str,
+    company_id: str,
+    session_context: Dict[str, Any],
+    conversation_id: str = "",
+    ticket_id: str = "",
+    channel: str = "chat",
+    customer_id: str = "",
+    customer_tier: str = "free",
+) -> PipelineResult:
+    """Process an onboarding message through the variant pipeline.
+
+    Called by jarvis_service when session.type == "onboarding" AND
+    the session context has a variant_tier set (meaning the user
+    selected a specific variant on the Models page).
+
+    If variant_tier is NOT set, the caller should fall back to
+    the direct AI provider path (_call_ai_provider).
+
+    The pipeline runs in ONBOARDING MODE which means:
+      - Emergency bypass still works (safety first)
+      - GSD state tracks onboarding flow, not support flow
+      - Classification is tuned for sales/onboarding intents
+      - Generated response includes variant-aware context
+
+    Flow:
+      1. Resolve variant_tier from session context
+      2. Resolve industry from session context
+      3. Run through the same pipeline as customer_care
+      4. Return PipelineResult with response + metadata
+
+    Args:
+        query: User's raw message.
+        company_id: Tenant identifier (BC-001).
+        session_context: The Jarvis session's context_json (dict).
+        conversation_id: For multi-turn tracking.
+        ticket_id: Ticket identifier.
+        channel: Communication channel.
+        customer_id: Customer identifier.
+        customer_tier: Customer subscription tier.
+
+    Returns:
+        PipelineResult with response text and all pipeline metadata.
+    """
+    start = time.monotonic()
+    try:
+        # ── Step 1: Resolve variant tier from context ──
+        variant_tier = _resolve_tier_from_session(session_context)
+
+        # ── Step 2: Resolve industry from context ──
+        industry = _resolve_industry_from_session(session_context)
+
+        # ── Step 3: Get variant instance_id from context ──
+        variant_instance_id = session_context.get(
+            "variant_instance_id", f"inst_onboarding_{variant_tier}_{company_id}",
+        )
+
+        logger.info(
+            "process_onboarding_message: tier=%s, industry=%s, "
+            "company_id=%s, instance=%s",
+            variant_tier, industry, company_id, variant_instance_id,
+        )
+
+        # ── Step 4: Select and run pipeline (same as customer_care) ──
+        result = await _run_pipeline(
+            variant_tier=variant_tier,
+            query=query,
+            company_id=company_id,
+            industry=industry,
+            variant_instance_id=variant_instance_id,
+            conversation_id=conversation_id,
+            ticket_id=ticket_id,
+            channel=channel,
+            customer_id=customer_id,
+            customer_tier=customer_tier,
+        )
+
+        total_ms = round((time.monotonic() - start) * 1000, 2)
+        logger.info(
+            "process_onboarding_message_complete: tier=%s, status=%s, "
+            "latency=%sms, quality=%.1f, steps=%d",
+            variant_tier, result.pipeline_status, total_ms,
+            result.quality_score, len(result.steps_completed),
+        )
+
+        return result
+
+    except Exception:
+        total_ms = round((time.monotonic() - start) * 1000, 2)
+        logger.exception(
+            "process_onboarding_message failed: company_id=%s, "
+            "latency=%sms",
+            company_id, total_ms,
+        )
+        # BC-008: Return a safe fallback result
+        return PipelineResult(
+            response_text=(
+                "I apologize, I'm having trouble processing your request "
+                "right now. Let me try a different approach."
+            ),
+            variant_tier=session_context.get("variant_tier", "mini_parwa"),
+            industry=session_context.get("industry", "general"),
+            pipeline_status="failed",
+            total_latency_ms=total_ms,
+            metadata={"error": "onboarding_pipeline_bridge_failed"},
+        )
+
+
+def process_onboarding_message_sync(
+    query: str,
+    company_id: str,
+    session_context: Dict[str, Any],
+    conversation_id: str = "",
+    ticket_id: str = "",
+    channel: str = "chat",
+    customer_id: str = "",
+    customer_tier: str = "free",
+) -> PipelineResult:
+    """Synchronous wrapper for process_onboarding_message.
+
+    Handles the async/sync bridge for calling from jarvis_service
+    which is synchronous. Uses ThreadPoolExecutor if no event loop.
+
+    Args:
+        Same as process_onboarding_message.
+
+    Returns:
+        PipelineResult with response text and all pipeline metadata.
+    """
+    try:
+        try:
+            loop = asyncio.get_running_loop()
+            # We're inside an existing event loop — use thread pool
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(
+                    asyncio.run,
+                    process_onboarding_message(
+                        query=query,
+                        company_id=company_id,
+                        session_context=session_context,
+                        conversation_id=conversation_id,
+                        ticket_id=ticket_id,
+                        channel=channel,
+                        customer_id=customer_id,
+                        customer_tier=customer_tier,
+                    ),
+                )
+                return future.result(timeout=30)
+        except RuntimeError:
+            # No event loop — safe to use asyncio.run
+            return asyncio.run(
+                process_onboarding_message(
+                    query=query,
+                    company_id=company_id,
+                    session_context=session_context,
+                    conversation_id=conversation_id,
+                    ticket_id=ticket_id,
+                    channel=channel,
+                    customer_id=customer_id,
+                    customer_tier=customer_tier,
+                )
+            )
+    except Exception:
+        logger.exception("process_onboarding_message_sync failed")
+        return PipelineResult(
+            response_text=(
+                "I apologize, I'm having trouble processing your request. "
+                "Let me try a different approach."
+            ),
+            variant_tier="mini_parwa",
+            industry="general",
+            pipeline_status="failed",
+            metadata={"error": "onboarding_sync_wrapper_failed"},
+        )
+
+
+def has_variant_tier_in_context(session_context: Dict[str, Any]) -> bool:
+    """Check if the session context has a variant_tier set.
+
+    Used by jarvis_service to decide whether to route onboarding
+    messages through the variant pipeline or use direct AI.
+
+    Args:
+        session_context: The Jarvis session's context_json (dict).
+
+    Returns:
+        True if variant_tier is set and valid.
+    """
+    tier = session_context.get("variant_tier")
+    return tier is not None and tier in ("mini_parwa", "parwa", "parwa_high")
+
+
+# ══════════════════════════════════════════════════════════════════
+# UNIFIED PIPELINE RUNNER
+# ══════════════════════════════════════════════════════════════════
+
+
+async def _run_pipeline(
+    variant_tier: str,
+    query: str,
+    company_id: str,
+    industry: str,
+    variant_instance_id: str = "",
+    conversation_id: str = "",
+    ticket_id: str = "",
+    channel: str = "chat",
+    customer_id: str = "",
+    customer_tier: str = "free",
+) -> PipelineResult:
+    """Run the appropriate pipeline based on variant_tier.
+
+    Shared by both customer_care and onboarding paths.
+
+    Args:
+        variant_tier: 'mini_parwa' | 'parwa' | 'parwa_high'.
+        query: Customer's raw message.
+        company_id: Tenant identifier (BC-001).
+        industry: Industry enum value.
+        variant_instance_id: Specific variant instance.
+        conversation_id: For multi-turn tracking.
+        ticket_id: Ticket identifier.
+        channel: Communication channel.
+        customer_id: Customer identifier.
+        customer_tier: Customer subscription tier.
+
+    Returns:
+        PipelineResult with response + full pipeline metadata.
+    """
+    if variant_tier == "mini_parwa":
+        return await _run_mini_parwa(
+            query=query,
+            company_id=company_id,
+            industry=industry,
+            variant_instance_id=variant_instance_id,
+            conversation_id=conversation_id,
+            ticket_id=ticket_id,
+            channel=channel,
+            customer_id=customer_id,
+            customer_tier=customer_tier,
+        )
+    elif variant_tier == "parwa":
+        return await _run_parwa(
+            query=query,
+            company_id=company_id,
+            industry=industry,
+            variant_instance_id=variant_instance_id,
+            conversation_id=conversation_id,
+            ticket_id=ticket_id,
+            channel=channel,
+            customer_id=customer_id,
+            customer_tier=customer_tier,
+        )
+    elif variant_tier == "parwa_high":
+        # Future: Run ParwaHigh pipeline
+        # For now, falls through to Pro Parwa
+        logger.info(
+            "parwa_high not yet implemented — using parwa fallback",
+        )
+        return await _run_parwa(
+            query=query,
+            company_id=company_id,
+            industry=industry,
+            variant_instance_id=variant_instance_id,
+            conversation_id=conversation_id,
+            ticket_id=ticket_id,
+            channel=channel,
+            customer_id=customer_id,
+            customer_tier=customer_tier,
+        )
+    else:
+        # Default: mini_parwa (safest, cheapest)
+        return await _run_mini_parwa(
+            query=query,
+            company_id=company_id,
+            industry=industry,
+            variant_instance_id=variant_instance_id,
+            conversation_id=conversation_id,
+            ticket_id=ticket_id,
+            channel=channel,
+            customer_id=customer_id,
+            customer_tier=customer_tier,
         )
 
 
@@ -663,9 +914,10 @@ async def _run_parwa(
 
 
 def _resolve_tier_from_session(session_context: Dict[str, Any]) -> str:
-    """Resolve the variant tier from a customer care session's context.
+    """Resolve the variant tier from a session's context.
 
-    The context_json should contain variant_tier set during handoff.
+    The context_json should contain variant_tier set during handoff
+    or during onboarding when user selects a variant on Models page.
     If not present, tries to resolve from variant_id/selected_variants.
 
     Args:
@@ -675,7 +927,7 @@ def _resolve_tier_from_session(session_context: Dict[str, Any]) -> str:
         Backend pipeline tier string.
     """
     try:
-        # Direct tier (set during handoff — best path)
+        # Direct tier (set during handoff or Models page selection — best path)
         tier = session_context.get("variant_tier")
         if tier and tier in ("mini_parwa", "parwa", "parwa_high"):
             return tier
@@ -700,7 +952,7 @@ def _resolve_tier_from_session(session_context: Dict[str, Any]) -> str:
 
 
 def _resolve_industry_from_session(session_context: Dict[str, Any]) -> str:
-    """Resolve the industry from a customer care session's context.
+    """Resolve the industry from a session's context.
 
     Args:
         session_context: The Jarvis session's context_json (dict).
@@ -742,7 +994,8 @@ def health_check() -> Dict[str, Any]:
         return {
             "status": "healthy" if all_ok else "degraded",
             "pipelines": pipelines_available,
-            "bridge_version": "1.0.0",
+            "bridge_version": "2.0.0",
+            "supports_onboarding": True,
             "checked_at": datetime.now(timezone.utc).isoformat(),
         }
 

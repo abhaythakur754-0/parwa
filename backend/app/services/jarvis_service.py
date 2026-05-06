@@ -593,7 +593,7 @@ def send_message(
     metadata = {}
     knowledge = []
 
-    # If this is an onboarding session, use the Jarvis-specific path (Fix 4)
+    # If this is an onboarding session, check for variant pipeline routing
     if session.type == "onboarding":
         # ── Document Testing Feature: Process user document uploads ──
         if user_message.startswith("[DOCUMENT_UPLOAD]:"):
@@ -625,8 +625,82 @@ def send_message(
                 logger.error("Document upload processing failed: %s", exc)
                 ai_content = "I encountered an error trying to process that document. Could you try sending it as plain text?"
                 ai_message_type = "error"
+        elif _should_use_variant_pipeline(ctx):
+            # ── Variant Pipeline Routing for Onboarding ──
+            # When a user selected a variant on the Models page,
+            # route their onboarding chat through the variant pipeline
+            # (Mini Parwa / Pro Parwa) instead of direct AI.
+            try:
+                from app.core.variant_pipeline_bridge import (
+                    process_onboarding_message_sync,
+                )
+
+                session_ctx = _parse_context(session.context_json) if session else {}
+
+                # Route through the correct variant pipeline
+                pipeline_result = process_onboarding_message_sync(
+                    query=user_message,
+                    company_id=company_id or "",
+                    session_context=session_ctx,
+                    conversation_id=session_id,
+                    ticket_id="",
+                    channel="chat",
+                    customer_id=user_id,
+                    customer_tier=ctx.get("customer_tier", "free"),
+                )
+
+                ai_content = pipeline_result.response_text
+                ai_message_type = "variant_pipeline_onboarding"
+                metadata = pipeline_result.to_dict()
+                knowledge = []  # Pipeline handles its own knowledge
+
+                # Store pipeline results in context for analytics
+                ctx["variant_pipeline"] = {
+                    "variant_tier": pipeline_result.variant_tier,
+                    "industry": pipeline_result.industry,
+                    "pipeline_status": pipeline_result.pipeline_status,
+                    "quality_score": pipeline_result.quality_score,
+                    "total_latency_ms": pipeline_result.total_latency_ms,
+                    "billing_tokens": pipeline_result.billing_tokens,
+                    "steps_completed": pipeline_result.steps_completed,
+                    "technique_used": pipeline_result.technique_used,
+                    "emergency_flag": pipeline_result.emergency_flag,
+                    "empathy_score": pipeline_result.empathy_score,
+                    "classification_intent": pipeline_result.classification_intent,
+                    "path": "onboarding",
+                }
+
+                logger.info(
+                    "onboarding_pipeline_complete: tier=%s, status=%s, "
+                    "quality=%.1f, latency=%sms, steps=%d",
+                    pipeline_result.variant_tier,
+                    pipeline_result.pipeline_status,
+                    pipeline_result.quality_score,
+                    pipeline_result.total_latency_ms,
+                    len(pipeline_result.steps_completed),
+                )
+
+            except Exception as exc:
+                # Fallback: Use the direct AI provider if pipeline fails
+                logger.error(
+                    "Variant Pipeline for onboarding failed, falling back to direct AI: %s",
+                    exc,
+                )
+                try:
+                    system_prompt = build_system_prompt(db, session_id, user_message)
+                    ai_content, ai_message_type, metadata, knowledge = (
+                        _call_ai_provider(system_prompt, history, user_message, ctx)
+                    )
+                except Exception as inner_exc:
+                    logger.error("Direct AI also failed: %s", inner_exc)
+                    ai_content = _get_friendly_error_message()
+                    ai_message_type = "error"
+                    metadata = {"error_type": "all_pipelines_failed"}
+                    knowledge = []
         else:
-            logger.info("Using Jarvis Onboarding AI Path (Fix 4)")
+            # ── Legacy Onboarding Path (no variant_tier set) ──
+            # Uses direct AI provider call without pipeline processing
+            logger.info("Using Jarvis Onboarding AI Path (direct AI, no variant_tier)")
             try:
                 system_prompt = build_system_prompt(db, session_id, user_message)
                 ai_content, ai_message_type, metadata, knowledge = (
@@ -4098,6 +4172,26 @@ def _extract_topics_and_concerns(ctx: Dict[str, Any], user_message: str) -> None
     for keyword, concern in concern_keywords.items():
         if keyword in msg_lower and concern not in existing_concerns:
             ctx.setdefault("concerns_raised", []).append(concern)
+
+
+def _should_use_variant_pipeline(ctx: Dict[str, Any]) -> bool:
+    """Check if the onboarding session should route through the variant pipeline.
+
+    Returns True if the user selected a variant on the Models page
+    (variant_tier is set in context), meaning their onboarding chat
+    should use the Mini Parwa / Pro Parwa pipeline instead of direct AI.
+
+    Args:
+        ctx: The parsed session context dict.
+
+    Returns:
+        True if variant_tier is set and valid.
+    """
+    try:
+        from app.core.variant_pipeline_bridge import has_variant_tier_in_context
+        return has_variant_tier_in_context(ctx)
+    except Exception:
+        return False
 
 
 def _parse_context(context_json: str) -> Dict[str, Any]:
