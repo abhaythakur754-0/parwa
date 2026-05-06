@@ -93,12 +93,13 @@ def _get_parwa_pipeline() -> Any:
 
 
 def _get_parwa_high_pipeline() -> Any:
-    """Get or create the High Parwa pipeline singleton (future)."""
+    """Get or create the High Parwa pipeline singleton."""
     global _parwa_high_pipeline
     if _parwa_high_pipeline is None:
         try:
-            # Future: from app.core.parwa_high.graph import ParwaHighPipeline
-            logger.info("ParwaHighPipeline not yet implemented — will use Mini fallback")
+            from app.core.parwa_high.graph import ParwaHighPipeline
+            _parwa_high_pipeline = ParwaHighPipeline()
+            logger.info("ParwaHighPipeline singleton initialized for bridge")
         except Exception:
             logger.exception("Failed to initialize ParwaHighPipeline")
     return _parwa_high_pipeline
@@ -589,12 +590,7 @@ async def _run_pipeline(
             customer_tier=customer_tier,
         )
     elif variant_tier == "parwa_high":
-        # Future: Run ParwaHigh pipeline
-        # For now, falls through to Pro Parwa
-        logger.info(
-            "parwa_high not yet implemented — using parwa fallback",
-        )
-        return await _run_parwa(
+        return await _run_parwa_high(
             query=query,
             company_id=company_id,
             industry=industry,
@@ -909,6 +905,185 @@ async def _run_parwa(
 
 
 # ══════════════════════════════════════════════════════════════════
+# HIGH PARWA PIPELINE RUNNER
+# ══════════════════════════════════════════════════════════════════
+
+
+async def _run_parwa_high(
+    query: str,
+    company_id: str,
+    industry: str,
+    variant_instance_id: str = "",
+    conversation_id: str = "",
+    ticket_id: str = "",
+    channel: str = "chat",
+    customer_id: str = "",
+    customer_tier: str = "free",
+) -> PipelineResult:
+    """Run a message through the High Parwa 20-node pipeline.
+
+    Pipeline: pii_check -> empathy_check -> emergency_check -> gsd_state
+              -> classify -> extract_signals -> technique_select
+              -> reasoning_chain -> context_enrich -> context_compress
+              -> generate -> crp_compress -> clara_quality_gate
+              -> quality_retry (max 2) -> confidence_assess
+              -> context_health -> dedup -> strategic_decision
+              -> peer_review -> format -> END
+
+    Connected Frameworks (Tier 1 + Tier 2 + Tier 3):
+      - CLARA (Quality Gate, strictest: threshold 95, 8-check)
+      - CRP (Token Compression)
+      - GSD (State Engine)
+      - Smart Router (Heavy tier)
+      - Technique Router (Tier 1+2+3)
+      - Confidence Scoring
+      - CoT, ReAct, Reverse Thinking, Step-Back, ThoT (Tier 2)
+      - GST, UoT, ToT, Self-Consistency, Reflexion, Least-to-Most (Tier 3)
+
+    Args:
+        query: Customer's raw message.
+        company_id: Tenant identifier (BC-001).
+        industry: Industry enum value.
+        variant_instance_id: Specific variant instance.
+        conversation_id: For multi-turn tracking.
+        ticket_id: Ticket identifier.
+        channel: Communication channel.
+        customer_id: Customer identifier.
+        customer_tier: Customer subscription tier.
+
+    Returns:
+        PipelineResult with response + full pipeline metadata.
+    """
+    try:
+        pipeline = _get_parwa_high_pipeline()
+
+        if pipeline is None:
+            logger.error("ParwaHighPipeline not available — falling back to Pro")
+            return await _run_parwa(
+                query=query,
+                company_id=company_id,
+                industry=industry,
+                variant_instance_id=variant_instance_id,
+                conversation_id=conversation_id,
+                ticket_id=ticket_id,
+                channel=channel,
+                customer_id=customer_id,
+                customer_tier=customer_tier,
+            )
+
+        # Run through High Parwa's process_ticket method
+        result = await pipeline.process_ticket(
+            query=query,
+            company_id=company_id,
+            industry=industry,
+            channel=channel,
+            customer_id=customer_id,
+            customer_tier=customer_tier,
+            conversation_id=conversation_id,
+            ticket_id=ticket_id,
+            variant_instance_id=variant_instance_id,
+        )
+
+        # Extract the formatted response from pipeline result
+        response_text = result.get("formatted_response", "") or result.get(
+            "generated_response", ""
+        )
+
+        # If pipeline generated an emergency escalation response
+        if result.get("emergency_flag", False):
+            response_text = result.get("formatted_response", "") or (
+                "Your message has been flagged for priority handling. "
+                "A senior team member will contact you directly. "
+                f"Reference: {result.get('ticket_id', 'N/A')}"
+            )
+
+        # If no response was generated, use fallback
+        if not response_text:
+            classification = result.get("classification", {})
+            intent = classification.get("intent", "general")
+            from app.core.parwa_high.nodes import TEMPLATE_RESPONSES
+            response_text = TEMPLATE_RESPONSES.get(
+                intent, TEMPLATE_RESPONSES["general"],
+            )
+
+        # Get technique info (High-specific)
+        technique_used = result.get("step_outputs", {}).get(
+            "technique_select", {},
+        ).get("primary_technique", "direct")
+        reasoning_technique = result.get("step_outputs", {}).get(
+            "reasoning_chain", {},
+        ).get("technique", "direct")
+
+        # Get peer review info (High-specific)
+        peer_review = result.get("step_outputs", {}).get("peer_review", {})
+
+        # Get strategic decision info (High-specific)
+        strategic_decision = result.get("step_outputs", {}).get(
+            "strategic_decision", {},
+        )
+
+        return PipelineResult(
+            response_text=response_text,
+            variant_tier="parwa_high",
+            industry=industry,
+            pipeline_status=result.get("pipeline_status", "completed"),
+            quality_score=result.get("quality_score", 0.0),
+            total_latency_ms=result.get("total_latency_ms", 0.0),
+            billing_tokens=result.get("billing_tokens", 0),
+            steps_completed=result.get("steps_completed", []),
+            technique_used=technique_used,
+            emergency_flag=result.get("emergency_flag", False),
+            empathy_score=result.get("empathy_score", 0.5),
+            classification_intent=result.get("classification", {}).get("intent", ""),
+            metadata={
+                "ticket_id": result.get("ticket_id", ""),
+                "conversation_id": result.get("conversation_id", ""),
+                "pii_detected": result.get("pii_detected", False),
+                "reasoning_technique": reasoning_technique,
+                "quality_passed": result.get("quality_passed", True),
+                "quality_retry_count": result.get("quality_retry_count", 0),
+                "peer_review_passed": peer_review.get("passed", True),
+                "peer_review_score": peer_review.get("review_score", 0.0),
+                "strategic_decision": strategic_decision.get("decision", "proceed"),
+                "context_health_score": result.get("step_outputs", {}).get(
+                    "context_health", {},
+                ).get("health_score", 1.0),
+                "dedup_is_duplicate": result.get(
+                    "dedup_is_duplicate", False,
+                ),
+                "context_compression_ratio": result.get(
+                    "context_compression_ratio", 1.0,
+                ),
+                "gsd_state": result.get("step_outputs", {}).get(
+                    "gsd_state", {},
+                ).get("to_state", ""),
+                "crp_compression_ratio": result.get("step_outputs", {}).get(
+                    "crp_compress", {},
+                ).get("compression_ratio", 1.0),
+                "clara_passed": result.get("step_outputs", {}).get(
+                    "clara_quality_gate", {},
+                ).get("passed", True),
+                "confidence_score": result.get("step_outputs", {}).get(
+                    "confidence_assess", {},
+                ).get("confidence_score", 0.5),
+            },
+        )
+
+    except Exception:
+        logger.exception("_run_parwa_high failed")
+        return PipelineResult(
+            response_text=(
+                "I apologize for the inconvenience. "
+                "Our team will follow up with you shortly."
+            ),
+            variant_tier="parwa_high",
+            industry=industry,
+            pipeline_status="failed",
+            metadata={"error": "parwa_high_execution_failed"},
+        )
+
+
+# ══════════════════════════════════════════════════════════════════
 # CONTEXT RESOLUTION HELPERS
 # ══════════════════════════════════════════════════════════════════
 
@@ -986,8 +1161,8 @@ def health_check() -> Dict[str, Any]:
 
         # Pro Parwa is now implemented
         pipelines_available["parwa"] = _get_parwa_pipeline() is not None
-        # High not yet implemented
-        pipelines_available["parwa_high"] = False
+        # High Parwa is now implemented
+        pipelines_available["parwa_high"] = _get_parwa_high_pipeline() is not None
 
         all_ok = any(pipelines_available.values())
 
