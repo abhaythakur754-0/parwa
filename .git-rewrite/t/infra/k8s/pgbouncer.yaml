@@ -1,0 +1,171 @@
+# PgBouncer Connection Pooler for PARWA
+# Manages PostgreSQL connections for 50 clients with 2000 concurrent users
+# Pool size: 500, Max client connections: 2000
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgbouncer-config
+  namespace: parwa
+  labels:
+    app: pgbouncer
+    component: database
+data:
+  # PgBouncer main configuration
+  pgbouncer.ini: |
+    [databases]
+    ; Main PARWA database
+    parwa = host=postgres-primary.parwa.svc.cluster.local port=5432 dbname=parwa
+    
+    [pgbouncer]
+    ; Pool mode: transaction for better concurrency
+    pool_mode = transaction
+    
+    ; Connection limits
+    max_client_conn = 2000
+    max_db_connections = 500
+    default_pool_size = 50
+    min_pool_size = 10
+    reserve_pool_size = 10
+    reserve_pool_timeout = 3
+    
+    ; Timeouts
+    server_connect_timeout = 15
+    server_idle_timeout = 300
+    server_lifetime = 3600
+    server_check_delay = 30
+    client_idle_timeout = 0
+    client_login_timeout = 60
+    query_timeout = 30
+    
+    ; Logging
+    log_connections = 1
+    log_disconnections = 1
+    log_pooler_errors = 1
+    log_stats = 1
+    stats_period = 60
+    
+    ; Admin settings
+    admin_users = parwa_admin
+    stats_users = parwa_stats
+    
+    ; Listen settings
+    listen_addr = 0.0.0.0
+    listen_port = 6432
+    
+    ; Authentication
+    auth_type = md5
+    auth_file = /etc/pgbouncer/userlist.txt
+
+  # User list (usernames and passwords)
+  userlist.txt: |
+    "parwa_app" "parwa-app-password-hash"
+    "parwa_admin" "parwa-admin-password-hash"
+    "parwa_stats" "parwa-stats-password-hash"
+
+---
+# PgBouncer Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer
+  namespace: parwa
+  labels:
+    app: pgbouncer
+    component: database
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: pgbouncer
+  template:
+    metadata:
+      labels:
+        app: pgbouncer
+    spec:
+      containers:
+        - name: pgbouncer
+          image: edoburu/pgbouncer:1.18.0
+          ports:
+            - containerPort: 6432
+              name: pgbouncer
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: url
+          volumeMounts:
+            - name: pgbouncer-config
+              mountPath: /etc/pgbouncer
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            tcpSocket:
+              port: 6432
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 6432
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: pgbouncer-config
+          configMap:
+            name: pgbouncer-config
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: pgbouncer
+                topologyKey: kubernetes.io/hostname
+
+---
+# PgBouncer Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgbouncer
+  namespace: parwa
+  labels:
+    app: pgbouncer
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6432
+      targetPort: 6432
+      name: pgbouncer
+  selector:
+    app: pgbouncer
+
+---
+# PgBouncer Horizontal Pod Autoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: pgbouncer-hpa
+  namespace: parwa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: pgbouncer
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

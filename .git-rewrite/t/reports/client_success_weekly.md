@@ -1,0 +1,169 @@
+# Weekly Client Success Report
+
+**Report Period:** {period_start} to {period_end}
+**Generated:** {generated_at}
+
+---
+
+## Executive Summary
+
+This report provides a comprehensive overview of client success metrics for all 10 tracked clients. Key highlights include health score trends, churn risk analysis, onboarding progress, and actionable recommendations.
+
+### Quick Stats
+
+| Metric | Value | Trend |
+|--------|-------|-------|
+| Total Clients | 10 | - |
+| Average Health Score | {avg_health}% | {health_trend} |
+| At-Risk Clients | {at_risk_count} | {at_risk_trend} |
+| Healthy Clients | {healthy_count} | {healthy_trend} |
+| Average Churn Risk | {avg_churn}% | {churn_trend} |
+
+---
+
+## Health Score Analysis
+
+### Overall Distribution
+
+| Category | Count | Percentage |
+|----------|-------|------------|
+| Excellent (90+) | {excellent_count} | {excellent_pct}% |
+| Good (75-89) | {good_count} | {good_pct}% |
+| Fair (60-74) | {fair_count} | {fair_pct}% |
+| Poor (<60) | {poor_count} | {poor_pct}% |
+
+### Health Score by Client
+
+| Client | Health Score | Status | Trend |
+|--------|--------------|--------|-------|
+| client_001 | {health_001}% | {status_001} | {trend_001} |
+| client_002 | {health_002}% | {status_002} | {trend_002} |
+| client_003 | {health_003}% | {status_003} | {trend_003} |
+| client_004 | {health_004}% | {status_004} | {trend_004} |
+| client_005 | {health_005}% | {status_005} | {trend_005} |
+| client_006 | {health_006}% | {status_006} | {trend_006} |
+| client_007 | {health_007}% | {status_007} | {trend_007} |
+| client_008 | {health_008}% | {status_008} | {trend_008} |
+| client_009 | {health_009}% | {status_009} | {trend_009} |
+| client_010 | {health_010}% | {status_010} | {trend_010} |
+
+---
+
+## Churn Risk Analysis
+
+### Risk Level Distribution
+
+| Risk Level | Count | Clients |
+|------------|-------|---------|
+| Low (<20%) | {low_risk_count} | {low_risk_clients} |
+| Medium (20-40%) | {medium_risk_count} | {medium_risk_clients} |
+| High (40-60%) | {high_risk_count} | {high_risk_clients} |
+| Critical (>60%) | {critical_risk_count} | {critical_risk_clients} |
+
+### At-Risk Clients
+
+{at_risk_section}
+
+**Recommended Actions:**
+1. Schedule immediate success review meetings
+2. Assign dedicated success managers
+3. Implement retention strategies
+4. Increase touchpoint frequency
+
+---
+
+## Onboarding Progress
+
+### Completion Rates
+
+| Client | Completion % | Current Step | Status |
+|--------|--------------|--------------|--------|
+| client_001 | {onboard_001}% | {step_001} | {ob_status_001} |
+| client_002 | {onboard_002}% | {step_002} | {ob_status_002} |
+| client_003 | {onboard_003}% | {step_003} | {ob_status_003} |
+| client_004 | {onboard_004}% | {step_004} | {ob_status_004} |
+| client_005 | {onboard_005}% | {step_005} | {ob_status_005} |
+| client_006 | {onboard_006}% | {step_006} | {ob_status_006} |
+| client_007 | {onboard_007}% | {step_007} | {ob_status_007} |
+| client_008 | {onboard_008}% | {step_008} | {ob_status_008} |
+| client_009 | {onboard_009}% | {step_009} | {ob_status_009} |
+| client_010 | {onboard_010}% | {step_010} | {ob_status_010} |
+
+### Average Completion: {avg_onboarding}%
+
+---
+
+## Engagement Metrics
+
+### Key Performance Indicators
+
+| Metric | Average | Target | Status |
+|--------|---------|--------|--------|
+| Engagement Score | {avg_engagement}% | >70% | {engagement_status} |
+| Accuracy Rate | {avg_accuracy}% | >85% | {accuracy_status} |
+| Resolution Rate | {avg_resolution}% | >80% | {resolution_status} |
+| Response Time | {avg_response}h | <4h | {response_status} |
+
+### Trends
+
+- **Engagement:** {engagement_trend} over the past week
+- **Accuracy:** {accuracy_trend} over the past week
+- **Resolution:** {resolution_trend} over the past week
+
+---
+
+## Intervention Summary
+
+### Active Interventions
+
+| Client | Intervention Type | Status | Started |
+|--------|-------------------|--------|---------|
+| {intervention_rows} |
+
+### Success Rate: {intervention_success_rate}%
+
+---
+
+## Recommendations
+
+### High Priority
+
+{high_priority_recommendations}
+
+### Medium Priority
+
+{medium_priority_recommendations}
+
+### Low Priority
+
+{low_priority_recommendations}
+
+---
+
+## Next Steps
+
+1. Review at-risk clients in weekly meeting
+2. Implement recommended interventions
+3. Track progress on action items
+4. Schedule follow-up reviews for stuck clients
+
+---
+
+## Appendix
+
+### Metric Definitions
+
+- **Health Score:** Weighted combination of activity (20%), accuracy (30%), response time (20%), resolution (20%), engagement (10%)
+- **Churn Probability:** ML-ready prediction based on risk factors
+- **Engagement Score:** Feature adoption and usage frequency
+- **Accuracy Rate:** AI response accuracy percentage
+
+### Report Configuration
+
+- **Refresh Frequency:** Weekly
+- **Data Sources:** Health Monitor, Churn Predictor, Onboarding Tracker
+- **Client Range:** client_001 - client_010
+
+---
+
+*This report was automatically generated by the PARWA Client Success System.*

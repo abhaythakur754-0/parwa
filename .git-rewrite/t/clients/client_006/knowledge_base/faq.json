@@ -1,0 +1,182 @@
+{
+  "client_id": "client_006",
+  "last_updated": "2026-03-25T12:00:00",
+  "categories": ["Orders", "Returns", "Shipping", "Products", "Payment"],
+  "entries": [
+    {
+      "id": "faq_001",
+      "category": "Orders",
+      "question": "How do I track my order?",
+      "answer": "Track your order by logging into your ShopMax account and visiting 'My Orders'. Click on your order number to see real-time tracking. You'll also receive email updates at each shipping milestone.",
+      "keywords": ["track", "order", "shipping", "delivery", "status", "where"]
+    },
+    {
+      "id": "faq_002",
+      "category": "Orders",
+      "question": "Can I modify my order after placing it?",
+      "answer": "Orders can be modified within 1 hour of placement. After that, orders enter our fulfillment process and cannot be changed. Visit 'My Orders' or contact our store for immediate assistance.",
+      "keywords": ["modify", "change", "edit", "update", "order"]
+    },
+    {
+      "id": "faq_003",
+      "category": "Orders",
+      "question": "How do I cancel my order?",
+      "answer": "Cancel your order from 'My Orders' by clicking 'Cancel Order'. Cancellations are possible before shipping (usually within 2 hours). For store orders, contact the store directly.",
+      "keywords": ["cancel", "order", "stop"]
+    },
+    {
+      "id": "faq_004",
+      "category": "Orders",
+      "question": "What payment methods do you accept?",
+      "answer": "ShopMax accepts Visa, Mastercard, American Express, Discover, PayPal, Apple Pay, Google Pay, ShopMax Gift Cards, and ShopMax Store Credit. Cash accepted in-store only.",
+      "keywords": ["payment", "pay", "credit card", "paypal", "methods", "gift card"]
+    },
+    {
+      "id": "faq_005",
+      "category": "Orders",
+      "question": "Can I use multiple payment methods?",
+      "answer": "Yes! You can split payment between a gift card and credit card. At checkout, apply your gift card first, then pay the remaining balance with another payment method.",
+      "keywords": ["multiple", "split", "payment", "gift card", "combine"]
+    },
+    {
+      "id": "faq_006",
+      "category": "Returns",
+      "question": "What is your return policy?",
+      "answer": "ShopMax accepts returns within 90 days of purchase with receipt. Items must be unused and in original packaging. Some exclusions apply to electronics (30 days) and clearance items (final sale).",
+      "keywords": ["return", "policy", "refund", "money back", "send back"]
+    },
+    {
+      "id": "faq_007",
+      "category": "Returns",
+      "question": "How do I return an online order?",
+      "answer": "For online returns, log into your account, go to 'My Orders', and click 'Return Items'. Print the prepaid return label and drop off at any carrier location. Returns are free!",
+      "keywords": ["return", "online", "how", "process"]
+    },
+    {
+      "id": "faq_008",
+      "category": "Returns",
+      "question": "Can I return online purchases to a store?",
+      "answer": "Absolutely! Bring your online order and packing slip to any ShopMax store for an immediate refund or exchange. Store locator available on our website.",
+      "keywords": ["return", "store", "in-store", "location"]
+    },
+    {
+      "id": "faq_009",
+      "category": "Returns",
+      "question": "How long do refunds take?",
+      "answer": "Refunds are processed within 3-5 business days after we receive your return. The refund will appear on your original payment method within 5-10 business days depending on your bank.",
+      "keywords": ["refund", "how long", "when", "time", "processed"]
+    },
+    {
+      "id": "faq_010",
+      "category": "Returns",
+      "question": "What items cannot be returned?",
+      "answer": "Final sale items, intimate apparel, opened electronics, perishables, and personalized items cannot be returned. Check the product page for specific return eligibility.",
+      "keywords": ["cannot", "not returnable", "final sale", "excluded", "exceptions"]
+    },
+    {
+      "id": "faq_011",
+      "category": "Shipping",
+      "question": "What are your shipping options?",
+      "answer": "ShopMax offers Standard (5-7 days), Express (2-3 days), and Next Day shipping. Orders over $49 ship free with Standard. Curbside pickup available at all stores within 2 hours.",
+      "keywords": ["shipping", "delivery", "options", "standard", "express", "overnight"]
+    },
+    {
+      "id": "faq_012",
+      "category": "Shipping",
+      "question": "Do you offer free shipping?",
+      "answer": "Yes! Standard shipping is free on all orders over $49. ShopMax Rewards members get free shipping on all orders, no minimum. Sign up for free at checkout.",
+      "keywords": ["free", "shipping", "no minimum", "rewards"]
+    },
+    {
+      "id": "faq_013",
+      "category": "Shipping",
+      "question": "What is curbside pickup?",
+      "answer": "Curbside pickup lets you order online and pick up at any ShopMax store. Most orders are ready within 2 hours. You'll receive a notification when your order is ready for pickup.",
+      "keywords": ["curbside", "pickup", "store", "collect"]
+    },
+    {
+      "id": "faq_014",
+      "category": "Shipping",
+      "question": "Do you ship internationally?",
+      "answer": "Currently, ShopMax ships to all 50 US states, Puerto Rico, and US Virgin Islands. We do not ship internationally at this time.",
+      "keywords": ["international", "ship", "countries", "overseas"]
+    },
+    {
+      "id": "faq_015",
+      "category": "Shipping",
+      "question": "My package was delivered but I didn't receive it.",
+      "answer": "Check around your property, with neighbors, and your mailbox. Wait 24 hours as carriers sometimes mark delivered early. If still missing, contact us with your order number for a replacement or refund.",
+      "keywords": ["delivered", "missing", "package", "not received", "lost"]
+    },
+    {
+      "id": "faq_016",
+      "category": "Products",
+      "question": "How do I check product availability in stores?",
+      "answer": "Use our website or app to check real-time inventory at your local store. Select 'Check Store Availability' on any product page and enter your zip code.",
+      "keywords": ["availability", "stock", "in store", "inventory", "check"]
+    },
+    {
+      "id": "faq_017",
+      "category": "Products",
+      "question": "Do you price match?",
+      "answer": "Yes! ShopMax matches prices from major retailers within 14 days of purchase. Bring in the ad or show us online, and we'll match the price. Some exclusions apply.",
+      "keywords": ["price match", "match", "price", "guarantee", "lower price"]
+    },
+    {
+      "id": "faq_018",
+      "category": "Products",
+      "question": "What is your product warranty?",
+      "answer": "All products include manufacturer warranty. Electronics: 1-2 years. Appliances: 1-5 years. Extended protection plans available for purchase at checkout.",
+      "keywords": ["warranty", "guarantee", "defect", "broken", "repair"]
+    },
+    {
+      "id": "faq_019",
+      "category": "Products",
+      "question": "Do you restock sold out items?",
+      "answer": "Popular items are restocked regularly. Sign up for 'Back in Stock' notifications on the product page. Limited edition items may not be restocked.",
+      "keywords": ["restock", "sold out", "out of stock", "available", "when"]
+    },
+    {
+      "id": "faq_020",
+      "category": "Products",
+      "question": "Are your products authentic?",
+      "answer": "ShopMax is an authorized retailer for all brands we carry. Every product is 100% authentic with full manufacturer warranty. We do not sell refurbished items unless clearly marked.",
+      "keywords": ["authentic", "real", "genuine", "legitimate", "fake"]
+    },
+    {
+      "id": "faq_021",
+      "category": "Payment",
+      "question": "How do ShopMax Rewards work?",
+      "answer": "Earn 1 point per $1 spent. 100 points = $1 reward. Members get free shipping, exclusive deals, and birthday bonuses. Points never expire with annual activity.",
+      "keywords": ["rewards", "points", "loyalty", "earn", "program"]
+    },
+    {
+      "id": "faq_022",
+      "category": "Payment",
+      "question": "Can I use a coupon code?",
+      "answer": "Enter promo codes at checkout in the 'Promo Code' field. Only one code per order. Codes cannot be combined with other offers unless specified.",
+      "keywords": ["coupon", "promo", "code", "discount", "apply"]
+    },
+    {
+      "id": "faq_023",
+      "category": "Payment",
+      "question": "How do I check my gift card balance?",
+      "answer": "Check your gift card balance online at shopmax-retail.com/giftcards, in-store at any register, or by calling 1-800-SHOPMAX.",
+      "keywords": ["gift card", "balance", "check", "how much"]
+    },
+    {
+      "id": "faq_024",
+      "category": "Payment",
+      "question": "Do you offer buy now pay later?",
+      "answer": "Yes! ShopMax partners with Affirm and Klarna for flexible payment options. Choose at checkout for orders $50+. Subject to credit approval.",
+      "keywords": ["buy now pay later", "affirm", "klarna", "installment", "payment plan"]
+    },
+    {
+      "id": "faq_025",
+      "category": "Payment",
+      "question": "Is my payment information secure?",
+      "answer": "Absolutely. ShopMax uses 256-bit SSL encryption and is PCI DSS compliant. We never store your full credit card number. Your payment information is always safe.",
+      "keywords": ["secure", "security", "safe", "encryption", "pci"]
+    }
+  ]
+}

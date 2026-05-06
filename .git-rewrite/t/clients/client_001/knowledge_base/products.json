@@ -1,0 +1,21 @@
+{
+  "client_id": "client_001",
+  "last_updated": "2026-03-23T12:00:00",
+  "products": [
+    {"id": "prod_001", "name": "Classic T-Shirt", "category": "Clothing", "price_range": {"min": 19.99, "max": 29.99}, "availability": "in_stock", "common_issues": ["Sizing questions", "Color differences", "Material composition"]},
+    {"id": "prod_002", "name": "Premium Denim Jeans", "category": "Clothing", "price_range": {"min": 59.99, "max": 89.99}, "availability": "in_stock", "common_issues": ["Size guide needed", "Wash instructions", "Stretch concerns"]},
+    {"id": "prod_003", "name": "Running Sneakers", "category": "Footwear", "price_range": {"min": 79.99, "max": 129.99}, "availability": "in_stock", "common_issues": ["Size conversion", "Arch support", "Durability"]},
+    {"id": "prod_004", "name": "Leather Wallet", "category": "Accessories", "price_range": {"min": 39.99, "max": 59.99}, "availability": "in_stock", "common_issues": ["Genuine leather", "Card capacity", "Color options"]},
+    {"id": "prod_005", "name": "Wireless Earbuds", "category": "Electronics", "price_range": {"min": 49.99, "max": 99.99}, "availability": "in_stock", "common_issues": ["Battery life", "Compatibility", "Sound quality"]},
+    {"id": "prod_006", "name": "Canvas Backpack", "category": "Bags", "price_range": {"min": 44.99, "max": 69.99}, "availability": "low_stock", "common_issues": ["Capacity", "Laptop fit", "Water resistance"]},
+    {"id": "prod_007", "name": "Winter Jacket", "category": "Clothing", "price_range": {"min": 89.99, "max": 149.99}, "availability": "in_stock", "common_issues": ["Warmth rating", "Sizing", "Waterproof"]},
+    {"id": "prod_008", "name": "Smart Watch", "category": "Electronics", "price_range": {"min": 149.99, "max": 249.99}, "availability": "in_stock", "common_issues": ["Compatibility", "Battery life", "Warranty"]},
+    {"id": "prod_009", "name": "Yoga Mat", "category": "Sports", "price_range": {"min": 24.99, "max": 49.99}, "availability": "in_stock", "common_issues": ["Thickness", "Material", "Grip"]},
+    {"id": "prod_010", "name": "Sunglasses", "category": "Accessories", "price_range": {"min": 29.99, "max": 79.99}, "availability": "in_stock", "common_issues": ["UV protection", "Frame size", "Prescription"]},
+    {"id": "prod_011", "name": "Portable Charger", "category": "Electronics", "price_range": {"min": 19.99, "max": 39.99}, "availability": "in_stock", "common_issues": ["Capacity", "Charging speed", "Compatibility"]},
+    {"id": "prod_012", "name": "Baseball Cap", "category": "Accessories", "price_range": {"min": 14.99, "max": 29.99}, "availability": "in_stock", "common_issues": ["Size adjustment", "Material", "Washable"]},
+    {"id": "prod_013", "name": "Hiking Boots", "category": "Footwear", "price_range": {"min": 99.99, "max": 179.99}, "availability": "out_of_stock", "common_issues": ["Sizing", "Waterproof", "Break-in period"]},
+    {"id": "prod_014", "name": "Laptop Sleeve", "category": "Accessories", "price_range": {"min": 24.99, "max": 44.99}, "availability": "in_stock", "common_issues": ["Size compatibility", "Protection", "Material"]},
+    {"id": "prod_015", "name": "Water Bottle", "category": "Sports", "price_range": {"min": 19.99, "max": 34.99}, "availability": "in_stock", "common_issues": ["Insulation", "Capacity", "Cleaning"]}
+  ]
+}

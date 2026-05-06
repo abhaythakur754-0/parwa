@@ -1,0 +1,182 @@
+{
+  "client_id": "client_009",
+  "last_updated": "2026-03-25T12:00:00",
+  "categories": ["Listings", "Buying", "Selling", "Rentals", "Agents"],
+  "entries": [
+    {
+      "id": "faq_001",
+      "category": "Listings",
+      "question": "How do I search for properties?",
+      "answer": "Use our search tool to filter by location, price range, property type, bedrooms, and more. Save your searches to get notified of new listings that match your criteria.",
+      "keywords": ["search", "find", "property", "listings", "homes"]
+    },
+    {
+      "id": "faq_002",
+      "category": "Listings",
+      "question": "How often are listings updated?",
+      "answer": "Listings are updated every 15 minutes from the MLS. New listings appear instantly when agents post them. Sold properties are removed within 24 hours.",
+      "keywords": ["updated", "new listings", "frequency", "fresh"]
+    },
+    {
+      "id": "faq_003",
+      "category": "Listings",
+      "question": "Can I see sold properties?",
+      "answer": "Yes! View sold properties in any area by using our 'Sold Properties' filter. This helps you understand market values and pricing trends in your desired neighborhood.",
+      "keywords": ["sold", "history", "past sales", "comparable"]
+    },
+    {
+      "id": "faq_004",
+      "category": "Listings",
+      "question": "How do I schedule a showing?",
+      "answer": "Click 'Schedule Showing' on any listing. Choose your preferred date/time, and an agent will confirm within 2 hours. Virtual tours available for out-of-area buyers.",
+      "keywords": ["showing", "tour", "visit", "schedule", "appointment"]
+    },
+    {
+      "id": "faq_005",
+      "category": "Listings",
+      "question": "Are listing photos accurate?",
+      "answer": "Photos are provided by listing agents and verified by our team. We use AI to detect significantly altered images. Report any concerns and we'll investigate.",
+      "keywords": ["photos", "accurate", "real", "pictures", "images"]
+    },
+    {
+      "id": "faq_006",
+      "category": "Buying",
+      "question": "What is the first step in buying a home?",
+      "answer": "Get pre-approved for a mortgage first. This shows sellers you're serious and helps you know your budget. We can connect you with trusted lenders in our network.",
+      "keywords": ["first step", "start", "begin", "mortgage", "pre-approval"]
+    },
+    {
+      "id": "faq_007",
+      "category": "Buying",
+      "question": "How much down payment do I need?",
+      "answer": "Down payments range from 3-20%. First-time buyers may qualify for 3% down. We recommend 20% to avoid PMI, but many buyers put down 5-10%.",
+      "keywords": ["down payment", "how much", "percentage", "money down"]
+    },
+    {
+      "id": "faq_008",
+      "category": "Buying",
+      "question": "What is an earnest money deposit?",
+      "answer": "Earnest money (1-3% of purchase price) shows you're serious. It's held in escrow and applied to your down payment at closing. Refundable during contingencies.",
+      "keywords": ["earnest money", "deposit", "escrow", "good faith"]
+    },
+    {
+      "id": "faq_009",
+      "category": "Buying",
+      "question": "How long does closing take?",
+      "answer": "Closing typically takes 30-45 days for financed purchases, 14-21 days for cash. Timeline depends on inspections, appraisals, and lender processing.",
+      "keywords": ["closing", "how long", "days", "timeline", "when"]
+    },
+    {
+      "id": "faq_010",
+      "category": "Buying",
+      "question": "Do I need a home inspection?",
+      "answer": "Absolutely! Inspections reveal hidden issues and protect your investment. We'll connect you with certified inspectors. Cost: $300-500, well worth the peace of mind.",
+      "keywords": ["inspection", "inspector", "check", "issues", "problems"]
+    },
+    {
+      "id": "faq_011",
+      "category": "Selling",
+      "question": "How do I list my property?",
+      "answer": "Contact us for a free home valuation. We'll handle professional photos, listing creation, marketing, and showings. Most listings go live within 48 hours.",
+      "keywords": ["list", "sell", "put on market", "how to"]
+    },
+    {
+      "id": "faq_012",
+      "category": "Selling",
+      "question": "What is my home worth?",
+      "answer": "Use our free home valuation tool for an instant estimate. For accuracy, schedule a no-obligation consultation with one of our experienced listing agents.",
+      "keywords": ["worth", "value", "price", "estimate", "valuation"]
+    },
+    {
+      "id": "faq_013",
+      "category": "Selling",
+      "question": "What are closing costs for sellers?",
+      "answer": "Seller closing costs are typically 6-8% of sale price, including agent commissions (5-6%), title insurance, escrow fees, and transfer taxes. We provide detailed estimates.",
+      "keywords": ["closing costs", "fees", "expenses", "seller"]
+    },
+    {
+      "id": "faq_014",
+      "category": "Selling",
+      "question": "How long to sell my home?",
+      "answer": "Average time varies by market - currently 25-45 days in our service areas. Pricing correctly and staging well can significantly reduce time on market.",
+      "keywords": ["how long", "time", "sell", "days on market"]
+    },
+    {
+      "id": "faq_015",
+      "category": "Selling",
+      "question": "Should I make repairs before selling?",
+      "answer": "Major repairs (roof, HVAC, plumbing) should be fixed or disclosed. Minor cosmetic updates often provide good ROI. We'll advise on what's worth fixing.",
+      "keywords": ["repairs", "fix", "improvements", "before selling"]
+    },
+    {
+      "id": "faq_016",
+      "category": "Rentals",
+      "question": "Do you handle rental properties?",
+      "answer": "Yes! We manage rental listings and property management. Browse available rentals on our site or contact us for property management services.",
+      "keywords": ["rental", "rent", "lease", "apartment", "manage"]
+    },
+    {
+      "id": "faq_017",
+      "category": "Rentals",
+      "question": "What do I need to rent a property?",
+      "answer": "You'll need valid ID, proof of income (3x rent), credit check authorization, and references. Application fee: $35-50 per adult. Pets may require additional deposit.",
+      "keywords": ["requirements", "need", "rent", "apply", "documents"]
+    },
+    {
+      "id": "faq_018",
+      "category": "Rentals",
+      "question": "Are pets allowed in rentals?",
+      "answer": "Pet policies vary by property. Use our 'Pet Friendly' filter. Pet deposits typically $200-500. Service animals are always accommodated per fair housing laws.",
+      "keywords": ["pets", "dogs", "cats", "allowed", "pet friendly"]
+    },
+    {
+      "id": "faq_019",
+      "category": "Agents",
+      "question": "How do I find an agent?",
+      "answer": "Browse our agent directory by specialty and location. Read reviews, see sold history, and contact directly. We'll also match you with agents based on your needs.",
+      "keywords": ["agent", "realtor", "find", "choose", "broker"]
+    },
+    {
+      "id": "faq_020",
+      "category": "Agents",
+      "question": "What does a buyer's agent do?",
+      "answer": "Buyer's agents find properties, arrange showings, negotiate offers, coordinate inspections, and guide you through closing. Their commission is typically paid by the seller.",
+      "keywords": ["buyer agent", "representation", "what do", "role"]
+    },
+    {
+      "id": "faq_021",
+      "category": "Agents",
+      "question": "How are agents compensated?",
+      "answer": "Agents earn commission (typically 5-6% of sale price), split between buyer's and seller's agents. Commission is usually paid by the seller at closing.",
+      "keywords": ["commission", "paid", "compensation", "how much"]
+    },
+    {
+      "id": "faq_022",
+      "category": "Agents",
+      "question": "Can I work with multiple agents?",
+      "answer": "We recommend committing to one agent for loyalty and focused service. However, you can work with different agents for buying vs selling properties.",
+      "keywords": ["multiple agents", "different", "work with"]
+    },
+    {
+      "id": "faq_023",
+      "category": "Agents",
+      "question": "How do I become an agent?",
+      "answer": "Contact our brokerage about joining HomeFind Realty. We offer competitive splits, training, lead generation, and marketing support. Must have active real estate license.",
+      "keywords": ["become agent", "join", "career", "work here"]
+    },
+    {
+      "id": "faq_024",
+      "category": "Agents",
+      "question": "Are your agents licensed?",
+      "answer": "All our agents are licensed real estate professionals in their respective states. License numbers are displayed on agent profiles. Verify through your state's real estate commission.",
+      "keywords": ["licensed", "certified", "qualified", "professional"]
+    },
+    {
+      "id": "faq_025",
+      "category": "Listings",
+      "question": "What is MLS?",
+      "answer": "MLS (Multiple Listing Service) is a database of properties for sale by member brokers. It's the most comprehensive source of listings. We have full MLS access.",
+      "keywords": ["mls", "multiple listing service", "database", "what is"]
+    }
+  ]
+}

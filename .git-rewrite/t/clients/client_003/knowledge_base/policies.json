@@ -1,0 +1,109 @@
+{
+  "client_id": "client_003",
+  "last_updated": "2026-03-23T12:00:00",
+  "policies": {
+    "hipaa_compliance": {
+      "status": "COMPLIANT",
+      "baa_signed": true,
+      "baa_signed_date": "2026-01-15",
+      "phi_handling": {
+        "encryption_at_rest": "AES-256",
+        "encryption_in_transit": "TLS 1.3",
+        "access_controls": "Role-based with minimum necessary principle",
+        "audit_logging": "All PHI access logged with 7-year retention",
+        "breach_notification": "Within 60 days as required by HIPAA"
+      },
+      "patient_rights": [
+        "Access to medical records within 30 days",
+        "Request amendments to records",
+        "Receive accounting of disclosures",
+        "Request restrictions on uses",
+        "Receive confidential communications",
+        "File complaints with HHS"
+      ]
+    },
+    "refund": {
+      "window_days": 30,
+      "conditions": [
+        "Refunds available for services not rendered",
+        "Copay refunds if appointment cancelled with 24hr notice",
+        "No refunds for services already provided",
+        "Insurance adjustments handled separately"
+      ],
+      "process": "Contact billing department with service date and reason. Refunds processed within 14 business days.",
+      "exceptions": [
+        "No refunds for no-shows",
+        "Prescription medications: no refund once dispensed"
+      ]
+    },
+    "emergency_escalation": {
+      "definition": "Life-threatening conditions requiring immediate medical attention",
+      "response_time_minutes": 5,
+      "escalation_path": [
+        "1. Transfer to emergency line",
+        "2. Advise to call 911 or go to ER",
+        "3. Document emergency contact",
+        "4. Follow up within 24 hours"
+      ],
+      "emergency_contacts": {
+        "emergency_line": "+1-555-0911",
+        "on_call_provider": "Available 24/7",
+        "local_er": "Multiple partner facilities"
+      }
+    },
+    "phi_handling": {
+      "identification_patterns": [
+        "SSN: XXX-XX-XXXX",
+        "Medical Record Number: alphanumeric",
+        "Health Plan ID: alphanumeric",
+        "Dates: birth, admission, discharge, death",
+        "Biometric identifiers",
+        "Photos"
+      ],
+      "sanitization": {
+        "logging": "PHI redacted before logging",
+        "support_tickets": "PHI masked in all tickets",
+        "reports": "Aggregated data only, no individual PHI"
+      },
+      "minimum_necessary": "Only access PHI required for the specific task",
+      "breach_protocol": [
+        "1. Identify and contain the breach",
+        "2. Assess scope and individuals affected",
+        "3. Notify Privacy Officer immediately",
+        "4. Document all findings",
+        "5. Notify affected individuals within 60 days",
+        "6. Report to HHS if >500 individuals affected"
+      ]
+    },
+    "data_retention": {
+      "medical_records": "7 years (adults), age 21 + 7 years (minors)",
+      "billing_records": "7 years",
+      "audit_logs": "7 years",
+      "consent_forms": "7 years after last service",
+      "hipaa_documentation": "6 years from creation or last effective date"
+    },
+    "consent_management": {
+      "types": [
+        "Treatment consent",
+        "Payment/billing consent",
+        "HIPAA acknowledgment",
+        "Telehealth consent",
+        "Release of information authorization"
+      ],
+      "withdrawal_process": "Submit written request. Note: withdrawal does not affect prior authorized uses.",
+      "minor_consent": "Parent/guardian consent required, with exceptions per state law"
+    },
+    "appointment_policy": {
+      "cancellation_notice_hours": 24,
+      "no_show_fee": "$50 after second no-show",
+      "late_arrival": "May need to reschedule if >15 minutes late",
+      "telehealth_requirements": "Stable internet, private location, camera/microphone"
+    },
+    "prescription_policy": {
+      "refill_request_hours": 48,
+      "controlled_substances": "Require office visit every 3 months",
+      "transfer_policy": "Contact pharmacy to initiate",
+      "prior_authorization": "Staff will obtain when required"
+    }
+  }
+}

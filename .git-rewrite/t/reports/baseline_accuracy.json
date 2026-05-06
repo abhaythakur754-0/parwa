@@ -1,0 +1,87 @@
+{
+  "client_id": "client_001",
+  "timestamp": "2026-03-23T12:00:00",
+  "overall_accuracy": 0.785,
+  "accuracy_by_category": {
+    "Orders": 0.833,
+    "Shipping": 0.75,
+    "Returns": 0.875,
+    "Products": 0.714,
+    "Account": 0.80
+  },
+  "total_tickets": 50,
+  "common_mistakes": [
+    {
+      "pattern": "Shipping tracking confusion - similar tracking numbers",
+      "count": 3
+    },
+    {
+      "pattern": "Product availability - incorrect stock status",
+      "count": 2
+    },
+    {
+      "pattern": "Return policy edge cases - 30-day window exceptions",
+      "count": 2
+    },
+    {
+      "pattern": "Order modification after shipment",
+      "count": 2
+    },
+    {
+      "pattern": "International shipping not covered",
+      "count": 1
+    }
+  ],
+  "resolution_breakdown": {
+    "auto": 39,
+    "escalated": 6,
+    "human": 5
+  },
+  "accuracy_by_agent": {
+    "primary": 0.792,
+    "fallback": 0.75
+  },
+  "confidence_distribution": {
+    "high": 0.65,
+    "medium": 0.25,
+    "low": 0.10
+  },
+  "accuracy_trend": [
+    {"day": 1, "accuracy": 0.70},
+    {"day": 2, "accuracy": 0.80},
+    {"day": 3, "accuracy": 0.833},
+    {"day": 4, "accuracy": 0.769}
+  ],
+  "categories_detail": {
+    "Orders": {
+      "total": 18,
+      "correct": 15,
+      "avg_confidence": 0.89,
+      "common_issues": ["Order status inquiry", "Order modification"]
+    },
+    "Shipping": {
+      "total": 12,
+      "correct": 9,
+      "avg_confidence": 0.78,
+      "common_issues": ["Tracking requests", "International shipping"]
+    },
+    "Returns": {
+      "total": 8,
+      "correct": 7,
+      "avg_confidence": 0.91,
+      "common_issues": ["30-day policy", "Exceptions"]
+    },
+    "Products": {
+      "total": 7,
+      "correct": 5,
+      "avg_confidence": 0.75,
+      "common_issues": ["Stock availability", "Product specs"]
+    },
+    "Account": {
+      "total": 5,
+      "correct": 4,
+      "avg_confidence": 0.85,
+      "common_issues": ["Password reset", "Account access"]
+    }
+  }
+}
