@@ -244,16 +244,27 @@ async def lifespan(app: FastAPI):
     logger.info("parwa_shutdown")
 
 
+# Load settings early to configure docs visibility at construction time.
+# This avoids the issue where setting docs_url after construction does not
+# register the OpenAPI routes (FastAPI registers routes at init time).
+try:
+    _init_settings = get_settings()
+    _docs_url = "/docs" if _init_settings.DEBUG else None
+    _redoc_url = "/redoc" if _init_settings.DEBUG else None
+    _openapi_url = "/openapi.json" if _init_settings.DEBUG else None
+except Exception:
+    _docs_url = None
+    _redoc_url = None
+    _openapi_url = None
+
 app = FastAPI(
     title="PARWA API",
     description="AI-Powered Customer Support Platform",
     version="0.1.0",
     lifespan=lifespan,
-    # docs/openapi set in lifespan after settings loaded to avoid
-    # module-level crash when env vars missing (BC-011)
-    docs_url=None,
-    redoc_url=None,
-    openapi_url=None,
+    docs_url=_docs_url,
+    redoc_url=_redoc_url,
+    openapi_url=_openapi_url,
 )
 
 

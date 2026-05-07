@@ -10,6 +10,7 @@
  */
 
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { useAppStore } from '@/lib/store';
 import { UserDetails, OnboardingState } from '@/types/onboarding';
 import {
   User,
@@ -23,8 +24,9 @@ import {
   MessageResponse,
 } from '@/types/auth';
 
-// API base URL from environment or default
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// API base URL from environment or default.
+// When the Python backend is not running, we proxy through Next.js mock API routes.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 /**
  * Create axios instance with default configuration.
@@ -66,15 +68,20 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    // Handle 401 Unauthorized — don't redirect from login page to avoid loops
+    // Handle 401 Unauthorized — clear tokens and let Zustand store handle navigation
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('parwa_access_token');
         localStorage.removeItem('parwa_refresh_token');
         localStorage.removeItem('parwa_user');
-        // Only redirect if NOT already on an auth page
-        if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/signup') && !window.location.pathname.startsWith('/forgot-password')) {
-          window.location.href = '/login';
+        // Use Zustand store for SPA navigation instead of window.location
+        try {
+          const store = useAppStore.getState();
+          if (store && !['login', 'signup', 'forgot-password'].includes(store.currentPage)) {
+            store.setAuth(false);
+          }
+        } catch {
+          // Store not available (SSR or early init) — silent fail
         }
       }
     }

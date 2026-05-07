@@ -273,6 +273,7 @@ async def get_redis() -> aioredis.Redis:
         Async Redis client connected to the pool.
 
     Raises:
+        RuntimeError: If REDIS_URL is not configured (empty).
         Exception: If Redis is unreachable (callers should handle
                    with fail-open per BC-012).
     """
@@ -281,6 +282,12 @@ async def get_redis() -> aioredis.Redis:
         async with _redis_init_lock:
             if _redis_client is None:  # double-check pattern
                 settings = get_settings()
+                if not settings.REDIS_URL:
+                    raise RuntimeError(
+                        "REDIS_URL is not configured. "
+                        "Redis is required for caching/rate-limiting. "
+                        "Set REDIS_URL in .env or run with Redis."
+                    )
                 _redis_client = aioredis.from_url(
                     settings.REDIS_URL,
                     encoding="utf-8",

@@ -1,351 +1,431 @@
-// ============================================================
-// Parwa Variant Engine Dashboard - API Client (Mock)
-// ============================================================
+/**
+ * PARWA API Client
+ * 
+ * Centralized API client for making requests to the backend.
+ * 
+ * Security Features (GAP-002 Fix):
+ * - Safe JSON parsing for malformed responses
+ * - Proper error handling for all HTTP status codes
+ * - Timeout handling with retry support
+ */
 
+import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { useAppStore } from '@/lib/store';
+import { UserDetails, OnboardingState } from '@/types/onboarding';
 import {
-  mockUser, mockKPICards, mockAutomationTrend, mockVariantDistribution,
-  mockChannelDistribution, mockVariantInstances, mockVariantCapabilities,
-  mockEntitlements, mockTokenBudget, mockTickets, mockProviderHealth,
-  mockFailoverEvents, mockColdStartStatus, mockQualityMetrics,
-  mockPerformanceMetrics, mockMonitoringAlerts, mockEmailChannel,
-  mockSMSChannel, mockChatWidget, mockVoiceChannel, mockSubscription,
-  mockUsageRecords, mockInvoices, mockPaymentMethods, mockKnowledgeDocuments,
-  mockSearchMetrics, mockChatMessages, mockAPIKeys, mockIntegrations,
-  mockNotificationPreferences, mockCompanySettings, mockChatSessions,
-} from './mock-data';
-import type {
-  User, KPICard, AutomationTrendPoint, VariantDistribution, ChannelDistribution,
-  VariantInstance, VariantCapability, Entitlement, TokenBudget, Ticket,
-  ProviderHealth, FailoverEvent, ColdStartStatus, QualityMetrics,
-  PerformanceMetrics, MonitoringAlert, EmailChannelConfig, SMSChannelConfig,
-  ChatWidgetConfig, VoiceChannelConfig, Subscription, UsageRecord, Invoice,
-  PaymentMethod, KnowledgeDocument, SearchMetrics, ChatMessage, ChatSession,
-  APIKey, Integration, NotificationPreference, CompanySettings, VariantType,
-  TicketStatus, ChannelType,
-} from './types';
+  User,
+  AuthResponse,
+  TokenResponse,
+  LoginRequest,
+  RegisterRequest,
+  GoogleAuthRequest,
+  RefreshRequest,
+  EmailCheckResponse,
+  MessageResponse,
+} from '@/types/auth';
 
-// Simulate API delay
-const delay = (ms: number = 300) => new Promise(resolve => setTimeout(resolve, ms));
+// API base URL from environment or default.
+// When the Python backend is not running, we proxy through Next.js mock API routes.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
-// --- Dashboard API ---
-export async function fetchKPIs(): Promise<KPICard[]> {
-  await delay(400);
-  return mockKPICards;
-}
+/**
+ * Create axios instance with default configuration.
+ */
+const apiClient: AxiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true, // Include cookies for session auth
+});
 
-export async function fetchAutomationTrend(): Promise<AutomationTrendPoint[]> {
-  await delay(500);
-  return mockAutomationTrend;
-}
-
-export async function fetchVariantDistribution(): Promise<VariantDistribution[]> {
-  await delay(300);
-  return mockVariantDistribution;
-}
-
-export async function fetchChannelDistribution(): Promise<ChannelDistribution[]> {
-  await delay(300);
-  return mockChannelDistribution;
-}
-
-// --- Variants API ---
-export async function fetchVariantInstances(): Promise<VariantInstance[]> {
-  await delay(400);
-  return mockVariantInstances;
-}
-
-export async function fetchVariantCapabilities(): Promise<VariantCapability[]> {
-  await delay(300);
-  return mockVariantCapabilities;
-}
-
-export async function fetchEntitlements(): Promise<Entitlement[]> {
-  await delay(200);
-  return mockEntitlements;
-}
-
-export async function fetchTokenBudget(): Promise<TokenBudget> {
-  await delay(200);
-  return mockTokenBudget;
-}
-
-export async function createVariantInstance(data: Partial<VariantInstance>): Promise<VariantInstance> {
-  await delay(600);
-  return {
-    id: `vi_${Date.now()}`,
-    name: data.name || 'New Instance',
-    type: data.type || 'mini_parwa',
-    status: 'active',
-    channel: data.channel || 'chat',
-    capacity: data.capacity || 500,
-    currentLoad: 0,
-    accuracyRate: 0,
-    avgLatency: 0,
-    costPerQuery: data.type === 'mini_parwa' ? 0.003 : data.type === 'parwa' ? 0.008 : 0.015,
-    techniqueTier: data.type === 'mini_parwa' ? 1 : data.type === 'parwa' ? 2 : 3,
-    nodeCount: data.type === 'mini_parwa' ? 10 : data.type === 'parwa' ? 22 : 27,
-    model: data.type === 'mini_parwa' ? 'gpt-4o-mini' : 'gpt-4o',
-    createdAt: new Date().toISOString(),
-    lastActive: new Date().toISOString(),
-  };
-}
-
-// --- Tickets API ---
-export async function fetchTickets(filters?: {
-  status?: TicketStatus | 'all';
-  variant?: VariantType | 'all';
-  channel?: ChannelType | 'all';
-  priority?: string | 'all';
-  search?: string;
-}): Promise<Ticket[]> {
-  await delay(400);
-  let filtered = [...mockTickets];
-  if (filters) {
-    if (filters.status && filters.status !== 'all') {
-      filtered = filtered.filter(t => t.status === filters.status);
+/**
+ * Request interceptor for adding auth token.
+ */
+apiClient.interceptors.request.use(
+  (config) => {
+    // Add auth token if available
+    const token = typeof window !== 'undefined' 
+      ? localStorage.getItem('parwa_access_token') 
+      : null;
+    
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
-    if (filters.variant && filters.variant !== 'all') {
-      filtered = filtered.filter(t => t.variant === filters.variant);
-    }
-    if (filters.channel && filters.channel !== 'all') {
-      filtered = filtered.filter(t => t.channel === filters.channel);
-    }
-    if (filters.priority && filters.priority !== 'all') {
-      filtered = filtered.filter(t => t.priority === filters.priority);
-    }
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      filtered = filtered.filter(t =>
-        t.subject.toLowerCase().includes(q) ||
-        t.customerName.toLowerCase().includes(q) ||
-        t.id.toLowerCase().includes(q)
-      );
-    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  return filtered;
+);
+
+/**
+ * Response interceptor for handling errors.
+ * GAP-002: Handle malformed responses gracefully.
+ */
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError) => {
+    // Handle 401 Unauthorized — clear tokens and let Zustand store handle navigation
+    if (error.response?.status === 401) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('parwa_access_token');
+        localStorage.removeItem('parwa_refresh_token');
+        localStorage.removeItem('parwa_user');
+        // Use Zustand store for SPA navigation instead of window.location
+        try {
+          const store = useAppStore.getState();
+          if (store && !['login', 'signup', 'forgot-password'].includes(store.currentPage)) {
+            store.setAuth(false);
+          }
+        } catch {
+          // Store not available (SSR or early init) — silent fail
+        }
+      }
+    }
+    
+    // Handle 403 Forbidden
+    if (error.response?.status === 403) {
+      console.error('Access denied');
+    }
+    
+    // Handle 429 Rate Limit
+    if (error.response?.status === 429) {
+      const retryAfter = error.response.headers['retry-after'];
+      console.warn(`Rate limited. Retry after ${retryAfter} seconds`);
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+// ── GAP-002: Safe Response Parsing ───────────────────────────────────────
+
+/**
+ * Safely parse response data, handling malformed JSON.
+ */
+function safeParseResponse<T>(response: AxiosResponse): T {
+  // If response is already parsed by axios, return it
+  if (response.data !== undefined) {
+    return response.data as T;
+  }
+  throw new Error('Empty response from server');
 }
 
-export async function fetchTicketById(id: string): Promise<Ticket | undefined> {
-  await delay(200);
-  return mockTickets.find(t => t.id === id);
+/**
+ * Handle API errors with user-friendly messages.
+ */
+export function getErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    // Network error (no response)
+    if (!error.response) {
+      if (error.code === 'ECONNABORTED') {
+        return 'Request timed out. Please try again.';
+      }
+      return 'Network error. Please check your connection.';
+    }
+    
+    // Server responded with error
+    const status = error.response.status;
+    const detail = error.response?.data?.detail;
+    
+    if (status === 429) {
+      const retryAfter = error.response.headers['retry-after'] || 60;
+      return `Too many requests. Please try again in ${retryAfter} seconds.`;
+    }
+    
+    if (status >= 500) {
+      return 'Server error. Please try again later.';
+    }
+    
+    if (status === 401) {
+      return 'Session expired. Please log in again.';
+    }
+    
+    if (status === 403) {
+      return 'Access denied.';
+    }
+    
+    // Return server's error message if available
+    if (detail) {
+      return detail;
+    }
+    
+    return `Request failed with status ${status}`;
+  }
+  
+  if (error instanceof Error) {
+    return error.message;
+  }
+  
+  return 'An unexpected error occurred. Please try again.';
 }
 
-// --- Monitoring API ---
-export async function fetchProviderHealth(): Promise<ProviderHealth[]> {
-  await delay(300);
-  return mockProviderHealth;
-}
-
-export async function fetchFailoverEvents(): Promise<FailoverEvent[]> {
-  await delay(300);
-  return mockFailoverEvents;
-}
-
-export async function fetchColdStartStatus(): Promise<ColdStartStatus[]> {
-  await delay(200);
-  return mockColdStartStatus;
-}
-
-export async function fetchQualityMetrics(): Promise<QualityMetrics> {
-  await delay(200);
-  return mockQualityMetrics;
-}
-
-export async function fetchPerformanceMetrics(): Promise<PerformanceMetrics> {
-  await delay(300);
-  return mockPerformanceMetrics;
-}
-
-export async function fetchMonitoringAlerts(): Promise<MonitoringAlert[]> {
-  await delay(200);
-  return mockMonitoringAlerts;
-}
-
-export async function acknowledgeAlert(alertId: string): Promise<void> {
-  await delay(200);
-  const alert = mockMonitoringAlerts.find(a => a.id === alertId);
-  if (alert) alert.acknowledged = true;
-}
-
-export async function triggerWarmup(tenantId: string): Promise<void> {
-  await delay(500);
-  const tenant = mockColdStartStatus.find(t => t.tenantId === tenantId);
-  if (tenant) {
-    tenant.warmupState = 'warming';
-    tenant.warmupProgress = 10;
+/**
+ * Generic GET request with safe parsing.
+ */
+export async function get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+  try {
+    const response = await apiClient.get<T>(url, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
   }
 }
 
-// --- Channels API ---
-export async function fetchEmailChannel(): Promise<EmailChannelConfig> {
-  await delay(200);
-  return mockEmailChannel;
-}
-
-export async function fetchSMSChannel(): Promise<SMSChannelConfig> {
-  await delay(200);
-  return mockSMSChannel;
-}
-
-export async function fetchChatWidgetConfig(): Promise<ChatWidgetConfig> {
-  await delay(200);
-  return mockChatWidget;
-}
-
-export async function fetchVoiceChannel(): Promise<VoiceChannelConfig> {
-  await delay(200);
-  return mockVoiceChannel;
-}
-
-// --- Billing API ---
-export async function fetchSubscription(): Promise<Subscription> {
-  await delay(200);
-  return mockSubscription;
-}
-
-export async function fetchUsageRecords(): Promise<UsageRecord[]> {
-  await delay(300);
-  return mockUsageRecords;
-}
-
-export async function fetchInvoices(): Promise<Invoice[]> {
-  await delay(200);
-  return mockInvoices;
-}
-
-export async function fetchPaymentMethods(): Promise<PaymentMethod[]> {
-  await delay(200);
-  return mockPaymentMethods;
-}
-
-// --- Knowledge Base API ---
-export async function fetchKnowledgeDocuments(): Promise<KnowledgeDocument[]> {
-  await delay(300);
-  return mockKnowledgeDocuments;
-}
-
-export async function fetchSearchMetrics(): Promise<SearchMetrics> {
-  await delay(200);
-  return mockSearchMetrics;
-}
-
-export async function uploadDocument(file: File): Promise<KnowledgeDocument> {
-  await delay(1000);
-  return {
-    id: `kd_${Date.now()}`,
-    name: file.name,
-    type: file.name.split('.').pop() as KnowledgeDocument['type'],
-    size: file.size,
-    chunkCount: 0,
-    lastIndexed: new Date().toISOString(),
-    status: 'indexing',
-    uploadDate: new Date().toISOString().split('T')[0],
-  };
-}
-
-export async function reindexDocument(docId: string): Promise<void> {
-  await delay(800);
-  const doc = mockKnowledgeDocuments.find(d => d.id === docId);
-  if (doc) {
-    doc.status = 'indexing';
-    setTimeout(() => { doc.status = 'indexed'; doc.lastIndexed = new Date().toISOString(); }, 2000);
+/**
+ * Generic POST request with safe parsing.
+ */
+export async function post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  try {
+    const response = await apiClient.post<T>(url, data, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
   }
 }
 
-// --- Jarvis Chat API ---
-export async function fetchChatMessages(sessionId: string): Promise<ChatMessage[]> {
-  await delay(200);
-  if (sessionId === 'cs_001' || !sessionId) return mockChatMessages;
-  return [];
+/**
+ * Generic PATCH request with safe parsing.
+ */
+export async function patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  try {
+    const response = await apiClient.patch<T>(url, data, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
 }
 
-export async function sendChatMessage(content: string, _variant: VariantType): Promise<ChatMessage> {
-  await delay(1500);
-  const responses = [
-    "I understand your concern. Let me look into this for you right away.",
-    "Thank you for reaching out. I've found the information you need.",
-    "I can definitely help with that. Here's what I recommend...",
-    "Let me check our system for the latest updates on your request.",
-    "I appreciate your patience. I've processed your request successfully.",
-  ];
-  return {
-    id: `cm_${Date.now()}`,
-    role: 'assistant',
-    content: responses[Math.floor(Math.random() * responses.length)],
-    timestamp: new Date().toISOString(),
-    variant: _variant,
-    technique: _variant === 'parwa_high' ? 'GST' : _variant === 'parwa' ? 'Chain of Thought' : 'CLARA',
-    confidence: 0.85 + Math.random() * 0.12,
-  };
+/**
+ * Generic DELETE request with safe parsing.
+ */
+export async function del<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+  try {
+    const response = await apiClient.delete<T>(url, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
 }
 
-export async function fetchChatSessions(): Promise<ChatSession[]> {
-  await delay(200);
-  return mockChatSessions;
-}
+// ── Onboarding API Endpoints ───────────────────────────────────────────
 
-// --- Settings API ---
-export async function fetchAPIKeys(): Promise<APIKey[]> {
-  await delay(200);
-  return mockAPIKeys;
-}
+export const onboardingApi = {
+  /**
+   * Get current onboarding state.
+   */
+  getState: () => get<OnboardingState>('/api/onboarding/state'),
+  
+  /**
+   * Start onboarding wizard.
+   */
+  start: () => post<OnboardingState>('/api/onboarding/start'),
+  
+  /**
+   * Complete a step.
+   */
+  completeStep: (step: number) => post<OnboardingState>(`/api/onboarding/step/${step}`),
+  
+  /**
+   * Submit legal consents.
+   */
+  submitLegal: (consents: { terms: boolean; privacy: boolean; ai_data: boolean }) => 
+    post<OnboardingState>('/api/onboarding/legal', consents),
+  
+  /**
+   * Activate AI assistant.
+   */
+  activateAI: (config?: { ai_name?: string; ai_tone?: string; ai_response_style?: string }) => 
+    post<OnboardingState>('/api/onboarding/activate', config),
+  
+  /**
+   * Get first victory status.
+   */
+  getVictory: () => get('/api/onboarding/first-victory'),
+  
+  /**
+   * Mark first victory complete.
+   */
+  completeVictory: () => post('/api/onboarding/first-victory'),
+};
 
-export async function createAPIKey(name: string, scope: string[]): Promise<APIKey> {
-  await delay(400);
-  return {
-    id: `ak_${Date.now()}`,
-    name,
-    key: `pk_live_${Math.random().toString(36).substr(2, 24)}`,
-    scope,
-    createdAt: new Date().toISOString(),
-    status: 'active',
-  };
-}
+// ── User Details API Endpoints ────────────────────────────────────────
 
-export async function revokeAPIKey(keyId: string): Promise<void> {
-  await delay(200);
-  const key = mockAPIKeys.find(k => k.id === keyId);
-  if (key) key.status = 'revoked';
-}
+export const userDetailsApi = {
+  /**
+   * Get current user details.
+   */
+  get: () => get<UserDetails>('/api/user/details'),
+  
+  /**
+   * Create user details.
+   */
+  create: (data: {
+    full_name: string;
+    company_name: string;
+    work_email?: string;
+    industry: string;
+    company_size?: string;
+    website?: string;
+  }) => post<UserDetails>('/api/user/details', data),
+  
+  /**
+   * Update user details.
+   */
+  update: (data: Partial<{
+    full_name: string;
+    company_name: string;
+    work_email: string;
+    industry: string;
+    company_size: string;
+    website: string;
+  }>) => patch<UserDetails>('/api/user/details', data),
+  
+  /**
+   * Send work email verification.
+   */
+  sendVerification: (work_email: string) => 
+    post('/api/user/verify-work-email', { work_email }),
+  
+  /**
+   * Confirm work email verification.
+   */
+  confirmVerification: (token: string) => 
+    post('/api/user/verify-work-email/confirm', { token }),
+};
 
-export async function fetchIntegrations(): Promise<Integration[]> {
-  await delay(200);
-  return mockIntegrations;
-}
+// ── Integration API Endpoints ──────────────────────────────────────────
 
-export async function fetchNotificationPreferences(): Promise<NotificationPreference[]> {
-  await delay(200);
-  return mockNotificationPreferences;
-}
+export const integrationsApi = {
+  /**
+   * Get available integrations.
+   */
+  getAvailable: () => get('/api/integrations/available'),
+  
+  /**
+   * Get user's integrations.
+   */
+  list: () => get('/api/integrations'),
+  
+  /**
+   * Create integration.
+   */
+  create: (data: { type: string; name: string; config: Record<string, unknown> }) => 
+    post('/api/integrations', data),
+  
+  /**
+   * Test integration connection.
+   */
+  test: (id: string) => post(`/api/integrations/${id}/test`),
+  
+  /**
+   * Delete integration.
+   */
+  delete: (id: string) => del(`/api/integrations/${id}`),
+};
 
-export async function updateNotificationPreferences(_prefs: NotificationPreference[]): Promise<void> {
-  await delay(300);
-}
+// ── Knowledge Base API Endpoints ───────────────────────────────────────
 
-export async function fetchCompanySettings(): Promise<CompanySettings> {
-  await delay(200);
-  return mockCompanySettings;
-}
+export const knowledgeApi = {
+  /**
+   * Upload document.
+   */
+  upload: async (file: File, onProgress?: (progress: number) => void) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await apiClient.post('/api/knowledge/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(progress);
+        }
+      },
+    });
+    
+    return response.data;
+  },
+  
+  /**
+   * List documents.
+   */
+  list: () => get('/api/knowledge'),
+  
+  /**
+   * Get document status.
+   */
+  getStatus: (id: string) => get(`/api/knowledge/${id}/status`),
+  
+  /**
+   * Delete document.
+   */
+  delete: (id: string) => del(`/api/knowledge/${id}`),
+};
 
-export async function updateCompanySettings(_settings: Partial<CompanySettings>): Promise<void> {
-  await delay(400);
-}
+// ── Auth API Endpoints ──────────────────────────────────────────────────
 
-export async function fetchUserProfile(): Promise<User> {
-  await delay(200);
-  return mockUser;
-}
+export const authApi = {
+  /**
+   * Register a new user.
+   */
+  register: (data: RegisterRequest) => post<AuthResponse>('/api/auth/register', data),
+  
+  /**
+   * Login with email and password.
+   */
+  login: (data: LoginRequest) => post<AuthResponse>('/api/auth/login', data),
+  
+  /**
+   * Login with Google OAuth.
+   */
+  googleAuth: (data: GoogleAuthRequest) => post<AuthResponse>('/api/auth/google', data),
+  
+  /**
+   * Logout user.
+   */
+  logout: (data: RefreshRequest) => post<MessageResponse>('/api/auth/logout', data),
+  
+  /**
+   * Refresh tokens.
+   */
+  refresh: (data: RefreshRequest) => post<TokenResponse>('/api/auth/refresh', data),
+  
+  /**
+   * Get current user profile.
+   */
+  getMe: () => get<User>('/api/auth/me'),
+  
+  /**
+   * Check email availability.
+   */
+  checkEmail: (email: string) => get<EmailCheckResponse>(`/api/auth/check-email?email=${encodeURIComponent(email)}`),
+  
+  /**
+   * Verify email with token.
+   */
+  verifyEmail: (token: string) => get<MessageResponse>(`/api/auth/verify?token=${encodeURIComponent(token)}`),
+  
+  /**
+   * Resend verification email.
+   */
+  resendVerification: (email: string) => post<MessageResponse>('/api/auth/resend-verification', { email }),
+  
+  /**
+   * Request password reset.
+   */
+  forgotPassword: (email: string) => post<MessageResponse>('/api/auth/forgot-password', { email }),
+  
+  /**
+   * Reset password with token.
+   */
+  resetPassword: (token: string, new_password: string) => 
+    post<MessageResponse>('/api/auth/reset-password', { token, new_password }),
+};
 
-export async function updateUserProfile(_data: Partial<User>): Promise<User> {
-  await delay(400);
-  return { ...mockUser, ..._data };
-}
-
-export async function changePassword(_currentPassword: string, _newPassword: string): Promise<void> {
-  await delay(500);
-}
-
-export async function enableMFA(): Promise<{ secret: string; qrCode: string }> {
-  await delay(500);
-  return { secret: 'JBSWY3DPEHPK3PXP', qrCode: 'otpauth://totp/Parwa:admin@parwa.ai?secret=JBSWY3DPEHPK3PXP' };
-}
+export default apiClient;

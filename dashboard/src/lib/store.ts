@@ -1,174 +1,105 @@
-// ============================================================
-// Parwa Variant Engine Dashboard - Zustand Store
-// ============================================================
-
 import { create } from 'zustand';
-import type { PageId, User, VariantType, TicketStatus, ChannelType } from './types';
+
+export type Page =
+  | 'landing'
+  | 'login'
+  | 'signup'
+  | 'forgot-password'
+  | 'onboarding'
+  | 'roi-calculator'
+  | 'models'
+  | 'dashboard'
+  | 'dashboard-agents'
+  | 'dashboard-tickets'
+  | 'dashboard-channels'
+  | 'dashboard-monitoring'
+  | 'dashboard-billing'
+  | 'dashboard-knowledge'
+  | 'dashboard-settings'
+  | 'dashboard-variants'
+  | 'jarvis'
+  | 'profile';
 
 interface AppState {
-  // Navigation
-  currentPage: PageId;
-  setCurrentPage: (page: PageId) => void;
-
-  // Auth
-  user: User | null;
+  currentPage: Page;
+  previousPage: Page | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string, company: string) => Promise<void>;
-  logout: () => void;
-  loginWithGoogle: () => Promise<void>;
-
-  // Sidebar
   sidebarOpen: boolean;
-  setSidebarOpen: (open: boolean) => void;
+  user: {
+    email?: string;
+    full_name?: string;
+    company_name?: string;
+    role?: string;
+  } | null;
+  navigate: (page: Page) => void;
+  goBack: () => void;
+  setAuth: (auth: boolean, user?: AppState['user']) => void;
   toggleSidebar: () => void;
-
-  // Ticket Filters
-  ticketFilters: {
-    status: TicketStatus | 'all';
-    variant: VariantType | 'all';
-    channel: ChannelType | 'all';
-    priority: string | 'all';
-    search: string;
-  };
-  setTicketFilter: (key: string, value: string) => void;
-  resetTicketFilters: () => void;
-
-  // Selected Ticket
-  selectedTicketId: string | null;
-  setSelectedTicketId: (id: string | null) => void;
-
-  // Chat State
-  chatSessionId: string | null;
-  chatVariant: VariantType;
-  setChatVariant: (v: VariantType) => void;
-  startNewChat: () => void;
-
-  // Settings Tab
-  settingsTab: string;
-  setSettingsTab: (tab: string) => void;
-
-  // Variant Tab
-  variantTab: string;
-  setVariantTab: (tab: string) => void;
-
-  // Monitoring Tab
-  monitoringTab: string;
-  setMonitoringTab: (tab: string) => void;
-
-  // Channel Tab
-  channelTab: string;
-  setChannelTab: (tab: string) => void;
-
-  // Billing Tab
-  billingTab: string;
-  setBillingTab: (tab: string) => void;
+  setSidebarOpen: (open: boolean) => void;
 }
 
-const defaultTicketFilters = {
-  status: 'all' as const,
-  variant: 'all' as const,
-  channel: 'all' as const,
-  priority: 'all' as const,
-  search: '',
-};
-
 export const useAppStore = create<AppState>((set, get) => ({
-  // Navigation
-  currentPage: 'auth',
-  setCurrentPage: (page) => set({ currentPage: page }),
-
-  // Auth
-  user: null,
+  currentPage: 'landing',
+  previousPage: null,
   isAuthenticated: false,
-  isLoading: false,
-  login: async (email: string, _password: string) => {
-    set({ isLoading: true });
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 800));
-    const mockUser: User = {
-      id: 'usr_001',
-      email,
-      name: 'Sarah Chen',
-      role: 'admin',
-      companyId: 'comp_001',
-      companyName: 'Parwa Corp',
-      mfaEnabled: true,
-      createdAt: '2024-01-15T10:00:00Z',
-    };
-    set({ user: mockUser, isAuthenticated: true, isLoading: false, currentPage: 'dashboard' });
-  },
-  signup: async (name: string, email: string, _password: string, company: string) => {
-    set({ isLoading: true });
-    await new Promise(resolve => setTimeout(resolve, 800));
-    const mockUser: User = {
-      id: 'usr_002',
-      email,
-      name,
-      role: 'admin',
-      companyId: 'comp_002',
-      companyName: company,
-      mfaEnabled: false,
-      createdAt: new Date().toISOString(),
-    };
-    set({ user: mockUser, isAuthenticated: true, isLoading: false, currentPage: 'dashboard' });
-  },
-  logout: () => set({ user: null, isAuthenticated: false, currentPage: 'auth' }),
-  loginWithGoogle: async () => {
-    set({ isLoading: true });
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const mockUser: User = {
-      id: 'usr_003',
-      email: 'sarah.chen@gmail.com',
-      name: 'Sarah Chen',
-      role: 'admin',
-      companyId: 'comp_001',
-      companyName: 'Parwa Corp',
-      mfaEnabled: true,
-      createdAt: '2024-01-15T10:00:00Z',
-    };
-    set({ user: mockUser, isAuthenticated: true, isLoading: false, currentPage: 'dashboard' });
-  },
-
-  // Sidebar
   sidebarOpen: true,
-  setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  user: null,
+  navigate: (page: Page) => {
+    const { currentPage } = get();
+    set({ currentPage: page, previousPage: currentPage });
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  },
+  goBack: () => {
+    const { previousPage } = get();
+    if (previousPage) {
+      set({ currentPage: previousPage, previousPage: null });
+    }
+  },
+  setAuth: (auth: boolean, user?: AppState['user']) => {
+    set({ isAuthenticated: auth, user: user ?? null });
+    if (auth) {
+      set({ currentPage: 'dashboard' });
+    } else {
+      set({ currentPage: 'landing' });
+    }
+  },
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
-
-  // Ticket Filters
-  ticketFilters: { ...defaultTicketFilters },
-  setTicketFilter: (key, value) =>
-    set((s) => ({ ticketFilters: { ...s.ticketFilters, [key]: value } })),
-  resetTicketFilters: () => set({ ticketFilters: { ...defaultTicketFilters } }),
-
-  // Selected Ticket
-  selectedTicketId: null,
-  setSelectedTicketId: (id) => set({ selectedTicketId: id }),
-
-  // Chat State
-  chatSessionId: null,
-  chatVariant: 'parwa',
-  setChatVariant: (v) => set({ chatVariant: v }),
-  startNewChat: () => set({ chatSessionId: `cs_${Date.now()}`, }),
-
-  // Settings Tab
-  settingsTab: 'profile',
-  setSettingsTab: (tab) => set({ settingsTab: tab }),
-
-  // Variant Tab
-  variantTab: 'instances',
-  setVariantTab: (tab) => set({ variantTab: tab }),
-
-  // Monitoring Tab
-  monitoringTab: 'router',
-  setMonitoringTab: (tab) => set({ monitoringTab: tab }),
-
-  // Channel Tab
-  channelTab: 'chat',
-  setChannelTab: (tab) => set({ channelTab: tab }),
-
-  // Billing Tab
-  billingTab: 'subscription',
-  setBillingTab: (tab) => set({ billingTab: tab }),
+  setSidebarOpen: (open: boolean) => set({ sidebarOpen: open }),
 }));
+
+// Expose store on window for debugging/testing (client-only)
+if (typeof window !== 'undefined') {
+  (window as unknown as Record<string, unknown>).__PARWA_STORE__ = useAppStore;
+}
+
+// Helper: check if current page is a dashboard sub-page
+export function isDashboardPage(page: Page): boolean {
+  return page === 'dashboard' || page.startsWith('dashboard-');
+}
+
+// Helper: get the display title for a page
+export function getPageTitle(page: Page): string {
+  const titles: Record<Page, string> = {
+    landing: 'PARWA - AI Customer Support',
+    login: 'Sign In',
+    signup: 'Create Account',
+    'forgot-password': 'Reset Password',
+    onboarding: 'Get Started',
+    'roi-calculator': 'ROI Calculator',
+    models: 'AI Workforce Plans',
+    dashboard: 'Dashboard',
+    'dashboard-agents': 'AI Agents',
+    'dashboard-tickets': 'Tickets',
+    'dashboard-channels': 'Channels',
+    'dashboard-monitoring': 'Monitoring',
+    'dashboard-billing': 'Billing',
+    'dashboard-knowledge': 'Knowledge Base',
+    'dashboard-settings': 'Settings',
+    'dashboard-variants': 'AI Variants',
+    jarvis: 'Jarvis AI',
+    profile: 'Profile',
+  };
+  return titles[page] || 'PARWA';
+}
