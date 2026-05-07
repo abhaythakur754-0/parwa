@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server';
 import { runPipeline, buildPipelinePrompt, postProcessResponse } from '@/lib/ai-pipeline';
+import { sendTicketNotification } from '@/lib/notifications';
 
 interface SolveRequest {
   ticketId: string;
+  ticketNumber?: string;
   customerMessage: string;
   variant: 'light' | 'medium' | 'heavy';
   category: string;
   priority: string;
-  channel: string;
+  channel: 'email' | 'sms' | 'voice' | 'chat';
   customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  subject?: string;
   conversationHistory: Array<{ role: string; content: string; sender: string }>;
 }
 
@@ -84,7 +89,7 @@ async function callLLM(messages: Array<{ role: string; content: string }>, tempe
 export async function POST(request: Request) {
   try {
     const body: SolveRequest = await request.json();
-    const { customerMessage, variant, category, priority, channel, customerName, conversationHistory = [] } = body;
+    const { ticketId, ticketNumber, customerMessage, variant, category, priority, channel, customerName, customerEmail, customerPhone, subject, conversationHistory = [] } = body;
 
     if (!customerMessage || !variant) {
       return NextResponse.json({ detail: 'customerMessage and variant are required' }, { status: 400 });
@@ -148,6 +153,24 @@ export async function POST(request: Request) {
 
     // Step 7: Post-process
     const postProcess = postProcessResponse(aiResponse, pipeline.signals, pipeline.knowledge);
+
+    // Step 8: Send real notification (email/SMS) to customer — fire & forget
+    if (customerEmail || customerPhone) {
+      sendTicketNotification({
+        ticketNumber: ticketNumber || ticketId,
+        customerName,
+        customerEmail: customerEmail || '',
+        customerPhone,
+        channel,
+        subject: subject || customerMessage.slice(0, 100),
+        status: pipeline.escalation.triggered ? 'escalated' : 'in_progress',
+        aiResponse,
+      }).then((notifResult) => {
+        console.log('[TicketSolve] Notification sent:', JSON.stringify(notifResult));
+      }).catch((err) => {
+        console.error('[TicketSolve] Notification failed:', err?.message);
+      });
+    }
 
     return NextResponse.json({
       response: aiResponse,

@@ -624,12 +624,15 @@ function TicketDetailPanel({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ticketId,
+          ticketNumber: currentTicket.ticket_number,
           customerMessage: customerText,
           variant,
           category: currentTicket.category,
           priority: currentTicket.priority,
           channel: currentTicket.channel,
           customerName: currentTicket.customer_name,
+          customerEmail: currentTicket.customer_email,
+          subject: currentTicket.subject,
           conversationHistory: currentTicket.messages.map(m => ({ role: m.sender === 'customer' ? 'user' : 'assistant', content: m.content, sender: m.sender })),
         }),
       });
