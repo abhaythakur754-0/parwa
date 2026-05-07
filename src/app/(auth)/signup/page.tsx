@@ -17,10 +17,14 @@ export default function SignupPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [alreadyLoggedIn, setAlreadyLoggedIn] = useState(false);
-  const { hydrate } = useAuth();
+  const { hydrate, isAuthenticated } = useAuth();
 
-  // Check if already logged in via localStorage
+  // Check if already logged in via context or localStorage
   useEffect(() => {
+    if (isAuthenticated) {
+      setAlreadyLoggedIn(true);
+      return;
+    }
     try {
       const storedUser = localStorage.getItem('parwa_user');
       if (storedUser) {
@@ -34,7 +38,7 @@ export default function SignupPage() {
       // ignore parse errors
     }
     setIsChecking(false);
-  }, []);
+  }, [isAuthenticated]);
 
   const handleSignup = async (data: SignupFormData) => {
     setError(null);
@@ -59,10 +63,30 @@ export default function SignupPage() {
         throw new Error(result.message || 'Registration failed. Please try again.');
       }
 
-      toast.success('Account created successfully! Redirecting to login...');
+      toast.success('Account created successfully!');
 
-      // Redirect to login page
-      router.push('/login');
+      // Store tokens + user in localStorage
+      if (result.access_token) {
+        localStorage.setItem('parwa_access_token', result.access_token);
+      }
+      if (result.refresh_token) {
+        localStorage.setItem('parwa_refresh_token', result.refresh_token);
+      }
+      if (result.user) {
+        const user = {
+          id: result.user.id,
+          email: result.user.email,
+          full_name: result.user.fullName,
+          is_verified: result.user.isVerified,
+        };
+        localStorage.setItem('parwa_user', JSON.stringify(user));
+      }
+
+      // Sync AuthContext state from localStorage
+      hydrate();
+
+      // Redirect to dashboard
+      router.push('/models');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Registration failed. Please try again.';
       setError(message);
@@ -90,9 +114,14 @@ export default function SignupPage() {
         throw new Error(result.message || 'Google sign-in failed. Please try again.');
       }
 
-      // Store user in localStorage and sync AuthContext
       if (result.user) {
         localStorage.setItem('parwa_user', JSON.stringify(result.user));
+      }
+      if (result.access_token) {
+        localStorage.setItem('parwa_access_token', result.access_token);
+      }
+      if (result.refresh_token) {
+        localStorage.setItem('parwa_refresh_token', result.refresh_token);
       }
       hydrate();
       toast.success(result.is_new_user ? 'Account created with Google!' : 'Signed in with Google!');

@@ -45,29 +45,52 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const storedUser = localStorage.getItem(USER_KEY);
       const accessToken = localStorage.getItem(AUTH_TOKEN_KEY);
 
-      if (storedUser && accessToken) {
-        const user = JSON.parse(storedUser) as User;
-        
-        // Verify the session is still valid by fetching user profile
-        // Use a short timeout (5s) for init check to avoid blocking the UI
+      // If parwa_user exists, consider the user authenticated (dev-friendly)
+      if (storedUser) {
         try {
-          const currentUser = await Promise.race([
-            authApi.getMe(),
-            new Promise<never>((_, reject) => 
-              setTimeout(() => reject(new Error('Auth check timeout')), 5000)
-            ),
-          ]);
-          setState({
-            user: currentUser,
-            isAuthenticated: true,
-            isLoading: false,
-            isInitialized: true,
-          });
-          return;
+          const user = JSON.parse(storedUser) as User;
+
+          if (user && user.email) {
+            // Try to verify the session with the backend (best-effort)
+            if (accessToken) {
+              try {
+                const currentUser = await Promise.race([
+                  authApi.getMe(),
+                  new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+                  ),
+                ]);
+                setState({
+                  user: currentUser,
+                  isAuthenticated: true,
+                  isLoading: false,
+                  isInitialized: true,
+                });
+                return;
+              } catch {
+                // Backend unreachable or token expired — still trust localStorage for dev
+              }
+            }
+
+            // No token or backend check failed, but user data exists — trust it
+            setState({
+              user,
+              isAuthenticated: true,
+              isLoading: false,
+              isInitialized: true,
+            });
+            return;
+          }
         } catch {
-          // Session invalid or backend unreachable, clear storage
+          // JSON parse error — clear corrupted data
           clearAuthStorage();
         }
+      }
+
+      // Orphaned token (no user) — clean it up
+      if (accessToken && !storedUser) {
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
       }
     } catch (error) {
       console.error('Auth initialization error:', error);

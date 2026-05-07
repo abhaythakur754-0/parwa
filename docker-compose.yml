@@ -53,8 +53,13 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-parwa}:${POSTGRES_PASSWORD:-parwa_dev}@db:5432/${POSTGRES_DB:-parwa_db}
       - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
       - PYTHONPATH=/app:/app/backend
       - ENVIRONMENT=development
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-jwt-secret-key-change-in-production}
+      - DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY:-devkey_devkey_devkey_devkey_abcd}
       - STATE_SERIALIZATION_PATH=/app/state_data
       - STATE_SERIALIZATION_ENABLED=true
     env_file:
@@ -62,6 +67,7 @@ services:
     volumes:
       - ./backend:/app/backend
       - ./shared:/app/shared
+      - ./database:/app/database
       - state_data:/app/state_data
     depends_on:
       db:
@@ -87,8 +93,13 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-parwa}:${POSTGRES_PASSWORD:-parwa_dev}@db:5432/${POSTGRES_DB:-parwa_db}
       - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
       - PYTHONPATH=/app:/app/backend
       - ENVIRONMENT=development
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-jwt-secret-key-change-in-production}
+      - DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY:-devkey_devkey_devkey_devkey_abcd}
       - STATE_SERIALIZATION_PATH=/app/state_data
       - STATE_SERIALIZATION_ENABLED=true
     env_file:
@@ -96,6 +107,7 @@ services:
     volumes:
       - ./backend:/app/backend
       - ./shared:/app/shared
+      - ./database:/app/database
       - state_data:/app/state_data
     depends_on:
       db:
@@ -104,27 +116,31 @@ services:
         condition: service_healthy
 
   # ──────────────────────────────────────────────
-  # Frontend — Next.js 16 (root-level src/)
+  # Frontend — Next.js 16 (dev mode)
   # ──────────────────────────────────────────────
   frontend:
     build:
       context: .
       dockerfile: infra/docker/frontend.Dockerfile
+      target: dev
     container_name: parwa_frontend
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
-      - NEXT_PUBLIC_ENV=development
+      - SERVER_API_URL=http://backend:8000
       - NODE_ENV=development
     env_file:
       - .env
     volumes:
       - ./src:/app/src
-      - /app/node_modules
-      - /app/.next
-    command: npm run dev
+      - ./public:/app/public
+      - ./next.config.mjs:/app/next.config.mjs
+      - ./tailwind.config.mts:/app/tailwind.config.mts
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./components.json:/app/components.json
+      - ./postcss.config.mjs:/app/postcss.config.mjs
     depends_on:
       - backend
 

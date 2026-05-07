@@ -45,7 +45,7 @@ function LoginContent() {
       if (data.status !== 'success') {
         throw new Error(data.message || 'Login failed. Please try again.');
       }
-      // Store minimal auth state in context
+      // Store auth state (tokens + user) in localStorage
       const user = {
         id: data.user.id,
         email: data.user.email,
@@ -53,6 +53,8 @@ function LoginContent() {
         is_verified: data.user.isVerified,
       };
       if (typeof window !== 'undefined') {
+        localStorage.setItem('parwa_access_token', data.access_token);
+        localStorage.setItem('parwa_refresh_token', data.refresh_token);
         localStorage.setItem('parwa_user', JSON.stringify(user));
       }
       // Sync AuthContext state from localStorage
@@ -84,6 +86,12 @@ function LoginContent() {
       }
       if (result.user) {
         localStorage.setItem('parwa_user', JSON.stringify(result.user));
+      }
+      if (result.access_token) {
+        localStorage.setItem('parwa_access_token', result.access_token);
+      }
+      if (result.refresh_token) {
+        localStorage.setItem('parwa_refresh_token', result.refresh_token);
       }
       // Sync AuthContext state from localStorage
       hydrate();

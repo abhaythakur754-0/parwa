@@ -42,7 +42,7 @@ LABEL description="PARWA Background Worker - Production"
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/app \
+    PYTHONPATH=/app:/app/backend \
     PATH="/opt/venv/bin:$PATH"
 
 # Install only runtime dependencies (minimal)

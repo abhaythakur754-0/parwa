@@ -9,6 +9,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import DashboardSidebar from './DashboardSidebar';
 import toast from 'react-hot-toast';
@@ -18,10 +19,36 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { logout } = useAuth();
+  const router = useRouter();
+  const { logout, isAuthenticated, isInitialized, isLoading } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // ── Auth Guard ───────────────────────────────────────────────────────
+  // Redirect to /login if not authenticated (after initialization completes)
+  useEffect(() => {
+    if (isInitialized && !isLoading && !isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [isInitialized, isLoading, isAuthenticated, router]);
+
+  // Show loading state while auth is initializing
+  if (!isInitialized || isLoading) {
+    return (
+      <div className="min-h-screen bg-[#1A1A1A] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-zinc-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render dashboard content if not authenticated
+  if (!isAuthenticated) {
+    return null;
+  }
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1024);

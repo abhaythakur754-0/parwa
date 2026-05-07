@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { db } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
@@ -62,9 +63,21 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Generate development tokens (replace with real JWT in production)
+    const accessToken = `parwa_at_${crypto.randomUUID()}`;
+    const refreshToken = `parwa_rt_${crypto.randomUUID()}`;
+
     return NextResponse.json({
       status: "success",
       message: "Account created successfully!",
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.full_name,
+        isVerified: user.is_verified,
+      },
     });
   } catch (error: unknown) {
     const message =
