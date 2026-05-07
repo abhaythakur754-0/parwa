@@ -294,6 +294,7 @@ function CreateTicketModal({
   const [channel, setChannel] = useState<TicketChannel>('email');
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -310,7 +311,6 @@ function CreateTicketModal({
     }
 
     setIsSubmitting(true);
-    // Simulate a brief delay
     await new Promise((r) => setTimeout(r, 300));
 
     const ticket = addTicket({
@@ -331,7 +331,28 @@ function CreateTicketModal({
       content: description.trim() || subject.trim(),
     });
 
-    toast.success(`Ticket ${ticket.ticket_number} created successfully`);
+    // Send real notification (email/SMS) to customer — fire & forget
+    fetch('/api/ticket-solve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ticketId: ticket.id,
+        ticketNumber: ticket.ticket_number,
+        customerMessage: description.trim() || subject.trim(),
+        variant: ticket.assigned_variant || 'light',
+        category,
+        priority,
+        channel,
+        customerName: customerName.trim(),
+        customerEmail: customerEmail.trim(),
+        customerPhone: customerPhone.trim() || undefined,
+        subject: subject.trim(),
+        conversationHistory: [],
+        skipAIResponse: true,
+      }),
+    }).catch(() => {});
+
+    toast.success(`Ticket ${ticket.ticket_number} created` + (channel === 'email' || channel === 'sms' ? ' — notification sent' : ''));
     resetForm();
     setIsSubmitting(false);
     onClose();
@@ -345,6 +366,7 @@ function CreateTicketModal({
     setChannel('email');
     setCustomerName('');
     setCustomerEmail('');
+    setCustomerPhone('');
   };
 
   if (!open) return null;
@@ -385,7 +407,7 @@ function CreateTicketModal({
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
             {/* Customer Info */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="text-[11px] text-zinc-400 mb-1 block">
                   Customer Name <span className="text-orange-400">*</span>
@@ -407,6 +429,18 @@ function CreateTicketModal({
                   value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
                   placeholder="john@example.com"
+                  className="w-full h-9 bg-[#0F0F0F] border border-white/[0.06] rounded-lg px-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-zinc-400 mb-1 block">
+                  Phone <span className="text-zinc-600">(for SMS)</span>
+                </label>
+                <input
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="+919652852014"
                   className="w-full h-9 bg-[#0F0F0F] border border-white/[0.06] rounded-lg px-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
                 />
               </div>
