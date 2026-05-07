@@ -39,8 +39,10 @@
   "exclude": [
     "node_modules",
     "frontend",
+    "dashboard",
     "parwa*",
     "backend",
-    "venv"
+    "venv",
+    "skills"
   ]
 }

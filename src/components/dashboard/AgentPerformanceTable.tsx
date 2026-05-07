@@ -18,10 +18,6 @@ interface AgentPerformanceTableProps {
   className?: string;
 }
 
-type ColumnSortable = {
-  enableSorting: true;
-};
-
 const columnHelper = createColumnHelper<AgentMetrics>();
 
 /** Format hours into human-readable string. */
@@ -108,6 +104,7 @@ export default function AgentPerformanceTable({
   const columns = useMemo(
     () => [
       columnHelper.accessor('agent_name', {
+        enableSorting: true,
         header: ({ column }) => (
           <button
             className="flex items-center gap-1.5 hover:text-zinc-200 transition-colors"
@@ -122,9 +119,10 @@ export default function AgentPerformanceTable({
             {getValue() || 'Unknown Agent'}
           </span>
         ),
-      } as ColumnSortable & ReturnType<typeof columnHelper.accessor<'agent_name'>>),
+      }),
 
       columnHelper.accessor('tickets_assigned', {
+        enableSorting: true,
         header: ({ column }) => (
           <button
             className="flex items-center gap-1.5 hover:text-zinc-200 transition-colors"
@@ -137,9 +135,10 @@ export default function AgentPerformanceTable({
         cell: ({ getValue }) => (
           <span className="text-sm text-zinc-400 tabular-nums">{getValue()}</span>
         ),
-      } as ColumnSortable & ReturnType<typeof columnHelper.accessor<'tickets_assigned'>>),
+      }),
 
       columnHelper.accessor('tickets_resolved', {
+        enableSorting: true,
         header: ({ column }) => (
           <button
             className="flex items-center gap-1.5 hover:text-zinc-200 transition-colors"
@@ -152,9 +151,10 @@ export default function AgentPerformanceTable({
         cell: ({ getValue }) => (
           <span className="text-sm text-zinc-400 tabular-nums">{getValue()}</span>
         ),
-      } as ColumnSortable & ReturnType<typeof columnHelper.accessor<'tickets_resolved'>>),
+      }),
 
       columnHelper.accessor('tickets_open', {
+        enableSorting: true,
         header: ({ column }) => (
           <button
             className="flex items-center gap-1.5 hover:text-zinc-200 transition-colors"
@@ -177,9 +177,10 @@ export default function AgentPerformanceTable({
             </span>
           );
         },
-      } as ColumnSortable & ReturnType<typeof columnHelper.accessor<'tickets_open'>>),
+      }),
 
       columnHelper.accessor('resolution_rate', {
+        enableSorting: true,
         header: ({ column }) => (
           <button
             className="flex items-center gap-1.5 hover:text-zinc-200 transition-colors"
@@ -190,9 +191,10 @@ export default function AgentPerformanceTable({
           </button>
         ),
         cell: ({ getValue }) => <ResolutionBar rate={getValue() as number} />,
-      } as ColumnSortable & ReturnType<typeof columnHelper.accessor<'resolution_rate'>>),
+      }),
 
       columnHelper.accessor('avg_resolution_time_hours', {
+        enableSorting: true,
         header: ({ column }) => (
           <button
             className="flex items-center gap-1.5 hover:text-zinc-200 transition-colors"
@@ -207,9 +209,10 @@ export default function AgentPerformanceTable({
             {getValue() != null ? formatResolutionTime(getValue() as number) : '—'}
           </span>
         ),
-      } as ColumnSortable & ReturnType<typeof columnHelper.accessor<'avg_resolution_time_hours'>>),
+      }),
 
       columnHelper.accessor('csat_avg', {
+        enableSorting: true,
         header: ({ column }) => (
           <button
             className="flex items-center gap-1.5 hover:text-zinc-200 transition-colors"
@@ -222,7 +225,7 @@ export default function AgentPerformanceTable({
         cell: ({ row }) => (
           <CSATBadge avg={row.original.csat_avg} count={row.original.csat_count} />
         ),
-      } as ColumnSortable & ReturnType<typeof columnHelper.accessor<'csat_avg'>>),
+      }),
     ],
     []
   );

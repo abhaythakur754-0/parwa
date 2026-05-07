@@ -1,25 +1,20 @@
 # ════════════════════════════════════════════════════════════════
 # PARWA — Frontend Dockerfile
-# Multi-stage build for Next.js frontend
-# Target: <500MB production image
+# Multi-stage build for Next.js 16 frontend
+# Context: project root (./)
 # ════════════════════════════════════════════════════════════════
-#
-# NOTE: docker-compose.yml sets context: ./frontend
-# So all COPY paths are relative to the frontend/ directory (no prefix)
 
 # ──────────────────────────────────────────────────────────────
 # Stage 1: Dependencies
 # ──────────────────────────────────────────────────────────────
 FROM node:20-alpine AS deps
 
-# Install dependencies for native modules and Prisma
 RUN apk add --no-cache libc6-compat openssl
 
 WORKDIR /app
 
-# Copy package files and Prisma schema for postinstall scripts
-COPY package.json package-lock.json* yarn.lock* bun.lock* ./
-COPY prisma ./prisma
+# Copy package files
+COPY package.json package-lock.json* bun.lock* ./
 
 # Install dependencies
 RUN npm ci --legacy-peer-deps 2>/dev/null || npm install --legacy-peer-deps
@@ -34,17 +29,21 @@ WORKDIR /app
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 
-# Copy frontend source (context is ./frontend)
-COPY . ./
+# Copy all source (context is project root)
+COPY src/ ./src/
+COPY public/ ./public/
+COPY next.config.mjs ./
+COPY tailwind.config.mts ./
+COPY tsconfig.json ./
+COPY components.json ./
+COPY postcss.config.mjs ./
 
 # Set environment variables for build
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
 # Build the Next.js application
-RUN npm run build 2>/dev/null || \
-    npx next build --no-lint 2>/dev/null || \
-    npm run build
+RUN npm run build
 
 # ──────────────────────────────────────────────────────────────
 # Stage 3: Runner (Production)
@@ -64,14 +63,9 @@ RUN addgroup --system --gid 1001 nodejs && \
 # Copy only necessary files for production
 COPY --from=builder /app/public ./public
 
-# Copy Next.js standalone files (if available)
+# Copy Next.js standalone files
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# If standalone not available, copy full .next directory
-RUN if [ ! -f "server.js" ]; then \
-    cp -r /app/.next ./.next 2>/dev/null || true; \
-    fi
 
 # Copy package.json for version info
 COPY --from=builder /app/package.json ./package.json
@@ -89,9 +83,9 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Health check — use shell form to allow fallback
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
-# Start the application — shell form allows fallback logic
+# Start the application
 CMD node server.js || npx next start

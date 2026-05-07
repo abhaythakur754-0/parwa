@@ -110,7 +110,7 @@
     "typescript": "^5"
   },
   "description": "",
-  "main": "jest.config.js",
+  
   "directories": {
     "doc": "docs",
     "test": "tests"
@@ -122,7 +122,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "bugs": {
     "url": "https://github.com/abhaythakur754-0/parwa/issues"
   },

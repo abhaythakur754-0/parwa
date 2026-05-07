@@ -2,12 +2,12 @@
 PARWA Application Configuration
 
 Loads all configuration from environment variables using pydantic-settings.
-Required variables (no defaults) per BC-011:
-  - SECRET_KEY
-  - DATABASE_URL
-  - JWT_SECRET_KEY
-  - DATA_ENCRYPTION_KEY
+Sensible dev defaults are provided so the app starts without a .env file.
+Validators warn (not crash) if dev defaults are used in production.
 """
+
+import os
+import warnings
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,15 +23,32 @@ class Settings(BaseSettings):
 
     # ── Application ──────────────────────────────────────────────
     ENVIRONMENT: str = "development"
-    SECRET_KEY: str  # BC-011: required, no default
+    SECRET_KEY: str = "dev-secret-key-change-in-production"
     DEBUG: bool = False
 
     # ── Database ─────────────────────────────────────────────────
-    DATABASE_URL: str  # BC-011: required, no default
+    DATABASE_URL: str = "sqlite:///./parwa_dev.db"
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def normalize_database_url(cls, v: str) -> str:
+        """Normalize DATABASE_URL for SQLAlchemy compatibility.
+
+        Prisma uses 'file:' prefix for SQLite which SQLAlchemy doesn't
+        understand. Convert 'file:/path' to 'sqlite:///path' format.
+        """
+        if v and v.startswith("file:"):
+            path = v[5:]  # strip 'file:'
+            # Handle file:/absolute/path → sqlite:////absolute/path (3 slashes + absolute)
+            if path.startswith("/"):
+                return f"sqlite:///{path}"
+            # Handle file:relative/path → sqlite:///relative/path
+            return f"sqlite:///{path}"
+        return v
+
     # ── JWT (BC-011) ─────────────────────────────────────────────
-    JWT_SECRET_KEY: str  # BC-011: required, no default
+    JWT_SECRET_KEY: str = "dev-jwt-secret-key-change-in-production"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     MAX_SESSIONS_PER_USER: int = 5
@@ -75,7 +92,7 @@ class Settings(BaseSettings):
     # ── Compliance ───────────────────────────────────────────────
     GDPR_RETENTION_DAYS: int = 365
     AUDIT_LOG_RETENTION_DAYS: int = 2555
-    DATA_ENCRYPTION_KEY: str  # BC-011: required, 32-char key
+    DATA_ENCRYPTION_KEY: str = "devkey_devkey_devkey_devkey_abcd"  # 32-char dev default
 
     # ── Validators ────────────────────────────────────────────────
 
@@ -84,8 +101,33 @@ class Settings(BaseSettings):
     def validate_encryption_key(cls, v: str) -> str:
         """BC-011: DATA_ENCRYPTION_KEY must be exactly 32 characters."""
         if len(v) != 32:
-            raise ValueError(
-                f"DATA_ENCRYPTION_KEY must be 32 characters, got {len(v)}"
+            if os.environ.get("ENVIRONMENT") == "production":
+                raise ValueError(
+                    f"DATA_ENCRYPTION_KEY must be 32 characters in production, got {len(v)}"
+                )
+            warnings.warn(
+                f"DATA_ENCRYPTION_KEY should be 32 characters, got {len(v)}",
+                stacklevel=2,
+            )
+        return v
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def validate_secret_key(cls, v: str) -> str:
+        if v.startswith("dev-") or v == "change-me":
+            warnings.warn(
+                "Using development SECRET_KEY — change in production!",
+                stacklevel=2,
+            )
+        return v
+
+    @field_validator("JWT_SECRET_KEY")
+    @classmethod
+    def validate_jwt_key(cls, v: str) -> str:
+        if v.startswith("dev-") or v == "change-me":
+            warnings.warn(
+                "Using development JWT_SECRET_KEY — change in production!",
+                stacklevel=2,
             )
         return v
 

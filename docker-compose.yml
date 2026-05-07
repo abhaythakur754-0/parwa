@@ -16,7 +16,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-#      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-parwa}"]
       interval: 10s
@@ -105,12 +104,12 @@ services:
         condition: service_healthy
 
   # ──────────────────────────────────────────────
-  # Frontend — Next.js
+  # Frontend — Next.js 16 (root-level src/)
   # ──────────────────────────────────────────────
   frontend:
     build:
-      context: ./frontend
-      dockerfile: ../infra/docker/frontend.Dockerfile
+      context: .
+      dockerfile: infra/docker/frontend.Dockerfile
     container_name: parwa_frontend
     restart: unless-stopped
     ports:
@@ -122,7 +121,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./frontend:/app
+      - ./src:/app/src
       - /app/node_modules
       - /app/.next
     command: npm run dev

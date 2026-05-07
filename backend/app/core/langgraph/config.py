@@ -400,9 +400,17 @@ def is_voice_enabled(variant_tier: str) -> bool:
     return channel_config["voice_enabled"]
 
 
+def is_video_enabled(variant_tier: str) -> bool:
+    """Check if video is enabled for a given tier.
+
+    Video has been removed per CEO decision (no ROI on video for support).
+    Always returns False. Kept as a stub for backward compatibility.
+    """
+    return False
+
+
 # NOTE: Video agent has been removed — customers don't use video for support.
 # If video is ever needed, integrate Zoom/Google Meet as a connector instead.
-# is_video_enabled() removed on 2026-05-05 (CEO decision: no ROI on video)
 
 
 def map_intent_to_agent(intent: str, variant_tier: str) -> str:

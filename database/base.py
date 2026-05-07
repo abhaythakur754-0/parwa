@@ -27,16 +27,25 @@ from sqlalchemy.pool import StaticPool
 def _get_db_url() -> str:
     env = os.environ.get("ENVIRONMENT", "")
     if env == "test":
-        return os.environ.get(
-            "DATABASE_URL", "sqlite:///:memory:"
-        )
-    try:
-        from backend.app.config import get_settings  # noqa: E402
-        settings = get_settings()
-        return settings.DATABASE_URL
-    except Exception:
-        # Must not crash at module import time (BC-011)
-        return os.environ.get("DATABASE_URL", "sqlite:///:memory:")
+        url = os.environ.get("DATABASE_URL", "sqlite:///:memory:")
+    else:
+        try:
+            from backend.app.config import get_settings  # noqa: E402
+            settings = get_settings()
+            url = settings.DATABASE_URL
+        except Exception:
+            # Must not crash at module import time (BC-011)
+            url = os.environ.get("DATABASE_URL", "sqlite:///:memory:")
+
+    # Normalize Prisma-style 'file:' URLs to SQLAlchemy 'sqlite:' format
+    if url and url.startswith("file:"):
+        path = url[5:]
+        if path.startswith("/"):
+            url = f"sqlite:///{path}"
+        else:
+            url = f"sqlite:///{path}"
+
+    return url
 
 
 _db_url = _get_db_url()

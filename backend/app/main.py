@@ -113,26 +113,42 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     configure_logging(settings.ENVIRONMENT)
 
-    # ── Run Alembic migrations on startup (Docker-safe) ──
+    # ── Run Alembic migrations on startup ──
     try:
         import subprocess
-        result = subprocess.run(
-            ["alembic", "-c", "/app/database/alembic.ini", "upgrade", "head"],
-            cwd="/app/database",
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        if result.returncode == 0:
-            logger = get_logger("lifespan")
-            logger.info("alembic_migrations_completed")
+        import pathlib
+        # Resolve database directory: Docker uses /app/database, local uses project root
+        _db_dir = os.environ.get("DATABASE_DIR", "")
+        if not _db_dir or not pathlib.Path(_db_dir).exists():
+            # Try common locations
+            for candidate in [
+                pathlib.Path("/app/database"),
+                pathlib.Path(__file__).resolve().parents[3] / "database",
+            ]:
+                if candidate.exists():
+                    _db_dir = str(candidate)
+                    break
+        if _db_dir:
+            result = subprocess.run(
+                ["alembic", "-c", f"{_db_dir}/alembic.ini", "upgrade", "head"],
+                cwd=_db_dir,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if result.returncode == 0:
+                logger = get_logger("lifespan")
+                logger.info("alembic_migrations_completed")
+            else:
+                logger = get_logger("lifespan")
+                logger.warning(
+                    "alembic_migrations_failed",
+                    returncode=result.returncode,
+                    stderr=result.stderr[:500] if result.stderr else "",
+                )
         else:
             logger = get_logger("lifespan")
-            logger.warning(
-                "alembic_migrations_failed",
-                returncode=result.returncode,
-                stderr=result.stderr[:500] if result.stderr else "",
-            )
+            logger.warning("alembic_skipped_database_dir_not_found")
     except Exception as exc:
         logger = get_logger("lifespan")
         logger.warning("alembic_migrations_error", error=str(exc))

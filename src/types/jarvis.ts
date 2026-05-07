@@ -49,6 +49,7 @@ export type EntrySource =
   | 'roi'
   | 'demo'
   | 'features'
+  | 'models'
   | 'referral'
   | 'ad'
   | 'organic'

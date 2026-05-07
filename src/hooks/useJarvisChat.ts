@@ -234,7 +234,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
             }
             // Bridge entry_source so the backend knows the user's journey origin
             if (bridgedContext.entry_source) {
-              contextPatch.entry_source = bridgedContext.entry_source as string;
+              contextPatch.entry_source = bridgedContext.entry_source as EntrySource;
             }
             // Push context to backend
             const hasPatch = Object.keys(contextPatch).length > 0;
@@ -264,7 +264,6 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
                 if (pricing.industry) contextPatch.industry = pricing.industry as string;
                 if (pricing.variants) contextPatch.selected_variants = pricing.variants as VariantSelection[];
                 if (pricing.totalMonthly) contextPatch.total_price = pricing.totalMonthly as number;
-                if (pricing.plan) contextPatch.selected_plan = pricing.plan as string;
                 const hasPatch = Object.keys(contextPatch).length > 0;
                 if (hasPatch) {
                   await apiFetch<JarvisSession>(
