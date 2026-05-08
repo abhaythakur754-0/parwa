@@ -18,13 +18,15 @@ All endpoints:
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
 
 from app.schemas.webhook import (
     WebhookResponse,
 )
 from app.services import webhook_service
+from app.api.deps import require_platform_admin
+from database.models.core import User
 
 logger = logging.getLogger("parwa.webhook_api")
 
@@ -118,21 +120,14 @@ def _verify_provider_signature(
     False if verification fails.
 
     SECURITY NOTE (BC-011):
-    - HMAC verification is skipped ONLY when ENVIRONMENT=test.
-    - In all other environments, verification is ENFORCED.
+    - HMAC verification is ALWAYS enforced in all environments.
+    - Tests that need to bypass it should mock this function.
     - Each provider has its own verification method:
         * Paddle: HMAC-SHA256 with PADDLE_WEBHOOK_SECRET
         * Shopify: HMAC-SHA256 with SHOPIFY_WEBHOOK_SECRET
         * Twilio: URL+params signed with TWILIO_AUTH_TOKEN
         * Brevo: IP allowlist verification
     """
-    import os
-
-    # Skip verification ONLY in test environment.
-    # SECURITY: In staging/production, this is always enforced.
-    if os.environ.get("ENVIRONMENT") == "test":
-        return True
-
     try:
         if provider == "paddle":
             from app.security.hmac_verification import (
@@ -438,7 +433,10 @@ async def receive_webhook(
 @router.get(
     "/status/{event_db_id}",
 )
-async def get_webhook_status(event_db_id: str):
+async def get_webhook_status(
+    event_db_id: str,
+    user: User = Depends(require_platform_admin),
+):
     """Check the processing status of a webhook event.
 
     Args:
@@ -469,7 +467,10 @@ async def get_webhook_status(event_db_id: str):
     "/retry/{event_db_id}",
     response_model=WebhookResponse,
 )
-async def retry_webhook(event_db_id: str):
+async def retry_webhook(
+    event_db_id: str,
+    user: User = Depends(require_platform_admin),
+):
     """Retry a failed webhook event.
 
     Resets the event to 'pending' and re-dispatches

@@ -39,6 +39,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import (
     require_roles,
     get_company_id,
+    get_company_id as get_jwt_company_id,
     get_current_user,
 )
 from app.api.schemas.workflow import (
@@ -73,7 +74,7 @@ from app.api.schemas.workflow import (
     WorkflowExecuteResponse,
     WorkflowStateResponse,
 )
-from app.exceptions import NotFoundError, ValidationError
+from app.exceptions import AuthorizationError, NotFoundError, ValidationError
 from database.base import get_db
 from database.models.core import User
 
@@ -882,6 +883,7 @@ def get_variant_metrics(
 )
 def get_capacity_status(
     company_id: str,
+    jwt_company_id: str = Depends(get_jwt_company_id),
     user: User = Depends(get_current_user),
 ) -> CapacityStatusResponse:
     """Get capacity status for a company.
@@ -889,6 +891,11 @@ def get_capacity_status(
     Returns current utilization per variant, queue sizes,
     active alerts, and auto-scaling suggestions.
     """
+    if company_id != jwt_company_id:
+        raise AuthorizationError(
+            message="Cannot access another company's data",
+            details={"path_company_id": company_id},
+        )
     try:
         from app.core.capacity_monitor import CapacityMonitor
 
@@ -956,6 +963,7 @@ def get_capacity_status(
 def configure_capacity(
     company_id: str,
     body: CapacityConfigureRequest,
+    jwt_company_id: str = Depends(get_jwt_company_id),
     user: User = Depends(require_roles("owner", "admin")),
 ) -> CapacityConfigureResponse:
     """Configure capacity limits for a company.
@@ -963,6 +971,11 @@ def configure_capacity(
     Sets custom max_concurrent limits for a specific variant.
     Raises ValidationError if limit would be exceeded by active slots.
     """
+    if company_id != jwt_company_id:
+        raise AuthorizationError(
+            message="Cannot access another company's data",
+            details={"path_company_id": company_id},
+        )
     try:
         from app.core.capacity_monitor import CapacityMonitor
 
@@ -1010,6 +1023,7 @@ def configure_capacity(
 )
 def get_tenant_config(
     company_id: str,
+    jwt_company_id: str = Depends(get_jwt_company_id),
     user: User = Depends(get_current_user),
 ) -> TenantConfigResponse:
     """Get tenant configuration.
@@ -1017,6 +1031,11 @@ def get_tenant_config(
     Returns the full merged configuration (variant defaults +
     per-company overrides) for all categories.
     """
+    if company_id != jwt_company_id:
+        raise AuthorizationError(
+            message="Cannot access another company's data",
+            details={"path_company_id": company_id},
+        )
     try:
         from app.core.per_tenant_config import TenantConfigManager
         from dataclasses import asdict
@@ -1060,6 +1079,7 @@ def update_tenant_config(
     company_id: str,
     category: str,
     body: TenantConfigUpdateRequest,
+    jwt_company_id: str = Depends(get_jwt_company_id),
     user: User = Depends(require_roles("owner", "admin")),
 ) -> TenantConfigUpdateResponse:
     """Update tenant configuration for a specific category.
@@ -1067,6 +1087,11 @@ def update_tenant_config(
     Categories: technique, compression, workflow, model.
     Only provided fields will be updated; others remain unchanged.
     """
+    if company_id != jwt_company_id:
+        raise AuthorizationError(
+            message="Cannot access another company's data",
+            details={"path_company_id": company_id},
+        )
     valid_categories = {"technique", "compression", "workflow", "model"}
 
     if category not in valid_categories:
@@ -1136,6 +1161,7 @@ def update_tenant_config(
 def get_gsd_transitions(
     company_id: str,
     ticket_id: str,
+    jwt_company_id: str = Depends(get_jwt_company_id),
     user: User = Depends(get_current_user),
 ) -> GSDTransitionsResponse:
     """Get GSD transition history for a ticket.
@@ -1143,6 +1169,11 @@ def get_gsd_transitions(
     Returns the ordered list of all GSD state transitions
     recorded during the conversation.
     """
+    if company_id != jwt_company_id:
+        raise AuthorizationError(
+            message="Cannot access another company's data",
+            details={"path_company_id": company_id},
+        )
     try:
         from app.core.state_serialization import StateSerializer
         from app.core.gsd_engine import GSDEngine

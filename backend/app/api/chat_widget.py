@@ -87,8 +87,23 @@ async def create_chat_session(request: Request):
             },
         )
 
+    # H-14: Validate company exists before creating session
+    db = _get_db(request)
+    from database.models.core import Company
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": {
+                    "code": "NOT_FOUND",
+                    "message": "Company not found",
+                    "details": None,
+                }
+            },
+        )
+
     try:
-        db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
         service = ChatWidgetService(db, company_id)
         result = service.create_session(company_id, body)
@@ -412,7 +427,16 @@ async def send_chat_message(request: Request, session_id: str):
                 )
             company_id = body.get("company_id")
         except Exception:
-            pass
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": {
+                        "code": "AUTHENTICATION_ERROR",
+                        "message": "Visitor token verification failed",
+                        "details": None,
+                    }
+                },
+            )
 
     if not company_id:
         return JSONResponse(
@@ -554,7 +578,16 @@ async def send_typing_indicator(request: Request, session_id: str):
                 return JSONResponse(status_code=401, content={"error": {"code": "AUTHENTICATION_ERROR", "message": "Invalid visitor token", "details": None}})
             company_id = body.get("company_id")
         except Exception:
-            pass
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": {
+                        "code": "AUTHENTICATION_ERROR",
+                        "message": "Visitor token verification failed",
+                        "details": None,
+                    }
+                },
+            )
 
     if not company_id:
         return JSONResponse(
@@ -677,7 +710,16 @@ async def submit_csat_rating(request: Request, session_id: str):
                 return JSONResponse(status_code=401, content={"error": {"code": "AUTHENTICATION_ERROR", "message": "Invalid visitor token", "details": None}})
             company_id = body.get("company_id")
         except Exception:
-            pass
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": {
+                        "code": "AUTHENTICATION_ERROR",
+                        "message": "Visitor token verification failed",
+                        "details": None,
+                    }
+                },
+            )
 
     if not company_id:
         return JSONResponse(

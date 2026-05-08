@@ -31,6 +31,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from app.api.deps import require_roles
+from database.models.core import User
+
 from app.schemas.billing import (
     SubscriptionCreate,
     SubscriptionUpdate,
@@ -332,6 +335,7 @@ async def cancel_subscription(
     data: SubscriptionCancel,
     company_id: UUID = Depends(get_company_id),
     user_id: Optional[UUID] = Depends(get_user_id),
+    user: User = Depends(require_roles("owner", "admin")),
 ) -> CancelResponse:
     """
     Cancel subscription.
@@ -385,6 +389,7 @@ async def cancel_subscription(
 async def reactivate_subscription(
     request: Request,
     company_id: UUID = Depends(get_company_id),
+    user: User = Depends(require_roles("owner", "admin")),
 ) -> SubscriptionInfo:
     """
     Reactivate a subscription pending cancellation.
@@ -865,6 +870,7 @@ async def create_client_refund(
     request: Request,
     data: ClientRefundCreate,
     company_id: UUID = Depends(get_company_id),
+    user: User = Depends(require_roles("owner", "admin")),
 ) -> ClientRefundResponse:
     """
     Create a client refund request.
@@ -909,6 +915,7 @@ async def process_client_refund(
     refund_id: str,
     data: ClientRefundProcessRequest,
     company_id: UUID = Depends(get_company_id),
+    user: User = Depends(require_roles("owner", "admin")),
 ) -> ClientRefundResponse:
     """
     Mark a refund as processed.

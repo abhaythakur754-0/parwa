@@ -16,6 +16,7 @@ import hashlib
 import hmac
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, Optional
@@ -23,12 +24,16 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from app.api.deps import require_platform_admin
 from app.config import get_settings
 from app.services.payment_failure_service import (
     get_payment_failure_service,
     PaymentFailureError,
 )
+from database.base import get_db
+from database.models.core import User, Company
 
 logger = logging.getLogger("parwa.api.billing_webhooks")
 
@@ -163,7 +168,14 @@ async def handle_paddle_webhook(
     signature = request.headers.get("paddle_signature", "")
     webhook_secret = getattr(settings, "PADDLE_WEBHOOK_SECRET", "")
 
-    if webhook_secret and not verify_paddle_signature(body, signature, webhook_secret):
+    # H-07: Reject webhooks when no secret is configured in non-dev environments
+    if not webhook_secret:
+        if os.environ.get("ENVIRONMENT", "development") != "development":
+            logger.error("paddle_webhook_no_secret_configured")
+            raise HTTPException(status_code=500, detail="Webhook not configured")
+        # In development, log warning but still accept
+        logger.warning("paddle_webhook_no_secret_configured_dev_mode")
+    elif not verify_paddle_signature(body, signature, webhook_secret):
         logger.warning(
             "paddle_webhook_invalid_signature signature=%s",
             signature[:20] + "..." if signature else "missing",
@@ -328,28 +340,28 @@ async def handle_payment_succeeded_webhook(
 
 
 @router.get("/billing/status/{company_id}", response_model=BillingStatusResponse)
-async def get_billing_status(company_id: str):
+async def get_billing_status(
+    company_id: str,
+    user: User = Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+):
     """
     Get billing status for a company.
 
+    C-11: Requires platform admin authentication.
     Returns subscription status and any active payment failures.
     """
-    from database.base import SessionLocal
-    from database.models.core import Company
-    from database.models.billing import Subscription
+    company = db.query(Company).filter(
+        Company.id == company_id
+    ).first()
 
-    with SessionLocal() as db:
-        company = db.query(Company).filter(
-            Company.id == company_id
-        ).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
 
-        if not company:
-            raise HTTPException(status_code=404, detail="Company not found")
-
-        service = get_payment_failure_service()
-        service_stopped = await service.is_service_stopped(UUID(company_id))
-        active_failure = await service.get_active_failure(UUID(company_id))
-        history = await service.get_payment_failure_history(UUID(company_id), limit=1)
+    service = get_payment_failure_service()
+    service_stopped = await service.is_service_stopped(UUID(company_id))
+    active_failure = await service.get_active_failure(UUID(company_id))
+    history = await service.get_payment_failure_history(UUID(company_id), limit=1)
 
     return BillingStatusResponse(
         company_id=company_id,

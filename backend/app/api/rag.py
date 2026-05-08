@@ -30,7 +30,7 @@ from app.api.deps import (
     get_current_user,
     require_roles,
 )
-from app.exceptions import NotFoundError, ValidationError
+from app.exceptions import AuthorizationError, NotFoundError, ValidationError
 from app.logger import get_logger
 from database.base import get_db
 from database.models.core import User
@@ -54,7 +54,6 @@ async def rag_search(
 
     Body:
       - query (required): Search query string
-      - company_id (required): Tenant identifier
       - variant_type (optional): mini_parwa | parwa | parwa_high (default: parwa)
       - top_k (optional): Maximum results (default: variant-specific)
       - filters (optional): Metadata filters dict
@@ -76,7 +75,7 @@ async def rag_search(
             details={"allowed": ["mini_parwa", "parwa", "parwa_high"]},
         )
 
-    target_company_id = body.get("company_id", company_id)
+    target_company_id = company_id
 
     retriever = RAGRetriever()
     result = await retriever.retrieve(
@@ -107,7 +106,6 @@ def add_document(
     Body:
       - document_id (required): Unique document identifier
       - chunks (required): List of dicts with 'content' and optional 'metadata'
-      - company_id (required): Tenant identifier
       - metadata (optional): Document-level metadata
     """
     from shared.knowledge_base.vector_search import get_vector_store
@@ -126,7 +124,7 @@ def add_document(
             details={"required": ["chunks"]},
         )
 
-    target_company_id = body.get("company_id", company_id)
+    target_company_id = company_id
     store = get_vector_store()
     success = store.add_document(
         document_id=document_id,
@@ -156,9 +154,16 @@ def add_document(
 def get_document(
     company_id: str,
     document_id: str,
+    jwt_company_id: str = Depends(get_company_id),
     user: User = Depends(get_current_user),
 ) -> dict:
     """Get a document with all its chunks from the knowledge base."""
+    if company_id != jwt_company_id:
+        raise AuthorizationError(
+            message="You do not have access to this company's resources",
+            details={"path_company_id": company_id, "token_company_id": jwt_company_id},
+        )
+
     from shared.knowledge_base.vector_search import get_vector_store
 
     store = get_vector_store()
@@ -177,9 +182,16 @@ def get_document(
 def delete_document(
     company_id: str,
     document_id: str,
+    jwt_company_id: str = Depends(get_company_id),
     user: User = Depends(require_roles("owner", "admin")),
 ) -> dict:
     """Delete a document from the knowledge base."""
+    if company_id != jwt_company_id:
+        raise AuthorizationError(
+            message="You do not have access to this company's resources",
+            details={"path_company_id": company_id, "token_company_id": jwt_company_id},
+        )
+
     from shared.knowledge_base.vector_search import get_vector_store
 
     store = get_vector_store()
@@ -214,13 +226,12 @@ async def trigger_reindex(
     """Trigger reindexing for specific documents.
 
     Body:
-      - company_id (required): Tenant identifier
       - document_ids (required): List of document IDs to reindex
     """
     from shared.knowledge_base.reindexing import ReindexingManager
 
     document_ids = body.get("document_ids")
-    target_company_id = body.get("company_id", company_id)
+    target_company_id = company_id
 
     if not isinstance(document_ids, list) or not document_ids:
         raise ValidationError(
@@ -244,9 +255,16 @@ async def trigger_reindex(
 @router.get("/reindex/status/{company_id}")
 def get_reindex_status(
     company_id: str,
+    jwt_company_id: str = Depends(get_company_id),
     user: User = Depends(get_current_user),
 ) -> dict:
     """Get reindex queue status for a company."""
+    if company_id != jwt_company_id:
+        raise AuthorizationError(
+            message="You do not have access to this company's resources",
+            details={"path_company_id": company_id, "token_company_id": jwt_company_id},
+        )
+
     from shared.knowledge_base.reindexing import ReindexingManager
 
     manager = ReindexingManager()

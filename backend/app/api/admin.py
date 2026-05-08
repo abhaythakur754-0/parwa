@@ -112,8 +112,10 @@ def list_clients(
     query = db.query(Company)
 
     if search:
+        # M-33 fix: escape ILIKE wildcards to prevent SQL injection
+        escaped_search = search.replace("%", r"\\%").replace("_", r"\\_")
         query = query.filter(
-            Company.name.ilike(f"%{search}%"),
+            Company.name.ilike(f"%{escaped_search}%", escape="\\"),
         )
 
     total = query.count()
