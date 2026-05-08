@@ -43,7 +43,7 @@ class FileUploadResponse(BaseModel):
     )
     content_type: str = Field(description="MIME type of the stored file.")
     size_bytes: int = Field(description="File size in bytes.")
-    checksum_md5: str = Field(description="MD5 checksum for integrity verification.")
+    checksum_sha256: str = Field(description="SHA-256 checksum for integrity verification.")
     uploaded_at: Optional[str] = Field(
         default=None,
         description="ISO-8601 upload timestamp.",
@@ -66,7 +66,7 @@ class FileMetadataResponse(BaseModel):
     file_name: str
     content_type: str
     size_bytes: int
-    checksum_md5: str
+    checksum_sha256: str
     uploaded_at: Optional[str] = None
     exists: bool = True
 

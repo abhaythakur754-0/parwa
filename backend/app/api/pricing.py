@@ -16,6 +16,7 @@ import hashlib
 import hmac
 import html
 import re
+import os
 import time
 from typing import List, Optional
 
@@ -658,8 +659,8 @@ class ValidateResponse(BaseModel):
     expires_at: int = Field(..., description="Token expiration timestamp (epoch)")
 
 
-# Simple signing key (in production, use proper secret management)
-PRICING_SIGNING_KEY = "parwa_pricing_validation_key_v1"
+# H-09 FIX: Pricing signing key from environment, not hardcoded
+PRICING_SIGNING_KEY = os.environ.get("PRICING_SIGNING_KEY", "dev-pricing-key-change-in-prod-32c")
 TOKEN_VALIDITY_SECONDS = 3600  # 1 hour
 
 

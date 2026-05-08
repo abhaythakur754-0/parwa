@@ -897,7 +897,7 @@ class SLAHelper:
 
 def deterministic_jitter(ticket_id: str, agent_id: str, max_val: float = 0.05) -> float:
     """Reproducible jitter so the same ticket+agent always gets the same noise."""
-    h = hashlib.md5(f"{ticket_id}:{agent_id}".encode()).hexdigest()
+    h = hashlib.sha256(f"{ticket_id}:{agent_id}".encode()).hexdigest()
     return (int(h[:8], 16) / 0xFFFFFFFF) * max_val
 
 

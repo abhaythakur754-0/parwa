@@ -93,7 +93,7 @@ class FileMetadata(BaseModel):
         file_name: Original/sanitized file name.
         content_type: MIME type of the file.
         size_bytes: File size in bytes.
-        checksum_md5: MD5 hex digest for integrity verification (BC-010).
+        checksum_sha256: SHA-256 hex digest for integrity verification (BC-010).
         uploaded_at: ISO-8601 timestamp of upload.
         metadata: Arbitrary custom metadata key-value pairs.
     """
@@ -103,7 +103,7 @@ class FileMetadata(BaseModel):
     file_name: str
     content_type: str
     size_bytes: int
-    checksum_md5: str
+    checksum_sha256: str
     uploaded_at: datetime
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
@@ -435,7 +435,7 @@ class LocalStorageBackend(StorageBackend):
                 temp_path.unlink()
             raise
 
-        checksum = hashlib.md5(content).hexdigest()
+        checksum = hashlib.sha256(content).hexdigest()
         file_name = Path(file_path).name
 
         logger.info(
@@ -450,7 +450,7 @@ class LocalStorageBackend(StorageBackend):
             file_name=file_name,
             content_type=content_type,
             size_bytes=len(content),
-            checksum_md5=checksum,
+            checksum_sha256=checksum,
             uploaded_at=datetime.now(timezone.utc),
             metadata=metadata or {},
         )
@@ -573,7 +573,7 @@ class LocalStorageBackend(StorageBackend):
                     continue
 
             content = file_entry.read_bytes()
-            checksum = hashlib.md5(content).hexdigest()
+            checksum = hashlib.sha256(content).hexdigest()
 
             results.append(FileMetadata(
                 company_id=company_id,
@@ -583,7 +583,7 @@ class LocalStorageBackend(StorageBackend):
                     file_entry.suffix.lower(), "application/octet-stream"
                 ),
                 size_bytes=file_entry.stat().st_size,
-                checksum_md5=checksum,
+                checksum_sha256=checksum,
                 uploaded_at=datetime.fromtimestamp(
                     file_entry.stat().st_mtime, tz=timezone.utc
                 ),
@@ -792,14 +792,14 @@ class GCPStorageBackend(StorageBackend):
         resolved = self._local_path(company_id, file_path)
         resolved.parent.mkdir(parents=True, exist_ok=True)
         resolved.write_bytes(content)
-        checksum = hashlib.md5(content).hexdigest()
+        checksum = hashlib.sha256(content).hexdigest()
         return FileMetadata(
             company_id=company_id,
             file_path=file_path,
             file_name=Path(file_path).name,
             content_type=content_type,
             size_bytes=len(content),
-            checksum_md5=checksum,
+            checksum_sha256=checksum,
             uploaded_at=datetime.now(timezone.utc),
             metadata=metadata or {},
         )
@@ -894,7 +894,7 @@ class GCPStorageBackend(StorageBackend):
                     entry.suffix.lower(), "application/octet-stream"
                 ),
                 size_bytes=entry.stat().st_size,
-                checksum_md5=hashlib.md5(content).hexdigest(),
+                checksum_sha256=hashlib.sha256(content).hexdigest(),
                 uploaded_at=datetime.fromtimestamp(
                     entry.stat().st_mtime, tz=timezone.utc
                 ),

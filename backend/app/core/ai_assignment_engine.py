@@ -1319,7 +1319,7 @@ class AIAssignmentEngine:
                 logger.debug("Redis workload fetch failed, using simulated values")
 
         # No Redis — simulate workload with deterministic seed based on company_id
-        seed = int(hashlib.md5(company_id.encode()).hexdigest()[:8], 16)
+        seed = int(hashlib.sha256(company_id.encode()).hexdigest()[:8], 16)
         rng = random.Random(seed)
         for profile in profiles:
             profile.current_workload = rng.randint(0, max(1, profile.max_workload // 2))

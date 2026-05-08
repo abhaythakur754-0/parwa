@@ -1753,7 +1753,7 @@ class PromptTemplateService:
                 import hashlib
                 deterministic_key = f"{company_id}:{name}:{variables.get('ticket_id', '')}"
                 hash_val = int(
-                    hashlib.md5(deterministic_key.encode()).hexdigest(), 16,
+                    hashlib.sha256(deterministic_key.encode()).hexdigest(), 16,
                 )
                 use_b = (hash_val % 1000) / 1000.0 < test.traffic_split
 

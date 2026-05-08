@@ -228,7 +228,7 @@ def generate_embedding(
 
         for i in range(len(text) - window_size + 1):
             ngram = text[i:i + window_size]
-            h = hashlib.md5(ngram.encode("utf-8", errors="replace")).digest()
+            h = hashlib.sha256(ngram.encode("utf-8", errors="replace")).digest()
             # Use first 4 bytes of hash as a dimension index
             idx = struct.unpack("<I", h[:4])[0] % dimension
             # Use next 4 bytes as a weight value (normalized to [-1, 1])
