@@ -1095,6 +1095,10 @@ def _validate_event_type(event_type: str) -> Optional[str]:
     if not event_type or not isinstance(event_type, str):
         return "event_type is required and must be a string"
 
+    # L-15 FIX: Reject event types containing null bytes (injection attack)
+    if "\x00" in event_type:
+        return "event_type contains invalid characters"
+
     event_type = event_type.strip()
     if not event_type:
         return "event_type cannot be empty"

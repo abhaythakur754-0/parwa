@@ -743,8 +743,30 @@ async def twilio_status_callback(request: Request):
     """Receive Twilio SMS delivery status callback.
 
     Updates message delivery status in the database.
-    Webhook signature is verified by the generic webhook handler.
+    
+    M-16 FIX: Verifies Twilio webhook signature before processing.
+    Previously this endpoint accepted callbacks from any source.
     """
+    # M-16: Verify Twilio signature before processing
+    from app.security.hmac_verification import verify_twilio_signature
+    from app.config import get_settings
+    
+    settings = get_settings()
+    twilio_signature = request.headers.get("x-twilio-signature", "")
+    
+    if not settings.TWILIO_AUTH_TOKEN:
+        logger.error("sms_status_callback_no_auth_token_configured")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": {
+                    "code": "NOT_CONFIGURED",
+                    "message": "SMS webhook not configured — TWILIO_AUTH_TOKEN required",
+                    "details": None,
+                }
+            },
+        )
+    
     try:
         form_data = await request.form()
         payload = dict(form_data)
@@ -753,6 +775,27 @@ async def twilio_status_callback(request: Request):
             payload = await request.json()
         except Exception:
             payload = {}
+    
+    if not verify_twilio_signature(
+        str(request.url),
+        payload,
+        twilio_signature,
+        settings.TWILIO_AUTH_TOKEN,
+    ):
+        logger.warning(
+            "sms_status_callback_invalid_signature sid=%s",
+            payload.get("MessageSid", ""),
+        )
+        return JSONResponse(
+            status_code=401,
+            content={
+                "error": {
+                    "code": "AUTHENTICATION_ERROR",
+                    "message": "Invalid Twilio signature",
+                    "details": None,
+                }
+            },
+        )
 
     message_sid = payload.get("MessageSid", "")
     status = payload.get("MessageStatus", "")

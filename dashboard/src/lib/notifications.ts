@@ -55,8 +55,23 @@ export async function sendTicketNotification(payload: NotificationPayload): Prom
   return result;
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 async function sendTicketEmail(payload: NotificationPayload): Promise<{ success: boolean; error?: string }> {
   const { ticketNumber, customerName, customerEmail, subject, status, aiResponse, resolution } = payload;
+
+  // H-16 FIX: Sanitize user-controlled fields to prevent HTML injection in email templates
+  const safeName = escapeHtml(customerName);
+  const safeAiResponse = aiResponse ? escapeHtml(aiResponse) : undefined;
+  const safeResolution = resolution ? escapeHtml(resolution) : undefined;
+  const safeSubject = escapeHtml(subject);
 
   let emailSubject: string;
   let htmlBody: string;
@@ -64,23 +79,23 @@ async function sendTicketEmail(payload: NotificationPayload): Promise<{ success:
   switch (status) {
     case 'created':
       emailSubject = `[PARWA] ${ticketNumber} - Ticket Created: ${subject}`;
-      htmlBody = buildCreatedEmail(customerName, ticketNumber, subject);
+      htmlBody = buildCreatedEmail(safeName, ticketNumber, safeSubject);
       break;
     case 'in_progress':
       emailSubject = `[PARWA] ${ticketNumber} - We're working on your request`;
-      htmlBody = buildInProgressEmail(customerName, ticketNumber, aiResponse);
+      htmlBody = buildInProgressEmail(safeName, ticketNumber, safeAiResponse);
       break;
     case 'resolved':
       emailSubject = `[PARWA] ${ticketNumber} - Your ticket has been resolved`;
-      htmlBody = buildResolvedEmail(customerName, ticketNumber, resolution);
+      htmlBody = buildResolvedEmail(safeName, ticketNumber, safeResolution);
       break;
     case 'escalated':
       emailSubject = `[PARWA] ${ticketNumber} - Escalated to specialist`;
-      htmlBody = buildEscalatedEmail(customerName, ticketNumber);
+      htmlBody = buildEscalatedEmail(safeName, ticketNumber);
       break;
     default:
       emailSubject = `[PARWA] ${ticketNumber} - Update`;
-      htmlBody = buildCreatedEmail(customerName, ticketNumber, subject);
+      htmlBody = buildCreatedEmail(safeName, ticketNumber, safeSubject);
   }
 
   return sendEmail(customerEmail, emailSubject, htmlBody);

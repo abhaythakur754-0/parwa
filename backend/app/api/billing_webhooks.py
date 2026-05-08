@@ -16,7 +16,6 @@ import hashlib
 import hmac
 import json
 import logging
-import os
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, Optional
@@ -168,14 +167,19 @@ async def handle_paddle_webhook(
     signature = request.headers.get("paddle_signature", "")
     webhook_secret = getattr(settings, "PADDLE_WEBHOOK_SECRET", "")
 
-    # H-07: Reject webhooks when no secret is configured in non-dev environments
+    # H-07/M-36 FIX: ALWAYS reject webhooks when no secret is configured.
+    # No environment bypasses — fail closed in ALL environments.
+    # Tests should mock verify_paddle_signature, not skip verification.
     if not webhook_secret:
-        if os.environ.get("ENVIRONMENT", "development") != "development":
-            logger.error("paddle_webhook_no_secret_configured")
-            raise HTTPException(status_code=500, detail="Webhook not configured")
-        # In development, log warning but still accept
-        logger.warning("paddle_webhook_no_secret_configured_dev_mode")
-    elif not verify_paddle_signature(body, signature, webhook_secret):
+        logger.error(
+            "paddle_webhook_no_secret_configured_rejected",
+            extra={"source_ip": request.client.host if request.client else None},
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Webhook not configured — PADDLE_WEBHOOK_SECRET is required",
+        )
+    if not verify_paddle_signature(body, signature, webhook_secret):
         logger.warning(
             "paddle_webhook_invalid_signature signature=%s",
             signature[:20] + "..." if signature else "missing",

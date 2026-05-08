@@ -16,6 +16,7 @@ All endpoints:
 """
 
 import logging
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -37,6 +38,9 @@ SUPPORTED_PROVIDERS = {"paddle", "twilio", "shopify", "brevo"}
 
 # Maximum webhook payload size: 1MB (BC-003)
 MAX_WEBHOOK_PAYLOAD_SIZE = 1 * 1024 * 1024
+
+# H-08: Maximum age for webhook events (5 minutes) — prevents replay attacks
+MAX_WEBHOOK_AGE_SECONDS = 300
 
 
 def _get_company_id_from_payload(
@@ -317,6 +321,39 @@ async def receive_webhook(
             provider,
         )
         payload = {}
+
+    # H-08: Verify timestamp freshness to prevent replay attacks
+    occurred_at = payload.get("occurred_at") or payload.get("created_at")
+    if occurred_at:
+        try:
+            if isinstance(occurred_at, datetime):
+                event_time = occurred_at
+            else:
+                event_time = datetime.fromisoformat(
+                    str(occurred_at).replace("Z", "+00:00")
+                )
+            age = (datetime.now(timezone.utc) - event_time).total_seconds()
+            if age > MAX_WEBHOOK_AGE_SECONDS:
+                logger.warning(
+                    "webhook_replay_rejected provider=%s event_id=%s age_seconds=%s",
+                    provider, _get_event_id_from_payload(provider, payload), age,
+                )
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "error": {
+                            "code": "REPLAY_DETECTED",
+                            "message": (
+                                f"Webhook event is too old "
+                                f"({int(age)}s > {MAX_WEBHOOK_AGE_SECONDS}s max). "
+                                f"Possible replay attack."
+                            ),
+                            "details": {"age_seconds": int(age)},
+                        }
+                    },
+                )
+        except (ValueError, TypeError):
+            pass  # If timestamp is unparseable, let it through (idempotency handles dups)
 
     # Verify signature (BC-011, BC-003)
     if not _verify_provider_signature(
