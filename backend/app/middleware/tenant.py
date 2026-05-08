@@ -39,15 +39,15 @@ class TenantMiddleware(BaseHTTPMiddleware):
 
     # Prefixes that skip tenant check (auth handles its own
     # via route-level get_current_user dependency)
+    # SECURITY: /api/billing/ and /api/admin/ are NOT excluded here.
+    # They require explicit tenant isolation via route-level dependencies.
     PUBLIC_PREFIXES = (
         "/api/auth/",
         "/api/public/",
         "/public/",
         "/api/api-keys",
         "/api/mfa/",
-        "/api/billing/",
         "/api/client/",
-        "/api/admin/",
         "/api/webhooks/",
         "/api/jarvis/",
         "/api/jarvis",
@@ -63,9 +63,6 @@ class TenantMiddleware(BaseHTTPMiddleware):
         for prefix in self.PUBLIC_PREFIXES:
             if path.startswith(prefix):
                 return await call_next(request)
-
-        # DEBUG: Log the path if we are about to block it
-        # logger.debug(f"TenantMiddleware check: path={path}")
 
         # Extract company_id from request state only.
         # JWT verification happens in get_current_user dependency.

@@ -197,21 +197,19 @@ class VariantCheckMiddleware:
     def _extract_company_id(scope: dict) -> Optional[str]:
         """Extract ``company_id`` from the ASGI *scope*.
 
-        Lookup order:
-        1. ``X-Company-ID`` request header
-        2. JWT bearer token claims (``company_id`` claim)
+        SECURITY: Only extracts company_id from the verified JWT bearer
+        token claims (``company_id`` claim). Authentication/verification
+        is handled by the auth middleware or route-level dependency.
 
-        Returns ``None`` when neither source provides a usable value.
+        Do NOT accept client-controlled headers (L06) — the X-Company-ID
+        header is fully client-supplied and can be spoofed.
+
+        Returns ``None`` when no usable value is found.
         """
-        headers = dict(scope.get("headers", []))
-
-        # 1. Check X-Company-ID header
-        raw_header = headers.get(b"x-company-id", b"").decode("utf-8", errors="ignore").strip()
-        if raw_header:
-            return raw_header
-
-        # 2. Check Authorization header for JWT
-        auth_header = headers.get(b"authorization", b"").decode("utf-8", errors="ignore").strip()
+        # Only check Authorization header for JWT — never trust X-Company-ID
+        auth_header = dict(scope.get("headers", [])).get(
+            b"authorization", b""
+        ).decode("utf-8", errors="ignore").strip()
         if auth_header and auth_header.lower().startswith("bearer "):
             token = auth_header[7:].strip()
             company_id = VariantCheckMiddleware._decode_company_id_from_jwt(token)

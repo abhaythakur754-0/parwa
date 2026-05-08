@@ -130,13 +130,41 @@ def require_roles(*roles: str):
             raise AuthorizationError(
                 message="Insufficient permissions",
                 details={
-                    "required_role": roles,
-                    "user_role": user.role,
+                    "required_role": list(roles),
                 },
             )
         return user
 
     return checker
+
+
+def require_platform_admin(
+    user: User = Depends(get_current_user),
+) -> User:
+    """Dependency that requires platform admin access.
+
+    Platform admins can manage ALL companies, subscriptions, and
+    system configuration. This is separate from company-level roles.
+
+    A user must have is_platform_admin=True to access these endpoints.
+
+    Args:
+        user: Authenticated user (from get_current_user).
+
+    Returns:
+        User object.
+
+    Raises:
+        AuthorizationError: If user is not a platform admin.
+    """
+    if not getattr(user, "is_platform_admin", False):
+        raise AuthorizationError(
+            message="Platform admin access required",
+            details={
+                "required": "platform_admin",
+            },
+        )
+    return user
 
 
 def get_company_id(

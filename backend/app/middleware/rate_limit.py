@@ -11,6 +11,7 @@ module (the old limiter is still available but not used here).
 """
 
 import os
+import logging
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -19,6 +20,8 @@ from app.middleware.error_handler import build_error_response
 from app.services.rate_limit_service import (
     get_rate_limit_service,
 )
+
+logger = logging.getLogger("parwa.middleware.rate_limit")
 
 # Shared service instance (per-process)
 _rate_limit_svc = get_rate_limit_service()
@@ -84,8 +87,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             result = svc.check_rate_limit(
                 category, identifier,
             )
-        except Exception:
-            # BC-011: Fail-open on rate limiter failure
+        except Exception as exc:
+            # BC-011: Fail-open on rate limiter failure, but LOG the error
+            # so operators are aware that rate limiting is disabled.
+            logger.error(
+                "rate_limit_check_failed path=%s error=%s",
+                path,
+                str(exc)[:200],
+            )
             return await call_next(request)
 
         if not result.allowed:

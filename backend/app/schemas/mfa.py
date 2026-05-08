@@ -38,9 +38,14 @@ class MFASetupVerifyRequest(BaseModel):
 
 
 class MFALoginVerifyRequest(BaseModel):
-    """Request to verify MFA during login."""
+    """Request to verify MFA during login.
+
+    Uses mfa_session_token instead of JWT since the user
+    doesn't have a JWT yet during the MFA step of login.
+    """
 
     code: str = Field(min_length=6, max_length=6)
+    mfa_session_token: str = Field(min_length=1, max_length=256)
 
     @field_validator("code")
     @classmethod

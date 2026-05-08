@@ -89,6 +89,7 @@ class User(Base):
     role = Column(String(50), nullable=False, default="owner")
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
+    is_platform_admin = Column(Boolean, default=False)  # Platform admin flag
     mfa_enabled = Column(Boolean, default=False)
     mfa_secret = Column(String(255))
     # Login lockout fields (F-013: progressive lockout)

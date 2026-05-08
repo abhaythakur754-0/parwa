@@ -296,15 +296,19 @@ app.add_middleware(IPAllowlistMiddleware)
 app.add_middleware(AIEntitlementMiddleware)
 
 # 9. CORS middleware (frontend cross-origin access)
+# SECURITY: Never fall back to wildcard ["*"] when allow_credentials=True.
+# Per CORS spec, browsers reflect the requesting origin with credentials,
+# effectively allowing any website to make credentialed requests.
 try:
     _settings = get_settings()
     _cors_origins = (
-        [o.strip() for o in _settings.CORS_ORIGINS.split(",")]
+        [o.strip() for o in _settings.CORS_ORIGINS.split(",") if o.strip()]
         if _settings.CORS_ORIGINS
-        else ["*"]
+        else [_settings.FRONTEND_URL]
     )
 except Exception:
-    _cors_origins = ["*"]
+    # Fail closed: restrict to localhost rather than open wildcard
+    _cors_origins = ["http://localhost:3000"]
 
 app.add_middleware(
     CORSMiddleware,

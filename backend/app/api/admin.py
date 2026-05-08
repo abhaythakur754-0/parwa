@@ -4,12 +4,9 @@ PARWA Admin API Router (F06)
 Platform admin endpoints for managing clients (companies),
 subscriptions, API providers, and system health.
 
-SECURITY NOTE: Admin endpoints use require_roles("owner") as a
-temporary gate. A dedicated is_platform_admin flag should be
-added in a future day to prevent cross-tenant admin access.
-Currently, these endpoints are scoped so that data is read
-from all companies (by design for platform admins) but write
-operations are gated by owner role.
+SECURITY NOTE: Admin endpoints use require_platform_admin() to ensure
+only platform administrators can access cross-tenant data. A user must
+have is_platform_admin=True on their User record.
 
 All responses use structured JSON (BC-012).
 """
@@ -22,7 +19,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
-    require_roles,
+    require_platform_admin,
 )
 from app.exceptions import NotFoundError
 from app.schemas.admin import (
@@ -102,7 +99,7 @@ def _serialize_provider(provider) -> dict:
 
 @router.get("/clients")
 def list_clients(
-    user: User = Depends(require_roles("owner")),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
@@ -153,7 +150,7 @@ def list_clients(
 @router.get("/clients/{company_id}")
 def get_client_detail(
     company_id: str,
-    user: User = Depends(require_roles("owner")),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> dict:
     """Get single client detail."""
@@ -180,7 +177,7 @@ def get_client_detail(
 def update_client(
     company_id: str,
     body: AdminClientUpdate,
-    user: User = Depends(require_roles("owner")),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> dict:
     """Update client details."""
@@ -228,7 +225,7 @@ def update_client(
 def update_subscription(
     company_id: str,
     body: SubscriptionUpdateRequest,
-    user: User = Depends(require_roles("owner")),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> dict:
     """Change subscription tier/status."""
@@ -289,7 +286,7 @@ def admin_health() -> dict:
 
 @router.get("/api-providers")
 def list_api_providers(
-    user: User = Depends(require_roles("owner")),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> dict:
     """List all API providers (global)."""
@@ -304,7 +301,7 @@ def list_api_providers(
 @router.post("/api-providers")
 def create_api_provider(
     body: APIProviderCreate,
-    user: User = Depends(require_roles("owner")),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> dict:
     """Create a new API provider."""
@@ -345,7 +342,7 @@ def create_api_provider(
 def update_api_provider(
     provider_id: str,
     body: APIProviderUpdate,
-    user: User = Depends(require_roles("owner")),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> dict:
     """Update an API provider."""
@@ -388,7 +385,7 @@ def update_api_provider(
 @router.delete("/api-providers/{provider_id}")
 def delete_api_provider(
     provider_id: str,
-    user: User = Depends(require_roles("owner")),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> MessageResponse:
     """Soft-delete an API provider (set is_active=False)."""

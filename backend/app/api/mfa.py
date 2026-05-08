@@ -7,10 +7,12 @@ and session management.
 MFA endpoints (authenticated):
 - POST /api/auth/mfa/setup/initiate
 - POST /api/auth/mfa/setup/verify
-- POST /api/auth/mfa/verify (during login)
 - GET  /api/auth/mfa/backup-codes (remaining count)
 - POST /api/auth/mfa/backup-codes/regenerate
 - POST /api/auth/mfa/backup-codes/use (during login)
+
+MFA endpoints (pre-auth — temporary session token):
+- POST /api/mfa/verify (during login — uses MFA session token)
 
 Session endpoints (authenticated):
 - GET    /api/auth/sessions
@@ -18,11 +20,20 @@ Session endpoints (authenticated):
 - DELETE /api/auth/sessions/revoke-others
 """
 
-from fastapi import APIRouter, Depends, Request
+import hashlib
+import os
+import secrets
+from datetime import datetime, timedelta, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
-from app.core.auth import hash_refresh_token
+from app.api.deps import get_current_user, optional_user
+from app.core.auth import (
+    create_access_token,
+    hash_refresh_token,
+)
+from app.exceptions import AuthenticationError
 from app.schemas.mfa import (
     BackupCodeRegenerateRequest,
     BackupCodeUseRequest,
@@ -56,6 +67,89 @@ router = APIRouter(
     prefix="/api/auth",
     tags=["MFA & Sessions"],
 )
+
+# ── MFA Temporary Session Store ────────────────────────────────────
+# Stores pending MFA sessions: {mfa_session_token -> {user_id, company_id, email, role, plan, expires_at}}
+# In production, this should be backed by Redis with TTL.
+_mfa_pending_sessions: dict = {}
+_MFA_SESSION_TTL_SECONDS = 300  # 5 minutes
+
+
+def create_mfa_session_token(
+    user_id: str,
+    company_id: str,
+    email: str,
+    role: str,
+    plan: str = "starter",
+) -> str:
+    """Create a temporary MFA session token for the login flow.
+
+    This token is issued after successful email/password verification
+    but before MFA code verification. It allows the MFA verify endpoint
+    to identify the user without a full JWT (which hasn't been issued yet).
+
+    Args:
+        user_id: The user's UUID.
+        company_id: The user's company UUID.
+        email: The user's email.
+        role: The user's role.
+        plan: Subscription tier.
+
+    Returns:
+        Temporary MFA session token string.
+    """
+    token = secrets.token_urlsafe(32)
+    _mfa_pending_sessions[token] = {
+        "user_id": user_id,
+        "company_id": company_id,
+        "email": email,
+        "role": role,
+        "plan": plan,
+        "expires_at": datetime.now(timezone.utc) + timedelta(
+            seconds=_MFA_SESSION_TTL_SECONDS
+        ),
+    }
+    return token
+
+
+def verify_mfa_session_token(token: str) -> dict:
+    """Verify and consume a temporary MFA session token.
+
+    Args:
+        token: The MFA session token.
+
+    Returns:
+        Session data dict with user_id, company_id, email, role, plan.
+
+    Raises:
+        HTTPException: If token is invalid or expired.
+    """
+    session = _mfa_pending_sessions.pop(token, None)
+    if not session:
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "error": {
+                    "code": "MFA_SESSION_INVALID",
+                    "message": "Invalid or expired MFA session. Please log in again.",
+                    "details": None,
+                }
+            },
+        )
+
+    if datetime.now(timezone.utc) > session["expires_at"]:
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "error": {
+                    "code": "MFA_SESSION_EXPIRED",
+                    "message": "MFA session expired. Please log in again.",
+                    "details": None,
+                }
+            },
+        )
+
+    return session
 
 
 # ── F-015: MFA Setup ──────────────────────────────────────────────
@@ -103,16 +197,82 @@ def mfa_setup_verify(
 @router.post("/mfa/verify")
 def mfa_verify_login(
     body: MFALoginVerifyRequest,
-    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
     """Verify MFA during login.
 
     F-015: Validates TOTP code with progressive lockout.
+    Uses a temporary MFA session token (issued after successful
+    email/password verification) instead of a JWT, since the user
+    doesn't have a JWT yet during the MFA step.
+
+    The MFA session token is passed in the Authorization header
+    as: Bearer mfa_<token>
     """
+    # Extract and verify MFA session token from Authorization header
+    from fastapi import Header
+    # We read the raw token from the request to avoid circular deps
+    # The session token is sent as part of the MFALoginVerifyRequest
+    if not body.mfa_session_token:
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "error": {
+                    "code": "AUTHENTICATION_ERROR",
+                    "message": "MFA session token required",
+                    "details": None,
+                }
+            },
+        )
+
+    session_data = verify_mfa_session_token(body.mfa_session_token)
+
+    # Look up user from session data
+    user = db.query(User).filter(
+        User.id == session_data["user_id"]
+    ).first()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "error": {
+                    "code": "AUTHENTICATION_ERROR",
+                    "message": "User not found or inactive",
+                    "details": None,
+                }
+            },
+        )
+
     result = verify_mfa_login(
         db=db, user=user, code=body.code
     )
+
+    # On successful MFA verification, issue real JWT tokens
+    if result.get("verified"):
+        from app.core.auth import generate_refresh_token
+        from app.services.auth_service import create_session
+
+        access_token = create_access_token(
+            user_id=user.id,
+            company_id=session_data["company_id"],
+            email=session_data["email"],
+            role=session_data["role"],
+            plan=session_data["plan"],
+        )
+        refresh_token_raw = generate_refresh_token()
+
+        # Create session in DB
+        create_session(
+            db=db,
+            user_id=user.id,
+            company_id=session_data["company_id"],
+            token_hash=hash_refresh_token(refresh_token_raw),
+            device_info="mfa-login",
+        )
+
+        result["access_token"] = access_token
+        result["refresh_token"] = refresh_token_raw
+
     return result
 
 
@@ -247,7 +407,9 @@ def revoke_others_endpoint(
     """
     refresh_token = request.cookies.get("parwa_refresh")
     if not refresh_token:
-        raise Exception("No refresh token found")
+        raise AuthenticationError(
+            message="No active session found",
+        )
 
     current_hash = hash_refresh_token(refresh_token)
 

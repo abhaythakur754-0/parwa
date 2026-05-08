@@ -115,6 +115,11 @@ class Settings(BaseSettings):
     @classmethod
     def validate_secret_key(cls, v: str) -> str:
         if v.startswith("dev-") or v == "change-me":
+            if os.environ.get("ENVIRONMENT") == "production":
+                raise ValueError(
+                    "SECRET_KEY must be changed from default in production. "
+                    "Set a cryptographically random value via the SECRET_KEY env var."
+                )
             warnings.warn(
                 "Using development SECRET_KEY — change in production!",
                 stacklevel=2,
@@ -125,6 +130,11 @@ class Settings(BaseSettings):
     @classmethod
     def validate_jwt_key(cls, v: str) -> str:
         if v.startswith("dev-") or v == "change-me":
+            if os.environ.get("ENVIRONMENT") == "production":
+                raise ValueError(
+                    "JWT_SECRET_KEY must be changed from default in production. "
+                    "Set a cryptographically random value via the JWT_SECRET_KEY env var."
+                )
             warnings.warn(
                 "Using development JWT_SECRET_KEY — change in production!",
                 stacklevel=2,
