@@ -13,6 +13,7 @@ All responses use structured JSON (BC-012).
 
 import json
 import math
+from datetime import datetime as dt, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -195,7 +196,6 @@ def update_client(
         if field in _UPDATABLE_COMPANY_FIELDS:
             setattr(company, field, value)
 
-    from datetime import datetime as dt, timezone
     company.updated_at = dt.now(timezone.utc)
     db.commit()
     db.refresh(company)
