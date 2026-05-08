@@ -17,10 +17,42 @@ import { useAppStore } from '@/lib/store';
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // ── Storage Keys ────────────────────────────────────────────────────────
+// Tokens are stored ONLY in httpOnly cookies (parwa_at, parwa_rt) set by the backend.
+// Only non-sensitive user display data is kept in localStorage / cookie.
 
-const AUTH_TOKEN_KEY = 'parwa_access_token';
-const REFRESH_TOKEN_KEY = 'parwa_refresh_token';
 const USER_KEY = 'parwa_user';
+
+/** Read a cookie value by name (non-httpOnly cookies only). */
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+/** Read user data from the non-httpOnly parwa_user cookie, falling back to localStorage. */
+function readUserData(): User | null {
+  // Try cookie first (set by backend)
+  const cookieVal = getCookie('parwa_user');
+  if (cookieVal) {
+    try {
+      const user = JSON.parse(cookieVal) as User;
+      if (user && user.email) return user;
+    } catch {
+      // corrupt cookie — fall through
+    }
+  }
+  // Fallback to localStorage
+  const stored = localStorage.getItem(USER_KEY);
+  if (stored) {
+    try {
+      const user = JSON.parse(stored) as User;
+      if (user && user.email) return user;
+    } catch {
+      // corrupt data
+    }
+  }
+  return null;
+}
 
 // ── Auth Provider ───────────────────────────────────────────────────────
 
@@ -40,56 +72,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const initializeAuth = useCallback(async () => {
     try {
-      // Check for existing session
-      const storedUser = localStorage.getItem(USER_KEY);
-      const accessToken = localStorage.getItem(AUTH_TOKEN_KEY);
+      // Read user data from cookie or localStorage
+      const user = readUserData();
 
-      // If parwa_user exists, consider the user authenticated (dev-friendly)
-      if (storedUser) {
+      if (user) {
+        // Best-effort verification with the backend (httpOnly cookie carries the token)
         try {
-          const user = JSON.parse(storedUser) as User;
-
-          if (user && user.email) {
-            // Try to verify the session with the backend (best-effort)
-            if (accessToken) {
-              try {
-                const currentUser = await Promise.race([
-                  authApi.getMe(),
-                  new Promise<never>((_, reject) =>
-                    setTimeout(() => reject(new Error('Auth check timeout')), 5000)
-                  ),
-                ]);
-                setState({
-                  user: currentUser,
-                  isAuthenticated: true,
-                  isLoading: false,
-                  isInitialized: true,
-                });
-                return;
-              } catch {
-                // Backend unreachable or token expired — still trust localStorage for dev
-              }
-            }
-
-            // No token or backend check failed, but user data exists — trust it
-            setState({
-              user,
-              isAuthenticated: true,
-              isLoading: false,
-              isInitialized: true,
-            });
-            return;
-          }
+          const currentUser = await Promise.race([
+            authApi.getMe(),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+            ),
+          ]);
+          setState({
+            user: currentUser,
+            isAuthenticated: true,
+            isLoading: false,
+            isInitialized: true,
+          });
+          return;
         } catch {
-          // JSON parse error — clear corrupted data
-          clearAuthStorage();
+          // Backend unreachable or token expired — still trust cached user data
         }
-      }
 
-      // Orphaned token (no user) — clean it up
-      if (accessToken && !storedUser) {
-        localStorage.removeItem(AUTH_TOKEN_KEY);
-        localStorage.removeItem(REFRESH_TOKEN_KEY);
+        setState({
+          user,
+          isAuthenticated: true,
+          isLoading: false,
+          isInitialized: true,
+        });
+        return;
       }
     } catch (error) {
       console.error('Auth initialization error:', error);
@@ -111,14 +123,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // ── Storage Helpers ──────────────────────────────────────────────────
 
   const storeAuthData = (authResponse: AuthResponse) => {
-    localStorage.setItem(AUTH_TOKEN_KEY, authResponse.tokens.access_token);
-    localStorage.setItem(REFRESH_TOKEN_KEY, authResponse.tokens.refresh_token);
+    // Only store non-sensitive user data. Tokens live in httpOnly cookies.
     localStorage.setItem(USER_KEY, JSON.stringify(authResponse.user));
   };
 
   const clearAuthStorage = () => {
-    localStorage.removeItem(AUTH_TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    // Only clear user display data. Tokens are httpOnly cookies cleared by the backend.
     localStorage.removeItem(USER_KEY);
   };
 
@@ -195,10 +205,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = useCallback(async () => {
     try {
-      const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-      if (refreshToken) {
-        await authApi.logout({ refresh_token: refreshToken }).catch(() => {});
-      }
+      // Call logout API — backend clears httpOnly cookies (parwa_at, parwa_rt, parwa_user).
+      // The refresh token is read from the httpOnly cookie, not localStorage.
+      await authApi.logout().catch(() => {});
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
@@ -223,15 +232,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // ── Refresh Session ──────────────────────────────────────────────────
 
   const refreshSession = useCallback(async () => {
-    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
     try {
-      const tokens = await authApi.refresh({ refresh_token: refreshToken });
-      localStorage.setItem(AUTH_TOKEN_KEY, tokens.access_token);
-      localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token);
+      // Call refresh endpoint — backend reads refresh_token from httpOnly cookie (parwa_rt)
+      // and sets new httpOnly cookies automatically. No localStorage token handling.
+      await authApi.refresh();
     } catch (error) {
       clearAuthStorage();
       setState({
@@ -260,18 +264,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const hydrate = useCallback(() => {
     try {
-      const storedUser = localStorage.getItem(USER_KEY);
-      if (storedUser) {
-        const user = JSON.parse(storedUser) as User;
-        if (user && user.email) {
-          setState({
-            user,
-            isAuthenticated: true,
-            isLoading: false,
-            isInitialized: true,
-          });
-          return;
-        }
+      // Read user from cookie first, then localStorage
+      const user = readUserData();
+      if (user) {
+        setState({
+          user,
+          isAuthenticated: true,
+          isLoading: false,
+          isInitialized: true,
+        });
+        return;
       }
     } catch {
       // ignore

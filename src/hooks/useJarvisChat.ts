@@ -93,17 +93,10 @@ async function apiFetch<T>(
     ...((options.headers as Record<string, string>) || {}),
   };
 
-  // Add auth token if available
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('parwa_access_token');
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-  }
-
   const response = await fetch(url, {
     ...options,
     headers,
+    credentials: 'include',
   });
 
   if (!response.ok) {

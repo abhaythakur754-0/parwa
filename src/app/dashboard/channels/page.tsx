@@ -117,9 +117,7 @@ export default function ChannelsPage() {
     try {
       setIsLoading(true);
       const response = await fetch('/api/v1/channels/config', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('parwa_access_token')}`,
-        },
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -145,9 +143,9 @@ export default function ChannelsPage() {
       const response = await fetch(`/api/v1/channels/config/${type}`, {
         method: 'PUT',
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('parwa_access_token')}`,
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ is_enabled: enabled }),
       });
 
@@ -176,9 +174,9 @@ export default function ChannelsPage() {
       const response = await fetch(`/api/v1/channels/config/${type}/test`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('parwa_access_token')}`,
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
       });
 
       if (response.ok) {

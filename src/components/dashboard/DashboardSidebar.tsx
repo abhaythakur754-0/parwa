@@ -125,8 +125,6 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
       await logout();
     } catch {
       localStorage.removeItem('parwa_user');
-      localStorage.removeItem('parwa_access_token');
-      localStorage.removeItem('parwa_refresh_token');
     }
     navigate('landing');
   };

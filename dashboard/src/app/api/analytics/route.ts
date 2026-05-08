@@ -1,25 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// Auth check helper
-function requireAuth(request: NextRequest): boolean {
-  const authHeader = request.headers.get('authorization');
-  const sessionCookie = request.cookies.get('parwa_session');
-  if (!authHeader && !sessionCookie) {
-    return false;
-  }
-  if (authHeader && !authHeader.startsWith('Bearer ')) {
-    return false;
-  }
-  return true;
-}
+import { requireAuth } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
-  if (!requireAuth(request)) {
-    return NextResponse.json(
-      { success: false, error: 'Authentication required' },
-      { status: 401 }
-    );
-  }
+  const authError = await requireAuth(request);
+  if (authError) return authError;
   const mockData = {
     data: {
       summary: {

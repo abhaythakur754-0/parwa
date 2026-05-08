@@ -19,7 +19,6 @@ import {
   LoginRequest,
   RegisterRequest,
   GoogleAuthRequest,
-  RefreshRequest,
   EmailCheckResponse,
   MessageResponse,
 } from '@/types/auth';
@@ -41,38 +40,18 @@ const apiClient: AxiosInstance = axios.create({
 });
 
 /**
- * Request interceptor for adding auth token.
- */
-apiClient.interceptors.request.use(
-  (config) => {
-    // Add auth token if available
-    const token = typeof window !== 'undefined' 
-      ? localStorage.getItem('parwa_access_token') 
-      : null;
-    
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-/**
  * Response interceptor for handling errors.
+ * C-03 FIX: No request interceptor — auth tokens are sent as httpOnly cookies
+ * automatically by the browser via withCredentials: true.
  * GAP-002: Handle malformed responses gracefully.
  */
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    // Handle 401 Unauthorized — clear tokens and let Zustand store handle navigation
+    // Handle 401 Unauthorized — clear user display data and trigger navigation.
+    // Tokens are httpOnly cookies cleared by the backend; we only clean up localStorage.
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('parwa_access_token');
-        localStorage.removeItem('parwa_refresh_token');
         localStorage.removeItem('parwa_user');
         // Use Zustand store for SPA navigation instead of window.location
         try {
@@ -388,13 +367,16 @@ export const authApi = {
   
   /**
    * Logout user.
+   * C-03 FIX: Backend reads refresh_token from httpOnly cookie (parwa_rt).
    */
-  logout: (data: RefreshRequest) => post<MessageResponse>('/api/auth/logout', data),
+  logout: () => post<MessageResponse>('/api/auth/logout', {}),
   
   /**
    * Refresh tokens.
+   * C-03 FIX: Backend reads refresh_token from httpOnly cookie (parwa_rt)
+   * and sets new httpOnly cookies in the response.
    */
-  refresh: (data: RefreshRequest) => post<TokenResponse>('/api/auth/refresh', data),
+  refresh: () => post<TokenResponse>('/api/auth/refresh', {}),
   
   /**
    * Get current user profile.

@@ -65,13 +65,8 @@ export default function SignupPage() {
 
       toast.success('Account created successfully!');
 
-      // Store tokens + user in localStorage
-      if (result.access_token) {
-        localStorage.setItem('parwa_access_token', result.access_token);
-      }
-      if (result.refresh_token) {
-        localStorage.setItem('parwa_refresh_token', result.refresh_token);
-      }
+      // Store non-sensitive user display data only.
+      // Tokens live ONLY in httpOnly cookies (parwa_at, parwa_rt) set by the backend.
       if (result.user) {
         const user = {
           id: result.user.id,
@@ -114,14 +109,10 @@ export default function SignupPage() {
         throw new Error(result.message || 'Google sign-in failed. Please try again.');
       }
 
+      // Store non-sensitive user display data only.
+      // Tokens live ONLY in httpOnly cookies set by the backend.
       if (result.user) {
         localStorage.setItem('parwa_user', JSON.stringify(result.user));
-      }
-      if (result.access_token) {
-        localStorage.setItem('parwa_access_token', result.access_token);
-      }
-      if (result.refresh_token) {
-        localStorage.setItem('parwa_refresh_token', result.refresh_token);
       }
       hydrate();
       toast.success(result.is_new_user ? 'Account created with Google!' : 'Signed in with Google!');

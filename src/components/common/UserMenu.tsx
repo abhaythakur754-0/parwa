@@ -99,19 +99,14 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
 
   const handleLogout = async () => {
     try {
-      const refreshToken = localStorage.getItem('parwa_refresh_token');
-      if (refreshToken) {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/logout`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: refreshToken }),
-        }).catch(() => {});
-      }
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      }).catch(() => {});
     } catch {
       // ignore backend errors
     } finally {
-      localStorage.removeItem('parwa_access_token');
-      localStorage.removeItem('parwa_refresh_token');
       localStorage.removeItem('parwa_user');
       toast.success('Logged out successfully!');
       router.push('/');
@@ -125,24 +120,19 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
     }
     setIsDeleting(true);
     try {
-      const token = localStorage.getItem('parwa_access_token');
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/user/delete-account`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to delete account');
-      localStorage.removeItem('parwa_access_token');
-      localStorage.removeItem('parwa_refresh_token');
       localStorage.removeItem('parwa_user');
       toast.success('Account deleted successfully');
       router.push('/');
     } catch {
       // Backend might not be running — clear locally anyway
-      localStorage.removeItem('parwa_access_token');
-      localStorage.removeItem('parwa_refresh_token');
       localStorage.removeItem('parwa_user');
       toast.success('Account removed');
       router.push('/');

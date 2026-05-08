@@ -204,19 +204,13 @@ function generateMockDashboard(): DashboardData {
  */
 async function apiFetch<T>(url: string, mockFn: () => T): Promise<T & { _mock?: boolean }> {
   try {
-    const token = typeof window !== 'undefined'
-      ? localStorage.getItem('parwa_access_token')
-      : null;
-
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
 
     const res = await fetch(url, {
       headers,
+      credentials: 'include',
       signal: AbortSignal.timeout(8000),
     });
 

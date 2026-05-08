@@ -1,26 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendSMS, isSMSConfigured, getSMSStatus } from '@/lib/sms';
-
-// Auth check helper
-function requireAuth(request: NextRequest): boolean {
-  const authHeader = request.headers.get('authorization');
-  const sessionCookie = request.cookies.get('parwa_session');
-  if (!authHeader && !sessionCookie) {
-    return false;
-  }
-  if (authHeader && !authHeader.startsWith('Bearer ')) {
-    return false;
-  }
-  return true;
-}
+import { requireAuth } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
-  if (!requireAuth(request)) {
-    return NextResponse.json(
-      { success: false, error: 'Authentication required' },
-      { status: 401 }
-    );
-  }
+  const authError = await requireAuth(request);
+  if (authError) return authError;
   try {
     const body = await request.json();
     const { to, body: message } = body;
@@ -51,11 +35,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  if (!requireAuth(request)) {
-    return NextResponse.json(
-      { success: false, error: 'Authentication required' },
-      { status: 401 }
-    );
-  }
+  const authError = await requireAuth(request);
+  if (authError) return authError;
   return NextResponse.json(getSMSStatus());
 }

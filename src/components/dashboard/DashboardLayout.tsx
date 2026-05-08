@@ -46,8 +46,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       await logout();
     } catch {
       localStorage.removeItem('parwa_user');
-      localStorage.removeItem('parwa_access_token');
-      localStorage.removeItem('parwa_refresh_token');
     }
     setAuth(false);
     toast.success('Logged out');

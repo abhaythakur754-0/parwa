@@ -23,8 +23,6 @@ export default function LoginPage() {
       if (res.ok) {
         const data = await res.json();
         localStorage.setItem('parwa_user', JSON.stringify(data.user));
-        localStorage.setItem('parwa_access_token', data.tokens.access_token);
-        localStorage.setItem('parwa_refresh_token', data.tokens.refresh_token);
         setAuth(true);
         toast.success('Welcome back!');
         return;
@@ -49,8 +47,6 @@ export default function LoginPage() {
       created_at: new Date().toISOString(),
     };
     localStorage.setItem('parwa_user', JSON.stringify(mockUser));
-    localStorage.setItem('parwa_access_token', 'mock_token');
-    localStorage.setItem('parwa_refresh_token', 'mock_refresh');
     setAuth(true);
     toast.success('Welcome back! (Demo mode)');
   };

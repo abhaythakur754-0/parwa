@@ -28,8 +28,6 @@ export default function SignupPage() {
       if (res.ok) {
         const responseData = await res.json();
         localStorage.setItem('parwa_user', JSON.stringify(responseData.user));
-        localStorage.setItem('parwa_access_token', responseData.tokens.access_token);
-        localStorage.setItem('parwa_refresh_token', responseData.tokens.refresh_token);
         setAuth(true);
         toast.success('Account created successfully!');
         return;
@@ -54,8 +52,6 @@ export default function SignupPage() {
       created_at: new Date().toISOString(),
     };
     localStorage.setItem('parwa_user', JSON.stringify(mockUser));
-    localStorage.setItem('parwa_access_token', 'mock_token');
-    localStorage.setItem('parwa_refresh_token', 'mock_refresh');
     setAuth(true);
     toast.success('Account created! (Demo mode)');
   };
