@@ -8,6 +8,7 @@ Logs are structured JSON in production, console output in dev/test.
 Only non-sensitive information is logged — no passwords, tokens, or PII.
 """
 
+import os
 import time
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -18,6 +19,9 @@ from app.logger import get_logger
 from shared.utils.datetime import format_duration
 
 logger = get_logger("request_logger")
+
+# H-06: Shared trusted proxy configuration — MUST match rate_limit.py
+_TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "1"))
 
 # Paths to skip logging (health checks, metrics — too noisy)
 SKIP_PATHS = {"/health", "/ready", "/metrics"}
@@ -69,19 +73,16 @@ class RequestLoggerMiddleware(BaseHTTPMiddleware):
 def _get_client_ip(request: Request) -> str:
     """Extract client IP address from request.
 
-    Checks X-Forwarded-For first (behind reverse proxy),
-    then X-Real-IP, then falls back to client host.
-
-    Args:
-        request: Incoming HTTP request.
-
-    Returns:
-        Client IP address string.
+    H-06: Uses TRUSTED_PROXY_COUNT to determine which IP in
+    X-Forwarded-For to trust. Only the rightmost N addresses
+    are considered trusted (consistent with rate_limit.py).
+    Falls back to X-Real-IP, then client host.
     """
     forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        # X-Forwarded-For can contain multiple IPs; first is the original
-        return forwarded.split(",")[0].strip()
+    if forwarded and _TRUSTED_PROXY_COUNT > 0:
+        ips = [ip.strip() for ip in forwarded.split(",")]
+        if len(ips) >= _TRUSTED_PROXY_COUNT:
+            return ips[-_TRUSTED_PROXY_COUNT]
 
     real_ip = request.headers.get("X-Real-IP")
     if real_ip:

@@ -7,9 +7,12 @@ Token creation, verification, and refresh rotation.
   stored SHA-256 hashed in DB
 - BC-011: JWT_SECRET_KEY from env, never hardcoded
 - BC-011: Max 5 sessions per user
+- M-10: jti claim for token blacklisting support
+- L-02: JWT key rotation via JWT_PREVIOUS_KEYS support
 """
 
 import hashlib
+import json
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -22,6 +25,22 @@ from app.exceptions import AuthenticationError
 
 # JWT algorithm — HS256 is industry standard for symmetric keys
 JWT_ALGORITHM = "HS256"
+
+# L-02: JWT key rotation support.
+# When rotating keys, set JWT_PREVIOUS_KEYS to a JSON array of old keys.
+# Tokens signed with old keys will still be verified until they expire,
+# but new tokens will always be signed with JWT_SECRET_KEY.
+_JWT_PREVIOUS_KEYS: list[str] = []
+_raw_previous = os.environ.get("JWT_PREVIOUS_KEYS", "")
+if _raw_previous:
+    try:
+        _parsed = json.loads(_raw_previous)
+        if isinstance(_parsed, list):
+            _JWT_PREVIOUS_KEYS = [
+                str(k) for k in _parsed
+            ]
+    except (json.JSONDecodeError, TypeError):
+        pass
 
 # H3 fix: pepper for refresh-token hashing — prevents rainbow-table
 # attacks even if the DB is leaked.
@@ -76,6 +95,9 @@ def create_access_token(
         "exp": expire,
         "iat": now,
         "nbf": now,
+        # M-10: Unique token identifier for blacklisting support.
+        # Enables individual token revocation via a jti-based blacklist.
+        "jti": secrets.token_urlsafe(16),
     }
     return jwt.encode(
         payload, settings.JWT_SECRET_KEY, algorithm=JWT_ALGORITHM
@@ -86,6 +108,7 @@ def verify_access_token(token: str) -> dict:
     """Verify and decode a JWT access token.
 
     BC-011: Rejects expired tokens, wrong type, invalid signatures.
+    L-02: Also tries JWT_PREVIOUS_KEYS for rotated key support.
 
     Args:
         token: The JWT string from Authorization header.
@@ -97,24 +120,57 @@ def verify_access_token(token: str) -> dict:
         AuthenticationError: If token is invalid or expired.
     """
     settings = get_settings()
-    try:
-        payload = jwt.decode(
-            token,
-            settings.JWT_SECRET_KEY,
-            algorithms=[JWT_ALGORITHM],
-        )
-        if payload.get("type") != "access":
-            raise AuthenticationError(
-                message="Invalid token type",
-                details={"expected": "access"},
+    # Build list of candidate keys: current + previous
+    candidate_keys = [settings.JWT_SECRET_KEY] + _JWT_PREVIOUS_KEYS
+    last_error = None
+    for key in candidate_keys:
+        try:
+            payload = jwt.decode(
+                token,
+                key,
+                algorithms=[JWT_ALGORITHM],
             )
-        return payload
-    except AuthenticationError:
-        raise
-    except JWTError:
-        raise AuthenticationError(
-            message="Invalid or expired token",
-        )
+            if payload.get("type") != "access":
+                raise AuthenticationError(
+                    message="Invalid token type",
+                    details={"expected": "access"},
+                )
+            return payload
+        except AuthenticationError:
+            raise
+        except JWTError as exc:
+            last_error = exc
+            continue
+    raise AuthenticationError(
+        message="Invalid or expired token",
+    )
+
+
+def get_token_jti(token: str) -> str | None:
+    """Extract jti from a token without full verification.
+
+    M-10: Utility for blacklist checks. Parses the token payload
+    without verifying signature (for use after verify_access_token).
+
+    Args:
+        token: The JWT string.
+
+    Returns:
+        The jti string, or None if not found.
+    """
+    try:
+        payload = jwt.get_unverified_claims(token)
+        return payload.get("jti")
+    except Exception:
+        return None
+
+
+def get_jwt_previous_keys() -> list[str]:
+    """Return the list of previous JWT signing keys.
+
+    L-02: Used by ops tooling to inspect key rotation state.
+    """
+    return list(_JWT_PREVIOUS_KEYS)
 
 
 def generate_refresh_token() -> str:

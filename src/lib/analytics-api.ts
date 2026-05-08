@@ -199,8 +199,10 @@ function generateMockDashboard(): DashboardData {
 
 /**
  * Safe fetch wrapper with mock fallback.
+ * M-29: Adds a `_mock: true` flag to the response when mock data
+ * is returned, so the UI can display a "MOCK DATA" banner.
  */
-async function apiFetch<T>(url: string, mockFn: () => T): Promise<T> {
+async function apiFetch<T>(url: string, mockFn: () => T): Promise<T & { _mock?: boolean }> {
   try {
     const token = typeof window !== 'undefined'
       ? localStorage.getItem('parwa_access_token')
@@ -223,9 +225,18 @@ async function apiFetch<T>(url: string, mockFn: () => T): Promise<T> {
     }
 
     return await res.json();
-  } catch {
+  } catch (err) {
+    // M-29: Log when mock data is being returned
+    if (typeof window !== 'undefined') {
+      console.warn(
+        '[PARWA Analytics] Backend unavailable — showing MOCK DATA.',
+        'Set up the backend to see real analytics.',
+        err
+      );
+    }
     // Backend unavailable — return mock data for demo mode
-    return mockFn();
+    // Mark with _mock flag so UI can display a banner
+    return { ...mockFn(), _mock: true };
   }
 }
 

@@ -208,9 +208,19 @@ class AIEntitlementMiddleware(BaseHTTPMiddleware):
             from app.services.entitlement_middleware import (
                 enforce_entitlement,
             )
+            from contextlib import contextmanager
 
-            db = SessionLocal()
-            try:
+            # M-07: Use context manager to guarantee session cleanup
+            # and prevent connection pool exhaustion.
+            @contextmanager
+            def _get_session():
+                db = SessionLocal()
+                try:
+                    yield db
+                finally:
+                    db.close()
+
+            with _get_session() as db:
                 variant_type = _get_company_variant_type(
                     db, company_id,
                 )
@@ -228,8 +238,6 @@ class AIEntitlementMiddleware(BaseHTTPMiddleware):
                         "path": path,
                     },
                 )
-            finally:
-                db.close()
 
         except Exception as exc:
             error_code = getattr(exc, "error_code", None)

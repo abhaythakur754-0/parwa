@@ -102,9 +102,15 @@ async function sendTicketEmail(payload: NotificationPayload): Promise<{ success:
 }
 
 async function sendTicketSMS(payload: NotificationPayload): Promise<{ success: boolean; error?: string }> {
-  const { ticketNumber, customerName, status } = payload;
+  const { ticketNumber, customerName, customerPhone, status } = payload;
   const body = buildTicketSMS(ticketNumber, status, customerName);
-  return sendSMS('+1234567890', body); // Default number — real implementation would use customerPhone
+  // M-37: Use customer phone from payload instead of hardcoded number
+  const recipientPhone = customerPhone || '';
+  if (!recipientPhone) {
+    console.warn(`[Notification] ${ticketNumber}: No customer phone provided for SMS`);
+    return { success: false, error: 'No customer phone number provided' };
+  }
+  return sendSMS(recipientPhone, body);
 }
 
 // ── Email Templates ──

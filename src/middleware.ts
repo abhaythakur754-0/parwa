@@ -7,6 +7,9 @@ import { verifyToken } from "@/lib/jwt";
  * Provides route protection for authenticated routes.
  * Verifies JWT from Authorization header or httpOnly cookie.
  *
+ * M-26: Also adds security headers to responses for defense-in-depth
+ * (not just relying on nginx in production).
+ *
  * Protected routes:
  *   /models, /tickets, /settings, /billing, /analytics, /channels,
  *   /knowledge, /api/chat, /api/tickets/* (except public API routes)
@@ -32,10 +35,52 @@ const PUBLIC_PATHS = [
   "/robots.txt",
 ];
 
+// M-26: Security headers applied to all responses
+const SECURITY_HEADERS: Record<string, string> = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "X-XSS-Protection": "0",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+};
+
+// M-26: Auth paths that must have Cache-Control: no-store
+const AUTH_PATH_PREFIXES = [
+  "/api/auth",
+  "/api/login",
+  "/api/mfa",
+  "/api/refresh",
+];
+
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some(
     (path) => pathname === path || pathname.startsWith(path + "/")
   );
+}
+
+/** M-26: Add security headers to response. */
+function addSecurityHeaders(
+  response: NextResponse,
+  pathname: string
+): NextResponse {
+  // Apply standard security headers
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    response.headers.set(key, value);
+  }
+
+  // Cache-Control: no-store for auth endpoints
+  const isAuthPath = AUTH_PATH_PREFIXES.some((p) =>
+    pathname.startsWith(p)
+  );
+  if (isAuthPath) {
+    response.headers.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, max-age=0"
+    );
+    response.headers.set("Pragma", "no-cache");
+  }
+
+  return response;
 }
 
 export async function middleware(request: NextRequest) {
@@ -43,7 +88,7 @@ export async function middleware(request: NextRequest) {
 
   // Allow public paths without auth
   if (isPublicPath(pathname)) {
-    return NextResponse.next();
+    return addSecurityHeaders(NextResponse.next(), pathname);
   }
 
   // Allow static assets
@@ -52,7 +97,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/static/") ||
     pathname.includes(".") // favicon, robots, etc.
   ) {
-    return NextResponse.next();
+    return addSecurityHeaders(NextResponse.next(), pathname);
   }
 
   // Extract token from Authorization header or cookie
@@ -111,9 +156,12 @@ export async function middleware(request: NextRequest) {
   requestHeaders.set("x-user-id", verified.payload.sub);
   requestHeaders.set("x-user-email", verified.payload.email || "");
 
-  return NextResponse.next({
-    request: { headers: requestHeaders },
-  });
+  return addSecurityHeaders(
+    NextResponse.next({
+      request: { headers: requestHeaders },
+    }),
+    pathname,
+  );
 }
 
 export const config = {

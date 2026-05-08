@@ -29,7 +29,6 @@ router = APIRouter(prefix="/identity", tags=["identity"])
 )
 async def resolve_identity(
     data: IdentityMatchRequest,
-    request: Request,
     db: Session = Depends(get_db),
     current_user: Dict = Depends(get_current_user),
 ) -> Any:
@@ -37,12 +36,14 @@ async def resolve_identity(
 
     Tries to match existing customer by any provided identifier.
     Creates new customer if no match and auto_create is True.
+
+    M-02: Removed double body parsing — all fields come from
+    the Pydantic IdentityMatchRequest model only.
     """
     company_id = current_user.get("company_id")
 
-    body = await request.json() if await request.body() else {}
-    auto_create = body.get("auto_create", True)
-    auto_link_threshold = body.get("auto_link_threshold")
+    auto_create = getattr(data, "auto_create", True)
+    auto_link_threshold = getattr(data, "auto_link_threshold", None)
 
     service = IdentityResolutionService(db, company_id)
 
@@ -166,8 +167,34 @@ async def batch_resolve_identities(
     """Resolve multiple identities in batch.
 
     Useful for bulk importing or syncing.
+    M-03: Per-user rate limit enforced (max 5 batch requests per minute).
     """
+    import logging
+    from app.services.rate_limit_service import get_rate_limit_service
+
+    logger = logging.getLogger("parwa.identity")
     company_id = current_user.get("company_id")
+    user_id = current_user.get("sub", current_user.get("user_id", ""))
+
+    # M-03: Per-user rate limit for batch endpoint (5 req/min)
+    rate_svc = get_rate_limit_service()
+    rl_result = rate_svc.check_rate_limit(
+        "batch_identity", user_id or company_id,
+    )
+    if not rl_result.allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "error": {
+                    "code": "RATE_LIMIT_EXCEEDED",
+                    "message": (
+                        "Batch identity rate limit exceeded. "
+                        "Max 5 requests per minute."
+                    ),
+                    "details": None,
+                }
+            },
+        )
 
     body = await request.json()
     identities = body.get("identities", [])

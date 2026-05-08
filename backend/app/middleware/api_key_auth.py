@@ -7,6 +7,7 @@ Uses DB-backed validation via api_key_service.
 Backward compatible with old in-memory key_store.
 """
 
+import logging
 import time
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -14,6 +15,8 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from app.middleware.error_handler import build_error_response
+
+logger = logging.getLogger("parwa.api_key_auth")
 
 # Paths that skip API key auth (public endpoints)
 SKIP_PATHS = {"/health", "/ready", "/metrics"}
@@ -44,7 +47,11 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
         # Extract API key from header
         raw_key = self._extract_key(request)
         if not raw_key:
-            # No Bearer token at all — pass through
+            # M-06: Log when no Bearer token present (pass-through)
+            logger.debug(
+                "api_key_auth_no_bearer_token path=%s",
+                request.url.path,
+            )
             response = await call_next(request)
             return response
 
@@ -68,6 +75,12 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
             key_data = self._lookup_key_memory(raw_key)
 
         if not key_data:
+            # M-06: Log failed API key validation attempt
+            logger.warning(
+                "api_key_auth_invalid_key path=%s key_prefix=%s",
+                request.url.path,
+                raw_key[:12] + "..." if len(raw_key) > 12 else "***",
+            )
             return self._unauthorized_response(
                 request, "Invalid or expired API key"
             )
@@ -146,13 +159,27 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
     async def _validate_db(
         self, request: Request, raw_key: str,
     ):
-        """Validate key against database."""
+        """Validate key against database.
+
+        M-07: Uses a short-lived session via context manager pattern
+        instead of manual SessionLocal() + db.close() to prevent
+        connection pool exhaustion.
+        """
         try:
             from database.base import SessionLocal
             from app.services import api_key_service
+            from contextlib import contextmanager
 
-            db = SessionLocal()
-            try:
+            @contextmanager
+            def _get_session():
+                """Yield a DB session, guaranteeing cleanup."""
+                db = SessionLocal()
+                try:
+                    yield db
+                finally:
+                    db.close()
+
+            with _get_session() as db:
                 record = api_key_service.validate_key(
                     db, raw_key,
                 )
@@ -200,11 +227,8 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
                         else None
                     ),
                 }
-            finally:
-                db.close()
         except Exception as _exc:
-            from app.logger import get_logger
-            get_logger("api_key_auth").warning(
+            logger.warning(
                 "api_key_db_validation_failed",
                 error=str(_exc),
             )

@@ -7,11 +7,21 @@ Adds security headers to all responses per BC-011/BC-012:
 - Referrer-Policy: strict-origin-when-cross-origin
 - Permissions-Policy: camera/mic/geo disabled
 - Strict-Transport-Security: in production
+- Cache-Control: no-store on auth endpoints (M-11)
 """
 
 import os
 
 from starlette.middleware.base import BaseHTTPMiddleware
+
+# M-11: Paths that must have Cache-Control: no-store
+AUTH_PATH_PREFIXES = (
+    "/api/auth/",
+    "/api/login",
+    "/api/register",
+    "/api/mfa/",
+    "/api/refresh",
+)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -34,4 +44,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Strict-Transport-Security"] = (
                 "max-age=31536000; includeSubDomains"
             )
+
+        # M-11: Prevent caching of auth responses
+        path = request.url.path if hasattr(request, "url") else ""
+        for prefix in AUTH_PATH_PREFIXES:
+            if path.startswith(prefix):
+                response.headers["Cache-Control"] = (
+                    "no-store, no-cache, must-revalidate, max-age=0"
+                )
+                response.headers["Pragma"] = "no-cache"
+                response.headers["Expires"] = "0"
+                break
+
         return response

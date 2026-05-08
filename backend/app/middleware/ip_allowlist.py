@@ -23,6 +23,10 @@ import json
 import logging
 import os
 
+# H-06: Shared trusted proxy configuration.
+# All middleware MUST use this for consistent IP extraction.
+_TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "1"))
+
 logger = logging.getLogger("parwa.ip_allowlist")
 
 # Skip prefixes: health and monitoring endpoints
@@ -148,15 +152,19 @@ class IPAllowlistMiddleware:
     def _get_client_ip(self, scope: dict) -> str:
         """Extract client IP from ASGI scope.
 
-        Checks X-Forwarded-For header first (behind proxy),
-        then falls back to client address.
+        H-06: Uses TRUSTED_PROXY_COUNT to determine which IP in
+        X-Forwarded-For to trust. Only the rightmost N addresses
+        are considered trusted (matching rate_limit.py approach).
+        Falls back to client address when header is absent.
         """
         headers = dict(scope.get("headers", []))
         forwarded = headers.get(
             b"x-forwarded-for", b"",
         ).decode("utf-8", errors="ignore")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
+        if forwarded and _TRUSTED_PROXY_COUNT > 0:
+            ips = [ip.strip() for ip in forwarded.split(",")]
+            if len(ips) >= _TRUSTED_PROXY_COUNT:
+                return ips[-_TRUSTED_PROXY_COUNT]
 
         client = scope.get("client")
         if client:

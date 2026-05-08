@@ -2,11 +2,11 @@
 PARWA API Key Management (BC-011)
 
 Secure API key generation, hashing, scope validation, and rotation.
-API keys are never stored in plain text - only SHA-256 hashes.
+API keys are never stored in plain text - only bcrypt hashes.
 
 BC-011 Requirements:
 - API key uses cryptographically secure random generation
-- API key is hashed (SHA-256) before storing in DB
+- M-12: API key hashed with bcrypt (cost 12) before storing in DB
 - Scopes enforced: read can't write, write can't admin
 - Key rotation invalidates old key immediately
 - Constant-time comparison to prevent timing attacks
@@ -162,41 +162,65 @@ def base64_urlsafe_encode(data: bytes) -> str:
 
 
 def hash_api_key(raw_key: str) -> str:
-    """Hash an API key using SHA-256.
+    """Hash an API key using bcrypt.
 
-    BC-011: Never store raw keys. Only store the hash.
+    M-12: Upgraded from SHA-256 to bcrypt (cost 12) for
+    brute-force resistance if the database is leaked.
+    The key is prefixed with "ak$" to distinguish from password hashes.
 
     Args:
         raw_key: The raw API key string.
 
     Returns:
-        SHA-256 hex digest of the key.
+        bcrypt hash string (prefixed with "ak$").
 
     Raises:
         ValueError: If raw_key is empty.
     """
     if not raw_key:
         raise ValueError("API key must not be empty")
-    return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
+    import bcrypt
+    salt = bcrypt.gensalt(rounds=12)
+    hashed = bcrypt.hashpw(
+        raw_key.encode("utf-8"), salt,
+    ).decode("utf-8")
+    return f"ak${hashed}"
 
 
 def verify_api_key(raw_key: str, key_hash: str) -> bool:
     """Verify an API key against a stored hash.
 
-    Uses constant-time comparison to prevent timing attacks.
-    Hashes the raw key and compares with stored hash.
+    M-12: Uses bcrypt verification for brute-force resistance.
+    Falls back to SHA-256 verification for backward compatibility
+    with keys hashed before the M-12 upgrade.
 
     Args:
         raw_key: The raw API key from the request header.
-        key_hash: The stored SHA-256 hash.
+        key_hash: The stored hash (bcrypt with "ak$" prefix or legacy SHA-256).
 
     Returns:
         True if the key matches, False otherwise.
     """
     if not raw_key or not key_hash:
         return False
+
+    # M-12: bcrypt verification (new format)
+    if key_hash.startswith("ak$"):
+        import bcrypt
+        stored_hash = key_hash[3:]  # strip "ak$" prefix
+        try:
+            return bcrypt.checkpw(
+                raw_key.encode("utf-8"),
+                stored_hash.encode("utf-8"),
+            )
+        except Exception:
+            return False
+
+    # Legacy SHA-256 verification (backward compatible)
     try:
-        computed_hash = hash_api_key(raw_key)
+        computed_hash = hashlib.sha256(
+            raw_key.encode("utf-8")
+        ).hexdigest()
     except ValueError:
         return False
     return constant_time_compare(computed_hash, key_hash)

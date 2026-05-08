@@ -243,9 +243,31 @@ def mfa_verify_login(
             },
         )
 
-    result = verify_mfa_login(
-        db=db, user=user, code=body.code
-    )
+    # M-09: Wrap service call to catch any raw Exception and
+    # convert to proper AuthenticationError for consistent error handling.
+    try:
+        result = verify_mfa_login(
+            db=db, user=user, code=body.code
+        )
+    except AuthenticationError:
+        raise
+    except Exception as exc:
+        logger = __import__("logging").getLogger("parwa.mfa")
+        logger.error(
+            "mfa_verify_unexpected_error user_id=%s error=%s",
+            session_data.get("user_id", ""),
+            str(exc)[:200],
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "MFA verification failed. Please try again.",
+                    "details": None,
+                }
+            },
+        )
 
     # On successful MFA verification, issue real JWT tokens
     if result.get("verified"):
