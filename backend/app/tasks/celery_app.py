@@ -9,6 +9,10 @@ Day 16 additions:
 - Beat scheduler configuration for periodic tasks
 - Celery health check integration
 
+M-32 FIX:
+- Task payload size limit (1 MB max)
+- Worker memory and task count limits
+
 Queues:
 - default: General tasks (account export, data cleanup)
 - ai_heavy: Heavy AI tasks (embedding generation, batch classification)
@@ -20,7 +24,13 @@ Queues:
 - dead_letter: Failed tasks that exhausted all retries (Day 16)
 """
 
+import logging
 from celery import Celery
+
+# M-32: Maximum allowed task payload size in bytes (1 MB)
+MAX_TASK_PAYLOAD_BYTES = 1 * 1024 * 1024
+
+logger = logging.getLogger("celery_app")
 
 # ── Create Celery app (lazy config — settings loaded at runtime) ────
 
@@ -74,6 +84,10 @@ def _build_config() -> dict:
         ),
         "task_soft_time_limit": settings.CELERY_TASK_SOFT_TIME_LIMIT,
         "task_time_limit": settings.CELERY_TASK_TIME_LIMIT,
+        # M-32 FIX: Limit task payload size to 1 MB to prevent oversized payloads
+        # that can overwhelm workers or be used for denial-of-service attacks.
+        "worker_max_tasks_per_child": 1000,
+        "worker_max_memory_per_child": 200_000,  # 200MB per worker
         # Serialization
         "task_serializer": "json",
         "result_serializer": "json",

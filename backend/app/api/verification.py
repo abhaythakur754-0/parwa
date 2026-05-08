@@ -13,6 +13,7 @@ BC-001: All operations scoped to authenticated user's company_id.
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, validator
 from sqlalchemy.orm import Session
+from email_validator import validate_email as _validate_email, EmailNotValidError
 
 from app.api.deps import get_current_user
 from app.exceptions import ValidationError, RateLimitError
@@ -38,10 +39,14 @@ class SendOTPRequest(BaseModel):
     
     @validator("email")
     def validate_email(cls, v: str) -> str:
-        v = v.lower().strip()
-        if not v or "@" not in v:
-            raise ValueError("Invalid email address")
-        return v
+        v = v.strip()
+        if not v:
+            raise ValueError("Email address is required")
+        try:
+            validated = _validate_email(v, check_deliverability=False)
+            return validated.normalized
+        except EmailNotValidError as exc:
+            raise ValueError(str(exc))
 
 
 class SendOTPResponse(BaseModel):
@@ -58,10 +63,14 @@ class VerifyOTPRequest(BaseModel):
     
     @validator("email")
     def validate_email(cls, v: str) -> str:
-        v = v.lower().strip()
-        if not v or "@" not in v:
-            raise ValueError("Invalid email address")
-        return v
+        v = v.strip()
+        if not v:
+            raise ValueError("Email address is required")
+        try:
+            validated = _validate_email(v, check_deliverability=False)
+            return validated.normalized
+        except EmailNotValidError as exc:
+            raise ValueError(str(exc))
     
     @validator("otp_code")
     def validate_otp(cls, v: str) -> str:

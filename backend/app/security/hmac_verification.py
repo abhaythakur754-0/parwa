@@ -9,11 +9,42 @@ Provides webhook signature verification for third-party providers:
 
 BC-011: All comparisons use hmac.compare_digest (constant-time).
 Fail-closed design: returns False on ANY error.
+
+L-06 FIX: Brevo IP ranges are now configurable via environment variable
+BREVO_IP_RANGES (comma-separated CIDR list), falling back to defaults.
 """
 
 import hashlib
 import hmac
 import ipaddress
+import os
+
+
+def _get_brevo_ips() -> list:
+    """Get Brevo IP ranges from environment or defaults.
+
+    L-06 FIX: Makes Brevo IP ranges configurable instead of hardcoded.
+    Reads BREVO_IP_RANGES env var (comma-separated CIDR strings).
+    Falls back to DEFAULT_BREVO_IPS if not set or invalid.
+
+    Returns:
+        List of CIDR strings.
+    """
+    env_ips = os.getenv("BREVO_IP_RANGES", "")
+    if env_ips:
+        try:
+            ranges = [
+                cidr.strip()
+                for cidr in env_ips.split(",")
+                if cidr.strip()
+            ]
+            # Validate that they're all valid CIDR ranges
+            for cidr in ranges:
+                ipaddress.ip_network(cidr, strict=False)
+            return ranges
+        except Exception:
+            pass
+    return DEFAULT_BREVO_IPS
 
 
 # Default Brevo IP ranges (from Brevo documentation)
@@ -145,10 +176,12 @@ def verify_brevo_ip(
     Checks if the client IP falls within any of the
     allowed CIDR ranges.
 
+    L-06 FIX: If allowed_ips is None, reads from BREVO_IP_RANGES
+    environment variable (falls back to DEFAULT_BREVO_IPS).
+
     Args:
         client_ip: The client's IP address string.
-        allowed_ips: List of CIDR strings. Uses default
-            Brevo IPs if None.
+        allowed_ips: List of CIDR strings. If None, uses env var.
 
     Returns:
         True if IP is allowed, False otherwise.
@@ -156,7 +189,7 @@ def verify_brevo_ip(
     if not client_ip:
         return False
     try:
-        ips = allowed_ips if allowed_ips is not None else DEFAULT_BREVO_IPS
+        ips = allowed_ips if allowed_ips is not None else _get_brevo_ips()
         ip_obj = ipaddress.ip_address(client_ip.strip())
         for cidr in ips:
             try:

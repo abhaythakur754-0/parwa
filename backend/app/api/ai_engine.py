@@ -20,9 +20,10 @@ Import patterns:
 """
 
 import json
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -35,6 +36,86 @@ from database.base import get_db
 from database.models.core import User
 
 router = APIRouter(prefix="/api/ai", tags=["ai-engine"])
+
+
+# ═══════════════════════════════════════════════════════════════════
+# REQUEST SCHEMAS (M-14: Replace raw body:dict with Pydantic models)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class UpdateCapabilityRequest(BaseModel):
+    """Request to update a capability configuration."""
+    variant_type: str = Field(..., description="Variant type (e.g. mini_parwa, parwa, parwa_high)")
+    config: Dict[str, Any] = Field(default_factory=dict, description="Configuration key-value pairs")
+    instance_id: Optional[str] = Field(None, description="Optional instance-level override")
+
+
+class BatchCapabilityUpdateItem(BaseModel):
+    """Single item in a batch capability update."""
+    feature_id: str = Field(..., description="Feature ID to update")
+    variant_type: str = Field(..., description="Variant type")
+    is_enabled: bool = Field(..., description="Enable or disable the feature")
+    instance_id: Optional[str] = Field(None, description="Optional instance override")
+
+
+class BatchCapabilityUpdateRequest(BaseModel):
+    """Request to batch update multiple capabilities."""
+    updates: List[BatchCapabilityUpdateItem] = Field(..., description="List of capability updates")
+
+
+class CreateInstanceRequest(BaseModel):
+    """Request to create a new variant instance."""
+    instance_name: str = Field(..., min_length=1, max_length=255, description="Instance name")
+    variant_type: str = Field(..., description="Variant type (mini_parwa, parwa, parwa_high)")
+    channel_assignment: Optional[List[str]] = Field(None, description="Channels assigned to this instance")
+    capacity_config: Optional[Dict[str, Any]] = Field(None, description="Capacity configuration dict")
+
+
+class UpdateInstanceRequest(BaseModel):
+    """Request to update an instance's configuration."""
+    channel_assignment: Optional[List[str]] = Field(None, description="Channels assigned to this instance")
+    capacity_config: Optional[Dict[str, Any]] = Field(None, description="Capacity configuration dict")
+
+
+class RouteTicketRequest(BaseModel):
+    """Request to route a ticket to the best available instance."""
+    ticket_id: str = Field(..., description="Ticket ID to route")
+    channel: Optional[str] = Field(None, description="Channel of the ticket")
+    strategy: Optional[str] = Field("least_loaded", description="Routing strategy")
+    variant_type: Optional[str] = Field(None, description="Preferred variant type")
+
+
+class TriggerWarmupRequest(BaseModel):
+    """Request to trigger manual warmup for AI models."""
+    variant_type: str = Field(..., description="Variant type to warm up")
+
+
+class BatchEntitlementCheckRequest(BaseModel):
+    """Request to batch check feature entitlements."""
+    feature_ids: List[str] = Field(..., min_length=1, description="Feature IDs to check")
+    variant_type: str = Field(..., description="Variant type")
+    instance_id: Optional[str] = Field(None, description="Optional instance ID")
+
+
+class InstanceOverrideRequest(BaseModel):
+    """Request to create/update a per-instance feature override."""
+    feature_id: str = Field(..., description="Feature ID")
+    variant_type: str = Field(..., description="Variant type")
+    instance_id: str = Field(..., description="Instance ID")
+    is_enabled: bool = Field(..., description="Enable or disable")
+    config_json: Optional[Dict[str, Any]] = Field(None, description="Optional configuration override")
+
+
+class RemoveOverrideRequest(BaseModel):
+    """Request to remove a per-instance feature override."""
+    feature_id: str = Field(..., description="Feature ID")
+    variant_type: str = Field(..., description="Variant type")
+    instance_id: str = Field(..., description="Instance ID")
+
+
+class ResetBudgetRequest(BaseModel):
+    """Request to reset budget counters."""
+    budget_type: str = Field("daily", description="Budget type: 'daily' or 'monthly'")
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -233,7 +314,7 @@ def get_capability(
 @router.put("/capabilities/{feature_id}")
 def update_capability(
     feature_id: str,
-    body: dict,
+    body: UpdateCapabilityRequest,
     company_id: str = Depends(get_company_id),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("owner", "admin")),
@@ -247,23 +328,13 @@ def update_capability(
         update_capability_config,
     )
 
-    variant_type = body.get("variant_type")
-    config = body.get("config", {})
-    instance_id = body.get("instance_id")
-
-    if not variant_type:
-        raise ValidationError(
-            message="variant_type is required in request body",
-            details={"required": ["variant_type"]},
-        )
-
     updated = update_capability_config(
         db,
         company_id=company_id,
         feature_id=feature_id,
-        variant_type=variant_type,
-        config_json=config,
-        instance_id=instance_id,
+        variant_type=body.variant_type,
+        config_json=body.config,
+        instance_id=body.instance_id,
     )
 
     return {"status": "ok", "data": _serialize_capability(updated)}
@@ -271,7 +342,7 @@ def update_capability(
 
 @router.post("/capabilities/batch")
 def batch_update_capabilities(
-    body: dict,
+    body: BatchCapabilityUpdateRequest,
     company_id: str = Depends(get_company_id),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("owner", "admin")),
@@ -285,12 +356,7 @@ def batch_update_capabilities(
         batch_update_capabilities,
     )
 
-    updates = body.get("updates")
-    if not isinstance(updates, list) or not updates:
-        raise ValidationError(
-            message="updates must be a non-empty list",
-            details={"field": "updates"},
-        )
+    updates = [item.model_dump() for item in body.updates]
 
     result = batch_update_capabilities(
         db,
@@ -340,7 +406,7 @@ def list_instances(
 
 @router.post("/instances")
 def create_instance(
-    body: dict,
+    body: CreateInstanceRequest,
     company_id: str = Depends(get_company_id),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("owner", "admin")),
@@ -355,22 +421,13 @@ def create_instance(
         register_instance,
     )
 
-    instance_name = body.get("instance_name")
-    variant_type = body.get("variant_type")
-
-    if not instance_name or not variant_type:
-        raise ValidationError(
-            message="instance_name and variant_type are required",
-            details={"required": ["instance_name", "variant_type"]},
-        )
-
     instance = register_instance(
         db,
         company_id=company_id,
-        instance_name=instance_name,
-        variant_type=variant_type,
-        channel_assignment=body.get("channel_assignment"),
-        capacity_config=body.get("capacity_config"),
+        instance_name=body.instance_name,
+        variant_type=body.variant_type,
+        channel_assignment=body.channel_assignment,
+        capacity_config=body.capacity_config,
     )
 
     return {"status": "ok", "data": _serialize_instance(instance)}
@@ -406,7 +463,7 @@ def get_instance(
 @router.put("/instances/{instance_id}")
 def update_instance(
     instance_id: str,
-    body: dict,
+    body: UpdateInstanceRequest,
     company_id: str = Depends(get_company_id),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("owner", "admin")),
@@ -421,10 +478,7 @@ def update_instance(
         update_capacity_config,
     )
 
-    channels = body.get("channel_assignment")
-    capacity = body.get("capacity_config")
-
-    if not channels and not capacity:
+    if body.channel_assignment is None and body.capacity_config is None:
         raise ValidationError(
             message=(
                 "At least one of channel_assignment or "
@@ -432,27 +486,27 @@ def update_instance(
             ),
         )
 
-    if channels is not None:
+    if body.channel_assignment is not None:
         instance = update_channel_assignment(
             db,
             company_id=company_id,
             instance_id=instance_id,
-            channels=channels,
+            channels=body.channel_assignment,
         )
     else:
         instance = update_capacity_config(
             db,
             company_id=company_id,
             instance_id=instance_id,
-            config=capacity,
+            config=body.capacity_config,
         )
 
-    if channels is not None and capacity is not None:
+    if body.channel_assignment is not None and body.capacity_config is not None:
         instance = update_capacity_config(
             db,
             company_id=company_id,
             instance_id=instance_id,
-            config=capacity,
+            config=body.capacity_config,
         )
 
     return {"status": "ok", "data": _serialize_instance(instance)}
@@ -515,7 +569,7 @@ def get_highest_active_variant(
 
 @router.post("/orchestrate/route-ticket")
 def route_ticket(
-    body: dict,
+    body: RouteTicketRequest,
     company_id: str = Depends(get_company_id),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("owner", "admin")),
@@ -529,20 +583,13 @@ def route_ticket(
         route_ticket as svc_route_ticket,
     )
 
-    ticket_id = body.get("ticket_id")
-    if not ticket_id:
-        raise ValidationError(
-            message="ticket_id is required in request body",
-            details={"required": ["ticket_id"]},
-        )
-
     distribution = svc_route_ticket(
         db,
         company_id=company_id,
-        ticket_id=ticket_id,
-        channel=body.get("channel"),
-        strategy=body.get("strategy", "least_loaded"),
-        variant_type=body.get("variant_type"),
+        ticket_id=body.ticket_id,
+        channel=body.channel,
+        strategy=body.strategy,
+        variant_type=body.variant_type,
     )
 
     return {"status": "ok", "data": _serialize_distribution(distribution)}
@@ -637,7 +684,7 @@ def check_entitlement(
 
 @router.post("/entitlement/batch-check")
 def batch_check_entitlements(
-    body: dict,
+    body: BatchEntitlementCheckRequest,
     company_id: str = Depends(get_company_id),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -651,27 +698,12 @@ def batch_check_entitlements(
         batch_check_entitlements as svc_batch_check,
     )
 
-    feature_ids = body.get("feature_ids")
-    variant_type = body.get("variant_type")
-
-    if not isinstance(feature_ids, list) or not feature_ids:
-        raise ValidationError(
-            message="feature_ids must be a non-empty list",
-            details={"required": ["feature_ids", "variant_type"]},
-        )
-
-    if not variant_type:
-        raise ValidationError(
-            message="variant_type is required",
-            details={"required": ["feature_ids", "variant_type"]},
-        )
-
     result = svc_batch_check(
         db,
         company_id=company_id,
-        feature_ids=feature_ids,
-        variant_type=variant_type,
-        instance_id=body.get("instance_id"),
+        feature_ids=body.feature_ids,
+        variant_type=body.variant_type,
+        instance_id=body.instance_id,
     )
 
     return {"status": "ok", "data": result}
@@ -733,7 +765,7 @@ def get_upgrade_nudge(
 
 @router.post("/entitlement/instance-override")
 def create_instance_override(
-    body: dict,
+    body: InstanceOverrideRequest,
     company_id: str = Depends(get_company_id),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("owner", "admin")),
@@ -747,35 +779,14 @@ def create_instance_override(
         create_instance_override as svc_create_override,
     )
 
-    feature_id = body.get("feature_id")
-    variant_type = body.get("variant_type")
-    instance_id = body.get("instance_id")
-    is_enabled = body.get("is_enabled")
-
-    missing = []
-    if not feature_id:
-        missing.append("feature_id")
-    if not variant_type:
-        missing.append("variant_type")
-    if not instance_id:
-        missing.append("instance_id")
-    if is_enabled is None:
-        missing.append("is_enabled")
-
-    if missing:
-        raise ValidationError(
-            message=f"Missing required fields: {', '.join(missing)}",
-            details={"required": missing},
-        )
-
     override = svc_create_override(
         db,
         company_id=company_id,
-        feature_id=feature_id,
-        variant_type=variant_type,
-        instance_id=instance_id,
-        is_enabled=bool(is_enabled),
-        config_json=body.get("config_json"),
+        feature_id=body.feature_id,
+        variant_type=body.variant_type,
+        instance_id=body.instance_id,
+        is_enabled=body.is_enabled,
+        config_json=body.config_json,
     )
 
     return {"status": "ok", "data": _serialize_capability(override)}
@@ -783,7 +794,7 @@ def create_instance_override(
 
 @router.delete("/entitlement/instance-override")
 def remove_instance_override(
-    body: dict,
+    body: RemoveOverrideRequest,
     company_id: str = Depends(get_company_id),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("owner", "admin")),
@@ -797,38 +808,20 @@ def remove_instance_override(
         remove_instance_override as svc_remove_override,
     )
 
-    feature_id = body.get("feature_id")
-    variant_type = body.get("variant_type")
-    instance_id = body.get("instance_id")
-
-    missing = []
-    if not feature_id:
-        missing.append("feature_id")
-    if not variant_type:
-        missing.append("variant_type")
-    if not instance_id:
-        missing.append("instance_id")
-
-    if missing:
-        raise ValidationError(
-            message=f"Missing required fields: {', '.join(missing)}",
-            details={"required": missing},
-        )
-
     removed = svc_remove_override(
         db,
         company_id=company_id,
-        feature_id=feature_id,
-        variant_type=variant_type,
-        instance_id=instance_id,
+        feature_id=body.feature_id,
+        variant_type=body.variant_type,
+        instance_id=body.instance_id,
     )
 
     return {
         "status": "ok",
         "data": {
             "removed": removed,
-            "feature_id": feature_id,
-            "instance_id": instance_id,
+            "feature_id": body.feature_id,
+            "instance_id": body.instance_id,
             "message": (
                 "Override removed successfully"
                 if removed
@@ -872,7 +865,7 @@ def get_budget_status(
 
 @router.post("/cost/budget/reset")
 def reset_budget(
-    body: dict,
+    body: ResetBudgetRequest,
     company_id: str = Depends(get_company_id),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("owner", "admin")),
@@ -886,7 +879,7 @@ def reset_budget(
         CostProtectionService,
     )
 
-    budget_type = body.get("budget_type", "daily")
+    budget_type = body.budget_type
 
     service = CostProtectionService(db)
 
@@ -1006,7 +999,7 @@ def get_router_providers(
 
 @router.post("/cold-start/warmup")
 def trigger_warmup(
-    body: dict,
+    body: TriggerWarmupRequest,
     company_id: str = Depends(get_company_id),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("owner", "admin")),
@@ -1018,15 +1011,8 @@ def trigger_warmup(
     """
     from app.core.cold_start_service import get_cold_start_service
 
-    variant_type = body.get("variant_type")
-    if not variant_type:
-        raise ValidationError(
-            message="variant_type is required in request body",
-            details={"required": ["variant_type"]},
-        )
-
     service = get_cold_start_service()
-    state = service.warmup_tenant(company_id, variant_type)
+    state = service.warmup_tenant(company_id, body.variant_type)
 
     return {"status": "ok", "data": _serialize_warmup_state(state)}
 

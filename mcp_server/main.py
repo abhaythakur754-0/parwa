@@ -195,11 +195,19 @@ app = FastAPI(
 
 # ── CORS Middleware ────────────────────────────────────────────
 
+# M-23 FIX: Never fall back to ["*"] — fail closed with empty list
+# so that all cross-origin requests are rejected when origins are misconfigured.
 try:
     _settings = get_settings()
     _cors_origins = _settings.cors_origin_list
+    if not _cors_origins:
+        from mcp_server.base_server import get_logger as _get_logger
+        _get_logger("cors").warning(
+            "cors_origin_list is empty — CORS will deny all cross-origin requests"
+        )
+        _cors_origins = []
 except Exception:
-    _cors_origins = ["*"]
+    _cors_origins = []
 
 app.add_middleware(
     CORSMiddleware,

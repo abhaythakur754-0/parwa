@@ -1113,6 +1113,7 @@ def validate_file_upload(
     content_type: str,
     file_size: int,
     tier: str = "starter",
+    content: bytes = b"",
 ) -> str:
     """Validate a file upload before processing.
 
@@ -1123,12 +1124,14 @@ def validate_file_upload(
       4. Content type ↔ extension consistency
       5. File size validation against tier limit
       6. Extension existence check
+      7. L-01 FIX: Magic-byte validation (when python-magic is available)
 
     Args:
         filename: Original filename from user upload.
         content_type: MIME type declared for the upload.
         file_size: File size in bytes.
         tier: Subscription tier (starter, growth, high).
+        content: Raw file bytes for magic-byte validation (optional).
 
     Returns:
         Sanitized filename string.
@@ -1186,4 +1189,112 @@ def validate_file_upload(
             f"Allowed extensions: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
         )
 
+    # --- 7. L-01 FIX: Magic-byte validation ---
+    if content:
+        _validate_magic_bytes(content, content_type, ext)
+
     return sanitized
+
+
+def _validate_magic_bytes(
+    content: bytes, content_type: str, ext: str
+) -> None:
+    """Validate file content matches declared type using magic bytes.
+
+    Uses python-magic when available, with a pure-Python fallback for
+    common types.  This prevents uploading a malicious file disguised
+    with a benign extension (e.g. an executable renamed to .pdf).
+
+    L-01 FIX: Defense-in-depth against content-type spoofing.
+
+    Args:
+        content: Raw file bytes.
+        content_type: Declared MIME type.
+        ext: File extension (lowercase, with dot).
+
+    Raises:
+        ValueError: If magic bytes do not match the declared type.
+    """
+    detected_mime = _detect_mime_type(content)
+    if detected_mime is None:
+        # Could not detect — skip validation (don't fail closed here)
+        return
+
+    # Build expected MIME set for the given extension
+    expected_mimes = _EXTENSION_MAGIC_MAP.get(ext, set())
+    if not expected_mimes:
+        expected_mimes = {content_type}
+
+    # Check if detected type is compatible
+    if detected_mime not in expected_mimes and detected_mime != content_type:
+        logger.warning(
+            "magic_byte_mismatch: declared=%s ext=%s detected=%s",
+            content_type, ext, detected_mime,
+        )
+        raise ValueError(
+            f"File content does not match the declared type "
+            f"'{content_type}'. Detected: '{detected_mime}'. "
+            f"The file may be corrupted or renamed."
+        )
+
+
+def _detect_mime_type(content: bytes) -> Optional[str]:
+    """Detect MIME type from file content bytes.
+
+    Tries python-magic first, falls back to a pure-Python
+    signature check for common types.
+
+    Returns:
+        Detected MIME type string, or None if detection fails.
+    """
+    if not content:
+        return None
+
+    # Try python-magic library
+    try:
+        import magic
+        detected = magic.from_buffer(content, mime=True)
+        if detected:
+            return detected
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
+    # Pure-Python fallback for common file signatures
+    if content[:4] == b"%PDF":
+        return "application/pdf"
+    if content.startswith(b"PK\x03\x04"):
+        return (
+            "application/vnd.openxmlformats-officedocument"
+            ".wordprocessingml.document"
+        )
+    if content[:5] == b"<!DOC" or content[:9].lower() == b"<!doctype":
+        return "text/html"
+    if content[:5] == b"<?xml":
+        return "text/xml"
+    # CSV is hard to detect from magic bytes alone
+    if content[:1] in (b",", b";", b"\t") or (
+        len(content) > 0 and content[:1].isascii()
+    ):
+        # Heuristic: if first bytes look like CSV
+        first_line = content.split(b"\n", 1)[0] if b"\n" in content else content
+        if b"," in first_line or b"\t" in first_line or b";" in first_line:
+            return "text/csv"
+
+    return None
+
+
+# Extension -> expected magic-byte MIME types
+_EXTENSION_MAGIC_MAP = {
+    ".pdf": {"application/pdf"},
+    ".docx": {
+        "application/vnd.openxmlformats-officedocument"
+        ".wordprocessingml.document",
+        "application/zip",  # docx is a zip container
+    },
+    ".html": {"text/html"},
+    ".csv": {"text/csv", "text/plain"},
+    ".txt": {"text/plain", "application/octet-stream"},
+    ".md": {"text/plain", "application/octet-stream"},
+}

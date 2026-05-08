@@ -530,7 +530,7 @@ async def preview_upgrade(
 async def get_proration_history(
     request: Request,
     company_id: UUID = Depends(get_company_id),
-    limit: int = 12,
+    limit: int = Query(12, ge=1, le=50),
 ) -> Dict[str, Any]:
     """
     Get proration audit history.

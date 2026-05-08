@@ -31,3 +31,5 @@ prometheus-fastapi-instrumentator>=6.1.0
 paddle-python-sdk>=1.0.0
 twilio>=9.0.0
 python-dotenv>=1.0.0
+email-validator>=2.1.0
+python-magic>=0.4.27
