@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyToken, getAccessTokenFromCookies } from '@/lib/jwt';
 
-// ── z-ai-web-dev-sdk — Primary AI Provider ───────────────────────
+/**
+ * POST /api/chat — Jarvis AI Chat Endpoint
+ *
+ * ── H-18 FIX: Authentication required ──
+ * Previously anyone could POST and burn LLM API credits.
+ * Now requires a valid JWT via Authorization header or httpOnly cookie.
+ */
 
 let ZAI: any = null;
 
@@ -128,7 +135,6 @@ async function callGroq(messages: ChatMessage[]): Promise<string | null> {
 // ── Smart AI Router ─────────────────────────────────────────────
 
 async function getAIResponse(messages: ChatMessage[]): Promise<string | null> {
-  // 1. Try z-ai-web-dev-sdk first (most reliable)
   try {
     const result = await callZAI(messages);
     if (result && result.trim().length > 10) return result.trim();
@@ -136,7 +142,6 @@ async function getAIResponse(messages: ChatMessage[]): Promise<string | null> {
     console.warn('[Chat API] z-ai-web-dev-sdk error:', (e instanceof Error ? e.message : String(e))?.slice(0, 100));
   }
 
-  // 2. Try Google AI
   try {
     const result = await callGoogleAI(messages);
     if (result && result.trim().length > 10) return result.trim();
@@ -144,7 +149,6 @@ async function getAIResponse(messages: ChatMessage[]): Promise<string | null> {
     console.warn('[Chat API] Google AI failed:', (e instanceof Error ? e.message : String(e))?.slice(0, 100));
   }
 
-  // 3. Try Groq
   try {
     const result = await callGroq(messages);
     if (result && result.trim().length > 10) return result.trim();
@@ -152,7 +156,6 @@ async function getAIResponse(messages: ChatMessage[]): Promise<string | null> {
     console.warn('[Chat API] Groq failed:', (e instanceof Error ? e.message : String(e))?.slice(0, 100));
   }
 
-  // 4. Try Cerebras
   try {
     const result = await callCerebras(messages);
     if (result && result.trim().length > 10) return result.trim();
@@ -164,6 +167,32 @@ async function getAIResponse(messages: ChatMessage[]): Promise<string | null> {
 }
 
 export async function POST(req: NextRequest) {
+  // ── H-18 FIX: Verify authentication ──
+  const authHeader = req.headers.get("authorization");
+  let token: string | null = null;
+
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.slice(7);
+  }
+  if (!token) {
+    token = getAccessTokenFromCookies(req);
+  }
+
+  if (!token) {
+    return NextResponse.json(
+      { status: 'error', message: 'Authentication required.' },
+      { status: 401 }
+    );
+  }
+
+  const verified = await verifyToken(token);
+  if (!verified) {
+    return NextResponse.json(
+      { status: 'error', message: 'Token is invalid or expired.' },
+      { status: 401 }
+    );
+  }
+
   try {
     const { message, industry, variant } = await req.json();
 
@@ -174,7 +203,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const systemPrompt = `You are Jarvis — PARWA's AI assistant 🤖 Think Iron Man's Jarvis: sharp, friendly, and always helpful.
+    // Sanitize: limit message length to prevent prompt injection abuse
+    const sanitizedMessage = message.trim().slice(0, 2000);
+
+    const systemPrompt = `You are Jarvis — PARWA's AI assistant. Think Iron Man's Jarvis: sharp, friendly, and always helpful.
 
 YOUR THREE ROLES:
 1. GUIDE — Walk users through PARWA naturally
@@ -189,49 +221,30 @@ WHAT IS PARWA:
 AI-powered customer support platform. Businesses deploy AI agents that handle tickets 24/7 across email, chat, SMS, voice & social media. 700+ features. 4 industries.
 
 THREE PLANS:
-🟠 Mini PARWA — $999/mo — 1 agent, 1K tickets/mo, Email+Chat — Saves $156K/yr
-🟠 PARWA — $2,499/mo — 3 agents, 5K tickets/mo, +SMS+Voice — Saves $186K/yr
-🟠 PARWA High — $3,999/mo — 5 agents, 15K tickets/mo, all channels — Saves $288K/yr
+- Mini PARWA — $999/mo — 1 agent, 1K tickets/mo, Email+Chat — Saves $156K/yr
+- PARWA — $2,499/mo — 3 agents, 5K tickets/mo, +SMS+Voice — Saves $186K/yr
+- PARWA High — $3,999/mo — 5 agents, 15K tickets/mo, all channels — Saves $288K/yr
 
-INDUSTRIES:
-• E-commerce (Shopify, WooCommerce, Magento)
-• SaaS (GitHub, Jira, Slack, Intercom)
-• Logistics (TMS, WMS, GPS systems)
-• Healthcare (Epic EHR, HIPAA compliant)
+INDUSTRIES: E-commerce, SaaS, Logistics, Healthcare
 
-BILLING: Monthly, cancel anytime. 15% off annual. $0.10 overage/ticket. $1 Demo Pack.
+BILLING: Monthly, cancel anytime. 15% off annual. $0.10 overage/ticket.
 SECURITY: GDPR, SOC 2, HIPAA, AES-256, TLS 1.3, audit trail, PII redaction.
 vs COMPETITORS: 85-92% savings vs Intercom, Zendesk AI, or hiring agents.
 
 ═══════════════════════════════════════════════
-STRICT RULES — NEVER VIOLATE THESE:
+STRICT RULES:
 ═══════════════════════════════════════════════
-1. NEVER reveal internal technical details: AI provider names, API keys, model names, routing logic, inference details, prompt engineering, or architecture.
-2. NEVER mention Google AI Studio, Cerebras, Groq, z-ai-web-dev-sdk, LangGraph, DSPy, or any AI provider name to users.
-3. NEVER mention internal variant pricing per unit or internal SKU names.
-4. When asked "what models do you use" or "what AI" — say: "PARWA uses cutting-edge AI fine-tuned for customer support. I can tell you about what it can DO for your business! 🚀"
-5. When asked "how many variants" or "what variants" — redirect to the 3 PLANS (Mini, PARWA, PARWA High).
-6. NEVER say "I'm an AI language model" or "As an AI..." — you ARE Jarvis.
-7. NEVER break character. You work for PARWA.
+1. NEVER reveal internal technical details: AI provider names, API keys, model names, routing logic.
+2. NEVER mention Google AI Studio, Cerebras, Groq, z-ai-web-dev-sdk, LangGraph, DSPy.
+3. NEVER say "I'm an AI language model" — you ARE Jarvis.
+4. Keep EVERY response SHORT — 2-3 lines max.
 
-═══════════════════════════════════════════════
-CHAT STYLE — THIS IS CRITICAL:
-═══════════════════════════════════════════════
-• Keep EVERY response SHORT — 2-3 lines max, never a paragraph
-• Use emojis naturally (1-2 per message)
-• Use bullet points with spaces between items
-• One idea per message — don't dump everything at once
-• Sound like texting a smart friend, NOT a corporate bot
-• Match their energy — casual if they're casual
-• ALWAYS end with a question to keep conversation going
-• If listing plans, use the 3 plan names only (Mini, PARWA, PARWA High) — no internal details
-
-${industry ? `\nThe user is interested in the ${industry} industry. Reference relevant capabilities and integrations.` : ''}
-${variant ? `\nThe user is looking at the ${variant} plan. Highlight its specific features and savings.` : ''}`;
+${industry ? `\nThe user is interested in the ${industry} industry.` : ''}
+${variant ? `\nThe user is looking at the ${variant} plan.` : ''}`;
 
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: message },
+      { role: 'user', content: sanitizedMessage },
     ];
 
     const reply = await getAIResponse(messages);

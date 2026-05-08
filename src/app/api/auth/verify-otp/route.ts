@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { timingSafeEqual } from "@/lib/jwt";
 
 /**
  * POST /api/auth/verify-otp
  * Verifies the 6-digit OTP sent to the user's email.
- * On success, returns a verified flag so the frontend can proceed to reset password.
+ * Uses timing-safe comparison to prevent timing attacks.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -32,17 +33,10 @@ export async function POST(request: NextRequest) {
       where: { email: normalizedEmail },
     });
 
-    if (!user) {
+    // ── M-27 FIX: Generic response prevents user enumeration ──
+    if (!user || !user.otp_code) {
       return NextResponse.json(
-        { status: "error", message: "No account found with this email." },
-        { status: 400 }
-      );
-    }
-
-    // Check if OTP exists
-    if (!user.otp_code) {
-      return NextResponse.json(
-        { status: "error", message: "No OTP found. Please request a new one." },
+        { status: "error", message: "Invalid email or OTP. Please try again." },
         { status: 400 }
       );
     }
@@ -60,8 +54,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify OTP (timing-safe comparison)
-    if (user.otp_code !== otp) {
+    // ── H-02 FIX: Timing-safe OTP comparison ──
+    if (!timingSafeEqual(user.otp_code, otp)) {
       return NextResponse.json(
         { status: "error", message: "Incorrect OTP. Please try again." },
         { status: 400 }
@@ -69,7 +63,6 @@ export async function POST(request: NextRequest) {
     }
 
     // OTP is valid — mark as verified by keeping the otp_code
-    // The reset-password endpoint will check otp_code is set
     return NextResponse.json({
       status: "success",
       message: "OTP verified successfully.",

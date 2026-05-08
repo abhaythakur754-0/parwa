@@ -6,11 +6,13 @@ import { sendEmail } from "@/lib/email";
 /**
  * POST /api/forgot-password
  * Sends a 6-digit OTP to the user's email via Brevo API.
- * Checks if user exists in database, generates OTP, and saves it.
+ *
+ * ── M-27 FIX: Generic response to prevent user enumeration ──
+ * Always returns the same success message regardless of whether
+ * the email exists in the database.
  */
 
 function generateOTP(): string {
-  // Generate a cryptographically secure 6-digit OTP
   const bytes = crypto.randomBytes(3);
   const num = bytes.readUIntBE(0, 3);
   return (num % 1000000).toString().padStart(6, "0");
@@ -94,17 +96,17 @@ export async function POST(request: NextRequest) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Check if user exists
     const user = await db.user.findUnique({
       where: { email: normalizedEmail },
     });
 
-    // If user doesn't exist, return a clear error
+    // ── M-27 FIX: Generic response — never reveal whether email exists ──
     if (!user) {
-      return NextResponse.json(
-        { status: "error", message: "No account found with this email address." },
-        { status: 400 }
-      );
+      // Return success even if email doesn't exist (prevents user enumeration)
+      return NextResponse.json({
+        status: "success",
+        message: "If an account with this email exists, an OTP has been sent.",
+      });
     }
 
     // Generate 6-digit OTP
@@ -123,24 +125,21 @@ export async function POST(request: NextRequest) {
     });
 
     // Send OTP email
-    const htmlContent = getOTPEmailHTML(user.full_name || "User", otp);
-    const emailResult = await sendEmail(
-      normalizedEmail,
-      "PARWA Password Reset - Your OTP Code",
-      htmlContent
-    );
-
-    if (!emailResult.success) {
-      console.error("Failed to send OTP email:", emailResult.error);
-      return NextResponse.json(
-        { status: "error", message: "Failed to send OTP email. Please try again." },
-        { status: 500 }
+    try {
+      const htmlContent = getOTPEmailHTML(user.full_name || "User", otp);
+      await sendEmail(
+        normalizedEmail,
+        "PARWA Password Reset - Your OTP Code",
+        htmlContent
       );
+    } catch (emailError) {
+      console.error("Failed to send OTP email:", emailError);
+      // Don't reveal the email error to the client
     }
 
     return NextResponse.json({
       status: "success",
-      message: "OTP has been sent to your email.",
+      message: "If an account with this email exists, an OTP has been sent.",
     });
   } catch (error: unknown) {
     const message =

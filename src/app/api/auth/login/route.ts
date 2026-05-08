@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import crypto from "crypto";
 import { db } from "@/lib/db";
+import { signAccessToken, signRefreshToken, validatePasswordStrength } from "@/lib/jwt";
+import { setAuthCookies } from "@/lib/auth-cookies";
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,21 +64,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate development tokens (replace with real JWT in production)
-    const accessToken = `parwa_at_${crypto.randomUUID()}`;
-    const refreshToken = `parwa_rt_${crypto.randomUUID()}`;
+    // ── C-02 FIX: Real signed JWT tokens instead of fake UUIDs ──
+    const jwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: "member",
+      company_id: user.company_name || undefined,
+      is_verified: user.is_verified,
+    };
 
-    return NextResponse.json({
+    const accessToken = await signAccessToken(jwtPayload);
+    const refreshToken = await signRefreshToken(jwtPayload);
+
+    const userData = {
+      id: user.id,
+      email: user.email,
+      fullName: user.full_name,
+      isVerified: user.is_verified,
+    };
+
+    // ── C-03 FIX: Set tokens as httpOnly cookies ──
+    const response = NextResponse.json({
       status: "success",
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        fullName: user.full_name,
-        isVerified: user.is_verified,
-      },
+      message: "Login successful.",
+      user: userData,
     });
+
+    setAuthCookies(response, accessToken, refreshToken, userData);
+
+    return response;
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "An unexpected error occurred";

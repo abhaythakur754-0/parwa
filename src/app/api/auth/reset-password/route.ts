@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { timingSafeEqual, validatePasswordStrength } from "@/lib/jwt";
 
 /**
  * POST /api/auth/reset-password
  * Resets the user's password after OTP verification.
  * Requires email + otp + new_password.
+ * Uses timing-safe comparison and password complexity validation.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -27,16 +29,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (
-      !new_password ||
-      typeof new_password !== "string" ||
-      new_password.length < 8
-    ) {
+    // ── M-22 FIX: Password complexity on reset ──
+    if (!new_password || typeof new_password !== "string") {
       return NextResponse.json(
-        {
-          status: "error",
-          message: "New password must be at least 8 characters long.",
-        },
+        { status: "error", message: "New password is required." },
+        { status: 400 }
+      );
+    }
+
+    const passwordCheck = validatePasswordStrength(new_password);
+    if (!passwordCheck.valid) {
+      return NextResponse.json(
+        { status: "error", message: passwordCheck.errors.join(" ") },
         { status: 400 }
       );
     }
@@ -55,17 +59,10 @@ export async function POST(request: NextRequest) {
       where: { email: normalizedEmail },
     });
 
-    if (!user) {
+    // ── M-27 FIX: Generic response prevents user enumeration ──
+    if (!user || !user.otp_code) {
       return NextResponse.json(
-        { status: "error", message: "No account found with this email." },
-        { status: 400 }
-      );
-    }
-
-    // Check OTP exists and hasn't expired
-    if (!user.otp_code) {
-      return NextResponse.json(
-        { status: "error", message: "No OTP found. Please request a new one." },
+        { status: "error", message: "Invalid email or OTP. Please try again." },
         { status: 400 }
       );
     }
@@ -81,8 +78,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify OTP
-    if (user.otp_code !== otp) {
+    // ── H-02 FIX: Timing-safe OTP comparison ──
+    if (!timingSafeEqual(user.otp_code, otp)) {
       return NextResponse.json(
         { status: "error", message: "Incorrect OTP. Please try again." },
         { status: 400 }
