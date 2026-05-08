@@ -15,16 +15,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (
-      !password ||
-      typeof password !== "string" ||
-      password.length < 8
-    ) {
+    if (!password || typeof password !== "string") {
       return NextResponse.json(
-        {
-          status: "error",
-          message: "Password must be at least 8 characters long.",
-        },
+        { status: "error", message: "Password is required." },
+        { status: 400 }
+      );
+    }
+
+    // Password complexity requirements
+    if (password.length < 8) {
+      return NextResponse.json(
+        { status: "error", message: "Password must be at least 8 characters long." },
+        { status: 400 }
+      );
+    }
+    if (!/[A-Z]/.test(password)) {
+      return NextResponse.json(
+        { status: "error", message: "Password must contain at least one uppercase letter." },
+        { status: 400 }
+      );
+    }
+    if (!/[a-z]/.test(password)) {
+      return NextResponse.json(
+        { status: "error", message: "Password must contain at least one lowercase letter." },
+        { status: 400 }
+      );
+    }
+    if (!/[0-9]/.test(password)) {
+      return NextResponse.json(
+        { status: "error", message: "Password must contain at least one digit." },
+        { status: 400 }
+      );
+    }
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>?\/]/.test(password)) {
+      return NextResponse.json(
+        { status: "error", message: "Password must contain at least one special character." },
         { status: 400 }
       );
     }
@@ -50,7 +75,7 @@ export async function POST(request: NextRequest) {
     const salt = await bcrypt.genSalt(12);
     const password_hash = await bcrypt.hash(password, salt);
 
-    // Create user (auto-verified for immediate login)
+    // User must verify email before logging in
     const user = await db.user.create({
       data: {
         email: normalizedEmail,
@@ -58,13 +83,13 @@ export async function POST(request: NextRequest) {
         full_name: fullName || null,
         company_name: companyName || null,
         industry: industry || null,
-        is_verified: true,
+        is_verified: false,
       },
     });
 
     return NextResponse.json({
       status: "success",
-      message: "Account created successfully!",
+      message: "Account created! Please check your email to verify your account.",
     });
   } catch (error: unknown) {
     const message =

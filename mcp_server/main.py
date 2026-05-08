@@ -39,9 +39,10 @@ import time
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import httpx
 
 # Ensure project root is on Python path so imports work
@@ -216,6 +217,67 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── C-04: MCP Auth Token Enforcement Middleware ────────────────
+
+# Paths that bypass MCP auth (health checks)
+_MCP_AUTH_SKIP_PATHS = {"/health", "/"}
+
+from starlette.middleware.base import BaseHTTPMiddleware
+
+
+class MCPAuthTokenMiddleware(BaseHTTPMiddleware):
+    """Enforces MCP_AUTH_TOKEN on all endpoints except /health and /.
+
+    Validates the Bearer token from the Authorization header against
+    the configured MCP_AUTH_TOKEN. In development mode (no token set),
+    all requests are allowed through with a warning.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        # Skip auth for health check and root endpoints
+        if request.url.path in _MCP_AUTH_SKIP_PATHS:
+            return await call_next(request)
+
+        settings = get_settings()
+        expected_token = settings.MCP_AUTH_TOKEN
+
+        # If no token configured, allow in non-production (dev convenience)
+        if not expected_token:
+            if settings.ENVIRONMENT == "production":
+                return JSONResponse(
+                    status_code=500,
+                    content={"error": "MCP_AUTH_TOKEN not configured in production"},
+                )
+            # Development: allow without token but log warning
+            return await call_next(request)
+
+        # Extract Bearer token
+        auth_header = request.headers.get("authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": "Authentication required",
+                    "details": "Missing or invalid Authorization header. Use: Bearer <token>",
+                },
+            )
+
+        provided_token = auth_header[7:]
+
+        # Constant-time comparison to prevent timing attacks
+        import hmac
+        if not hmac.compare_digest(provided_token, expected_token):
+            return JSONResponse(
+                status_code=401,
+                content={"error": "Invalid authentication token"},
+            )
+
+        return await call_next(request)
+
+
+app.add_middleware(MCPAuthTokenMiddleware)
 
 
 # ── Exception Handlers ─────────────────────────────────────────

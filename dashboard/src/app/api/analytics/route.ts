@@ -1,6 +1,25 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET() {
+// Auth check helper
+function requireAuth(request: NextRequest): boolean {
+  const authHeader = request.headers.get('authorization');
+  const sessionCookie = request.cookies.get('parwa_session');
+  if (!authHeader && !sessionCookie) {
+    return false;
+  }
+  if (authHeader && !authHeader.startsWith('Bearer ')) {
+    return false;
+  }
+  return true;
+}
+
+export async function GET(request: NextRequest) {
+  if (!requireAuth(request)) {
+    return NextResponse.json(
+      { success: false, error: 'Authentication required' },
+      { status: 401 }
+    );
+  }
   const mockData = {
     data: {
       summary: {

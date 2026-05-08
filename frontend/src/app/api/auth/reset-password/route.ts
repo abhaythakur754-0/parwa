@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 
@@ -27,16 +28,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (
-      !new_password ||
-      typeof new_password !== "string" ||
-      new_password.length < 8
-    ) {
+    if (!new_password || typeof new_password !== "string") {
       return NextResponse.json(
-        {
-          status: "error",
-          message: "New password must be at least 8 characters long.",
-        },
+        { status: "error", message: "Password is required." },
+        { status: 400 }
+      );
+    }
+
+    // Password complexity requirements
+    if (new_password.length < 8) {
+      return NextResponse.json(
+        { status: "error", message: "Password must be at least 8 characters long." },
+        { status: 400 }
+      );
+    }
+    if (!/[A-Z]/.test(new_password)) {
+      return NextResponse.json(
+        { status: "error", message: "Password must contain at least one uppercase letter." },
+        { status: 400 }
+      );
+    }
+    if (!/[a-z]/.test(new_password)) {
+      return NextResponse.json(
+        { status: "error", message: "Password must contain at least one lowercase letter." },
+        { status: 400 }
+      );
+    }
+    if (!/[0-9]/.test(new_password)) {
+      return NextResponse.json(
+        { status: "error", message: "Password must contain at least one digit." },
+        { status: 400 }
+      );
+    }
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>?\/]/.test(new_password)) {
+      return NextResponse.json(
+        { status: "error", message: "Password must contain at least one special character." },
         { status: 400 }
       );
     }
@@ -81,8 +107,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify OTP
-    if (user.otp_code !== otp) {
+    // Verify OTP (timing-safe comparison to prevent timing attacks)
+    const a = Buffer.from(user.otp_code.padStart(64, '0'), 'utf8');
+    const b = Buffer.from(otp.padStart(64, '0'), 'utf8');
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
       return NextResponse.json(
         { status: "error", message: "Incorrect OTP. Please try again." },
         { status: 400 }

@@ -1,4 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+
+// Auth check helper
+function requireAuth(request: NextRequest): boolean {
+  const authHeader = request.headers.get('authorization');
+  const sessionCookie = request.cookies.get('parwa_session');
+  if (!authHeader && !sessionCookie) {
+    return false;
+  }
+  if (authHeader && !authHeader.startsWith('Bearer ')) {
+    return false;
+  }
+  return true;
+}
 
 /**
  * GET /api/channel-status
@@ -8,7 +21,13 @@ import { NextResponse } from 'next/server';
  * Previously exposed first 8 chars of Brevo key and first 6 of Twilio SID.
  * Now only returns boolean configured status and provider name.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!requireAuth(request)) {
+    return NextResponse.json(
+      { success: false, error: 'Authentication required' },
+      { status: 401 }
+    );
+  }
   const BREVO_API_KEY = process.env.BREVO_API_KEY;
   const FROM_EMAIL = process.env.FROM_EMAIL;
   const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;

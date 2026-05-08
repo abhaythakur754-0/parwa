@@ -29,9 +29,13 @@ BC-012: Structured JSON error responses.
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+
+# H-18: Auth dependency for admin-only chat endpoints
+from app.api.deps import get_current_user
+from database.models.core import User
 
 logger = logging.getLogger("parwa.chat_widget_api")
 
@@ -158,6 +162,7 @@ async def create_chat_session(body: CreateChatSessionRequest, request: Request):
 @router.get("/sessions")
 async def list_chat_sessions(
     request: Request,
+    _auth: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     status: Optional[str] = Query(None),
@@ -209,7 +214,7 @@ async def list_chat_sessions(
 
 
 @router.get("/sessions/{session_id}")
-async def get_chat_session(request: Request, session_id: str):
+async def get_chat_session(request: Request, session_id: str, _auth: User = Depends(get_current_user)):
     """Get a single chat session by ID."""
     company_id = getattr(request.state, "company_id", None)
     if not company_id:
@@ -263,7 +268,7 @@ async def get_chat_session(request: Request, session_id: str):
 
 
 @router.post("/sessions/{session_id}/assign")
-async def assign_session(body: AssignSessionRequest, request: Request, session_id: str):
+async def assign_session(body: AssignSessionRequest, request: Request, session_id: str, _auth: User = Depends(get_current_user)):
     """Assign an agent to a chat session."""
     company_id = getattr(request.state, "company_id", None)
     if not company_id:
@@ -317,7 +322,7 @@ async def assign_session(body: AssignSessionRequest, request: Request, session_i
 
 
 @router.post("/sessions/{session_id}/close")
-async def close_session(request: Request, session_id: str):
+async def close_session(request: Request, session_id: str, _auth: User = Depends(get_current_user)):
     """Close a chat session."""
     company_id = getattr(request.state, "company_id", None)
     if not company_id:
@@ -496,6 +501,7 @@ async def send_chat_message(body: SendMessageRequest, request: Request, session_
 async def get_chat_messages(
     request: Request,
     session_id: str,
+    _auth: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
@@ -614,7 +620,7 @@ async def send_typing_indicator(body: TypingIndicatorRequest, request: Request, 
 
 
 @router.post("/sessions/{session_id}/read")
-async def mark_messages_read(request: Request, session_id: str):
+async def mark_messages_read(request: Request, session_id: str, _auth: User = Depends(get_current_user)):
     """Mark all unread messages in a session as read."""
     company_id = getattr(request.state, "company_id", None)
     if not company_id:
@@ -794,7 +800,7 @@ async def get_widget_config(request: Request):
 
 
 @router.put("/widget/config")
-async def update_widget_config(request: Request):
+async def update_widget_config(request: Request, _auth: User = Depends(get_current_user)):
     """Update widget configuration (admin only)."""
     company_id = getattr(request.state, "company_id", None)
     if not company_id:
@@ -847,7 +853,7 @@ async def update_widget_config(request: Request):
 
 
 @router.get("/widget/embed")
-async def get_widget_embed(request: Request):
+async def get_widget_embed(request: Request, _auth: User = Depends(get_current_user)):
     """Get widget embed code (admin only)."""
     company_id = getattr(request.state, "company_id", None)
     if not company_id:
@@ -892,6 +898,7 @@ async def get_widget_embed(request: Request):
 @router.get("/canned")
 async def list_canned_responses(
     request: Request,
+    _auth: User = Depends(get_current_user),
     category: Optional[str] = Query(None),
 ):
     """List canned responses for the tenant."""
@@ -935,7 +942,7 @@ async def list_canned_responses(
 
 
 @router.post("/canned")
-async def create_canned_response(body: CreateCannedResponseRequest, request: Request):
+async def create_canned_response(body: CreateCannedResponseRequest, request: Request, _auth: User = Depends(get_current_user)):
     """Create a new canned response."""
     company_id = getattr(request.state, "company_id", None)
     if not company_id:
@@ -975,7 +982,7 @@ async def create_canned_response(body: CreateCannedResponseRequest, request: Req
 
 
 @router.put("/canned/{response_id}")
-async def update_canned_response(request: Request, response_id: str):
+async def update_canned_response(request: Request, response_id: str, _auth: User = Depends(get_current_user)):
     """Update a canned response."""
     company_id = getattr(request.state, "company_id", None)
     if not company_id:
@@ -1037,7 +1044,7 @@ async def update_canned_response(request: Request, response_id: str):
 
 
 @router.delete("/canned/{response_id}")
-async def delete_canned_response(request: Request, response_id: str):
+async def delete_canned_response(request: Request, response_id: str, _auth: User = Depends(get_current_user)):
     """Delete a canned response."""
     company_id = getattr(request.state, "company_id", None)
     if not company_id:

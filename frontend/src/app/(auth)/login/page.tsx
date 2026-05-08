@@ -26,10 +26,12 @@ function LoginContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const redirectTo = searchParams.get('redirect') || '/models';
+  // Validate redirect to prevent open redirect
+  const safeRedirect = redirectTo.startsWith('/') && !redirectTo.startsWith('//') ? redirectTo : '/models';
 
   useEffect(() => {
-    if (isAuthenticated && !authLoading) router.push(redirectTo);
-  }, [isAuthenticated, authLoading, router, redirectTo]);
+    if (isAuthenticated && !authLoading) router.push(safeRedirect);
+  }, [isAuthenticated, authLoading, router, safeRedirect]);
 
   const handleLogin = async (email: string, password: string) => {
     setError(null);
@@ -52,13 +54,14 @@ function LoginContent() {
         full_name: data.user.fullName,
         is_verified: data.user.isVerified,
       };
+      // TODO: Migrate from localStorage to httpOnly cookies via backend for better security
       if (typeof window !== 'undefined') {
         localStorage.setItem('parwa_user', JSON.stringify(user));
       }
       // Sync AuthContext state from localStorage
       hydrate();
       toast.success('Welcome back!');
-      router.push(redirectTo);
+      router.push(safeRedirect);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed. Please try again.';
       setError(message);
@@ -82,13 +85,14 @@ function LoginContent() {
       if (result.status !== 'success') {
         throw new Error(result.message || 'Google sign-in failed. Please try again.');
       }
+      // TODO: Migrate from localStorage to httpOnly cookies via backend for better security
       if (result.user) {
         localStorage.setItem('parwa_user', JSON.stringify(result.user));
       }
       // Sync AuthContext state from localStorage
       hydrate();
       toast.success(result.is_new_user ? 'Account created with Google!' : 'Welcome back!');
-      router.push(redirectTo);
+      router.push(safeRedirect);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Google sign-in failed. Please try again.';
       setGoogleError(message);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { db } from "@/lib/db";
 
 /**
@@ -60,8 +61,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify OTP (timing-safe comparison)
-    if (user.otp_code !== otp) {
+    // Verify OTP (timing-safe comparison to prevent timing attacks)
+    const a = Buffer.from(user.otp_code.padStart(64, '0'), 'utf8');
+    const b = Buffer.from(otp.padStart(64, '0'), 'utf8');
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
       return NextResponse.json(
         { status: "error", message: "Incorrect OTP. Please try again." },
         { status: 400 }
