@@ -37,7 +37,7 @@
   Step 7: DETAILS COLLECTION     Day 14    ✅ DONE (Old Day 1-2)
   ─────────────────────────────────────────────────────────
           ↓
-  Step 8: INTEGRATIONS           Day 15    🔲 TODO
+  Step 8: INTEGRATIONS (Provider-Agnostic) Day 15    🔲 TODO
           ↓
   Step 9: DASHBOARD              Day 16    🔲 TODO
           ↓
@@ -342,26 +342,98 @@ frontend/src/components/onboarding/DetailsForm.tsx (reuse/modify)
 
 ---
 
-### 🔲 Day 15: Integrations Setup (Phase 8)
+### 🔲 Day 15: Provider-Agnostic Integration Setup (Phase 8)
 
-**Position in Flow:** Step 8 (After Details)
+**Position in Flow:** Step 8 (After Details, via Jarvis Chat)
+
+**IMPORTANT: Integration setup happens INSIDE Jarvis Chat, not a separate settings page. After payment and details collection, Jarvis guides the client through connecting their providers conversationally. This IS the product demo.**
+
+**Provider Categories (Client-Configurable):**
+
+| Category | Available Providers | Note |
+|----------|-------------------|------|
+| **Email** | Brevo, SendGrid, AWS SES, Mailgun, Postmark, Custom SMTP | Client connects THEIR email provider |
+| **SMS** | Twilio, Vonage, MessageBird, AWS SNS, Plivo | Client connects THEIR SMS provider |
+| **Payment** | Paddle, Stripe, Razorpay, PayPal, Braintree | Client connects THEIR payment provider |
+| **CRM** | HubSpot, Salesforce, Zoho | Optional |
+| **E-commerce** | Shopify, WooCommerce | Optional |
+| **Helpdesk** | Zendesk, Freshdesk, Intercom | Optional |
+| **Communication** | Slack, Gmail, Teams | Optional |
+| **Custom API** | Any REST API / Webhook | Optional |
+
+**Key Design Decisions:**
+- Voice (Twilio) is INTERNAL — Parwa provides it, clients do NOT configure it
+- Chat is built into Parwa — no external provider needed
+- ALL other providers are client-configurable
+- Any integration can be SKIPPED and set up later from dashboard
 
 **Backend APIs:**
-- [ ] `GET /api/integrations/available` - List available integrations
-- [ ] `POST /api/integrations` - Create integration
-- [ ] `GET /api/integrations` - List user integrations
-- [ ] `POST /api/integrations/:id/test` - Test connection
+- [ ] `POST /api/jarvis/integrations/providers/:category` - List providers by category
+- [ ] `POST /api/jarvis/integrations/detect-key` - Auto-detect API key provider
+- [ ] `POST /api/jarvis/integrations/connect` - Connect provider with credentials
+- [ ] `POST /api/jarvis/integrations/test` - Test provider connection live
+- [ ] `GET /api/jarvis/integrations/status` - Get all integration statuses
+- [ ] `DELETE /api/jarvis/integrations/:id` - Disconnect provider
 
-**Frontend:**
-- [ ] `frontend/src/components/onboarding/IntegrationSetup.tsx`
-- [ ] `frontend/src/components/onboarding/IntegrationCard.tsx`
+**Backend Services:**
+- [ ] `ProviderRegistry` - Maps provider_type + name → adapter class
+- [ ] `ProviderFactory` - Creates provider instances from ServiceConfig
+- [ ] `ApiKeyDetector` - Auto-detects provider from API key pattern
+- [ ] `EmailProvider` protocol + adapters (Brevo, SendGrid, SES)
+- [ ] `SMSProvider` protocol + adapters (Twilio, Vonage)
+- [ ] `PaymentProvider` protocol + adapters (Paddle, Stripe)
+
+**Frontend (Jarvis Chat Cards):**
+- [ ] `frontend/src/components/jarvis/ProviderSelectorCard.tsx` - Shows provider options
+- [ ] `frontend/src/components/jarvis/ApiKeyInputCard.tsx` - API key input with auto-detect
+- [ ] `frontend/src/components/jarvis/ConnectionStatusCard.tsx` - ✅ Connected display
+- [ ] `frontend/src/components/jarvis/ConnectionErrorCard.tsx` - ❌ Error with troubleshooting
+- [ ] `frontend/src/components/jarvis/IntegrationSummaryCard.tsx` - All connected/skipped summary
+- [ ] `frontend/src/components/jarvis/IndustrySuggestionCard.tsx` - Popular in your industry
+
+**Knowledge Base:**
+- [ ] `backend/app/data/jarvis_knowledge/11_integration_providers.json`
+
+**Conversation Flow (after HANDOFF):**
+```
+Jarvis: "Let's connect your email provider first."
+  → Shows ProviderSelectorCard with email options
+  → User selects or pastes API key (auto-detect)
+  → Jarvis tests connection live
+  → Shows ConnectionStatusCard (✅ or ❌)
+
+Jarvis: "Now SMS — which provider do you use?"
+  → Same flow (skippable)
+
+Jarvis: "Payment provider?"
+  → Same flow (skippable)
+
+Jarvis: "Any other tools? (Shopify, Zendesk, HubBot, Slack)"
+  → Same flow (skippable)
+
+Jarvis: "All set! Let's get your AI agents ready."
+  → First Victory stage (KB upload + AI activation)
+```
 
 **Files to Create:**
 ```
-backend/app/api/integrations.py
-backend/app/services/integration_service.py
-frontend/src/components/onboarding/IntegrationSetup.tsx
-frontend/src/components/onboarding/IntegrationCard.tsx
+backend/app/core/providers/__init__.py
+backend/app/core/providers/base.py
+backend/app/core/providers/email_brevo.py
+backend/app/core/providers/email_sendgrid.py
+backend/app/core/providers/sms_twilio.py
+backend/app/core/providers/sms_vonage.py
+backend/app/core/providers/payment_paddle.py
+backend/app/core/providers/payment_stripe.py
+backend/app/core/providers/registry.py
+backend/app/core/providers/api_key_detector.py
+backend/app/data/jarvis_knowledge/11_integration_providers.json
+frontend/src/components/jarvis/ProviderSelectorCard.tsx
+frontend/src/components/jarvis/ApiKeyInputCard.tsx
+frontend/src/components/jarvis/ConnectionStatusCard.tsx
+frontend/src/components/jarvis/ConnectionErrorCard.tsx
+frontend/src/components/jarvis/IntegrationSummaryCard.tsx
+frontend/src/components/jarvis/IndustrySuggestionCard.tsx
 ```
 
 ---
@@ -408,6 +480,7 @@ tests/e2e/test_payment_flow.py
 | Metric | Value |
 |--------|-------|
 | **Total Days** | 18 |
+| **Day 15 Description** | INTEGRATIONS (Provider-Agnostic via Jarvis) |
 | **Completed Days** | 2 (Old Day 1-2 - Details Collection) ✅ |
 | **Days in Correct Position** | Phase 7 (After Payment) |
 | **Days BEFORE Details** | 13 days (Day 1-13) 🔲 TODO |
@@ -418,6 +491,8 @@ tests/e2e/test_payment_flow.py
 | **Completed Components** | 4 ✅ (needs integration into Jarvis) |
 | **Total Database Tables** | ~10 |
 | **Completed Tables** | 5 ✅ |
+
+**Note:** Integration setup is now done via Jarvis Chat conversation flow, NOT a separate settings page. Clients connect their own email/SMS/payment/CRM providers through conversational cards. API key auto-detection identifies the provider from the key pattern. All integrations are skippable.
 
 ---
 

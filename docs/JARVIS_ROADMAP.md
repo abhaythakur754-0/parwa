@@ -3,6 +3,7 @@
 > **Document Version:** 4.0
 > **Created:** Week 6 Day 8 (April 2026)
 > **Updated:** Week 6 Day 10 — Added: action_tickets table to migration, Knowledge Service functions, aligned with Spec v3.0
+> **Updated:** Week X — Added: Phase 15-19 Provider-Agnostic Integration Architecture, API Key Auto-Detection, Jarvis Integration Setup Flow
 > **Based On:** JARVIS_SPECIFICATION.md v3.0
 > **Scope:** Complete Jarvis onboarding system — EVERYTHING from code zero to production-ready
 
@@ -60,7 +61,7 @@ After onboarding completes, the UI changes completely — dashboard takes over.
 
 ---
 
-## Complete Build Phases (14 Phases, 8 Days)
+## Complete Build Phases (19 Phases, 12 Days)
 
 ### NEW in v4.0 (from Spec v3.0)
 
@@ -1448,6 +1449,316 @@ def execute_handoff(db, onboarding_session_id):
 
 ---
 
+## Phase 15: Provider Abstraction Layer (Day 9 — Morning)
+
+**Goal:** Create the provider protocol/interface system that allows ANY provider to be plugged in for email, SMS, and payments.
+
+### Provider Protocols
+
+Create abstract base classes in `backend/app/core/providers/`:
+
+| # | File | Purpose |
+|---|------|---------|
+| 1 | `backend/app/core/providers/__init__.py` | Package exports |
+| 2 | `backend/app/core/providers/base.py` | Base protocol classes: `EmailProvider`, `SMSProvider`, `PaymentProvider` |
+| 3 | `backend/app/core/providers/email_brevo.py` | Brevo adapter (migrate from `email_service.py`) |
+| 4 | `backend/app/core/providers/email_sendgrid.py` | SendGrid adapter |
+| 5 | `backend/app/core/providers/email_ses.py` | AWS SES adapter |
+| 6 | `backend/app/core/providers/sms_twilio.py` | Twilio adapter (migrate from `sms_channel_service.py`) |
+| 7 | `backend/app/core/providers/sms_vonage.py` | Vonage adapter |
+| 8 | `backend/app/core/providers/payment_paddle.py` | Paddle adapter (migrate from `paddle_service.py`) |
+| 9 | `backend/app/core/providers/payment_stripe.py` | Stripe adapter |
+| 10 | `backend/app/core/providers/registry.py` | Provider registry + factory |
+| 11 | `backend/app/core/providers/api_key_detector.py` | API key auto-detection system |
+
+### Provider Registry Pattern
+
+```python
+# registry.py
+class ProviderRegistry:
+    _email_providers = {}  # name -> class
+    _sms_providers = {}
+    _payment_providers = {}
+    
+    @classmethod
+    def register_email(cls, name, provider_class):
+        cls._email_providers[name] = provider_class
+    
+    @classmethod
+    def get_email_provider(cls, company_id) -> EmailProvider:
+        config = get_service_config(company_id, 'email')
+        provider_class = cls._email_providers[config.provider_name]
+        return provider_class(config.api_key, config.settings)
+```
+
+### API Key Detector
+
+```python
+# api_key_detector.py
+class ApiKeyDetector:
+    PATTERNS = {
+        'sendgrid': {'prefix': 'SG.', 'type': 'email', 'confidence': 0.95},
+        'stripe': {'prefix': 'sk_live_', 'type': 'payment', 'confidence': 0.95},
+        'aws': {'prefix': 'AKIA', 'type': 'email/sms', 'confidence': 0.90},
+        'razorpay': {'prefix': 'rzp_live_', 'type': 'payment', 'confidence': 0.95},
+        'paddle': {'prefix': 'pdl_', 'type': 'payment', 'confidence': 0.90},
+        'brevo': {'prefix': 'xkeysib-', 'type': 'email', 'confidence': 0.95},
+        'mailgun': {'prefix': 'key-', 'type': 'email', 'confidence': 0.80},
+        'twilio': {'prefix': 'AC', 'length': 34, 'type': 'sms', 'confidence': 0.85},
+        # ... more patterns
+    }
+    
+    @classmethod
+    def detect(cls, key: str) -> ProviderDetectionResult:
+        # Check prefixes first (high confidence)
+        # Then check length + char set (medium confidence)
+        # Return: provider_name, provider_type, confidence, detected_by
+```
+
+### Acceptance Criteria
+- [ ] All provider protocols define the same interface methods
+- [ ] Brevo adapter successfully sends email using the new interface
+- [ ] Paddle adapter successfully creates checkout using the new interface
+- [ ] Twilio adapter successfully sends SMS using the new interface
+- [ ] ProviderFactory returns correct provider based on ServiceConfig
+- [ ] API key detector correctly identifies 5+ providers with >80% accuracy
+- [ ] Unknown key returns "unknown" with 0% confidence
+
+---
+
+## Phase 16: Database Migration — Provider-Agnostic Columns (Day 9 — Afternoon)
+
+**Goal:** Rename all provider-specific database columns to generic names and wire ServiceConfig table.
+
+### Migration: `014_provider_agnostic_columns.py`
+
+| Old Column | New Column | Table |
+|-----------|-----------|-------|
+| `brevo_message_id` | `provider_message_id` | `outbound_emails` |
+| `brevo_message_id` | `provider_message_id` | `email_delivery_events` |
+| `brevo_event_id` | `provider_event_id` | `email_delivery_events` |
+| `twilio_message_sid` | `provider_message_id` | `sms_messages` |
+| `twilio_account_sid` | `provider_account_id` | `sms_messages` |
+| `twilio_status` | `provider_status` | `sms_messages` |
+| `twilio_error_code` | `provider_error_code` | `sms_messages` |
+| `twilio_error_message` | `provider_error_message` | `sms_messages` |
+| `twilio_account_sid` | `provider_account_id` | `sms_channel_configs` |
+| `twilio_auth_token_encrypted` | `provider_auth_token_encrypted` | `sms_channel_configs` |
+| `twilio_phone_number` | `provider_phone_number` | `sms_channel_configs` |
+| `twilio_number` | `provider_number` | `sms_conversations` |
+| `paddle_customer_id` | `provider_customer_id` | `companies` |
+| `paddle_subscription_id` | `provider_subscription_id` | `companies`, `subscriptions` |
+| `paddle_invoice_id` | `provider_invoice_id` | `invoices` |
+| `paddle_charge_id` | `provider_charge_id` | `overage_charges` |
+| `paddle_transaction_id` | `provider_transaction_id` | `transactions` |
+| `paddle_payment_method_id` | `provider_payment_method_id` | `payment_methods` |
+| `paddle_event_id` | `provider_event_id` | `webhook_sequences` |
+
+### New Columns to Add
+
+| Table | Column | Type | Purpose |
+|-------|--------|------|---------|
+| `sms_channel_configs` | `provider_type` | VARCHAR(30) | Which SMS provider is configured |
+| `companies` | `email_provider` | VARCHAR(30) | Which email provider is configured |
+| `companies` | `payment_provider` | VARCHAR(30) | Which payment provider is configured |
+| `outbound_emails` | `provider_type` | VARCHAR(30) | Which email provider sent this |
+| `sms_messages` | `provider_type` | VARCHAR(30) | Which SMS provider sent this |
+| `sms_channel_configs` | `twilio_status` CHECK constraint | - | Remove Twilio-specific CHECK, use generic |
+
+### Files to Create
+
+| # | File | Lines |
+|---|------|-------|
+| 1 | `database/alembic/versions/014_provider_agnostic_columns.py` | ~200 |
+| 2 | Update all model files with new column names | ~50 edits across 8 files |
+
+### Acceptance Criteria
+- [ ] Migration runs without errors on existing data
+- [ ] All unique constraints updated with new column names
+- [ ] All CHECK constraints updated
+- [ ] Backward compatibility: old data migrated correctly
+- [ ] ServiceConfig table has entries for all existing providers
+
+---
+
+## Phase 17: Jarvis Integration Setup Flow (Day 10)
+
+**Goal:** Add integration setup conversation stages to Jarvis after HANDOFF.
+
+### New Conversation Stages
+
+| Stage | Trigger | Exit Condition |
+|-------|---------|---------------|
+| `integration_email` | After handoff | Provider connected OR skipped |
+| `integration_sms` | After email stage | Provider connected OR skipped |
+| `integration_payment` | After SMS stage | Provider connected OR skipped |
+| `integration_third_party` | After payment stage | At least 1 connected OR all skipped |
+| `first_victory` | After all integration stages | KB uploaded + AI activated OR skipped |
+
+### New Rich Card Components
+
+| # | Component | Message Type |
+|---|-----------|-------------|
+| 1 | `ProviderSelectorCard.tsx` | `provider_selector` |
+| 2 | `ApiKeyInputCard.tsx` | `api_key_input` |
+| 3 | `ConnectionStatusCard.tsx` | `connection_status` |
+| 4 | `ConnectionErrorCard.tsx` | `connection_error` |
+| 5 | `IntegrationSummaryCard.tsx` | `integration_summary` |
+| 6 | `IndustrySuggestionCard.tsx` | `industry_suggestion` |
+
+### New API Endpoints
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| `GET` | `/api/jarvis/integrations/providers/:category` | List providers by category |
+| `POST` | `/api/jarvis/integrations/detect-key` | Auto-detect API key provider |
+| `POST` | `/api/jarvis/integrations/connect` | Connect provider with credentials |
+| `POST` | `/api/jarvis/integrations/test` | Test provider connection |
+| `GET` | `/api/jarvis/integrations/status` | Get all integration statuses |
+| `DELETE` | `/api/jarvis/integrations/:id` | Disconnect a provider |
+
+### Knowledge Base Addition: `11_integration_providers.json`
+
+```json
+{
+  "provider_categories": {
+    "email": {
+      "providers": [
+        {"name": "Brevo", "setup_difficulty": "Easy", "key_location": "Settings → API Keys", "popular_industries": ["others", "logistics"]},
+        {"name": "SendGrid", "setup_difficulty": "Easy", "key_location": "Settings → API Keys → Create", "popular_industries": ["ecommerce", "saas"]},
+        {"name": "AWS SES", "setup_difficulty": "Medium", "key_location": "IAM → Access Keys", "popular_industries": ["saas", "logistics"]},
+        {"name": "Mailgun", "setup_difficulty": "Easy", "key_location": "Settings → API Keys", "popular_industries": ["ecommerce"]},
+        {"name": "Postmark", "setup_difficulty": "Easy", "key_location": "Settings → API Tokens", "popular_industries": ["saas"]}
+      ],
+      "jarvis_prompts": {
+        "ask": "Which email provider do you use for customer emails?",
+        "help": "Your email provider is where you send emails FROM. This could be Brevo, SendGrid, AWS SES, or any SMTP server.",
+        "popular": "Most {industry} businesses use {provider}."
+      }
+    },
+    "sms": { /* Similar structure */ },
+    "payment": { /* Similar structure */ },
+    "third_party": {
+      "providers": [
+        {"name": "Shopify", "category": "ecommerce", "setup_difficulty": "Easy", "auth_type": "OAuth"},
+        {"name": "Zendesk", "category": "helpdesk", "setup_difficulty": "Medium", "auth_type": "API Key"},
+        {"name": "HubSpot", "category": "crm", "setup_difficulty": "Easy", "auth_type": "OAuth"},
+        {"name": "Slack", "category": "communication", "setup_difficulty": "Easy", "auth_type": "OAuth"}
+      ]
+    }
+  }
+}
+```
+
+### Service Layer Updates
+
+Update `jarvis_service.py` with new functions:
+
+| Function | Purpose |
+|----------|---------|
+| `detect_api_key(key)` | Auto-detect provider from key pattern |
+| `connect_provider(company_id, provider_type, provider_name, credentials)` | Connect a provider |
+| `test_provider_connection(company_id, integration_id)` | Test connection |
+| `get_integration_status(company_id)` | Get all integration statuses |
+| `get_provider_suggestions(industry)` | Suggest popular providers for industry |
+
+### Acceptance Criteria
+- [ ] Jarvis shows provider selector cards after handoff
+- [ ] API key auto-detection works for 5+ providers
+- [ ] Connection test shows real-time success/failure
+- [ ] Error cards show helpful troubleshooting steps
+- [ ] All stages are skippable without blocking onboarding
+- [ ] Integration summary card shows connected + skipped + remaining
+- [ ] Industry-specific suggestions appear based on client's industry
+
+---
+
+## Phase 18: Dashboard Integration Management UI (Day 11)
+
+**Goal:** Full integration management page for post-onboarding provider management.
+
+### New Page: `/dashboard/integrations`
+
+| Section | What It Shows |
+|---------|--------------|
+| **Overview Cards** | Connected providers count, health status, usage metrics |
+| **Email Providers** | Connected email provider with test/disconnect actions |
+| **SMS Providers** | Connected SMS provider with test/disconnect actions |
+| **Payment Providers** | Connected payment provider with test/disconnect actions |
+| **Third-Party** | CRM, e-commerce, helpdesk, communication integrations |
+| **Custom API** | REST connectors, webhook subscriptions |
+| **Add New** | Provider selector → API key input → test → connect |
+
+### Files to Create
+
+| # | File | Purpose |
+|---|------|---------|
+| 1 | `src/app/dashboard/integrations/page.tsx` | Integration management page |
+| 2 | `src/components/integrations/ProviderCard.tsx` | Individual provider display |
+| 3 | `src/components/integrations/ProviderList.tsx` | List of providers by category |
+| 4 | `src/components/integrations/ConnectProviderModal.tsx` | Connect new provider flow |
+| 5 | `src/components/integrations/TestConnectionButton.tsx` | Live test with status |
+| 6 | `src/components/integrations/ConnectionHealthBadge.tsx` | Green/Yellow/Red health indicator |
+| 7 | `src/components/integrations/WebhookLogs.tsx` | Recent webhook activity |
+| 8 | `src/hooks/useIntegrations.ts` | Integration state management hook |
+
+### Acceptance Criteria
+- [ ] `/dashboard/integrations` shows all connected providers
+- [ ] Each provider has test/disconnect/change key actions
+- [ ] Add new provider flow works end-to-end
+- [ ] Health badges reflect real connection status
+- [ ] Mobile responsive layout
+
+---
+
+## Phase 19: Webhook Unification + Universal API (Day 12)
+
+**Goal:** Generic webhook receiver for ANY provider + universal REST connector.
+
+### Generic Webhook Handler
+
+Replace provider-specific webhook endpoints with a unified system:
+
+```python
+# POST /api/webhooks/{provider_name}
+# Automatically routes to correct parser based on provider_name
+# Verifies signature using provider-specific method
+# Stores in universal WebhookEvent table
+```
+
+### Files to Create
+
+| # | File | Purpose |
+|---|------|---------|
+| 1 | `backend/app/core/providers/webhook_parser.py` | Generic webhook parser registry |
+| 2 | `backend/app/core/providers/webhook_verifier.py` | Per-provider webhook verification |
+| 3 | `backend/app/services/webhook_unified_service.py` | Unified webhook processing |
+| 4 | `src/components/integrations/CustomApiBuilder.tsx` | Custom API config UI |
+| 5 | `src/components/integrations/WebhookConfigurator.tsx` | Webhook setup UI |
+
+### Acceptance Criteria
+- [ ] Webhooks from any registered provider route correctly
+- [ ] Signature verification works per-provider
+- [ ] Custom REST API connections can be created via UI
+- [ ] Custom webhook subscriptions can receive any format
+- [ ] Error handling with retry for failed webhooks
+
+---
+
+## Updated File Count
+
+| Phase | New Files | Updated Files | Total |
+|-------|----------|--------------|-------|
+| Phase 15 | 11 | 0 | 11 |
+| Phase 16 | 1 | 8 | 9 |
+| Phase 17 | 8 | 2 | 10 |
+| Phase 18 | 8 | 1 | 9 |
+| Phase 19 | 5 | 2 | 7 |
+| **Phase 1-14 (existing)** | 60 | 5 | 65 |
+| **TOTAL (all phases)** | **93** | **18** | **111** |
+
+---
+
 ## Timeline
 
 | Day | Phase(s) | Key Deliverable |
@@ -1460,8 +1771,12 @@ def execute_handoff(db, onboarding_session_id):
 | **Day 6** | 8-9 | AI Intelligence + Cross-Page Context |
 | **Day 7** | 10-11 | Payment + Handoff + Dashboard + Navigation |
 | **Day 8** | 12-14 | Persistence + Errors + Mobile + Tests + Mirror + Push |
+| **Day 9** | 15-16 | Provider Abstraction Layer + DB Migration |
+| **Day 10** | 17 | Jarvis Integration Setup Flow |
+| **Day 11** | 18 | Dashboard Integration Management UI |
+| **Day 12** | 19 | Webhook Unification + Universal API |
 
-**Total: 76 files (60 new + 16 updated) across 14 phases over 8 days.**
+**Total: 111 files (93 new + 18 updated) across 19 phases over 12 days.**
 
 ---
 
@@ -1500,6 +1815,21 @@ Phase 4 (Types) ───┘                          │
                                                │
                                                v
                           Phase 14 (Tests + Mirror + Push)
+                                               │
+                                               v
+                    Phase 15 (Provider Abstraction Layer)
+                                               │
+                                               v
+               Phase 16 (Provider-Agnostic DB Migration)
+                                               │
+                                               v
+             Phase 17 (Jarvis Integration Setup Flow)
+                                               │
+                                               v
+        Phase 18 (Dashboard Integration Management)
+                                               │
+                                               v
+        Phase 19 (Webhook Unification + Universal API)
 ```
 
 ---
@@ -1512,7 +1842,8 @@ Phase 4 (Types) ───┘                          │
 | 2.0 | Week 6 Day 8 | **Complete** — added Knowledge Base (Phase 7), Session Persistence (Phase 12), Error Handling, expanded to 76 files / 14 phases / 8 days |
 | 3.0 | Week 6 Day 9 | Added: Action Ticket System, Post-Call Summary, Non-Linear Entry Routing, Jarvis-as-Product-Demo |
 | 4.0 | Week 6 Day 10 | Added: `jarvis_action_tickets` DB table, knowledge service functions, aligned with Spec v3.0, fixed phase count |
+| 5.0 | Week X | Added: Phase 15-19 Provider-Agnostic Integration Architecture, API Key Auto-Detection, Jarvis Integration Setup Flow, Dashboard Integration Management, Webhook Unification |
 
 ---
 
-*This is the complete execution plan for JARVIS_SPECIFICATION.md v3.0. Nothing is left out. Follow phases in order.*
+*This is the complete execution plan for JARVIS_SPECIFICATION.md v3.0 + Provider-Agnostic Integration Architecture. Nothing is left out. Follow phases in order.*

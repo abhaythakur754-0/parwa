@@ -15,6 +15,9 @@ Loophole fixes applied:
 - L13: Plan claim in JWT from company.subscription_tier
 - L08: is_new_user flag in responses
 - L19: Verification email sent on registration
+
+Security controls:
+- C-14: OAuth tokens encrypted with Fernet before persistence
 """
 
 import time
@@ -51,6 +54,10 @@ from database.models.core import (
 from shared.utils.security import (
     hash_password,
     verify_password,
+)
+from shared.utils.token_encryption import (
+    encrypt_token,
+    decrypt_token,
 )
 
 logger = get_logger("auth_service")
@@ -203,13 +210,9 @@ def authenticate_user(
             locked_until = locked_until.replace(tzinfo=tz.utc)
         now = datetime.now(timezone.utc)
         if locked_until > now:
-            remaining = int(
-                (locked_until - now).total_seconds()
-            )
             raise AuthenticationError(
-                message="Account temporarily locked. "
-                        f"Try again in {remaining} seconds.",
-                details={"locked_until": remaining},
+                message="Account temporarily locked due to too many failed attempts. Please try again later.",
+                details={"locked": True},
             )
         # Lockout expired — reset
         user.failed_login_count = 0
@@ -244,16 +247,10 @@ def authenticate_user(
             )
             raise AuthenticationError(
                 message=(
-                    "Account temporarily locked. "
-                    f"Try again in "
-                    f"{_LOCKOUT_DURATION_MINUTES * 60} "
-                    f"seconds."
+                    "Account temporarily locked due to too many failed attempts. Please try again later."
                 ),
                 details={
                     "locked": True,
-                    "duration_seconds": (
-                        _LOCKOUT_DURATION_MINUTES * 60
-                    ),
                 },
             )
 
@@ -758,11 +755,23 @@ def _link_google_account(
     user: User,
     google_sub: str,
     google_email: str,
+    access_token: Optional[str] = None,
+    refresh_token: Optional[str] = None,
 ) -> None:
     """Create an OAuthAccount linking user to Google.
 
     L09: Does NOT store Google ID token in plaintext.
     Only stores provider_account_id (google sub) and email.
+    C-14: Any provided access/refresh tokens are Fernet-encrypted
+    before persistence.
+
+    Args:
+        db: Database session.
+        user: The User model instance.
+        google_sub: Google provider account ID (sub claim).
+        google_email: Google account email.
+        access_token: Optional OAuth access token (will be encrypted).
+        refresh_token: Optional OAuth refresh token (will be encrypted).
     """
     oauth = OAuthAccount(
         user_id=user.id,
@@ -770,6 +779,7 @@ def _link_google_account(
         provider="google",
         provider_account_id=google_sub,
         email=google_email,
-        access_token=None,  # L09: no plaintext token
+        access_token=encrypt_token(access_token),  # C-14: Fernet encrypted
+        refresh_token=encrypt_token(refresh_token),  # C-14: Fernet encrypted
     )
     db.add(oauth)

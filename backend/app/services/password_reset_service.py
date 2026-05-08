@@ -46,9 +46,15 @@ def _generate_token() -> str:
 
 
 def _hash_token(token: str) -> str:
-    """Hash a reset token for DB storage (SHA-256)."""
+    """Hash a reset token for DB storage (SHA-256 + pepper)."""
+    try:
+        from app.config import get_settings
+        settings = get_settings()
+        pepper = settings.SECRET_KEY
+    except Exception:
+        pepper = "fallback-pepper-change-in-production"
     return hashlib.sha256(
-        token.encode("utf-8")
+        f"{token}:{pepper}".encode("utf-8")
     ).hexdigest()
 
 

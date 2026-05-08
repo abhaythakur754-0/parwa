@@ -315,6 +315,14 @@ class PasswordResetToken(Base):
 # ── OAuth Accounts (F-011: Google OAuth) ────────────────────────
 
 class OAuthAccount(Base):
+    """Stores third-party OAuth provider links for a user.
+
+    C-14: The ``access_token`` and ``refresh_token`` columns MUST only
+    contain Fernet-encrypted values.  Use
+    ``shared.utils.token_encryption.encrypt_token`` before writing and
+    ``decrypt_token`` when reading.  Never persist plaintext tokens.
+    """
+
     __tablename__ = "oauth_accounts"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -329,6 +337,8 @@ class OAuthAccount(Base):
     provider = Column(String(50), nullable=False)
     provider_account_id = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False)
+    # C-14: These columns store Fernet-encrypted tokens only.
+    # See shared.utils.token_encryption for encrypt/decrypt helpers.
     access_token = Column(Text)
     refresh_token = Column(Text)
     token_expires_at = Column(DateTime)

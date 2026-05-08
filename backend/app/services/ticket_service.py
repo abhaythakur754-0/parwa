@@ -240,11 +240,13 @@ class TicketService:
 
         # Full-text search
         if search:
-            search_pattern = f"%{search}%"
+            # M-33: Escape ILIKE wildcards to prevent SQL injection
+            escaped = search.replace("%", r"\\%").replace("_", r"\\_")
+            search_pattern = f"%{escaped}%"
             query = query.filter(
                 or_(
-                    Ticket.subject.ilike(search_pattern),
-                    Ticket.metadata_json.ilike(search_pattern),
+                    Ticket.subject.ilike(search_pattern, escape="\\"),
+                    Ticket.metadata_json.ilike(search_pattern, escape="\\"),
                 )
             )
 

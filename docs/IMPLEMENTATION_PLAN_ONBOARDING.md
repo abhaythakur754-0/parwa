@@ -194,20 +194,32 @@ This plan covers the complete implementation of:
 
 ---
 
-### Day 11: Integration Setup (F-030)
+### Day 11: Provider-Agnostic Integration Setup (F-030)
 
-**Backend:**
-- [ ] Pre-built integration configs
-- [ ] `/api/integrations` CRUD
-- [ ] `/api/integrations/:id/test` - Test connection
-- [ ] OAuth flow handlers (Shopify, Slack, etc.)
+**Note:** This now happens inside Jarvis Chat after HANDOFF, not as a separate onboarding step.
 
-**Frontend:**
-- [ ] `frontend/src/components/onboarding/IntegrationSetup.tsx`
-- [ ] `frontend/src/components/onboarding/IntegrationCard.tsx`
-- [ ] `frontend/src/components/onboarding/OAuthButton.tsx`
+**Provider Abstraction Layer:**
+- [ ] Provider protocols: `EmailProvider`, `SMSProvider`, `PaymentProvider`
+- [ ] Provider adapters: Brevo, SendGrid, SES, Twilio, Vonage, Paddle, Stripe
+- [ ] Provider registry + factory pattern
+- [ ] API key auto-detection system
+- [ ] `POST /api/jarvis/integrations/detect-key` - Auto-detect API key
+- [ ] `POST /api/jarvis/integrations/connect` - Connect provider
+- [ ] `POST /api/jarvis/integrations/test` - Test connection
 
-**Files:** ~3 components, ~1 API file
+**Jarvis Chat Integration Cards:**
+- [ ] `ProviderSelectorCard.tsx` - Provider options by category
+- [ ] `ApiKeyInputCard.tsx` - API key input with auto-detection
+- [ ] `ConnectionStatusCard.tsx` - Connected status display
+- [ ] `ConnectionErrorCard.tsx` - Error with troubleshooting steps
+
+**Knowledge Base:**
+- [ ] `11_integration_providers.json` - Provider data for Jarvis
+
+**Files:**
+- [ ] `backend/app/core/providers/` (11 files)
+- [ ] `frontend/src/components/jarvis/` (4 integration cards)
+- [ ] `backend/app/data/jarvis_knowledge/11_integration_providers.json`
 
 ---
 
@@ -323,13 +335,15 @@ This plan covers the complete implementation of:
 
 ## Dependencies
 
-| Dependency | Purpose |
-|------------|---------|
-| Twilio | SMS OTP, Voice calls |
-| Paddle | Payments ($1 demo, subscriptions) |
-| OpenAI/Anthropic | AI responses (configurable) |
-| S3/R2 | File storage |
-| pgvector | Vector embeddings |
+| Dependency | Purpose | Client Configurable? |
+|------------|---------|---------------------|
+| Twilio | Internal voice calls only | No — Parwa provides |
+| Brevo | Email option (one of many) | Yes — client chooses their provider |
+| Paddle | Payment option (one of many) | Yes — client chooses their provider |
+| OpenAI/Anthropic | AI responses | Internal |
+| S3/R2 | File storage | Internal |
+| pgvector | Vector embeddings | Internal |
+| SendGrid, Stripe, AWS SES, Vonage, Razorpay, etc. | Additional provider options | Yes — client chooses |
 
 ---
 

@@ -2,7 +2,7 @@
 
 > **Document Version:** 3.0
 > **Created:** Week 6 Day 8 (April 2026)
-> **Updated:** Week 6 Day 10 — Added: Knowledge Base section, action_tickets DB table, complete API endpoints, all card components, updated hook API
+> **Updated:** Week X — Added: Provider-Agnostic Integration Setup (Section 24), API Key Auto-Detection (Section 25), Integration Connection Stages in conversation flow
 > **Previous:** v2.0 — non-linear entry paths, action ticket system, post-call summary, Jarvis-as-product-demo concept
 > **Status:** Final — Approved by Founder
 > **Supersedes:** Sections 4-6 of ONBOARDING_SPEC.md v2.0
@@ -34,6 +34,9 @@
 21. [Post-Call Summary & Result Display](#21-post-call-summary--result-display)
 22. [Files to Create](#22-files-to-create)
 23. [Build Order (Priority)](#23-build-order-priority)
+24. [Provider-Agnostic Integration Architecture](#24-provider-agnostic-integration-architecture)
+25. [API Key Auto-Detection System](#25-api-key-auto-detection-system)
+26. [Integration Setup via Jarvis — Conversation Flow](#26-integration-setup-via-jarvis--conversation-flow)
 
 ---
 
@@ -376,8 +379,24 @@ AUTH CHECK
                                Payment OK      Payment Failed
                                     |               |
                                     v               v
-                              HANDOFF          Jarvis helps
-                              (see Sec 9)      retry payment
+                              HANDOFF (see Sec 9)   Jarvis helps
+                                      |             retry payment
+                                      v
+                        INTEGRATION SETUP (via Jarvis)
+                        +-------+-------+-------+
+                        |       |       |       |
+                        v       v       v       v
+                   EMAIL    SMS    PAYMENT   THIRD-PARTY
+                   PROVIDER PROVIDER PROVIDER INTEGRATIONS
+                        |       |       |       |
+                        +-------+-------+-------+
+                                |
+                                v
+                        FIRST VICTORY
+                        (KB Upload + AI Activation)
+                                |
+                                v
+                        DASHBOARD
 ```
 
 ---
@@ -505,12 +524,11 @@ Customer Care Jarvis:
 customers' support tickets 24/7. I'm configured with [variant count]
 AI agents for your [industry] business.
 
-To get started, you can:
-1. Upload your knowledge base documents (PDFs, docs, etc.)
-2. Connect your support channels (Shopify, Zendesk, etc.)
-3. Customize my behavior (name, tone, greeting)
+Before we can get started, let's connect your business tools. This
+only takes a few minutes.
 
-What would you like to do first?"
+Which email provider do you use for sending customer emails?
+[Brevo] [SendGrid] [AWS SES] [Mailgun] [Custom SMTP] [Skip for now]"
 ```
 
 ### 9.3 Technical Handoff
@@ -1122,6 +1140,11 @@ interface UseJarvisChatReturn {
 | `VERIFICATION` | User proceeds to payment | Collect and verify business email (OTP) |
 | `PAYMENT` | Email verified | Initiate Paddle checkout for variant subscription |
 | `HANDOFF` | Payment successful | Transition to Customer Care Jarvis |
+| `INTEGRATION_EMAIL` | After handoff — email setup | Ask which email provider, show provider cards, collect API key (with auto-detection), test connection live |
+| `INTEGRATION_SMS` | After email setup — SMS setup | Same flow for SMS providers (Twilio, Vonage, MessageBird, AWS SNS) |
+| `INTEGRATION_PAYMENT` | After SMS setup — payment provider | Same flow for payment providers (Paddle, Stripe, Razorpay, PayPal) |
+| `INTEGRATION_THIRD_PARTY` | After payment provider — other tools | CRM, e-commerce, helpdesk, communication tools + custom API |
+| `FIRST_VICTORY` | All integrations done (or skipped) | KB upload, AI activation, celebration |
 
 ### 15.2 Stage Transition Diagram
 
@@ -1133,11 +1156,24 @@ WELCOME ──> DISCOVERY ──> DEMO ──> PRICING ──> BILL_REVIEW
    |                                              |
    |                                              v
    |                                         PAYMENT ──> HANDOFF
-   |                                              |
-   |                                         (failure)
-   |                                              |
-   +----------------------------------------------+
-   (user can go back to discovery/demo at any point)
+   |                                              |             |
+   |                                         (failure)          v
+   |                                              |    INTEGRATION_EMAIL
+   |                                              |             |
+   |                                              |             v
+   +----------------------------------------------+    INTEGRATION_SMS
+   (user can go back to discovery/demo at any point)          |
+                                                           v
+                                                  INTEGRATION_PAYMENT
+                                                           |
+                                                           v
+                                                INTEGRATION_THIRD_PARTY
+                                                           |
+                                                           v
+                                                     FIRST_VICTORY
+                                                           |
+                                                           v
+                                                       DASHBOARD
 ```
 
 ### 15.3 Non-Linear Flow
@@ -1147,8 +1183,31 @@ The stages are NOT strictly sequential. The user can:
 - Jump to PRICING from DISCOVERY (e.g., "how much does this cost?")
 - Skip stages entirely (e.g., if they already selected variants on pricing page)
 - Revisit stages multiple times
+- **Skip any integration stage** — each can be deferred to dashboard setup later
 
 Jarvis detects the current stage from context and adjusts behavior accordingly.
+
+### 15.4 Integration Stages — Detailed Flow
+
+Each integration stage follows the same general pattern:
+
+1. **Jarvis introduces the category** ("Which email provider do you use?")
+2. **Jarvis shows provider cards** ([Brevo] [SendGrid] [AWS SES] [Mailgun] [Postmark] [Custom SMTP] [Skip])
+3. **User selects a provider** (or pastes an API key for auto-detection — see Section 25)
+4. **Jarvis collects API key** via `ApiKeyInputCard` (with show/hide toggle)
+5. **Jarvis tests the connection live** — makes a lightweight API call to verify
+6. **Jarvis shows `ConnectionStatusCard`** with ✅ or ❌ result
+7. **On success** — moves to next integration category
+8. **On failure** — Jarvis helps troubleshoot (see Section 26.4)
+
+**Available providers per integration stage:**
+
+| Stage | Available Providers |
+|-------|-------------------|
+| `INTEGRATION_EMAIL` | Brevo, SendGrid, AWS SES, Mailgun, Postmark, Custom SMTP |
+| `INTEGRATION_SMS` | Twilio, Vonage (Nexmo), MessageBird, AWS SNS, Plivo, Custom |
+| `INTEGRATION_PAYMENT` | Paddle, Stripe, Razorpay, PayPal, Braintree, Custom |
+| `INTEGRATION_THIRD_PARTY` | HubSpot, Salesforce, Zoho, Shopify, WooCommerce, Zendesk, Freshdesk, Intercom, Slack, Teams, Gmail, Custom API, Custom Webhook |
 
 ---
 
@@ -1575,6 +1634,347 @@ All frontend files must be mirrored to `frontend/src/` to keep the two directori
 | 24 | Animations (message entry, typing) | Polish |
 | 25 | Error states + retry logic | Robustness |
 | 26 | Tests (unit + integration) | Quality |
+
+---
+
+## 24. Provider-Agnostic Integration Architecture
+
+### 24.1 Design Philosophy
+
+PARWA does NOT force clients to use any specific provider. Every client has their own existing tech stack — their own email provider, SMS gateway, payment processor, CRM, and helpdesk. PARWA plugs INTO their existing infrastructure, not replaces it.
+
+**Voice (Twilio) is the ONLY exception** — Parwa provides AI voice calling as its own infrastructure. Clients do NOT configure voice providers. This is because Parwa's value proposition is eliminating human call center work, so clients using Parwa are moving AWAY from phone support, not integrating with it.
+
+### 24.2 Provider Categories
+
+| Category | Available Providers | Client Configurable? |
+|----------|-------------------|---------------------|
+| **Email** | Brevo, SendGrid, AWS SES, Mailgun, Postmark, Custom SMTP | Yes — client connects their own |
+| **SMS** | Twilio, Vonage (Nexmo), MessageBird, AWS SNS, Plivo, Custom | Yes — client connects their own |
+| **Payment** | Paddle, Stripe, Razorpay, PayPal, Braintree, Custom | Yes — client connects their own |
+| **CRM** | HubSpot, Salesforce, Zoho, Pipedrive, Custom | Yes — client connects their own |
+| **E-commerce** | Shopify, WooCommerce, BigCommerce, Custom | Yes — client connects their own |
+| **Helpdesk** | Zendesk, Freshdesk, Intercom, Help Scout, Custom | Yes — client connects their own |
+| **Communication** | Slack, Microsoft Teams, Gmail, Custom | Yes — client connects their own |
+| **Custom API** | Any REST API, Any Webhook format | Yes — client defines their own |
+| **Voice** | Twilio (internal) | No — Parwa provides, not client-configurable |
+| **Chat** | Parwa built-in widget | No — built into Parwa |
+
+### 24.3 Provider Abstraction Layer
+
+All provider integrations use a **Protocol/Interface pattern**:
+
+```
+EmailProvider (Protocol)
+├── send(to, subject, html, from) → SendResult
+├── send_template(template_id, to, variables) → SendResult
+├── parse_inbound_webhook(payload) -> InboundEmail
+├── verify_webhook(payload, signature) -> bool
+└── test_connection(credentials) -> ConnectionTestResult
+
+SMSProvider (Protocol)
+├── send(to, body, from) → SendResult
+├── parse_inbound_webhook(payload) -> InboundSMS
+├── verify_webhook(payload, signature) -> bool
+└── test_connection(credentials) -> ConnectionTestResult
+
+PaymentProvider (Protocol)
+├── create_checkout(items, customer, custom_data) -> CheckoutURL
+├── process_webhook(event_data) -> WebhookResult
+├── get_subscription(subscription_id) -> Subscription
+├── process_refund(transaction_id, amount) -> RefundResult
+├── create_invoice(data) -> Invoice
+└── test_connection(credentials) -> ConnectionTestResult
+```
+
+### 24.4 Provider Factory
+
+A central `ProviderFactory` reads the client's chosen provider from `ServiceConfig` and returns the correct adapter:
+
+```python
+email_provider = ProviderFactory.get_email_provider(company_id)
+# Returns: BrevoEmailProvider / SendGridProvider / SESEmailProvider / etc.
+
+sms_provider = ProviderFactory.get_sms_provider(company_id)
+# Returns: TwilioSMSProvider / VonageSMSProvider / etc.
+
+payment_provider = ProviderFactory.get_payment_provider(company_id)
+# Returns: PaddleProvider / StripeProvider / RazorpayProvider / etc.
+```
+
+### 24.5 Database Foundation (Already Exists)
+
+The database already has the tables needed:
+- `APIProvider` — global registry of all available providers
+- `ServiceConfig` — per-company provider credentials (encrypted)
+- `Integration` — third-party integration connections
+- `RESTConnector` — custom REST API connections
+- `WebhookIntegration` — inbound webhook subscriptions
+- `MCPConnection` — Model Context Protocol connections
+
+---
+
+## 25. API Key Auto-Detection System
+
+### 25.1 Why Auto-Detection?
+
+Jarvis needs to be intelligent during the integration setup flow. When a client pastes an API key, Jarvis should automatically detect which provider it belongs to — the client shouldn't need to know which format their developer used.
+
+### 25.2 Known Provider Key Patterns
+
+#### Email Providers
+| Provider | Key Pattern | Prefix | Example |
+|----------|-----------|--------|---------|
+| Brevo | 64-char hex | `xkeysib-` | `xkeysib-abc123...` |
+| SendGrid | 69-char base64 | `SG.` | `SG.abc123...` |
+| AWS SES | 20-char alphanumeric | `AKIA` | `AKIAIOSFODNN7EXAMPLE` |
+| Mailgun | 34-char | `key-` | `key-abc123...` |
+| Postmark | 22-char | `pm_` | `pm_abc123...` |
+
+#### SMS Providers
+| Provider | Key Pattern | Format |
+|----------|-----------|--------|
+| Twilio | Account SID + Auth Token | `AC` prefix (34 chars) |
+| Vonage | 32-char hex | No prefix |
+| MessageBird | `live_` prefix | `live_abc123...` |
+| AWS SNS | See AWS SES above | Same AWS credential pattern |
+
+#### Payment Providers
+| Provider | Key Pattern | Prefix | Example |
+|----------|-----------|--------|---------|
+| Stripe | Secret key | `sk_live_` or `sk_test_` | `sk_live_51abc...` |
+| Paddle | Client token | `pdl_` | `pdl_ntfjs...` |
+| Razorpay | Live key | `rzp_live_` | `rzp_live_abc123...` |
+| PayPal | Client ID | varies | `Aabc123...` |
+
+### 25.3 Detection Logic
+
+```
+ApiKeyDetector.detect(key: str) -> ProviderDetectionResult
+
+1. Check prefix patterns (high confidence, >90%)
+   - "SG." → SendGrid (email)
+   - "sk_live_" → Stripe (payment)
+   - "AKIA" → AWS (email or SMS)
+   - "rzp_live_" → Razorpay (payment)
+
+2. Check length + character set (medium confidence, 50-90%)
+   - 64 hex chars → Brevo (email)
+   - 34 chars starting with "AC" → Twilio (SMS)
+
+3. If unknown → Ask user to specify provider
+
+4. Verify with test API call (optional, for confirmation)
+   - Make a lightweight API call to verify the key works
+```
+
+### 25.4 Jarvis Integration Flows
+
+#### Flow A: Client Names Provider First
+```
+Jarvis: "Which email provider do you use?"
+Client: "SendGrid"
+Jarvis: "Got it! Paste your SendGrid API key below"
+Client: [pastes key]
+Jarvis: ✅ "SendGrid connected! Emails are flowing."
+```
+
+#### Flow B: Client Pastes Key First (Auto-Detect)
+```
+Jarvis: "Paste your API key — I'll detect the provider automatically"
+Client: [pastes "sk_live_51abc123..."]
+Jarvis: 🔍 "Detected: Stripe (Payment Provider)"
+Jarvis: "I'll connect this as your payment provider. Correct?"
+Client: "Yes"
+Jarvis: ✅ "Stripe connected!"
+```
+
+#### Flow C: Client Doesn't Know
+```
+Client: "My developer gave me this key, I'm not sure what it's for"
+Jarvis: "No worries! Just paste it — I'll figure it out"
+Client: [pastes key]
+Jarvis: 🔍 "This looks like a SendGrid API key (Email Provider). 
+Want me to connect it?"
+Client: "Actually we use it for transactional emails only"
+Jarvis: "Got it! Setting up for transactional emails."
+```
+
+### 25.5 Rich Card UI for Integration Setup
+
+New card types for integration setup:
+
+#### ProviderSelectorCard
+```
++--------------------------------------------------+
+|  CONNECT YOUR EMAIL PROVIDER                     |
+|                                                   |
+|  Which email provider do you use?                 |
+|                                                   |
+|  [Brevo]  [SendGrid]  [AWS SES]  [Mailgun]       |
+|  [Postmark]  [Custom SMTP]  [Skip for now]        |
++--------------------------------------------------+
+```
+
+#### ApiKeyInputCard
+```
++--------------------------------------------------+
+|  CONNECT SENDGRID                                |
+|                                                   |
+|  Paste your SendGrid API key below                |
+|  Find it at: app.sendgrid.com → Settings → API   |
+|                                                   |
+|  [••••••••••••••••••••••••••••••••]  [👁]          |
+|                                                   |
+|  🔒 Your key is encrypted before storage          |
+|  [Connect]                                        |
++--------------------------------------------------+
+```
+
+#### ConnectionStatusCard
+```
++--------------------------------------------------+
+|  ✅ SENDGRID CONNECTED                           |
+|                                                   |
+|  Status: Active                                   |
+|  Verified: May 9, 2026 at 3:42 PM                |
+|  Sending: Transactional + Marketing emails        |
+|                                                   |
+|  [Test Connection]  [Disconnect]  [Change Key]    |
++--------------------------------------------------+
+```
+
+---
+
+## 26. Integration Setup via Jarvis — Conversation Flow
+
+### 26.1 Why Jarvis for Integration Setup?
+
+After payment, instead of dumping clients into a boring settings page, Jarvis guides them through connecting their providers conversationally. This is the "eat your own dog food" principle — clients already trust Jarvis, and this IS the product demo showing how intelligent Parwa is.
+
+**Benefits over traditional settings page:**
+- Clients already trust Jarvis (they just bought through it)
+- Conversational = less intimidating than forms
+- Jarvis can explain each step, troubleshoot errors
+- Higher completion rates
+- Real-time connection testing with instant feedback
+
+### 26.2 Complete Integration Conversation Flow
+
+```
+[After HANDOFF completes]
+
+Jarvis: "Before your AI agents can start handling tickets, 
+let's connect your business tools. This only takes a few minutes 
+and you can skip anything you want to set up later."
+
+Jarvis: "First, which email provider do you use?
+[Brevo] [SendGrid] [AWS SES] [Mailgun] [Postmark] [Custom SMTP] 
+[Skip]"
+
+--- User clicks SendGrid ---
+
+Jarvis: "SendGrid — great choice! Paste your API key below.
+You can find it at app.sendgrid.com → Settings → API Keys."
+[API Key Input Field] [Connect]
+
+--- User pastes key and clicks Connect ---
+
+Jarvis: [Testing connection...]
+Jarvis: ✅ "SendGrid is connected! I can now send and receive
+customer emails through your SendGrid account."
+
+Jarvis: "Next, do you need SMS capabilities? Which SMS provider?
+[Twilio] [Vonage] [MessageBird] [AWS SNS] [Skip for now]"
+
+--- User clicks Skip ---
+
+Jarvis: "No problem — you can set up SMS anytime from your dashboard.
+Now, how do you process customer payments?
+[Paddle] [Stripe] [Razorpay] [PayPal] [Skip for now]"
+
+--- User pastes "sk_live_51abc..." ---
+
+Jarvis: 🔍 "I detected a Stripe API key! I'll set this up as 
+your payment provider. Correct?"
+[Yes, connect Stripe] [No, it's for something else]
+
+--- User confirms ---
+
+Jarvis: ✅ "Stripe connected! Your AI agents can now reference
+payment information when handling billing questions."
+
+Jarvis: "Almost there! Do you use any of these tools?
+[Shopify] [Zendesk] [HubSpot] [Slack] [Gmail] 
+[Custom API] [Skip all for now]"
+
+--- User clicks Skip all ---
+
+Jarvis: "All done! You can connect more integrations anytime 
+from your dashboard. 
+
+Now let's get your AI agents ready. Upload your knowledge base 
+documents (PDFs, docs, FAQs) so your agents can learn about 
+your products and policies.
+
+[Upload Documents] [Skip — I'll do this later]"
+
+--- User uploads docs or skips ---
+
+Jarvis: "🎉 Your Parwa is ready! Your AI agents are now live
+and can start handling customer support tickets.
+
+[Go to Dashboard]"
+```
+
+### 26.3 Skip/Defer Behavior
+
+- Any integration can be **skipped** without blocking onboarding
+- Jarvis stores which integrations were skipped
+- Dashboard shows "Complete Setup" reminders for skipped items
+- Integrations can be added/changed anytime from `/dashboard/integrations`
+
+### 26.4 Error Handling During Setup
+
+```
+--- User pastes invalid key ---
+
+Jarvis: ❌ "That key doesn't look right. SendGrid API keys 
+usually start with 'SG.' followed by 60+ characters.
+
+Common issues:
+• Copied the wrong key (use 'API Key', not 'API Key ID')
+• Extra spaces before or after the key
+• Key was revoked or expired
+
+[Try Again] [I need help]"
+
+--- User clicks "I need help" ---
+
+Jarvis: "No worries! Here's how to get your SendGrid API key:
+1. Go to app.sendgrid.com
+2. Navigate to Settings → API Keys
+3. Click 'Create API Key'
+4. Give it a name like 'PARWA Integration'
+5. Select 'Full Access' permissions
+6. Click 'Create & View'
+7. Copy the key (starts with SG.)
+
+Need more help? [SendGrid Guide](link)"
+```
+
+### 26.5 Smart Defaults and Industry Suggestions
+
+Jarvis can suggest providers based on the client's industry:
+
+| Industry | Most Common Email | Most Common Payment | Most Common E-commerce |
+|----------|------------------|-------------------|----------------------|
+| E-commerce | SendGrid | Stripe | Shopify |
+| SaaS | SendGrid | Stripe | N/A |
+| Logistics | AWS SES | Razorpay | N/A |
+| Others | Brevo | Paddle | N/A |
+
+Jarvis shows these as "Popular in your industry" badges on provider cards.
 
 ---
 

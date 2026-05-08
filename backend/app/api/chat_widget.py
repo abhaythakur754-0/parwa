@@ -31,10 +31,52 @@ from typing import Optional
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger("parwa.chat_widget_api")
 
 router = APIRouter(prefix="/api/v1/chat", tags=["Chat Widget"])
+
+
+# M-15: Pydantic models for chat widget request validation
+
+class CreateChatSessionRequest(BaseModel):
+    company_id: str = Field(..., min_length=1, max_length=36)
+    customer_name: Optional[str] = Field(None, max_length=200)
+    customer_email: Optional[str] = Field(None, max_length=255)
+    visitor_token: Optional[str] = None
+
+class SendMessageRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=10000)
+    role: str = Field("visitor", pattern="^(visitor|agent)$")
+    sender_id: Optional[str] = None
+    sender_name: Optional[str] = Field(None, max_length=200)
+    message_type: str = Field("text", max_length=50)
+    visitor_token: Optional[str] = None
+    company_id: Optional[str] = None
+    attachments_json: str = Field("[]", max_length=50000)
+    quick_replies_json: str = Field("[]", max_length=10000)
+
+class AssignSessionRequest(BaseModel):
+    agent_id: str = Field(..., min_length=1, max_length=36)
+
+class CSATRatingRequest(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    comment: Optional[str] = Field(None, max_length=2000)
+    visitor_token: Optional[str] = None
+    company_id: Optional[str] = None
+
+class CreateCannedResponseRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    content: str = Field(..., min_length=1, max_length=5000)
+    category: Optional[str] = Field(None, max_length=50)
+
+class TypingIndicatorRequest(BaseModel):
+    visitor_token: Optional[str] = None
+    company_id: Optional[str] = None
+    user_id: Optional[str] = None
+    role: str = Field("visitor", max_length=20)
+    is_typing: bool = True
 
 
 def _get_db(request: Request):
@@ -53,39 +95,14 @@ def _get_db(request: Request):
 
 
 @router.post("/session")
-async def create_chat_session(request: Request):
+async def create_chat_session(body: CreateChatSessionRequest, request: Request):
     """Create a new chat widget session.
 
     No authentication required — visitors are unauthenticated.
     The company_id is extracted from the request body or query.
     An HMAC-signed visitor_token is returned for subsequent requests.
     """
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error": {
-                    "code": "BAD_REQUEST",
-                    "message": "Invalid JSON body",
-                    "details": None,
-                }
-            },
-        )
-
-    company_id = body.get("company_id") or request.query_params.get("company_id")
-    if not company_id:
-        return JSONResponse(
-            status_code=422,
-            content={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "company_id is required (BC-001)",
-                    "details": None,
-                }
-            },
-        )
+    company_id = body.company_id or request.query_params.get("company_id")
 
     # H-14: Validate company exists before creating session
     db = _get_db(request)
@@ -106,7 +123,7 @@ async def create_chat_session(request: Request):
     try:
         from app.services.chat_widget_service import ChatWidgetService
         service = ChatWidgetService(db, company_id)
-        result = service.create_session(company_id, body)
+        result = service.create_session(company_id, body.model_dump())
 
         if result.get("status") == "error":
             return JSONResponse(
@@ -246,7 +263,7 @@ async def get_chat_session(request: Request, session_id: str):
 
 
 @router.post("/sessions/{session_id}/assign")
-async def assign_session(request: Request, session_id: str):
+async def assign_session(body: AssignSessionRequest, request: Request, session_id: str):
     """Assign an agent to a chat session."""
     company_id = getattr(request.state, "company_id", None)
     if not company_id:
@@ -262,28 +279,10 @@ async def assign_session(request: Request, session_id: str):
         )
 
     try:
-        body = await request.json()
-    except Exception:
-        body = {}
-
-    agent_id = body.get("agent_id")
-    if not agent_id:
-        return JSONResponse(
-            status_code=422,
-            content={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "agent_id is required",
-                    "details": None,
-                }
-            },
-        )
-
-    try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
         service = ChatWidgetService(db, company_id)
-        result = service.assign_session(session_id, company_id, agent_id)
+        result = service.assign_session(session_id, company_id, body.agent_id)
         if result.get("status") == "error":
             return JSONResponse(
                 status_code=404,
@@ -384,29 +383,15 @@ async def close_session(request: Request, session_id: str):
 
 
 @router.post("/sessions/{session_id}/messages")
-async def send_chat_message(request: Request, session_id: str):
+async def send_chat_message(body: SendMessageRequest, request: Request, session_id: str):
     """Send a message in a chat session.
 
     Visitors can send messages using their HMAC visitor_token.
     Agents use JWT authentication.
     """
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error": {
-                    "code": "BAD_REQUEST",
-                    "message": "Invalid JSON body",
-                    "details": None,
-                }
-            },
-        )
-
     # BC-011: Determine company_id from JWT auth or verify visitor token
     company_id = getattr(request.state, "company_id", None)
-    visitor_token = body.get("visitor_token")
+    visitor_token = body.visitor_token
 
     if not company_id and visitor_token:
         # Verify HMAC visitor token (BC-011)
@@ -414,7 +399,7 @@ async def send_chat_message(request: Request, session_id: str):
             db_tmp = _get_db(request)
             from app.services.chat_widget_service import ChatWidgetService
             tmp_svc = ChatWidgetService(db_tmp)
-            if not tmp_svc.verify_visitor_token(session_id, body.get("company_id", ""), visitor_token):
+            if not tmp_svc.verify_visitor_token(session_id, body.company_id or "", visitor_token):
                 return JSONResponse(
                     status_code=401,
                     content={
@@ -425,7 +410,7 @@ async def send_chat_message(request: Request, session_id: str):
                         }
                     },
                 )
-            company_id = body.get("company_id")
+            company_id = body.company_id
         except Exception:
             return JSONResponse(
                 status_code=401,
@@ -450,11 +435,11 @@ async def send_chat_message(request: Request, session_id: str):
             },
         )
 
-    content = body.get("content", "")
-    role = body.get("role", "visitor")
-    sender_id = body.get("sender_id") or getattr(request.state, "user_id", None)
-    sender_name = body.get("sender_name")
-    message_type = body.get("message_type", "text")
+    content = body.content
+    role = body.role
+    sender_id = body.sender_id or getattr(request.state, "user_id", None)
+    sender_name = body.sender_name
+    message_type = body.message_type
 
     try:
         db = _get_db(request)
@@ -468,8 +453,8 @@ async def send_chat_message(request: Request, session_id: str):
             sender_id=sender_id,
             sender_name=sender_name,
             message_type=message_type,
-            attachments_json=body.get("attachments_json", "[]"),
-            quick_replies_json=body.get("quick_replies_json", "[]"),
+            attachments_json=body.attachments_json,
+            quick_replies_json=body.quick_replies_json,
         )
 
         if result.get("status") == "error":
@@ -560,23 +545,18 @@ async def get_chat_messages(
 
 
 @router.post("/sessions/{session_id}/typing")
-async def send_typing_indicator(request: Request, session_id: str):
+async def send_typing_indicator(body: TypingIndicatorRequest, request: Request, session_id: str):
     """Emit a typing indicator via Socket.io (BC-005, BC-011)."""
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-
     # BC-011: Verify visitor token if no JWT auth
     company_id = getattr(request.state, "company_id", None)
-    visitor_token = body.get("visitor_token")
+    visitor_token = body.visitor_token
     if not company_id and visitor_token:
         try:
             from app.services.chat_widget_service import ChatWidgetService
             tmp_svc = ChatWidgetService(_get_db(request))
-            if not tmp_svc.verify_visitor_token(session_id, body.get("company_id", ""), visitor_token):
+            if not tmp_svc.verify_visitor_token(session_id, body.company_id or "", visitor_token):
                 return JSONResponse(status_code=401, content={"error": {"code": "AUTHENTICATION_ERROR", "message": "Invalid visitor token", "details": None}})
-            company_id = body.get("company_id")
+            company_id = body.company_id
         except Exception:
             return JSONResponse(
                 status_code=401,
@@ -608,9 +588,9 @@ async def send_typing_indicator(request: Request, session_id: str):
         return service.send_typing_indicator(
             session_id=session_id,
             company_id=company_id,
-            user_id=body.get("user_id") or getattr(request.state, "user_id", None),
-            role=body.get("role", "visitor"),
-            is_typing=body.get("is_typing", True),
+            user_id=body.user_id or getattr(request.state, "user_id", None),
+            role=body.role,
+            is_typing=body.is_typing,
         )
     except Exception as exc:
         logger.error(
@@ -683,32 +663,18 @@ async def mark_messages_read(request: Request, session_id: str):
 
 
 @router.post("/sessions/{session_id}/rate")
-async def submit_csat_rating(request: Request, session_id: str):
+async def submit_csat_rating(body: CSATRatingRequest, request: Request, session_id: str):
     """Submit a CSAT rating for a chat session (BC-011)."""
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error": {
-                    "code": "BAD_REQUEST",
-                    "message": "Invalid JSON body",
-                    "details": None,
-                }
-            },
-        )
-
     # BC-011: Verify visitor token if no JWT auth
     company_id = getattr(request.state, "company_id", None)
-    visitor_token = body.get("visitor_token")
+    visitor_token = body.visitor_token
     if not company_id and visitor_token:
         try:
             from app.services.chat_widget_service import ChatWidgetService
             tmp_svc = ChatWidgetService(_get_db(request))
-            if not tmp_svc.verify_visitor_token(session_id, body.get("company_id", ""), visitor_token):
+            if not tmp_svc.verify_visitor_token(session_id, body.company_id or "", visitor_token):
                 return JSONResponse(status_code=401, content={"error": {"code": "AUTHENTICATION_ERROR", "message": "Invalid visitor token", "details": None}})
-            company_id = body.get("company_id")
+            company_id = body.company_id
         except Exception:
             return JSONResponse(
                 status_code=401,
@@ -733,19 +699,6 @@ async def submit_csat_rating(request: Request, session_id: str):
             },
         )
 
-    rating = body.get("rating")
-    if rating is None or not 1 <= rating <= 5:
-        return JSONResponse(
-            status_code=422,
-            content={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "Rating must be between 1 and 5",
-                    "details": None,
-                }
-            },
-        )
-
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
@@ -753,8 +706,8 @@ async def submit_csat_rating(request: Request, session_id: str):
         result = service.submit_csat_rating(
             session_id=session_id,
             company_id=company_id,
-            rating=rating,
-            comment=body.get("comment"),
+            rating=body.rating,
+            comment=body.comment,
         )
         if result.get("status") == "error":
             return JSONResponse(
@@ -982,7 +935,7 @@ async def list_canned_responses(
 
 
 @router.post("/canned")
-async def create_canned_response(request: Request):
+async def create_canned_response(body: CreateCannedResponseRequest, request: Request):
     """Create a new canned response."""
     company_id = getattr(request.state, "company_id", None)
     if not company_id:
@@ -998,37 +951,11 @@ async def create_canned_response(request: Request):
         )
 
     try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error": {
-                    "code": "BAD_REQUEST",
-                    "message": "Invalid JSON body",
-                    "details": None,
-                }
-            },
-        )
-
-    if not body.get("title") or not body.get("content"):
-        return JSONResponse(
-            status_code=422,
-            content={
-                "error": {
-                    "code": "VALIDATION_ERROR",
-                    "message": "title and content are required",
-                    "details": None,
-                }
-            },
-        )
-
-    try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
         service = ChatWidgetService(db, company_id)
         created_by = getattr(request.state, "user_id", None)
-        result = service.create_canned_response(company_id, body, created_by)
+        result = service.create_canned_response(company_id, body.model_dump(), created_by)
         return result
     except Exception as exc:
         logger.error(

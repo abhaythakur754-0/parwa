@@ -297,6 +297,11 @@ async def get_redis() -> aioredis.Redis:
                     socket_connect_timeout=5,
                     retry_on_timeout=True,
                     health_check_interval=30,
+                    # H-10: TLS support — use rediss:// scheme to enable TLS.
+                    # aioredis.from_url() automatically enables SSL when the URL
+                    # scheme is "rediss://" (double s). We enforce certificate
+                    # verification in TLS mode to prevent MITM attacks.
+                    ssl_cert_reqs="required" if settings.REDIS_URL.startswith("rediss://") else None,
                 )
                 logger.info(
                     "redis_connected",

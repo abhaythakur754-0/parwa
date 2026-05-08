@@ -46,10 +46,6 @@ def _serialize_company_with_count(company) -> dict:
         "subscription_tier": company.subscription_tier,
         "subscription_status": company.subscription_status,
         "mode": company.mode,
-        "paddle_customer_id": company.paddle_customer_id,
-        "paddle_subscription_id": (
-            company.paddle_subscription_id
-        ),
         "created_at": (
             company.created_at.isoformat()
             if company.created_at else None
@@ -193,9 +189,10 @@ def update_client(
             details={"company_id": company_id},
         )
 
+    _UPDATABLE_COMPANY_FIELDS = {"name", "industry", "mode"}
     data = body.model_dump(exclude_none=True)
     for field, value in data.items():
-        if hasattr(company, field):
+        if field in _UPDATABLE_COMPANY_FIELDS:
             setattr(company, field, value)
 
     from datetime import datetime as dt
@@ -360,11 +357,11 @@ def update_api_provider(
 
     data = body.model_dump(exclude_none=True)
 
+    _UPDATABLE_PROVIDER_FIELDS = {"name", "description", "provider_type", "default_endpoint", "required_fields", "optional_fields"}
     for field, value in data.items():
-        if field in ("required_fields", "optional_fields"):
-            if isinstance(value, list):
+        if field in _UPDATABLE_PROVIDER_FIELDS:
+            if field in ("required_fields", "optional_fields") and isinstance(value, list):
                 value = json.dumps(value)
-        if hasattr(provider, field):
             setattr(provider, field, value)
 
     db.commit()

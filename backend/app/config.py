@@ -28,6 +28,7 @@ class Settings(BaseSettings):
 
     # ── Database ─────────────────────────────────────────────────
     DATABASE_URL: str = "sqlite:///./parwa_dev.db"
+    REDIS_PASSWORD: str = ""
     REDIS_URL: str = "redis://localhost:6379/0"
 
     @field_validator("DATABASE_URL", mode="before")
@@ -137,6 +138,22 @@ class Settings(BaseSettings):
                 )
             warnings.warn(
                 "Using development JWT_SECRET_KEY — change in production!",
+                stacklevel=2,
+            )
+        return v
+
+    @field_validator("REDIS_PASSWORD")
+    @classmethod
+    def validate_redis_password(cls, v: str) -> str:
+        if not v:
+            if os.environ.get("ENVIRONMENT") == "production":
+                raise ValueError(
+                    "REDIS_PASSWORD must be set in production. "
+                    "Set a strong password via the REDIS_PASSWORD env var."
+                )
+            warnings.warn(
+                "REDIS_PASSWORD is empty — Redis is unauthenticated. "
+                "Set REDIS_PASSWORD in production!",
                 stacklevel=2,
             )
         return v

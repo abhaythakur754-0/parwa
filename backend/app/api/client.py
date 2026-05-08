@@ -104,10 +104,6 @@ def _serialize_company(company) -> dict:
         "subscription_tier": company.subscription_tier,
         "subscription_status": company.subscription_status,
         "mode": company.mode,
-        "paddle_customer_id": company.paddle_customer_id,
-        "paddle_subscription_id": (
-            company.paddle_subscription_id
-        ),
         "created_at": (
             company.created_at.isoformat()
             if company.created_at else None

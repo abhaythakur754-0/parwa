@@ -45,6 +45,12 @@ def _get_db_url() -> str:
         else:
             url = f"sqlite:///{path}"
 
+    # C-13: Enforce sslmode=require for PostgreSQL connections
+    if url and url.startswith("postgresql"):
+        if "sslmode" not in url.lower():
+            separator = "&" if "?" in url else "?"
+            url = f"{url}{separator}sslmode=require"
+
     return url
 
 
