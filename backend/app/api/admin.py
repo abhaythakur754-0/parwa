@@ -195,8 +195,8 @@ def update_client(
         if field in _UPDATABLE_COMPANY_FIELDS:
             setattr(company, field, value)
 
-    from datetime import datetime as dt
-    company.updated_at = dt.utcnow()
+    from datetime import datetime as dt, timezone
+    company.updated_at = dt.now(timezone.utc)
     db.commit()
     db.refresh(company)
 
@@ -243,8 +243,7 @@ def update_subscription(
     if body.status is not None:
         company.subscription_status = body.status.value
 
-    from datetime import datetime as dt
-    company.updated_at = dt.utcnow()
+    company.updated_at = dt.now(timezone.utc)
     db.commit()
     db.refresh(company)
 

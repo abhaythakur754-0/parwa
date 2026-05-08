@@ -296,7 +296,9 @@ app.add_middleware(IPAllowlistMiddleware)
 app.add_middleware(AIEntitlementMiddleware)
 
 # 9. CORS middleware (frontend cross-origin access)
-# SECURITY: Never fall back to wildcard ["*"] when allow_credentials=True.
+# SECURITY (C-05, L-16): Never fall back to wildcard ["*"] when
+# allow_credentials=True. CORS origins must always be explicit,
+# even when OpenAPI docs are hidden in non-debug mode.
 # Per CORS spec, browsers reflect the requesting origin with credentials,
 # effectively allowing any website to make credentialed requests.
 try:

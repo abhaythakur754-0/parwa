@@ -73,7 +73,7 @@ class APIKey:
         rotated_at: Optional[float] = None,
         id: Optional[str] = None,
     ):
-        self.id = id or secrets.token_hex(8)
+        self.id = id or secrets.token_hex(12)
         self.key_hash = key_hash
         self.key_prefix = key_prefix  # First 8 chars for identification
         self.company_id = company_id  # BC-001: tenant isolation

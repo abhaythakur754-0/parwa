@@ -537,8 +537,8 @@ def update_agent_by_id(
             _validate_status(str(value))
             agent.status = str(value)
 
-    from datetime import datetime as dt
-    agent.updated_at = dt.utcnow()
+    from datetime import datetime as dt, timezone
+    agent.updated_at = dt.now(timezone.utc)
     db.commit()
     db.refresh(agent)
     return agent
@@ -564,8 +564,8 @@ def delete_agent(
         )
 
     agent.status = "inactive"
-    from datetime import datetime as dt
-    agent.updated_at = dt.utcnow()
+    from datetime import datetime as dt, timezone
+    agent.updated_at = dt.now(timezone.utc)
     db.commit()
     db.refresh(agent)
     return agent

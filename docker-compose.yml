@@ -1,3 +1,15 @@
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  ⚠️  DEVELOPMENT ONLY — DO NOT USE IN PRODUCTION              ║
+# ║                                                                ║
+# ║  This compose file exposes database (5432), Redis (6379),      ║
+# ║  backend (8000), and frontend (3000) ports to 0.0.0.0.         ║
+# ║  In production, use:                                           ║
+# ║    - Internal Docker networks (no host port binding)           ║
+# ║    - Separate production compose with proper secrets          ║
+# ║    - TLS termination via reverse proxy (nginx/ALB)            ║
+# ║    - Environment-specific .env with real secrets              ║
+# ╚══════════════════════════════════════════════════════════════════╝
+
 version: "3.9"
 
 services:
@@ -12,8 +24,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-parwa}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-parwa_dev}
       POSTGRES_DB: ${POSTGRES_DB:-parwa_db}
+    # M-24: Dev-only — bind to localhost in production
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -29,9 +42,10 @@ services:
     image: redis:7-alpine
     container_name: parwa_redis
     restart: unless-stopped
+    # M-24/M-25: Redis with password + bind to localhost only
     command: redis-server --requirepass ${REDIS_PASSWORD:-parwa_dev_redis}
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -49,8 +63,9 @@ services:
       dockerfile: infra/docker/backend.Dockerfile
     container_name: parwa_backend
     restart: unless-stopped
+    # M-24: Dev-only — bind to localhost in production
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-parwa}:${POSTGRES_PASSWORD:-parwa_dev}@db:5432/${POSTGRES_DB:-parwa_db}
       - REDIS_URL=redis://:${REDIS_PASSWORD:-parwa_dev_redis}@redis:6379/0
@@ -126,8 +141,9 @@ services:
       target: dev
     container_name: parwa_frontend
     restart: unless-stopped
+    # M-24: Dev-only — bind to localhost in production
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - SERVER_API_URL=http://backend:8000

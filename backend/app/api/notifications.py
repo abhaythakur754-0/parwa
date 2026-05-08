@@ -9,6 +9,7 @@ Endpoints for:
 """
 
 from typing import Any, Dict, List, Optional
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -20,8 +21,8 @@ from app.services.notification_template_service import NotificationTemplateServi
 from app.services.notification_preference_service import NotificationPreferenceService
 from database.models.core import User
 
-
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
+logger = logging.getLogger("parwa.notifications")
 
 
 # ── Request/Response Schemas ───────────────────────────────────────────────────
@@ -171,8 +172,14 @@ async def mark_notifications_read(
         try:
             notification = service.mark_as_read(notification_id, current_user.id)
             marked.append(notification.id)
-        except Exception:
-            pass
+        except Exception as exc:
+            # L-14 FIX: Log error instead of silently passing
+            logger.warning(
+                "mark_read_failed notification_id=%s user_id=%s error=%s",
+                notification_id,
+                current_user.id,
+                str(exc),
+            )
     
     return {"marked_count": len(marked), "marked_ids": marked}
 

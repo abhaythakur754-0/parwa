@@ -92,23 +92,15 @@ def _extract_attachments(attachments: list) -> list:
     for att in attachments[:20]:
         if not isinstance(att, dict):
             continue
+        # L-17 FIX: Store only filename, type, and size — NOT base64 content.
+        # The full content is processed downstream via AttachmentService.
         attachment_info = {
             "filename": _sanitize_email_field(att.get("filename", ""), 255),
             "content_type": _sanitize_email_field(att.get("content-type", ""), 100),
             "size": att.get("size", 0),
         }
-        # Store actual file content if available (Brevo provides base64 content)
-        content = att.get("content", "")
-        if content and att.get("size", 0) < 10 * 1024 * 1024:  # Max 10MB per attachment
+        if att.get("content", "") and att.get("size", 0) < 10 * 1024 * 1024:  # Max 10MB
             attachment_info["has_content"] = True
-            attachment_info["content_b64"] = content[:100]  # Store preview only
-            try:
-                import base64
-                # Validate it's valid base64
-                base64.b64decode(content[:100])
-                attachment_info["content_valid"] = True
-            except Exception:
-                attachment_info["content_valid"] = False
         result.append(attachment_info)
     return result
 

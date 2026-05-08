@@ -191,13 +191,11 @@ async def metrics_endpoint(
     # Build Prometheus output
     lines = []
 
-    # Build info
-    env = os.environ.get("ENVIRONMENT", "unknown")
+    # Build info (L-13: environment label removed to avoid info leakage)
     lines.append(
         f'# HELP parwa_build_info PARWA build information\n'
         f'# TYPE parwa_build_info gauge\n'
-        f'parwa_build_info{{version="{APP_VERSION}",'
-        f'environment="{env}"}} 1'
+        f'parwa_build_info{{version="{APP_VERSION}"}} 1'
     )
 
     # Uptime

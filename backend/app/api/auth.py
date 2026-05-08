@@ -131,7 +131,7 @@ def register(
 
 
 @router.post("/login", response_model=AuthResponse)
-def login(
+async def login(
     body: LoginRequest,
     response: Response,
     db: Session = Depends(get_db),
