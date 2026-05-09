@@ -1,5 +1,5 @@
 """
-PARWA ReAct Tool Integrations — F-157
+PARWA ReAct Tool Integrations — F-157 + Day 3 Diagnostic Tools
 
 Provides the registry and all tool implementations for the ReAct
 (Reasoning + Acting) pattern. Each tool wraps an external system API
@@ -16,6 +16,10 @@ Architecture
 - BillingTool     — billing & subscription actions
 - CRMTool         — CRM & customer actions
 - TicketTool      — support ticket actions
+- ServiceHealthCheckerTool — real-time service status checks (Day 3)
+- KnownIssueDetectorTool   — known bug database search (Day 3)
+- ConfigValidatorTool      — customer configuration validation (Day 3)
+- DiagnosticChainTool      — sequential diagnostic chains, High tier only (Day 3)
 
 GAP-004: Every execute() call is wrapped in asyncio.wait_for(timeout=10)
          and limited by asyncio.Semaphore(5). MAX_RETRIES=1.
@@ -44,6 +48,12 @@ from .order_tool import OrderTool
 from .billing_tool import BillingTool
 from .crm_tool import CRMTool
 from .ticket_tool import TicketTool
+
+# Day 3 Diagnostic Tools
+from .service_health_checker import ServiceHealthCheckerTool
+from .known_issue_detector import KnownIssueDetectorTool
+from .config_validator import ConfigValidatorTool
+from .diagnostic_chain import DiagnosticChainTool
 
 logger = logging.getLogger(__name__)
 
@@ -201,32 +211,69 @@ class ReActToolRegistry:
 
     # ── Initialisation ──────────────────────────────────────────
 
-    async def initialize_defaults(self) -> None:
-        """Register all default PARWA tool implementations."""
+    async def initialize_defaults(self, variant_tier: str = "parwa") -> None:
+        """Register all default PARWA tool implementations.
+
+        Args:
+            variant_tier: Which variant tier to initialize tools for.
+                - 'mini_parwa': Core tools only
+                - 'parwa': Core + Day 3 diagnostic tools
+                - 'parwa_high': All tools including High-tier diagnostics
+        """
         if self._initialized:
             return
+        # Core tools — always available
         await self.register_tool(OrderTool())
         await self.register_tool(BillingTool())
         await self.register_tool(CRMTool())
         await self.register_tool(TicketTool())
+
+        # Day 3 Diagnostic Tools — Pro tier and above
+        if variant_tier in ("parwa", "parwa_high"):
+            await self.register_tool(ServiceHealthCheckerTool())
+            await self.register_tool(KnownIssueDetectorTool())
+            await self.register_tool(ConfigValidatorTool())
+
+        # Day 3 High-tier Diagnostic Chain — High tier only
+        if variant_tier == "parwa_high":
+            await self.register_tool(DiagnosticChainTool())
+
         self._initialized = True
         logger.info(
-            "ReActToolRegistry initialised with %d tools",
+            "ReActToolRegistry initialised with %d tools (tier=%s)",
             len(self._tools),
+            variant_tier,
         )
 
-    def initialize_defaults_sync(self) -> None:
-        """Synchronous convenience wrapper for initialize_defaults."""
+    def initialize_defaults_sync(self, variant_tier: str = "parwa") -> None:
+        """Synchronous convenience wrapper for initialize_defaults.
+
+        Args:
+            variant_tier: Which variant tier to initialize tools for.
+        """
         if self._initialized:
             return
+        # Core tools — always available
         self.register_tool_sync(OrderTool())
         self.register_tool_sync(BillingTool())
         self.register_tool_sync(CRMTool())
         self.register_tool_sync(TicketTool())
+
+        # Day 3 Diagnostic Tools — Pro tier and above
+        if variant_tier in ("parwa", "parwa_high"):
+            self.register_tool_sync(ServiceHealthCheckerTool())
+            self.register_tool_sync(KnownIssueDetectorTool())
+            self.register_tool_sync(ConfigValidatorTool())
+
+        # Day 3 High-tier Diagnostic Chain — High tier only
+        if variant_tier == "parwa_high":
+            self.register_tool_sync(DiagnosticChainTool())
+
         self._initialized = True
         logger.info(
-            "ReActToolRegistry initialised with %d tools (sync)",
+            "ReActToolRegistry initialised with %d tools (sync, tier=%s)",
             len(self._tools),
+            variant_tier,
         )
 
 
@@ -244,11 +291,16 @@ __all__ = [
     "ActionSchema",
     "ValidationResult",
     "ToolCall",
-    # Tool implementations
+    # Core tool implementations
     "OrderTool",
     "BillingTool",
     "CRMTool",
     "TicketTool",
+    # Day 3 Diagnostic Tools
+    "ServiceHealthCheckerTool",
+    "KnownIssueDetectorTool",
+    "ConfigValidatorTool",
+    "DiagnosticChainTool",
     # Singleton
     "default_registry",
 ]

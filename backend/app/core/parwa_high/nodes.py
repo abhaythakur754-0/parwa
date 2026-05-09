@@ -2866,11 +2866,16 @@ def tech_diagnostic_node(state: ParwaGraphState) -> Dict[str, Any]:
     High Enhancement: Root cause analysis, guided auto-fix steps,
     severity-based routing, and detailed known issue workarounds.
 
+    Day 3 Enhancement: Integrates ServiceHealthChecker, KnownIssueDetector,
+    ConfigValidator, AND DiagnosticChainTool (High-tier only) for richer
+    diagnostic context and sequential diagnostic chain execution.
+
     Improvement Target: Technical Support L1 82% → 94% automation (High).
     """
     start = time.monotonic()
     try:
         query = state.get("pii_redacted_query", "") or state.get("query", "")
+        company_id = state.get("company_id", "")
         known_issue = state.get("known_issue", {})
         tech_diagnostics = state.get("tech_diagnostics", {})
         severity_score = state.get("severity_score", {})
@@ -2896,6 +2901,124 @@ def tech_diagnostic_node(state: ParwaGraphState) -> Dict[str, Any]:
                 known_issue=known_issue,
                 customer_tier=customer_tier,
             )
+
+        # Day 3: Enrich with ReAct diagnostic tools (health checker, known issues, config, diagnostic chain)
+        service_health_context = ""
+        known_issue_tool_context = ""
+        config_context = ""
+        chain_context = ""
+        chain_result_data = {}
+
+        try:
+            from app.core.react_tools.service_health_checker import ServiceHealthCheckerTool
+            from app.core.react_tools.known_issue_detector import KnownIssueDetectorTool
+            from app.core.react_tools.config_validator import ConfigValidatorTool
+            from app.core.react_tools.diagnostic_chain import DiagnosticChainTool
+
+            # Check service health for relevant services
+            health_tool = ServiceHealthCheckerTool()
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if not loop.is_running():
+                    health_result = loop.run_until_complete(
+                        health_tool.execute("check_all_services", company_id, category="core")
+                    )
+                    if health_result.success and health_result.data:
+                        overall = health_result.data.get("overall_health_percentage", 100)
+                        if overall < 95:
+                            degraded = [
+                                s for s, d in health_result.data.get("services", {}).items()
+                                if not d.get("is_healthy", True)
+                            ]
+                            if degraded:
+                                service_health_context = (
+                                    f"SERVICE HEALTH (High): {len(degraded)} service(s) experiencing issues "
+                                    f"({', '.join(degraded)}). This may be affecting the customer. "
+                                    f"Inform them about the current service status and expected resolution."
+                                )
+            except RuntimeError:
+                pass
+
+            # Search known issue database for additional matches
+            ki_tool = KnownIssueDetectorTool()
+            try:
+                loop = asyncio.get_event_loop()
+                if not loop.is_running():
+                    ki_result = loop.run_until_complete(
+                        ki_tool.execute("search_known_issues", company_id, query=query)
+                    )
+                    if ki_result.success and ki_result.data:
+                        matches = ki_result.data.get("issues", [])
+                        if matches and not known_issue.get("known_issue_detected"):
+                            top_match = matches[0]
+                            known_issue_tool_context = (
+                                f"KNOWN ISSUE DB MATCH (High): {top_match.get('title', 'Unknown')} "
+                                f"(ID: {top_match.get('issue_id', '')}, "
+                                f"severity: {top_match.get('severity', 'unknown')}). "
+                                f"Provide detailed workaround steps from this known issue."
+                            )
+            except RuntimeError:
+                pass
+
+            # Validate configuration for potential misconfigurations
+            config_tool = ConfigValidatorTool()
+            try:
+                loop = asyncio.get_event_loop()
+                if not loop.is_running():
+                    config_result = loop.run_until_complete(
+                        config_tool.execute("validate_config", company_id, config_area="automation")
+                    )
+                    if config_result.success and config_result.data:
+                        health_score = config_result.data.get("health_score", 100)
+                        if health_score < 80:
+                            failed_checks = [
+                                c["name"] for c in config_result.data.get("check_results", [])
+                                if not c.get("is_pass", True) and c.get("is_critical", False)
+                            ]
+                            if failed_checks:
+                                config_context = (
+                                    f"CONFIG ISSUE (High): {len(failed_checks)} critical config check(s) failed "
+                                    f"({', '.join(failed_checks[:3])}). This may be causing the issue. "
+                                    f"Consider suggesting a configuration review with guided remediation steps."
+                                )
+            except RuntimeError:
+                pass
+
+            # High-tier only: Run diagnostic chain for sequential diagnostics
+            chain_tool = DiagnosticChainTool()
+            try:
+                loop = asyncio.get_event_loop()
+                if not loop.is_running():
+                    # Select chain based on issue type
+                    query_lower = query.lower()
+                    if any(kw in query_lower for kw in ["login", "sign in", "authentication", "password", "sso"]):
+                        selected_chain = "login_chain"
+                    elif any(kw in query_lower for kw in ["slow", "performance", "timeout", "latency", "delayed"]):
+                        selected_chain = "performance_chain"
+                    else:
+                        selected_chain = "connectivity_chain"
+
+                    chain_result = loop.run_until_complete(
+                        chain_tool.execute("run_diagnostic_chain", company_id, chain_id=selected_chain)
+                    )
+                    if chain_result.success and chain_result.data:
+                        chain_result_data = chain_result.data
+                        failed_steps = chain_result.data.get("failed_steps", 0)
+                        chain_name = chain_result.data.get("chain_name", selected_chain)
+                        diagnosis = chain_result.data.get("diagnosis", [])
+                        if failed_steps > 0:
+                            chain_context = (
+                                f"DIAGNOSTIC CHAIN (High-only): {chain_name} completed — "
+                                f"{failed_steps} step(s) detected issues. "
+                                f"{' '.join(diagnosis[:2])} "
+                                f"Provide guided remediation based on the chain findings."
+                            )
+            except RuntimeError:
+                pass
+
+        except Exception:
+            logger.debug("Day 3 diagnostic tools not available for enrichment")
 
         # Build enrichment context for tech support (High: more detailed)
         context_parts = []
@@ -2931,6 +3054,15 @@ def tech_diagnostic_node(state: ParwaGraphState) -> Dict[str, Any]:
                 f"Prioritize immediate response, provide real-time updates, and ensure the customer "
                 f"feels their issue is being handled with urgency."
             )
+        # Day 3 contexts
+        if service_health_context:
+            context_parts.append(service_health_context)
+        if known_issue_tool_context:
+            context_parts.append(known_issue_tool_context)
+        if config_context:
+            context_parts.append(config_context)
+        if chain_context:
+            context_parts.append(chain_context)
 
         duration_ms = round((time.monotonic() - start) * 1000, 2)
 
@@ -2942,6 +3074,8 @@ def tech_diagnostic_node(state: ParwaGraphState) -> Dict[str, Any]:
                 "tier": "high",
                 "diagnostic_result": diagnostic_result,
                 "escalation_decision": escalation_decision,
+                "day3_tools_used": bool(service_health_context or known_issue_tool_context or config_context),
+                "day3_chain_run": bool(chain_result_data),
                 "duration_ms": duration_ms,
             }},
             **append_audit_entry(state, "tech_diagnostic", "deep_tech_enrichment_high", duration_ms),
@@ -2969,6 +3103,9 @@ def shipping_tracker_node(state: ParwaGraphState) -> Dict[str, Any]:
     High Enhancement: Real-time multi-carrier tracking, automatic compensation
     processing, alternative delivery options, and proactive re-routing.
 
+    Day 3 Enhancement: Uses CarrierAPIConnector for real carrier API queries,
+    delay detection, and compensation calculation.
+
     Improvement Target: Shipping/Logistics 83% → 92% automation (High).
     """
     start = time.monotonic()
@@ -2976,6 +3113,7 @@ def shipping_tracker_node(state: ParwaGraphState) -> Dict[str, Any]:
         tracking_info = state.get("tracking_info", {})
         shipping_issue = state.get("shipping_issue", {})
         shipping_delay = state.get("shipping_delay", {})
+        company_id = state.get("company_id", "")
 
         shipping_engine = _get_shipping_engine()
 
@@ -2986,6 +3124,33 @@ def shipping_tracker_node(state: ParwaGraphState) -> Dict[str, Any]:
                 tracking_info=tracking_info,
                 shipping_issue=shipping_issue,
             )
+
+        # Day 3: Check for compensation via carrier connector
+        compensation_context = ""
+        try:
+            from app.core.carrier_api_connector import default_connector
+            if default_connector and shipping_carrier_data.get("carrier_api_called"):
+                # Detect delays with carrier-specific thresholds
+                delay_result = default_connector.detect_delays(company_id, shipping_carrier_data)
+                if delay_result.get("delay_detected") and delay_result.get("exceeds_threshold"):
+                    shipping_cost = shipping_carrier_data.get("shipping_cost", 0.0)
+                    service_tier = shipping_carrier_data.get("service_tier", "ground")
+                    comp_result = default_connector.calculate_compensation(
+                        company_id, shipping_carrier_data, delay_result,
+                        shipping_cost, service_tier,
+                    )
+                    if comp_result.get("eligible"):
+                        compensation_context = (
+                            f"COMPENSATION CALCULATED (High): ${comp_result.get('compensation_amount', 0):.2f} "
+                            f"({comp_result.get('compensation_percentage', 0)}% of shipping). "
+                            f"Delay: {comp_result.get('delay_days', 0)} days. "
+                            f"Proactively offer this refund to the customer with automatic processing."
+                        )
+                        # Merge compensation into carrier data
+                        shipping_carrier_data["compensation"] = comp_result
+                        shipping_carrier_data["delay"] = delay_result
+        except Exception:
+            logger.debug("Day 3 carrier connector compensation not available")
 
         # Generate proactive delay notification with revised delivery windows
         delay_notification = {}
@@ -3033,6 +3198,9 @@ def shipping_tracker_node(state: ParwaGraphState) -> Dict[str, Any]:
                 "options such as expedited shipping, local pickup, or delivery to a different address. "
                 "Proactively arrange the best alternative for the customer."
             )
+        # Day 3: Compensation context from carrier connector
+        if compensation_context:
+            context_parts.append(compensation_context)
 
         duration_ms = round((time.monotonic() - start) * 1000, 2)
 
@@ -3044,6 +3212,7 @@ def shipping_tracker_node(state: ParwaGraphState) -> Dict[str, Any]:
                 "tier": "high",
                 "shipping_carrier_data": shipping_carrier_data,
                 "delay_notification": delay_notification,
+                "day3_compensation_used": bool(compensation_context),
                 "duration_ms": duration_ms,
             }},
             **append_audit_entry(state, "shipping_tracker", "deep_shipping_enrichment_high", duration_ms),

@@ -3,8 +3,11 @@ Shipping Intelligence Engine — Multi-Carrier Integration + Proactive Delay Not
 
 Improvement Target: Shipping/Logistics 83% → 88% automation.
 
+Day 3 Enhancement: Integrated with CarrierAPIConnector for real carrier API
+queries, auto-carrier detection, delay detection, and compensation calculation.
+
 Components:
-  1. Multi-Carrier Tracker: Simulated multi-carrier tracking integration
+  1. Multi-Carrier Tracker: Real carrier API integration via CarrierAPIConnector
      that can query shipment status from multiple carriers (FedEx, UPS,
      DHL, USPS, etc.) and consolidate tracking information.
   2. Proactive Delay Notifier: Detects delayed shipments and generates
@@ -13,11 +16,16 @@ Components:
   3. Shipping Issue Resolver: Automated resolution of common shipping
      issues (wrong address, missed delivery, damaged package, lost package)
      with appropriate actions (reorder, refund, investigation).
+  4. Auto-Carrier Detection: Automatically identifies carrier from tracking
+     number format using regex patterns.
+  5. Compensation Calculator: Auto-calculates shipping refunds based on
+     carrier-specific policies and delay thresholds.
 
 Architecture:
   Called from smart_enrichment node to enrich shipping context and detect
   delays. Called from auto_action node to trigger proactive notifications
-  and shipping resolution actions.
+  and shipping resolution actions. Uses CarrierAPIConnector for real
+  carrier API integration (Day 3).
 
 BC-001: company_id first parameter on public methods.
 BC-008: Every method wrapped in try/except — never crash.
@@ -207,6 +215,13 @@ class ShippingIntelligenceEngine:
         """Initialize the shipping intelligence engine."""
         self._compiled_patterns: Dict[str, List[re.Pattern]] = {}
         self._compile_patterns()
+        # Day 3: CarrierAPIConnector for real carrier API integration
+        try:
+            from app.core.carrier_api_connector import default_connector
+            self._carrier_connector = default_connector
+        except Exception:
+            logger.warning("CarrierAPIConnector not available — using fallback")
+            self._carrier_connector = None
 
     def _compile_patterns(self) -> None:
         """Pre-compile regex patterns for performance."""
@@ -593,6 +608,9 @@ class ShippingIntelligenceEngine:
     ) -> Dict[str, Any]:
         """Simulate multi-carrier API integration to get shipping data.
 
+        Day 3 Enhancement: Uses CarrierAPIConnector for real carrier API
+        queries when available, with fallback to simulated data.
+
         Args:
             tracking_info: Output from detect_tracking_number().
             shipping_issue: Output from classify_shipping_issue().
@@ -605,6 +623,136 @@ class ShippingIntelligenceEngine:
               - carrier_api_called: bool
               - last_update: str
         """
+        try:
+            # Day 3: Try real carrier connector first
+            if self._carrier_connector is not None:
+                tracking_numbers = tracking_info.get("tracking_numbers", [])
+                if tracking_numbers:
+                    primary = tracking_numbers[0]
+                    carrier_id = primary.get("carrier_id", "")
+                    tracking_number = primary.get("tracking_number", "")
+                    # Synchronous wrapper — query_carrier_data is sync
+                    import asyncio
+                    try:
+                        loop = asyncio.get_event_loop()
+                        if loop.is_running():
+                            # We're inside an async context, use simulated data
+                            return self._simulated_carrier_data(
+                                tracking_info, shipping_issue
+                            )
+                        result = loop.run_until_complete(
+                            self._carrier_connector.track_shipment(
+                                "__sync__", tracking_number, carrier_id or None
+                            )
+                        )
+                        return {
+                            "carrier": result.get("carrier_name", ""),
+                            "tracking_status": result.get("status", "unknown"),
+                            "estimated_delivery": result.get("estimated_delivery", "unknown"),
+                            "carrier_api_called": result.get("api_called", False),
+                            "last_update": result.get("last_update", ""),
+                            "status_category": result.get("status_category", ""),
+                            "service_tier": result.get("service_tier", ""),
+                            "progress_percentage": result.get("progress_percentage", 0),
+                            "history": result.get("history", []),
+                        }
+                    except RuntimeError:
+                        return self._simulated_carrier_data(
+                            tracking_info, shipping_issue
+                        )
+
+            return self._simulated_carrier_data(tracking_info, shipping_issue)
+
+        except Exception:
+            logger.exception("carrier_data_query_failed")
+            return {
+                "carrier": "",
+                "tracking_status": "unknown",
+                "estimated_delivery": "unknown",
+                "carrier_api_called": False,
+                "last_update": "",
+            }
+
+    async def query_carrier_data_async(
+        self,
+        company_id: str,
+        tracking_info: Dict[str, Any],
+        shipping_issue: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Async version of query_carrier_data using CarrierAPIConnector.
+
+        BC-001: company_id is first parameter.
+
+        Day 3: Async carrier API integration for use in async pipeline nodes.
+
+        Args:
+            company_id: Tenant identifier.
+            tracking_info: Output from detect_tracking_number().
+            shipping_issue: Output from classify_shipping_issue().
+
+        Returns:
+            Carrier data dict with enriched tracking information.
+        """
+        try:
+            if self._carrier_connector is not None:
+                tracking_numbers = tracking_info.get("tracking_numbers", [])
+                if tracking_numbers:
+                    primary = tracking_numbers[0]
+                    carrier_id = primary.get("carrier_id", "")
+                    tracking_number = primary.get("tracking_number", "")
+
+                    result = await self._carrier_connector.track_shipment(
+                        company_id, tracking_number, carrier_id or None
+                    )
+
+                    # Run delay detection
+                    delay_result = self._carrier_connector.detect_delays(
+                        company_id, result
+                    )
+
+                    # Run compensation calculation if delay detected
+                    compensation = {}
+                    if delay_result.get("delay_detected"):
+                        shipping_cost = result.get("shipping_cost", 0.0)
+                        service_tier = result.get("service_tier", "ground")
+                        compensation = self._carrier_connector.calculate_compensation(
+                            company_id, result, delay_result, shipping_cost, service_tier
+                        )
+
+                    return {
+                        "carrier": result.get("carrier_name", ""),
+                        "tracking_status": result.get("status", "unknown"),
+                        "status_category": result.get("status_category", ""),
+                        "estimated_delivery": result.get("estimated_delivery", "unknown"),
+                        "original_estimated_delivery": result.get("original_estimated_delivery", ""),
+                        "carrier_api_called": result.get("api_called", False),
+                        "last_update": result.get("last_update", ""),
+                        "service_tier": result.get("service_tier", ""),
+                        "progress_percentage": result.get("progress_percentage", 0),
+                        "tracking_url": result.get("tracking_url", ""),
+                        "history": result.get("history", []),
+                        "delay": delay_result,
+                        "compensation": compensation,
+                    }
+
+            return self._simulated_carrier_data(tracking_info, shipping_issue)
+
+        except Exception:
+            logger.exception("async_carrier_data_query_failed")
+            return {
+                "carrier": "",
+                "tracking_status": "unknown",
+                "estimated_delivery": "unknown",
+                "carrier_api_called": False,
+                "last_update": "",
+            }
+
+    @staticmethod
+    def _simulated_carrier_data(
+        tracking_info: Dict[str, Any],
+        shipping_issue: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Fallback simulated carrier data when connector is unavailable."""
         try:
             from datetime import datetime, timezone, timedelta
 
@@ -645,7 +793,7 @@ class ShippingIntelligenceEngine:
                 "last_update": datetime.now(timezone.utc).isoformat(),
             }
         except Exception:
-            logger.exception("carrier_data_query_failed")
+            logger.exception("simulated_carrier_data_failed")
             return {
                 "carrier": "",
                 "tracking_status": "unknown",
