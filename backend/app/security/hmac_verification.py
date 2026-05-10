@@ -17,7 +17,15 @@ BREVO_IP_RANGES (comma-separated CIDR list), falling back to defaults.
 import hashlib
 import hmac
 import ipaddress
+import logging
 import os
+import time
+
+
+logger = logging.getLogger("parwa.hmac_verification")
+
+# Maximum age for webhook timestamps (5 minutes)
+_WEBHOOK_FRESHNESS_SECONDS = 300
 
 
 def _get_brevo_ips() -> list:
@@ -199,4 +207,34 @@ def verify_brevo_ip(
                 continue
         return False
     except Exception:
+        return False
+
+
+def _verify_webhook_timestamp(
+    timestamp_str: str,
+    provider: str = "",
+) -> bool:
+    """Verify webhook timestamp is fresh (within 5 minutes).
+
+    Rejects webhooks whose timestamps are too old or too far in
+    the future, preventing replay attacks.
+
+    Args:
+        timestamp_str: Unix epoch timestamp as a string or float.
+        provider: Provider name for logging purposes.
+
+    Returns:
+        True if timestamp is within the freshness window, False otherwise.
+    """
+    try:
+        ts = float(timestamp_str)
+        age = time.time() - ts
+        if abs(age) > _WEBHOOK_FRESHNESS_SECONDS:
+            logger.warning(
+                "webhook_stale provider=%s age_seconds=%s",
+                provider, round(age),
+            )
+            return False
+        return True
+    except (ValueError, TypeError, OSError):
         return False

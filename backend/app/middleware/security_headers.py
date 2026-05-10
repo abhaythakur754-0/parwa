@@ -6,6 +6,7 @@ Adds security headers to all responses per BC-011/BC-012:
 - X-XSS-Protection: 0 (modern browsers)
 - Referrer-Policy: strict-origin-when-cross-origin
 - Permissions-Policy: camera/mic/geo disabled
+- Content-Security-Policy: restrictive default policy (H-04)
 - Strict-Transport-Security: in production
 - Cache-Control: no-store on auth endpoints (M-11)
 """
@@ -37,6 +38,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
         response.headers["Permissions-Policy"] = (
             "camera=(), microphone=(), geolocation=()"
+        )
+        # H-04: Content-Security-Policy header
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: blob:; "
+            "font-src 'self' data:; connect-src 'self'; "
+            "frame-ancestors 'none'; base-uri 'self'; "
+            "form-action 'self'"
         )
         # HSTS only in production
         env = os.environ.get("ENVIRONMENT", "development")

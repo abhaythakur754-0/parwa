@@ -133,12 +133,20 @@ def _verify_provider_signature(
         * Brevo: IP allowlist verification
     """
     try:
+        from app.config import get_settings
+        settings = get_settings()
+
         if provider == "paddle":
+            # H-07 FIX: Explicitly reject when secret is not configured.
+            # Fail-closed in ALL environments (no env bypass).
+            if not settings.PADDLE_WEBHOOK_SECRET:
+                logger.error(
+                    "webhook_paddle_no_secret_configured_rejected",
+                )
+                return False
             from app.security.hmac_verification import (
                 verify_paddle_signature,
             )
-            from app.config import get_settings
-            settings = get_settings()
             signature = request.headers.get(
                 "paddle-signature", "",
             )
@@ -153,11 +161,15 @@ def _verify_provider_signature(
             return result
 
         if provider == "shopify":
+            # H-07 FIX: Explicitly reject when secret is not configured.
+            if not settings.SHOPIFY_WEBHOOK_SECRET:
+                logger.error(
+                    "webhook_shopify_no_secret_configured_rejected",
+                )
+                return False
             from app.security.hmac_verification import (
                 verify_shopify_hmac,
             )
-            from app.config import get_settings
-            settings = get_settings()
             signature = request.headers.get(
                 "x-shopify-hmac-sha256", "",
             )
@@ -174,11 +186,15 @@ def _verify_provider_signature(
             return result
 
         if provider == "twilio":
+            # H-07 FIX: Explicitly reject when token is not configured.
+            if not settings.TWILIO_AUTH_TOKEN:
+                logger.error(
+                    "webhook_twilio_no_token_configured_rejected",
+                )
+                return False
             from app.security.hmac_verification import (
                 verify_twilio_signature,
             )
-            from app.config import get_settings
-            settings = get_settings()
             signature = request.headers.get(
                 "x-twilio-signature", "",
             )
@@ -198,8 +214,6 @@ def _verify_provider_signature(
             from app.security.hmac_verification import (
                 verify_brevo_ip,
             )
-            from app.config import get_settings
-            settings = get_settings()
             forwarded = request.headers.get(
                 "x-forwarded-for", "",
             )
