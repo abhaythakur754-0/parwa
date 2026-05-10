@@ -276,7 +276,9 @@ class CSRFSecurityMiddleware:
     def _is_cookie_auth_path(path: str) -> bool:
         """Check if path is a cookie-based auth endpoint."""
         for prefix in _COOKIE_AUTH_PREFIXES:
-            if path == prefix or path.startswith(prefix + "/"):
+            # Strip trailing slash before appending to avoid double-slash
+            base = prefix.rstrip("/")
+            if path == prefix or path.startswith(base + "/"):
                 return True
         return False
 
