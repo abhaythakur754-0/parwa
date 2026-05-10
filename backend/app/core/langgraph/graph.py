@@ -450,8 +450,13 @@ async def invoke_parwa_graph(
     }
 
     try:
-        # Invoke the graph
-        result = await graph.ainvoke(initial_state, config)
+        # Day 4: Add global execution timeout (60s) to prevent hanging nodes
+        import asyncio
+
+        result = await asyncio.wait_for(
+            graph.ainvoke(initial_state, config),
+            timeout=60.0,
+        )
 
         logger.info(
             "parwa_graph_invoked",
@@ -466,6 +471,16 @@ async def invoke_parwa_graph(
 
         return result
 
+    except asyncio.TimeoutError:
+        logger.error(
+            "parwa_graph_timeout",
+            tenant_id=tenant_id,
+            timeout="60s",
+        )
+        return _fallback_response(
+            message, variant_tier, tenant_id,
+            "Graph execution timed out after 60s",
+        )
     except Exception as exc:
         logger.error(
             "parwa_graph_invocation_failed",

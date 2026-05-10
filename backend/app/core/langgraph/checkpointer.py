@@ -155,6 +155,7 @@ def get_thread_id(tenant_id: str, session_id: str = "") -> str:
     Generate a thread ID for LangGraph checkpoint scoping.
 
     Thread IDs are tenant-scoped to ensure multi-tenant isolation.
+    Day 4: tenant_id and session_id are sanitized to prevent injection.
     Format: {tenant_id}_{session_id} or {tenant_id}_{uuid} if
     no session_id is provided.
 
@@ -165,8 +166,15 @@ def get_thread_id(tenant_id: str, session_id: str = "") -> str:
     Returns:
         Thread ID string
     """
+    import re
+
+    # Day 4: Sanitize tenant_id to prevent injection in thread IDs
+    # Only allow alphanumeric, underscores, hyphens (max 128 chars)
+    safe_tenant = re.sub(r"[^a-zA-Z0-9_-]", "_", str(tenant_id))[:128]
+
     if session_id:
-        return f"{tenant_id}_{session_id}"
+        safe_session = re.sub(r"[^a-zA-Z0-9_-]", "_", str(session_id))[:128]
+        return f"{safe_tenant}_{safe_session}"
 
     import uuid
-    return f"{tenant_id}_{uuid.uuid4().hex[:8]}"
+    return f"{safe_tenant}_{uuid.uuid4().hex[:8]}"

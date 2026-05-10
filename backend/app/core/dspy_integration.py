@@ -57,8 +57,12 @@ _SAFETY_BLOCKLIST: List[str] = [
     "driver license", "medical record", "health insurance",
 ]
 
-# Cache directory for compiled modules
-_DSPY_CACHE_DIR = Path("/tmp/dspy_cache")
+# Cache directory for compiled modules (Day 4: moved from /tmp for security)
+_DSPY_CACHE_BASE = Path(os.environ.get("DSPY_CACHE_DIR", "."))
+_DSPY_CACHE_DIR = _DSPY_CACHE_BASE / "dspy_cache"
+
+# Allowed characters for company_id and task_type in cache paths
+_SAFE_PATH_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1001,6 +1005,23 @@ class DSPyIntegration:
 
     # ── Compiled Module Persistence ────────────────────────────
 
+    def _sanitize_path_component(self, value: str, name: str = "value") -> str:
+        """Sanitize a path component to prevent path traversal (Day 4).
+
+        Only allows alphanumeric characters, underscores, and hyphens.
+        Returns the sanitized string or raises ValueError.
+        """
+        if not value or not _SAFE_PATH_PATTERN.match(value):
+            logger.warning(
+                "dspy_invalid_path_component",
+                name=name,
+                value=str(value)[:100],
+            )
+            raise ValueError(
+                f"Invalid {name}: must be alphanumeric (1-64 chars)"
+            )
+        return value
+
     def save_compiled_module(
         self,
         company_id: str,
@@ -1009,7 +1030,8 @@ class DSPyIntegration:
     ) -> bool:
         """Persist a compiled DSPy module to disk.
 
-        Saves to ``/tmp/dspy_cache/{company_id}/{task_type}.pkl``.
+        Day 4: Path components are validated against traversal.
+        Cache directory uses secure app-relative path.
         Gracefully degrades on failure (BC-008).
 
         Args:
@@ -1021,9 +1043,22 @@ class DSPyIntegration:
             ``True`` on success, ``False`` on failure.
         """
         try:
+            company_id = self._sanitize_path_component(company_id, "company_id")
+            task_type = self._sanitize_path_component(task_type, "task_type")
+
             cache_dir = _DSPY_CACHE_DIR / company_id
             cache_dir.mkdir(parents=True, exist_ok=True)
             cache_path = cache_dir / f"{task_type}.pkl"
+
+            # Verify resolved path is within cache directory
+            cache_path = cache_path.resolve()
+            if not str(cache_path).startswith(str(_DSPY_CACHE_DIR.resolve())):
+                logger.warning(
+                    "dspy_path_traversal_blocked",
+                    company_id=company_id,
+                    task_type=task_type,
+                )
+                return False
 
             with open(cache_path, "wb") as f:
                 pickle.dump(module, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -1051,7 +1086,8 @@ class DSPyIntegration:
     ) -> Optional[Any]:
         """Load a previously compiled DSPy module from disk.
 
-        Reads from ``/tmp/dspy_cache/{company_id}/{task_type}.pkl``.
+        Day 4: Path components validated, resolved path verified
+        against cache directory to prevent traversal attacks.
         Gracefully degrades on failure (BC-008).
 
         Args:
@@ -1062,9 +1098,22 @@ class DSPyIntegration:
             The compiled module, or ``None`` if unavailable / error.
         """
         try:
+            company_id = self._sanitize_path_component(company_id, "company_id")
+            task_type = self._sanitize_path_component(task_type, "task_type")
+
             cache_path = (
                 _DSPY_CACHE_DIR / company_id / f"{task_type}.pkl"
-            )
+            ).resolve()
+
+            # Verify resolved path is within cache directory
+            if not str(cache_path).startswith(str(_DSPY_CACHE_DIR.resolve())):
+                logger.warning(
+                    "dspy_path_traversal_blocked",
+                    company_id=company_id,
+                    task_type=task_type,
+                )
+                return None
+
             if not cache_path.exists():
                 logger.debug(
                     "dspy_no_cached_module",
