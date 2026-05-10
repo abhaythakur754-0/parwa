@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
 
+from app.core.llm_gateway import llm_gateway
 from app.core.technique_router import TechniqueID
 from app.core.techniques.base import (
     BaseTechniqueNode,
@@ -909,6 +910,34 @@ class SelfConsistencyProcessor:
             )
 
         try:
+            # --- LLM-enhanced answer generation (Day 3 AI Core) ---
+            try:
+                llm_response = await llm_gateway.generate(
+                    system_prompt=(
+                        "You are a customer support agent. Generate a clear, accurate response "
+                        "to the customer query. Be specific and helpful."
+                    ),
+                    user_message=f"Customer query: {query}",
+                    technique_id="self_consistency",
+                    max_tokens=300,
+                    temperature=0.6,
+                    company_id=self.config.company_id,
+                )
+                if llm_response.text:
+                    return SelfConsistencyResult(
+                        final_answer=llm_response.text.strip(),
+                        final_confidence=0.85,
+                        steps_applied=["llm_answer_generation"],
+                        confidence_boost=0.05,
+                    )
+            except Exception as llm_err:
+                logger.debug(
+                    "self_consistency_llm_fallback",
+                    error=str(llm_err),
+                    company_id=self.config.company_id,
+                )
+            # --- Fallback: deterministic pipeline ---
+
             # Step 1: Multi-Answer Generation
             answers = await self.generate_independent_answers(query)
             if answers:

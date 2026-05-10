@@ -1,6 +1,9 @@
 """
 F-149: Thread of Thought (ThoT) — Tier 2 Conditional AI Reasoning Technique
 
+Day 3: LLM integration — LLM-powered context enhancement
+with deterministic fallback for graceful degradation.
+
 Maintains reasoning coherence across multi-turn conversations by extracting
 the reasoning thread, checking continuity, and enhancing context when the
 conversation drifts or loops.
@@ -27,6 +30,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
 
+from app.core.llm_gateway import llm_gateway
 from app.core.technique_router import (
     TechniqueID,
     TECHNIQUE_REGISTRY,
@@ -574,6 +578,35 @@ class ThoTProcessor:
         """
         if analysis.topic_continuity >= self.config.continuity_threshold:
             return "", current_query
+
+        # --- Day 3: Try LLM-powered context enhancement ---
+        thread_text = "\n".join(f"- {entry}" for entry in thread[-5:]) if thread else ""
+        analysis_info = (
+            f"Topic continuity: {analysis.topic_continuity:.2f}\n"
+            f"Contradictions: {len(analysis.contradictions)}\n"
+            f"Loop detected: {analysis.loop_detected}\n"
+            f"Topic shift: {topic_shift.value}"
+        )
+        llm_response = await llm_gateway.generate(
+            system_prompt=(
+                "You are a customer support reasoning engine. Given the conversation "
+                "thread history, topic continuity analysis, and current query, produce "
+                "a context-aware enhanced response that maintains coherence."
+            ),
+            user_message=(
+                f"Thread history (recent):\n{thread_text}\n\n"
+                f"Analysis:\n{analysis_info}\n\n"
+                f"Current query: {current_query}"
+            ),
+            technique_id="thread_of_thought_enhance",
+            max_tokens=300,
+            temperature=0.4,
+            company_id=self.config.company_id,
+        )
+        if llm_response.text:
+            enhanced = llm_response.text.strip()
+            return enhanced, enhanced
+        # --- Fallback: Deterministic context enhancement ---
 
         prefix_parts: List[str] = []
 

@@ -14,7 +14,7 @@ Pipeline (6 steps):
 
 Trigger: state.signals.external_data_required == True
 
-Performance: deterministic/heuristic-based (NO LLM calls).
+Uses external LLM calls when available, with deterministic fallback (Day 3).
 Building Codes: BC-001 (company isolation), BC-008 (never crash),
                BC-012 (graceful degradation)
 """
@@ -38,6 +38,7 @@ from app.core.techniques.react_tools import (
     ToolRegistry,
     default_tool_registry,
 )
+from app.core.llm_gateway import LLMResponse, llm_gateway
 from app.logger import get_logger
 
 logger = get_logger("react")
@@ -303,9 +304,20 @@ class ReActProcessor:
         """
         Generate a thought analyzing what information is needed.
 
-        Uses pattern detection to produce a deterministic thought
-        string describing the information needs.
+        Uses LLM when available, with pattern-based fallback.
         """
+        # --- Day 3: Try LLM-powered thought generation ---
+        llm_response = await llm_gateway.generate(
+            system_prompt="You are a customer support reasoning engine. Analyze the customer query and determine what information is needed and which tools should be consulted. Be specific about the customer's intent.",
+            user_message=f"Analyze this customer query and determine what information is needed:\n\n{query}",
+            technique_id="react_thought",
+            max_tokens=200,
+            temperature=0.3,
+            company_id=self.config.company_id,
+        )
+        if llm_response.text:
+            return llm_response.text.strip()
+        # --- Fallback: Pattern-based thought ---
         categories = self._detect_query_categories(query)
 
         if not categories:
@@ -648,8 +660,21 @@ class ReActProcessor:
         """
         Synthesize all observations into a coherent final answer.
 
-        Template-based deterministic synthesis.
+        Uses LLM when available, with template-based fallback.
         """
+        # --- Day 3: Try LLM-powered final answer synthesis ---
+        reasoning_text = "\n".join(f"- {obs}" for obs in observations)
+        llm_response = await llm_gateway.generate(
+            system_prompt="You are a customer support agent. Based on the gathered information, provide a clear, helpful response to the customer's query.",
+            user_message=f"Customer query: {query}\n\nGathered information:\n{reasoning_text}",
+            technique_id="react_synthesis",
+            max_tokens=400,
+            temperature=0.6,
+            company_id=self.config.company_id,
+        )
+        if llm_response.text:
+            return llm_response.text.strip()
+        # --- Fallback: Template-based synthesis ---
         if not observations:
             return (
                 f"I'd be happy to help with your query about "

@@ -1,8 +1,10 @@
 """
 F-143: GST (Guided Sequential Thinking) — Tier 3 Premium AI Reasoning Technique
 
+Day 3: LLM integration — LLM-powered recommendation with deterministic fallback.
+
 Activates when state.signals.is_strategic_decision == True. Uses deterministic
-heuristic-based sequential analysis (no LLM calls) to guide strategic decisions:
+heuristic-based sequential analysis to guide strategic decisions:
 
   1. Problem Definition — Define the strategic decision clearly
   2. Option Generation — Generate possible approaches
@@ -18,10 +20,13 @@ Building Codes: BC-001 (company isolation), BC-008 (never crash),
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
+
+from app.core.llm_gateway import llm_gateway
 
 from app.core.technique_router import TechniqueID
 from app.core.techniques.base import (
@@ -737,6 +742,37 @@ class GSTProcessor:
                 "selected_option": None,
                 "rationale": "No options available for recommendation.",
             }
+
+        # --- Day 3: Try LLM-powered recommendation ---
+        try:
+            options_text = "\n".join(
+                f"Option {o.option_id}: {o.description} (score: {o.total_score:.2f})"
+                for o in options
+            )
+            risk_text = f"Risk: {risk_summary.get('overall_risk_score', 0):.2f}"
+            llm_response = await llm_gateway.generate(
+                system_prompt=(
+                    "You are a strategic decision assistant. Given options with scores and "
+                    "risk data, recommend the best option with clear justification. "
+                    "Consider customer satisfaction, cost, policy compliance, and feasibility."
+                ),
+                user_message=(
+                    f"Options:\n{options_text}\n\n{risk_text}"
+                ),
+                technique_id="gst_recommendation",
+                max_tokens=400,
+                temperature=0.3,
+                company_id=self.config.company_id,
+            )
+            if llm_response.text and '{"selected_option"' in llm_response.text:
+                return json.loads(llm_response.text)
+        except Exception as llm_err:
+            logger.warning(
+                "gst_llm_recommendation_fallback",
+                error=str(llm_err),
+                company_id=self.config.company_id,
+            )
+        # --- Fallback ---
 
         # Build risk score lookup
         risk_lookup: Dict[str, float] = {}

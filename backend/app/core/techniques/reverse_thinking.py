@@ -1,6 +1,9 @@
 """
 F-141: Reverse Thinking — Tier 2 Conditional AI Reasoning Technique
 
+Day 3: LLM integration — LLM-powered inversion and error analysis
+with deterministic fallback for graceful degradation.
+
 Activates when confidence < 0.7 OR previous_response_status is
 "rejected" or "corrected". Uses deterministic heuristic-based
 inversion reasoning (no LLM calls) to derive correct answers by:
@@ -24,6 +27,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
 
+from app.core.llm_gateway import llm_gateway
 from app.core.technique_router import TechniqueID
 from app.core.techniques.base import (
     BaseTechniqueNode,
@@ -431,6 +435,25 @@ class ReverseThinkingProcessor:
         if not hypotheses:
             return "No hypotheses to analyze."
 
+        # --- Day 3: Try LLM-powered error analysis ---
+        errors_text = "\n".join(
+            f"{h.error_type}: {h.hypothesis_text}" for h in hypotheses
+        )
+        llm_response = await llm_gateway.generate(
+            system_prompt=(
+                "Analyze these wrong hypotheses and consolidate "
+                "the error patterns."
+            ),
+            user_message=f"Analyze errors:\n{errors_text}",
+            technique_id="reverse_thinking_errors",
+            max_tokens=200,
+            temperature=0.3,
+            company_id=self.config.company_id,
+        )
+        if llm_response.text:
+            return llm_response.text.strip()
+        # --- Fallback: Template-based error analysis ---
+
         error_types: Dict[str, int] = {}
         reasons: List[str] = []
 
@@ -480,6 +503,32 @@ class ReverseThinkingProcessor:
         """
         if not hypotheses:
             return ""
+
+        # --- Day 3: Try LLM-powered inversion ---
+        analysis_parts = []
+        for h in hypotheses:
+            analysis_parts.append(f"Wrong: {h.hypothesis_text}")
+            analysis_parts.append(f"Error: {h.error_type}")
+        hypotheses_text = "\n".join(analysis_parts)
+
+        llm_response = await llm_gateway.generate(
+            system_prompt=(
+                "You are a customer support reasoning engine. Given WRONG answer "
+                "hypotheses and their error types, derive the CORRECT answer by "
+                "inverting the logic. Be specific and policy-compliant."
+            ),
+            user_message=(
+                f"Derive the correct answer by inverting these wrong hypotheses:\n\n"
+                f"{hypotheses_text}"
+            ),
+            technique_id="reverse_thinking_inversion",
+            max_tokens=300,
+            temperature=0.5,
+            company_id=self.config.company_id,
+        )
+        if llm_response.text:
+            return llm_response.text.strip()
+        # --- Fallback: Template-based inversion ---
 
         # Score each inversion result
         best_score = -1

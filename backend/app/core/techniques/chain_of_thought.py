@@ -1,16 +1,16 @@
 """
 Chain of Thought (CoT) — Tier 2 Conditional AI Reasoning Technique
 
-Activates when query_complexity > 0.4. Uses deterministic/heuristic-based
-reasoning (no LLM calls) to break complex queries into sequential logical
-steps, reason through each step, validate intermediate results, and
-synthesize a coherent final response.
+Activates when query_complexity > 0.4. Uses external LLM calls for
+reasoning when available, with deterministic/heuristic-based fallback.
 
 Pipeline:
   1. Decomposition — Break query into sequential logical steps
-  2. Step-by-Step Reasoning — Generate reasoning for each decomposed step
+  2. Step-by-Step Reasoning — LLM-powered or template-based reasoning
   3. Intermediate Validation — Check each step's output quality
-  4. Synthesis — Combine step outputs into coherent final response
+  4. Synthesis — LLM-powered or template-based coherent final response
+
+Day 3: LLM integration via llm_gateway (BC-007).
 
 Building Codes: BC-001 (company isolation), BC-008 (never crash),
                BC-012 (graceful degradation)
@@ -29,6 +29,7 @@ from app.core.techniques.base import (
     ConversationState,
 )
 from app.logger import get_logger
+from app.core.llm_gateway import LLMResponse, llm_gateway
 
 logger = get_logger("chain_of_thought")
 
@@ -612,7 +613,10 @@ class ChainOfThoughtProcessor:
         self, steps: List[CoTStep],
     ) -> List[CoTStep]:
         """
-        Generate reasoning for each decomposed step using templates.
+        Generate reasoning for each decomposed step.
+
+        Attempts LLM call first (Day 3). Falls back to template-based
+        reasoning if LLM is unavailable (BC-008).
 
         Args:
             steps: List of CoTStep objects from decomposition.
@@ -623,6 +627,32 @@ class ChainOfThoughtProcessor:
         if not steps:
             return steps
 
+        # --- Day 3: Try LLM-powered reasoning first ---
+        steps_text = "\n".join(
+            f"Step {s.step_number}: {s.description}"
+            for s in steps
+        )
+        llm_response = await llm_gateway.generate(
+            system_prompt=(
+                "You are a step-by-step reasoning assistant for customer support. "
+                "Given a complex query broken into steps, provide concise "
+                "reasoning for EACH step. Be specific and actionable. "
+                "Format: 'Step N: [your reasoning here]' for each step."
+            ),
+            user_message=(
+                f"Customer query analysis. Break down and reason through each step:\n\n"
+                f"{steps_text}"
+            ),
+            technique_id="chain_of_thought",
+            max_tokens=min(len(steps) * 80, 600),
+            temperature=0.4,
+            company_id=self.config.company_id,
+        )
+
+        if llm_response.text:
+            return self._parse_llm_reasoning(steps, llm_response.text)
+
+        # --- Fallback: Template-based reasoning ---
         updated: List[CoTStep] = []
         for step in steps:
             query_type = QueryType(step.step_type) if step.step_type else QueryType.SINGLE
@@ -640,12 +670,50 @@ class ChainOfThoughtProcessor:
 
             updated.append(CoTStep(
                 step_number=step.step_number,
-                step_type=step.step_type,
+                step_type=step.type,
                 description=step.description,
                 reasoning=reasoning,
                 validation_status="",
                 key_terms=list(step.key_terms),
             ))
+
+        return updated
+
+    @staticmethod
+    def _parse_llm_reasoning(
+        steps: List[CoTStep], llm_text: str,
+    ) -> List[CoTStep]:
+        """Parse LLM response back into CoTStep objects."""
+        updated = []
+        lines = llm_text.strip().split("\n")
+
+        for step in steps:
+            # Try to find matching line in LLM response
+            reasoning = ""
+            for line in lines:
+                if f"Step {step.step_number}" in line or step.description[:30] in line:
+                    reasoning = line
+                    break
+
+            # If no match found, distribute LLM text across steps
+            if not reasoning and lines:
+                # Distribute response lines across steps
+                lines_per_step = max(1, len(lines) // len(steps))
+                step_idx = (step.step_number - 1) * lines_per_step
+                reasoning_lines = lines[step_idx:step_idx + lines_per_step]
+                reasoning = " ".join(reasoning_lines)
+
+            if reasoning:
+                updated.append(CoTStep(
+                step_number=step.step_number,
+                step_type=step.step_type,
+                description=step.description,
+                reasoning=reasoning.strip(),
+                validation_status="",
+                key_terms=list(step.key_terms),
+            ))
+            else:
+                updated.append(step)
 
         return updated
 
@@ -733,8 +801,8 @@ class ChainOfThoughtProcessor:
         """
         Combine step outputs into a coherent final response.
 
-        Uses the query type to select the appropriate synthesis template
-        and combines reasoning from all validated steps.
+        Attempts LLM synthesis first (Day 3). Falls back to template
+        synthesis if LLM is unavailable (BC-008).
 
         Args:
             steps: List of CoTStep objects with reasoning and validation.
@@ -758,6 +826,32 @@ class ChainOfThoughtProcessor:
         if not step_summaries:
             return "Analysis complete but no specific findings to synthesize."
 
+        # --- Day 3: Try LLM-powered synthesis ---
+        reasoning_text = "\n".join(
+            f"Step {s.step_number}: {s.reasoning}"
+            for s in steps if s.reasoning
+        )
+        llm_response = await llm_gateway.generate(
+            system_prompt=(
+                "You are a customer support analysis assistant. "
+                "Synthesize the step-by-step reasoning below into a "
+                "clear, concise final response that directly addresses "
+                "the customer's needs. Be specific and actionable."
+            ),
+            user_message=(
+                f"Synthesize this reasoning chain into a final response:\n\n"
+                f"{reasoning_text}"
+            ),
+            technique_id="chain_of_thought_synthesis",
+            max_tokens=300,
+            temperature=0.5,
+            company_id=self.config.company_id,
+        )
+
+        if llm_response.text:
+            return llm_response.text.strip()
+
+        # --- Fallback: Template-based synthesis ---
         step_count = len(steps)
         summaries_text = " ".join(
             f"[{i+1}] {s}." for i, s in enumerate(step_summaries)

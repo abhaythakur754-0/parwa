@@ -1,6 +1,9 @@
 """
 F-142: Step-Back Prompting — Tier 2 Conditional
 
+Day 3: LLM integration — LLM-powered context enrichment
+with deterministic fallback for graceful degradation.
+
 Broadens narrow or stuck reasoning by stepping back to generate broader
 contextual questions, analyzing them first, then narrowing back to answer
 the original query with enriched context.
@@ -25,6 +28,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+from app.core.llm_gateway import llm_gateway
 from app.core.technique_router import (
     TechniqueID,
     TECHNIQUE_REGISTRY,
@@ -527,6 +531,26 @@ class StepBackProcessor:
 
         if not self.config.enable_context_injection:
             return original_query
+
+        # --- Day 3: Try LLM-powered context enrichment ---
+        context_text = "\n".join(f"- {bq}" for bq in broadened_queries) if broadened_queries else ""
+        llm_response = await llm_gateway.generate(
+            system_prompt=(
+                "You are a customer support assistant. Enrich the original query with "
+                "broader contextual information to produce a more comprehensive response."
+            ),
+            user_message=(
+                f"Original query: {original_query}\n\n"
+                f"Broader context:\n{context_text}"
+            ),
+            technique_id="step_back_refine",
+            max_tokens=300,
+            temperature=0.4,
+            company_id=self.config.company_id,
+        )
+        if llm_response.text:
+            return llm_response.text.strip()
+        # --- Fallback: Template-based contextual framing ---
 
         # Build contextual framing from the best broadened query
         best_query = broadened_queries[0]  # first is most relevant

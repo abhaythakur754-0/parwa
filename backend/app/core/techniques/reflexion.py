@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.core.llm_gateway import llm_gateway
 from app.core.technique_router import TechniqueID
 from app.core.techniques.base import (
     BaseTechniqueNode,
@@ -1207,6 +1208,40 @@ class ReflexionProcessor:
             )
 
         try:
+            # --- LLM-enhanced reflection (Day 3 AI Core) ---
+            try:
+                llm_response = await llm_gateway.generate(
+                    system_prompt=(
+                        "You are a customer support self-correction engine. Review the previous "
+                        "response and identify improvements. Generate a corrected version."
+                    ),
+                    user_message=f"Query: {query}\nPrevious response: {previous_response}\nFeedback: {query}",
+                    technique_id="reflexion",
+                    max_tokens=400,
+                    temperature=0.5,
+                    company_id=self.config.company_id,
+                )
+                if llm_response.text:
+                    return ReflexionResult(
+                        improved_response=llm_response.text.strip(),
+                        reflection=ReflectionAnalysis(
+                            failure_mode="llm_corrected",
+                            what_went_wrong="LLM-based self-correction applied",
+                            strategy_changes=["llm_regeneration"],
+                            context_update="Response regenerated via LLM reflection",
+                            confidence_impact=0.05,
+                        ),
+                        steps_applied=["llm_reflection"],
+                        confidence_boost=0.05,
+                    )
+            except Exception as llm_err:
+                logger.debug(
+                    "reflexion_llm_fallback",
+                    error=str(llm_err),
+                    company_id=self.config.company_id,
+                )
+            # --- Fallback: deterministic pipeline ---
+
             # Step 1: Failure Detection
             failure_mode = await self.detect_failure_mode(
                 query, previous_response,

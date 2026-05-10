@@ -1,10 +1,12 @@
 """
 F-145: Tree of Thoughts (ToT) — Tier 3 Premium AI Reasoning Technique
 
+Day 3: LLM integration — LLM-powered branch evaluation with deterministic fallback.
+
 Branching decision tree with systematic pruning and multi-path
 exploration. Activates when a query has 3+ possible resolution paths
-or requires branching decision analysis. Uses deterministic heuristic-based
-tree search (no LLM calls) to:
+or requires branching decision analysis. Uses heuristic-based
+tree search to:
 
   1. Tree Generation    — build reasoning tree from query signals
   2. Branch Evaluation  — score each branch for viability
@@ -21,12 +23,15 @@ Building Codes: BC-001 (company isolation), BC-008 (never crash),
 
 from __future__ import annotations
 
+import json
 import re
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Deque, Dict, List, Optional, Set, Tuple
+
+from app.core.llm_gateway import llm_gateway
 
 from app.core.technique_router import TechniqueID
 from app.core.techniques.base import (
@@ -1978,10 +1983,57 @@ class ToTProcessor:
         scores reflect the best child score. This ensures that
         branches with promising children are not pruned.
 
+        Includes Day 3 LLM integration for enhanced branch scoring.
+
         Returns:
             The number of branches evaluated.
         """
         evaluated = 0
+
+        # --- Day 3: Try LLM-powered branch evaluation ---
+        try:
+            branch_summaries = []
+            for nid, node in self._nodes.items():
+                if node.depth == 0:
+                    continue
+                branch_summaries.append(
+                    f"Branch '{node.label}' (id: {node.id}, depth: {node.depth}, "
+                    f"current score: {node.score:.2f}, children: {len(node.children)}): {node.content}"
+                )
+            branches_text = "\n".join(branch_summaries)
+            llm_response = await llm_gateway.generate(
+                system_prompt=(
+                    "You are a decision tree analyst. Given branches in a reasoning tree with "
+                    "labels, scores, and descriptions, evaluate which branches are most promising. "
+                    "Respond with JSON containing a dict mapping branch IDs to updated scores (0.0-1.0)."
+                ),
+                user_message=(
+                    f"Branches to evaluate:\n{branches_text}"
+                ),
+                technique_id="tree_of_thoughts",
+                max_tokens=500,
+                temperature=0.5,
+                company_id=self.config.company_id,
+            )
+            if llm_response.text:
+                llm_scores = json.loads(llm_response.text)
+                if isinstance(llm_scores, dict):
+                    for nid, new_score in llm_scores.items():
+                        if nid in self._nodes and isinstance(new_score, (int, float)):
+                            clamped = max(0.0, min(1.0, float(new_score)))
+                            self._nodes[nid].score = round(clamped, 4)
+                    logger.info(
+                        "tot_llm_branch_scores_applied",
+                        company_id=self.config.company_id,
+                        branches_updated=len(llm_scores),
+                    )
+        except Exception as llm_err:
+            logger.warning(
+                "tot_llm_branch_evaluation_fallback",
+                error=str(llm_err),
+                company_id=self.config.company_id,
+            )
+        # --- Fallback: use deterministic scores ---
 
         # Iterate in reverse depth order (leaves first)
         sorted_nodes = sorted(

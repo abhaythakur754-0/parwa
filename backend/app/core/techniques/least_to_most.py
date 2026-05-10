@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+from app.core.llm_gateway import llm_gateway
 from app.core.technique_router import TechniqueID
 from app.core.techniques.base import (
     BaseTechniqueNode,
@@ -2080,6 +2081,55 @@ class LeastToMostProcessor:
         """
         if not query or not query.strip():
             return []
+
+        # --- LLM-enhanced decomposition (Day 3 AI Core) ---
+        try:
+            llm_response = await llm_gateway.generate(
+                system_prompt=(
+                    "You are a query decomposition engine. Break down a complex customer "
+                    "query into simpler sub-queries that can be answered individually."
+                ),
+                user_message=f"Decompose this query into sub-queries:\n\n{query}",
+                technique_id="least_to_most",
+                max_tokens=300,
+                temperature=0.3,
+                company_id=self.config.company_id,
+            )
+            if llm_response.text:
+                # Parse sub-queries from LLM response
+                lines = [
+                    line.strip()
+                    for line in llm_response.text.strip().split("\n")
+                    if line.strip()
+                    and not line.strip().startswith(("#", "-", "*", "1.", "2.", "3.", "4.", "5."))
+                ]
+                if lines:
+                    sub_queries: List[SubQuery] = []
+                    for idx, sq_text in enumerate(lines[: self.config.max_sub_queries]):
+                        sq = SubQuery(
+                            id=f"llm_sq{idx + 1}",
+                            text=sq_text,
+                            status=SubQueryStatus.PENDING,
+                            dependencies=[],
+                            result="",
+                            order=idx + 1,
+                            is_parallel=(idx > 0),
+                        )
+                        sub_queries.append(sq)
+                    if sub_queries:
+                        logger.debug(
+                            "least_to_most_llm_decomposition",
+                            num_sub_queries=len(sub_queries),
+                            company_id=self.config.company_id,
+                        )
+                        return sub_queries
+        except Exception as llm_err:
+            logger.debug(
+                "least_to_most_llm_fallback",
+                error=str(llm_err),
+                company_id=self.config.company_id,
+            )
+        # --- Fallback: deterministic decomposition ---
 
         domain = self._detect_domain(query)
         template = self._select_template(domain, query)

@@ -1,6 +1,8 @@
 """
 F-144: Universe of Thoughts (UoT) — Tier 3 Premium AI Reasoning Technique
 
+Day 3: LLM integration — LLM-powered solution evaluation with deterministic fallback.
+
 Activates when:
   - Customer is VIP tier, OR
   - Sentiment score < 0.3 (angry/frustrated), OR
@@ -8,7 +10,7 @@ Activates when:
   - Query flagged by Urgent Attention Panel (F-080)
 
 Uses deterministic heuristic-based multi-solution generation and
-evaluation (no LLM calls) to derive optimal resolution:
+evaluation to derive optimal resolution:
 
   1. Solution Space Generation — AI generates 3-5 diverse solution approaches
   2. Evaluation Matrix        — Each solution scored on CSAT, cost, policy,
@@ -25,10 +27,13 @@ Building Codes: BC-001 (company isolation), BC-008 (never crash),
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
+
+from app.core.llm_gateway import llm_gateway
 
 from app.core.technique_router import TechniqueID
 from app.core.techniques.base import (
@@ -999,6 +1004,51 @@ class UoTProcessor:
                 "weights_used": dict(weights),
             }
             matrix_rows.append(matrix_row)
+
+        # --- Day 3: Try LLM-powered solution evaluation ---
+        try:
+            solutions_text = "\n".join(
+                f"- {s.name} (category: {s.category}): CSAT {s.scores.get('customer_satisfaction', 'N/A')}, "
+                f"Cost {s.scores.get('financial_cost', 'N/A')}, Policy {s.scores.get('policy_compliance', 'N/A')}, "
+                f"Speed {s.scores.get('resolution_speed', 'N/A')}, Long-Term {s.scores.get('long_term_impact', 'N/A')}"
+                for s in solutions
+            )
+            llm_response = await llm_gateway.generate(
+                system_prompt=(
+                    "You are a customer resolution analyst. Given multiple solution candidates "
+                    "with scores across dimensions (CSAT, cost, policy, speed, long-term impact), "
+                    "evaluate and recommend the best solution. Respond with JSON containing "
+                    '"selected_solution" (name string) and "justification" (string).'  
+                ),
+                user_message=(
+                    f"Solutions to evaluate:\n{solutions_text}"
+                ),
+                technique_id="universe_of_thoughts",
+                max_tokens=500,
+                temperature=0.5,
+                company_id=self.config.company_id,
+            )
+            if llm_response.text:
+                llm_result = json.loads(llm_response.text)
+                selected_name = llm_result.get("selected_solution", "")
+                justification = llm_result.get("justification", "")
+                for solution in solutions:
+                    if solution.name == selected_name:
+                        solution.total_score = max(solution.total_score, 10.0)
+                        solution.rationale = justification
+                        break
+                logger.info(
+                    "uot_llm_evaluation_applied",
+                    company_id=self.config.company_id,
+                    llm_selected=selected_name,
+                )
+        except Exception as llm_err:
+            logger.warning(
+                "uot_llm_evaluation_fallback",
+                error=str(llm_err),
+                company_id=self.config.company_id,
+            )
+        # --- Fallback: use deterministic scores ---
 
         # Sort solutions by total_score descending
         solutions.sort(key=lambda s: s.total_score, reverse=True)
