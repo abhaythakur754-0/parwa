@@ -5,16 +5,28 @@
  * Renders ChatMessage for each message in the history.
  * Shows TypingIndicator when Jarvis is generating a response.
  * Displays an empty state when there are no messages yet.
+ * Welcome messages are context-aware:
+ *   - Reads parwa_jarvis_context from localStorage for ROI data (roi_result, industry, variant)
+ *   - Uses sessionContext entry_source and pages_visited for page-aware greetings
  */
 
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MessageSquare } from 'lucide-react';
 import type { JarvisMessage, JarvisContext } from '@/types/jarvis';
 import { ChatMessage } from './ChatMessage';
 import { TypingIndicator } from './TypingIndicator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+
+// ── ROI context shape (stored in localStorage as parwa_jarvis_context) ──
+
+interface RoiContext {
+  roi_result?: number | string | null;
+  industry?: string | null;
+  variant?: string | null;
+  [key: string]: unknown;
+}
 
 interface ChatWindowProps {
   /** Ordered list of chat messages */
@@ -48,12 +60,74 @@ interface ChatWindowProps {
   sessionContext?: JarvisContext | null;
 }
 
-/** Build a context-aware welcome message based on session context. */
-function getWelcomeMessage(ctx?: JarvisContext | null): { heading: string; body: string } {
+/** Safe localStorage getter — returns null if unavailable (SSR). */
+function getLocalStorageJson<T>(key: string): T | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Industry display names for welcome messages. */
+const INDUSTRY_LABELS: Record<string, string> = {
+  ecommerce: 'e-commerce',
+  realestate: 'real estate',
+  healthcare: 'healthcare',
+  education: 'education',
+  finance: 'finance',
+  travel: 'travel',
+  restaurant: 'restaurant',
+  salon: 'salon & beauty',
+  fitness: 'fitness',
+  legal: 'legal',
+};
+
+/** Build a context-aware welcome message combining ROI data and page-visit context. */
+function getWelcomeMessage(
+  ctx?: JarvisContext | null,
+  roiCtx?: RoiContext | null,
+): { heading: string; body: string } {
   const entrySource = ctx?.entry_source;
   const pagesVisited = ctx?.pages_visited || [];
 
-  // Match entry_source to specific messages
+  // ── Priority 1: ROI-aware messages (from localStorage parwa_jarvis_context) ──
+  if (roiCtx) {
+    const hasRoi = roiCtx.roi_result != null;
+    const industry = roiCtx.industry
+      ? INDUSTRY_LABELS[roiCtx.industry] || roiCtx.industry
+      : null;
+    const variant = roiCtx.variant || null;
+
+    if (hasRoi && industry) {
+      return {
+        heading: `Great news for your ${industry} business! 📊`,
+        body: `Based on your ROI calculation, you could save significantly. Your selected ${variant ? `"${variant}" ` : ''}plan looks like a great fit. Want me to walk you through the details?`,
+      };
+    }
+    if (hasRoi && !industry) {
+      return {
+        heading: 'Your ROI results are in! 📊',
+        body: `I see you ran the ROI calculator — looks promising! Want to explore the right plan to make those savings a reality?`,
+      };
+    }
+    if (!hasRoi && industry) {
+      return {
+        heading: `${industry.charAt(0).toUpperCase() + industry.slice(1)} solutions 🏢`,
+        body: `I see you're exploring PARWA for ${industry}. Want to see how our AI agents can help your business grow?`,
+      };
+    }
+    if (variant) {
+      return {
+        heading: `${variant} — great choice! ✨`,
+        body: `I see you were checking out the "${variant}" plan. Want me to break down what's included and get you started?`,
+      };
+    }
+  }
+
+  // ── Priority 2: entry_source specific messages ──
   if (entrySource === 'pricing') {
     return {
       heading: 'Pricing questions? I can help! 💰',
@@ -73,7 +147,7 @@ function getWelcomeMessage(ctx?: JarvisContext | null): { heading: string; body:
     };
   }
 
-  // Check pages_visited for context hints
+  // ── Priority 3: pages_visited awareness ──
   if (pagesVisited.includes('pricing_page')) {
     return {
       heading: 'Hey there! 👋',
@@ -93,7 +167,7 @@ function getWelcomeMessage(ctx?: JarvisContext | null): { heading: string; body:
     };
   }
 
-  // Default / direct / onboarding
+  // ── Default / direct / onboarding ──
   return {
     heading: "Hey there! 👋",
     body: "I'm Jarvis, your AI assistant from PARWA. I'll help you find the perfect AI agents for your business. What brings you here today?",
@@ -104,6 +178,14 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
+
+  // ROI context from localStorage (client-only)
+  const [roiContext, setRoiContext] = useState<RoiContext | null>(null);
+
+  useEffect(() => {
+    const ctx = getLocalStorageJson<RoiContext>('parwa_jarvis_context');
+    setRoiContext(ctx);
+  }, []);
 
   // Track scroll position — user is near bottom if within 80px
   useEffect(() => {
@@ -127,7 +209,7 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
   }, [messages.length, isTyping]);
 
   const isEmpty = messages.length === 0 && !isTyping;
-  const welcome = getWelcomeMessage(sessionContext);
+  const welcome = getWelcomeMessage(sessionContext, roiContext);
 
   return (
     <div className="flex-1 overflow-hidden relative" ref={containerRef} role="log" aria-label="Chat messages">

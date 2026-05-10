@@ -1,15 +1,16 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAppStore, type Page } from '@/lib/store';
 
 // ── Navigation Items ──────────────────────────────────────────────────
 
 interface NavItem {
   label: string;
-  page: Page;
+  href: string;
   icon: React.ReactNode;
   badge?: string;
 }
@@ -95,29 +96,29 @@ const Icons = {
 // ── DashboardSidebar Component ───────────────────────────────────────
 
 export default function DashboardSidebar({ collapsed, onToggle }: DashboardSidebarProps) {
-  const currentPage = useAppStore((s) => s.currentPage);
-  const navigate = useAppStore((s) => s.navigate);
+  const pathname = usePathname();
+  const router = useRouter();
   const { user, logout } = useAuth();
 
   const navItems: NavItem[] = [
-    { label: 'Dashboard', page: 'dashboard', icon: Icons.dashboard },
-    { label: 'Tickets', page: 'dashboard-tickets', icon: Icons.tickets },
-    { label: 'Variants', page: 'dashboard-variants', icon: Icons.variants },
-    { label: 'AI Monitoring', page: 'dashboard-monitoring', icon: Icons.monitoring },
-    { label: 'Channels', page: 'dashboard-channels', icon: Icons.channels },
-    { label: 'Billing', page: 'dashboard-billing', icon: Icons.billing },
-    { label: 'Agents', page: 'dashboard-agents', icon: Icons.agents },
-    { label: 'Knowledge Base', page: 'dashboard-knowledge', icon: Icons.knowledge },
-    { label: 'Jarvis AI', page: 'jarvis', icon: Icons.jarvis },
+    { label: 'Dashboard', href: '/dashboard', icon: Icons.dashboard },
+    { label: 'Tickets', href: '/dashboard/tickets', icon: Icons.tickets },
+    { label: 'Variants', href: '/dashboard/variants', icon: Icons.variants },
+    { label: 'AI Monitoring', href: '/dashboard/monitoring', icon: Icons.monitoring },
+    { label: 'Channels', href: '/dashboard/channels', icon: Icons.channels },
+    { label: 'Billing', href: '/dashboard/billing', icon: Icons.billing },
+    { label: 'Agents', href: '/dashboard/agents', icon: Icons.agents },
+    { label: 'Knowledge Base', href: '/dashboard/knowledge', icon: Icons.knowledge },
+    { label: 'Jarvis AI', href: '/jarvis', icon: Icons.jarvis },
   ];
 
   const bottomItems: NavItem[] = [
-    { label: 'Settings', page: 'dashboard-settings', icon: Icons.settings },
+    { label: 'Settings', href: '/dashboard/settings', icon: Icons.settings },
   ];
 
-  const isActive = (page: Page) => {
-    if (page === 'dashboard') return currentPage === 'dashboard';
-    return currentPage === page;
+  const isActive = (href: string) => {
+    if (href === '/dashboard') return pathname === '/dashboard';
+    return pathname === href;
   };
 
   const handleLogout = async () => {
@@ -125,8 +126,10 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
       await logout();
     } catch {
       localStorage.removeItem('parwa_user');
+      localStorage.removeItem('parwa_access_token');
+      localStorage.removeItem('parwa_refresh_token');
     }
-    navigate('landing');
+    router.push('/');
   };
 
   return (
@@ -139,14 +142,14 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
       {/* ── Logo / Brand ──────────────────────────────────────────── */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-white/[0.06]">
         {!collapsed && (
-          <button onClick={() => navigate('dashboard')} className="flex items-center gap-2.5 group">
+          <Link href="/dashboard" className="flex items-center gap-2.5 group">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center shadow-lg shadow-orange-500/20">
               <span className="text-white font-bold text-sm">P</span>
             </div>
             <span className="text-white font-semibold text-[15px] tracking-tight">
               PARWA
             </span>
-          </button>
+          </Link>
         )}
         <button
           onClick={onToggle}
@@ -161,12 +164,12 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
       <nav className="flex-1 overflow-y-auto py-4 px-3 scrollbar-premium">
         <div className="space-y-1">
           {navItems.map((item) => (
-            <button
-              key={item.page}
-              onClick={() => navigate(item.page)}
+            <Link
+              key={item.href}
+              href={item.href}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 w-full text-left',
-                isActive(item.page)
+                isActive(item.href)
                   ? 'bg-orange-500/10 text-orange-400 shadow-sm shadow-orange-500/5'
                   : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
               )}
@@ -174,12 +177,12 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
             >
               <span className={cn(
                 'shrink-0 transition-colors',
-                isActive(item.page) ? 'text-orange-400' : 'text-zinc-500 group-hover:text-zinc-300'
+                isActive(item.href) ? 'text-orange-400' : 'text-zinc-500 group-hover:text-zinc-300'
               )}>
                 {item.icon}
               </span>
               {!collapsed && <span>{item.label}</span>}
-            </button>
+            </Link>
           ))}
         </div>
       </nav>
@@ -187,12 +190,12 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
       {/* ── Bottom Section ────────────────────────────────────────── */}
       <div className="border-t border-white/[0.06] p-3 space-y-1">
         {bottomItems.map((item) => (
-          <button
-            key={item.page}
-            onClick={() => navigate(item.page)}
+          <Link
+            key={item.href}
+            href={item.href}
             className={cn(
               'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 w-full text-left',
-              isActive(item.page)
+              isActive(item.href)
                 ? 'bg-orange-500/10 text-orange-400'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
             )}
@@ -200,12 +203,12 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
           >
             <span className={cn(
               'shrink-0',
-              isActive(item.page) ? 'text-orange-400' : 'text-zinc-500'
+              isActive(item.href) ? 'text-orange-400' : 'text-zinc-500'
             )}>
               {item.icon}
             </span>
             {!collapsed && <span>{item.label}</span>}
-          </button>
+          </Link>
         ))}
 
         {/* ── User Info + Logout ──────────────────────────────────── */}

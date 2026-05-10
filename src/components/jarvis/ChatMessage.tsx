@@ -2,7 +2,7 @@
  * PARWA ChatMessage Component (Week 6 — Day 3 Phase 5, Updated Day 4 Phase 6)
  *
  * Renders a single chat message with support for multiple message types.
- * - text: Markdown-rendered bubble
+ * - text: Markdown-rendered bubble (supports **bold** inline formatting)
  * - Card types: Rich interactive cards (Phase 6)
  * - error: Error state with retry prompt
  * - system: Centered muted message
@@ -49,6 +49,43 @@ interface ChatMessageProps {
     otpState?: { status: string; email: string };
     demoCallState?: { status: string; phone: string | null; duration: number };
   };
+}
+
+// ── Bold Processing (`**text**` → <strong>) ──────────────────────
+
+/**
+ * Splits a string on `**bold**` markers and returns an array of
+ * React elements where bold segments are wrapped in <strong>.
+ * Unmatched or malformed markers are treated as plain text.
+ */
+function processBold(text: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  // Regex matches **content** — non-greedy, allows line breaks within
+  const regex = /\*\*(.+?)\*\*/gs;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+
+  while ((match = regex.exec(text)) !== null) {
+    // Push any plain text before this match
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    // Push the bold segment
+    parts.push(
+      <strong key={`b-${key++}`} className="font-semibold text-white">
+        {match[1]}
+      </strong>
+    );
+    lastIndex = regex.lastIndex;
+  }
+
+  // Push remaining text after the last match
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : [text];
 }
 
 // ── Avatar ───────────────────────────────────────────────────────
@@ -141,7 +178,7 @@ function ErrorMessage({
   );
 }
 
-// ── Inline Content Renderer (bullet-point aware, XSS-safe) ──────────
+// ── Inline Content Renderer (bullet-point aware, bold-aware, XSS-safe) ──
 
 function isEmojiChar(ch: string): boolean {
   // Must use codePointAt for emoji (surrogate pairs in JS)
@@ -183,7 +220,7 @@ function renderInlineContent(content: string) {
         <div key={index} className="flex items-start gap-2 py-0.5">
           <span className="text-orange-400 shrink-0 mt-0.5 text-xs">&#9656;</span>
           <span className="text-white/90 leading-relaxed text-sm">
-            {displayText}
+            {processBold(displayText)}
           </span>
         </div>
       );
@@ -193,14 +230,14 @@ function renderInlineContent(content: string) {
       openerUsed = true;
       return (
         <p key={index} className="text-white font-medium text-sm leading-relaxed">
-          {trimmed}
+          {processBold(trimmed)}
         </p>
       );
     }
 
     return (
       <p key={index} className="text-white/80 text-sm leading-relaxed">
-        {trimmed}
+        {processBold(trimmed)}
       </p>
     );
   });

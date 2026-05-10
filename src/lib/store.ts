@@ -69,6 +69,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSidebarOpen: (open: boolean) => set({ sidebarOpen: open }),
 }));
 
+// Expose store on window for debugging/testing (client-only)
+if (typeof window !== 'undefined') {
+  (window as unknown as Record<string, unknown>).__PARWA_STORE__ = useAppStore;
+}
+
 // Helper: check if current page is a dashboard sub-page
 export function isDashboardPage(page: Page): boolean {
   return page === 'dashboard' || page.startsWith('dashboard-');

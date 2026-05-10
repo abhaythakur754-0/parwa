@@ -5,12 +5,13 @@
  * Handles keyboard shortcuts (Enter to send, Shift+Enter for newline),
  * auto-resize, and disabled states for limit reached / typing / loading.
  * Shows remaining message count indicator.
+ * Includes file attachment support for text-based documents.
  */
 
 'use client';
 
 import { useCallback, useRef, useEffect, useState } from 'react';
-import { Send, ArrowUp, AlertCircle } from 'lucide-react';
+import { Send, ArrowUp, AlertCircle, Paperclip } from 'lucide-react';
 
 interface ChatInputProps {
   /** Send message callback */
@@ -40,6 +41,7 @@ export function ChatInput({
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sendingRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isDisabled = isTyping || isLoading || isLimitReached || !value.trim();
   const charCount = value.length;
@@ -95,6 +97,23 @@ export function ChatInput({
     });
   }, [value, isDisabled, isOverLimit, onSend]);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Read small text files directly and send as a document upload message
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        onSend(`[DOCUMENT_UPLOAD]: ${file.name}\n\nContent:\n${content.slice(0, 5000)}`);
+      }
+    };
+    reader.readAsText(file);
+    // Reset input so the same file can be re-attached
+    e.target.value = '';
+  };
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       // Enter to send (without Shift)
@@ -114,96 +133,118 @@ export function ChatInput({
   );
 
   return (
-    <div className="shrink-0 border-t border-white/10 bg-white/[0.02] backdrop-blur-sm px-4 py-3">
-      {/* Limit reached banner */}
-      {isLimitReached && (
-        <div className="flex items-center gap-2 mb-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/15">
-          <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-          <p className="text-xs text-amber-200/80">
-            Daily message limit reached. Come back tomorrow
-            {!isDemoPackActive && (
-              <span> or upgrade to a demo pack to continue chatting</span>
-            )}
-            .
-          </p>
-        </div>
-      )}
+    <div className="shrink-0 bg-[#0D0D0D] px-4 pb-8 pt-2">
+      <div className="max-w-3xl mx-auto">
+        {/* Limit reached banner */}
+        {isLimitReached && (
+          <div className="flex items-center gap-2 mb-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/15">
+            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+            <p className="text-xs text-amber-200/80">
+              Daily message limit reached. Come back tomorrow
+              {!isDemoPackActive && (
+                <span> or upgrade to a demo pack to continue chatting</span>
+              )}
+              .
+            </p>
+          </div>
+        )}
 
-      {/* Input row */}
-      <div className="flex items-end gap-2">
-        {/* Textarea */}
-        <div className="flex-1 relative">
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              isLoading
-                ? 'Connecting to Jarvis...'
-                : isLimitReached
-                  ? 'Daily limit reached'
-                  : 'Type your message...'
-            }
-            disabled={isTyping || isLoading || isLimitReached}
-            rows={1}
-            maxLength={MAX_CHARS + 50} // Allow slight overflow for display
-            className="w-full resize-none rounded-xl bg-white/[0.05] border border-white/10 text-white text-sm px-4 py-2.5 pr-14 placeholder:text-white/25 focus:outline-none focus:border-orange-500/30 focus:ring-1 focus:ring-orange-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+        {/* Input row */}
+        <div className="flex items-end gap-3">
+          {/* Hidden file input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+            accept=".txt,.json,.md,.csv"
           />
 
-          {/* Character counter (visible when near limit) */}
-          {(isNearLimit || isOverLimit) && (
-            <span
-              className={`absolute bottom-1.5 right-2 text-[10px] ${
-                isOverLimit
-                  ? 'text-red-400'
-                  : 'text-white/30'
-              }`}
-            >
-              {charCount}/{MAX_CHARS}
-            </span>
-          )}
+          {/* Attachment Button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isTyping || isLoading || isLimitReached}
+            className="mb-2 w-10 h-10 rounded-xl flex items-center justify-center bg-white/[0.04] border border-white/10 text-white/40 hover:text-white hover:bg-white/[0.08] transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+            title="Attach document"
+          >
+            <Paperclip className="w-5 h-5" />
+          </button>
+
+          <div className="flex-1 relative group">
+            <textarea
+              ref={textareaRef}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={
+                isLoading
+                  ? 'Connecting to Jarvis...'
+                  : isLimitReached
+                    ? 'Daily limit reached'
+                    : 'Message Jarvis...'
+              }
+              disabled={isTyping || isLoading || isLimitReached}
+              rows={1}
+              maxLength={MAX_CHARS + 50}
+              className="w-full resize-none rounded-2xl bg-white/[0.04] border border-white/10 text-[15px] text-white px-4 py-4 pr-14 placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed leading-relaxed"
+            />
+
+            {/* Character counter (visible when near limit) */}
+            {(isNearLimit || isOverLimit) && (
+              <span
+                className={`absolute bottom-3 right-14 text-[10px] ${
+                  isOverLimit
+                    ? 'text-red-400'
+                    : 'text-white/30'
+                }`}
+              >
+                {charCount}/{MAX_CHARS}
+              </span>
+            )}
+
+            {/* Send button — gradient style, absolutely positioned inside the textarea area */}
+            <div className="absolute right-2 bottom-2">
+              <button
+                onClick={handleSend}
+                disabled={isDisabled || isOverLimit}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 ${
+                  isDisabled || isOverLimit
+                    ? 'bg-white/[0.05] text-white/20 cursor-not-allowed'
+                    : 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 hover:scale-[1.02] active:scale-[0.98]'
+                }`}
+                title={
+                  isLimitReached
+                    ? 'Daily limit reached'
+                    : isTyping
+                      ? 'Jarvis is typing...'
+                      : 'Send message'
+                }
+                aria-label="Send message"
+              >
+                {isTyping ? (
+                  <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                ) : value.trim() ? (
+                  <ArrowUp className="w-4 h-4" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Send button */}
-        <button
-          onClick={handleSend}
-          disabled={isDisabled || isOverLimit}
-          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 ${
-            isDisabled || isOverLimit
-              ? 'bg-white/[0.05] text-white/20 cursor-not-allowed'
-              : 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 hover:scale-[1.02] active:scale-[0.98]'
-          }`}
-          title={
-            isLimitReached
-              ? 'Daily limit reached'
-              : isTyping
-                ? 'Jarvis is typing...'
-                : 'Send message'
-          }
-          aria-label="Send message"
-        >
-          {isTyping ? (
-            <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-          ) : value.trim() ? (
-            <ArrowUp className="w-4 h-4" />
-          ) : (
-            <Send className="w-4 h-4" />
-          )}
-        </button>
-      </div>
-
-      {/* Footer hint */}
-      <div className="flex items-center justify-between mt-1.5 px-1">
-        <p className="text-[10px] text-white/20">
-          Press Enter to send · Shift+Enter for new line
-        </p>
-
-        {!isLimitReached && remainingToday > 0 && (
+        {/* Footer hint */}
+        <div className="flex items-center justify-between mt-1.5 px-1">
           <p className="text-[10px] text-white/20">
-            {remainingToday} message{remainingToday !== 1 ? 's' : ''} remaining today
+            Press Enter to send · Shift+Enter for new line
           </p>
-        )}
+
+          {!isLimitReached && remainingToday > 0 && (
+            <p className="text-[10px] text-white/20">
+              {remainingToday} message{remainingToday !== 1 ? 's' : ''} remaining today
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
