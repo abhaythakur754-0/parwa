@@ -517,6 +517,109 @@ def send_cc_message(
     variant_instance_id = ctx.get("variant_instance_id", "")
     industry = ctx.get("industry", "general")
 
+    # ── Phase 3: Command Detection ──
+    # If the message looks like a command, route it through the command layer
+    # instead of the AI pipeline. Commands start with "/" or match known patterns.
+    _COMMAND_PREFIXES = ("/", "jarvis ")
+    _is_command = False
+    _stripped_message = user_message.strip()
+
+    if any(_stripped_message.lower().startswith(p) for p in _COMMAND_PREFIXES):
+        _is_command = True
+        # Strip the prefix for command parsing
+        for prefix in _COMMAND_PREFIXES:
+            if _stripped_message.lower().startswith(prefix):
+                _stripped_message = _stripped_message[len(prefix):].strip()
+                break
+    else:
+        # Quick check: does the message match any command pattern?
+        try:
+            from app.services.jarvis_command_service import parse_natural_language_command
+            _quick_parse = parse_natural_language_command(
+                company_id=company_id,
+                raw_input=_stripped_message,
+                session_id=session_id,
+            )
+            if (_quick_parse.get("confidence", 0) >= 0.65
+                    and _quick_parse.get("action") != "unknown"):
+                _is_command = True
+        except Exception:
+            pass  # BC-008: command detection failure is non-fatal
+
+    if _is_command:
+        try:
+            from app.services import jarvis_command_service
+            from database.models.jarvis_cc import JarvisCommand
+
+            # Receive and parse the command
+            command = jarvis_command_service.receive_command(
+                db=db,
+                company_id=company_id,
+                session_id=session_id,
+                raw_input=_stripped_message,
+                source="chat",
+                user_id=user_id,
+            )
+
+            # Execute the command
+            cmd_result = jarvis_command_service.execute_command(
+                db=db,
+                company_id=company_id,
+                command_id=str(command.id),
+                session_id=session_id,
+                user_id=user_id,
+            )
+
+            # Build AI response as a command_response message
+            parsed = json.loads(command.command_parsed) if command.command_parsed else {}
+            _action = cmd_result.get("action", "unknown")
+            _result_data = cmd_result.get("result", {})
+            _message = _result_data.get("message", f"Command '{_action}' executed.")
+            _undo_hint = " (Undo available)" if command.undo_available else ""
+
+            ai_msg = JarvisMessage(
+                session_id=session_id,
+                role="jarvis",
+                content=_message + _undo_hint,
+                message_type="command_response",
+                metadata_json=json.dumps({
+                    "command_id": str(command.id),
+                    "action": _action,
+                    "intent": command.command_intent,
+                    "confidence": float(command.confidence) if command.confidence else None,
+                    "result": cmd_result.get("result", {}),
+                    "execution_time_ms": cmd_result.get("execution_time_ms", 0),
+                    "undo_available": command.undo_available,
+                    "suggestion": parsed.get("suggestion"),
+                    "fallback": "command_layer",
+                }),
+            )
+            db.add(ai_msg)
+
+            # Update session context
+            ctx["last_command_at"] = datetime.now(timezone.utc).isoformat()
+            ctx["last_command_action"] = _action
+            session.context_json = json.dumps(ctx)
+            db.flush()
+
+            total_ms = round((time.monotonic() - start_time) * 1000, 2)
+            logger.info(
+                "cc_command_executed: session=%s, action=%s, ms=%.1f",
+                session_id, _action, total_ms,
+            )
+
+            return user_msg, ai_msg, {
+                "pipeline_status": "command_executed",
+                "command_action": _action,
+                "execution_time_ms": cmd_result.get("execution_time_ms", 0),
+            }
+        except Exception as cmd_exc:
+            logger.warning(
+                "cc_command_fallback_to_pipeline: session=%s, error=%s",
+                session_id, str(cmd_exc)[:200],
+            )
+            # Fall through to normal pipeline if command execution fails
+
     # ── Step 6: Check emergency state ──
     ai_paused = False
     try:

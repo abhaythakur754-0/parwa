@@ -59,6 +59,7 @@ from app.api.pricing import router as pricing_router
 from app.api.ai_engine import router as ai_engine_router
 from app.api.ai_agent import router as ai_agent_router
 from app.api.jarvis import router as jarvis_router
+from app.api.jarvis_cc import router as jarvis_cc_router
 from app.api.onboarding import router as onboarding_router
 from app.api.integrations import router as integrations_router
 from app.api.knowledge_base import router as knowledge_base_router
@@ -336,6 +337,7 @@ app.include_router(pricing_router)  # Pricing API (no auth required)
 app.include_router(ai_engine_router)  # Week 8: AI Engine endpoints
 app.include_router(ai_agent_router)  # SG-21/SG-22: AI agent assignments
 app.include_router(jarvis_router)  # Week 6: Jarvis onboarding chat
+app.include_router(jarvis_cc_router)  # Phase 2+: Jarvis Customer Care (awareness + commands)
 app.include_router(onboarding_router)  # Week 6: Onboarding wizard (F-028 to F-035)
 app.include_router(integrations_router)  # Week 6: Integration management (F-030/F-031)
 app.include_router(knowledge_base_router)  # Week 6: Knowledge base (F-032/F-033)

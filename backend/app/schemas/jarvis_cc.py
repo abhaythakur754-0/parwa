@@ -425,3 +425,131 @@ class JarvisAwarenessDeltaResponse(BaseModel):
     new_alerts: List[Dict[str, Any]] = Field(default_factory=list)
     recovered: List[Dict[str, Any]] = Field(default_factory=list)
     is_first_tick: bool = False
+
+
+# ══════════════════════════════════════════════════════════════════
+# COMMAND LAYER SCHEMAS (Phase 3)
+# ══════════════════════════════════════════════════════════════════
+
+_VALID_COMMAND_INTENTS = ("query", "control", "configure", "report", "override")
+_VALID_COMMAND_SOURCES = ("chat", "api", "co_pilot", "proactive", "scheduled")
+
+
+class JarvisCommandSend(BaseModel):
+    """Request to send a natural language command to Jarvis."""
+    session_id: str = Field(description="Customer care session ID")
+    raw_input: str = Field(
+        min_length=1,
+        max_length=500,
+        description="Natural language command text",
+    )
+    source: str = Field(
+        default="chat",
+        description="Command source: chat, api, co_pilot, proactive, scheduled",
+    )
+
+    @field_validator("source")
+    @classmethod
+    def source_must_be_valid(cls, v: str) -> str:
+        if v not in _VALID_COMMAND_SOURCES:
+            raise ValueError(
+                f"Invalid source. Must be one of: {', '.join(_VALID_COMMAND_SOURCES)}"
+            )
+        return v
+
+
+class JarvisCommandResponse(BaseModel):
+    """Response from executing a Jarvis command."""
+    command_id: str
+    status: str = "completed"
+    action: str = "unknown"
+    intent: Optional[str] = None
+    scope: Optional[str] = None
+    target: Optional[str] = None
+    confidence: Optional[float] = None
+    result: Dict[str, Any] = Field(default_factory=dict)
+    execution_time_ms: float = 0.0
+    undo_available: bool = False
+    error: Optional[str] = None
+    suggestion: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class JarvisQuickCommandRequest(BaseModel):
+    """Request to execute a quick command preset."""
+    session_id: str = Field(description="Customer care session ID")
+    quick_command_id: str = Field(
+        description="Quick command preset ID (e.g., 'qc_pause_all_agents')",
+    )
+
+
+class JarvisCommandUndoRequest(BaseModel):
+    """Request to undo a command."""
+    session_id: str = Field(description="Customer care session ID")
+    command_id: Optional[str] = Field(
+        default=None,
+        description="Specific command ID to undo. If None, undoes the most recent undoable command.",
+    )
+
+
+class JarvisCommandHistoryResponse(BaseModel):
+    """Paginated command history for a session."""
+    commands: List[Dict[str, Any]] = Field(default_factory=list)
+    total: int = 0
+    limit: int = 50
+    offset: int = 0
+    has_more: bool = False
+
+
+class JarvisQuickCommandItem(BaseModel):
+    """A single quick command preset."""
+    id: str
+    label: str
+    raw_input: str
+    action: str
+    intent: str
+    icon: str = "zap"
+    description: str = ""
+    is_custom: bool = False
+
+
+class JarvisQuickCommandListResponse(BaseModel):
+    """List of available quick command presets."""
+    commands: List[JarvisQuickCommandItem]
+    total: int = 0
+
+
+class JarvisCoPilotSuggestionResponse(BaseModel):
+    """Response from the co-pilot suggestion engine."""
+    suggestion: str
+    suggestion_type: str = "best_practice"
+    suggested_command: Optional[str] = None
+    confidence: float = 0.0
+    reasoning: str = ""
+
+
+class JarvisCustomQuickCommandAdd(BaseModel):
+    """Request to add a custom quick command."""
+    session_id: str = Field(description="Customer care session ID")
+    label: str = Field(min_length=1, max_length=50, description="Display label")
+    raw_input: str = Field(min_length=1, max_length=500, description="NL command text")
+    action: str = Field(min_length=1, max_length=50, description="Action to execute")
+    intent: str = Field(description="Command intent")
+    icon: str = Field(default="zap", max_length=30, description="Icon name")
+    description: str = Field(default="", max_length=200, description="Tooltip description")
+
+    @field_validator("intent")
+    @classmethod
+    def intent_must_be_valid(cls, v: str) -> str:
+        if v not in _VALID_COMMAND_INTENTS:
+            raise ValueError(
+                f"Invalid intent. Must be one of: {', '.join(_VALID_COMMAND_INTENTS)}"
+            )
+        return v
+
+
+class JarvisCustomQuickCommandRemove(BaseModel):
+    """Request to remove a custom quick command."""
+    session_id: str = Field(description="Customer care session ID")
+    quick_command_id: str = Field(description="Custom quick command ID to remove")

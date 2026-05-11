@@ -26,7 +26,7 @@ BC-012: All timestamps UTC.
 """
 
 import json
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -53,9 +53,20 @@ from app.schemas.jarvis_cc import (
     JarvisAlertDismissRequest,
     JarvisAlertResolveRequest,
     JarvisAwarenessDeltaResponse,
+    # Command Layer schemas (Phase 3)
+    JarvisCommandSend,
+    JarvisCommandResponse,
+    JarvisQuickCommandRequest,
+    JarvisCommandUndoRequest,
+    JarvisCommandHistoryResponse,
+    JarvisQuickCommandListResponse,
+    JarvisCoPilotSuggestionResponse,
+    JarvisCustomQuickCommandAdd,
+    JarvisCustomQuickCommandRemove,
 )
 from app.services import jarvis_cc_service
 from app.services import jarvis_awareness_engine
+from app.services import jarvis_command_service
 from database.base import get_db
 from database.models.core import User
 
@@ -795,6 +806,432 @@ def get_awareness_delta(
         return _error_response(
             "INTERNAL_ERROR",
             "Failed to compute awareness delta",
+            500,
+            details={"error": str(exc)},
+        )
+
+
+# ========================================================================
+# COMMAND LAYER ENDPOINTS (Phase 3)
+# ========================================================================
+
+
+@router.post("/command", response_model=JarvisCommandResponse)
+def send_command(
+    body: JarvisCommandSend,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Send a natural language command to Jarvis.
+
+    Parses the NL input, creates a command record, executes the
+    appropriate handler, and returns the result. This is the main
+    entry point for the Command Layer.
+
+    Commands like "pause all AI", "show me today's errors",
+    "export weekly report" are parsed without LLM for speed (<2s).
+    """
+    if not user.company_id:
+        return _error_response(
+            "VALIDATION_ERROR",
+            "User has no associated company",
+            422,
+        )
+
+    try:
+        # Step 1: Receive and parse the command
+        command = jarvis_command_service.receive_command(
+            db=db,
+            company_id=str(user.company_id),
+            session_id=body.session_id,
+            raw_input=body.raw_input,
+            source=body.source,
+            user_id=str(user.id),
+        )
+
+        # Step 2: Execute the command
+        result = jarvis_command_service.execute_command(
+            db=db,
+            company_id=str(user.company_id),
+            command_id=str(command.id),
+            session_id=body.session_id,
+            user_id=str(user.id),
+        )
+
+        # Build response
+        parsed = _safe_parse_json(command.command_parsed) if command.command_parsed else {}
+
+        return JarvisCommandResponse(
+            command_id=result["command_id"],
+            status=result["status"],
+            action=result["action"],
+            intent=command.command_intent,
+            scope=parsed.get("scope"),
+            target=parsed.get("target"),
+            confidence=float(command.confidence) if command.confidence else None,
+            result=result.get("result", {}),
+            execution_time_ms=result.get("execution_time_ms", 0),
+            undo_available=command.undo_available or False,
+            error=result.get("error"),
+            suggestion=parsed.get("suggestion"),
+        )
+    except ParwaBaseError:
+        raise
+    except Exception as exc:
+        return _error_response(
+            "INTERNAL_ERROR",
+            "Failed to execute command",
+            500,
+            details={"error": str(exc)},
+        )
+
+
+@router.post("/command/quick", response_model=JarvisCommandResponse)
+def execute_quick_command(
+    body: JarvisQuickCommandRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Execute a quick command preset by ID.
+
+    Quick commands skip NL parsing — they go straight to execution
+    because the action and intent are already known.
+    """
+    if not user.company_id:
+        return _error_response(
+            "VALIDATION_ERROR",
+            "User has no associated company",
+            422,
+        )
+
+    try:
+        result = jarvis_command_service.execute_quick_command(
+            db=db,
+            company_id=str(user.company_id),
+            session_id=body.session_id,
+            quick_command_id=body.quick_command_id,
+            user_id=str(user.id),
+        )
+
+        return JarvisCommandResponse(
+            command_id=result.get("command_id", ""),
+            status=result.get("status", "failed"),
+            action=result.get("action", "unknown"),
+            intent=None,
+            result=result.get("result", {}),
+            execution_time_ms=result.get("execution_time_ms", 0),
+            undo_available=False,
+            error=result.get("error"),
+        )
+    except ParwaBaseError:
+        raise
+    except Exception as exc:
+        return _error_response(
+            "INTERNAL_ERROR",
+            "Failed to execute quick command",
+            500,
+            details={"error": str(exc)},
+        )
+
+
+@router.post("/command/undo", response_model=JarvisCommandResponse)
+def undo_command(
+    body: JarvisCommandUndoRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Undo the last undoable command (or a specific command).
+
+    Creates a new command that reverses the original action.
+    Commands like 'pause all AI' can be undone (resumes AI).
+    Query and report commands cannot be undone.
+    """
+    if not user.company_id:
+        return _error_response(
+            "VALIDATION_ERROR",
+            "User has no associated company",
+            422,
+        )
+
+    try:
+        result = jarvis_command_service.undo_command(
+            db=db,
+            company_id=str(user.company_id),
+            session_id=body.session_id,
+            user_id=str(user.id),
+            command_id=body.command_id,
+        )
+
+        return JarvisCommandResponse(
+            command_id=result.get("undo_command_id", ""),
+            status=result.get("status", "failed"),
+            action="undo",
+            intent="control",
+            result=result.get("undo_result", {}),
+            undo_available=False,
+            error=result.get("error"),
+        )
+    except ParwaBaseError:
+        raise
+    except Exception as exc:
+        return _error_response(
+            "INTERNAL_ERROR",
+            "Failed to undo command",
+            500,
+            details={"error": str(exc)},
+        )
+
+
+@router.get("/command/history", response_model=JarvisCommandHistoryResponse)
+def get_command_history(
+    session_id: str = Query(..., description="Customer care session ID"),
+    status: Optional[str] = Query(None, description="Filter by status"),
+    intent: Optional[str] = Query(None, description="Filter by intent"),
+    source: Optional[str] = Query(None, description="Filter by source"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get paginated command history for a session.
+
+    Returns commands in reverse chronological order (newest first).
+    Filterable by status, intent, and source.
+    """
+    if not user.company_id:
+        return _error_response(
+            "VALIDATION_ERROR",
+            "User has no associated company",
+            422,
+        )
+
+    try:
+        commands, total = jarvis_command_service.get_command_history(
+            db=db,
+            company_id=str(user.company_id),
+            session_id=session_id,
+            status=status,
+            intent=intent,
+            source=source,
+            limit=limit,
+            offset=offset,
+        )
+        _limit = _coerce_int(limit, 50)
+        _offset = _coerce_int(offset, 0)
+
+        return JarvisCommandHistoryResponse(
+            commands=commands,
+            total=total,
+            limit=_limit,
+            offset=_offset,
+            has_more=(_offset + _limit) < total,
+        )
+    except ParwaBaseError:
+        raise
+    except Exception as exc:
+        return _error_response(
+            "INTERNAL_ERROR",
+            "Failed to get command history",
+            500,
+            details={"error": str(exc)},
+        )
+
+
+@router.get("/command/quick-commands", response_model=JarvisQuickCommandListResponse)
+def get_quick_commands(
+    session_id: str = Query(..., description="Customer care session ID"),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get available quick command presets for a session.
+
+    Returns default presets plus any tenant-specific custom presets.
+    """
+    if not user.company_id:
+        return _error_response(
+            "VALIDATION_ERROR",
+            "User has no associated company",
+            422,
+        )
+
+    try:
+        commands = jarvis_command_service.get_quick_commands(
+            db=db,
+            company_id=str(user.company_id),
+            session_id=session_id,
+        )
+        return JarvisQuickCommandListResponse(
+            commands=commands,
+            total=len(commands),
+        )
+    except ParwaBaseError:
+        raise
+    except Exception as exc:
+        return _error_response(
+            "INTERNAL_ERROR",
+            "Failed to get quick commands",
+            500,
+            details={"error": str(exc)},
+        )
+
+
+@router.get("/command/{command_id}")
+def get_command_by_id(
+    command_id: str,
+    session_id: str = Query(..., description="Customer care session ID"),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get a single command by ID with full audit details.
+
+    Returns all command fields including timestamps, parsed data,
+    execution result, and undo information.
+    """
+    if not user.company_id:
+        return _error_response(
+            "VALIDATION_ERROR",
+            "User has no associated company",
+            422,
+        )
+
+    try:
+        command = jarvis_command_service.get_command_by_id(
+            db=db,
+            company_id=str(user.company_id),
+            command_id=command_id,
+            session_id=session_id,
+        )
+        if not command:
+            return _error_response(
+                "NOT_FOUND",
+                "Command not found",
+                404,
+            )
+        return command
+    except ParwaBaseError:
+        raise
+    except Exception as exc:
+        return _error_response(
+            "INTERNAL_ERROR",
+            "Failed to get command",
+            500,
+            details={"error": str(exc)},
+        )
+
+
+@router.post("/command/co-pilot", response_model=JarvisCoPilotSuggestionResponse)
+def get_co_pilot_suggestion(
+    session_id: str = Query(..., description="Customer care session ID"),
+    user_context: Optional[str] = Query(None, description="Additional context from user's question"),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get a co-pilot suggestion based on current awareness state.
+
+    When a user asks an open question like "what should I do about
+    the ticket spike?", the co-pilot generates a contextual suggestion
+    based on the current awareness snapshot and active alerts.
+    """
+    if not user.company_id:
+        return _error_response(
+            "VALIDATION_ERROR",
+            "User has no associated company",
+            422,
+        )
+
+    try:
+        result = jarvis_command_service.generate_co_pilot_suggestion(
+            db=db,
+            company_id=str(user.company_id),
+            session_id=session_id,
+            user_context=user_context,
+        )
+        return JarvisCoPilotSuggestionResponse(**result)
+    except ParwaBaseError:
+        raise
+    except Exception as exc:
+        return _error_response(
+            "INTERNAL_ERROR",
+            "Failed to generate co-pilot suggestion",
+            500,
+            details={"error": str(exc)},
+        )
+
+
+@router.post("/command/custom-quick-command", response_model=Dict[str, Any])
+def add_custom_quick_command(
+    body: JarvisCustomQuickCommandAdd,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Add a custom quick command preset for this tenant.
+
+    Custom presets are stored in the session context (max 50 per tenant).
+    Default quick commands cannot be modified.
+    """
+    if not user.company_id:
+        return _error_response(
+            "VALIDATION_ERROR",
+            "User has no associated company",
+            422,
+        )
+
+    try:
+        result = jarvis_command_service.add_custom_quick_command(
+            db=db,
+            company_id=str(user.company_id),
+            session_id=body.session_id,
+            label=body.label,
+            raw_input=body.raw_input,
+            action=body.action,
+            intent=body.intent,
+            icon=body.icon,
+            description=body.description,
+        )
+        return result
+    except ParwaBaseError:
+        raise
+    except Exception as exc:
+        return _error_response(
+            "INTERNAL_ERROR",
+            "Failed to add custom quick command",
+            500,
+            details={"error": str(exc)},
+        )
+
+
+@router.delete("/command/custom-quick-command")
+def remove_custom_quick_command(
+    body: JarvisCustomQuickCommandRemove,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Remove a custom quick command preset.
+
+    Only custom commands (added via add_custom_quick_command) can be removed.
+    Default quick commands cannot be removed.
+    """
+    if not user.company_id:
+        return _error_response(
+            "VALIDATION_ERROR",
+            "User has no associated company",
+            422,
+        )
+
+    try:
+        removed = jarvis_command_service.remove_custom_quick_command(
+            db=db,
+            company_id=str(user.company_id),
+            session_id=body.session_id,
+            quick_command_id=body.quick_command_id,
+        )
+        return {"removed": removed, "quick_command_id": body.quick_command_id}
+    except ParwaBaseError:
+        raise
+    except Exception as exc:
+        return _error_response(
+            "INTERNAL_ERROR",
+            "Failed to remove custom quick command",
             500,
             details={"error": str(exc)},
         )
