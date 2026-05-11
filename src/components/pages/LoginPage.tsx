@@ -6,7 +6,10 @@ import toast from 'react-hot-toast';
 
 /**
  * LoginPage — Split layout with branding panel and login form.
- * Uses mock auth fallback when backend is unavailable.
+ *
+ * H-20: Mock login fallback is DISABLED in production.
+ * In development/staging, mock login is available when the backend
+ * is unreachable (for local development convenience).
  */
 export default function LoginPage() {
   const navigate = useAppStore((s) => s.navigate);
@@ -28,10 +31,22 @@ export default function LoginPage() {
         return;
       }
     } catch {
-      // Graceful degradation: use mock data
+      // Backend unreachable — fall through to mock check below
     }
 
-    // Mock login fallback — works in demo mode
+    // H-20: Mock login production gate
+    // In production, mock login is DISABLED entirely.
+    // Only allowed in non-production environments for development.
+    const isProduction =
+      process.env.NODE_ENV === 'production' ||
+      process.env.NEXT_PUBLIC_ENVIRONMENT === 'production';
+
+    if (isProduction) {
+      toast.error('Authentication service unavailable. Please try again later.');
+      return;
+    }
+
+    // Mock login fallback — ONLY works in development/staging
     const mockUser = {
       id: 'usr_mock_1',
       email,

@@ -111,7 +111,9 @@ class ChannelService:
         """Get company's channel configuration.
 
         Returns:
-            List of channel configs with status
+            List of channel configs with status.
+            H-17 FIX: Sensitive keys (API keys, tokens, secrets) are
+            stripped from config_json before returning.
         """
         # Get all channel configs for company
         configs = self.db.query(ChannelConfig).filter(
@@ -120,18 +122,44 @@ class ChannelService:
 
         config_map = {c.channel_type: c for c in configs}
 
+        # H-17: Keys that indicate sensitive data and must be redacted
+        _SENSITIVE_KEY_PATTERNS = [
+            "api_key", "apikey", "api_secret", "auth_token",
+            "password", "secret", "token", "credential",
+            "private_key", "client_secret", "webhook_secret",
+            "access_token", "refresh_token",
+        ]
+
+        def _redact_config(config_dict: dict) -> dict:
+            """Remove sensitive keys from a config dict."""
+            redacted = {}
+            for k, v in config_dict.items():
+                k_lower = k.lower()
+                if any(pat in k_lower for pat in _SENSITIVE_KEY_PATTERNS):
+                    # Replace with a boolean flag indicating it's set
+                    redacted[k] = True if v else False
+                else:
+                    redacted[k] = v
+            return redacted
+
         # Build result with all channels
         result = []
         for channel in DEFAULT_CHANNELS:
             name = channel["name"]
             config = config_map.get(name)
 
+            raw_config = (
+                json.loads(config.config_json)
+                if config and config.config_json
+                else {}
+            )
+
             result.append({
                 "channel_type": name,
                 "channel_category": channel["channel_type"],
                 "description": channel["description"],
                 "is_enabled": config.is_enabled if config else False,
-                "config": json.loads(config.config_json) if config and config.config_json else {},
+                "config": _redact_config(raw_config),
                 "auto_create_ticket": config.auto_create_ticket if config else True,
                 "char_limit": config.char_limit if config and config.char_limit else CHANNEL_CHAR_LIMITS.get(name),
                 "allowed_file_types": json.loads(config.allowed_file_types) if config and config.allowed_file_types else DEFAULT_ALLOWED_FILE_TYPES,

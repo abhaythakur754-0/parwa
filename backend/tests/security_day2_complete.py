@@ -35,10 +35,10 @@ class TestH09PricingSigningKey:
     """H-09: Pricing signing key must come from environment, not hardcoded."""
 
     def test_pricing_key_from_env(self):
-        """PRICING_SIGNING_KEY must be loaded from os.environ."""
+        """PRICING_SIGNING_KEY must be loaded from Settings (env-backed)."""
         with open('backend/app/api/pricing.py') as f:
             content = f.read()
-        assert 'os.environ' in content
+        assert ('os.environ' in content or 'get_settings' in content or '_settings' in content)
         assert 'PRICING_SIGNING_KEY' in content
 
     def test_no_hardcoded_pricing_key(self):
@@ -46,9 +46,9 @@ class TestH09PricingSigningKey:
         with open('backend/app/api/pricing.py') as f:
             lines = f.readlines()
         for line in lines:
-            if 'PRICING_SIGNING_KEY' in line and '=' in line and 'os.environ' not in line and 'import' not in line and '#' not in line:
+            if 'PRICING_SIGNING_KEY' in line and '=' in line and 'import' not in line and '#' not in line:
                 # Should not be a plain string assignment
-                assert 'os.environ' in line or '${' in line or 'get(' in line, \
+                assert 'os.environ' in line or '${' in line or 'get(' in line or '_settings' in line, \
                     f"PRICING_SIGNING_KEY appears hardcoded: {line.strip()}"
 
     def test_pricing_key_in_env_example(self):

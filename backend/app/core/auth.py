@@ -9,18 +9,28 @@ Token creation, verification, and refresh rotation.
 - BC-011: Max 5 sessions per user
 - M-10: jti claim for token blacklisting support
 - L-02: JWT key rotation via JWT_PREVIOUS_KEYS support
+- CROSS-6: JWT token blacklist via Redis with TTL
 """
 
 import hashlib
 import json
+import logging
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
+
+logger = logging.getLogger(__name__)
 
 from jose import JWTError, jwt
 
 from app.config import get_settings
 from app.exceptions import AuthenticationError
+
+# CROSS-6: Redis key prefix for token blacklist.
+# Uses a global namespace (not tenant-scoped) because jti is
+# globally unique and blacklist checks happen before tenant
+# context is available.
+_BLACKLIST_PREFIX = "parwa:blacklist"
 
 
 # JWT algorithm — HS256 is industry standard for symmetric keys
@@ -54,6 +64,11 @@ if not _REFRESH_TOKEN_PEPPER:
             "production. Generate a strong random value with: "
             "python -c \"import secrets; print(secrets.token_urlsafe(32))\""
         )
+    logger.warning(
+        "REFRESH_TOKEN_PEPPER is not set — refresh tokens will lack pepper "
+        "hardening. Set REFRESH_TOKEN_PEPPER for all environments. "
+        "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+    )
 
 
 def create_access_token(
@@ -105,10 +120,14 @@ def create_access_token(
 
 
 def verify_access_token(token: str) -> dict:
-    """Verify and decode a JWT access token.
+    """Verify and decode a JWT access token (JWT verification only).
 
     BC-011: Rejects expired tokens, wrong type, invalid signatures.
     L-02: Also tries JWT_PREVIOUS_KEYS for rotated key support.
+    CROSS-6: Note — this function verifies the JWT signature and
+    payload only.  Callers that need revocation checking should
+    call ``is_token_revoked()`` with the payload's ``jti`` *after*
+    this function succeeds (see deps.get_current_user).
 
     Args:
         token: The JWT string from Authorization header.
@@ -144,6 +163,97 @@ def verify_access_token(token: str) -> dict:
     raise AuthenticationError(
         message="Invalid or expired token",
     )
+
+
+# ── CROSS-6: Token Blacklist (Redis-backed) ──────────────────────
+# Token blacklisting uses Redis SET entries with TTL matching
+# the token's remaining lifetime.  Redis TTL handles cleanup
+# automatically; a Celery beat task provides a safety net.
+
+
+async def blacklist_jti(jti: str, ttl: int) -> bool:
+    """Add a token's jti to the blacklist.
+
+    CROSS-6: Stores the jti in Redis with an expiry (TTL) matching
+    the token's remaining lifetime so that blacklisted entries are
+    automatically cleaned up.
+
+    Uses a global Redis key (parwa:blacklist:{jti}) rather than
+    tenant-scoped because jti is globally unique and the blacklist
+    check runs before tenant context is available.
+
+    Args:
+        jti: The JWT ID (unique token identifier) to blacklist.
+        ttl: Time-to-live in seconds (should match token expiry).
+
+    Returns:
+        True if the jti was successfully blacklisted, False otherwise.
+    """
+    if not jti or ttl <= 0:
+        logger.warning(
+            "blacklist_jti_invalid_args jti=%s ttl=%d",
+            "present" if jti else "missing",
+            ttl,
+        )
+        return False
+    try:
+        from app.core.redis import get_redis
+
+        redis = await get_redis()
+        key = f"{_BLACKLIST_PREFIX}:{jti}"
+        await redis.set(key, "1", ex=ttl)
+        logger.info("token_blacklisted jti=%s ttl=%d", jti, ttl)
+        return True
+    except Exception as exc:
+        # Never break logout flow on Redis failure — log and continue.
+        # The token will expire naturally via JWT expiry.
+        logger.error(
+            "blacklist_jti_failed jti=%s error=%s",
+            jti,
+            str(exc)[:200],
+        )
+        return False
+
+
+async def is_token_revoked(jti: str) -> bool:
+    """Check if a token's jti is in the blacklist.
+
+    CROSS-6: Queries Redis to determine whether a token has been
+    explicitly revoked (logged out, password changed, etc.).
+
+    If Redis is unavailable, this returns False (allow the token)
+    but logs an error.  This fail-open behaviour is intentional:
+    a Redis outage should not block all authenticated requests.
+    The in-process LRU cache acts as a secondary check.
+
+    Args:
+        jti: The JWT ID to check.
+
+    Returns:
+        True if the token has been revoked, False otherwise.
+    """
+    if not jti:
+        return False
+    try:
+        from app.core.redis import get_redis
+
+        redis = await get_redis()
+        key = f"{_BLACKLIST_PREFIX}:{jti}"
+        result = await redis.exists(key)
+        if result:
+            logger.info(
+                "token_revocation_detected jti=%s", jti
+            )
+        return bool(result)
+    except Exception as exc:
+        # Fail-open on Redis errors — don't block all auth on
+        # a Redis blip.  Tokens still expire via JWT expiry.
+        logger.error(
+            "is_token_revoked_failed jti=%s error=%s",
+            jti,
+            str(exc)[:200],
+        )
+        return False
 
 
 def get_token_jti(token: str) -> str | None:
@@ -208,3 +318,39 @@ def get_access_token_expiry_seconds() -> int:
     """
     settings = get_settings()
     return settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
+
+
+async def blacklist_current_token(token: str) -> bool:
+    """Blacklist the current access token immediately.
+
+    CROSS-6: Convenience function for logout / password-reset flows.
+    Extracts the jti and remaining TTL from the token and adds
+    it to the blacklist.
+
+    Args:
+        token: The raw JWT access token string.
+
+    Returns:
+        True if blacklisted successfully, False otherwise.
+    """
+    try:
+        payload = jwt.get_unverified_claims(token)
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+        if not jti or not exp:
+            logger.warning(
+                "blacklist_current_token_missing_claims "
+                "jti=%s exp=%s",
+                "present" if jti else "missing",
+                "present" if exp else "missing",
+            )
+            return False
+        import time
+        remaining_ttl = max(int(exp - time.time()), 1)
+        return await blacklist_jti(jti, remaining_ttl)
+    except Exception as exc:
+        logger.error(
+            "blacklist_current_token_failed error=%s",
+            str(exc)[:200],
+        )
+        return False

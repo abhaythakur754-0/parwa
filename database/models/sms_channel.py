@@ -402,11 +402,20 @@ class SMSChannelConfig(Base):
     )
 
     def to_dict(self) -> dict:
-        """Serialize SMS config for API responses (no secrets)."""
+        """Serialize SMS config for API responses (no secrets).
+
+        H-17 FIX: twilio_account_sid is masked to prevent credential leakage.
+        """
+        def _mask_sid(sid: str) -> str:
+            """Mask a Twilio SID, showing only last 4 chars."""
+            if not sid or len(sid) < 8:
+                return "********"
+            return f"****{sid[-4:]}"
+
         return {
             "id": self.id,
             "company_id": self.company_id,
-            "twilio_account_sid": self.twilio_account_sid,
+            "twilio_account_sid": _mask_sid(self.twilio_account_sid),
             "twilio_phone_number": self.twilio_phone_number,
             "is_enabled": self.is_enabled,
             "auto_create_ticket": self.auto_create_ticket,

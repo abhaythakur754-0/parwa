@@ -582,3 +582,90 @@ def dispatch_training_mistake_check(self):
             "dispatch_training_mistake_check failed error=%s", exc,
         )
         return {"status": "failed", "error": str(exc)[:200]}
+
+
+# ── CROSS-6: Token Blacklist Cleanup ──────────────────────────────
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="default",
+    name="app.tasks.periodic.cleanup_token_blacklist",
+    max_retries=1,
+)
+def cleanup_token_blacklist(self):
+    """Safety-net cleanup of the JWT token blacklist.
+
+    CROSS-6: Blacklisted jtis are stored in Redis with TTL matching
+    the token's remaining lifetime, so Redis handles expiry
+    automatically.  This task is a safety net that scans for any
+    orphaned entries (e.g., from a Redis TTL bug or clock skew).
+
+    Runs hourly via Celery Beat.
+
+    Uses SCAN parwa:blacklist:* to find entries, then checks their
+    remaining TTL.  Entries with TTL > 0 are healthy; entries
+    without TTL are cleaned up.
+    """
+    try:
+        import redis as sync_redis_lib
+
+        from app.config import get_settings
+
+        settings = get_settings()
+        if not settings.REDIS_URL:
+            logger.info(
+                "cleanup_token_blacklist skipped "
+                "(no REDIS_URL configured)"
+            )
+            return {"status": "skipped"}
+
+        client = sync_redis_lib.from_url(
+            settings.REDIS_URL,
+            decode_responses=True,
+            socket_timeout=5,
+            socket_connect_timeout=5,
+        )
+
+        # Scan for blacklist keys
+        cursor = 0
+        cleaned = 0
+        while True:
+            cursor, keys = client.scan(
+                cursor=cursor,
+                match="parwa:blacklist:*",
+                count=100,
+            )
+            for key in keys:
+                ttl = client.ttl(key)
+                if ttl == -1:
+                    # Key exists but has no TTL — clean it up
+                    client.delete(key)
+                    cleaned += 1
+                elif ttl == -2:
+                    # Key doesn't exist (race condition) — skip
+                    pass
+                # ttl > 0: healthy entry, will expire naturally
+            if cursor == 0:
+                break
+
+        client.close()
+
+        if cleaned > 0:
+            logger.info(
+                "cleanup_token_blacklist completed cleaned=%d",
+                cleaned,
+            )
+        else:
+            logger.debug(
+                "cleanup_token_blacklist no_orphans_found"
+            )
+
+        return {"status": "ok", "cleaned": cleaned}
+    except Exception as exc:
+        logger.warning(
+            "cleanup_token_blacklist failed error=%s",
+            exc,
+        )
+        return {"status": "failed", "error": str(exc)[:200]}

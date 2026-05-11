@@ -7,6 +7,7 @@ the node registry.
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -20,6 +21,12 @@ from app.core.technique_router import (
     QuerySignals,
     TECHNIQUE_REGISTRY,
 )
+from app.core.techniques.llm_client import (
+    LLMResponse,
+    llm_gateway,
+)
+
+logger = logging.getLogger("parwa.techniques.base")
 
 
 # ── GSD State Engine ──────────────────────────────────────────────
@@ -140,6 +147,80 @@ class BaseTechniqueNode(ABC):
             "reason": reason,
             "executed_at": datetime.now(timezone.utc).isoformat(),
         }
+
+    async def execute_with_llm(
+        self,
+        prompt: str,
+        state: Optional[ConversationState] = None,
+        *,
+        system_prompt: str = "",
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+        **kwargs: Any,
+    ) -> Optional[LLMResponse]:
+        """Call the LLM gateway with graceful error handling.
+
+        This is a convenience method so that technique subclasses do not
+        need to import the gateway directly.  On failure it logs the
+        error and returns ``None`` rather than propagating the
+        exception (BC-008: never crash).
+
+        Args:
+            prompt: The primary user message / query to send.
+            state: Optional conversation state.  When provided the
+                technique's ``technique_id`` and ``company_id`` are
+                automatically extracted.
+            system_prompt: Optional system-level instruction.  Falls
+                back to the technique description from the registry.
+            max_tokens: Override ``max_tokens``.  When ``None`` the
+                gateway default is used.
+            temperature: Override ``temperature``.
+            **kwargs: Forwarded verbatim to
+                :pymeth:`LLMGateway.generate` (e.g. ``messages``,
+                ``company_id``).
+
+        Returns:
+            :class:`LLMResponse` on success, ``None`` on failure.
+        """
+        technique_id = self.technique_id.value
+
+        # Derive defaults from the technique's registered metadata
+        if not system_prompt and self.technique_info:
+            system_prompt = self.technique_info.description or ""
+
+        # Pull company_id from state when available
+        company_id: str = kwargs.pop("company_id", "")
+        if not company_id and state is not None:
+            company_id = state.company_id or ""
+
+        try:
+            response = await llm_gateway.generate(
+                system_prompt=system_prompt,
+                user_message=prompt,
+                technique_id=technique_id,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                company_id=company_id,
+                **kwargs,
+            )
+
+            if response.error:
+                logger.warning(
+                    "execute_with_llm returned error [technique=%s]: %s",
+                    technique_id,
+                    response.error[:200],
+                )
+                return None
+
+            return response
+
+        except Exception as exc:
+            logger.error(
+                "execute_with_llm unexpected error [technique=%s]: %s",
+                technique_id,
+                str(exc)[:300],
+            )
+            return None
 
 
 # ── Node Registry (populated by stub_nodes) ──────────────────────

@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SocialLogin } from '@/components/auth/SocialLogin';
 import { useAuth } from '@/hooks/useAuth';
-import { isSafeRedirect } from '@/lib/auth-cookies';
+import { getSafeRedirect } from '@/lib/auth-cookies';
 
 function LoginPageLoading() {
   return (
@@ -27,8 +27,7 @@ function LoginContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ── H-01 FIX: Validate redirect URL to prevent open redirect ──
-  const rawRedirect = searchParams.get('redirect') || '/models';
-  const redirectTo = isSafeRedirect(rawRedirect) ? rawRedirect : '/models';
+  const redirectTo = getSafeRedirect(searchParams.get('redirect'));
 
   useEffect(() => {
     if (isAuthenticated && !authLoading) router.push(redirectTo);

@@ -13,14 +13,14 @@ from typing import Optional
 from fastapi import Depends, Header
 from sqlalchemy.orm import Session
 
-from app.core.auth import verify_access_token
+from app.core.auth import verify_access_token, is_token_revoked
 from app.exceptions import AuthenticationError
 from app.exceptions import AuthorizationError
 from database.base import get_db
 from database.models.core import User, Company
 
 
-def get_current_user(
+async def get_current_user(
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db),
 ) -> User:
@@ -28,6 +28,7 @@ def get_current_user(
 
     BC-011: Every protected endpoint uses this dependency.
     Sets company_id on the token for downstream tenant checks.
+    CROSS-6: Checks token blacklist (jti) after JWT verification.
 
     Args:
         authorization: The Authorization header value.
@@ -37,7 +38,7 @@ def get_current_user(
         Authenticated User object.
 
     Raises:
-        AuthenticationError: If token is missing or invalid.
+        AuthenticationError: If token is missing, invalid, or revoked.
     """
     if not authorization:
         raise AuthenticationError(
@@ -53,6 +54,16 @@ def get_current_user(
 
     token = parts[1]
     payload = verify_access_token(token)
+
+    # CROSS-6: Check token blacklist via jti.
+    # If the token has been explicitly revoked (logout, password
+    # change, admin revocation), reject it with 401.
+    jti = payload.get("jti")
+    if jti and await is_token_revoked(jti):
+        raise AuthenticationError(
+            message="Token has been revoked",
+            details={"reason": "blacklisted", "jti": jti},
+        )
 
     user_id = payload.get("sub")
     if not user_id:
@@ -190,7 +201,7 @@ def get_company_id(
     return str(user.company_id)
 
 
-def optional_user(
+async def optional_user(
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db),
 ) -> Optional[User]:
@@ -210,6 +221,6 @@ def optional_user(
         return None
 
     try:
-        return get_current_user(authorization, db)
+        return await get_current_user(authorization, db)
     except AuthenticationError:
         return None

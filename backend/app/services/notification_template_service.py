@@ -400,11 +400,22 @@ class NotificationTemplateService:
             )
     
     def _render(self, template: str, data: Dict[str, Any]) -> str:
-        """Render template with data."""
+        """Render template with data.
+
+        H-16 FIX: All values are HTML-escaped to prevent injection
+        when rendered in email HTML bodies.
+        """
+        from markupsafe import escape as html_escape, Markup
         result = template
         for key, value in data.items():
             placeholder = "{{" + key + "}}"
-            result = result.replace(placeholder, str(value) if value else "")
+            if value is None:
+                safe_value = ""
+            elif isinstance(value, (Markup,)):
+                safe_value = str(value)
+            else:
+                safe_value = html_escape(str(value))
+            result = result.replace(placeholder, safe_value)
         return result
     
     def _generate_sample_data(self, event_type: str) -> Dict[str, Any]:

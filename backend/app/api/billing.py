@@ -181,9 +181,12 @@ async def create_subscription(
     request: Request,
     data: SubscriptionCreate,
     company_id: UUID = Depends(get_company_id),
+    user: User = Depends(require_roles("owner", "admin")),
 ) -> SubscriptionInfo:
     """
     Create a new subscription.
+
+    H-13: Only users with role 'owner' or 'admin' can create subscriptions.
 
     Args:
         data: SubscriptionCreate with variant and optional payment_method_id
@@ -237,9 +240,12 @@ async def update_subscription(
     request: Request,
     data: SubscriptionUpdate,
     company_id: UUID = Depends(get_company_id),
+    user: User = Depends(require_roles("owner", "admin")),
 ) -> UpgradeResponse:
     """
     Update subscription (upgrade or downgrade).
+
+    H-13: Only users with role 'owner' or 'admin' can modify subscriptions.
 
     Upgrades:
     - Immediate

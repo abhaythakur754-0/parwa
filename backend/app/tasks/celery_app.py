@@ -231,6 +231,13 @@ def _build_config() -> dict:
                 "schedule": 21600.0,  # Every 6 hours
                 "kwargs": {},
             },
+            # CROSS-6: Token blacklist safety-net cleanup (hourly)
+            "cleanup-token-blacklist-hourly": {
+                "task": ("app.tasks.periodic"
+                          ".cleanup_token_blacklist"),
+                "schedule": 3600.0,  # Every hour
+                "kwargs": {},
+            },
         },
         # Day 16: Task send events for monitoring
         "task_send_sent_event": True,

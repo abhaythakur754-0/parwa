@@ -16,12 +16,13 @@ import hashlib
 import hmac
 import html
 import re
-import os
 import time
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, validator
+
+from app.config import get_settings
 
 router = APIRouter(prefix="/api/pricing", tags=["Pricing"])
 
@@ -659,8 +660,9 @@ class ValidateResponse(BaseModel):
     expires_at: int = Field(..., description="Token expiration timestamp (epoch)")
 
 
-# H-09 FIX: Pricing signing key from environment, not hardcoded
-PRICING_SIGNING_KEY = os.environ.get("PRICING_SIGNING_KEY", "dev-pricing-key-change-in-prod-32c")
+# H-09 FIX: Pricing signing key from Settings (validated in config.py)
+_settings = get_settings()
+PRICING_SIGNING_KEY: str = _settings.PRICING_SIGNING_KEY
 TOKEN_VALIDITY_SECONDS = 3600  # 1 hour
 
 
@@ -678,7 +680,7 @@ def _generate_validation_token(data: dict) -> tuple[str, int]:
     
     # Generate HMAC signature
     signature = hmac.new(
-        PRICING_SIGNING_KEY.encode(),
+        _settings.PRICING_SIGNING_KEY.encode(),
         payload.encode(),
         hashlib.sha256,
     ).hexdigest()

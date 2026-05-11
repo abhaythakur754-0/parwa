@@ -112,6 +112,43 @@ def _get_event_type_from_payload(
     return payload.get("event_type")
 
 
+def _check_provider_secret_configured(
+    provider: str, settings,
+) -> Optional[str]:
+    """Check that the webhook secret for a provider is configured.
+
+    Returns None if configured, or an error message string if missing.
+    H-07: Fail-closed — secrets are required in ALL environments.
+    """
+    secret_map = {
+        "paddle": getattr(
+            settings, "PADDLE_WEBHOOK_SECRET", "",
+        ),
+        "shopify": getattr(
+            settings, "SHOPIFY_WEBHOOK_SECRET", "",
+        ),
+        "twilio": getattr(
+            settings, "TWILIO_AUTH_TOKEN", "",
+        ),
+    }
+    secret = secret_map.get(provider)
+    if not secret:
+        env_var = {
+            "paddle": "PADDLE_WEBHOOK_SECRET",
+            "shopify": "SHOPIFY_WEBHOOK_SECRET",
+            "twilio": "TWILIO_AUTH_TOKEN",
+        }.get(provider, f"{provider.upper()}_SECRET")
+        logger.error(
+            "webhook_%s_no_secret_configured_rejected",
+            provider,
+        )
+        return (
+            f"Webhook not configured — "
+            f"{env_var} is required"
+        )
+    return None
+
+
 def _verify_provider_signature(
     provider: str,
     request: Request,
@@ -137,13 +174,7 @@ def _verify_provider_signature(
         settings = get_settings()
 
         if provider == "paddle":
-            # H-07 FIX: Explicitly reject when secret is not configured.
-            # Fail-closed in ALL environments (no env bypass).
-            if not settings.PADDLE_WEBHOOK_SECRET:
-                logger.error(
-                    "webhook_paddle_no_secret_configured_rejected",
-                )
-                return False
+            # H-07 FIX: Secret check moved to caller (500).
             from app.security.hmac_verification import (
                 verify_paddle_signature,
             )
@@ -161,12 +192,7 @@ def _verify_provider_signature(
             return result
 
         if provider == "shopify":
-            # H-07 FIX: Explicitly reject when secret is not configured.
-            if not settings.SHOPIFY_WEBHOOK_SECRET:
-                logger.error(
-                    "webhook_shopify_no_secret_configured_rejected",
-                )
-                return False
+            # H-07 FIX: Secret check moved to caller (500).
             from app.security.hmac_verification import (
                 verify_shopify_hmac,
             )
@@ -186,12 +212,7 @@ def _verify_provider_signature(
             return result
 
         if provider == "twilio":
-            # H-07 FIX: Explicitly reject when token is not configured.
-            if not settings.TWILIO_AUTH_TOKEN:
-                logger.error(
-                    "webhook_twilio_no_token_configured_rejected",
-                )
-                return False
+            # H-07 FIX: Token check moved to caller (500).
             from app.security.hmac_verification import (
                 verify_twilio_signature,
             )
@@ -336,38 +357,95 @@ async def receive_webhook(
         )
         payload = {}
 
-    # H-08: Verify timestamp freshness to prevent replay attacks
-    occurred_at = payload.get("occurred_at") or payload.get("created_at")
-    if occurred_at:
-        try:
-            if isinstance(occurred_at, datetime):
-                event_time = occurred_at
-            else:
-                event_time = datetime.fromisoformat(
-                    str(occurred_at).replace("Z", "+00:00")
-                )
-            age = (datetime.now(timezone.utc) - event_time).total_seconds()
-            if age > MAX_WEBHOOK_AGE_SECONDS:
-                logger.warning(
-                    "webhook_replay_rejected provider=%s event_id=%s age_seconds=%s",
-                    provider, _get_event_id_from_payload(provider, payload), age,
-                )
-                return JSONResponse(
-                    status_code=403,
-                    content={
-                        "error": {
-                            "code": "REPLAY_DETECTED",
-                            "message": (
-                                f"Webhook event is too old "
-                                f"({int(age)}s > {MAX_WEBHOOK_AGE_SECONDS}s max). "
-                                f"Possible replay attack."
-                            ),
-                            "details": {"age_seconds": int(age)},
-                        }
-                    },
-                )
-        except (ValueError, TypeError):
-            pass  # If timestamp is unparseable, let it through (idempotency handles dups)
+    # H-08: Verify timestamp freshness to prevent replay attacks.
+    # Fail-closed: reject if timestamp is missing or unparseable.
+    occurred_at = (
+        payload.get("occurred_at")
+        or payload.get("created_at")
+        or payload.get("timestamp")
+    )
+    if not occurred_at:
+        logger.warning(
+            "webhook_replay_rejected_no_timestamp provider=%s",
+            provider,
+        )
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": {
+                    "code": "REPLAY_DETECTED",
+                    "message": (
+                        "Webhook event has no timestamp. "
+                        "Rejecting as potential replay attack."
+                    ),
+                    "details": None,
+                }
+            },
+        )
+    try:
+        if isinstance(occurred_at, datetime):
+            event_time = occurred_at
+        else:
+            event_time = datetime.fromisoformat(
+                str(occurred_at).replace("Z", "+00:00")
+            )
+        age = (datetime.now(timezone.utc) - event_time).total_seconds()
+        if age > MAX_WEBHOOK_AGE_SECONDS:
+            logger.warning(
+                "webhook_replay_rejected provider=%s event_id=%s age_seconds=%s",
+                provider, _get_event_id_from_payload(provider, payload), age,
+            )
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": {
+                        "code": "REPLAY_DETECTED",
+                        "message": (
+                            f"Webhook event is too old "
+                            f"({int(age)}s > {MAX_WEBHOOK_AGE_SECONDS}s max). "
+                            f"Possible replay attack."
+                        ),
+                        "details": {"age_seconds": int(age)},
+                    }
+                },
+            )
+    except (ValueError, TypeError) as parse_err:
+        logger.warning(
+            "webhook_replay_rejected_unparseable_timestamp "
+            "provider=%s error=%s",
+            provider, parse_err,
+        )
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": {
+                    "code": "REPLAY_DETECTED",
+                    "message": (
+                        "Webhook event timestamp is unparseable. "
+                        "Rejecting as potential replay attack."
+                    ),
+                    "details": None,
+                }
+            },
+        )
+
+    # H-07: Fail-closed — reject with 500 when secret is missing.
+    from app.config import get_settings as _get_settings
+    _settings = _get_settings()
+    _secret_err = _check_provider_secret_configured(
+        provider, _settings,
+    )
+    if _secret_err:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": {
+                    "code": "CONFIGURATION_ERROR",
+                    "message": _secret_err,
+                    "details": None,
+                }
+            },
+        )
 
     # Verify signature (BC-011, BC-003)
     if not _verify_provider_signature(

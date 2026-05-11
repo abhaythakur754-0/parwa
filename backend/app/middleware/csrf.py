@@ -92,6 +92,14 @@ class CSRFSecurityMiddleware:
         2. CSRF token cookie validation (secondary — for any
            cookie-based auth endpoints).
 
+    H-19 additions:
+        - CSRF token cookie is generated and set on responses when
+          not already present, enabling the double-submit pattern.
+        - Requests with Authorization: Bearer header are exempted
+          from the CSRF cookie check (protected via Origin/Referer).
+        - CSRF cookie is NOT httpOnly so the frontend can read it
+          and send it as the x-csrf-token header.
+
     The middleware never raises; all errors result in a 403 JSON
     response (BC-008).
     """
@@ -123,8 +131,21 @@ class CSRFSecurityMiddleware:
         method = scope.get("method", "").upper()
         path = scope.get("path", "/")
 
-        # ── Add CSP header to all responses ──
-        wrapped_send = self._wrap_send(send)
+        # ── H-19: Check if request has an existing CSRF cookie ──
+        # If not, generate one and inject it into the response.
+        request_headers = dict(scope.get("headers", []))
+        cookie_header = request_headers.get(
+            b"cookie", b"",
+        ).decode("utf-8", errors="replace")
+        existing_csrf = self._extract_cookie(
+            cookie_header, _CSRF_COOKIE_NAME,
+        )
+        new_csrf_token = ""
+        if not existing_csrf:
+            new_csrf_token = self.generate_csrf_token()
+
+        # ── Add CSP header + CSRF cookie to all responses ──
+        wrapped_send = self._wrap_send(send, new_csrf_token)
 
         # ── Fast-path: skip safe methods ──
         if method in _SAFE_METHODS:
@@ -137,15 +158,26 @@ class CSRFSecurityMiddleware:
                 await self.app(scope, receive, wrapped_send)
                 return
 
+        # ── H-19: Exempt Bearer token auth from CSRF cookie check ──
+        auth_header = request_headers.get(
+            b"authorization", b"",
+        ).decode("utf-8", errors="replace").strip()
+        api_key_header = request_headers.get(
+            b"x-api-key", b"",
+        ).decode("utf-8", errors="replace").strip()
+        has_bearer = (
+            auth_header.lower().startswith("bearer ")
+            or bool(api_key_header)
+        )
+
         # ── Validate Origin / Referer ──
         try:
-            headers = dict(scope.get("headers", []))
-            origin = headers.get(b"origin", b"").decode(
-                "utf-8", errors="replace",
-            )
-            referer = headers.get(b"referer", b"").decode(
-                "utf-8", errors="replace",
-            )
+            origin = request_headers.get(
+                b"origin", b"",
+            ).decode("utf-8", errors="replace")
+            referer = request_headers.get(
+                b"referer", b"",
+            ).decode("utf-8", errors="replace")
 
             if not self._is_valid_origin(origin, referer):
                 correlation_id = secrets.token_hex(8)
@@ -177,16 +209,13 @@ class CSRFSecurityMiddleware:
             return
 
         # ── For cookie-based auth paths, verify CSRF token ──
-        if self._is_cookie_auth_path(path):
+        # H-19: Skip if Bearer token or API key is present.
+        if self._is_cookie_auth_path(path) and not has_bearer:
             try:
-                headers = dict(scope.get("headers", []))
-                cookie_header = headers.get(b"cookie", b"").decode(
-                    "utf-8", errors="replace",
-                )
                 csrf_token = self._extract_cookie(
                     cookie_header, _CSRF_COOKIE_NAME,
                 )
-                csrf_header = headers.get(
+                csrf_header = request_headers.get(
                     b"x-csrf-token", b"",
                 ).decode("utf-8", errors="replace")
 
@@ -389,15 +418,16 @@ class CSRFSecurityMiddleware:
     # ── Response helpers ───────────────────────────────────────────
 
     @staticmethod
-    def _wrap_send(send):
-        """Wrap the ASGI send callable to inject CSP header."""
-        csp_injected = False
+    def _wrap_send(send, new_csrf_token: str = ""):
+        """Wrap the ASGI send callable to inject CSP header
+        and CSRF cookie (H-19)."""
+        headers_injected = False
 
         async def wrapped_send(message):
-            nonlocal csp_injected
+            nonlocal headers_injected
             if (
                 message.get("type") == "http.response.start"
-                and not csp_injected
+                and not headers_injected
             ):
                 headers = list(message.get("headers", []))
                 # Add CSP header if not already present
@@ -409,8 +439,18 @@ class CSRFSecurityMiddleware:
                     headers.append(
                         [b"content-security-policy", _CSP_HEADER.encode()]
                     )
+                # H-19: Set CSRF cookie if a new token was generated
+                if new_csrf_token:
+                    csrf_cookie = (
+                        f"{_CSRF_COOKIE_NAME}={new_csrf_token}; "
+                        f"Path=/; SameSite=Strict; "
+                        f"Max-Age={_CSRF_MAX_AGE}"
+                    )
+                    headers.append(
+                        [b"set-cookie", csrf_cookie.encode()]
+                    )
                 message = {**message, "headers": headers}
-                csp_injected = True
+                headers_injected = True
             await send(message)
 
         return wrapped_send

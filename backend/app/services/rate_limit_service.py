@@ -2,7 +2,8 @@
 PARWA Advanced Rate Limit Service (F-018)
 
 Per-endpoint-category rate limiting with progressive backoff.
-Fails open when Redis is unavailable (falls back to in-memory).
+In-memory fallback available but NOT used by default — the
+middleware now fails CLOSED (503) when Redis is unavailable.
 Supports per-email identification for auth endpoints.
 """
 
@@ -19,7 +20,7 @@ logger = get_logger("rate_limit_service")
 
 CATEGORY_CONFIG = {
     "auth_login": {
-        "limit": 10,
+        "limit": 5,
         "window": 60,
         "scope": "email",
         "backoff_seconds": [0, 2, 4, 8, 900],
@@ -40,11 +41,18 @@ CATEGORY_CONFIG = {
         "lockout_duration": 900,
     },
     "auth_phone_verify": {
-        "limit": 20,
-        "window": 300,
-        "scope": "ip",
+        "limit": 10,
+        "window": 60,
+        "scope": "phone",
         "backoff_seconds": [0, 2, 4, 8, 300],
         "lockout_duration": 300,
+    },
+    "auth_register": {
+        "limit": 3,
+        "window": 60,
+        "scope": "ip",
+        "backoff_seconds": [0, 2, 4, 8, 900],
+        "lockout_duration": 900,
     },
     "auth_reset": {
         "limit": 3,
@@ -126,7 +134,9 @@ class RateLimitResult:
 class RateLimitService:
     """Advanced rate limit service with per-endpoint-category limits.
 
-    Fails open when Redis unavailable (in-memory fallback).
+    In-memory fallback is retained for testing / emergency use but
+    the middleware (rate_limit.py) now fails CLOSED (returns 503)
+    when Redis is unavailable.
     Per-email scope for auth endpoints.
     Progressive backoff on failures.
     """
@@ -145,6 +155,8 @@ class RateLimitService:
         """Classify a request path into an endpoint category."""
         if path == "/api/auth/login" and method == "POST":
             return "auth_login"
+        if path == "/api/auth/register" and method == "POST":
+            return "auth_register"
         if path == "/api/auth/mfa" and method == "POST":
             return "auth_mfa"
         if path == "/api/auth/phone/send" and method == "POST":
@@ -406,6 +418,8 @@ class RateLimitService:
         scope = config["scope"]
         if scope == "email":
             return await self._extract_email(request)
+        if scope == "phone":
+            return await self._extract_phone(request)
         if scope == "ip":
             return self._extract_ip(request)
         if scope == "ip_hash":
@@ -433,16 +447,24 @@ class RateLimitService:
             )
         return email.strip().lower() or "unknown"
 
+    async def _extract_phone(self, request) -> str:
+        """Extract phone number from request body for per-phone rate limiting."""
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        phone = body.get("phone", "")
+        return phone.strip() or "unknown"
+
     def _extract_ip(self, request) -> str:
-        if request.client and request.client.host:
-            return request.client.host
-        real = request.headers.get("X-Real-IP", "")
-        if real:
-            return real.strip()
-        forwarded = request.headers.get("X-Forwarded-For", "")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-        return "unknown"
+        """Extract client IP using the shared get_client_ip utility.
+
+        H-06: Uses the same IP extraction logic as all other
+        middleware (rate_limit, ip_allowlist, request_logger)
+        via app.core.security.utils.get_client_ip.
+        """
+        from app.core.security.utils import get_client_ip
+        return get_client_ip(request)
 
     def _extract_api_key_id(self, request) -> str:
         api_key = getattr(

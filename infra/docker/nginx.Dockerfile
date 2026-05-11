@@ -28,6 +28,9 @@ RUN mkdir -p /etc/nginx/ssl
 RUN mkdir -p /var/log/nginx && \
     chown -R nginx:nginx /var/log/nginx
 
+# Run as non-root nginx user
+USER nginx
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:80/health || exit 1

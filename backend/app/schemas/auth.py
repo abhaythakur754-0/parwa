@@ -191,7 +191,13 @@ class MessageResponse(BaseModel):
 
 
 class EmailCheckResponse(BaseModel):
-    """L04: Email availability check response."""
+    """L04: Email availability check response.
 
-    email: str
-    available: bool
+    M-27 FIX: Returns a generic message that does not reveal
+    whether the email is registered, preventing user enumeration.
+    """
+
+    message: str = (
+        "If an account with this email exists, "
+        "further instructions have been sent."
+    )

@@ -10,12 +10,12 @@ Keeps backward compatibility with the old security/rate_limiter
 module (the old limiter is still available but not used here).
 """
 
-import os
 import logging
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
+from app.core.security.utils import get_client_ip
 from app.middleware.error_handler import build_error_response
 from app.services.rate_limit_service import (
     get_rate_limit_service,
@@ -25,10 +25,6 @@ logger = logging.getLogger("parwa.middleware.rate_limit")
 
 # Shared service instance (per-process)
 _rate_limit_svc = get_rate_limit_service()
-
-# Number of trusted reverse-proxy layers in front of the app.
-# Only the rightmost N addresses in X-Forwarded-For are trusted.
-_TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "1"))
 
 # Paths that skip rate limiting (health, metrics)
 SKIP_PATHS = {"/health", "/ready", "/metrics"}
@@ -76,7 +72,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Fallback: use IP if identifier extraction failed
         # Never skip rate limiting (L01: brute-force prevention)
         if identifier == "unknown":
-            client_ip = self._get_client_ip(request)
+            client_ip = get_client_ip(request)
             if client_ip:
                 identifier = client_ip
 
@@ -88,14 +84,33 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 category, identifier,
             )
         except Exception as exc:
-            # BC-011: Fail-open on rate limiter failure, but LOG the error
-            # so operators are aware that rate limiting is disabled.
-            logger.error(
-                "rate_limit_check_failed path=%s error=%s",
+            # FAIL-CLOSED: When Redis is unavailable or rate limit
+            # check fails, BLOCK the request with 503.  This prevents
+            # brute-force / DDoS from bypassing rate limits when
+            # Redis is down.  The in-memory fallback in
+            # rate_limit_service is NOT used here by default.
+            logger.critical(
+                "rate_limit_check_failed_fail_closed path=%s "
+                "category=%s identifier=%s error=%s",
                 path,
+                category,
+                identifier[:50] if identifier else "none",
                 str(exc)[:200],
+                extra={
+                    "path": path,
+                    "category": category,
+                },
             )
-            return await call_next(request)
+            correlation_id = getattr(
+                request.state, "correlation_id", None
+            )
+            return build_error_response(
+                status_code=503,
+                error_code="SERVICE_UNAVAILABLE",
+                message="Rate limiting service is temporarily "
+                "unavailable. Please retry later.",
+                correlation_id=correlation_id,
+            )
 
         if not result.allowed:
             correlation_id = getattr(
@@ -118,19 +133,4 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             response.headers[hdr] = val
         return response
 
-    def _get_client_ip(self, request: Request) -> str:
-        """Extract client IP, honouring trusted proxy configuration.
 
-        Reads ``X-Forwarded-For`` only when ``TRUSTED_PROXY_COUNT > 0``
-        and returns the rightmost trusted address (i.e. the client-side
-        IP closest to the outermost trusted proxy).
-
-        Falls back to ``request.client.host`` when the header is absent
-        or no trusted proxies are configured.
-        """
-        forwarded = request.headers.get("X-Forwarded-For", "")
-        if forwarded and _TRUSTED_PROXY_COUNT > 0:
-            ips = [ip.strip() for ip in forwarded.split(",")]
-            if len(ips) >= _TRUSTED_PROXY_COUNT:
-                return ips[-_TRUSTED_PROXY_COUNT]
-        return request.client.host if request.client else "unknown"

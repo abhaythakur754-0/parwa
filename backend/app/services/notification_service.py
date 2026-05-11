@@ -14,6 +14,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
+from markupsafe import escape as html_escape, Markup
+
 from sqlalchemy import and_, desc, or_
 from sqlalchemy.orm import Session
 
@@ -569,11 +571,21 @@ class NotificationService:
         })
     
     def _render_template(self, template: str, data: Dict[str, Any]) -> str:
-        """Simple template rendering with variable substitution."""
+        """Simple template rendering with variable substitution.
+
+        H-16 FIX: All user-provided values are HTML-escaped to prevent
+        injection attacks when rendered in email HTML bodies.
+        """
         result = template
         for key, value in data.items():
             placeholder = "{{" + key + "}}"
-            result = result.replace(placeholder, str(value) if value else "")
+            if value is None:
+                safe_value = ""
+            elif isinstance(value, (Markup,)):
+                safe_value = str(value)
+            else:
+                safe_value = html_escape(str(value))
+            result = result.replace(placeholder, safe_value)
         return result
     
     def _generate_title(self, event_type: str, data: Dict[str, Any]) -> str:

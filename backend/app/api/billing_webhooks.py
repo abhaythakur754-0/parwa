@@ -21,6 +21,9 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 from uuid import UUID
 
+# H-08: Maximum age for webhook events (5 minutes) — prevents replay attacks
+MAX_WEBHOOK_AGE_SECONDS = 300
+
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -191,6 +194,60 @@ async def handle_paddle_webhook(
         payload = json.loads(body)
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    # H-08: Verify timestamp freshness to prevent replay attacks.
+    # Fail-closed: reject if timestamp is missing or unparseable.
+    occurred_at = (
+        payload.get("occurred_at")
+        or payload.get("created_at")
+        or payload.get("timestamp")
+        or payload.get("event_time")
+    )
+    if not occurred_at:
+        logger.error(
+            "paddle_webhook_replay_rejected_no_timestamp",
+            extra={"source_ip": request.client.host if request.client else None},
+        )
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Webhook event has no timestamp. "
+                "Rejecting as potential replay attack."
+            ),
+        )
+    try:
+        if isinstance(occurred_at, datetime):
+            event_time = occurred_at
+        else:
+            event_time = datetime.fromisoformat(
+                str(occurred_at).replace("Z", "+00:00")
+            )
+        age = (datetime.now(timezone.utc) - event_time).total_seconds()
+        if age > MAX_WEBHOOK_AGE_SECONDS:
+            logger.warning(
+                "paddle_webhook_replay_rejected event_age=%ss",
+                int(age),
+            )
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f"Webhook event is too old "
+                    f"({int(age)}s > {MAX_WEBHOOK_AGE_SECONDS}s max). "
+                    f"Possible replay attack."
+                ),
+            )
+    except (ValueError, TypeError) as parse_err:
+        logger.warning(
+            "paddle_webhook_replay_rejected_unparseable_timestamp error=%s",
+            parse_err,
+        )
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Webhook event timestamp is unparseable. "
+                "Rejecting as potential replay attack."
+            ),
+        )
 
     event_type = payload.get("event_type", "")
     event_id = payload.get("event_id", payload.get("id", ""))

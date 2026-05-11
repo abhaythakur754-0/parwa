@@ -11,7 +11,7 @@ Parwa's variant engine (Mini, Pro, High). Handles:
 Twilio Credentials:
 - Account SID: configured via environment variable
 - Auth Token: configured via environment variable
-- Phone Number: +17752583673 (US, voice + SMS capable)
+- Phone Number: configured via TWILIO_PHONE_NUMBER setting (M-37)
 
 Building Codes: BC-001, BC-002, BC-008, BC-012
 """
@@ -101,7 +101,8 @@ class ParwaVoiceConfig:
     """Configuration for the Parwa Voice Server."""
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
-    twilio_phone_number: str = "+17752583673"
+    # M-37 FIX: No hardcoded phone number; read from settings
+    twilio_phone_number: str = ""
     default_variant: VariantTier = VariantTier.PRO
     max_call_duration_minutes: int = 30
     enable_recording: bool = False
@@ -586,17 +587,20 @@ class ParwaVoiceServer:
 def create_voice_server(
     account_sid: str = "",
     auth_token: str = "",
-    phone_number: str = "+17752583673",
+    phone_number: str = "",
     default_variant: str = "parwa",
     host: str = "0.0.0.0",
     port: int = 5000,
 ) -> ParwaVoiceServer:
     """Factory function to create and configure a ParwaVoiceServer.
 
+    M-37 FIX: If phone_number is not provided, falls back to the
+    TWILIO_PHONE_NUMBER setting from config. No hardcoded numbers.
+
     Args:
         account_sid: Twilio Account SID.
         auth_token: Twilio Auth Token.
-        phone_number: Twilio phone number.
+        phone_number: Twilio phone number (falls back to settings).
         default_variant: Default Parwa variant tier.
         host: Flask host.
         port: Flask port.
@@ -604,6 +608,15 @@ def create_voice_server(
     Returns:
         Configured ParwaVoiceServer instance.
     """
+    # M-37: Resolve phone number from settings if not explicitly provided
+    if not phone_number:
+        try:
+            from app.config import get_settings
+            settings = get_settings()
+            phone_number = settings.TWILIO_PHONE_NUMBER
+        except Exception:
+            phone_number = ""
+
     variant_map = {
         "mini_parwa": VariantTier.MINI,
         "mini": VariantTier.MINI,

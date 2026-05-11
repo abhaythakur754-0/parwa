@@ -706,11 +706,14 @@ def _verify_google_token(id_token: str) -> dict:
         AuthenticationError: If verification fails.
     """
     try:
-        url = (
-            "https://oauth2.googleapis.com/tokeninfo"
-            f"?id_token={id_token}"
+        # H-12: Exchange/verify Google ID token via POST body (not
+        # URL query parameter) to prevent the token from being
+        # logged in access logs, browser history, or referrer headers.
+        resp = httpx.post(
+            "https://oauth2.googleapis.com/tokeninfo",
+            data={"id_token": id_token},
+            timeout=10.0,
         )
-        resp = httpx.get(url, timeout=10.0)
         data = resp.json()
 
         if resp.status_code != 200:

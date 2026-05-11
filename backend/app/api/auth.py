@@ -23,7 +23,9 @@ Protected endpoints (JWT required):
 - GET  /api/auth/me
 """
 
-from fastapi import APIRouter, Depends, Query, Response
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Header, Query, Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -87,14 +89,11 @@ def check_email(
 
     L04: F-010 spec requires email availability check.
     Rate limited by middleware (20/IP/min).
+    M-27 FIX: Always returns the same generic response regardless
+    of whether the email exists, preventing user enumeration.
     """
-    available = check_email_availability(
-        db=db, email=email
-    )
-    return EmailCheckResponse(
-        email=email.strip().lower(),
-        available=available,
-    )
+    # Always return the same response — do not reveal email existence
+    return EmailCheckResponse()
 
 
 @router.post(
@@ -332,18 +331,29 @@ def reset_password_endpoint(
 
 
 @router.post("/logout", response_model=MessageResponse)
-def logout(
+async def logout(
     body: RefreshRequest,
     response: Response,
+    authorization: Optional[str] = Header(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> MessageResponse:
-    """Revoke a refresh token (logout).
+    """Revoke a refresh token (logout) and blacklist the access token.
 
     Deletes the refresh token from the database.
+    CROSS-6: Also blacklists the current access token's jti in Redis
+    so it is immediately rejected on subsequent requests.
     L12: Clears HTTP-only cookies.
     """
     logout_user(db=db, raw_token=body.refresh_token)
+
+    # CROSS-6: Blacklist the current access token so it cannot
+    # be reused even before JWT expiry.
+    if authorization and authorization.startswith("Bearer "):
+        access_token = authorization.split(" ", 1)[1]
+        from app.core.auth import blacklist_current_token
+        await blacklist_current_token(access_token)
+
     _clear_token_cookies(response)
     return MessageResponse(
         message="Logged out successfully"

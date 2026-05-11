@@ -6,11 +6,33 @@ Sensible dev defaults are provided so the app starts without a .env file.
 Validators warn (not crash) if dev defaults are used in production.
 """
 
+import logging
 import os
 import warnings
+from enum import Enum
+from typing import Literal
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+
+class Environment(str, Enum):
+    """Valid application environment values."""
+    DEVELOPMENT = "development"
+    STAGING = "staging"
+    TEST = "test"
+    PRODUCTION = "production"
+
+
+# Valid environment values as a Literal union for pydantic validation
+_VALID_ENVIRONMENTS = Literal[
+    "development",
+    "staging",
+    "test",
+    "production",
+]
 
 
 class Settings(BaseSettings):
@@ -23,6 +45,18 @@ class Settings(BaseSettings):
 
     # ── Application ──────────────────────────────────────────────
     ENVIRONMENT: str = "development"
+
+    @field_validator("ENVIRONMENT")
+    @classmethod
+    def validate_environment(cls, v: str) -> str:
+        """Ensure ENVIRONMENT is one of the allowed values."""
+        valid = {e.value for e in Environment}
+        if v not in valid:
+            raise ValueError(
+                f"ENVIRONMENT must be one of {sorted(valid)}, got '{v}'"
+            )
+        return v
+
     SECRET_KEY: str = "dev-secret-key-change-in-production"
     DEBUG: bool = False
 
@@ -195,6 +229,25 @@ class Settings(BaseSettings):
     # ── MCP Server ───────────────────────────────────────────────
     MCP_SERVER_URL: str = ""
     MCP_AUTH_TOKEN: str = ""
+
+    # ── Pricing Integrity (H-09) ────────────────────────────────
+    PRICING_SIGNING_KEY: str = "dev-pricing-key-change-in-prod-32c"
+
+    @field_validator("PRICING_SIGNING_KEY")
+    @classmethod
+    def validate_pricing_signing_key(cls, v: str) -> str:
+        if not v or v.startswith("dev-"):
+            if os.environ.get("ENVIRONMENT") == "production":
+                raise ValueError(
+                    "PRICING_SIGNING_KEY must be set to a non-default value "
+                    "in production. Set a cryptographically random value via the "
+                    "PRICING_SIGNING_KEY env var."
+                )
+            warnings.warn(
+                "Using development PRICING_SIGNING_KEY — change in production!",
+                stacklevel=2,
+            )
+        return v
 
     # ── Misc ─────────────────────────────────────────────────────
     NEXT_PUBLIC_API_URL: str = ""

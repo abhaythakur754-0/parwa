@@ -6,12 +6,14 @@ Adds security headers to all responses per BC-011/BC-012:
 - X-XSS-Protection: 0 (modern browsers)
 - Referrer-Policy: strict-origin-when-cross-origin
 - Permissions-Policy: camera/mic/geo disabled
-- Content-Security-Policy: restrictive default policy (H-04)
+- Content-Security-Policy: comprehensive restrictive policy (H-04)
 - Strict-Transport-Security: in production
 - Cache-Control: no-store on auth endpoints (M-11)
 """
 
+import hashlib
 import os
+import secrets
 
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -39,15 +41,27 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Permissions-Policy"] = (
             "camera=(), microphone=(), geolocation=()"
         )
-        # H-04: Content-Security-Policy header
+        # H-04: Content-Security-Policy header (comprehensive)
+        # Nonce is generated per-request for script-src to allow
+        # inline scripts only when they carry the matching nonce.
+        # In production this should be injected via template.
+        csp_nonce = secrets.token_urlsafe(16)
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'self'; "
+            "default-src 'self'; "
+            "script-src 'self' 'nonce-{nonce}'; "
             "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: blob:; "
-            "font-src 'self' data:; connect-src 'self'; "
-            "frame-ancestors 'none'; base-uri 'self'; "
-            "form-action 'self'"
-        )
+            "img-src 'self' data: https: blob:; "
+            "font-src 'self' data:; "
+            "connect-src 'self' https://*.paddle.com https://api.stripe.com; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'; "
+            "object-src 'none'; "
+            "upgrade-insecure-requests"
+        ).format(nonce=csp_nonce)
+        # Expose nonce to downstream code via a response header
+        # (templates/middleware can read it to inject into <script> tags)
+        response.headers["X-CSP-Nonce"] = csp_nonce
         # HSTS only in production
         env = os.environ.get("ENVIRONMENT", "development")
         if env == "production":
