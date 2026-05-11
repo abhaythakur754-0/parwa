@@ -65,7 +65,7 @@ _COMMAND_STATUSES = (
 _ALERT_SEVERITIES = "'info','warning','critical','emergency'"
 _ALERT_CATEGORIES = (
     "'system_health','ticket_volume','agent_pool',"
-    "'quality','drift','billing','security','integration'"
+    "'quality','drift','billing','security','integration','training'"
 )
 
 

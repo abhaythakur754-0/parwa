@@ -241,7 +241,7 @@ _VALID_ALERT_SEVERITIES = ("info", "warning", "critical", "emergency")
 _VALID_ALERT_STATUSES = ("active", "acknowledged", "dismissed", "resolved", "expired")
 _VALID_ALERT_CATEGORIES = (
     "system_health", "ticket_volume", "agent_pool",
-    "quality", "drift", "billing", "security", "integration",
+    "quality", "drift", "billing", "security", "integration", "training",
 )
 
 
