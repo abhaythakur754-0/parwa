@@ -253,6 +253,47 @@ def run_awareness_tick(
     except Exception:
         logger.exception("Failed to prune expired alerts")
 
+    # ── Step 11: Dispatch events (Phase 2.4) ──
+    try:
+        from app.services import jarvis_event_dispatcher
+
+        # Dispatch tick event
+        jarvis_event_dispatcher.dispatch_tick_event(
+            company_id=company_id,
+            session_id=session_id,
+            tick_number=tick_number,
+            tick_type=tick_type,
+            system_health=current_state.get("system_health", "unknown"),
+            alerts_created=len(alerts_created),
+            quality_score=current_state.get("quality_score"),
+            drift_score=current_state.get("drift_score"),
+        )
+
+        # Dispatch alert events
+        for alert in alerts_created:
+            jarvis_event_dispatcher.dispatch_alert_event(
+                company_id=company_id,
+                session_id=session_id,
+                alert_id=str(alert.id),
+                alert_type=alert.alert_type,
+                severity=alert.severity,
+                title=alert.title,
+                action="created",
+            )
+
+        # Dispatch state change events from delta
+        for change in delta.get("new_alerts", []):
+            jarvis_event_dispatcher.dispatch_state_event(
+                company_id=company_id,
+                session_id=session_id,
+                field=change.get("field", "unknown"),
+                old_value=change.get("from"),
+                new_value=change.get("to"),
+                change_type=change.get("change", "changed"),
+            )
+    except Exception:
+        logger.debug("event_dispatch_non_fatal", exc_info=True)
+
     total_ms = round((time.monotonic() - start_time) * 1000, 2)
 
     tick_result = {

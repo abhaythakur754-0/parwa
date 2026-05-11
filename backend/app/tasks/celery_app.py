@@ -111,6 +111,8 @@ def _build_config() -> dict:
             "app.tasks.ai.heavy.*": {"queue": "ai_heavy"},
             "app.tasks.ai.light.*": {"queue": "ai_light"},
             "app.tasks.training.*": {"queue": "training"},
+            # Phase 2.4: Jarvis Awareness Engine task routing
+            "app.tasks.jarvis_awareness_tasks.*": {"queue": "default"},
         },
         # Day 16: Beat scheduler (periodic tasks)
         "beat_schedule": {
@@ -216,6 +218,19 @@ def _build_config() -> dict:
                 "schedule": 7200.0,  # Every 2 hours
                 "kwargs": {},
             },
+            # Phase 2.4: Jarvis Awareness Engine beat schedule
+            "jarvis-awareness-tick-30s": {
+                "task": ("app.tasks.jarvis_awareness_tasks"
+                          ".run_awareness_ticks_all"),
+                "schedule": 30.0,  # Every 30 seconds
+                "kwargs": {},
+            },
+            "jarvis-awareness-prune-6h": {
+                "task": ("app.tasks.jarvis_awareness_tasks"
+                          ".prune_awareness_data"),
+                "schedule": 21600.0,  # Every 6 hours
+                "kwargs": {},
+            },
         },
         # Day 16: Task send events for monitoring
         "task_send_sent_event": True,
@@ -236,6 +251,8 @@ def _build_config() -> dict:
             "app.tasks.ai_engine_tasks",
             # Week 13 Day 3: Email channel task module
             "app.tasks.email_channel_tasks",
+            # Phase 2.4: Jarvis Awareness Engine tasks
+            "app.tasks.jarvis_awareness_tasks",
         ],
     }
 
