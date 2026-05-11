@@ -1,15 +1,25 @@
 """
-Jarvis Models: onboarding chat system.
+Jarvis Models: onboarding + customer care chat system.
 
 Tables:
 - JarvisSession: Per-user chat session with context_json memory,
   message limits, pack type, payment status.
+  Supports both 'onboarding' and 'customer_care' session types.
 - JarvisMessage: All chat messages (user, jarvis, system) with
-  rich message types (text, cards, tickets, etc.).
+  rich message types (text, cards, tickets, variant pipeline,
+  proactive alerts, command responses, etc.).
 - JarvisKnowledgeUsed: Tracks which knowledge base files were
   used per AI response (analytics + context).
 - JarvisActionTicket: Every user action as a visible ticket in
   the chat stream with status tracking and result data.
+
+Phase 1.3 additions:
+- Extended _MESSAGE_TYPES to include CC mode types:
+  variant_pipeline, ai_generated, direct_ai, proactive_alert,
+  command_response
+- Added awareness_snapshots relationship to JarvisSession
+  (for jarvis_awareness_snapshots table in jarvis_cc.py)
+- Added proactive_alerts relationship to JarvisSession
 
 Based on: JARVIS_SPECIFICATION.md v3.0 / JARVIS_ROADMAP.md v4.0
 """
@@ -41,7 +51,10 @@ _MESSAGE_TYPES = (
     "'text','bill_summary','payment_card','otp_card',"
     "'handoff_card','demo_call_card','action_ticket',"
     "'call_summary','recharge_cta',"
-    "'limit_reached','pack_expired','error'"
+    "'limit_reached','pack_expired','error',"
+    # Phase 1.3: Customer Care message types
+    "'variant_pipeline','ai_generated','direct_ai',"
+    "'proactive_alert','command_response'"
 )
 _TICKET_TYPES = (
     "'otp_verification','otp_verified',"
@@ -101,6 +114,18 @@ class JarvisSession(Base):
         "JarvisActionTicket", back_populates="session",
         cascade="all, delete-orphan",
     )
+    # Phase 1.3: Awareness snapshots for CC sessions (Phase 2 writes here)
+    awareness_snapshots = relationship(
+        "JarvisAwarenessSnapshot", back_populates="session",
+        cascade="all, delete-orphan",
+        order_by="JarvisAwarenessSnapshot.created_at.desc()",
+    )
+    # Phase 1.3: Proactive alerts for CC sessions
+    proactive_alerts = relationship(
+        "JarvisProactiveAlert", back_populates="session",
+        cascade="all, delete-orphan",
+        order_by="JarvisProactiveAlert.created_at.desc()",
+    )
     user = relationship("User")
     company = relationship("Company")
 
@@ -145,7 +170,9 @@ class JarvisMessage(Base):
     content = Column(Text, nullable=False)
     # Rich message types: text, bill_summary, payment_card, otp_card,
     # handoff_card, demo_call_card, action_ticket, call_summary,
-    # recharge_cta, limit_reached, pack_expired, error
+    # recharge_cta, limit_reached, pack_expired, error,
+    # variant_pipeline, ai_generated, direct_ai,
+    # proactive_alert, command_response
     message_type = Column(String(25), nullable=False, default="text")
     # Extra data for card-type messages (variant details, payment info, etc.)
     metadata_json = Column(Text, default="{}")

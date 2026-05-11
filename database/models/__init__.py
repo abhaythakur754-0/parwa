@@ -56,6 +56,11 @@ from database.models.jarvis import (  # noqa: F401
     JarvisKnowledgeUsed,
     JarvisActionTicket,
 )
+from database.models.jarvis_cc import (  # noqa: F401
+    JarvisAwarenessSnapshot,
+    JarvisCommand,
+    JarvisProactiveAlert,
+)
 from database.models.business_email_otp import BusinessEmailOTP  # noqa: F401
 from database.models.outbound_email import OutboundEmail  # noqa: F401
 from database.models.email_delivery_event import EmailDeliveryEvent  # noqa: F401
