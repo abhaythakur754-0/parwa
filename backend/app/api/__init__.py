@@ -42,3 +42,7 @@ api_router.include_router(technique_config.router, prefix="/api/techniques", tag
 
 # Week 6 Day 2: Jarvis onboarding chat routes
 api_router.include_router(jarvis.router, tags=["jarvis"])
+
+# Jarvis Customer Care routes (post-onboarding, Phase 1.2)
+from app.api import jarvis_cc
+api_router.include_router(jarvis_cc.router, tags=["jarvis-cc"])
