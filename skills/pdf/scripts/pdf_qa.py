@@ -53,8 +53,8 @@ LINE_END_FORBIDDEN = set(
     "\u201c"        # " left curly double quote
 )
 
-# Minimum fill ratio for last page (DISABLED — caused false positives)
-# LAST_PAGE_MIN_FILL = 0.40
+# Minimum fill ratio for last page
+LAST_PAGE_MIN_FILL = 0.40
 
 # Maximum allowed color count — REMOVED (color count is now info-only)
 # MAX_COLORS = 8

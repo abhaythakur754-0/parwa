@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block body %}
+<h2 style="margin:0 0 20px;color:#d32f2f">Payment Failed</h2>
+
+<p>Hi {{ user_name }},</p>
+
+<p>We were unable to process your payment of <strong>${{ amount }}</strong> for your PARWA subscription.</p>
+
+<div style="background:#fff3e0;padding:20px;border-radius:6px;margin:20px 0">
+    <p style="margin:0"><strong>Reason:</strong> {{ reason }}</p>
+</div>
+
+<p>Please update your payment method as soon as possible to avoid any interruption to your service. Your account will remain active for a short grace period while you resolve this.</p>
+
+<p>If the issue persists, we recommend trying a different payment method or contacting your bank for more information.</p>
+
+<p>If you have any questions or need further assistance, please contact our support team.</p>
+
+<p>Best regards,<br>
+PARWA Billing Team</p>
+{% endblock %}

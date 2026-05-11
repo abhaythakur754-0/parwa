@@ -1,0 +1,26 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'parwa_service']
+  group_wait: 10s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'default-receiver'
+
+  routes:
+    - match:
+        severity: critical
+      receiver: 'critical-receiver'
+      group_wait: 0s
+      repeat_interval: 1h
+
+receivers:
+  - name: 'default-receiver'
+    webhook_configs:
+      - url: 'http://backend:8000/api/webhooks/alertmanager'
+        send_resolved: true
+  - name: 'critical-receiver'
+    webhook_configs:
+      - url: 'http://backend:8000/api/webhooks/alertmanager'
+        send_resolved: true

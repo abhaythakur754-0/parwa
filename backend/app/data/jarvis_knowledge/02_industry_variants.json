@@ -1,0 +1,738 @@
+{
+  "knowledge_base": "PARWA Industry Variants",
+  "version": "1.0.0",
+  "last_updated": "2025-01-15",
+  "total_variants": 20,
+  "industries_count": 4,
+  "description": "Complete catalog of all 20 AI agent variants across 4 industries. Each variant is a purpose-built AI agent trained to handle a specific category of customer support inquiries within its industry.",
+  "industries": [
+    {
+      "id": "e-commerce",
+      "name": "E-Commerce",
+      "description": "AI agents specialized for online retail operations. These variants handle the full spectrum of e-commerce customer support from order placement to post-purchase issues.",
+      "variants": [
+        {
+          "id": "ecom-order-management",
+          "name": "Order Management",
+          "description": "End-to-end order lifecycle management agent that handles order placement assistance, modifications, cancellations, status tracking, and all order-related customer inquiries with real-time integration into your e-commerce platform.",
+          "tickets_per_month": 500,
+          "price_per_unit": 99,
+          "currency": "USD",
+          "what_it_handles": [
+            "Order placement guidance and cart assistance for customers who need help completing a purchase",
+            "Order modification requests including address changes, item additions or removals before shipment",
+            "Order cancellation processing with prorated refund calculations based on fulfillment status",
+            "Real-time order status tracking with estimated delivery date predictions",
+            "Back-order and pre-order status inquiries with restock notification management",
+            "Bulk order inquiries and corporate/gift order special handling",
+            "Order confirmation and receipt retrieval for lost or missing confirmation emails",
+            "Multi-currency and international order inquiries including customs duty estimates"
+          ],
+          "sample_query": "I placed an order three days ago for order #ORD-78432 but I have not received any shipping confirmation. Can you check the status and let me know when it will arrive?",
+          "sample_response": "I have located your order #ORD-78432. Your order was placed on January 12th and is currently being prepared for shipment at our East Coast fulfillment center. The items in your order (Wireless Headphones and Phone Case) are both in stock and packed. Based on the shipping method you selected (Standard Shipping, 5-7 business days), your estimated delivery date is January 20th. You should receive a shipping confirmation email with a tracking number within the next 24 hours once the carrier picks up your package. I have also just sent a copy of your order confirmation to your registered email address. Is there anything else you would like to know about this order?",
+          "setup_requirements": [
+            "Connect your e-commerce platform (Shopify, WooCommerce, Magento, or BigCommerce) via PARWA integration",
+            "Import product catalog with SKUs, names, descriptions, and pricing",
+            "Configure shipping carrier APIs for real-time tracking data",
+            "Set up order status workflow mapping to match your fulfillment process",
+            "Define cancellation and modification policies and time windows",
+            "Upload FAQ documents about ordering process, payment methods, and shipping options"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 92,
+            "target_csat": 4.6,
+            "target_response_time_seconds": 3,
+            "target_first_contact_resolution": 88,
+            "typical_deflection_rate": 85
+          }
+        },
+        {
+          "id": "ecom-returns-refunds",
+          "name": "Returns & Refunds",
+          "description": "Comprehensive returns and refunds management agent that processes return requests, generates return labels, calculates refund amounts, and guides customers through the entire return/exchange process while enforcing company return policies.",
+          "tickets_per_month": 200,
+          "price_per_unit": 49,
+          "currency": "USD",
+          "what_it_handles": [
+            "Return request initiation with eligibility verification against return policy windows and conditions",
+            "Return shipping label generation with carrier selection and cost assignment (prepaid or customer-paid)",
+            "Refund amount calculation including original payment method, shipping cost deduction, and restocking fees",
+            "Exchange processing with inventory check for replacement item availability",
+            "Return status tracking from shipment receipt through inspection and refund issuance",
+            "Return policy explanations including condition requirements, time limits, and non-returnable items",
+            "Partial refund handling for multi-item orders where only some items are returned",
+            "Gift return processing with store credit issuance when original payment method is unavailable"
+          ],
+          "sample_query": "I received my order yesterday but the blue sweater does not fit me right. I would like to return it and get a refund. The order number is #ORD-65219.",
+          "sample_response": "I am sorry the sweater did not work out! I would be happy to help you with a return. I found your order #ORD-65219 placed on January 10th for the Blue Merino Sweater ($89.00). Since your order was delivered yesterday, you are well within our 30-day return window. I have initiated a return for this item. Here is what happens next: (1) I have emailed you a prepaid return shipping label to your registered address — simply pack the sweater in its original packaging, attach the label, and drop it off at any UPS location. (2) Once we receive and inspect the item (typically 2-3 business days after you ship it), we will process your refund of $89.00 back to your Visa ending in 4242. (3) The refund should appear on your statement within 5-7 business days. Would you like me to also help you with an exchange for a different size instead?",
+          "setup_requirements": [
+            "Configure return policy rules including time windows, condition requirements, and restocking fees",
+            "Set up return shipping label generation with carrier account integration",
+            "Define refund processing rules mapped to original payment methods",
+            "Configure exchange workflows with inventory lookup integration",
+            "Upload return policy documentation and FAQ content",
+            "Set up return status notification templates (email/SMS)"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 88,
+            "target_csat": 4.3,
+            "target_response_time_seconds": 4,
+            "target_first_contact_resolution": 82,
+            "typical_deflection_rate": 78
+          }
+        },
+        {
+          "id": "ecom-product-faq",
+          "name": "Product FAQ",
+          "description": "Product knowledge expert agent that provides detailed, accurate answers about product specifications, availability, compatibility, sizing guides, materials, warranty terms, and any other product-related questions customers may have before or after purchase.",
+          "tickets_per_month": 300,
+          "price_per_unit": 39,
+          "currency": "USD",
+          "what_it_handles": [
+            "Product specification inquiries including dimensions, weight, materials, color options, and technical specs",
+            "Product availability and stock status checks across multiple warehouse locations",
+            "Sizing and fit guidance with comparison to similar products and size chart interpretation",
+            "Compatibility verification between products, accessories, and third-party items",
+            "Warranty coverage details, claim filing procedures, and warranty period verification",
+            "Product care instructions, maintenance guides, and cleaning recommendations",
+            "Product comparison assistance helping customers choose between similar items",
+            "Discontinued product information and recommended alternative suggestions"
+          ],
+          "sample_query": "I am looking at your Pro Trail Running Shoes and I am usually a size 9.5 in Nike. What size should I get? Also, are they waterproof and do they come in wide?",
+          "sample_response": "Great question about the Pro Trail Running Shoes! Based on our fit data, Nike sizes run about a half size larger than our Pro Trail shoes, so I would recommend going with a Size 10 in our brand for the best fit. Regarding your other questions: Yes, the Pro Trail Running Shoes feature a waterproof Gore-Tex membrane that keeps your feet dry in rain and shallow water crossings while still being breathable. And yes, they are available in Wide (EE) width in all colors except the limited-edition Forest Green. The Wide option is in stock right now and ready to ship. Would you like me to walk you through the return policy just in case, or would you like to hear about the 30-day comfort guarantee?",
+          "setup_requirements": [
+            "Import complete product catalog with detailed specifications and descriptions",
+            "Upload sizing charts, fit guides, and measurement instructions",
+            "Configure product comparison and recommendation engine rules",
+            "Set up real-time inventory status integration for stock level queries",
+            "Import warranty terms and claim process documentation",
+            "Add product care guides and maintenance documentation to knowledge base"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 94,
+            "target_csat": 4.5,
+            "target_response_time_seconds": 2,
+            "target_first_contact_resolution": 90,
+            "typical_deflection_rate": 88
+          }
+        },
+        {
+          "id": "ecom-shipping-inquiries",
+          "name": "Shipping Inquiries",
+          "description": "Shipping information specialist agent that provides accurate shipping cost estimates, delivery timelines, carrier options, tracking updates, shipping policy clarifications, and international shipping guidance.",
+          "tickets_per_month": 250,
+          "price_per_unit": 49,
+          "currency": "USD",
+          "what_it_handles": [
+            "Shipping cost calculation based on destination, package weight, dimensions, and selected carrier",
+            "Delivery timeline estimates for standard, expedited, and overnight shipping options",
+            "Real-time package tracking with status updates from integrated carrier APIs",
+            "Shipping method comparison and recommendations based on urgency and budget",
+            "International shipping guidance including customs duties, import taxes, and delivery timeframes",
+            "Shipping policy explanations covering cutoff times, processing delays, and holiday schedules",
+            "Combined shipping and free shipping threshold calculations for multi-item orders",
+            "Address correction and delivery instruction update requests"
+          ],
+          "sample_query": "I need to get a birthday gift to my sister in Austin, TX by this Saturday. I am ordering today Wednesday. What shipping options do I have and how much will each cost?",
+          "sample_response": "I would love to help you get that birthday gift there on time! Since today is Wednesday and you need delivery by Saturday, you have two options: (1) Two-Day Express ($14.99) — Your order would arrive by Friday, December 15th. This gives you a one-day buffer before Saturday. (2) Next-Day Priority ($24.99) — Guaranteed delivery by Thursday, December 14th. Both options include full tracking and insurance. The order cutoff for Two-Day Express today is 3:00 PM EST, and for Next-Day Priority it is 5:00 PM EST. Since your order is shipping to Austin, TX (a major metro area), both options have excellent on-time delivery rates above 98%. Would you like me to recommend the Two-Day Express to save on shipping while still arriving before Saturday?",
+          "setup_requirements": [
+            "Integrate carrier APIs (UPS, FedEx, USPS, DHL) for rate calculation and tracking",
+            "Configure shipping zone tables and delivery time matrices",
+            "Set up shipping policy documents including cutoff times and holiday schedules",
+            "Import international shipping rules and customs documentation requirements",
+            "Configure free shipping threshold rules and promotional shipping logic",
+            "Set up tracking status mapping from carrier codes to customer-friendly messages"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 93,
+            "target_csat": 4.4,
+            "target_response_time_seconds": 2,
+            "target_first_contact_resolution": 91,
+            "typical_deflection_rate": 87
+          }
+        },
+        {
+          "id": "ecom-payment-issues",
+          "name": "Payment Issues",
+          "description": "Payment troubleshooting agent that resolves payment failures, declined transactions, duplicate charges, refund discrepancies, payment method management, and billing inquiries while maintaining strict PCI compliance and data security.",
+          "tickets_per_month": 150,
+          "price_per_unit": 59,
+          "currency": "USD",
+          "what_it_handles": [
+            "Payment failure diagnosis and resolution with specific error code explanations and retry guidance",
+            "Declined transaction troubleshooting including card verification and alternative payment suggestions",
+            "Duplicate charge investigation and initiation of charge reversal when confirmed",
+            "Refund status tracking and discrepancy resolution between expected and received refund amounts",
+            "Payment method management including adding, updating, and removing saved cards and payment profiles",
+            "Invoice retrieval and billing history access for accounting and expense reporting purposes",
+            "Currency conversion and foreign transaction fee explanations for international payments",
+            "Promotional discount and coupon code application issues including expired code troubleshooting"
+          ],
+          "sample_query": "I tried to check out twice and both times my card was declined, but I know I have enough money. I also see two pending charges of $149 on my bank statement even though neither order went through. What is going on?",
+          "sample_response": "I completely understand your frustration, and I can see exactly what happened here. When you attempted checkout the first time, our payment processor received a 'do not honor' response from your bank, which is the most common decline reason. This typically happens when the bank's fraud detection system flags a transaction it does not recognize. Your second attempt triggered the same response. Regarding the two pending charges of $149 — these are authorization holds, not actual charges. When a payment is attempted, your bank places a temporary hold on the funds, but since the transactions were declined, these holds will automatically drop off your statement within 3-5 business days. No money has been taken from your account. Here is what I recommend: (1) Call the number on the back of your card and let them know you are trying to make a purchase from us — they can whitelist the transaction. (2) Try checking out again with the same card, or alternatively, you can use PayPal, Apple Pay, or Google Pay which often bypass card-specific fraud blocks. Would you like me to hold your cart for 24 hours while you sort this out with your bank?",
+          "setup_requirements": [
+            "Connect payment gateway APIs (Stripe, Razorpay) for transaction lookup and status checking",
+            "Configure payment error code mapping to plain-language explanations",
+            "Set up PCI-compliant data handling protocols (no raw card data stored)",
+            "Define refund and chargeback processing workflows and escalation rules",
+            "Import billing policy documentation and payment method support guides",
+            "Configure duplicate charge detection algorithms and auto-alert thresholds"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 85,
+            "target_csat": 4.2,
+            "target_response_time_seconds": 5,
+            "target_first_contact_resolution": 78,
+            "typical_deflection_rate": 72
+          }
+        }
+      ]
+    },
+    {
+      "id": "saas",
+      "name": "SaaS",
+      "description": "AI agents specialized for software-as-a-service companies. These variants handle the technical and operational support needs of SaaS customers from troubleshooting to billing and feature guidance.",
+      "variants": [
+        {
+          "id": "saas-technical-support",
+          "name": "Technical Support",
+          "description": "Advanced technical troubleshooting agent that diagnoses software issues, provides step-by-step resolution guides, troubleshoots error messages and bugs, and helps customers resolve configuration and performance problems across the SaaS platform.",
+          "tickets_per_month": 400,
+          "price_per_unit": 89,
+          "currency": "USD",
+          "what_it_handles": [
+            "Software bug diagnosis with error message interpretation and known issue identification",
+            "Step-by-step troubleshooting guides for common technical problems and error codes",
+            "Configuration and settings assistance including account setup and feature enablement",
+            "Performance issue diagnosis including slow loading, timeouts, and browser compatibility",
+            "Integration troubleshooting for third-party connected services and data sync issues",
+            "Data import/export assistance including CSV formatting, field mapping, and bulk operations",
+            "Mobile app troubleshooting across iOS and Android platforms",
+            "Browser extension and desktop app installation and configuration support"
+          ],
+          "sample_query": "Every time I try to export my dashboard report, I get an error that says 'Export Failed: Data timeout after 30s (Error Code: EXP-3021)'. I have tried three times today. I am on the Professional plan.",
+          "sample_response": "I can help you resolve this export timeout issue. Error Code EXP-3021 means the export process is taking longer than the 30-second timeout because the dataset is too large for a single request. This typically happens when exporting dashboards with more than 50,000 data rows or when using a date range spanning more than 90 days. Here are three ways to fix this: (1) Reduce your date range — try exporting in 30-day chunks instead. (2) Use filters to narrow the dataset before exporting. (3) I can increase your account's export timeout limit to 120 seconds right now, which should handle larger datasets. I have gone ahead and applied option 3 — your timeout is now set to 120 seconds. Please try the export again. If it still fails, I would recommend using our Bulk Export API which is designed for datasets over 100,000 rows. Would you like me to send you the API documentation for that?",
+          "setup_requirements": [
+            "Import complete product documentation including user guides, admin manuals, and troubleshooting runbooks",
+            "Configure error code database with descriptions, causes, and resolution steps",
+            "Set up integration with internal monitoring and error logging systems",
+            "Map known issues and version-specific bugs to their resolution workflows",
+            "Configure environment detection rules (browser, OS, plan type, feature flags)",
+            "Create escalation rules for bugs not in the knowledge base (send to engineering)"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 87,
+            "target_csat": 4.4,
+            "target_response_time_seconds": 4,
+            "target_first_contact_resolution": 80,
+            "typical_deflection_rate": 75
+          }
+        },
+        {
+          "id": "saas-billing-support",
+          "name": "Billing Support",
+          "description": "Subscription and billing management agent that handles plan inquiries, upgrade/downgrade processing, invoice questions, payment issues, proration calculations, and all financial aspects of the SaaS customer relationship.",
+          "tickets_per_month": 250,
+          "price_per_unit": 49,
+          "currency": "USD",
+          "what_it_handles": [
+            "Plan comparison and recommendation based on current usage patterns and feature needs",
+            "Subscription upgrade and downgrade processing with prorated credit calculations",
+            "Invoice retrieval, line-item explanation, and billing history access",
+            "Payment failure resolution including card update and retry triggers",
+            "Proration calculations for mid-cycle plan changes and add-on subscriptions",
+            "Annual vs. monthly billing conversion with savings projection",
+            "Seat and license management including adding and removing team members",
+            "Cancellation processing with retention offer presentation and feedback collection"
+          ],
+          "sample_query": "We are currently on the Basic plan at $29/month with 5 users. Our team is growing and we need to add 10 more people. Should we upgrade to the Professional plan, and what will it cost us?",
+          "sample_response": "Great timing to think about this as your team grows! Based on your current 5 users on the Basic plan at $29/month, here is how the Professional plan would work for you: The Professional plan is $79/month per user and includes all Basic features plus advanced analytics, priority support, API access, and custom workflows. With 15 total users, your monthly cost would be $79 x 15 = $1,185/month. However, since you are mid-cycle, I calculated the prorated amount: your current billing cycle has 18 days remaining, so you would be charged a prorated credit of $24.18 for the unused Basic days and a prorated charge of $706.50 for the Professional plan for the remainder of this cycle. Starting next month, your regular billing would be $1,185/month. I can also offer you the annual billing option which would bring the per-user cost down to $67/month (15% savings), making it $1,005/month or $12,060/year — that saves you $2,160 annually. Would you like me to process the upgrade now?",
+          "setup_requirements": [
+            "Connect billing system API for real-time subscription and invoice data access",
+            "Import plan details, pricing, features, and comparison matrices",
+            "Configure proration calculation engine aligned with billing system logic",
+            "Set up dunning management rules for payment failure sequences",
+            "Define retention offer rules and cancellation flow templates",
+            "Map all billing-related FAQ content and common question responses"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 91,
+            "target_csat": 4.3,
+            "target_response_time_seconds": 3,
+            "target_first_contact_resolution": 86,
+            "typical_deflection_rate": 82
+          }
+        },
+        {
+          "id": "saas-feature-requests",
+          "name": "Feature Requests",
+          "description": "Product feedback and feature request management agent that collects, categorizes, and validates customer feature requests, provides roadmap information, and communicates known feature statuses and development timelines.",
+          "tickets_per_month": 200,
+          "price_per_unit": 39,
+          "currency": "USD",
+          "what_it_handles": [
+            "Feature request collection with structured intake including use case and priority assessment",
+            "Request categorization and tagging based on product area, request type, and customer segment",
+            "Product roadmap information sharing with upcoming features and estimated timelines",
+            "Known limitation explanations with documented workarounds for requested capabilities",
+            "Beta program enrollment for customers interested in testing upcoming features",
+            "Feature request status tracking and notification when requested features are released",
+            "Duplicate request identification with upvote counting and demand aggregation",
+            "Competitive feature comparison and alternative solution suggestions"
+          ],
+          "sample_query": "I really need a dark mode option for the dashboard. Staring at a white screen all day is killing my eyes. Also, it would be great if you could add a calendar view for the project timeline instead of just the Gantt chart.",
+          "sample_response": "I completely understand the eye strain concern — dark mode is one of our most requested features, so you are definitely not alone! Here is the status on both of your requests: Dark Mode: This is currently in active development and is on our Q2 2025 roadmap. Our design team has already completed the UI mockups, and engineering is building it now. I have added your vote to the feature request (it currently has 2,847 upvotes). If you would like, I can enroll you in our beta program so you can try it before the general release — just say the word. Calendar View for Project Timeline: This is on our longer-term roadmap for Q3 2025. In the meantime, a workaround is to use our iCal export feature — you can export any project timeline to your Google Calendar or Apple Calendar, which will give you a calendar-style view. You can find this under Project Settings > Export > Calendar Feed. I have logged both requests under your account so you will receive automatic notifications when either feature is released.",
+          "setup_requirements": [
+            "Connect to product roadmap and feature tracking system (Jira, Productboard, or equivalent)",
+            "Import current roadmap with features, statuses, and estimated release dates",
+            "Configure feature request intake form and categorization taxonomy",
+            "Set up duplicate detection and upvote aggregation logic",
+            "Define beta program enrollment criteria and communication templates",
+            "Create workaround documentation database for known limitations"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 90,
+            "target_csat": 4.2,
+            "target_response_time_seconds": 3,
+            "target_first_contact_resolution": 87,
+            "typical_deflection_rate": 85
+          }
+        },
+        {
+          "id": "saas-api-support",
+          "name": "API Support",
+          "description": "Developer-focused API support agent that assists with API integration, authentication setup, endpoint usage, webhook configuration, error code troubleshooting, rate limiting, and provides code examples and documentation references.",
+          "tickets_per_month": 300,
+          "price_per_unit": 79,
+          "currency": "USD",
+          "what_it_handles": [
+            "API authentication setup and troubleshooting for OAuth 2.0, API keys, and JWT tokens",
+            "Endpoint usage guidance with request/response examples in multiple programming languages",
+            "Webhook configuration including URL setup, payload format, retry logic, and event subscriptions",
+            "Error code interpretation and resolution with specific HTTP status code explanations",
+            "Rate limiting explanation with current usage stats and throttle reset timing",
+            "SDK installation, configuration, and usage support for official client libraries",
+            "Data format and schema questions including field types, validation rules, and pagination",
+            "Sandbox and test environment access guidance for development and testing purposes"
+          ],
+          "sample_query": "I am getting a 429 Too Many Requests error when calling the /api/v2/users endpoint. My app makes about 200 calls per minute. I thought the rate limit was 500 per minute?",
+          "sample_response": "Good question, and I can see why that would be confusing. The 500 requests per minute rate limit applies to your overall API usage across all endpoints combined. Looking at your API usage over the last hour, your application is making approximately 200 calls to /api/v2/users, 180 calls to /api/v2/projects, and 150 calls to /api/v2/tasks — totaling about 530 calls per minute, which is exceeding your combined limit. Here is what I recommend: (1) Implement response caching for frequently accessed data like user profiles. Since user data does not change often, a 5-minute cache could reduce your /users calls by 60-70%. (2) Use our batch endpoints — /api/v2/users/batch can fetch up to 100 users in a single request, which would dramatically reduce your call count. (3) If you need higher limits, your current Professional plan includes a 500/min limit, but the Enterprise plan includes 5,000/min. I can also look into a temporary rate limit increase while you optimize your integration. Here is a code example for the batch endpoint in Python: [code example would be provided]. Would you like me to walk you through implementing any of these solutions?",
+          "setup_requirements": [
+            "Import complete API documentation including all endpoints, parameters, and response schemas",
+            "Configure API usage monitoring integration for real-time rate limit and usage data",
+            "Set up webhook testing and validation infrastructure",
+            "Create code example library covering common use cases in multiple languages",
+            "Map all API error codes with causes, explanations, and resolution steps",
+            "Configure developer account detection for enhanced API-specific support"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 86,
+            "target_csat": 4.5,
+            "target_response_time_seconds": 5,
+            "target_first_contact_resolution": 76,
+            "typical_deflection_rate": 70
+          }
+        },
+        {
+          "id": "saas-account-issues",
+          "name": "Account Issues",
+          "description": "Account lifecycle management agent that handles account setup, login problems, password security, team member management, role-based access configuration, data privacy requests, and all account administration tasks.",
+          "tickets_per_month": 200,
+          "price_per_unit": 39,
+          "currency": "USD",
+          "what_it_handles": [
+            "Account registration and onboarding assistance with workspace setup guidance",
+            "Password reset and recovery including multi-factor authentication (MFA) troubleshooting",
+            "Login issue diagnosis for SSO problems, session expiry, IP blocking, and browser cache conflicts",
+            "Team member invitation, role assignment, and permission configuration",
+            "Account data export and GDPR/CCPA data deletion requests",
+            "Email address and profile information updates with verification workflows",
+            "Account merger and duplicate account resolution",
+            "Suspended account reactivation and terms of service violation clarification"
+          ],
+          "sample_query": "I cannot log into my account. It says my password is incorrect but I am sure I am using the right one. I also have 2FA enabled and I lost my phone so I cannot get the code. I really need to access my account urgently.",
+          "sample_response": "I understand this is urgent, and I am going to help you get back into your account right away. Since you have lost access to both your password and your 2FA device, we need to go through our secure account recovery process. Here is what I need you to do: (1) Please verify your identity by confirming the email address associated with your account and answering two of the three security questions you set up during registration. (2) Once verified, I will temporarily disable 2FA on your account so you can log in. (3) You will then receive a password reset email — click the link to set a new password. (4) After logging in, please go to Settings > Security to set up a new 2FA method. I strongly recommend using an authenticator app like Google Authenticator or Authy instead of SMS, so you have a backup option. I can also send you backup recovery codes that you should store in a safe place. To prevent this situation in the future, I recommend generating and saving these recovery codes. Shall I proceed with the identity verification now?",
+          "setup_requirements": [
+            "Connect to user management and authentication system APIs",
+            "Configure identity verification workflows and security question management",
+            "Set up role-based access control (RBAC) policy documentation",
+            "Import account management FAQ and common resolution procedures",
+            "Configure GDPR/CCPA data request handling workflows",
+            "Set up SSO integration troubleshooting guides for common IdP providers"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 89,
+            "target_csat": 4.3,
+            "target_response_time_seconds": 3,
+            "target_first_contact_resolution": 84,
+            "typical_deflection_rate": 80
+          }
+        }
+      ]
+    },
+    {
+      "id": "logistics",
+      "name": "Logistics",
+      "description": "AI agents specialized for logistics and supply chain operations. These variants handle shipment visibility, delivery problem resolution, warehouse coordination, fleet management, and regulatory compliance inquiries.",
+      "variants": [
+        {
+          "id": "log-shipment-tracking",
+          "name": "Shipment Tracking",
+          "description": "Real-time shipment tracking agent that aggregates tracking data from multiple carriers, provides delivery predictions, handles tracking number lookups, and delivers proactive shipment status updates.",
+          "tickets_per_month": 500,
+          "price_per_unit": 79,
+          "currency": "USD",
+          "what_it_handles": [
+            "Real-time shipment tracking with multi-carrier status aggregation from integrated carrier APIs",
+            "Tracking number lookup and validation with carrier auto-detection from tracking number format",
+            "Estimated delivery date prediction using historical carrier performance data",
+            "Shipment milestone notifications including pickup, in-transit, out-for-delivery, and delivered",
+            "Multi-stop and consolidated shipment tracking with individual package-level detail",
+            "Proof of delivery retrieval including signature images and delivery timestamps",
+            "Exception alert management for delayed, damaged, or redirected shipments",
+            "Bulk tracking lookup for customers with multiple active shipments"
+          ],
+          "sample_query": "Can you track my shipment? The tracking number is 1Z999AA10123456784. It was supposed to be delivered yesterday but I have not received anything yet.",
+          "sample_response": "I have tracked your shipment 1Z999AA10123456784. Here is the current status: Your package was picked up from our Los Angeles distribution center on January 11th and arrived at the UPS hub in Dallas, TX early this morning at 3:42 AM. It is currently in transit and scheduled for delivery tomorrow, January 14th. The original estimated delivery was January 12th, and the delay was caused by severe weather conditions along the I-40 corridor that affected hundreds of shipments. I have checked the latest update from UPS, and your package is now back on the normal delivery schedule with no further weather-related delays expected. I have also set up proactive notifications for you — you will receive an SMS when your package is out for delivery tomorrow and another confirmation when it is delivered. Is there anything else you need to know about this shipment?",
+          "setup_requirements": [
+            "Integrate carrier tracking APIs (UPS, FedEx, DHL, USPS, regional carriers)",
+            "Configure tracking number format recognition for automatic carrier detection",
+            "Set up delivery prediction model with historical carrier performance data",
+            "Import shipping route and hub network data for accurate transit information",
+            "Configure exception and delay alert triggers and notification templates",
+            "Set up proof of delivery retrieval integration with carrier systems"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 95,
+            "target_csat": 4.5,
+            "target_response_time_seconds": 2,
+            "target_first_contact_resolution": 93,
+            "typical_deflection_rate": 90
+          }
+        },
+        {
+          "id": "log-delivery-issues",
+          "name": "Delivery Issues",
+          "description": "Delivery problem resolution agent that handles delayed deliveries, damaged goods claims, wrong address corrections, missed delivery rescheduling, proof of delivery disputes, and manages the full exception resolution workflow.",
+          "tickets_per_month": 350,
+          "price_per_unit": 69,
+          "currency": "USD",
+          "what_it_handles": [
+            "Delayed delivery investigation with root cause identification and revised ETA calculation",
+            "Damaged goods claim initiation with photo evidence collection and damage assessment",
+            "Wrong address correction and delivery rerouting when possible based on shipment status",
+            "Missed delivery rescheduling with available delivery window options",
+            "Proof of delivery disputes including signature verification and delivery photo review",
+            "Lost package claim filing with carrier investigation initiation and replacement shipment processing",
+            "Delivery attempt management including holding at carrier facility and will-call pickup",
+            "Delivery instruction updates for gate codes, building access, and special handling requirements"
+          ],
+          "sample_query": "My package was delivered but I never received it. The tracking says 'Left at front door' but there is nothing there. I already checked with my neighbors and they do not have it either. This is really frustrating.",
+          "sample_response": "I completely understand your frustration, and I am sorry this happened. Let me investigate this right away. I have pulled up the delivery details for your package: it shows as delivered yesterday at 2:34 PM with GPS coordinates that match your address. The driver noted 'Left at front door.' I have already requested the delivery photo from the carrier — it should arrive within 30 minutes and I will forward it to your email. In the meantime, here is what I am doing: (1) I have filed a lost package investigation with the carrier, which they will complete within 24-48 hours. (2) I have also checked our warehouse, and we have your item in stock, so I can immediately ship a replacement via Next-Day Priority at no charge to you. The replacement will arrive by tomorrow. (3) If the carrier locates the original package, they will return it to us. Would you like me to proceed with shipping the replacement now?",
+          "setup_requirements": [
+            "Configure delivery exception classification system (delayed, damaged, lost, wrong address, missed)",
+            "Set up carrier claims management integration for damage and loss claims",
+            "Define rescheduling workflows with delivery window options and carrier API calls",
+            "Import proof of delivery retrieval system integration with GPS and photo data",
+            "Configure replacement shipment authorization rules and automatic fulfillment triggers",
+            "Set up customer notification templates for delivery issue resolution updates"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 83,
+            "target_csat": 4.2,
+            "target_response_time_seconds": 5,
+            "target_first_contact_resolution": 74,
+            "typical_deflection_rate": 68
+          }
+        },
+        {
+          "id": "log-warehouse-queries",
+          "name": "Warehouse Queries",
+          "description": "Warehouse operations information agent that handles inventory availability inquiries, warehouse location lookups, stock transfer requests, storage fee questions, warehouse hours, and pickup scheduling for will-call orders.",
+          "tickets_per_month": 200,
+          "price_per_unit": 59,
+          "currency": "USD",
+          "what_it_handles": [
+            "Real-time inventory availability checks across all warehouse locations",
+            "Warehouse location and hours information including holiday schedules and special closures",
+            "Stock transfer requests between warehouse locations with estimated transfer timelines",
+            "Storage and warehousing fee inquiries based on item type, volume, and duration",
+            "Will-call order pickup scheduling with required documentation and ID verification",
+            "Inventory hold and reservation requests for time-sensitive orders",
+            "Special handling and storage requirement inquiries (temperature-controlled, hazmat, oversized)",
+            "Warehouse capacity and receiving window information for inbound shipments"
+          ],
+          "sample_query": "I need to know if you have item SKU-WH4471 in stock and which warehouse it is at. I am in the Denver area and need it as soon as possible. Can I pick it up directly?",
+          "sample_response": "Let me check the inventory for SKU-WH4471 across our warehouses. I have good news — we have 147 units currently in stock at our Denver Regional Warehouse (located at 8500 Pena Blvd, Commerce City, CO). Our second closest location is the Salt Lake City warehouse with 89 units, and our Dallas warehouse has 234 units. Since you are in the Denver area, picking up directly from the Commerce City warehouse is the fastest option. Here are the pickup details: The warehouse is open Monday through Friday from 7:00 AM to 5:00 PM Mountain Time. You will need to bring a government-issued photo ID and your order confirmation number. I recommend scheduling your pickup at least 2 hours in advance so the warehouse team can have your item pulled and ready. Would you like me to schedule a will-call pickup for you? If so, what time works best for you?",
+          "setup_requirements": [
+            "Connect to warehouse management system (WMS) API for real-time inventory data",
+            "Configure multi-warehouse inventory lookup with location-based recommendations",
+            "Import warehouse location details, hours, and holiday schedules",
+            "Set up will-call pickup scheduling system integration",
+            "Configure storage fee calculation engine based on item attributes and duration",
+            "Map stock transfer workflow and estimated timeline data"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 91,
+            "target_csat": 4.4,
+            "target_response_time_seconds": 4,
+            "target_first_contact_resolution": 86,
+            "typical_deflection_rate": 82
+          }
+        },
+        {
+          "id": "log-fleet-management",
+          "name": "Fleet Management",
+          "description": "Fleet operations support agent that provides vehicle tracking, driver schedule management, fuel usage reporting, maintenance alert monitoring, route optimization information, and fleet compliance documentation.",
+          "tickets_per_month": 250,
+          "price_per_unit": 89,
+          "currency": "USD",
+          "what_it_handles": [
+            "Real-time vehicle location tracking and route status monitoring across the entire fleet",
+            "Driver schedule management including shift assignments, break compliance, and availability",
+            "Fuel usage reporting with consumption trends, cost analysis, and fuel efficiency metrics",
+            "Vehicle maintenance alert monitoring including upcoming services, recalls, and inspection due dates",
+            "Route optimization suggestions based on traffic conditions, delivery priorities, and fuel costs",
+            "Driver performance metrics including on-time delivery rates, idle time, and safety scores",
+            "Vehicle assignment and availability status for dispatch planning",
+            "Fleet compliance documentation including insurance status, registration renewals, and inspection records"
+          ],
+          "sample_query": "I need to know the current location of all our delivery trucks on the Denver route and whether any of them are due for maintenance soon. We have 8 trucks assigned to that route.",
+          "sample_response": "I have pulled up the real-time status of all 8 trucks on your Denver route. Here is the current overview: Truck D-01 through D-04 are currently on their delivery runs — D-01 is at the Stapleton area (4 deliveries remaining), D-02 is in Englewood (2 remaining), D-03 is in Lakewood (6 remaining), and D-04 just completed its route and is heading back to the depot. Trucks D-05 and D-06 are loading at the depot for their afternoon runs. Truck D-07 is parked at the Commerce City rest stop — the driver is on his mandatory 30-minute break (resumes at 1:45 PM). Regarding maintenance: D-03 has an oil change due in 320 miles (estimated by Friday), D-06 has a brake inspection due by January 20th, and D-01 had its scheduled tire rotation completed this morning so it is good for another 15,000 miles. I recommend scheduling D-03's oil change and D-06's brake inspection for this Saturday to avoid any weekday route disruptions. Would you like me to generate maintenance work orders for both?",
+          "setup_requirements": [
+            "Connect to fleet telematics and GPS tracking system API",
+            "Configure driver schedule management integration with workforce management system",
+            "Set up fuel card and consumption data integration for reporting",
+            "Import vehicle maintenance schedules and recall notification system",
+            "Configure route optimization engine integration with traffic and delivery data",
+            "Set up compliance document management and alert system"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 88,
+            "target_csat": 4.3,
+            "target_response_time_seconds": 4,
+            "target_first_contact_resolution": 82,
+            "typical_deflection_rate": 76
+          }
+        },
+        {
+          "id": "log-customs-compliance",
+          "name": "Customs & Compliance",
+          "description": "International trade compliance agent that provides customs documentation guidance, import/export regulation information, tariff classification, HS code lookups, restricted item screening, and regulatory compliance verification.",
+          "tickets_per_month": 150,
+          "price_per_unit": 99,
+          "currency": "USD",
+          "what_it_handles": [
+            "Customs documentation requirements guidance based on origin country, destination, and commodity type",
+            "HS (Harmonized System) code lookup and tariff classification for accurate duty calculation",
+            "Import/export regulation information including restricted items, licensing requirements, and embargoes",
+            "Free Trade Agreement (FTA) qualification assessment for reduced duty rates",
+            "Customs duty and tax estimation including import VAT, GST, and specific commodity duties",
+            "Required documentation checklists for customs clearance including commercial invoices and certificates",
+            "Denied party screening and trade compliance verification for international transactions",
+            "Incoterms guidance and selection recommendations for international shipping terms"
+          ],
+          "sample_query": "We are shipping 500 units of LED lighting panels from Shenzhen, China to Munich, Germany. What customs documents do we need, and what duties should we expect? The declared value is approximately $45,000 USD.",
+          "sample_response": "I can help you with the customs requirements for your LED lighting panels shipment from Shenzhen to Munich. First, the correct HS code for LED lighting panels is 9405.42.00 (LED lighting fittings). Now here is your complete customs documentation checklist: (1) Commercial Invoice with detailed product description, quantities, unit values, and total value of $45,000 USD. (2) Packing List with gross/net weight, dimensions, and number of cartons. (3) Bill of Lading or Air Waybill. (4) Certificate of Origin — this is important because under the EU-China trade relationship, the standard MFN duty rate applies, but if your manufacturer can provide a Certificate of Origin showing the goods qualify for any preferential treatment, the rate may be reduced. (5) CE Compliance Certificate — LED lighting products sold in the EU require CE marking under the Low Voltage Directive and EMC Directive. (6) EU RoHS Declaration of Conformity — required for electrical products. Regarding duties: The EU standard customs duty for HS code 9405.42.00 is 2.7%. On your declared value of $45,000, the estimated customs duty is approximately $1,215 USD. Additionally, Germany charges 19% import VAT on the combined value (goods + duty + shipping), which would be approximately $8,830 USD. Your total estimated landed cost is approximately $55,045 USD plus shipping. I strongly recommend working with a licensed customs broker in Germany to ensure smooth clearance. Would you like me to provide a list of recommended customs brokers in the Munich area?",
+          "setup_requirements": [
+            "Import and maintain HS code database with tariff rates for major trading countries",
+            "Configure customs regulation database by country pair and commodity category",
+            "Set up trade compliance screening integration with denied party lists",
+            "Import FTA qualification rules and preferential tariff rate databases",
+            "Configure duty and tax calculation engine with current rates and thresholds",
+            "Set up document requirement rules engine based on country, commodity, and value"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 85,
+            "target_csat": 4.6,
+            "target_response_time_seconds": 6,
+            "target_first_contact_resolution": 75,
+            "typical_deflection_rate": 65
+          }
+        }
+      ]
+    },
+    {
+      "id": "healthcare",
+      "name": "Healthcare",
+      "description": "AI agents specialized for healthcare organizations. These variants handle appointment management, insurance processing, prescription management, patient inquiries, and telehealth support while maintaining HIPAA compliance and patient data security.",
+      "variants": [
+        {
+          "id": "hc-appointment-scheduling",
+          "name": "Appointment Scheduling",
+          "description": "Comprehensive appointment management agent that handles booking, rescheduling, and cancellations, provides real-time provider availability, manages waitlists, and sends appointment reminders across multiple provider types and locations.",
+          "tickets_per_month": 400,
+          "price_per_unit": 99,
+          "currency": "USD",
+          "what_it_handles": [
+            "New appointment booking with provider selection, time slot availability lookup, and confirmation",
+            "Appointment rescheduling with calendar-based date/time picker and availability comparison",
+            "Appointment cancellation processing with cancellation policy enforcement and slot release",
+            "Provider availability lookups by specialty, location, date range, and appointment type",
+            "Waitlist management including automatic notification when earlier slots become available",
+            "Appointment reminder configuration via SMS, email, and automated voice call",
+            "Multi-provider appointment coordination for visits requiring more than one specialist",
+            "New patient intake form initiation and insurance information collection before first visit"
+          ],
+          "sample_query": "I need to schedule an appointment with Dr. Martinez for a follow-up on my knee. I work Monday through Thursday so Friday or weekends would be best. My last visit was about 6 weeks ago.",
+          "sample_response": "I would be happy to help you schedule your follow-up with Dr. Martinez! I found your patient record and confirmed your last visit was on November 28th for a right knee consultation. Looking at Dr. Martinez's availability for Fridays and weekends over the next two weeks, here are the options: This Friday (January 17th) at 9:00 AM, 10:30 AM, or 2:00 PM. Next Friday (January 24th) at 9:00 AM, 11:00 AM, or 3:30 PM. Saturday (January 18th) at 9:00 AM only. Dr. Martinez's follow-up appointments are typically 30 minutes. Based on your last visit notes, she will likely want to review your knee progress and may recommend physical therapy if improvement is sufficient. Which date and time works best for you? Once confirmed, I will send you appointment reminders via text and email 48 hours and 2 hours before your visit.",
+          "setup_requirements": [
+            "Connect to electronic health record (EHR) system or practice management software via API",
+            "Configure provider schedules, specialties, and appointment type definitions",
+            "Set up real-time availability sync with scheduling system",
+            "Import cancellation policies, no-show rules, and waitlist management workflows",
+            "Configure multi-channel reminder system (SMS, email, voice call)",
+            "Set up new patient intake form integration with pre-visit data collection"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 93,
+            "target_csat": 4.5,
+            "target_response_time_seconds": 4,
+            "target_first_contact_resolution": 88,
+            "typical_deflection_rate": 85
+          }
+        },
+        {
+          "id": "hc-insurance-claims",
+          "name": "Insurance Claims",
+          "description": "Insurance and billing support agent that assists with insurance verification, claim status tracking, coverage determinations, pre-authorization processing, and explanation of benefits (EOB) interpretation for patients and providers.",
+          "tickets_per_month": 250,
+          "price_per_unit": 89,
+          "currency": "USD",
+          "what_it_handles": [
+            "Insurance eligibility verification with real-time benefits check including deductible and copay amounts",
+            "Claim status tracking with processing stage identification and expected timeline updates",
+            "Coverage determination for specific procedures, treatments, and medications",
+            "Pre-authorization request initiation and status monitoring for procedures requiring prior approval",
+            "Explanation of Benefits (EOB) interpretation with line-item billing explanation",
+            "Out-of-pocket cost estimation based on insurance plan benefits, deductible status, and copay structure",
+            "Appeal filing guidance for denied claims including required documentation and submission process",
+            "Network provider lookup and in-network benefit maximization guidance"
+          ],
+          "sample_query": "I just received an Explanation of Benefits from my insurance and I do not understand why I owe $347 for my lab work. I thought my insurance covered blood tests at 100%. My plan is the Gold PPO.",
+          "sample_response": "I understand how confusing EOB documents can be. Let me walk you through your EOB for the lab work performed on December 15th at our facility. Here is the breakdown: The total charges for your lab work were $582.00 (3 blood panels: Complete Metabolic Panel $180, Lipid Panel $142, and Thyroid Panel $260). Your insurance plan (Gold PPO) processed the claim and applied the following: First, your annual deductible is $250, and you had $180 remaining on your deductible at the time of service. So $180 was applied to your deductible, leaving you with $0 deductible remaining for the rest of the year. After the deductible, your plan covers blood tests at 80% for out-of-network labs — and that is the key detail here. The lab that processed your blood work (Quest Diagnostics) is in-network for routine blood draws but was classified as out-of-network for the Thyroid Panel specifically, which is why it was covered at 80% instead of 100%. Your responsibility breaks down as: $180 (deductible) + $33.40 (your 20% coinsurance on the Thyroid Panel after deductible) + $133.60 (a processing adjustment) = $347.00. I would recommend requesting that your doctor send future Thyroid Panels to an in-network lab. If you believe the out-of-network classification is incorrect, I can help you file an appeal. Would you like to proceed with that?",
+          "setup_requirements": [
+            "Connect to practice management system and insurance clearinghouse APIs",
+            "Configure real-time eligibility verification with major insurance payer systems",
+            "Set up claims status tracking integration with payer portals",
+            "Import insurance plan details, copay structures, and coverage rules",
+            "Configure EOB parsing and interpretation rules engine",
+            "Set up pre-authorization workflow integration with payer systems"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 84,
+            "target_csat": 4.3,
+            "target_response_time_seconds": 6,
+            "target_first_contact_resolution": 72,
+            "typical_deflection_rate": 65
+          }
+        },
+        {
+          "id": "hc-prescription-refills",
+          "name": "Prescription Refills",
+          "description": "Prescription management agent that processes refill requests, checks medication availability, coordinates with pharmacies, manages refill timing, and handles medication-related inquiries while ensuring proper clinical workflow integration.",
+          "tickets_per_month": 350,
+          "price_per_unit": 49,
+          "currency": "USD",
+          "what_it_handles": [
+            "Prescription refill request processing with physician approval workflow integration",
+            "Medication availability checks at the patient's preferred pharmacy and alternatives",
+            "Refill timing calculations based on remaining supply, days supply, and allowed refill dates",
+            "Pharmacy location lookup with hours, contact information, and drive-through availability",
+            "Medication information including dosage, side effects, and interaction warnings",
+            "Prescription transfer requests between pharmacies",
+            "Prior authorization coordination for medications requiring insurance pre-approval",
+            "Refill history access and medication adherence reminders"
+          ],
+          "sample_query": "I need to refill my blood pressure medication, Lisinopril 10mg. I have about 5 days of pills left. I usually go to the CVS on Main Street.",
+          "sample_response": "I can help you with your Lisinopril 10mg refill right away. I found your prescription record — Dr. Thompson prescribed Lisinopril 10mg, one tablet daily with a 90-day supply. You last filled this prescription on October 15th, so based on your 90-day supply, you are eligible for a refill now. I have checked with the CVS Pharmacy at 1245 Main Street (phone: 555-0189, hours: Mon-Fri 8AM-9PM, Sat 9AM-6PM, Sun 10AM-4PM) and they have Lisinopril 10mg in stock. I have sent the refill request to your doctor's office for approval — typically, Dr. Thompson's office approves refill requests within 4 business hours during office hours. Since you have 5 days of medication remaining, you should be fine. I recommend calling the CVS pharmacy tomorrow afternoon after 2:00 PM to confirm the prescription is ready for pickup. I have also set up a refill reminder for you — you will receive a text notification 10 days before your next refill is due. Would you like me to also enroll you in automatic refill so your prescriptions are refilled proactively?",
+          "setup_requirements": [
+            "Connect to electronic prescribing (eRx) system and pharmacy network APIs",
+            "Configure physician approval workflow integration with clinical messaging",
+            "Set up pharmacy network lookup with real-time inventory and location data",
+            "Import medication database with drug information, interactions, and warnings",
+            "Configure refill eligibility engine based on supply, dates, and refill limits",
+            "Set up adherence reminder system with configurable notification schedules"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 92,
+            "target_csat": 4.6,
+            "target_response_time_seconds": 3,
+            "target_first_contact_resolution": 90,
+            "typical_deflection_rate": 88
+          }
+        },
+        {
+          "id": "hc-patient-inquiries",
+          "name": "Patient Inquiries",
+          "description": "General patient information agent that handles non-clinical inquiries about facility services, office hours, accepted insurance plans, new patient registration, medical records requests, parking, and all operational aspects of the healthcare facility.",
+          "tickets_per_month": 300,
+          "price_per_unit": 59,
+          "currency": "USD",
+          "what_it_handles": [
+            "Facility information including office hours, locations, parking, and accessibility details",
+            "Accepted insurance plan verification with network participation status",
+            "New patient registration guidance and required documents checklist",
+            "Medical records request processing including release of information forms and timelines",
+            "Provider directory browsing with specialty, language, and gender preference filters",
+            "Billing and payment inquiries including payment plans and financial assistance programs",
+            "Visitor policies and guidelines including visiting hours and COVID/health protocols",
+            "Telehealth service availability and technology requirements"
+          ],
+          "sample_query": "I am new to the area and looking for a primary care physician. Do you accept Blue Cross Blue Shield PPO? Also, what do I need to bring for my first appointment, and do you have parking on-site?",
+          "sample_response": "Welcome to the area! I am happy to help you get set up with a primary care physician. Yes, we do accept Blue Cross Blue Shield PPO plans — we are in-network with all BCBS PPO tiers. For your first appointment, here is what you will need to bring: (1) Your BCBS insurance card (front and back). (2) A valid government-issued photo ID. (3) A completed new patient registration form — I can email this to you right now so you can fill it out in advance and save time. (4) Any relevant medical records, medication list, and vaccination history from your previous provider. (5) A list of any current medications including dosages. Regarding parking: We have a free parking garage attached to the building with elevator access to our clinic on the 3rd floor. The parking garage entrance is on Elm Street between 4th and 5th Avenue. Handicap parking spots are available on each level near the elevators. For your first appointment, I recommend arriving 20 minutes early to complete any remaining paperwork. We have several excellent primary care physicians with availability this week. Would you like me to look up available appointment times for you?",
+          "setup_requirements": [
+            "Connect to practice management system for provider scheduling and availability data",
+            "Import facility information including all locations, hours, parking, and accessibility details",
+            "Configure insurance plan database with network participation and verification rules",
+            "Set up new patient registration form and document collection workflow",
+            "Import medical records request processing procedures and compliance requirements",
+            "Configure provider directory with specialty, language, and availability filters"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 94,
+            "target_csat": 4.4,
+            "target_response_time_seconds": 3,
+            "target_first_contact_resolution": 91,
+            "typical_deflection_rate": 89
+          }
+        },
+        {
+          "id": "hc-telehealth-support",
+          "name": "Telehealth Support",
+          "description": "Telehealth technology support agent that guides patients through virtual visit platform setup, troubleshoots audio/video connection issues, assists with appointment scheduling, and provides technical guidance for remote healthcare services.",
+          "tickets_per_month": 200,
+          "price_per_unit": 79,
+          "currency": "USD",
+          "what_it_handles": [
+            "Telehealth platform onboarding and first-time setup guidance for new patients",
+            "Video and audio connection troubleshooting including camera, microphone, and browser permissions",
+            "Virtual waiting room navigation and provider connection assistance",
+            "Telehealth appointment scheduling, rescheduling, and cancellation",
+            "Device and browser compatibility verification with recommended settings",
+            "Screen sharing and document upload assistance during virtual visits",
+            "Telehealth visit follow-up including summary retrieval and prescription notifications",
+            "Technical requirements explanation including internet speed, device specs, and supported browsers"
+          ],
+          "sample_query": "I have a telehealth appointment tomorrow at 2 PM but I have never done a virtual visit before. I am using an iPad. What do I need to do to get ready, and how does it work?",
+          "sample_response": "No worries at all — I will walk you through everything you need to get ready for your first virtual visit! Your telehealth appointment is tomorrow at 2:00 PM, and since you are using an iPad, you are all set hardware-wise. Here is your step-by-step preparation guide: Step 1 — Download the app: Go to the App Store and search for 'PARWA Health Telehealth' (look for our blue and white logo). Download and install the app — it is free. Step 2 — Create your account: Open the app and tap 'New Patient.' Enter your name, date of birth, and the email address you used to book your appointment. You will receive a 6-digit verification code — enter it to verify your account. Step 3 — Test your setup: Before tomorrow, open the app and tap 'Test My Setup.' This will check your camera, microphone, and internet connection. For the best experience, make sure you are in a well-lit room and your iPad is connected to WiFi (a minimum of 3 Mbps upload speed is recommended). Step 4 — Join your visit: Tomorrow at 1:50 PM (10 minutes before your appointment), open the app and you will see a 'Join Visit' button. Tap it and you will enter the virtual waiting room. Your provider will connect with you at 2:00 PM. During the visit, you can share your screen or upload photos if needed. The visit will work just like an in-person appointment. After the visit, you will receive a visit summary via email within 1 hour. Would you like me to send you a link to our video tutorial that shows the whole process?",
+          "setup_requirements": [
+            "Configure telehealth platform integration for appointment status and virtual room management",
+            "Import device and browser compatibility matrix with supported configurations",
+            "Set up connection diagnostic tool integration for automated troubleshooting",
+            "Configure virtual waiting room management and provider connection workflows",
+            "Import telehealth platform user guides and FAQ documentation",
+            "Set up technical requirement validation engine with minimum spec checks"
+          ],
+          "success_metrics": {
+            "target_resolution_rate": 90,
+            "target_csat": 4.5,
+            "target_response_time_seconds": 4,
+            "target_first_contact_resolution": 85,
+            "typical_deflection_rate": 80
+          }
+        }
+      ]
+    }
+  ]
+}

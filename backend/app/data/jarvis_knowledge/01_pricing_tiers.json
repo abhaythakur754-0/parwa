@@ -1,0 +1,494 @@
+{
+  "knowledge_base": "PARWA Pricing Tiers",
+  "version": "1.0.0",
+  "last_updated": "2025-01-15",
+  "currency": "USD",
+  "billing_information": {
+    "billing_cycle": "Monthly",
+    "cancellation_policy": "Cancel anytime with 30 days notice; no long-term contracts required",
+    "annual_discount": {
+      "percentage": 15,
+      "description": "Pay annually and receive a 15% discount on all tiers and add-on variants",
+      "annual_starter_price": 849,
+      "annual_growth_price": 2124,
+      "annual_high_price": 3399
+    },
+    "free_trial": {
+      "available": false,
+      "description": "PARWA does not offer a free trial, but we provide a free live demo session where you can interact with our AI agents in real time and see how they handle your specific use cases"
+    },
+    "overage_pricing": {
+      "description": "If you exceed your monthly ticket limit, additional tickets are billed at a per-ticket rate depending on your tier",
+      "starter_overage_rate_per_ticket": 0.50,
+      "growth_overage_rate_per_ticket": 0.35,
+      "high_overage_rate_per_ticket": 0.20
+    },
+    "payment_methods": ["Credit Card (Visa, MasterCard, American Express)", "Wire Transfer", "ACH"],
+    "enterprise_billing": "Custom invoicing and procurement support available for High tier and Enterprise customers"
+  },
+  "tiers": [
+    {
+      "id": "starter",
+      "name": "Starter",
+      "monthly_price": 999,
+      "annual_price": 849,
+      "target_audience": "Small businesses and startups looking to automate basic customer support with AI",
+      "description": "Get started with AI-powered customer support. Perfect for teams ready to reduce response times and handle common inquiries automatically.",
+      "agents_included": 3,
+      "tickets_per_month": 1000,
+      "channels": [
+        {
+          "name": "Email",
+          "description": "Automated email responses for customer inquiries"
+        }
+      ],
+      "knowledge_base": {
+        "type": "Basic",
+        "description": "Upload up to 50 knowledge base articles; simple keyword-based search for agent responses"
+      },
+      "response_quality": "Standard",
+      "support_level": "Business hours email support (Mon-Fri, 9AM-6PM EST)",
+      "integrations": {
+        "included": ["Email (SMTP)", "REST API"],
+        "custom": false
+      },
+      "analytics": {
+        "included": true,
+        "type": "Basic",
+        "features": ["Ticket volume tracking", "Response time metrics", "Resolution rate overview"]
+      },
+      "features": [
+        "Up to 3 AI agent variants",
+        "1,000 ticket resolution per month",
+        "Email channel support",
+        "Basic knowledge base (up to 50 articles)",
+        "Standard response quality",
+        "Basic analytics dashboard",
+        "Email support during business hours",
+        "Standard security (SSL encryption, data isolation)"
+      ],
+      "not_included": [
+        "Live chat channel",
+        "Phone channel",
+        "Social media channels",
+        "Auto-learning from resolved tickets",
+        "Custom integrations",
+        "Priority support",
+        "Voice support",
+        "Dedicated account manager",
+        "Custom AI training"
+      ],
+      "ideal_for": [
+        "Startups with growing support queues",
+        "Small e-commerce stores with 100-500 daily customer emails",
+        "SaaS companies wanting to deflect Tier 1 support tickets",
+        "Businesses spending 10+ hours/week on repetitive FAQs"
+      ]
+    },
+    {
+      "id": "growth",
+      "name": "Growth",
+      "monthly_price": 2499,
+      "annual_price": 2124,
+      "target_audience": "Growing businesses that need multi-channel support and advanced AI capabilities",
+      "description": "Scale your support operations with multi-channel AI, advanced knowledge management, and priority support. Ideal for businesses handling high customer interaction volumes.",
+      "agents_included": 7,
+      "tickets_per_month": 5000,
+      "channels": [
+        {
+          "name": "Email",
+          "description": "Automated email responses for customer inquiries"
+        },
+        {
+          "name": "Live Chat",
+          "description": "Real-time AI chat support on your website or app with human handoff capability"
+        }
+      ],
+      "knowledge_base": {
+        "type": "Advanced with Auto-Learning",
+        "description": "Upload up to 500 knowledge base articles; AI-powered semantic search with automatic learning from resolved tickets and agent corrections"
+      },
+      "response_quality": "Enhanced",
+      "support_level": "Priority support (Mon-Sat, 8AM-10PM EST) with 4-hour response time SLA",
+      "integrations": {
+        "included": ["Email (SMTP)", "REST API", "Webhooks", "Shopify", "Slack", "Stripe"],
+        "custom": true,
+        "custom_description": "Up to 3 custom integrations included; additional integrations available for a setup fee"
+      },
+      "analytics": {
+        "included": true,
+        "type": "Advanced",
+        "features": [
+          "Ticket volume tracking with trend analysis",
+          "Response time metrics with percentile breakdowns",
+          "Resolution rate overview with category drill-down",
+          "Customer satisfaction (CSAT) scoring",
+          "Agent performance comparison",
+          "Channel-wise distribution reports",
+          "Knowledge base article effectiveness",
+          "Escalation pattern analysis",
+          "Export to CSV and PDF"
+        ]
+      },
+      "features": [
+        "Up to 7 AI agent variants",
+        "5,000 ticket resolution per month",
+        "Email + Live Chat channel support",
+        "Advanced knowledge base (up to 500 articles) with auto-learning",
+        "Enhanced response quality with sentiment analysis",
+        "Priority support with 4-hour response SLA",
+        "Up to 3 custom integrations included",
+        "Advanced analytics dashboard with exports",
+        "Multi-language support (25+ languages)",
+        "Smart ticket routing and escalation",
+        "Conversation summarization",
+        "Human agent handoff with context transfer"
+      ],
+      "not_included": [
+        "Phone channel support",
+        "Social media channels",
+        "Voice support",
+        "24/7 support",
+        "Dedicated account manager",
+        "Custom AI model training"
+      ],
+      "ideal_for": [
+        "Mid-size e-commerce brands processing 500+ orders daily",
+        "SaaS companies with 1,000+ active users",
+        "Logistics companies managing 200+ shipments daily",
+        "Healthcare clinics with multi-provider scheduling needs",
+        "Businesses currently spending 30+ hours/week on customer support"
+      ]
+    },
+    {
+      "id": "high",
+      "name": "High",
+      "monthly_price": 3999,
+      "annual_price": 3399,
+      "target_audience": "Enterprise-level businesses requiring full omnichannel support, maximum AI power, and dedicated resources",
+      "description": "The ultimate AI support solution. Unlimited agents, all channels, voice support, custom AI training, and a dedicated account manager to ensure your success.",
+      "agents_included": -1,
+      "tickets_per_month": 20000,
+      "unlimited_agents": true,
+      "channels": [
+        {
+          "name": "Email",
+          "description": "Automated email responses for customer inquiries"
+        },
+        {
+          "name": "Live Chat",
+          "description": "Real-time AI chat support on your website or app with human handoff capability"
+        },
+        {
+          "name": "Phone",
+          "description": "AI-powered voice support for inbound customer calls with IVR routing and call transcription"
+        },
+        {
+          "name": "Social Media",
+          "description": "Automated responses across Facebook Messenger, Instagram DMs, Twitter/X DMs, and WhatsApp Business"
+        }
+      ],
+      "knowledge_base": {
+        "type": "Advanced with Auto-Learning",
+        "description": "Unlimited knowledge base articles; AI-powered semantic search with continuous auto-learning from resolved tickets, agent corrections, and feedback loops"
+      },
+      "response_quality": "Premium",
+      "support_level": "24/7 priority support with 1-hour response time SLA and dedicated account manager",
+      "integrations": {
+        "included": [
+          "Email (SMTP)", "REST API", "Webhooks",
+          "Shopify", "WooCommerce", "Magento", "BigCommerce",
+          "Zendesk", "Freshdesk", "Intercom", "Help Scout",
+          "Slack", "Stripe", "Razorpay", "WhatsApp Business"
+        ],
+        "custom": true,
+        "custom_description": "Unlimited custom integrations with full engineering support from PARWA team"
+      },
+      "analytics": {
+        "included": true,
+        "type": "Advanced with Predictive Insights",
+        "features": [
+          "All Growth analytics features",
+          "Predictive ticket volume forecasting",
+          "Customer churn risk identification",
+          "Agent workload optimization recommendations",
+          "Custom report builder",
+          "Real-time monitoring dashboards",
+          "API access for analytics data",
+          "Scheduled automated reports via email",
+          "White-label report exports",
+          "Cross-channel performance correlation"
+        ]
+      },
+      "voice_support": {
+        "included": true,
+        "description": "AI-powered voice agent for inbound calls with natural language understanding, IVR replacement, call routing, voicemail transcription, and multi-language voice support"
+      },
+      "dedicated_account_manager": {
+        "included": true,
+        "description": "A named account manager who conducts weekly check-ins, quarterly business reviews, and proactively optimizes your AI agent configuration"
+      },
+      "custom_ai_training": {
+        "included": true,
+        "description": "PARWA data scientists work with your team to fine-tune AI models on your specific domain terminology, product catalog, brand voice, and historical support data"
+      },
+      "features": [
+        "Unlimited AI agent variants",
+        "20,000 ticket resolution per month",
+        "All channels: Email, Live Chat, Phone, Social Media (Facebook, Instagram, Twitter/X, WhatsApp)",
+        "Advanced knowledge base (unlimited articles) with continuous auto-learning",
+        "Premium response quality with advanced sentiment and tone adaptation",
+        "24/7 priority support with 1-hour response SLA",
+        "Unlimited custom integrations with engineering support",
+        "Advanced analytics with predictive insights and custom reporting",
+        "Multi-language support (25+ languages)",
+        "AI-powered voice support for phone calls",
+        "Smart ticket routing and escalation",
+        "Conversation summarization",
+        "Human agent handoff with full context transfer",
+        "Dedicated account manager with weekly check-ins",
+        "Custom AI model training on your domain data",
+        "SOC 2 Type II compliance",
+        "Custom data retention policies",
+        "Priority feature requests"
+      ],
+      "not_included": [],
+      "ideal_for": [
+        "Large e-commerce enterprises with 5,000+ daily orders",
+        "Enterprise SaaS platforms with 10,000+ users",
+        "National or international logistics companies",
+        "Hospital systems or multi-location healthcare providers",
+        "Businesses currently operating 24/7 support teams",
+        "Companies spending $50,000+/month on customer support operations",
+        "Organizations requiring HIPAA-compliant AI interactions"
+      ]
+    }
+  ],
+  "tier_comparison": {
+    "agents": { "starter": "3", "growth": "7", "high": "Unlimited" },
+    "tickets_per_month": { "starter": "1,000", "growth": "5,000", "high": "20,000" },
+    "channels": { "starter": "Email", "growth": "Email + Chat", "high": "Email + Chat + Phone + Social" },
+    "knowledge_base": { "starter": "Basic (50 articles)", "growth": "Advanced (500 articles) + Auto-Learning", "high": "Advanced (Unlimited) + Auto-Learning" },
+    "support": { "starter": "Business hours", "growth": "Priority (Mon-Sat)", "high": "24/7 + Dedicated AM" },
+    "analytics": { "starter": "Basic", "growth": "Advanced", "high": "Advanced + Predictive" },
+    "overage_per_ticket": { "starter": "$0.50", "growth": "$0.35", "high": "$0.20" }
+  },
+  "variant_pricing": {
+    "description": "AI agent variants are add-on specialized agents beyond your tier's included agent count. Each variant is purpose-built for a specific support function within your industry.",
+    "note": "Variant prices are per-unit per-month. Tickets listed are the monthly capacity each variant can handle. If you exceed variant ticket capacity, overage rates from your tier apply.",
+    "industries": {
+      "e-commerce": {
+        "display_name": "E-Commerce",
+        "description": "Specialized variants for online retail operations including order management, returns, product inquiries, shipping, and payment support",
+        "variants": [
+          {
+            "id": "ecom-order-management",
+            "name": "Order Management",
+            "price_per_unit": 99,
+            "tickets_per_month": 500,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Handles order placement, modification, cancellation, status tracking, and order-related inquiries end-to-end"
+          },
+          {
+            "id": "ecom-returns-refunds",
+            "name": "Returns & Refunds",
+            "price_per_unit": 49,
+            "tickets_per_month": 200,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Manages return requests, refund processing, exchange offers, return shipping labels, and refund timeline inquiries"
+          },
+          {
+            "id": "ecom-product-faq",
+            "name": "Product FAQ",
+            "price_per_unit": 39,
+            "tickets_per_month": 300,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Answers product-specific questions including specifications, availability, compatibility, sizing, materials, and warranty information"
+          },
+          {
+            "id": "ecom-shipping-inquiries",
+            "name": "Shipping Inquiries",
+            "price_per_unit": 49,
+            "tickets_per_month": 250,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Provides shipping cost estimates, delivery timelines, carrier information, tracking details, and shipping policy clarifications"
+          },
+          {
+            "id": "ecom-payment-issues",
+            "name": "Payment Issues",
+            "price_per_unit": 59,
+            "tickets_per_month": 150,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Resolves payment failures, declined transactions, duplicate charges, refund discrepancies, and payment method updates"
+          }
+        ]
+      },
+      "saas": {
+        "display_name": "SaaS",
+        "description": "Specialized variants for software-as-a-service companies covering technical support, billing, feature guidance, API help, and account management",
+        "variants": [
+          {
+            "id": "saas-technical-support",
+            "name": "Technical Support",
+            "price_per_unit": 89,
+            "tickets_per_month": 400,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Troubleshoots software bugs, configuration issues, error messages, performance problems, and provides step-by-step resolution guides"
+          },
+          {
+            "id": "saas-billing-support",
+            "name": "Billing Support",
+            "price_per_unit": 49,
+            "tickets_per_month": 250,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Handles subscription management, invoice inquiries, plan upgrades/downgrades, payment failures, and proration calculations"
+          },
+          {
+            "id": "saas-feature-requests",
+            "name": "Feature Requests",
+            "price_per_unit": 39,
+            "tickets_per_month": 200,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Collects, categorizes, and manages feature requests, provides product roadmap information, and communicates known feature statuses"
+          },
+          {
+            "id": "saas-api-support",
+            "name": "API Support",
+            "price_per_unit": 79,
+            "tickets_per_month": 300,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Assists with API integration, authentication, rate limiting, webhook configuration, error code troubleshooting, and endpoint documentation"
+          },
+          {
+            "id": "saas-account-issues",
+            "name": "Account Issues",
+            "price_per_unit": 39,
+            "tickets_per_month": 200,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Manages account setup, password resets, two-factor authentication, team member access, role permissions, and account data exports"
+          }
+        ]
+      },
+      "logistics": {
+        "display_name": "Logistics",
+        "description": "Specialized variants for logistics and supply chain operations covering shipment tracking, delivery issues, warehouse operations, fleet management, and compliance",
+        "variants": [
+          {
+            "id": "log-shipment-tracking",
+            "name": "Shipment Tracking",
+            "price_per_unit": 79,
+            "tickets_per_month": 500,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Provides real-time shipment tracking, estimated delivery updates, tracking number lookups, multi-carrier status aggregation, and delivery confirmation"
+          },
+          {
+            "id": "log-delivery-issues",
+            "name": "Delivery Issues",
+            "price_per_unit": 69,
+            "tickets_per_month": 350,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Handles delayed deliveries, damaged goods claims, wrong address corrections, missed delivery rescheduling, and proof of delivery disputes"
+          },
+          {
+            "id": "log-warehouse-queries",
+            "name": "Warehouse Queries",
+            "price_per_unit": 59,
+            "tickets_per_month": 200,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Manages inventory availability inquiries, warehouse location lookups, stock transfer requests, storage fee questions, and warehouse hours"
+          },
+          {
+            "id": "log-fleet-management",
+            "name": "Fleet Management",
+            "price_per_unit": 89,
+            "tickets_per_month": 250,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Tracks vehicle assignments, driver schedules, fuel usage reports, vehicle maintenance alerts, and route optimization inquiries"
+          },
+          {
+            "id": "log-customs-compliance",
+            "name": "Customs & Compliance",
+            "price_per_unit": 99,
+            "tickets_per_month": 150,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Provides customs documentation guidance, import/export regulation information, tariff classification, HS code lookups, and compliance requirement checks"
+          }
+        ]
+      },
+      "healthcare": {
+        "display_name": "Healthcare",
+        "description": "Specialized variants for healthcare organizations covering appointment management, insurance claims, prescriptions, patient inquiries, and telehealth support",
+        "variants": [
+          {
+            "id": "hc-appointment-scheduling",
+            "name": "Appointment Scheduling",
+            "price_per_unit": 99,
+            "tickets_per_month": 400,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Manages appointment booking, rescheduling, cancellations, provider availability lookups, waitlist management, and appointment reminders"
+          },
+          {
+            "id": "hc-insurance-claims",
+            "name": "Insurance Claims",
+            "price_per_unit": 89,
+            "tickets_per_month": 250,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Assists with insurance verification, claim status tracking, coverage inquiries, pre-authorization requests, and explanation of benefits (EOB) questions"
+          },
+          {
+            "id": "hc-prescription-refills",
+            "name": "Prescription Refills",
+            "price_per_unit": 49,
+            "tickets_per_month": 350,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Processes prescription refill requests, pharmacy location lookups, medication availability checks, refill timeline information, and transfer requests"
+          },
+          {
+            "id": "hc-patient-inquiries",
+            "name": "Patient Inquiries",
+            "price_per_unit": 59,
+            "tickets_per_month": 300,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Answers general patient questions about services, facility hours, parking information, accepted insurance plans, new patient registration, and medical records"
+          },
+          {
+            "id": "hc-telehealth-support",
+            "name": "Telehealth Support",
+            "price_per_unit": 79,
+            "tickets_per_month": 200,
+            "currency": "USD",
+            "billing_period": "monthly",
+            "description": "Guides patients through telehealth platform setup, troubleshoots video/audio connection issues, reschedules virtual visits, and answers telehealth service questions"
+          }
+        ]
+      }
+    }
+  },
+  "sales_talking_points": {
+    "roi_pitch": "PARWA typically delivers ROI within 60 days. Customers report a 70% reduction in support costs, 50% faster resolution times, and 95%+ customer satisfaction rates.",
+    "starter_pitch": "At just $999/month, PARWA Starter handles 1,000 tickets automatically. That is less than $1 per resolved ticket. Compare that to the $6-12 industry average for human-agent resolution.",
+    "growth_pitch": "Growth at $2,499/month gives you multi-channel support and auto-learning AI. Our customers typically save $15,000-25,000/month by deflecting tickets that would otherwise require 5-8 full-time agents.",
+    "high_pitch": "Our High tier at $3,999/month is for serious scale. With unlimited agents and voice support, you get the equivalent of a 30+ agent team for under $4,000. That is a 90% cost reduction compared to traditional support operations.",
+    "upgrade_path": "Most customers start with Starter and upgrade to Growth within 3 months as they see immediate results. Upgrades are seamless with no data migration or configuration changes needed.",
+    "annual_savings": "Switching to annual billing saves 15% — that is $1,800/year on Growth and $6,000/year on High tier."
+  }
+}

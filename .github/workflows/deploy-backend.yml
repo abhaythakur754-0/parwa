@@ -1,0 +1,49 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'shared/**'
+      - 'database/**'
+      - '.github/workflows/deploy-backend.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (Placeholder)
+        run: echo "Configuring AWS credentials..."
+        # uses: aws-actions/configure-aws-credentials@v4
+        # with:
+        #   aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        #   aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        #   aws-region: us-east-1
+
+      - name: Login to Amazon ECR (Placeholder)
+        run: echo "Logging into ECR..."
+
+      - name: Build, Tag, and Push Backend Image (Placeholder)
+        run: |
+          echo "Building backend image..."
+          echo "docker build -t parwa-backend:latest -f infra/docker/backend.Dockerfile ."
+          echo "Pushing to registry..."
+
+      - name: Deploy to ECS / Kubernetes (Placeholder)
+        run: |
+          echo "Updating service configuration..."
+          echo "Deploying new image tag..."
+
+      - name: Run Database Migrations (Placeholder)
+        run: |
+          echo "Running alembic upgrade head..."
+
+      - name: Deployment Notification
+        if: always()
+        run: echo "Backend deployment completed with status ${{ job.status }}."

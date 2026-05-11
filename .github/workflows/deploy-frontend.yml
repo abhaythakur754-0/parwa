@@ -1,0 +1,74 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Check Frontend Exists
+        id: check-frontend
+        run: |
+          if [ -f "frontend/package.json" ]; then
+            echo "frontend_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "frontend_exists=false" >> $GITHUB_OUTPUT
+            echo "No frontend/package.json found, skipping frontend build"
+          fi
+
+      - name: Install Dependencies
+        if: steps.check-frontend.outputs.frontend_exists == 'true'
+        run: |
+          cd frontend
+          bun install
+
+      - name: Build Static Assets
+        if: steps.check-frontend.outputs.frontend_exists == 'true'
+        run: |
+          cd frontend
+          bun run build
+
+      - name: Configure AWS Credentials (Placeholder)
+        if: steps.check-frontend.outputs.frontend_exists == 'true'
+        run: echo "Configuring AWS credentials..."
+        # uses: aws-actions/configure-aws-credentials@v4
+        # with:
+        #   aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        #   aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        #   aws-region: us-east-1
+
+      - name: Sync to S3 Bucket (Placeholder)
+        if: steps.check-frontend.outputs.frontend_exists == 'true'
+        run: |
+          echo "Syncing dist folder to S3..."
+          # aws s3 sync frontend/.next/standalone/ s3://${{ secrets.FRONTEND_BUCKET_NAME }} --delete
+
+      - name: Invalidate CloudFront Cache (Placeholder)
+        if: steps.check-frontend.outputs.frontend_exists == 'true'
+        run: |
+          echo "Invalidating CloudFront CDN cache..."
+          # aws cloudfront create-invalidation --distribution-id ${{ secrets.CF_DISTRIBUTION_ID }} --paths "/*"
+
+      - name: Deployment Notification
+        if: always()
+        run: echo "Frontend deployment completed with status ${{ job.status }}."

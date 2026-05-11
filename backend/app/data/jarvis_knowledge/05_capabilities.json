@@ -1,0 +1,389 @@
+{
+  "knowledge_base": "PARWA Platform Capabilities",
+  "version": "1.0.0",
+  "last_updated": "2025-01-15",
+  "description": "Comprehensive capabilities document covering PARWA's core features, AI engine details, platform limitations, security posture, and performance guarantees.",
+  "core_capabilities": [
+    {
+      "id": "ticket_handling",
+      "name": "Intelligent Ticket Handling",
+      "description": "PARWA AI agents automatically receive, classify, prioritize, and resolve customer support tickets across multiple channels. The system processes incoming inquiries, determines the intent and urgency, generates contextual responses, and either resolves the ticket autonomously or escalates to a human agent with full context. Ticket handling supports email, live chat, phone (voice), and social media channels, with smart routing that directs each ticket to the most qualified AI agent variant based on the inquiry type.",
+      "details": {
+        "channels_supported": ["Email", "Live Chat", "Phone (Voice)", "Social Media (Facebook Messenger, Instagram DMs, Twitter/X DMs, WhatsApp Business)"],
+        "auto_classification_accuracy": "95%+ intent classification accuracy across 50+ intent categories",
+        "languages_supported": "25+ languages with native-quality responses",
+        "priority_levels": ["Low", "Medium", "High", "Critical", "VIP"],
+        "max_ticket_capacity_by_tier": {
+          "starter": "1,000 tickets/month",
+          "growth": "5,000 tickets/month",
+          "high": "20,000 tickets/month"
+        },
+        "response_formats": ["Text", "Rich HTML (email)", "Interactive buttons (chat)", "Document attachments", "Links and media"]
+      }
+    },
+    {
+      "id": "knowledge_base",
+      "name": "AI-Powered Knowledge Base",
+      "description": "PARWA's knowledge base system allows businesses to upload their support documentation, FAQs, product information, policies, and procedural guides. The AI engine uses semantic search and natural language understanding to retrieve the most relevant information for each customer inquiry. The system goes beyond keyword matching — it understands the meaning and context of questions to find the best answers even when the customer's phrasing does not exactly match the documentation.",
+      "details": {
+        "article_capacity": {
+          "starter": "Up to 50 articles",
+          "growth": "Up to 500 articles",
+          "high": "Unlimited articles"
+        },
+        "supported_formats": ["Plain text", "Markdown", "HTML", "PDF", "Word documents", "CSV/Excel"],
+        "search_type": "Semantic search powered by vector embeddings (not just keyword matching)",
+        "auto_organization": true,
+        "auto_organization_description": "PARWA automatically categorizes and tags knowledge base articles based on content analysis",
+        "content_gaps_detection": true,
+        "content_gaps_description": "The system identifies topics customers ask about that are not covered in the knowledge base, recommending new articles to create",
+        "version_control": "Full article version history with rollback capability"
+      }
+    },
+    {
+      "id": "multi_language",
+      "name": "Multi-Language Support",
+      "description": "PARWA provides native-quality AI responses in 25+ languages, enabling businesses to serve a global customer base without hiring multilingual support teams. The system automatically detects the customer's language and responds in kind, maintaining consistent tone, terminology, and policy accuracy across all languages. This is not a simple translation engine — PARWA understands cultural nuances, formality levels, and region-specific expressions.",
+      "details": {
+        "language_count": "25+",
+        "detection_method": "Automatic language detection from customer message with 99%+ accuracy",
+        "translation_quality": "Native-quality — responses are generated directly in the target language, not translated from English",
+        "supported_languages": [
+          "English", "Spanish", "French", "German", "Italian", "Portuguese", "Dutch",
+          "Japanese", "Korean", "Chinese (Simplified and Traditional)", "Hindi",
+          "Arabic", "Turkish", "Russian", "Polish", "Thai", "Vietnamese",
+          "Indonesian", "Malay", "Filipino (Tagalog)", "Swedish", "Danish",
+          "Norwegian", "Finnish", "Greek"
+        ],
+        "regional_adaptation": true,
+        "regional_adaptation_description": "Adapts currency formats, date formats, formality levels, and cultural expressions based on detected region"
+      }
+    },
+    {
+      "id": "response_time",
+      "name": "Instant Response Time",
+      "description": "PARWA AI agents respond to customer inquiries in seconds, dramatically reducing wait times compared to traditional human-agent support. The system is available 24/7 on all enabled channels, ensuring customers receive immediate assistance regardless of time zone or business hours. Response generation typically takes 2-5 seconds, with complex queries taking up to 10 seconds.",
+      "details": {
+        "average_response_time": "2-5 seconds for standard inquiries",
+        "max_response_time": "10 seconds for complex multi-step queries",
+        "availability": "24/7 on all enabled channels (no lunch breaks, no sick days, no shift changes)",
+        "concurrent_handling": "Unlimited simultaneous customer conversations per AI agent",
+        "first_response_time": "< 2 seconds from ticket receipt to AI response generation",
+        "comparison": "Compared to industry average human-agent first response time of 12+ hours (email) or 3+ minutes (chat)"
+      }
+    },
+    {
+      "id": "escalation",
+      "name": "Smart Escalation",
+      "description": "PARWA's intelligent escalation system knows when a conversation requires human intervention and seamlessly transfers it to the right team member with full context. The AI agent generates a comprehensive summary of the conversation, the customer's issue, what has already been attempted, and a recommended resolution path. Escalation triggers are configurable and include sentiment-based, complexity-based, and policy-based rules.",
+      "details": {
+        "escalation_triggers": [
+          "Customer expresses strong negative sentiment or frustration",
+          "AI confidence score falls below the configured threshold (default: 70%)",
+          "Inquiry involves a topic not covered in the knowledge base",
+          "Customer explicitly requests to speak with a human agent",
+          "Inquiry involves a financial amount above the configured threshold",
+          "Conversation exceeds the maximum AI handling turns without resolution",
+          "Inquiry involves legal, safety, or compliance concerns"
+        ],
+        "handoff_information": ["Full conversation transcript", "Customer profile summary", "Intent classification and sentiment analysis", "Actions already taken", "Recommended resolution path", "Customer's communication history"],
+        "escalation_routing": "Configurable routing to specific teams, agents, or departments based on inquiry type",
+        "context_preservation": "100% — no information is lost during handoff"
+      }
+    },
+    {
+      "id": "learning",
+      "name": "Continuous Auto-Learning",
+      "description": "PARWA's AI engine continuously improves its performance through multiple learning mechanisms. The system learns from resolved tickets, human agent corrections, customer feedback, and new knowledge base content. This means the AI agents get better over time without requiring manual retraining or configuration changes. Available on Growth and High tiers.",
+      "details": {
+        "learning_sources": [
+          "Human agent corrections — when a human agent modifies an AI response, the system learns the correct approach",
+          "Resolved ticket patterns — the system identifies successful resolution patterns and reinforces them",
+          "Customer feedback — CSAT scores and feedback directly influence response quality tuning",
+          "Knowledge base updates — new articles are immediately available to AI agents",
+          "Escalation analysis — patterns in escalated tickets inform better first-contact resolution strategies"
+        ],
+        "learning_frequency": "Real-time for knowledge base updates; batch learning for pattern analysis (daily)",
+        "no_downtime_required": "All learning happens continuously without system restarts or service interruptions",
+        "human_oversight": "Learning can be reviewed and approved before deployment in supervised mode",
+        "tiers_available": ["Growth", "High"]
+      }
+    },
+    {
+      "id": "analytics",
+      "name": "Advanced Analytics Dashboard",
+      "description": "PARWA provides a comprehensive analytics dashboard that gives businesses complete visibility into their AI-powered support operations. Track ticket volume, resolution rates, response times, customer satisfaction, agent performance, and more. Growth tier gets advanced analytics, while High tier adds predictive insights and custom reporting.",
+      "details": {
+        "core_metrics": [
+          "Total tickets received and resolved",
+          "AI resolution rate (percentage of tickets resolved without human intervention)",
+          "Average response time and first-contact resolution rate",
+          "Customer satisfaction (CSAT) scores with trend analysis",
+          "Escalation rate and escalation reason breakdown",
+          "Ticket volume by channel, category, and time period"
+        ],
+        "advanced_metrics_growth": [
+          "Agent performance comparison across variants",
+          "Knowledge base article effectiveness ranking",
+          "Customer sentiment trend analysis",
+          "Channel-wise distribution and efficiency metrics",
+          "Escalation pattern analysis and bottleneck identification",
+          "Export capabilities (CSV, PDF)"
+        ],
+        "predictive_metrics_high": [
+          "Ticket volume forecasting with trend projection",
+          "Customer churn risk identification based on interaction patterns",
+          "Agent workload optimization recommendations",
+          "Custom report builder with drag-and-drop interface",
+          "Real-time monitoring dashboards",
+          "API access for analytics data integration with external BI tools"
+        ],
+        "data_retention": "24 months of historical data with export capability"
+      }
+    },
+    {
+      "id": "smart_routing",
+      "name": "Intelligent Ticket Routing",
+      "description": "PARWA's smart routing system analyzes each incoming ticket and directs it to the most appropriate AI agent variant based on the inquiry's content, intent, customer profile, and business rules. This ensures that every customer query is handled by the AI agent with the deepest expertise in that specific area, resulting in faster and more accurate resolutions.",
+      "details": {
+        "routing_criteria": [
+          "Intent classification — what is the customer asking about",
+          "Industry context — which industry vertical does the inquiry belong to",
+          "Customer segment — VIP, enterprise, new, or returning customer",
+          "Sentiment analysis — is the customer frustrated or satisfied",
+          "Language detection — route to agent with best language capabilities",
+          "Complexity scoring — simple FAQ vs. multi-step technical issue",
+          "Business rules — custom routing rules configured by the business"
+        ],
+        "routing_speed": "< 100 milliseconds from ticket receipt to agent assignment",
+        "fallback_routing": "If no specialized agent is available, routes to the generalist agent",
+        "load_balancing": "Distributes tickets across agents to prevent any single agent from being overwhelmed",
+        "configurable": true,
+        "configurable_description": "Businesses can create custom routing rules based on their specific needs and priorities"
+      }
+    }
+  ],
+  "ai_engine_details": {
+    "framework_name": "CLARA",
+    "framework_full_name": "Contextual Language and Reasoning Architecture",
+    "description": "CLARA is PARWA's proprietary AI framework that powers all AI agent variants. It combines multiple state-of-the-art AI techniques into a unified system designed specifically for customer support. Unlike generic chatbot platforms, CLARA is purpose-built for the nuances of customer service: understanding frustration, following complex policies, handling edge cases, and knowing when to escalate.",
+    "ai_techniques": [
+      {
+        "id": "nlp",
+        "name": "Natural Language Processing (NLP)",
+        "description": "CLARA uses advanced NLP to understand the full meaning of customer messages, including context, nuance, ambiguity, and implied intent. It goes beyond simple word matching to comprehend the customer's actual need, even when expressed in informal, grammatically incorrect, or incomplete language. The NLP engine handles misspellings, abbreviations, mixed languages, and colloquial expressions with high accuracy.",
+        "use_case": "Understanding what a customer means when they write 'my stuff hasnt come yet' or 'need to cancel asap'"
+      },
+      {
+        "id": "sentiment_analysis",
+        "name": "Sentiment Analysis",
+        "description": "CLARA analyzes the emotional tone of every customer message in real time. It detects frustration, anger, urgency, confusion, satisfaction, and neutral tones. This sentiment score influences the AI agent's response style, urgency level, and escalation decisions. A frustrated customer receives a more empathetic, urgent response, while a satisfied customer receives a concise, efficient interaction.",
+        "use_case": "Detecting that a customer saying 'This is absolutely ridiculous' requires immediate empathetic response and potential escalation, versus 'No worries, take your time' which indicates low urgency"
+      },
+      {
+        "id": "intent_classification",
+        "name": "Intent Classification",
+        "description": "CLARA classifies each customer inquiry into one of 50+ intent categories with 95%+ accuracy. Intent classification determines which AI agent variant should handle the ticket, what information needs to be retrieved, and what type of response template should be used. The system supports multi-intent detection for complex messages that touch on multiple topics.",
+        "use_case": "Classifying 'I want to return my order and also update my shipping address' as two distinct intents (return_request + address_update) requiring coordinated handling"
+      },
+      {
+        "id": "entity_extraction",
+        "name": "Entity Extraction",
+        "description": "CLARA automatically extracts key entities from customer messages including order numbers, tracking numbers, product names, dates, dollar amounts, email addresses, phone numbers, and other structured data. These extracted entities are used to query external systems (e.g., order lookup in Shopify) and personalize the response. The entity extraction works across all supported languages.",
+        "use_case": "Extracting 'ORD-78432' from 'Where is order ord 78432?' and using it to query the order management system for real-time status"
+      },
+      {
+        "id": "context_windowing",
+        "name": "Context Windowing",
+        "description": "CLARA maintains a rich contextual understanding of each conversation by tracking the full history of interactions within a session. It remembers what was discussed, what actions were taken, and what the customer's current state is. This enables natural multi-turn conversations where the AI agent remembers previous exchanges without the customer needing to repeat information.",
+        "use_case": "After discussing a return in message 1, the AI agent in message 3 can reference the return without the customer re-explaining which order they are talking about"
+      },
+      {
+        "id": "confidence_scoring",
+        "name": "Confidence Scoring",
+        "description": "Every response generated by CLARA includes a confidence score indicating how certain the AI is that its response is correct and complete. Responses below the configurable confidence threshold (default 70%) are either flagged for review before sending or escalated to a human agent. This ensures that uncertain responses never reach the customer.",
+        "use_case": "If a customer asks about a very specific product feature not well-documented in the knowledge base, the confidence score drops below threshold and the inquiry is routed to a human product specialist"
+      },
+      {
+        "id": "hallucination_guard",
+        "name": "Hallination Guard",
+        "description": "CLARA includes a multi-layer hallucination prevention system that ensures AI agents never fabricate information, make up policies, or invent facts. The system cross-references every generated response against the knowledge base, company policies, and verified data sources. Any response that cannot be verified is either modified to reflect only confirmed information or flagged for human review.",
+        "use_case": "Preventing the AI from inventing a return policy deadline that does not exist — it only communicates policies that are explicitly defined in the knowledge base"
+      },
+      {
+        "id": "pii_detection",
+        "name": "PII Detection and Handling",
+        "description": "CLARA automatically detects Personally Identifiable Information (PII) in customer messages including names, email addresses, phone numbers, physical addresses, social security numbers, credit card numbers, and health information. Detected PII is handled according to configured privacy rules — it can be masked in logs, redacted from analytics, or handled with additional security measures.",
+        "use_case": "Detecting a customer's credit card number in a message, masking it in all logs and analytics, and advising the customer that it is not safe to share card details via chat"
+      },
+      {
+        "id": "smart_routing",
+        "name": "AI-Powered Smart Routing",
+        "description": "CLARA's routing engine analyzes the classified intent, customer profile, sentiment, and business rules to determine the optimal AI agent variant for each ticket. The routing decision is made in under 100 milliseconds and considers factors including agent specialization, current workload, historical resolution rates, and customer segment priority.",
+        "use_case": "Routing a payment decline inquiry to the Payment Issues variant while routing an order status inquiry to the Order Management variant, all from the same customer interaction"
+      },
+      {
+        "id": "auto_learning",
+        "name": "Adaptive Auto-Learning",
+        "description": "CLARA's learning engine continuously improves AI agent performance by analyzing successful resolutions, human agent corrections, and customer feedback. The system identifies patterns in what works and reinforces those patterns, while de-emphasizing approaches that lead to escalations or low satisfaction. Learning happens in real time for knowledge base updates and in daily batch cycles for pattern analysis.",
+        "use_case": "After 50 customers ask about a product feature that is documented under an unexpected title, the system learns to associate the colloquial term with the correct knowledge base article"
+      },
+      {
+        "id": "conversation_summarization",
+        "name": "Conversation Summarization",
+        "description": "CLARA automatically generates concise summaries of AI-to-customer conversations, capturing the key issue, actions taken, resolution (or current status), and next steps. These summaries are used for escalation handoffs, analytics, and audit purposes. The summarization engine distills multi-turn conversations into clear, structured summaries that human agents can review in seconds.",
+        "use_case": "When escalating to a human agent, providing a summary like 'Customer Sarah (VIP) has a refund issue on order ORD-78432. AI verified the refund was processed on Jan 10 but has not appeared on her Visa ending 4242. Amount: $89.00. Escalation reason: refund exceeds 7 business days.'"
+      },
+      {
+        "id": "multi_turn_context",
+        "name": "Multi-Turn Context Management",
+        "description": "CLARA maintains coherent multi-turn conversations by tracking the evolving context across multiple message exchanges. The system understands topic shifts, follow-up questions, and reference resolution (e.g., understanding 'what about that one?' refers to a previously discussed item). This enables natural conversational flows that feel like talking to a knowledgeable human agent.",
+        "use_case": "A customer asks about a product, then asks 'do you have it in blue?' — CLARA understands 'it' refers to the previously discussed product, not a new inquiry"
+      },
+      {
+        "id": "language_detection",
+        "name": "Real-Time Language Detection",
+        "description": "CLARA detects the customer's language in real time with 99%+ accuracy, even for code-switched messages (messages that mix two languages). The system supports 25+ languages and automatically responds in the detected language without any configuration required. Language detection works across all channels including email, chat, voice, and social media.",
+        "use_case": "Detecting that a message is in Japanese and generating a response in natural Japanese, even if the customer's account profile lists English as their primary language"
+      },
+      {
+        "id": "tone_adaptation",
+        "name": "Tone Adaptation",
+        "description": "CLARA dynamically adapts the tone, formality, and communication style of its responses based on the customer's sentiment, the nature of the inquiry, and the brand's configured voice guidelines. A frustrated customer receives a warm, empathetic tone. A technical inquiry receives a precise, structured response. A casual chat receives a friendly, conversational style.",
+        "use_case": "Adjusting response tone from 'professional and structured' for a billing inquiry to 'warm and empathetic' for a customer expressing disappointment about a delayed delivery"
+      }
+    ]
+  },
+  "what_jarvis_cannot_do": [
+    {
+      "limitation": "Cannot Make Outbound Sales Calls",
+      "description": "PARWA AI agents respond to incoming customer inquiries but do not make proactive outbound sales calls. While the system can send automated notifications (order updates, appointment reminders, follow-up emails), it cannot engage in unsolicited sales conversations or cold calling. For outbound sales needs, a human sales team or a separate sales-focused tool should be used.",
+      "recommendation": "Combine PARWA for inbound customer support with a CRM outreach tool like Salesforce or HubSpot for outbound sales engagement."
+    },
+    {
+      "limitation": "Cannot Access Systems Without Integration",
+      "description": "PARWA AI agents can only access data and perform actions in systems that have been explicitly integrated. If your business uses a custom CRM, ERP, or database that has not been connected to PARWA, the AI agents will not be able to retrieve or update information in those systems. Integration must be set up before the AI can interact with external platforms.",
+      "recommendation": "Review the integrations catalog to connect your essential tools, or use the REST API for custom system integration."
+    },
+    {
+      "limitation": "Cannot Provide Medical, Legal, or Financial Advice",
+      "description": "While PARWA has healthcare-specific variants, the AI agents cannot provide medical diagnoses, treatment recommendations, legal counsel, or financial investment advice. The system can handle administrative aspects of healthcare (appointments, insurance, prescriptions), logistics (tracking, compliance), and billing, but it cannot replace licensed professionals for professional advice.",
+      "recommendation": "Healthcare variants should be configured to escalate any clinical questions to qualified medical professionals."
+    },
+    {
+      "limitation": "Cannot Handle Physical World Tasks",
+      "description": "PARWA AI agents operate in the digital domain and cannot perform physical tasks such as picking up packages, visiting customer locations, inspecting physical goods, or making physical deliveries. The system can coordinate and facilitate these tasks by communicating with relevant parties, but the actual physical execution requires human or third-party involvement.",
+      "recommendation": "Use PARWA to coordinate logistics tasks (schedule pickups, arrange deliveries) while relying on your operational team for physical execution."
+    },
+    {
+      "limitation": "Cannot Guarantee 100% Resolution Rate",
+      "description": "While PARWA achieves high resolution rates (typically 85-95% depending on the variant and industry), it cannot resolve every ticket autonomously. Complex edge cases, unprecedented situations, highly emotional customers, and inquiries requiring human judgment will always require human agent involvement. PARWA is designed to handle the majority of routine inquiries and escalate the rest gracefully.",
+      "recommendation": "Set realistic expectations with your team — PARWA will significantly reduce support workload but a human team is still essential for complex cases."
+    },
+    {
+      "limitation": "Cannot Replace Human Empathy for Critical Situations",
+      "description": "While PARWA's tone adaptation and sentiment analysis are sophisticated, there are situations that genuinely require human empathy and judgment. Bereavement situations, serious medical concerns, legal emergencies, and safety crises require compassionate human handling. PARWA is configured to immediately escalate these scenarios to human agents with appropriate urgency flags.",
+      "recommendation": "Configure escalation triggers to detect sensitive keywords and topics (death, suicide, abuse, emergency) and immediately route to trained human agents."
+    },
+    {
+      "limitation": "Cannot Learn Without Data",
+      "description": "PARWA's auto-learning capabilities are only as effective as the data they learn from. A new PARWA deployment with minimal knowledge base content, no historical ticket data, and few resolved tickets will have a lower resolution rate initially. The system improves rapidly with more data, but businesses must invest in knowledge base content creation and allow a ramp-up period (typically 2-4 weeks) for optimal performance.",
+      "recommendation": "Start with a comprehensive knowledge base (minimum 30 articles), and monitor resolution rates during the first month as the system learns your specific business context."
+    },
+    {
+      "limitation": "Cannot Process Real-Time Voice Without Voice Add-On",
+      "description": "PARWA's standard ticket handling supports text-based channels (email, chat, social media). Real-time AI voice support for phone calls (IVR replacement, voice-to-text, text-to-voice conversation) is available exclusively on the High tier. Starter and Growth tier customers cannot use the voice channel.",
+      "recommendation": "If voice support is important, consider the High tier. Growth customers can integrate with a third-party IVR system via the REST API."
+    }
+  ],
+  "security_features": [
+    {
+      "id": "encryption",
+      "name": "End-to-End Encryption",
+      "description": "All data transmitted to and from PARWA is encrypted using TLS 1.3. Data at rest is encrypted using AES-256 encryption. Database backups are encrypted with separate encryption keys managed through a hardware security module (HSM). Encryption keys are rotated automatically every 90 days.",
+      "scope": "All data in transit and at rest including customer messages, API communications, database storage, and file attachments"
+    },
+    {
+      "id": "gdpr",
+      "name": "GDPR Compliance",
+      "description": "PARWA is fully compliant with the European Union's General Data Protection Regulation (GDPR). The platform supports data subject rights including the right to access, rectify, erase, restrict processing, data portability, and the right to object. PARWA serves as a data processor and provides Data Processing Agreements (DPAs) to all customers. EU customer data can be stored in EU-based data centers.",
+      "scope": "All customer data processed by PARWA for EU-based businesses and EU data subjects"
+    },
+    {
+      "id": "soc2",
+      "name": "SOC 2 Type II Compliance",
+      "description": "PARWA maintains SOC 2 Type II certification, audited annually by an independent third-party auditor. The certification covers the Trust Service Criteria of Security, Availability, Processing Integrity, Confidentiality, and Privacy. SOC 2 reports are available to customers under NDA upon request.",
+      "scope": "All PARWA platform operations, infrastructure, and data handling processes"
+    },
+    {
+      "id": "data_isolation",
+      "name": "Tenant Data Isolation",
+      "description": "Each PARWA customer's data is completely isolated from all other customers. Data isolation is enforced at the application layer, database layer, and infrastructure layer. AI models trained on one customer's data are never shared with or accessible by another customer. No cross-tenant data access is possible, even for PARWA's own engineering team during normal operations.",
+      "scope": "All customer data including tickets, knowledge base content, customer profiles, and AI training data"
+    },
+    {
+      "id": "audit_logs",
+      "name": "Comprehensive Audit Logs",
+      "description": "PARWA maintains detailed audit logs of all system activities including user logins, configuration changes, data access, API calls, AI agent actions, and escalation events. Audit logs are immutable (cannot be modified or deleted), retained for 24 months, and available for export. Logs include timestamps, user identifiers, action types, and affected resources.",
+      "scope": "All platform activities, user actions, system events, and data access operations"
+    },
+    {
+      "id": "rbac",
+      "name": "Role-Based Access Control (RBAC)",
+      "description": "PARWA implements granular role-based access control with predefined roles (Admin, Manager, Agent, Analyst, Viewer) and the ability to create custom roles. Each role has specific permissions that control access to features, data, and configuration options. Two-factor authentication (2FA) is available and enforceable for all user accounts.",
+      "scope": "All user access to the PARWA dashboard, API, and data"
+    },
+    {
+      "id": "hipaa",
+      "name": "HIPAA Readiness (Healthcare Customers)",
+      "description": "For healthcare customers, PARWA offers a HIPAA-compliant configuration option that includes Business Associate Agreements (BAAs), enhanced access controls, PHI (Protected Health Information) handling protocols, and additional audit logging. Healthcare variants are designed with privacy-first architecture, ensuring patient data is handled in compliance with HIPAA Privacy and Security Rules.",
+      "scope": "Healthcare tier customers processing PHI through PARWA's healthcare AI agent variants"
+    },
+    {
+      "id": "vulnerability_management",
+      "name": "Continuous Vulnerability Management",
+      "description": "PARWA conducts continuous security monitoring including automated vulnerability scanning, dependency scanning, and dynamic application security testing (DAST). Critical vulnerabilities are patched within 24 hours, high severity within 72 hours, and medium/low within the next regular release cycle. Annual third-party penetration testing is conducted with results available to customers under NDA.",
+      "scope": "All PARWA infrastructure, application code, and third-party dependencies"
+    },
+    {
+      "id": "data_residency",
+      "name": "Data Residency Controls",
+      "description": "PARWA offers configurable data residency options allowing customers to specify the geographic region where their data is stored and processed. Available regions include US (AWS US-East), EU (AWS EU-West), and APAC (AWS AP-Southeast). Data residency is enforced at the infrastructure level and verified through regular compliance audits.",
+      "scope": "All customer data storage and processing"
+    },
+    {
+      "id": "incident_response",
+      "name": "Security Incident Response",
+      "description": "PARWA maintains a documented incident response plan with defined severity levels, response timelines, and communication protocols. Security incidents are triaged within 15 minutes of detection, with initial containment within 1 hour for critical incidents. Affected customers are notified within 24 hours of a confirmed security incident. Post-incident reviews are conducted for all security events.",
+      "scope": "All security events affecting PARWA platform, customer data, or infrastructure"
+    }
+  ],
+  "performance_guarantees": {
+    "uptime_sla": {
+      "guarantee": "99.9% uptime SLA",
+      "details": "PARWA guarantees 99.9% platform availability, measured monthly. This allows for a maximum of approximately 43.2 minutes of unplanned downtime per month. Scheduled maintenance windows are communicated at least 72 hours in advance and do not count against the SLA.",
+      "credits": "If uptime falls below 99.9% in a calendar month, customers receive service credits: 10% credit for uptime between 99.0% and 99.9%, 25% credit for uptime between 95.0% and 99.0%, and 50% credit for uptime below 95.0%"
+    },
+    "response_time_guarantee": {
+      "guarantee": "AI response within 10 seconds",
+      "details": "PARWA guarantees that AI agent responses are generated and delivered within 10 seconds of ticket receipt for 99% of all tickets. This guarantee applies to all channels and all ticket types. Response time is measured from the moment PARWA receives the customer message to the moment the response is sent.",
+      "p95_target": "5 seconds or less for 95% of all tickets",
+      "average_target": "2-3 seconds for standard inquiries"
+    },
+    "resolution_rate_guarantee": {
+      "guarantee": "80%+ AI resolution rate",
+      "details": "PARWA guarantees that at least 80% of incoming tickets will be resolved by AI agents without human intervention, assuming the customer has provided a minimum of 30 knowledge base articles and has completed the onboarding configuration. Resolution rate is measured monthly.",
+      "industry_comparison": "Industry average for AI chatbot resolution rates is 30-50%. PARWA's 80%+ guarantee reflects the advanced capabilities of the CLARA framework and industry-specific agent variants."
+    },
+    "support_response_sla": {
+      "starter": "Business hours email support with 24-hour response time",
+      "growth": "Priority support (Mon-Sat) with 4-hour response time SLA",
+      "high": "24/7 priority support with 1-hour response time SLA and dedicated account manager"
+    },
+    "data_recovery_guarantee": {
+      "guarantee": "Recovery Point Objective (RPO) of 1 hour",
+      "details": "In the event of a data loss incident, PARWA guarantees recovery of all customer data with a maximum data loss window of 1 hour. Automated database backups are taken every hour and retained for 30 days. Point-in-time recovery is available for the High tier.",
+      "rto": "Recovery Time Objective (RTO) of 4 hours for full platform restoration"
+    }
+  }
+}
