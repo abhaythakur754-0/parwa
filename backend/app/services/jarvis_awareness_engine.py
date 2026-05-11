@@ -294,6 +294,34 @@ def run_awareness_tick(
     except Exception:
         logger.debug("event_dispatch_non_fatal", exc_info=True)
 
+    # ── Step 12: Auto-command from alerts (Phase 3) ──
+    # When critical/emergency alerts are created, automatically route them
+    # through the multi-agent command graph so Jarvis TAKES ACTION.
+    try:
+        for alert in alerts_created:
+            if alert.severity in ("critical", "emergency"):
+                from app.services.jarvis_agents.command_graph import run_command_from_alert
+
+                run_command_from_alert(
+                    company_id=company_id,
+                    session_id=session_id,
+                    user_id=user_id,
+                    alert_id=str(alert.id),
+                    alert_type=alert.alert_type,
+                    alert_severity=alert.severity,
+                    alert_message=alert.message,
+                    alert_details=_safe_parse_json(alert.details_json),
+                    awareness_snapshot=current_state,
+                    session_context=ctx,
+                    variant_tier=ctx.get("variant_tier", "mini_parwa"),
+                )
+                logger.info(
+                    "auto_command_dispatched: alert=%s, type=%s, severity=%s",
+                    str(alert.id), alert.alert_type, alert.severity,
+                )
+    except Exception:
+        logger.debug("auto_command_non_fatal", exc_info=True)
+
     total_ms = round((time.monotonic() - start_time) * 1000, 2)
 
     tick_result = {
