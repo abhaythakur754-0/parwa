@@ -813,10 +813,17 @@ class TestRouterRegistration:
         assert "jarvis_cc" in content
         assert "jarvis_cc.router" in content
 
-    def test_router_has_eight_routes(self):
+    def test_router_has_sixteen_routes(self):
         cc = _import_jarvis_cc_helpers()
         route_count = len([r for r in cc.router.routes if hasattr(r, 'path')])
         # POST /session, GET /session, GET /session/health,
         # POST /message, GET /context, PATCH /context,
-        # GET /history, GET /prompt = 8 routes
-        assert route_count == 8
+        # GET /history, GET /prompt = 8 original routes
+        # POST /awareness/tick, GET /awareness/snapshot,
+        # GET /awareness/snapshots, GET /awareness/alerts,
+        # POST /awareness/alerts/acknowledge,
+        # POST /awareness/alerts/dismiss,
+        # POST /awareness/alerts/resolve,
+        # GET /awareness/delta = 8 awareness routes (Phase 2.2)
+        # Total = 16 routes
+        assert route_count == 16
