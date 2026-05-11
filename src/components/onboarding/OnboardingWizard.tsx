@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ProgressIndicator } from './ProgressIndicator';
 import { LegalCompliance } from './LegalCompliance';
 import { IntegrationSetup } from './IntegrationSetup';
@@ -44,7 +44,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
       .finally(() => setLoading(false));
   }, [initialState]);
 
-  const completeStep = async (step: number) => {
+  const completeStep = useCallback(async (step: number) => {
     setCompletedSteps((prev) => [...prev.filter((s) => s !== step), step]);
     setCurrentStep(step + 1);
 
@@ -55,7 +55,30 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
     } catch {
       // Step completed locally even if API fails
     }
-  };
+  }, []);
+
+  const handleGoToStep = useCallback((step: number) => {
+    // Only allow going to completed steps (not current)
+    if (completedSteps.includes(step) && step !== currentStep) {
+      setCurrentStep(step);
+    }
+  }, [completedSteps, currentStep]);
+
+  const handleBack = useCallback(() => {
+    if (currentStep > 1) {
+      setCurrentStep((prev) => prev - 1);
+    }
+  }, [currentStep]);
+
+  const handleNext = useCallback(() => {
+    // Only allow Next if current step is completed
+    if (completedSteps.includes(currentStep) && currentStep < 5) {
+      setCurrentStep((prev) => prev + 1);
+    }
+  }, [currentStep, completedSteps]);
+
+  const canGoBack = currentStep > 1;
+  const canGoNext = completedSteps.includes(currentStep) && currentStep < 5;
 
   if (loading) {
     return (
@@ -82,11 +105,16 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto px-4 py-8">
-        {/* Progress */}
+        {/* Progress with inline navigation */}
         <div className="mb-8">
           <ProgressIndicator
             currentStep={currentStep}
             completedSteps={completedSteps}
+            onGoToStep={handleGoToStep}
+            onBack={handleBack}
+            onNext={handleNext}
+            canGoBack={canGoBack}
+            canGoNext={canGoNext}
           />
         </div>
 
