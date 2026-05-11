@@ -404,27 +404,67 @@ def get_vector_store() -> VectorStore:
     2. MockVectorStore as safe fallback (BC-008)
 
     Thread-safe singleton pattern.
+
+    NOTE: DATABASE_URL is resolved from ``app.config.get_settings()`` first
+    (which reads ``.env`` files via pydantic-settings), then from
+    ``os.environ`` as a secondary source.  This ensures that a PostgreSQL
+    URL defined in ``.env`` is correctly detected even when it is not
+    present in the raw environment.
     """
     global _store_instance
     if _store_instance is not None:
         return _store_instance
 
-    # Try PgVectorStore first
+    # ── Resolve DATABASE_URL from settings first (covers .env file) ──
+    database_url = ""
     try:
+        from app.config import get_settings
+        settings = get_settings()
+        database_url = getattr(settings, "DATABASE_URL", "") or ""
+    except Exception:
+        # Settings unavailable — fall back to raw env var
         database_url = os.environ.get("DATABASE_URL", "")
-        if database_url and "postgresql" in database_url.lower():
+
+    if not database_url:
+        logger.info(
+            "DATABASE_URL not configured — using MockVectorStore "
+            "(no connection string available)"
+        )
+        _store_instance = MockVectorStore()
+        logger.info("Using MockVectorStore for vector search (dev/fallback mode)")
+        return _store_instance
+
+    # ── Prefer PgVectorStore when a PostgreSQL URL is configured ────
+    if "postgresql" in database_url.lower():
+        try:
             pg_store = _create_pg_vector_store()
             if pg_store and pg_store.health_check():
                 _store_instance = pg_store
-                logger.info("Using PgVectorStore for vector search")
+                logger.info(
+                    "Using PgVectorStore for vector search "
+                    "(DATABASE_URL=%s)",
+                    database_url.split("@")[-1] if "@" in database_url else "redacted",
+                )
                 return _store_instance
-    except Exception as exc:
-        logger.warning(
-            "PgVectorStore unavailable, falling back to MockVectorStore: %s",
-            exc,
+            else:
+                logger.warning(
+                    "PgVectorStore created but health_check failed — "
+                    "falling back to MockVectorStore. "
+                    "Ensure the pgvector extension is installed: "
+                    "CREATE EXTENSION IF NOT EXISTS vector;"
+                )
+        except Exception as exc:
+            logger.warning(
+                "PgVectorStore unavailable, falling back to MockVectorStore: %s",
+                exc,
+            )
+    else:
+        logger.info(
+            "DATABASE_URL is not PostgreSQL (%s) — using MockVectorStore",
+            database_url.split("://")[0] if "://" in database_url else "unknown",
         )
 
-    # Fallback to MockVectorStore
+    # ── Fallback: MockVectorStore (BC-008) ────────────────────────────
     _store_instance = MockVectorStore()
     logger.info("Using MockVectorStore for vector search (dev/fallback mode)")
     return _store_instance
