@@ -412,10 +412,58 @@ setattr(_fake_sms_models, "SMSConversation", _MockSMSConversation)
 setattr(_fake_sms_models, "SMSChannelConfig", _MockSMSChannelConfig)
 sys.modules.setdefault("database.models.sms_channel", _fake_sms_models)
 
+# ── database.models.jarvis_cc (Phase 2.1 — Awareness Engine) ──────────
+_fake_jarvis_cc_models = types.ModuleType("database.models.jarvis_cc")
+
+_MockJarvisAwarenessSnapshot = type("JarvisAwarenessSnapshot", (object,), {
+    "__tablename__": "jarvis_awareness_snapshots",
+    "id": _AttrChainer(), "session_id": _AttrChainer(), "company_id": _AttrChainer(),
+    "snapshot_type": _AttrChainer(), "tick_number": _AttrChainer(),
+    "current_plan": None, "plan_usage_today": None,
+    "subscription_status": None, "days_until_renewal": None,
+    "system_health": "unknown",
+    "channel_health_json": "{}", "active_alerts_count": 0,
+    "active_alerts_json": "[]", "ticket_volume_today": 0,
+    "ticket_volume_avg": None, "ticket_volume_spike": False,
+    "active_agents": 0, "agent_pool_capacity": 0,
+    "agent_pool_utilization": None, "training_running": False,
+    "training_mistake_count": 0, "training_model_version": None,
+    "drift_status": "none", "drift_score": None,
+    "quality_score": None, "quality_alerts_json": "[]",
+    "last_5_errors_json": "[]", "raw_state_json": "{}",
+    "created_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+_MockJarvisCommand = type("JarvisCommand", (object,), {
+    "__tablename__": "jarvis_commands",
+    "id": None, "session_id": _AttrChainer(), "company_id": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+_MockJarvisProactiveAlert = type("JarvisProactiveAlert", (object,), {
+    "__tablename__": "jarvis_proactive_alerts",
+    "id": None, "session_id": _AttrChainer(), "company_id": _AttrChainer(),
+    "alert_type": None, "severity": "info", "category": "system_health",
+    "title": None, "message": None, "details_json": "{}",
+    "status": _AttrChainer(), "action_required": False,
+    "action_url": None, "ttl_seconds": 0,
+    "related_snapshot_id": None, "acknowledged_by": None,
+    "acknowledged_at": None, "resolved_at": None,
+    "created_at": _AttrChainer(), "updated_at": None,
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+setattr(_fake_jarvis_cc_models, "JarvisAwarenessSnapshot", _MockJarvisAwarenessSnapshot)
+setattr(_fake_jarvis_cc_models, "JarvisCommand", _MockJarvisCommand)
+setattr(_fake_jarvis_cc_models, "JarvisProactiveAlert", _MockJarvisProactiveAlert)
+sys.modules.setdefault("database.models.jarvis_cc", _fake_jarvis_cc_models)
+
 sys.modules.setdefault("database", _fake_database)
 sys.modules.setdefault("database.base", _fake_base)
 sys.modules.setdefault("database.models", _fake_models)
 sys.modules.setdefault("database.models.jarvis", _fake_jarvis_models)
+sys.modules.setdefault("database.models.jarvis_cc", _fake_jarvis_cc_models)
 sys.modules.setdefault("database.models.core", _fake_core_models)
 sys.modules.setdefault("database.models.onboarding", _fake_onboarding_models)
 

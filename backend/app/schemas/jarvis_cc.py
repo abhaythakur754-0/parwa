@@ -12,8 +12,9 @@ Covers:
 - CC Context get/update
 - CC Session health
 - CC History (paginated)
+- Awareness Engine tick/snapshot/alert schemas (Phase 2.1)
 
-Based on: jarvis_cc_service.py Phase 1.2
+Based on: jarvis_cc_service.py Phase 1.2, jarvis_awareness_engine.py Phase 2.1
 """
 
 from typing import Any, Dict, List, Optional
@@ -228,3 +229,199 @@ class JarvisCCSessionHealthResponse(BaseModel):
     error: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+# ══════════════════════════════════════════════════════════════════
+# AWARENESS ENGINE SCHEMAS (Phase 2.1)
+# ══════════════════════════════════════════════════════════════════
+
+
+_VALID_TICK_TYPES = ("periodic", "on_change", "manual", "emergency")
+_VALID_ALERT_SEVERITIES = ("info", "warning", "critical", "emergency")
+_VALID_ALERT_STATUSES = ("active", "acknowledged", "dismissed", "resolved", "expired")
+_VALID_ALERT_CATEGORIES = (
+    "system_health", "ticket_volume", "agent_pool",
+    "quality", "drift", "billing", "security", "integration",
+)
+
+
+class JarvisAwarenessTickRequest(BaseModel):
+    """Request to manually trigger an awareness tick.
+
+    Used by the dashboard to force an awareness refresh
+    (e.g., when user navigates to the monitoring view)
+    or by the system for on_change/emergency ticks.
+    """
+
+    session_id: str = Field(
+        description="Customer care session ID to tick",
+    )
+    tick_type: str = Field(
+        default="manual",
+        description="Type of tick: periodic, on_change, manual, emergency",
+    )
+
+    @field_validator("tick_type")
+    @classmethod
+    def tick_type_must_be_valid(cls, v: str) -> str:
+        if v not in _VALID_TICK_TYPES:
+            raise ValueError(
+                f"Invalid tick_type. Must be one of: {', '.join(_VALID_TICK_TYPES)}"
+            )
+        return v
+
+
+class JarvisAwarenessTickResponse(BaseModel):
+    """Response from an awareness tick.
+
+    Contains the snapshot ID, tick metadata, and any alerts
+    that were generated during this tick.
+    """
+
+    snapshot_id: str
+    tick_type: str
+    tick_number: int
+    alerts_created: int = 0
+    alert_ids: List[str] = Field(default_factory=list)
+    system_health: str = "unknown"
+    quality_score: Optional[float] = None
+    drift_score: Optional[float] = None
+    delta_significant: bool = False
+    total_ms: float = 0.0
+
+
+class JarvisAwarenessSnapshotResponse(BaseModel):
+    """Single awareness snapshot from the Awareness Engine.
+
+    Maps the JarvisAwarenessSnapshot ORM model to an API response.
+    Includes all 7 monitoring domain fields plus metadata.
+    """
+
+    id: str
+    session_id: str
+    company_id: str
+    snapshot_type: str = "periodic"
+    tick_number: Optional[int] = None
+
+    # Domain 1: Plan & Subscription
+    current_plan: Optional[str] = None
+    plan_usage_today: Optional[float] = None
+    subscription_status: Optional[str] = None
+    days_until_renewal: Optional[int] = None
+
+    # Domain 2: System Health
+    system_health: str = "unknown"
+    channel_health: Dict[str, str] = Field(default_factory=dict)
+    active_alerts_count: int = 0
+    active_alerts: List[Dict[str, Any]] = Field(default_factory=list)
+
+    # Domain 3: Ticket Volume
+    ticket_volume_today: int = 0
+    ticket_volume_avg: Optional[float] = None
+    ticket_volume_spike: bool = False
+
+    # Domain 4: Agent Pool
+    active_agents: int = 0
+    agent_pool_capacity: int = 0
+    agent_pool_utilization: Optional[float] = None
+
+    # Domain 5: Training
+    training_running: bool = False
+    training_mistake_count: int = 0
+    training_model_version: Optional[str] = None
+
+    # Domain 6: Drift & Quality
+    drift_status: str = "none"
+    drift_score: Optional[float] = None
+    quality_score: Optional[float] = None
+    quality_alerts: List[Dict[str, Any]] = Field(default_factory=list)
+
+    # Domain 7: Errors
+    last_5_errors: List[Dict[str, Any]] = Field(default_factory=list)
+
+    created_at: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class JarvisAwarenessSnapshotListResponse(BaseModel):
+    """Paginated list of awareness snapshots."""
+
+    snapshots: List[JarvisAwarenessSnapshotResponse]
+    total: int = 0
+    limit: int = 50
+    offset: int = 0
+    has_more: bool = False
+
+
+class JarvisProactiveAlertResponse(BaseModel):
+    """Proactive alert from the Awareness Engine.
+
+    Unlike JarvisMessage (user-initiated), proactive alerts
+    are system-initiated — Jarvis noticed something and is
+    proactively telling the user about it.
+    """
+
+    id: str
+    session_id: str
+    company_id: str
+    alert_type: str
+    severity: str = "info"
+    category: str = "system_health"
+    title: str
+    message: str
+    details: Dict[str, Any] = Field(default_factory=dict)
+    status: str = "active"
+    action_required: bool = False
+    action_url: Optional[str] = None
+    ttl_seconds: int = 0
+    related_snapshot_id: Optional[str] = None
+    acknowledged_by: Optional[str] = None
+    acknowledged_at: Optional[str] = None
+    resolved_at: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class JarvisProactiveAlertListResponse(BaseModel):
+    """Paginated list of proactive alerts."""
+
+    alerts: List[JarvisProactiveAlertResponse]
+    total: int = 0
+    limit: int = 50
+    offset: int = 0
+    has_more: bool = False
+
+
+class JarvisAlertAcknowledgeRequest(BaseModel):
+    """Request to acknowledge an alert."""
+
+    alert_id: str = Field(description="Alert ID to acknowledge")
+
+
+class JarvisAlertDismissRequest(BaseModel):
+    """Request to dismiss an alert."""
+
+    alert_id: str = Field(description="Alert ID to dismiss")
+
+
+class JarvisAlertResolveRequest(BaseModel):
+    """Request to resolve an alert."""
+
+    alert_id: str = Field(description="Alert ID to resolve")
+
+
+class JarvisAwarenessDeltaResponse(BaseModel):
+    """Delta between two awareness states.
+
+    Shows what changed between the previous and current tick,
+    including threshold crossings and recovered fields.
+    """
+
+    changed_fields: Dict[str, Any] = Field(default_factory=dict)
+    has_significant_changes: bool = False
+    new_alerts: List[Dict[str, Any]] = Field(default_factory=list)
+    recovered: List[Dict[str, Any]] = Field(default_factory=list)
+    is_first_tick: bool = False
