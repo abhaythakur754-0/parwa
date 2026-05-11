@@ -1,17 +1,17 @@
 /**
- * PARWA Onboarding Page (Week 6 — Day 3 Phase 5)
+ * PARWA Onboarding Page
  *
  * Full-page route: /onboarding
+ *
+ * Supports two modes:
+ *   - ?mode=wizard → 5-step OnboardingWizard (structured setup)
+ *   - default → JarvisChat (conversational onboarding)
  *
  * Auth guard logic:
  *   1. If loading → show spinner
  *   2. If not authenticated → redirect to /login?redirect=/onboarding
- *   3. If already onboarded → redirect to /dashboard
- *   4. Otherwise → render JarvisChat
- *
- * Uses the useAuth hook for authentication state.
- * Session detection: checks if user has an active Jarvis session
- * (handoff_completed or onboarding_completed flag).
+ *   3. If already onboarded → redirect to /dashboard (variant-aware)
+ *   4. Otherwise → render selected onboarding mode
  *
  * MINI PARWA INTEGRATION:
  *   - Maps variant_id from Models page to variant_tier for pipeline routing
@@ -23,11 +23,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { JarvisChat } from '@/components/jarvis/JarvisChat';
 import { ChatErrorBoundary } from '@/components/jarvis/ChatErrorBoundary';
+import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
 
 /**
  * Maps frontend variant_id to backend pipeline tier.
@@ -41,9 +42,22 @@ const VARIANT_ID_TO_TIER: Record<string, string> = {
   high: 'parwa_high',
 };
 
+/**
+ * Maps variant_tier to dashboard route for variant-specific redirect.
+ */
+const TIER_TO_DASHBOARD: Record<string, string> = {
+  mini_parwa: '/dashboard?variant=mini',
+  parwa: '/dashboard?variant=pro',
+  parwa_high: '/dashboard?variant=high',
+};
+
 export default function OnboardingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isAuthenticated, isLoading, hydrate } = useAuth();
+
+  // ── Determine onboarding mode ──
+  const mode = searchParams.get('mode') || 'wizard'; // default to wizard now
 
   // ── Context: Read URL params for entry_source, variant, industry ──
   const [entrySource] = useState(() => {
@@ -61,16 +75,12 @@ export default function OnboardingPage() {
     if (variant) ctx.variant = variant;
 
     // ── MINI PARWA: Map variant_id to pipeline tier ──
-    // The variant param from the Models page URL (starter/growth/high)
-    // gets mapped to the backend pipeline tier (mini_parwa/parwa/parwa_high)
     if (variant) {
       const tier = VARIANT_ID_TO_TIER[variant.toLowerCase()];
       if (tier) ctx.variant_tier = tier;
     }
 
     // Read bridged context from localStorage (set by other pages)
-    // NOTE: Do NOT remove context here — let useJarvisChat's pushContextToBackend handle the sync.
-    // Removing it here causes data loss if the push hasn't completed yet.
     try {
       const stored = localStorage.getItem('parwa_jarvis_context');
       if (stored) {
@@ -84,7 +94,6 @@ export default function OnboardingPage() {
         if (bridged.roi_result) ctx.roi_result = bridged.roi_result;
         if (bridged.interests) ctx.interests = bridged.interests;
         if (bridged.pages_visited) ctx.pages_visited = bridged.pages_visited;
-        // ── MINI PARWA: Map variant_id from localStorage ──
         if (bridged.variant_id && !ctx.variant_tier) {
           const tier = VARIANT_ID_TO_TIER[String(bridged.variant_id).toLowerCase()];
           if (tier) ctx.variant_tier = tier;
@@ -100,7 +109,6 @@ export default function OnboardingPage() {
         if (pricing.industry && !ctx.industry) ctx.industry = pricing.industry;
         if (pricing.variants && !ctx.selected_variants) ctx.selected_variants = pricing.variants;
         if (pricing.totalMonthly && !ctx.total_price) ctx.total_price = pricing.totalMonthly;
-        // ── MINI PARWA: Map plan from pricing selection ──
         if (pricing.plan && !ctx.variant_tier) {
           const tier = VARIANT_ID_TO_TIER[String(pricing.plan).toLowerCase()];
           if (tier) ctx.variant_tier = tier;
@@ -110,34 +118,32 @@ export default function OnboardingPage() {
     return ctx;
   });
 
-  useEffect(() => {
-    // Wait for auth to initialize
-    if (isLoading) return;
+  // ── Get variant_tier for dashboard redirect ──
+  const variantTier = (entryParams.variant_tier as string) || '';
 
-    // If AuthContext says not authenticated, try hydrating from localStorage
-    // (handles case where login was done via Next.js API route)
+  useEffect(() => {
+    if (isLoading) return;
     if (!isAuthenticated || !user) {
       hydrate();
     }
   }, [isLoading, isAuthenticated, user, hydrate]);
 
   useEffect(() => {
-    // Wait for auth to initialize
     if (isLoading) return;
 
-    // Not logged in → redirect to login with return URL
     if (!isAuthenticated || !user) {
       const redirectUrl = encodeURIComponent('/onboarding');
       router.replace(`/login?redirect=${redirectUrl}`);
       return;
     }
 
-    // Already onboarded → redirect to dashboard
+    // Already onboarded → redirect to variant-specific dashboard
     if (user.onboarding_completed) {
-      router.replace('/dashboard');
+      const dashboardUrl = TIER_TO_DASHBOARD[variantTier] || '/dashboard';
+      router.replace(dashboardUrl);
       return;
     }
-  }, [isLoading, isAuthenticated, user, router]);
+  }, [isLoading, isAuthenticated, user, router, variantTier]);
 
   // ── Auth Loading ─────────────────────────────────────────────
 
@@ -161,11 +167,16 @@ export default function OnboardingPage() {
     );
   }
 
-  // ── Render Chat ──────────────────────────────────────────────
+  // ── Render Onboarding Mode ───────────────────────────────────
 
-  return (
-    <ChatErrorBoundary>
-      <JarvisChat entrySource={entrySource} entryParams={entryParams} />
-    </ChatErrorBoundary>
-  );
+  if (mode === 'jarvis') {
+    return (
+      <ChatErrorBoundary>
+        <JarvisChat entrySource={entrySource} entryParams={entryParams} />
+      </ChatErrorBoundary>
+    );
+  }
+
+  // Default: Wizard mode
+  return <OnboardingWizard />;
 }

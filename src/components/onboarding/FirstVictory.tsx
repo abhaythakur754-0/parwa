@@ -29,6 +29,26 @@ export function FirstVictory({ aiName = 'Jarvis', aiGreeting }: FirstVictoryProp
   }, [marked]);
 
   const goToDashboard = () => {
+    // Variant-aware dashboard redirect
+    try {
+      const stored = localStorage.getItem('parwa_pricing_selection');
+      if (stored) {
+        const pricing = JSON.parse(stored) as Record<string, unknown>;
+        const plan = String(pricing.plan || '').toLowerCase();
+        if (plan === 'starter') {
+          router.push('/dashboard?variant=mini');
+          return;
+        }
+        if (plan === 'high') {
+          router.push('/dashboard?variant=high');
+          return;
+        }
+        if (plan === 'growth') {
+          router.push('/dashboard?variant=pro');
+          return;
+        }
+      }
+    } catch { /* ignore */ }
     router.push('/dashboard');
   };
 
