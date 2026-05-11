@@ -170,8 +170,12 @@ def complete_step(
         completed = []
 
     # Validate sequential transition
+    # Allow re-completing an already completed step (idempotent) — this
+    # happens when the user navigates back to a completed step and
+    # re-submits it. Only reject if the step hasn't been completed yet
+    # AND it's not the expected next step.
     expected_step = session.current_step
-    if step != expected_step:
+    if step != expected_step and step not in completed:
         raise ValidationError(
             message=f"Invalid step transition. Expected step {expected_step}, got {step}.",
             details={
@@ -208,6 +212,19 @@ def complete_step(
         step=step,
         current_step=session.current_step,
     )
+
+    # Sync wizard progress to Jarvis session
+    try:
+        from app.services.jarvis_service import sync_onboarding_progress
+        sync_onboarding_progress(
+            db=db,
+            user_id=user_id,
+            company_id=company_id,
+            step=step,
+            step_data={"step_completed": step},
+        )
+    except Exception as e:
+        logger.warning(f"Failed to sync wizard progress to Jarvis: {e}")
 
     return {
         "id": session.id,
@@ -613,7 +630,7 @@ def activate_ai(
     # Update AI config
     session.ai_name = ai_name[:50] if ai_name else "Jarvis"
     session.ai_tone = ai_tone if ai_tone in ["professional", "friendly", "casual"] else "professional"
-    session.ai_response_style = ai_response_style if ai_response_style in ["concise", "detailed"] else "concise"
+    session.ai_response_style = ai_response_style if ai_response_style in ["concise", "detailed", "balanced"] else "concise"
     session.ai_greeting = ai_greeting[:500] if ai_greeting else None
     session.status = "completed"
     session.completed_at = datetime.now(timezone.utc)

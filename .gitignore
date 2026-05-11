@@ -151,3 +151,4 @@ dmypy.json
 *.db-journal
 *.sqlite
 *.sqlite3
+.git-rewrite/

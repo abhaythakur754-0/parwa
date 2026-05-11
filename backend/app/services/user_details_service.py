@@ -540,7 +540,16 @@ def check_ai_activation_prerequisites(
     3. At least one integration configured OR one KB document uploaded
     
     Returns:
-        dict with 'can_activate' bool and 'missing' list of requirements
+        dict with:
+        - 'can_activate' bool
+        - 'missing' list of requirement strings
+        - 'details_completed' bool
+        - 'legal_accepted' bool
+        - 'has_integration' bool
+        - 'has_knowledge_base' bool
+        - 'work_email_provided' bool
+        - 'email_verified' bool
+        - 'prerequisites' list of {label, met} dicts for frontend
     """
     missing = []
     
@@ -558,29 +567,62 @@ def check_ai_activation_prerequisites(
     
     if not session:
         missing.append("onboarding_not_started")
-        return {"can_activate": False, "missing": missing}
+        return {
+            "can_activate": False,
+            "missing": missing,
+            "details_completed": False,
+            "legal_accepted": False,
+            "has_integration": False,
+            "has_knowledge_base": False,
+            "work_email_provided": False,
+            "email_verified": False,
+        }
+    
+    # Check details completed
+    details_completed = session.details_completed or False
     
     # Check legal consents
-    if not session.legal_accepted:
+    legal_accepted = session.legal_accepted or False
+    if not legal_accepted:
         missing.append("legal_consent_required")
     
-    # GAP-003: Check email verification if work email provided
-    if details and details.work_email and not details.work_email_verified:
+    # Check email verification if work email provided
+    work_email_provided = bool(details and details.work_email)
+    email_verified = bool(details and details.work_email_verified) if work_email_provided else True
+    if work_email_provided and not email_verified:
         missing.append("work_email_verification_required")
     
     # Check integrations or KB
-    import json
+    import json as _json
     try:
-        integrations = json.loads(session.integrations or "{}")
+        integrations = _json.loads(session.integrations or "{}")
         has_integrations = any(integrations.values()) if integrations else False
-    except json.JSONDecodeError:
+    except _json.JSONDecodeError:
         has_integrations = False
     
     try:
-        kb_files = json.loads(session.knowledge_base_files or "[]")
+        kb_files = _json.loads(session.knowledge_base_files or "[]")
         has_kb = len(kb_files) > 0
-    except json.JSONDecodeError:
+    except _json.JSONDecodeError:
         has_kb = False
+    
+    # Also check actual integration records in the database
+    if not has_integrations:
+        from database.models.integration import Integration as IntegrationModel
+        integration_count = db.query(IntegrationModel).filter(
+            IntegrationModel.company_id == company_id,
+            IntegrationModel.status == "active",
+        ).count()
+        has_integrations = integration_count > 0
+
+    # Also check actual KB documents in the database
+    if not has_kb:
+        from database.models.onboarding import KnowledgeDocument
+        doc_count = db.query(KnowledgeDocument).filter(
+            KnowledgeDocument.company_id == company_id,
+            KnowledgeDocument.status.in_(["completed", "processing"]),
+        ).count()
+        has_kb = doc_count > 0
     
     if not has_integrations and not has_kb:
         missing.append("integration_or_kb_required")
@@ -588,6 +630,12 @@ def check_ai_activation_prerequisites(
     return {
         "can_activate": len(missing) == 0,
         "missing": missing,
+        "details_completed": details_completed,
+        "legal_accepted": legal_accepted,
+        "has_integration": has_integrations,
+        "has_knowledge_base": has_kb,
+        "work_email_provided": work_email_provided,
+        "email_verified": email_verified,
     }
 
 

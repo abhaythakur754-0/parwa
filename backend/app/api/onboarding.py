@@ -4,6 +4,8 @@ PARWA Onboarding Router (Week 6 — F-028, F-029, F-034, F-035)
 Endpoints for onboarding wizard progression, legal consent,
 AI activation, and first victory celebration.
 
+- GET  /api/onboarding/state            — Get current onboarding state
+- POST /api/onboarding/start            — Start onboarding wizard
 - POST /api/onboarding/complete-step    — Complete a wizard step
 - POST /api/onboarding/legal-consent    — Accept legal consents (Step 2)
 - POST /api/onboarding/activate         — Activate AI assistant (Step 5)
@@ -13,6 +15,9 @@ AI activation, and first victory celebration.
 
 BC-001: All operations scoped to authenticated user's company_id.
 """
+
+import json as _json
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
@@ -25,19 +30,92 @@ from app.schemas.onboarding import (
     AIConfigResponse,
     MessageResponse,
     StepCompleteResponse,
+    OnboardingStateResponse,
+    IntegrationStepRequest,
+    KnowledgeBaseStepRequest,
+    StepDataResponse,
 )
 from app.services.onboarding_service import (
+    get_or_create_session,
     complete_step,
     accept_legal_consents,
     activate_ai,
     get_first_victory_status,
     complete_first_victory,
 )
-from app.services.user_details_service import check_ai_activation_prerequisites
+from app.services.user_details_service import (
+    check_ai_activation_prerequisites,
+    get_onboarding_state,
+)
 from database.base import get_db
 from database.models.core import User
 
 router = APIRouter(prefix="/api/onboarding", tags=["Onboarding"])
+
+
+# ── Get Onboarding State ───────────────────────────────────────────
+
+
+@router.get(
+    "/state",
+    response_model=OnboardingStateResponse,
+)
+def api_get_onboarding_state(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> OnboardingStateResponse:
+    """Get the current onboarding state for the user.
+
+    Returns the full onboarding session state including current step,
+    completed steps, and all progress flags. This is called by the
+    frontend wizard on page load to restore progress after a refresh.
+
+    If no session exists yet, creates one automatically.
+
+    BC-001: Scoped to user's company_id.
+    """
+    # Ensure a session exists (creates one if needed)
+    get_or_create_session(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+    )
+    return get_onboarding_state(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+    )
+
+
+# ── Start Onboarding ───────────────────────────────────────────────
+
+
+@router.post(
+    "/start",
+    response_model=OnboardingStateResponse,
+)
+def api_start_onboarding(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> OnboardingStateResponse:
+    """Start the onboarding wizard for the user.
+
+    Creates a new onboarding session if one does not already exist,
+    or returns the existing session state. This is called by the
+    frontend when the user first enters the onboarding flow.
+
+    BC-001: Scoped to user's company_id.
+    """
+    get_or_create_session(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+    )
+    return get_onboarding_state(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+    )
 
 
 # ── Step Completion ────────────────────────────────────────────────
@@ -116,6 +194,96 @@ def api_legal_consent(
         terms_accepted_at=result["terms_accepted_at"],
         privacy_accepted_at=result["privacy_accepted_at"],
         ai_data_accepted_at=result["ai_data_accepted_at"],
+    )
+
+
+# ── Integrations (Step 3) ──────────────────────────────────────────
+
+
+@router.post(
+    "/integrations",
+    response_model=StepDataResponse,
+)
+def api_complete_integrations(
+    body: IntegrationStepRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> StepDataResponse:
+    """Complete integration step (Step 3).
+
+    Validates that at least one integration is provided,
+    saves integration data to the onboarding session,
+    and completes step 3.
+
+    BC-001: Scoped to user's company_id.
+    """
+    result = complete_step(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+        step=3,
+    )
+    # Persist integration data on the session
+    from database.models.onboarding import OnboardingSession
+    session = db.query(OnboardingSession).filter(
+        OnboardingSession.user_id == user.id,
+        OnboardingSession.company_id == user.company_id,
+    ).first()
+    if session:
+        session.integrations = _json.dumps(body.integrations)
+        session.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(session)
+    return StepDataResponse(
+        message="Integrations saved successfully.",
+        current_step=result["current_step"],
+        completed_steps=result["completed_steps"],
+        status=result.get("status", "in_progress"),
+    )
+
+
+# ── Knowledge Base (Step 4) ────────────────────────────────────────
+
+
+@router.post(
+    "/knowledge-base",
+    response_model=StepDataResponse,
+)
+def api_complete_knowledge_base(
+    body: KnowledgeBaseStepRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> StepDataResponse:
+    """Complete knowledge base step (Step 4).
+
+    Validates that at least one file is provided,
+    saves KB file metadata to the onboarding session,
+    and completes step 4.
+
+    BC-001: Scoped to user's company_id.
+    """
+    result = complete_step(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+        step=4,
+    )
+    # Persist knowledge base file metadata on the session
+    from database.models.onboarding import OnboardingSession
+    session = db.query(OnboardingSession).filter(
+        OnboardingSession.user_id == user.id,
+        OnboardingSession.company_id == user.company_id,
+    ).first()
+    if session:
+        session.knowledge_base_files = _json.dumps(body.files)
+        session.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(session)
+    return StepDataResponse(
+        message="Knowledge base files saved successfully.",
+        current_step=result["current_step"],
+        completed_steps=result["completed_steps"],
+        status=result.get("status", "in_progress"),
     )
 
 
