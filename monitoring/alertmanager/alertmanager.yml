@@ -1,6 +1,23 @@
+# =============================================================================
+# PARWA Alertmanager Configuration (CROSS-19)
+# =============================================================================
+# Enhanced alerting with email and Slack integration alongside existing
+# webhook receivers. All sensitive values are read from environment variables.
+# =============================================================================
+
 global:
+  # How long to wait before marking an alert as resolved if it no longer fires
   resolve_timeout: 5m
 
+  # ----------------------------------------------------------------
+  # SMTP Configuration for email notifications
+  # ----------------------------------------------------------------
+  smtp_smarthost: '${SMTP_HOST}:${SMTP_PORT}'
+  smtp_from: '${ALERT_EMAIL_FROM}'
+  smtp_require_tls: true
+  smtp_auth_username: '${ALERT_EMAIL_FROM}'
+
+# Default routing (catch-all)
 route:
   group_by: ['alertname', 'parwa_service']
   group_wait: 10s
@@ -9,18 +26,113 @@ route:
   receiver: 'default-receiver'
 
   routes:
+    # ----------------------------------------------------------------
+    # Critical alerts → webhook + slack + email (immediate, every 1h)
+    # ----------------------------------------------------------------
     - match:
         severity: critical
       receiver: 'critical-receiver'
       group_wait: 0s
       repeat_interval: 1h
 
+    # ----------------------------------------------------------------
+    # Warning alerts → email only (every 4h)
+    # ----------------------------------------------------------------
+    - match:
+        severity: warning
+      receiver: 'warning-receiver'
+      repeat_interval: 4h
+
+# =============================================================================
+# Receivers
+# =============================================================================
+
 receivers:
+  # ----------------------------------------------------------------
+  # Default Receiver: webhook to backend (existing, unchanged)
+  # Catches any alert that doesn't match severity-specific routes.
+  # ----------------------------------------------------------------
   - name: 'default-receiver'
     webhook_configs:
       - url: 'http://backend:8000/api/webhooks/alertmanager'
         send_resolved: true
+
+  # ----------------------------------------------------------------
+  # Critical Receiver: webhook + slack + email (enhanced)
+  # Triggers for all severity=critical alerts.
+  # Immediate notification (group_wait: 0s) with 1h repeat.
+  # ----------------------------------------------------------------
   - name: 'critical-receiver'
+    # Webhook to backend API (existing)
     webhook_configs:
       - url: 'http://backend:8000/api/webhooks/alertmanager'
         send_resolved: true
+    # Slack notification for real-time team visibility
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#alerts'
+        title: '🔴 CRITICAL: {{ .GroupLabels.alertname }}'
+        text: |
+          *Alert:* {{ .GroupLabels.alertname }}
+          *Severity:* {{ .GroupLabels.severity }}
+          *Service:* {{ .GroupLabels.parwa_service }}
+          {{ range .Alerts }}
+          *Message:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Firing since:* {{ .StartsAt }}
+          {{ end }}
+        send_resolved: true
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+    # Email notification for critical incident escalation
+    email_configs:
+      - to: '${ALERT_EMAIL_TO}'
+        subject: '[CRITICAL] {{ .GroupLabels.alertname }} - {{ .GroupLabels.parwa_service }}'
+        html: |
+          <h2 style="color: red;">🔴 Critical Alert</h2>
+          <table border="1" cellpadding="5">
+            <tr><td><b>Alert</b></td><td>{{ .GroupLabels.alertname }}</td></tr>
+            <tr><td><b>Service</b></td><td>{{ .GroupLabels.parwa_service }}</td></tr>
+            <tr><td><b>Status</b></td><td>{{ .Status }}</td></tr>
+            {{ range .Alerts }}
+            <tr><td><b>Summary</b></td><td>{{ .Annotations.summary }}</td></tr>
+            <tr><td><b>Description</b></td><td>{{ .Annotations.description }}</td></tr>
+            <tr><td><b>Started</b></td><td>{{ .StartsAt }}</td></tr>
+            {{ end }}
+          </table>
+        send_resolved: true
+
+  # ----------------------------------------------------------------
+  # Warning Receiver: email only (new)
+  # Triggers for all severity=warning alerts.
+  # Repeats every 4h to avoid alert fatigue.
+  # ----------------------------------------------------------------
+  - name: 'warning-receiver'
+    email_configs:
+      - to: '${ALERT_EMAIL_TO}'
+        subject: '[WARNING] {{ .GroupLabels.alertname }} - {{ .GroupLabels.parwa_service }}'
+        html: |
+          <h2 style="color: orange;">⚠️ Warning Alert</h2>
+          <table border="1" cellpadding="5">
+            <tr><td><b>Alert</b></td><td>{{ .GroupLabels.alertname }}</td></tr>
+            <tr><td><b>Service</b></td><td>{{ .GroupLabels.parwa_service }}</td></tr>
+            <tr><td><b>Status</b></td><td>{{ .Status }}</td></tr>
+            {{ range .Alerts }}
+            <tr><td><b>Summary</b></td><td>{{ .Annotations.summary }}</td></tr>
+            <tr><td><b>Description</b></td><td>{{ .Annotations.description }}</td></tr>
+            <tr><td><b>Started</b></td><td>{{ .StartsAt }}</td></tr>
+            {{ end }}
+          </table>
+        send_resolved: true
+
+# =============================================================================
+# Inhibition Rules
+# =============================================================================
+
+inhibit_rules:
+  # If a critical alert is firing, suppress any warning alerts for the same
+  # alertname and service — avoids duplicate notifications.
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'parwa_service']
