@@ -3,16 +3,20 @@ PARWA Celery Health Check (Day 16, BC-004, BC-012)
 
 Provides Celery broker connectivity check and worker status
 for the /health and /ready endpoints.
+
+Week 3 Fix: Wrapped sync Celery calls in asyncio.to_thread()
+to prevent blocking the event loop.
 """
 
+import asyncio
 import logging
 import time
 
 logger = logging.getLogger("parwa.celery_health")
 
 
-async def celery_health_check() -> dict:
-    """Check Celery broker (Redis) connectivity and responsiveness.
+def _sync_celery_health_check() -> dict:
+    """Synchronous Celery broker connectivity check.
 
     Returns:
         Dict with 'status' ('healthy' or 'unhealthy'), 'latency_ms',
@@ -46,8 +50,22 @@ async def celery_health_check() -> dict:
         }
 
 
-async def get_active_workers() -> dict:
-    """Get active Celery worker count and queue stats.
+async def celery_health_check() -> dict:
+    """Check Celery broker (Redis) connectivity and responsiveness.
+
+    Runs the sync check in a thread to avoid blocking the event loop.
+
+    Returns:
+        Dict with 'status' ('healthy' or 'unhealthy'), 'latency_ms',
+        and optional 'error'.
+    """
+    loop = asyncio.get_event_loop()
+    # Use asyncio.to_thread to run sync Celery calls off the event loop
+    return await asyncio.to_thread(_sync_celery_health_check)
+
+
+def _sync_get_active_workers() -> dict:
+    """Synchronous Celery worker count check.
 
     Returns:
         Dict with 'worker_count' and 'queue_lengths'.
@@ -76,3 +94,15 @@ async def get_active_workers() -> dict:
             "worker_count": 0,
             "error": str(exc),
         }
+
+
+async def get_active_workers() -> dict:
+    """Get active Celery worker count and queue stats.
+
+    Runs the sync check in a thread to avoid blocking the event loop.
+
+    Returns:
+        Dict with 'worker_count' and 'queue_lengths'.
+    """
+    loop = asyncio.get_event_loop()
+    return await asyncio.to_thread(_sync_get_active_workers)

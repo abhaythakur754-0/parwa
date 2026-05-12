@@ -287,8 +287,20 @@ async def emit_to_tenant(
             error=str(exc),
         )
 
-    # Get room count for return value
-    count = len(await sio.rooms(room)) if hasattr(sio, "rooms") else 0
+    # Get room participant count for return value.
+    # NOTE: sio.rooms(sid) returns the rooms a SID belongs to,
+    # NOT the members of a room.  Use manager.get_participants()
+    # which returns the set of SIDs in a given room.
+    count = 0
+    try:
+        if sio and hasattr(sio, 'manager'):
+            participants = sio.manager.get_participants('/', room)
+            count = len(participants) if participants else 0
+    except Exception as _count_exc:
+        logger.debug(
+            "socketio_room_count_failed room=%s error=%s",
+            room, _count_exc,
+        )
     return count
 
 
@@ -326,8 +338,19 @@ def get_connected_count() -> int:
 
     Returns:
         Number of active connections (best-effort estimate).
+        Returns 0 if socketio is not available.
     """
-    return len(sio.manager.get_participants("/", None))
+    if sio is None:
+        return 0
+    try:
+        if hasattr(sio, 'manager'):
+            participants = sio.manager.get_participants("/", None)
+            return len(participants) if participants else 0
+    except Exception as _exc:
+        logger.debug(
+            "socketio_connected_count_failed error=%s", _exc,
+        )
+    return 0
 
 
 def register_business_handlers() -> None:

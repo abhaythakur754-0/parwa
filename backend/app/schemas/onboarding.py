@@ -301,3 +301,56 @@ class StepCompleteResponse(BaseModel):
     message: str
     current_step: int
     completed_steps: List[int]
+
+
+# ── Integration Step Schemas (Day 4) ──────────────────────────────
+
+
+class IntegrationStepRequest(BaseModel):
+    """Request to complete integration step (Step 3).
+
+    Week 6 Day 4: Integration setup.
+    At least one integration must be provided.
+    """
+
+    integrations: List[dict] = Field(
+        ...,
+        min_length=1,
+        description="List of integration configurations",
+    )
+
+    @field_validator("integrations")
+    @classmethod
+    def integrations_must_not_be_empty(cls, v: List[dict]) -> List[dict]:
+        if not v:
+            raise ValueError("At least one integration is required")
+        return v
+
+
+class KnowledgeBaseStepRequest(BaseModel):
+    """Request to complete knowledge base step (Step 4).
+
+    Week 6 Day 5: Knowledge base upload.
+    At least one file reference must be provided.
+    """
+
+    files: List[dict] = Field(
+        ...,
+        min_length=1,
+        description="List of file references for knowledge base",
+    )
+
+    @field_validator("files")
+    @classmethod
+    def files_must_not_be_empty(cls, v: List[dict]) -> List[dict]:
+        if not v:
+            raise ValueError("At least one file is required")
+        return v
+
+
+class StepDataResponse(BaseModel):
+    """Response after completing an onboarding step."""
+
+    message: str
+    current_step: int
+    completed_steps: List[int]

@@ -329,7 +329,7 @@ async def check_celery_queues() -> SubsystemHealth:
         total_depth = 0
 
         try:
-            # Get reserved + active task counts per queue
+            # Strategy 1: Celery inspect (reserved + active tasks)
             reserved = inspect.reserved() or {}
             active = inspect.active() or {}
             for worker_name, tasks in reserved.items():
@@ -348,10 +348,43 @@ async def check_celery_queues() -> SubsystemHealth:
                     if q_name in queue_depths:
                         queue_depths[q_name] += 1
                     total_depth += 1
+
+            # Strategy 2: Redis queue depth (actual pending messages)
+            # This catches tasks waiting in the broker that haven't
+            # been reserved by any worker yet.
+            try:
+                from app.core.redis import get_redis as _get_redis
+                redis_client = await _get_redis()
+                if redis_client:
+                    for q_name in queue_names:
+                        try:
+                            depth = await redis_client.llen(q_name)
+                            if depth and depth > 0:
+                                # Use the max of inspect vs Redis to
+                                # avoid undercounting
+                                queue_depths[q_name] = max(
+                                    queue_depths.get(q_name, 0),
+                                    depth,
+                                )
+                        except Exception as _redis_exc:
+                            logger.debug(
+                                "health_redis_queue_depth_failed "
+                                "queue=%s error=%s",
+                                q_name, _redis_exc,
+                            )
+            except Exception as _redis_strat_exc:
+                logger.debug(
+                    "health_redis_queue_strategy_failed error=%s",
+                    _redis_strat_exc,
+                )
         except Exception as _inspect_exc:
             logger.debug("health_celery_inspect_failed error=%s", _inspect_exc)
 
         latency = round((time.monotonic() - start) * 1000, 2)
+
+        # Recalculate total_depth from updated queue_depths
+        # (includes Redis strategy results)
+        total_depth = sum(queue_depths.values())
 
         max_depth = max(queue_depths.values()) if queue_depths else 0
         status = HealthStatus.HEALTHY.value
@@ -390,10 +423,13 @@ async def check_socketio() -> SubsystemHealth:
     start = time.monotonic()
     try:
         # Check if socketio module is available
-        from app.core.socketio import get_socketio_manager
+        from app.core.socketio import (
+            get_socketio_server,
+            get_connected_count,
+        )
 
-        manager = get_socketio_manager()
-        connected = manager.get_connected_count() if manager else 0
+        server = get_socketio_server()
+        connected = get_connected_count() if server else 0
 
         latency = round((time.monotonic() - start) * 1000, 2)
         return SubsystemHealth(
