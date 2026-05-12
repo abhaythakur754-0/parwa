@@ -18,7 +18,7 @@ Main FastAPI app with:
 from contextlib import asynccontextmanager
 import os
 
-from fastapi import FastAPI, Query, Request
+from fastapi import Depends, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
