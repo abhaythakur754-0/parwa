@@ -69,6 +69,15 @@ class Company(Base):
         "PaymentFailure", back_populates="company",
         cascade="all, delete-orphan",
     )
+    # Phase 6: Paddle reconciliation relationships
+    paddle_webhook_events = relationship(
+        "PaddleWebhookEvent", back_populates="company",
+        cascade="all, delete-orphan",
+    )
+    paddle_reconciliation_reports = relationship(
+        "PaddleReconciliationReport", back_populates="company",
+        cascade="all, delete-orphan",
+    )
 
 
 # ── Users ──────────────────────────────────────────────────────────
