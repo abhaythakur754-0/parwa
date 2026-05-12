@@ -59,7 +59,8 @@ def command_router_node(state: Dict[str, Any]) -> Dict[str, Any]:
         valid_agents = {
             "escalation_agent", "sla_protection_agent",
             "quality_recovery_agent", "reassignment_agent",
-            "notification_agent", "no_action",
+            "notification_agent", "pipeline_query_agent",
+            "no_action",
         }
         selected_agent = router_result.get("agent", "notification_agent")
         if selected_agent not in valid_agents:
@@ -172,14 +173,18 @@ def _route_user_command(state: Dict[str, Any], context: Dict[str, Any]) -> Dict[
                 "resume_ai": "notification_agent",
                 "pause_refunds": "escalation_agent",
                 "resume_refunds": "notification_agent",
-                "check_system_health": "notification_agent",
-                "show_errors": "notification_agent",
+                "check_system_health": "pipeline_query_agent",
+                "show_errors": "pipeline_query_agent",
                 "escalate_urgent": "escalation_agent",
                 "add_agents": "reassignment_agent",
                 "disable_last_rule": "notification_agent",
                 "export_report": "notification_agent",
                 "call_customer": "notification_agent",
-                "show_ticket_details": "notification_agent",
+                "show_ticket_details": "pipeline_query_agent",
+                "check_quality": "pipeline_query_agent",
+                "check_volume": "pipeline_query_agent",
+                "check_agents": "pipeline_query_agent",
+                "check_drift": "pipeline_query_agent",
             }
             action = parsed.get("action", "")
             mapped_agent = agent_mapping.get(action, "notification_agent")

@@ -53,6 +53,7 @@ AGENT_SYSTEM_PROMPTS = {
         "  - quality_recovery_agent: For quality score drops and drift\n"
         "  - reassignment_agent: For ticket reassignment and load balancing\n"
         "  - notification_agent: For proactive user notifications\n"
+        "  - pipeline_query_agent: For querying pipeline state (quality scores, volumes, agent status)\n"
         "  - no_action: When the alert doesn't require automated action\n\n"
         "Respond in JSON format:\n"
         '{"agent": "agent_name", "reasoning": "why", "urgency": "low|medium|high|critical", '
@@ -127,6 +128,22 @@ AGENT_SYSTEM_PROMPTS = {
         '{"suggestion": "what to do", "suggestion_type": "policy_reminder|action_suggestion|'
         'best_practice|warning", "suggested_command": "optional NL command", '
         '"confidence": 0.0-1.0, "reasoning": "why"}'
+    ),
+
+    "pipeline_query_agent": (
+        "You are Jarvis's Pipeline Query Agent. You answer questions about the "
+        "current state of the variant LangGraph pipeline. You have access to "
+        "real-time pipeline data and awareness metrics.\n\n"
+        "You can answer questions like:\n"
+        "  - What's the current quality score?\n"
+        "  - How many tickets are being processed?\n"
+        "  - Is any agent overloaded?\n"
+        "  - What's the drift status?\n"
+        "  - Are there any emergency alerts?\n\n"
+        "Respond in JSON format:\n"
+        '{"query_type": "quality|volume|agent|drift|emergency|general", '
+        '"answer": "concise answer", "reasoning": "how you arrived at the answer", '
+        '"data_points": {"key": "value"}}'
     ),
 }
 
@@ -382,6 +399,11 @@ class ZAIClient:
                 "agent_pool_exhausted": "reassignment_agent",
                 "emergency_state_change": "escalation_agent",
                 "error_rate_high": "notification_agent",
+                "quality_query": "pipeline_query_agent",
+                "volume_query": "pipeline_query_agent",
+                "agent_query": "pipeline_query_agent",
+                "drift_query": "pipeline_query_agent",
+                "system_status_query": "pipeline_query_agent",
             }
 
             agent = routing_rules.get(alert_type, "notification_agent")
@@ -479,6 +501,29 @@ class ZAIClient:
                 "suggested_command": "check system health",
                 "confidence": 0.6,
                 "reasoning": "Rule-based co-pilot suggestion based on alert context",
+            }
+
+        elif agent_type == "pipeline_query_agent":
+            return {
+                "_source": "rule_based_fallback",
+                "_agent_type": agent_type,
+                "_parsed_at": now,
+                "query_type": "general",
+                "action": "query_pipeline",
+                "answer": (
+                    f"System overview: Health={ctx.get('system_health', 'unknown')}, "
+                    f"Quality={ctx.get('quality_score', 'N/A')}, "
+                    f"Volume={ctx.get('ticket_volume_today', 0)}, "
+                    f"Agents={ctx.get('active_agents', 0)}, "
+                    f"Drift={ctx.get('drift_status', 'none')}."
+                ),
+                "reasoning": "Rule-based pipeline query response",
+                "data_points": {
+                    "system_health": ctx.get("system_health", "unknown"),
+                    "quality_score": ctx.get("quality_score"),
+                    "drift_status": ctx.get("drift_status", "none"),
+                    "variant_tier": ctx.get("variant_tier", "mini_parwa"),
+                },
             }
 
         else:

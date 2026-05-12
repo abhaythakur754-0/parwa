@@ -61,8 +61,8 @@ class TestJarvisPhase3EndToEnd:
             },
         )
 
-        # Verify the graph completed
-        assert result.get("execution_status") in ("completed", "failed")
+        # Verify the graph completed (Phase 4: can also be pending_approval)
+        assert result.get("execution_status") in ("completed", "failed", "pending_approval", "approved")
         assert result.get("router_decision") in ("escalation", "notification", "sla_protection")
         assert result.get("agent_type") is not None
         assert result.get("audit_trail") is not None
@@ -92,7 +92,7 @@ class TestJarvisPhase3EndToEnd:
             },
         )
 
-        assert result.get("execution_status") in ("completed", "failed")
+        assert result.get("execution_status") in ("completed", "failed", "pending_approval", "approved")
         # Quality-related alerts should go to quality_recovery or notification
         assert result.get("router_decision") in (
             "quality_recovery", "notification", "escalation",
@@ -113,7 +113,7 @@ class TestJarvisPhase3EndToEnd:
             awareness_snapshot={"system_health": "healthy"},
         )
 
-        assert result.get("execution_status") in ("completed", "failed")
+        assert result.get("execution_status") in ("completed", "failed", "pending_approval", "approved")
         # "pause all AI" should route to escalation (via regex)
         assert result.get("router_decision") in ("escalation", "notification")
 
@@ -135,7 +135,7 @@ class TestJarvisPhase3EndToEnd:
         )
 
         # Should NOT crash — BC-008
-        assert result.get("execution_status") in ("completed", "failed")
+        assert result.get("execution_status") in ("completed", "failed", "pending_approval", "approved")
         assert result.get("agent_type") is not None
 
     def test_command_state_creation_from_alert(self):
@@ -375,9 +375,9 @@ class TestJarvisPhase3EndToEnd:
 
         # ── VERIFY JARVIS HAS AWARENESS AND CAN ACT ──
 
-        # 1. Graph completed
-        assert result.get("execution_status") in ("completed", "failed"), \
-            f"Graph should complete, got: {result.get('execution_status')}"
+        # 1. Graph completed (Phase 4: can also be pending_approval)
+        assert result.get("execution_status") in ("completed", "failed", "pending_approval", "approved"), \
+            f"Graph should complete or await approval, got: {result.get('execution_status')}"
 
         # 2. Router made a decision
         assert result.get("router_decision") is not None, \
@@ -453,10 +453,24 @@ class TestJarvisPhase3EndToEnd:
         assert _agent_selector({"router_decision": "quality_recovery"}) == "quality_recovery_agent"
         assert _agent_selector({"router_decision": "reassignment"}) == "reassignment_agent"
         assert _agent_selector({"router_decision": "notification"}) == "notification_agent"
-        assert _agent_selector({"router_decision": "no_action"}) == "command_executor"
+        assert _agent_selector({"router_decision": "pipeline_query"}) == "pipeline_query_agent"
+        assert _agent_selector({"router_decision": "no_action"}) == "approval_gate"
 
         # Unknown decision defaults to notification
         assert _agent_selector({"router_decision": "unknown"}) == "notification_agent"
+
+    def test_approval_selector_function(self):
+        """Test the approval selector conditional edge (Phase 4)."""
+        from app.services.jarvis_agents.command_graph import _approval_selector
+
+        # Approved → command_executor
+        assert _approval_selector({"execution_status": "approved"}) == "command_executor"
+        # Pending approval → END (wait for human)
+        assert _approval_selector({"execution_status": "pending_approval"}) == "__end__"
+        # Unknown → command_executor (fail-open)
+        assert _approval_selector({"execution_status": "unknown"}) == "command_executor"
+        # Missing → command_executor (fail-open)
+        assert _approval_selector({}) == "command_executor"
 
     def test_sla_protection_agent_node(self):
         """Test the SLA protection agent node directly."""

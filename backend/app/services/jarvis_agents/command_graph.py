@@ -1,12 +1,13 @@
 """
-PARWA Jarvis Command Graph — LangGraph Multi-Agent Graph
+PARWA Jarvis Command Graph — LangGraph Multi-Agent Graph (Phase 4)
 
 This is the graph that wires all the agent nodes together into a
 coherent decision-making pipeline. It's how Jarvis goes from
 "I noticed something" to "I did something about it."
 
-Graph Topology:
-  START → command_router → [agent_selector] → specialist_agent → command_executor → END
+Graph Topology (Phase 4 — with approval_gate):
+  START → command_router → [agent_selector] → specialist_agent
+        → approval_gate → command_executor → END
 
   The agent_selector is a conditional edge that routes to the correct
   specialist agent based on the command_router's decision:
@@ -16,13 +17,23 @@ Graph Topology:
     command_router → quality_recovery_agent (if router_decision == "quality_recovery")
     command_router → reassignment_agent   (if router_decision == "reassignment")
     command_router → notification_agent   (if router_decision == "notification")
-    command_router → command_executor     (if router_decision == "no_action")
+    command_router → approval_gate        (if router_decision == "no_action")
+    command_router → pipeline_query_agent (if router_decision == "pipeline_query")
 
-  All specialist agents flow into command_executor which executes
-  the decision and writes the audit trail.
+  All specialist agents flow into approval_gate which checks if the
+  action needs human approval based on variant_tier:
+    - mini_parwa: ALL actions need approval
+    - parwa: Only escalation + monetary actions
+    - parwa_high: Only emergency actions
 
-This replaces the simple NL-parsing jarvis_command_service with a proper
-multi-agent system where Jarvis THINKS before acting.
+  If approved (auto or by human), flows to command_executor.
+  If pending_approval, the graph ends and waits for human input.
+
+Phase 4 Changes:
+  - Added approval_gate between specialist agents and command_executor
+  - Added pipeline_query_agent for querying variant pipeline state
+  - Added variant_tier awareness throughout the graph
+  - Added feedback loop: command_executor writes back to pipeline via bridge
 
 BC-001: company_id first parameter on all public methods.
 BC-008: Every node wrapped in try/except — never crash.
@@ -47,6 +58,8 @@ from app.services.jarvis_agents.nodes.quality_recovery_agent import quality_reco
 from app.services.jarvis_agents.nodes.reassignment_agent import reassignment_agent_node
 from app.services.jarvis_agents.nodes.notification_agent import notification_agent_node
 from app.services.jarvis_agents.nodes.command_executor import command_executor_node
+from app.services.jarvis_agents.nodes.approval_gate import approval_gate_node
+from app.services.jarvis_agents.nodes.pipeline_query_agent import pipeline_query_agent_node
 
 logger = get_logger("jarvis_command_graph")
 
@@ -75,7 +88,8 @@ def _agent_selector(state: Dict[str, Any]) -> str:
         "quality_recovery": "quality_recovery_agent",
         "reassignment": "reassignment_agent",
         "notification": "notification_agent",
-        "no_action": "command_executor",  # Skip agent, go straight to executor
+        "pipeline_query": "pipeline_query_agent",
+        "no_action": "approval_gate",  # Skip agent, go to approval gate
     }
 
     next_node = agent_map.get(decision, "notification_agent")
@@ -86,6 +100,39 @@ def _agent_selector(state: Dict[str, Any]) -> str:
     )
 
     return next_node
+
+
+# ══════════════════════════════════════════════════════════════════
+# APPROVAL SELECTOR: Conditional edge from approval_gate
+# ══════════════════════════════════════════════════════════════════
+
+def _approval_selector(state: Dict[str, Any]) -> str:
+    """Route from approval_gate based on approval status.
+
+    If the action was auto-approved, proceed to command_executor.
+    If the action is pending human approval, end the graph (wait).
+
+    Args:
+        state: Current JarvisCommandState dict.
+
+    Returns:
+        "command_executor" if approved, "__end__" if pending approval.
+    """
+    execution_status = state.get("execution_status", "")
+
+    if execution_status == "approved":
+        logger.debug("approval_selector: approved → command_executor")
+        return "command_executor"
+    elif execution_status == "pending_approval":
+        logger.debug("approval_selector: pending_approval → END")
+        return "__end__"
+    else:
+        # Unknown status — proceed to executor (fail-open for safety)
+        logger.debug(
+            "approval_selector: unknown_status=%s → command_executor",
+            execution_status,
+        )
+        return "command_executor"
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -148,6 +195,8 @@ class JarvisCommandGraph:
             graph.add_node("quality_recovery_agent", quality_recovery_agent_node)
             graph.add_node("reassignment_agent", reassignment_agent_node)
             graph.add_node("notification_agent", notification_agent_node)
+            graph.add_node("pipeline_query_agent", pipeline_query_agent_node)
+            graph.add_node("approval_gate", approval_gate_node)
             graph.add_node("command_executor", command_executor_node)
 
             # Set entry point
@@ -163,16 +212,28 @@ class JarvisCommandGraph:
                     "quality_recovery_agent": "quality_recovery_agent",
                     "reassignment_agent": "reassignment_agent",
                     "notification_agent": "notification_agent",
-                    "command_executor": "command_executor",
+                    "pipeline_query_agent": "pipeline_query_agent",
+                    "approval_gate": "approval_gate",
                 },
             )
 
-            # All specialist agents flow to executor
-            graph.add_edge("escalation_agent", "command_executor")
-            graph.add_edge("sla_protection_agent", "command_executor")
-            graph.add_edge("quality_recovery_agent", "command_executor")
-            graph.add_edge("reassignment_agent", "command_executor")
-            graph.add_edge("notification_agent", "command_executor")
+            # All specialist agents flow to approval gate (Phase 4)
+            graph.add_edge("escalation_agent", "approval_gate")
+            graph.add_edge("sla_protection_agent", "approval_gate")
+            graph.add_edge("quality_recovery_agent", "approval_gate")
+            graph.add_edge("reassignment_agent", "approval_gate")
+            graph.add_edge("notification_agent", "approval_gate")
+            graph.add_edge("pipeline_query_agent", "approval_gate")
+
+            # Approval gate routes to executor (if approved) or END (if pending)
+            graph.add_conditional_edges(
+                "approval_gate",
+                _approval_selector,
+                {
+                    "command_executor": "command_executor",
+                    "__end__": END,
+                },
+            )
 
             # Executor is the end
             graph.add_edge("command_executor", END)
@@ -259,6 +320,7 @@ class JarvisCommandGraph:
             "quality_recovery": quality_recovery_agent_node,
             "reassignment": reassignment_agent_node,
             "notification": notification_agent_node,
+            "pipeline_query": pipeline_query_agent_node,
         }
 
         if agent_decision != "no_action":
@@ -266,9 +328,30 @@ class JarvisCommandGraph:
             agent_updates = agent_fn(state)
             _merge_state_updates(state, agent_updates)
 
-        # Step 3: Command Executor
+        # Step 3: Approval Gate (Phase 4)
+        approval_updates = approval_gate_node(state)
+        _merge_state_updates(state, approval_updates)
+
+        # Step 3b: If pending approval, stop here (don't execute)
+        if state.get("execution_status") == "pending_approval":
+            return state
+
+        # Step 4: Command Executor
         executor_updates = command_executor_node(state)
         _merge_state_updates(state, executor_updates)
+
+        # Step 5: Apply command feedback to pipeline (Phase 4)
+        try:
+            from app.services.jarvis_agents.pipeline_feedback import (
+                apply_command_feedback_sync,
+            )
+            apply_command_feedback_sync(
+                company_id=state.get("company_id", ""),
+                session_id=state.get("session_id", ""),
+                command_result=state,
+            )
+        except Exception:
+            logger.debug("pipeline_feedback_non_fatal", exc_info=True)
 
         return state
 
