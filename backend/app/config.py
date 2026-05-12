@@ -88,6 +88,23 @@ class Settings(BaseSettings):
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     MAX_SESSIONS_PER_USER: int = 5
 
+    # ── JWT RS256 (Week 6) ───────────────────────────────────────
+    JWT_ALGORITHM: str = "HS256"  # "HS256" or "RS256"
+    JWT_PRIVATE_KEY_PATH: str = ""  # Path to RSA private key PEM file
+    JWT_PUBLIC_KEY_PATH: str = ""  # Path to RSA public key PEM file
+    JWT_PRIVATE_KEY_BASE64: str = ""  # Base64-encoded RSA private key (alternative to file)
+    JWT_PUBLIC_KEY_BASE64: str = ""  # Base64-encoded RSA public key (alternative to file)
+    JWT_KID: str = "parwa-key-v1"  # Key ID for JWT header
+
+    @field_validator("JWT_ALGORITHM")
+    @classmethod
+    def validate_jwt_algorithm(cls, v: str) -> str:
+        if v not in ("HS256", "RS256"):
+            raise ValueError(
+                f"JWT_ALGORITHM must be 'HS256' or 'RS256', got '{v}'"
+            )
+        return v
+
     # ── AI Providers ─────────────────────────────────────────────
     GOOGLE_AI_API_KEY: str = ""
     CEREBRAS_API_KEY: str = ""

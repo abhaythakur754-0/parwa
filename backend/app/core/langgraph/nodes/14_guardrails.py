@@ -2,13 +2,14 @@
 Guardrails Node — Group 9: Safety & Compliance Checks
 
 Implements multi-layer safety and compliance checks on the agent
-response before it is delivered to the customer. Runs four distinct
+response before it is delivered to the customer. Runs five distinct
 checks in sequence:
 
   1. Guardrails Engine   — Content policy, PII leakage, harmful content
   2. Hallucination Det.  — Factual accuracy verification
-  3. Prompt Injection    — Re-check for injection attempts
-  4. Brand Voice         — Brand compliance (Pro/High tiers only)
+  3. Loophole Detection  — 25-category loophole pattern scanner
+  4. Prompt Injection    — Re-check for injection attempts
+  5. Brand Voice         — Brand compliance (Pro/High tiers only)
 
 If ANY check fails, guardrails_passed=False and the reason is recorded.
 
@@ -216,7 +217,106 @@ def _check_hallucination(
 
 
 # ═══════════════════════════════════════════════════════════════
-# Check 3: Prompt Injection Re-check
+# Check 3: Loophole Detection
+# ═══════════════════════════════════════════════════════════════
+
+
+def _check_loopholes(
+    response_text: str,
+    message: str,
+    tenant_id: str,
+    variant_tier: str,
+) -> Dict[str, Any]:
+    """
+    Run loophole detection on the response.
+
+    Scans the AI response for 25 known loophole categories using
+    the LoopholeDetectionEngine. Covers hallucination, PII leakage,
+    injection success, pricing confusion, off-topic divergence,
+    brand voice violations, and more.
+
+    Args:
+        response_text: The response text to check.
+        message: The original PII-redacted message.
+        tenant_id: Tenant identifier (BC-001).
+        variant_tier: Variant tier string.
+
+    Returns:
+        Dict with 'passed', 'flags', 'blocked_reason' keys.
+    """
+    try:
+        from app.core.loophole_engine import get_loophole_engine  # type: ignore[import-untyped]
+
+        engine = get_loophole_engine()
+        report = engine.detect(
+            response=response_text,
+            query=message,
+            tenant_id=tenant_id,
+        )
+
+        passed = not report.requires_block
+        flags: List[Dict[str, Any]] = []
+
+        blocked_reason = ""
+        if report.requires_block:
+            blocked_reason = f"Loophole detected: {report.summary}"
+
+        # Build flags for each match
+        for match in report.matches:
+            flags.append({
+                "rule_id": match.category.id,
+                "severity": match.category.severity,
+                "message": (
+                    f"{match.category.name}: {match.matched_text} "
+                    f"(confidence={match.confidence:.0%})"
+                ),
+                "category_group": match.category.category_group,
+                "confidence": match.confidence,
+            })
+
+        logger.info(
+            "loophole_check_complete",
+            tenant_id=tenant_id,
+            passed=passed,
+            overall_risk=report.overall_risk,
+            num_matches=len(report.matches),
+            requires_block=report.requires_block,
+            requires_review=report.requires_review,
+        )
+
+        return {
+            "passed": passed,
+            "flags": flags,
+            "blocked_reason": blocked_reason,
+            "loophole_report": report.summary,
+        }
+
+    except ImportError:
+        logger.info(
+            "loophole_engine_unavailable",
+            tenant_id=tenant_id,
+        )
+    except Exception as loophole_exc:
+        logger.warning(
+            "loophole_engine_error",
+            tenant_id=tenant_id,
+            error=str(loophole_exc),
+        )
+
+    # BC-008: Fallback — pass with warning flag, never block
+    return {
+        "passed": True,
+        "flags": [{
+            "rule_id": "BC-008",
+            "severity": "warning",
+            "message": "Loophole detection engine unavailable; skipping check",
+        }],
+        "blocked_reason": "",
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Check 4: Prompt Injection Re-check
 # ═══════════════════════════════════════════════════════════════
 
 
@@ -293,7 +393,7 @@ def _check_prompt_injection(
 
 
 # ═══════════════════════════════════════════════════════════════
-# Check 4: Brand Voice Compliance (Pro/High only)
+# Check 5: Brand Voice Compliance (Pro/High only)
 # ═══════════════════════════════════════════════════════════════
 
 
@@ -388,11 +488,12 @@ def guardrails_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     Guardrails Node — Safety and compliance checks on agent response.
 
-    Runs four sequential safety checks:
+    Runs five sequential safety checks:
       1. Guardrails engine (content policy, PII leakage)
       2. Hallucination detection
-      3. Prompt injection re-check
-      4. Brand voice compliance (Pro/High only)
+      3. Loophole detection (25-category scanner)
+      4. Prompt injection re-check
+      5. Brand voice compliance (Pro/High only)
 
     If ANY check fails, guardrails_passed=False and the blocking
     reason is recorded. If modules are unavailable, checks pass
@@ -470,7 +571,29 @@ def guardrails_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 "message": str(flag),
             })
 
-        # ── Check 3: Prompt Injection Re-check ──────────────────
+        # ── Check 3: Loophole Detection ─────────────────────────
+        loophole_result = _check_loopholes(
+            response_text=response_text,
+            message=message,
+            tenant_id=tenant_id,
+            variant_tier=variant_tier,
+        )
+
+        if not loophole_result.get("passed", True):
+            overall_passed = False
+            if not blocked_reason:
+                blocked_reason = loophole_result.get("blocked_reason", "Loophole detected")
+
+        for flag in loophole_result.get("flags", []):
+            all_flags.append({
+                "check": "loophole_detection",
+                **flag,
+            } if isinstance(flag, dict) else {
+                "check": "loophole_detection",
+                "message": str(flag),
+            })
+
+        # ── Check 4: Prompt Injection Re-check ──────────────────
         injection_result = _check_prompt_injection(
             response_text=response_text,
             message=message,
@@ -491,7 +614,7 @@ def guardrails_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 "message": str(flag),
             })
 
-        # ── Check 4: Brand Voice Compliance (Pro/High only) ─────
+        # ── Check 5: Brand Voice Compliance (Pro/High only) ─────
         brand_result = _check_brand_voice(
             response_text=response_text,
             tenant_id=tenant_id,

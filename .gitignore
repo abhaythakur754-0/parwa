@@ -154,3 +154,5 @@ dmypy.json
 .git-rewrite/
 .git-rewrite/
 .git-rewrite/
+secrets/
+.env.rs256

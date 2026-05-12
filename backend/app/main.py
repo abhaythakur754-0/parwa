@@ -71,6 +71,8 @@ from app.api.bounce_complaint import router as bounce_complaint_router  # Week 1
 from app.api.chat_widget import router as chat_widget_router  # Week 13 Day 4: Chat widget endpoints (F-122)
 from app.api.sms_channel import router as sms_channel_router  # Week 13 Day 5: SMS channel endpoints (F-123)
 from app.api.workflow import router as workflow_router  # Week 10: Workflow API (now with LangGraph multi-agent)
+from app.api.tickets import router as tickets_router  # BUG-3 FIX: Day 26 Ticket CRUD (was dead code in api_router)
+from app.api.technique_config import router as technique_config_router  # BUG-3 FIX: SG-17 Technique Config Admin (was dead code in api_router)
 from app.api.deps import get_current_user
 from database.models.core import User
 
@@ -351,6 +353,8 @@ app.include_router(bounce_complaint_router)  # Week 13 Day 3: Bounce/complaint e
 app.include_router(chat_widget_router)  # Week 13 Day 4: Chat widget endpoints (F-122)
 app.include_router(sms_channel_router)  # Week 13 Day 5: SMS channel endpoints (F-123)
 app.include_router(workflow_router)  # Week 10: Workflow API (now with LangGraph multi-agent)
+app.include_router(tickets_router, prefix="/api/v1", tags=["tickets"])  # BUG-3 FIX: Tickets at /api/v1/tickets (matches variant_check.py)
+app.include_router(technique_config_router, tags=["technique-config"])  # BUG-3 FIX: Technique Config at /api/techniques/config (router already has prefix)
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───
