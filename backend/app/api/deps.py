@@ -138,11 +138,11 @@ def require_roles(*roles: str):
         user: User = Depends(get_current_user),
     ) -> User:
         if user.role not in roles:
+            # M-01 FIX: Do NOT expose internal role names to the client.
+            # Return a fully generic error to prevent role enumeration.
             raise AuthorizationError(
                 message="Insufficient permissions",
-                details={
-                    "required_role": list(roles),
-                },
+                details=None,
             )
         return user
 
@@ -169,11 +169,10 @@ def require_platform_admin(
         AuthorizationError: If user is not a platform admin.
     """
     if not getattr(user, "is_platform_admin", False):
+        # M-01 FIX: Do NOT expose internal permission structure.
         raise AuthorizationError(
-            message="Platform admin access required",
-            details={
-                "required": "platform_admin",
-            },
+            message="Insufficient permissions",
+            details=None,
         )
     return user
 

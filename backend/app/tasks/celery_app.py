@@ -25,7 +25,10 @@ Queues:
 """
 
 import logging
+import json
+
 from celery import Celery
+from celery.signals import before_task_publish
 
 # M-32: Maximum allowed task payload size in bytes (1 MB)
 MAX_TASK_PAYLOAD_BYTES = 1 * 1024 * 1024
@@ -262,6 +265,30 @@ def _build_config() -> dict:
             "app.tasks.jarvis_awareness_tasks",
         ],
     }
+
+
+# M-32 FIX: Pre-dispatch hook that rejects oversized task payloads.
+# This prevents workers from being overwhelmed by large payloads that
+# could cause memory exhaustion or denial-of-service attacks.
+@before_task_publish.connect
+def _enforce_max_payload_size(sender=None, headers=None, body=None, **kwargs):
+    """Reject task publication if payload exceeds MAX_TASK_PAYLOAD_BYTES."""
+    try:
+        if body:
+            payload_bytes = len(json.dumps(body) if not isinstance(body, (str, bytes)) else body)
+            if payload_bytes > MAX_TASK_PAYLOAD_BYTES:
+                logger.warning(
+                    "task_payload_rejected_oversized task=%s payload_bytes=%s max_bytes=%s",
+                    sender, payload_bytes, MAX_TASK_PAYLOAD_BYTES,
+                )
+                # Return False to prevent the task from being published
+                return False
+    except Exception as exc:
+        logger.error(
+            "payload_size_check_failed task=%s error=%s",
+            sender, str(exc),
+        )
+    # Return None (or omit return) to allow normal dispatch
 
 
 # Apply configuration

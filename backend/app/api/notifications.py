@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, get_tenant_context
+from app.api.deps import get_current_user, require_roles, get_db, get_tenant_context
 from app.services.notification_service import NotificationService
 from app.services.notification_template_service import NotificationTemplateService
 from app.services.notification_preference_service import NotificationPreferenceService
@@ -188,7 +188,10 @@ async def mark_notifications_read(
 async def send_notification(
     request: NotificationSendRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    # M-35 FIX: Restrict manual notification sending to owner/admin roles.
+    # Previously any authenticated user (including agents/viewers) could
+    # trigger arbitrary notifications.
+    current_user: User = Depends(require_roles("owner", "admin")),
     tenant: Dict = Depends(get_tenant_context),
 ):
     """Manually trigger a notification."""
@@ -276,7 +279,8 @@ async def list_templates(
 async def create_template(
     request: TemplateCreateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    # M-35 FIX: Template creation restricted to owner/admin.
+    current_user: User = Depends(require_roles("owner", "admin")),
     tenant: Dict = Depends(get_tenant_context),
 ):
     """Create a notification template."""
@@ -346,7 +350,8 @@ async def update_template(
     template_id: str,
     request: TemplateUpdateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    # M-35 FIX: Template update restricted to owner/admin.
+    current_user: User = Depends(require_roles("owner", "admin")),
     tenant: Dict = Depends(get_tenant_context),
 ):
     """Update notification template."""
@@ -379,7 +384,8 @@ async def update_template(
 async def delete_template(
     template_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    # M-35 FIX: Template deletion restricted to owner/admin.
+    current_user: User = Depends(require_roles("owner", "admin")),
     tenant: Dict = Depends(get_tenant_context),
 ):
     """Delete notification template."""

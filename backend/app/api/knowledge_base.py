@@ -364,10 +364,17 @@ def api_reindex_document(
         return MessageResponse(
             message=f"Document re-indexed. {result.get('chunk_count', 0)} chunks created.",
         )
-    except Exception as e:
+    except Exception as exc:
+        # M-17 FIX: Do NOT leak internal error details to the client.
+        logger.error(
+            "kb_reindex_failed",
+            document_id=document_id,
+            company_id=user.company_id,
+            error=str(exc),
+        )
         raise HTTPException(
             status_code=500,
-            detail=f"Re-indexing failed: {str(e)}",
+            detail="Document re-indexing failed. Please try again or contact support.",
         )
 
 

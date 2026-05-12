@@ -71,6 +71,8 @@ from app.api.bounce_complaint import router as bounce_complaint_router  # Week 1
 from app.api.chat_widget import router as chat_widget_router  # Week 13 Day 4: Chat widget endpoints (F-122)
 from app.api.sms_channel import router as sms_channel_router  # Week 13 Day 5: SMS channel endpoints (F-123)
 from app.api.workflow import router as workflow_router  # Week 10: Workflow API (now with LangGraph multi-agent)
+from app.api.deps import get_current_user
+from database.models.core import User
 
 # Import webhook handlers so their @register_handler decorators fire and
 # populate the registry. These modules have no other import side-effects.
@@ -437,6 +439,10 @@ async def get_events_since_endpoint(
     last_seen: float = Query(
         ..., description="Epoch timestamp of last received event"
     ),
+    # M-08 FIX: Require explicit authentication on the events endpoint.
+    # Previously relied only on middleware-level tenant scoping, allowing
+    # unauthenticated requests to reach the handler.
+    current_user: User = Depends(get_current_user),
 ):
     """Fetch events missed during disconnection (BC-005).
 
@@ -445,6 +451,7 @@ async def get_events_since_endpoint(
 
     BC-001: Events are scoped to the requesting tenant.
     BC-005: Event buffer stores events for 24 hours.
+    M-08: Requires explicit JWT authentication.
     """
     company_id = getattr(request.state, "company_id", None)
     if not company_id:

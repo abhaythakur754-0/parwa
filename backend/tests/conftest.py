@@ -71,6 +71,7 @@ setattr(_fake_core_models, "User", _MockUser)
 setattr(_fake_core_models, "Company", _MockCompany)
 setattr(_fake_core_models, "RefreshToken", MagicMock(name="RefreshToken"))
 setattr(_fake_core_models, "OAuthAccount", MagicMock(name="OAuthAccount"))
+setattr(_fake_core_models, "PasswordResetToken", MagicMock(name="PasswordResetToken"))
 
 for model_name in [
     "JarvisSession", "JarvisMessage", "JarvisKnowledgeUsed",
