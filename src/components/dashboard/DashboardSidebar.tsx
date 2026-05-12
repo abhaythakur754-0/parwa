@@ -109,7 +109,7 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
     { label: 'Billing', href: '/dashboard/billing', icon: Icons.billing },
     { label: 'Agents', href: '/dashboard/agents', icon: Icons.agents },
     { label: 'Knowledge Base', href: '/dashboard/knowledge', icon: Icons.knowledge },
-    { label: 'Jarvis AI', href: '/jarvis', icon: Icons.jarvis },
+    { label: 'Jarvis CC', href: '/dashboard/jarvis', icon: Icons.jarvis },
   ];
 
   const bottomItems: NavItem[] = [
