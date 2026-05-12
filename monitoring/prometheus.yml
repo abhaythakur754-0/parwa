@@ -61,8 +61,20 @@ scrape_configs:
         target_label: instance
         replacement: 'parwa-host'
 
+  # PARWA AI Pipeline Metrics
+  - job_name: 'parwa_ai_pipeline'
+    scrape_interval: 10s
+    metrics_path: '/api/v1/ai-engine/monitoring/metrics'
+    static_configs:
+      - targets: ['backend:8000']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'parwa-ai-pipeline'
+
 rule_files:
   - '/etc/prometheus/alerting/rules.yml'
+  - '/etc/prometheus/alerting/ai-pipeline-rules.yml'
 
 alerting:
   alertmanagers:
