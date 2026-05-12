@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: worker
+    app.kubernetes.io/component: background-jobs
+    app.kubernetes.io/part-of: parwa-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: worker
+      app.kubernetes.io/component: background-jobs
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: worker
+        app.kubernetes.io/component: background-jobs
+        app.kubernetes.io/part-of: parwa-platform
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: worker
+          image: parwa/worker:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: parwa-config
+                  key: ENVIRONMENT
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: parwa-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: parwa-config
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: parwa-config
+                  key: DB_NAME
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: parwa-config
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: parwa-config
+                  key: REDIS_PORT
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: DB_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: REDIS_PASSWORD
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: SECRET_KEY
+            - name: CELERY_BROKER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: CELERY_BROKER_URL
+            - name: CELERY_RESULT_BACKEND
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: CELERY_RESULT_BACKEND
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - celery -A backend.app.tasks.celery_app inspect ping --timeout 10
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - celery -A backend.app.tasks.celery_app inspect ping --timeout 5
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: state-data
+              mountPath: /app/state_data
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: worker
+                topologyKey: kubernetes.io/hostname
+      nodeSelector:
+        workload-type: worker
+      tolerations:
+        - key: "workload-type"
+          operator: "Equal"
+          value: "worker"
+          effect: "NoSchedule"
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: state-data
+          emptyDir: {}

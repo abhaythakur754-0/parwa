@@ -217,6 +217,9 @@ class Settings(BaseSettings):
 
     # ── Monitoring ───────────────────────────────────────────────
     SENTRY_DSN: str = ""
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.1
+    SENTRY_PROFILES_SAMPLE_RATE: float = 0.1
+    SENTRY_ENVIRONMENT: str = ""  # Falls back to ENVIRONMENT if empty
     GRAFANA_API_KEY: str = ""
 
     # ── Google OAuth (F-011) ───────────────────────────────────

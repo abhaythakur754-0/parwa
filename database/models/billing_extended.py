@@ -11,18 +11,23 @@ Additional billing tables for Week 5:
 - ProrationAudit: Proration calculation audit trail
 - PaymentFailure: Payment failure audit log
 
+Phase 6 additions:
+- PaddleWebhookEvent: Webhook event tracking with idempotency
+- PaddleReconciliationReport: Reconciliation audit trail
+
 BC-001: Every table has company_id
 BC-002: All money fields are DECIMAL(10,2) — NEVER float
 """
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Optional
 import uuid
 
 from sqlalchemy import (
     Boolean, Column, Date, DateTime, Integer, Numeric, String, Text, ForeignKey, Index
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from database.base import Base
@@ -305,3 +310,78 @@ def calculate_overage(tickets_used: int, ticket_limit: int) -> dict:
         "overage_charges": overage_charges,
         "overage_rate": Decimal("0.10"),
     }
+
+
+# ── Paddle Webhook Event Model (Phase 6: Production Hardening) ──────────────
+
+class PaddleWebhookEvent(Base):
+    """Paddle webhook event tracking with idempotency.
+
+    Tracks every Paddle webhook through its processing lifecycle:
+    - pending → processing → completed
+    - pending → processing → failed → (retry) → completed
+    - pending → processing → failed → dead_letter (after max retries)
+
+    The idempotency_key ensures exactly-once processing:
+    - Computed as SHA-256(event_type + ":" + event_id)
+    - Unique constraint prevents duplicate processing
+    - Redis cache provides fast duplicate detection
+    """
+    __tablename__ = "paddle_webhook_events"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    idempotency_key = Column(String(64), unique=True, nullable=False, index=True)
+    event_type = Column(String(50), nullable=False)
+    event_id = Column(String(100), nullable=False)
+    payload = Column(Text, nullable=False)  # JSON-encoded event payload
+    status = Column(String(20), nullable=False, default="pending")
+    processing_attempts = Column(Integer, nullable=False, default=0)
+    last_error = Column(Text, nullable=True)
+    company_id = Column(
+        String(36),
+        ForeignKey("companies.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    processed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.utcnow(),
+        onupdate=lambda: datetime.utcnow(),
+    )
+    result_json = Column(Text, nullable=True)  # JSON-encoded processing result
+
+    # Relationships
+    company = relationship("Company", back_populates="paddle_webhook_events")
+
+
+# ── Paddle Reconciliation Report Model (Phase 6) ────────────────────────────
+
+class PaddleReconciliationReport(Base):
+    """Paddle reconciliation report audit trail.
+
+    Stores periodic and on-demand reconciliation results:
+    - Compares Paddle subscription state with local DB
+    - Records discrepancies found
+    - Tracks corrections applied
+    - Full report stored as JSON for review
+    """
+    __tablename__ = "paddle_reconciliation_reports"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    report_type = Column(String(20), nullable=False, default="periodic")
+    subscriptions_checked = Column(Integer, nullable=False, default=0)
+    discrepancies_found = Column(Integer, nullable=False, default=0)
+    corrections_applied = Column(Integer, nullable=False, default=0)
+    report_json = Column(Text, nullable=False, default="{}")  # JSON-encoded full report
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+    # Relationships
+    company = relationship("Company", back_populates="paddle_reconciliation_reports")

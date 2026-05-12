@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: mcp
+    app.kubernetes.io/component: ai-tools
+    app.kubernetes.io/part-of: parwa-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mcp
+      app.kubernetes.io/component: ai-tools
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mcp
+        app.kubernetes.io/component: ai-tools
+        app.kubernetes.io/part-of: parwa-platform
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mcp
+          image: parwa/mcp:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: parwa-config
+                  key: ENVIRONMENT
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: parwa-config
+                  key: DB_HOST
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: parwa-config
+                  key: REDIS_HOST
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: DB_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: REDIS_PASSWORD
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: mcp
+                topologyKey: kubernetes.io/hostname
+      nodeSelector:
+        workload-type: api
+      volumes:
+        - name: tmp
+          emptyDir: {}

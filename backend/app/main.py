@@ -118,6 +118,16 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     configure_logging(settings.ENVIRONMENT)
 
+    # Phase 6: Initialize Sentry error monitoring
+    try:
+        from app.core.sentry import init_sentry
+        sentry_initialized = init_sentry()
+        logger = get_logger("lifespan")
+        logger.info("sentry_initialized", status=sentry_initialized)
+    except Exception as exc:
+        logger = get_logger("lifespan")
+        logger.warning("sentry_init_failed", error=str(exc))
+
     # ── Run Alembic migrations on startup ──
     try:
         import subprocess
@@ -237,6 +247,13 @@ async def lifespan(app: FastAPI):
         version="0.1.0",
     )
     yield
+
+    # Shutdown: flush Sentry events
+    try:
+        from app.core.sentry import flush as sentry_flush
+        sentry_flush(timeout=2.0)
+    except Exception as exc:
+        logger.warning("sentry_flush_error", error=str(exc))
 
     # Shutdown: close Redis pool
     try:

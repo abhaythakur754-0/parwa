@@ -6,11 +6,15 @@ Background tasks to keep local DB in sync with Paddle:
 - reconcile_transactions: Daily transaction sync
 - reconcile_usage: Daily usage sync to Paddle
 
-These tasks detect and fix discrepancies between local DB
-and Paddle's records.
+Phase 6 additions (Production Hardening):
+- reconcile_all_companies_task: Idempotency-aware full reconciliation
+- process_dead_letter_queue_task: Retry failed webhook events
+- cleanup_old_webhook_events_task: Remove events older than 90 days
 
 BC-001: All operations validate company_id
 BC-003: All tasks have proper error handling and logging
+BC-008: Never crash — all errors are caught and handled
+BC-012: All timestamps in UTC
 """
 
 import logging
@@ -501,3 +505,339 @@ def _update_subscription_from_paddle(
     # Update cancel_at_period_end
     scheduled_change = paddle_data.get("scheduled_change")
     db_sub.cancel_at_period_end = bool(scheduled_change)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Phase 6: Idempotency-Aware Reconciliation Tasks (Production Hardening)
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+@shared_task(
+    name="billing.reconcile_all_companies",
+    bind=True,
+    max_retries=2,
+    default_retry_delay=600,
+)
+def reconcile_all_companies_task(self) -> Dict[str, Any]:
+    """
+    Reconcile payment state for all active companies.
+
+    Uses the PaddleReconciliationService for idempotency-aware
+    reconciliation with full audit trail.
+
+    Runs daily at 05:00 (before the existing reconciliation tasks).
+
+    For each active company:
+    1. Compare Paddle subscription state with local DB
+    2. Identify and record discrepancies
+    3. Apply corrections (Paddle is source of truth)
+    4. Generate reconciliation report
+
+    Returns:
+        Dict with aggregated reconciliation results
+    """
+    logger.info("phase6_reconciliation_all_companies_started")
+
+    results = {
+        "companies_checked": 0,
+        "companies_reconciled": 0,
+        "total_discrepancies": 0,
+        "total_corrections": 0,
+        "errors": 0,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    db = SessionLocal()
+    try:
+        from database.models.core import Company
+        from database.models.billing_extended import (
+            PaddleWebhookEvent,
+            PaddleReconciliationReport,
+        )
+
+        # Get all companies with active subscriptions
+        companies = db.query(Company).filter(
+            Company.subscription_status == "active",
+        ).all()
+
+        results["companies_checked"] = len(companies)
+
+        for company in companies:
+            try:
+                # Use the reconciliation service
+                import asyncio
+
+                async def _reconcile(company_id: str) -> Dict[str, Any]:
+                    from app.services.paddle_reconciliation_service import (
+                        PaddleReconciliationService,
+                    )
+                    service = PaddleReconciliationService(
+                        db_session=db,
+                        redis_client=None,  # Celery tasks run in worker — Redis optional
+                    )
+                    return await service.reconcile_payment_state(company_id)
+
+                # Run async reconciliation
+                loop = asyncio.new_event_loop()
+                try:
+                    report = loop.run_until_complete(
+                        _reconcile(str(company.id))
+                    )
+                finally:
+                    loop.close()
+
+                results["companies_reconciled"] += 1
+                results["total_discrepancies"] += len(
+                    report.get("discrepancies", [])
+                )
+                results["total_corrections"] += report.get(
+                    "corrections_applied", 0
+                )
+
+                logger.info(
+                    "phase6_company_reconciled company_id=%s discrepancies=%d corrections=%d",
+                    company.id,
+                    len(report.get("discrepancies", [])),
+                    report.get("corrections_applied", 0),
+                )
+
+            except Exception as e:
+                results["errors"] += 1
+                logger.error(
+                    "phase6_reconciliation_error company_id=%s error=%s",
+                    company.id,
+                    str(e)[:500],
+                )
+
+        results["completed_at"] = datetime.now(timezone.utc).isoformat()
+
+        logger.info(
+            "phase6_reconciliation_all_companies_complete "
+            "checked=%d reconciled=%d discrepancies=%d corrections=%d errors=%d",
+            results["companies_checked"],
+            results["companies_reconciled"],
+            results["total_discrepancies"],
+            results["total_corrections"],
+            results["errors"],
+        )
+
+        return results
+
+    except Exception as e:
+        logger.error(
+            "phase6_reconciliation_fatal_error error=%s",
+            str(e)[:500],
+        )
+        results["fatal_error"] = str(e)[:500]
+        results["completed_at"] = datetime.now(timezone.utc).isoformat()
+        return results
+
+    finally:
+        db.close()
+
+
+@shared_task(
+    name="billing.process_dead_letter_queue",
+    bind=True,
+    max_retries=2,
+    default_retry_delay=300,
+)
+def process_dead_letter_queue_task(self) -> Dict[str, Any]:
+    """
+    Retry dead letter webhook events.
+
+    Reviews events in the dead_letter status and attempts to
+    re-process them after resetting their attempt count.
+
+    Runs every 6 hours (configured in Celery Beat).
+
+    Returns:
+        Dict with DLQ processing results
+    """
+    logger.info("phase6_dlq_processing_started")
+
+    results = {
+        "dead_letter_count": 0,
+        "retried": 0,
+        "succeeded": 0,
+        "still_failed": 0,
+        "errors": 0,
+    }
+
+    db = SessionLocal()
+    try:
+        from database.models.billing_extended import PaddleWebhookEvent
+
+        # Get all dead letter events
+        dead_letter_events = db.query(PaddleWebhookEvent).filter(
+            PaddleWebhookEvent.status == "dead_letter",
+        ).all()
+
+        results["dead_letter_count"] = len(dead_letter_events)
+
+        for event in dead_letter_events:
+            try:
+                # Reset attempt count and re-process
+                event.processing_attempts = 0
+                event.status = "pending"
+                event.last_error = None
+                event.updated_at = datetime.now(timezone.utc)
+                db.commit()
+
+                # Re-process via reconciliation service
+                import asyncio
+
+                async def _reprocess(event_id: str) -> Any:
+                    from app.services.paddle_reconciliation_service import (
+                        PaddleReconciliationService,
+                    )
+                    service = PaddleReconciliationService(
+                        db_session=db,
+                        redis_client=None,
+                    )
+                    return await service.retry_dead_letter_event(event_id)
+
+                loop = asyncio.new_event_loop()
+                try:
+                    result = loop.run_until_complete(
+                        _reprocess(str(event.id))
+                    )
+                finally:
+                    loop.close()
+
+                results["retried"] += 1
+
+                if result.status == "completed":
+                    results["succeeded"] += 1
+                    logger.info(
+                        "phase6_dlq_retry_succeeded event_id=%s key=%s",
+                        event.id,
+                        event.idempotency_key[:16],
+                    )
+                else:
+                    results["still_failed"] += 1
+                    logger.warning(
+                        "phase6_dlq_retry_failed event_id=%s error=%s",
+                        event.id,
+                        result.error or "unknown",
+                    )
+
+            except Exception as e:
+                results["errors"] += 1
+                logger.error(
+                    "phase6_dlq_retry_error event_id=%s error=%s",
+                    event.id,
+                    str(e)[:500],
+                )
+
+        logger.info(
+            "phase6_dlq_processing_complete total=%d retried=%d "
+            "succeeded=%d still_failed=%d errors=%d",
+            results["dead_letter_count"],
+            results["retried"],
+            results["succeeded"],
+            results["still_failed"],
+            results["errors"],
+        )
+
+        return results
+
+    except Exception as e:
+        logger.error(
+            "phase6_dlq_processing_fatal_error error=%s",
+            str(e)[:500],
+        )
+        results["fatal_error"] = str(e)[:500]
+        return results
+
+    finally:
+        db.close()
+
+
+@shared_task(
+    name="billing.cleanup_old_webhook_events",
+    bind=True,
+    max_retries=1,
+    default_retry_delay=600,
+)
+def cleanup_old_webhook_events_task(
+    self,
+    retention_days: int = 90,
+) -> Dict[str, Any]:
+    """
+    Clean up webhook events older than the retention period.
+
+    Removes completed webhook events older than retention_days.
+    Keeps dead_letter events regardless of age (for manual review).
+
+    Runs weekly (configured in Celery Beat).
+
+    Args:
+        retention_days: Number of days to retain completed events (default: 90)
+
+    Returns:
+        Dict with cleanup results
+    """
+    logger.info(
+        "phase6_webhook_cleanup_started retention_days=%d",
+        retention_days,
+    )
+
+    results = {
+        "events_deleted": 0,
+        "reports_deleted": 0,
+        "errors": 0,
+    }
+
+    db = SessionLocal()
+    try:
+        from database.models.billing_extended import (
+            PaddleWebhookEvent,
+            PaddleReconciliationReport,
+        )
+
+        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+
+        # Delete completed webhook events older than cutoff
+        # Keep dead_letter events for manual review
+        deleted = db.query(PaddleWebhookEvent).filter(
+            PaddleWebhookEvent.status == "completed",
+            PaddleWebhookEvent.created_at < cutoff,
+        ).delete(synchronize_session=False)
+
+        results["events_deleted"] = deleted or 0
+
+        # Delete old reconciliation reports (keep for audit but prune very old ones)
+        report_cutoff = datetime.now(timezone.utc) - timedelta(
+            days=max(retention_days * 2, 180)
+        )
+        deleted_reports = db.query(PaddleReconciliationReport).filter(
+            PaddleReconciliationReport.created_at < report_cutoff,
+        ).delete(synchronize_session=False)
+
+        results["reports_deleted"] = deleted_reports or 0
+
+        db.commit()
+
+        logger.info(
+            "phase6_webhook_cleanup_complete events_deleted=%d reports_deleted=%d",
+            results["events_deleted"],
+            results["reports_deleted"],
+        )
+
+        return results
+
+    except Exception as e:
+        logger.error(
+            "phase6_webhook_cleanup_error error=%s",
+            str(e)[:500],
+        )
+        results["errors"] += 1
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return results
+
+    finally:
+        db.close()

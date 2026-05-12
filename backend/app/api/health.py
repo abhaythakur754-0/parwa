@@ -52,6 +52,91 @@ def _subsystem_to_dict(sub) -> dict:
     return result
 
 
+# ── Phase 6: Circuit Breaker & Self-Healing Helpers ────────────────
+
+
+def _get_circuit_breaker_summary() -> dict:
+    """Get circuit breaker health summary for /health endpoint.
+
+    BC-008: Returns empty dict on failure (never crashes).
+    BC-012: No company data exposed.
+    """
+    try:
+        from app.core.circuit_breaker_manager import (
+            get_circuit_breaker_manager,
+        )
+        manager = get_circuit_breaker_manager()
+        return manager.get_health_summary()
+    except Exception:
+        return {"status": "unknown", "total_circuits": 0}
+
+
+def _get_circuit_breaker_detail() -> dict:
+    """Get detailed circuit breaker states for /health/detail endpoint.
+
+    BC-008: Returns empty dict on failure (never crashes).
+    BC-012: No company data exposed.
+    """
+    try:
+        from app.core.circuit_breaker_manager import (
+            get_circuit_breaker_manager,
+        )
+        manager = get_circuit_breaker_manager()
+        return manager.get_all_states()
+    except Exception:
+        return {}
+
+
+def _get_self_healing_status() -> dict:
+    """Get self-healing service status for /health endpoint.
+
+    BC-008: Returns empty dict on failure (never crashes).
+    BC-012: No company data exposed.
+    """
+    try:
+        from app.services.self_healing_service import (
+            get_self_healing_service,
+        )
+        service = get_self_healing_service()
+        return service.get_status()
+    except Exception:
+        return {"status": "unknown"}
+
+
+def _get_self_healing_detail() -> dict:
+    """Get self-healing detail with recent actions for /health/detail.
+
+    BC-008: Returns empty dict on failure (never crashes).
+    BC-012: No company data exposed.
+    """
+    try:
+        from app.services.self_healing_service import (
+            get_self_healing_service,
+        )
+        service = get_self_healing_service()
+        metrics = service.get_healing_metrics()
+        recent_history = service.get_healing_history(limit=10)
+        return {
+            "metrics": metrics,
+            "recent_actions": recent_history,
+        }
+    except Exception:
+        return {"metrics": {}, "recent_actions": []}
+
+
+def _get_sentry_status() -> dict:
+    """Get Sentry monitoring status for /health endpoint.
+
+    BC-008: Returns empty dict on failure (never crashes).
+    BC-012: No company data or DSN exposed.
+    """
+    try:
+        from app.core.sentry import get_sentry_status
+        return get_sentry_status()
+    except Exception:
+        return {"initialized": False, "status": "unknown"}
+
+
 @router.get("/health")
 async def health_endpoint():
     """Liveness probe — returns aggregate health status.
@@ -69,6 +154,15 @@ async def health_endpoint():
 
     duration = round((time.monotonic() - start) * 1000, 2)
 
+    # Phase 6: Circuit breaker health summary
+    circuit_breaker_health = _get_circuit_breaker_summary()
+
+    # Phase 6: Self-healing service status
+    self_healing_status = _get_self_healing_status()
+
+    # Phase 6: Sentry monitoring status
+    sentry_status = _get_sentry_status()
+
     response_data = {
         "status": result.status,
         "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
@@ -80,6 +174,9 @@ async def health_endpoint():
         "checks_degraded": result.checks_degraded,
         "checks_unhealthy": result.checks_unhealthy,
         "cached": result.cached,
+        "circuit_breakers": circuit_breaker_health,
+        "self_healing": self_healing_status,
+        "sentry": sentry_status,
     }
 
     # Record health check duration in metrics
@@ -108,6 +205,15 @@ async def health_detail_endpoint():
 
     duration = round((time.monotonic() - start) * 1000, 2)
 
+    # Phase 6: Detailed circuit breaker states
+    circuit_breaker_states = _get_circuit_breaker_detail()
+
+    # Phase 6: Self-healing service detail with recent actions
+    self_healing_detail = _get_self_healing_detail()
+
+    # Phase 6: Sentry monitoring detail
+    sentry_detail = _get_sentry_status()
+
     response_data = {
         "status": result.status,
         "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
@@ -118,6 +224,9 @@ async def health_detail_endpoint():
         "checks_healthy": result.checks_healthy,
         "checks_degraded": result.checks_degraded,
         "checks_unhealthy": result.checks_unhealthy,
+        "circuit_breakers": circuit_breaker_states,
+        "self_healing": self_healing_detail,
+        "sentry": sentry_detail,
     }
 
     record_http_request("GET", "/health/detail", 200, duration / 1000)
@@ -247,6 +356,19 @@ async def metrics_endpoint(
     registry_output = registry.render_all()
     if registry_output:
         lines.append(f"\n{registry_output}")
+
+    # Phase 6: Circuit breaker metrics
+    try:
+        from app.core.circuit_breaker_manager import (
+            get_circuit_breaker_manager,
+        )
+        cb_manager = get_circuit_breaker_manager()
+        cb_metrics = cb_manager.get_metrics()
+        metrics_text = cb_metrics.get("metrics_text", "")
+        if metrics_text:
+            lines.append(f"\n{metrics_text}")
+    except Exception:
+        pass
 
     content = "\n".join(lines)
     duration = round((time.monotonic() - start) * 1000, 2)

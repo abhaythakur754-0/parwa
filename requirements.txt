@@ -33,3 +33,5 @@ twilio>=9.0.0
 python-dotenv>=1.0.0
 email-validator>=2.1.0
 python-magic>=0.4.27
+locust>=2.29.0
+sentry-sdk[fastapi]>=1.40.0

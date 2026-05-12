@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-svc
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: parwa-platform
+spec:
+  type: ClusterIP
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus
+      app.kubernetes.io/component: monitoring
+  ports:
+    - name: http
+      port: 9090
+      targetPort: http
+      protocol: TCP

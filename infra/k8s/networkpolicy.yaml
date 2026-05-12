@@ -1,0 +1,414 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-netpol
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: networking
+    app.kubernetes.io/part-of: parwa-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: backend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from frontend
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: frontend
+      ports:
+        - port: 8000
+          protocol: TCP
+    # Allow from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - port: 8000
+          protocol: TCP
+    # Allow monitoring scrapes
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - port: 8000
+          protocol: TCP
+  egress:
+    # Allow DNS resolution
+    - to: []
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Allow to PostgreSQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres
+      ports:
+        - port: 5432
+          protocol: TCP
+    # Allow to Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+      ports:
+        - port: 6379
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-netpol
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: networking
+    app.kubernetes.io/part-of: parwa-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: frontend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - port: 3000
+          protocol: TCP
+    # Allow monitoring scrapes
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - port: 3000
+          protocol: TCP
+  egress:
+    # Allow DNS resolution
+    - to: []
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Allow to backend only
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: backend
+      ports:
+        - port: 8000
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: worker-netpol
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: networking
+    app.kubernetes.io/part-of: parwa-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: worker
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow monitoring scrapes
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - port: 8000
+          protocol: TCP
+  egress:
+    # Allow DNS resolution
+    - to: []
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Allow to PostgreSQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres
+      ports:
+        - port: 5432
+          protocol: TCP
+    # Allow to Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+      ports:
+        - port: 6379
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mcp-netpol
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: networking
+    app.kubernetes.io/part-of: parwa-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: mcp
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from backend
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: backend
+      ports:
+        - port: 8080
+          protocol: TCP
+    # Allow monitoring scrapes
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - port: 8080
+          protocol: TCP
+  egress:
+    # Allow DNS resolution
+    - to: []
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Allow to PostgreSQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres
+      ports:
+        - port: 5432
+          protocol: TCP
+    # Allow to Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+      ports:
+        - port: 6379
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-netpol
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: networking
+    app.kubernetes.io/part-of: parwa-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from backend
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: backend
+      ports:
+        - port: 5432
+          protocol: TCP
+    # Allow from worker
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: worker
+      ports:
+        - port: 5432
+          protocol: TCP
+    # Allow from MCP
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: mcp
+      ports:
+        - port: 5432
+          protocol: TCP
+    # Allow monitoring scrapes (postgres exporter)
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - port: 5432
+          protocol: TCP
+  egress:
+    # Allow DNS resolution
+    - to: []
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-netpol
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: networking
+    app.kubernetes.io/part-of: parwa-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from backend
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: backend
+      ports:
+        - port: 6379
+          protocol: TCP
+    # Allow from worker
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: worker
+      ports:
+        - port: 6379
+          protocol: TCP
+    # Allow from MCP
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: mcp
+      ports:
+        - port: 6379
+          protocol: TCP
+    # Allow monitoring scrapes (redis exporter)
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - port: 6379
+          protocol: TCP
+  egress:
+    # Allow DNS resolution
+    - to: []
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitoring-netpol
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: networking
+    app.kubernetes.io/part-of: parwa-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: monitoring
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from ingress controller (Grafana UI)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - port: 3000
+          protocol: TCP
+        - port: 9090
+          protocol: TCP
+        - port: 9093
+          protocol: TCP
+  egress:
+    # Allow DNS resolution
+    - to: []
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Allow to all pods in namespace for scraping
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: parwa
+    # Allow to alertmanager
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: alertmanager
+      ports:
+        - port: 9093
+          protocol: TCP
+---
+# Default deny all network policy — no external access except via Ingress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: networking
+    app.kubernetes.io/part-of: parwa-platform
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  egress:
+    # Allow DNS resolution for all pods
+    - to: []
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP

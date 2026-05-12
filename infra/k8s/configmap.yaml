@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: parwa-config
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: configuration
+    app.kubernetes.io/part-of: parwa-platform
+data:
+  # Database
+  DB_HOST: "postgres-svc"
+  DB_PORT: "5432"
+  DB_NAME: "parwa_db"
+
+  # Redis
+  REDIS_HOST: "redis-svc"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+
+  # Celery
+  CELERY_BROKER_DB: "1"
+  CELERY_RESULT_DB: "2"
+
+  # Application
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "INFO"
+
+  # Frontend
+  NEXT_PUBLIC_API_URL: "https://parwa.ai"
+  NEXT_PUBLIC_ENV: "production"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: parwa-platform
+data:
+  POSTGRES_DB: "parwa_db"
+  POSTGRES_USER: "parwa"
+  POSTGRES_HOST_AUTH_METHOD: "scram-sha-256"
+  postgresql.conf: |
+    # Production PostgreSQL configuration
+    listen_addresses = '*'
+    max_connections = 200
+    shared_buffers = 256MB
+    effective_cache_size = 768MB
+    maintenance_work_mem = 64MB
+    checkpoint_completion_target = 0.9
+    wal_buffers = 16MB
+    default_statistics_target = 100
+    random_page_cost = 1.1
+    effective_io_concurrency = 200
+    work_mem = 2621kB
+    min_wal_size = 1GB
+    max_wal_size = 4GB
+    log_timezone = 'UTC'
+    timezone = 'UTC'
+    log_min_duration_statement = 1000
+    log_checkpoints = on
+    log_connections = on
+    log_disconnections = on
+    log_lock_waits = on
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: cache
+    app.kubernetes.io/part-of: parwa-platform
+data:
+  redis.conf: |
+    # Production Redis configuration
+    bind 0.0.0.0
+    port 6379
+    timeout 300
+    tcp-keepalive 60
+    daemonize no
+    appendonly yes
+    appendfsync everysec
+    save 900 1
+    save 300 10
+    save 60 10000
+    maxmemory 256mb
+    maxmemory-policy allkeys-lru
+    requirepass ""

@@ -241,6 +241,25 @@ def _build_config() -> dict:
                 "schedule": 3600.0,  # Every hour
                 "kwargs": {},
             },
+            # Phase 6: Redis Key Namespace Audit & Cleanup
+            "redis-audit-hourly": {
+                "task": ("app.tasks.redis_cleanup_tasks"
+                          ".audit_redis_keys_task"),
+                "schedule": 3600.0,  # Every hour
+                "kwargs": {},
+            },
+            "redis-fix-ttls-daily-0315utc": {
+                "task": ("app.tasks.redis_cleanup_tasks"
+                          ".cleanup_expired_keys_task"),
+                "schedule": {"hour": 3, "minute": 15},
+                "kwargs": {"dry_run": False},
+            },
+            "redis-cleanup-orphans-weekly": {
+                "task": ("app.tasks.redis_cleanup_tasks"
+                          ".cleanup_orphaned_keys_task"),
+                "schedule": 604800.0,  # Weekly
+                "kwargs": {"dry_run": True},
+            },
         },
         # Day 16: Task send events for monitoring
         "task_send_sent_event": True,
@@ -263,6 +282,8 @@ def _build_config() -> dict:
             "app.tasks.email_channel_tasks",
             # Phase 2.4: Jarvis Awareness Engine tasks
             "app.tasks.jarvis_awareness_tasks",
+            # Phase 6: Redis Key Namespace Audit & Cleanup
+            "app.tasks.redis_cleanup_tasks",
         ],
     }
 

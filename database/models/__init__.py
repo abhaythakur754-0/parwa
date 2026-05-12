@@ -40,6 +40,8 @@ from database.models.billing_extended import (  # noqa: F401
     WebhookSequence,
     ProrationAudit,
     PaymentFailure,
+    PaddleWebhookEvent,
+    PaddleReconciliationReport,
     get_variant_limits,
     calculate_overage,
 )

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-svc
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: mcp
+    app.kubernetes.io/component: ai-tools
+    app.kubernetes.io/part-of: parwa-platform
+spec:
+  type: ClusterIP
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mcp
+      app.kubernetes.io/component: ai-tools
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

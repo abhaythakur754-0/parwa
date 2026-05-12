@@ -14,12 +14,24 @@ Day 20: Added key validation enforcement:
 - safe_get() / safe_mget() validate tenant key prefix before operating
 - Warning logged for raw key access attempts
 
+Phase 6: Redis Key Namespace Manager integration:
+- build_key() / get_ttl() imported from redis_key_manager
+- namespaced_set() / namespaced_get() use key manager for auto-TTL
+- run_startup_audit() logs orphaned keys and missing TTLs
+
 Usage:
     from app.core.redis import get_redis, make_key
 
     redis = get_redis()
     await redis.set(make_key("session", company_id, session_id), "data")
     value = await redis.get(make_key("session", company_id, session_id))
+
+    # Phase 6: New namespaced operations (auto-TTL)
+    from app.core.redis import namespaced_set, namespaced_get
+    from app.core.redis_key_manager import RedisNamespace
+
+    await namespaced_set(RedisNamespace.CACHE, "acme", "key", {"data": 1})
+    result = await namespaced_get(RedisNamespace.CACHE, "acme", "key")
 """
 
 import asyncio
@@ -425,3 +437,151 @@ async def cache_delete(company_id: str, key: str) -> bool:
         return True
     except Exception:
         return False
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Phase 6: Redis Key Namespace Manager Integration
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def get_build_key():
+    """Lazy import of build_key from redis_key_manager.
+
+    Avoids circular imports at module load time.
+
+    Returns:
+        build_key function from redis_key_manager
+    """
+    from app.core.redis_key_manager import build_key
+    return build_key
+
+
+def get_get_ttl():
+    """Lazy import of get_ttl from redis_key_manager.
+
+    Avoids circular imports at module load time.
+
+    Returns:
+        get_ttl function from redis_key_manager
+    """
+    from app.core.redis_key_manager import get_ttl
+    return get_ttl
+
+
+async def namespaced_set(
+    namespace: "RedisNamespace",
+    company_id: str,
+    key: str,
+    value: Any,
+    ttl_override: Optional[int] = None,
+) -> bool:
+    """Set a Redis value using the key manager with auto-TTL.
+
+    Phase 6 addition. Uses build_key() for consistent key naming
+    and get_ttl() for namespace-appropriate TTL defaults.
+
+    Args:
+        namespace: RedisNamespace enum value
+        company_id: Tenant identifier (BC-001)
+        key: Cache key within the namespace
+        value: Value to store (JSON-serialized if not string)
+        ttl_override: Optional TTL override in seconds
+
+    Returns:
+        True if set succeeded, False otherwise
+    """
+    try:
+        from app.core.redis_key_manager import build_key, get_ttl
+
+        client = await get_redis()
+        redis_key = build_key(namespace, company_id, key)
+        ttl = get_ttl(namespace, ttl_override)
+        serialized = value if isinstance(value, str) else json.dumps(value)
+        await client.set(redis_key, serialized, ex=ttl)
+        return True
+    except Exception:
+        return False
+
+
+async def namespaced_get(
+    namespace: "RedisNamespace",
+    company_id: str,
+    key: str,
+    default: Any = None,
+) -> Any:
+    """Get a Redis value using the key manager.
+
+    Phase 6 addition. Uses build_key() for consistent key naming.
+
+    Args:
+        namespace: RedisNamespace enum value
+        company_id: Tenant identifier (BC-001)
+        key: Cache key within the namespace
+        default: Default value if key not found
+
+    Returns:
+        Cached value or default
+    """
+    try:
+        from app.core.redis_key_manager import build_key
+
+        client = await get_redis()
+        redis_key = build_key(namespace, company_id, key)
+        value = await client.get(redis_key)
+        if value is not None:
+            try:
+                return json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                return value
+        return default
+    except Exception:
+        return default
+
+
+async def namespaced_delete(
+    namespace: "RedisNamespace",
+    company_id: str,
+    key: str,
+) -> bool:
+    """Delete a Redis value using the key manager.
+
+    Phase 6 addition. Uses build_key() for consistent key naming.
+
+    Args:
+        namespace: RedisNamespace enum value
+        company_id: Tenant identifier (BC-001)
+        key: Cache key within the namespace
+
+    Returns:
+        True if delete succeeded, False otherwise
+    """
+    try:
+        from app.core.redis_key_manager import build_key
+
+        client = await get_redis()
+        redis_key = build_key(namespace, company_id, key)
+        await client.delete(redis_key)
+        return True
+    except Exception:
+        return False
+
+
+async def run_startup_audit() -> None:
+    """Run Redis key namespace audit on application startup.
+
+    Phase 6 addition. Logs orphaned keys and keys missing TTLs.
+    BC-008: Never crashes the application on audit failure.
+
+    Should be called during FastAPI startup event.
+    """
+    try:
+        from app.core.redis_key_manager import startup_audit
+
+        client = await get_redis()
+        await startup_audit(client)
+    except Exception as exc:
+        # BC-008: Startup audit failure must not prevent app startup
+        logger.warning(
+            "redis_startup_audit_skipped",
+            error=str(exc)[:200],
+        )
