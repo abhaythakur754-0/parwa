@@ -330,22 +330,22 @@ class TestRunHealthChecks:
         # Mock all checks
         with patch("backend.app.core.health.check_postgresql",
                    new_callable=AsyncMock,
-                   return_value=SubsystemHealth(name="postgresql", status="healthy")),
+                   return_value=SubsystemHealth(name="postgresql", status="healthy")), \
              patch("backend.app.core.health.check_redis",
                    new_callable=AsyncMock,
-                   return_value=SubsystemHealth(name="redis", status="unhealthy", is_critical=True)),
+                   return_value=SubsystemHealth(name="redis", status="unhealthy", is_critical=True)), \
              patch("backend.app.core.health.check_celery",
                    new_callable=AsyncMock,
-                   return_value=SubsystemHealth(name="celery", status="healthy", is_critical=False)),
+                   return_value=SubsystemHealth(name="celery", status="healthy", is_critical=False)), \
              patch("backend.app.core.health.check_celery_queues",
                    new_callable=AsyncMock,
-                   return_value=SubsystemHealth(name="celery_queues", status="healthy")),
+                   return_value=SubsystemHealth(name="celery_queues", status="healthy")), \
              patch("backend.app.core.health.check_socketio",
                    new_callable=AsyncMock,
-                   return_value=SubsystemHealth(name="socketio", status="healthy")),
+                   return_value=SubsystemHealth(name="socketio", status="healthy")), \
              patch("backend.app.core.health.check_disk_space",
                    new_callable=AsyncMock,
-                   return_value=SubsystemHealth(name="disk_space", status="healthy")),
+                   return_value=SubsystemHealth(name="disk_space", status="healthy")), \
              patch("backend.app.core.health.check_external_service",
                    new_callable=AsyncMock,
                    return_value=SubsystemHealth(name="ext", status="healthy")):
@@ -360,19 +360,19 @@ class TestRunHealthChecks:
         with patch("backend.app.core.health._get_cached_result", return_value=None), \
              patch("backend.app.core.health.check_postgresql",
                    new_callable=AsyncMock,
-                   return_value=SubsystemHealth(name="postgresql", status="healthy")),
+                   return_value=SubsystemHealth(name="postgresql", status="healthy")), \
              patch("backend.app.core.health.check_redis",
                    new_callable=AsyncMock,
-                   return_value=SubsystemHealth(name="redis", status="healthy")),
+                   return_value=SubsystemHealth(name="redis", status="healthy")), \
              patch("backend.app.core.health.check_celery",
                    new_callable=AsyncMock,
-                   return_value=SubsystemHealth(name="celery", status="healthy")),
+                   return_value=SubsystemHealth(name="celery", status="healthy")), \
              patch("backend.app.core.health.check_celery_queues",
                    new_callable=AsyncMock,
-                   return_value=SubsystemHealth(name="celery_queues", status="healthy")),
+                   return_value=SubsystemHealth(name="celery_queues", status="healthy")), \
              patch("backend.app.core.health.check_socketio",
                    new_callable=AsyncMock,
-                   return_value=SubsystemHealth(name="socketio", status="healthy")),
+                   return_value=SubsystemHealth(name="socketio", status="healthy")), \
              patch("backend.app.core.health.check_disk_space",
                    new_callable=AsyncMock,
                    return_value=SubsystemHealth(name="disk_space", status="healthy")):
