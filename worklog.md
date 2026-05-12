@@ -149,3 +149,38 @@ Stage Summary:
 - FakeVotingEngine with vote(), 5 evaluators, LLM integration, heuristic fallbacks
 - Weighted consensus scoring with configurable thresholds
 - Full BC-008/BC-001/BC-007 compliance
+---
+Task ID: 3
+Agent: Main Agent
+Task: Week 3 — Background Jobs + Real-Time + Middleware: Bug fixes + comprehensive tests
+
+Work Log:
+- Pulled latest code from GitHub (already up to date)
+- Read PARWA_Build_Roadmap_v1.md to identify Week 3 scope: Celery, Socket.io, Tenant Middleware, Webhooks, Health Checks
+- Ran deep audit of all 5 Week 3 modules via Explore agent
+- Found all 5 modules BUILT with ~4,820 lines of real implementation, but 6 bugs identified
+
+BUG FIXES:
+1. Socket.io emit_to_tenant(): sio.rooms(room) counts rooms a SID belongs to, NOT members of a room. Fixed to use manager.get_participants()
+2. Socket.io get_connected_count(): No null check for sio=None. Added guard + exception handling
+3. Health check_socketio(): Referenced non-existent get_socketio_manager(). Fixed to use get_socketio_server() + get_connected_count()
+4. Health check_celery_queues(): Only counted reserved+active tasks. Added Redis queue depth strategy (Strategy 2) for actual pending messages
+5. Celery health check: Sync Celery calls blocked event loop in async functions. Wrapped in asyncio.to_thread()
+6. Tenant middleware: Only read request.state.company_id (set by APIKey middleware) but missed JWT auth path. Added JWT fallback extraction via _extract_company_id_from_jwt()
+7. Onboarding schema: Missing IntegrationStepRequest, KnowledgeBaseStepRequest, StepDataResponse classes causing ImportError in conftest
+
+TESTS WRITTEN:
+- test_week3_socketio.py: Room naming, validation, emission, connection counting (~30 tests)
+- test_week3_tenant_middleware.py: 92 tests — public paths, JWT fallback, validation, context management, thread isolation
+- test_week3_health.py: All subsystem checks, dependency graph, cache, readiness (~30 tests)
+- test_week3_celery.py: Health check, worker count, asyncio.to_thread wrapping (~20 tests)
+- test_week3_webhook.py: HMAC verification, replay protection, provider extraction (~40 tests)
+
+PUSHED to GitHub: commit acf97a2 → main
+
+Stage Summary:
+- 6 bugs fixed across 5 files (socketio, health, tenant, celery_health, onboarding schema)
+- 5 new test files with ~210+ tests
+- 1 new function: _extract_company_id_from_jwt() in tenant middleware
+- 3 new schema classes: IntegrationStepRequest, KnowledgeBaseStepRequest, StepDataResponse
+- Total commit: 10 files changed, +2564 insertions, -13 deletions
