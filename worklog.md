@@ -212,3 +212,28 @@ Stage Summary:
 - All 12 LangGraph nodes verified as production-grade
 - 225 unit tests passing (0 failures)
 - Remaining 0 MEDIUM items from Week 4 scope are complete
+---
+Task ID: 5
+Agent: Main Agent
+Task: Week 5 — RLS + Critical Bugs + Infrastructure Hardening
+
+Work Log:
+- Pulled latest code from GitHub
+- Read 8-Week Production Readiness Roadmap — Week 5 = RLS + Critical Bugs + Infrastructure
+- Launched audit agent: 9 DONE, 1 PARTIAL, 5 NOT DONE (15 total items)
+- Built CROSS-16: Migration 021 drops 14 orphan FK constraints (sessions.id → no table)
+- Built CROSS-17: Migration 022 enables RLS on 122 tables + 488 policies + db_rls.py module
+- Built CROSS-18: backup.sh (pg_dump + retention + verify + restore) + wal_archive.sh
+- Fixed CROSS-19: AlertManager now has 3 receivers (default/critical/warning) with email + Slack
+- Built L-01: generate_rsa_keys.py + rs256_migration_prep.py + .env.rs256.example
+- Verified 9 already-done items: L-02, L-04, L-05, L-09, L-11, L-12, INF-01, M-24, M-25, M-38
+- Wrote 248 tests across 7 test files — all passing
+- Pushed to GitHub: commit 8214497
+
+Stage Summary:
+- All 15 Week 5 items complete (5 built, 1 fixed, 9 verified)
+- 122 tables with RLS policies + app.current_tenant_id() function
+- 14 orphan FK constraints cleaned up
+- Full backup/restore system with WAL archiving
+- AlertManager redundancy with email + Slack channels
+- RS256 key prep ready for Week 6 migration
