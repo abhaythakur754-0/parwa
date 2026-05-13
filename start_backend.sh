@@ -55,7 +55,7 @@ echo ""
 export PYTHONPATH="$SCRIPT_DIR:$SCRIPT_DIR/backend"
 export ENVIRONMENT="development"
 export DEBUG="true"
-export DATABASE_URL="sqlite:///./parwa_dev.db"
+export DATABASE_URL="sqlite:////home/z/my-project/db/parwa_manual_test.db"
 export REDIS_URL=""
 
 # Load .env file (overriding only vars not already set)
@@ -66,7 +66,7 @@ set +a
 # Re-apply our overrides (they take precedence)
 export ENVIRONMENT="development"
 export DEBUG="true"
-export DATABASE_URL="sqlite:///./parwa_dev.db"
+export DATABASE_URL="sqlite:////home/z/my-project/db/parwa_manual_test.db"
 export REDIS_URL=""
 
 # Start uvicorn (no --reload to avoid double-process issues)
