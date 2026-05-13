@@ -4,6 +4,11 @@ AI Classification API Endpoints (F-062 / F-149)
 REST endpoints for AI-powered intent classification and
 intent × technique mapping.
 
+C-01 FIX: All write endpoints require JWT authentication.
+C-12 FIX: company_id comes from JWT, not user-supplied (cross-tenant fix).
+Read-only endpoints (intents, mappings, templates) remain public as they
+return global configuration data, not tenant-scoped data.
+
 Parent: Week 9 Day 6 (Monday)
 """
 
@@ -11,8 +16,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_user, get_company_id
+from database.base import get_db
+from database.models.core import User
 
 router = APIRouter(prefix="/api/ai/classification", tags=["AI Classification"])
 
@@ -21,15 +31,23 @@ router = APIRouter(prefix="/api/ai/classification", tags=["AI Classification"])
 
 
 class ClassifyRequest(BaseModel):
+    """Request body for text classification.
+
+    C-12 FIX: company_id is NO LONGER accepted from the request body.
+    It is derived from the authenticated user's JWT token.
+    """
     text: str = Field(..., min_length=1, description="Text to classify")
-    company_id: str = Field(..., description="Tenant company ID")
     variant_type: str = Field(default="parwa", description="PARWA variant type")
     use_ai: bool = Field(default=True, description="Use AI classification if available")
 
 
 class BatchClassifyRequest(BaseModel):
+    """Request body for batch classification.
+
+    C-12 FIX: company_id is NO LONGER accepted from the request body.
+    It is derived from the authenticated user's JWT token.
+    """
     texts: List[str] = Field(..., min_length=1, max_length=20)
-    company_id: str = Field(...)
     variant_type: str = Field(default="parwa")
     use_ai: bool = Field(default=True)
 
@@ -60,12 +78,23 @@ def _get_mapper():
 
 
 @router.post("/classify")
-async def classify_text(req: ClassifyRequest) -> Dict[str, Any]:
-    """Classify text into primary + secondary intents (F-062)."""
+async def classify_text(
+    req: ClassifyRequest,
+    # C-01 FIX: Require JWT authentication
+    user: User = Depends(get_current_user),
+    # C-12 FIX: Derive company_id from authenticated user, not request body
+    company_id: str = Depends(get_company_id),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Classify text into primary + secondary intents (F-062).
+
+    C-01: Requires JWT authentication.
+    C-12: company_id derived from JWT, preventing cross-tenant access.
+    """
     engine = _get_engine()
     result = await engine.classify(
         text=req.text,
-        company_id=req.company_id,
+        company_id=company_id,  # C-12: From JWT, not request body
         variant_type=req.variant_type,
         use_ai=req.use_ai,
     )
@@ -85,21 +114,35 @@ async def classify_text(req: ClassifyRequest) -> Dict[str, Any]:
 
 @router.get("/intents")
 async def list_intents() -> Dict[str, Any]:
-    """List all supported intent types."""
+    """List all supported intent types.
+
+    Public endpoint — returns global configuration, not tenant data.
+    """
     from app.core.classification_engine import IntentType
     intents = [t.value for t in IntentType]
     return {"intents": intents, "count": len(intents)}
 
 
 @router.post("/batch")
-async def batch_classify(req: BatchClassifyRequest) -> Dict[str, Any]:
-    """Classify multiple texts in one request."""
+async def batch_classify(
+    req: BatchClassifyRequest,
+    # C-01 FIX: Require JWT authentication
+    user: User = Depends(get_current_user),
+    # C-12 FIX: Derive company_id from authenticated user, not request body
+    company_id: str = Depends(get_company_id),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Classify multiple texts in one request.
+
+    C-01: Requires JWT authentication.
+    C-12: company_id derived from JWT, preventing cross-tenant access.
+    """
     engine = _get_engine()
     results = []
     for text in req.texts:
         result = await engine.classify(
             text=text,
-            company_id=req.company_id,
+            company_id=company_id,  # C-12: From JWT, not request body
             variant_type=req.variant_type,
             use_ai=req.use_ai,
         )
@@ -121,7 +164,10 @@ async def get_intent_mapping(
     intent: str,
     variant_type: str = Query(default="parwa"),
 ) -> Dict[str, Any]:
-    """Get technique mapping for a specific intent (F-149)."""
+    """Get technique mapping for a specific intent (F-149).
+
+    Public endpoint — returns global mapping config, not tenant data.
+    """
     mapper = _get_mapper()
     result = mapper.map_intent(intent=intent, variant_type=variant_type)
     return {
@@ -138,7 +184,10 @@ async def get_intent_mapping(
 async def get_all_mappings(
     variant_type: Optional[str] = Query(default=None),
 ) -> Dict[str, Any]:
-    """Get all intent → technique mappings, optionally filtered by variant."""
+    """Get all intent → technique mappings, optionally filtered by variant.
+
+    Public endpoint — returns global mapping config, not tenant data.
+    """
     mapper = _get_mapper()
     all_mappings = mapper.get_all_mappings()
 
@@ -173,7 +222,10 @@ async def list_prompt_templates(
     response_type: Optional[str] = Query(default=None),
     variant_type: Optional[str] = Query(default=None),
 ) -> Dict[str, Any]:
-    """List prompt templates (SG-25), optionally filtered."""
+    """List prompt templates (SG-25), optionally filtered.
+
+    Public endpoint — returns global template config, not tenant data.
+    """
     from app.services.intent_prompt_templates import PromptTemplateRegistry
 
     registry = PromptTemplateRegistry()

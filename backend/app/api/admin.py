@@ -271,8 +271,15 @@ def update_subscription(
 
 
 @router.get("/health")
-def admin_health() -> dict:
-    """System health summary for admin panel."""
+def admin_health(
+    # C-10 FIX: Require platform admin auth on admin health endpoint
+    user: User = Depends(require_platform_admin),
+) -> dict:
+    """System health summary for admin panel.
+
+    C-10 FIX: Now requires platform admin authentication.
+    Previously had no auth check, allowing anyone to probe admin endpoints.
+    """
     return {
         "status": "ok",
         "message": "System operational",

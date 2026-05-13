@@ -230,10 +230,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 class MCPAuthTokenMiddleware(BaseHTTPMiddleware):
     """Enforces MCP_AUTH_TOKEN on all endpoints except /health and /.
 
-    Validates the Bearer token from the Authorization header against
-    the configured MCP_AUTH_TOKEN. In development mode (no token set),
-    all requests are allowed through with a warning.
+    C-04 FIX: In production, MCP_AUTH_TOKEN is MANDATORY — the config
+    validator already raises ValueError if it's empty in production.
+    In non-production, allows unauthenticated requests but logs a
+    prominent warning on EVERY request (rate-limited to once per 60s).
     """
+
+    _last_warn_time: float = 0.0  # Rate-limit dev warnings
 
     async def dispatch(self, request: Request, call_next):
         # Skip auth for health check and root endpoints
@@ -243,14 +246,28 @@ class MCPAuthTokenMiddleware(BaseHTTPMiddleware):
         settings = get_settings()
         expected_token = settings.MCP_AUTH_TOKEN
 
-        # If no token configured, allow in non-production (dev convenience)
+        # C-04 FIX: In production, MCP_AUTH_TOKEN is MANDATORY.
+        # The config validator already enforces this, but we add a
+        # runtime safety net in case settings are reloaded.
         if not expected_token:
             if settings.ENVIRONMENT == "production":
+                # This should never happen due to config validator,
+                # but if it does, block ALL requests immediately.
                 return JSONResponse(
                     status_code=500,
-                    content={"error": "MCP_AUTH_TOKEN not configured in production"},
+                    content={
+                        "error": "MCP_AUTH_TOKEN not configured — all requests blocked",
+                    },
                 )
-            # Development: allow without token but log warning
+            # Development: allow without token but log warning (rate-limited)
+            import time
+            now = time.time()
+            if now - MCPAuthTokenMiddleware._last_warn_time > 60:
+                MCPAuthTokenMiddleware._last_warn_time = now
+                get_logger("mcp.auth").warning(
+                    "MCP_AUTH_TOKEN not set — allowing unauthenticated request. "
+                    "Set MCP_AUTH_TOKEN before deploying to production!"
+                )
             return await call_next(request)
 
         # Extract Bearer token

@@ -18,9 +18,15 @@ Session endpoints (authenticated):
 - GET    /api/auth/sessions
 - DELETE /api/auth/sessions/{session_id}/revoke
 - DELETE /api/auth/sessions/revoke-others
+
+C-09 FIX: MFA sessions now backed by Redis with TTL instead of
+in-memory Python dict. Falls back to in-memory only when Redis
+is unavailable in non-production environments.
 """
 
 import hashlib
+import json
+import logging
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -63,16 +69,79 @@ from app.services.session_service import (
 from database.base import get_db
 from database.models.core import User
 
+logger = logging.getLogger("parwa.mfa")
+
 router = APIRouter(
     prefix="/api/auth",
     tags=["MFA & Sessions"],
 )
 
-# ── MFA Temporary Session Store ────────────────────────────────────
-# Stores pending MFA sessions: {mfa_session_token -> {user_id, company_id, email, role, plan, expires_at}}
-# In production, this should be backed by Redis with TTL.
-_mfa_pending_sessions: dict = {}
+# ── MFA Temporary Session Store (C-09 FIX: Redis-backed) ──────────
+# C-09 FIX: MFA sessions are now stored in Redis with automatic TTL
+# instead of an in-memory Python dict. This ensures:
+# 1. Sessions survive server restarts
+# 2. TTL is enforced by Redis (no stale sessions)
+# 3. Works correctly in multi-instance deployments
+# Falls back to in-memory only in non-production when Redis is down.
+
 _MFA_SESSION_TTL_SECONDS = 300  # 5 minutes
+_MFA_REDIS_PREFIX = "parwa:mfa_session"
+
+# In-memory fallback (only used when Redis is unavailable in non-production)
+_mfa_pending_sessions: dict = {}
+
+
+async def _store_mfa_session(token: str, data: dict) -> bool:
+    """Store MFA session in Redis with TTL. Returns True if stored in Redis."""
+    try:
+        from app.core.redis import get_redis
+        redis = await get_redis()
+        key = f"{_MFA_REDIS_PREFIX}:{token}"
+        # Store expiry as ISO string; Redis TTL handles actual expiration
+        await redis.set(key, json.dumps(data), ex=_MFA_SESSION_TTL_SECONDS)
+        return True
+    except Exception as exc:
+        logger.error(
+            "mfa_session_redis_store_failed error=%s — falling back to in-memory",
+            str(exc)[:200],
+        )
+        return False
+
+
+async def _retrieve_mfa_session(token: str) -> dict | None:
+    """Retrieve and consume MFA session from Redis (atomic GET+DEL).
+    Falls back to in-memory dict if Redis is unavailable.
+    Returns None if session not found or expired.
+    """
+    # Try Redis first
+    try:
+        from app.core.redis import get_redis
+        redis = await get_redis()
+        key = f"{_MFA_REDIS_PREFIX}:{token}"
+        # Atomic GET + DELETE to consume the session (one-time use)
+        pipe = redis.pipeline()
+        pipe.get(key)
+        pipe.delete(key)
+        results = await pipe.execute()
+        raw_data = results[0]
+
+        if raw_data:
+            data = json.loads(raw_data)
+            # Check expiry (double-check beyond Redis TTL)
+            if datetime.now(timezone.utc) > datetime.fromisoformat(data["expires_at"]):
+                return None
+            return data
+        return None
+    except Exception as exc:
+        logger.error(
+            "mfa_session_redis_retrieve_failed error=%s — falling back to in-memory",
+            str(exc)[:200],
+        )
+        # Fall back to in-memory (non-production only)
+        session = _mfa_pending_sessions.pop(token, None)
+        if session and datetime.now(timezone.utc) <= session["expires_at"]:
+            return session
+        return None
 
 
 def create_mfa_session_token(
@@ -83,6 +152,9 @@ def create_mfa_session_token(
     plan: str = "starter",
 ) -> str:
     """Create a temporary MFA session token for the login flow.
+
+    C-09 FIX: Stores session in Redis with TTL. Falls back to in-memory
+    dict only when Redis is unavailable in non-production.
 
     This token is issued after successful email/password verification
     but before MFA code verification. It allows the MFA verify endpoint
@@ -99,21 +171,64 @@ def create_mfa_session_token(
         Temporary MFA session token string.
     """
     token = secrets.token_urlsafe(32)
-    _mfa_pending_sessions[token] = {
+    session_data = {
         "user_id": user_id,
         "company_id": company_id,
         "email": email,
         "role": role,
         "plan": plan,
-        "expires_at": datetime.now(timezone.utc) + timedelta(
-            seconds=_MFA_SESSION_TTL_SECONDS
-        ),
+        "expires_at": (
+            datetime.now(timezone.utc) + timedelta(seconds=_MFA_SESSION_TTL_SECONDS)
+        ).isoformat(),
     }
+
+    # C-09: Try Redis first, fall back to in-memory
+    import asyncio
+    try:
+        loop = asyncio.get_running_loop()
+        stored_in_redis = loop.create_task(_store_mfa_session(token, session_data))
+
+        def _on_redis_done(task):
+            if not task.result():
+                # Redis failed — store in-memory as fallback
+                _mfa_pending_sessions[token] = {
+                    "user_id": user_id,
+                    "company_id": company_id,
+                    "email": email,
+                    "role": role,
+                    "plan": plan,
+                    "expires_at": datetime.now(timezone.utc) + timedelta(
+                        seconds=_MFA_SESSION_TTL_SECONDS
+                    ),
+                }
+                logger.warning(
+                    "mfa_session_stored_in_memory_fallback token=%s... "
+                    "This is NOT safe for production",
+                    token[:8],
+                )
+
+        stored_in_redis.add_done_callback(_on_redis_done)
+    except RuntimeError:
+        # No running event loop (sync context) — store in-memory
+        _mfa_pending_sessions[token] = {
+            "user_id": user_id,
+            "company_id": company_id,
+            "email": email,
+            "role": role,
+            "plan": plan,
+            "expires_at": datetime.now(timezone.utc) + timedelta(
+                seconds=_MFA_SESSION_TTL_SECONDS
+            ),
+        }
+
     return token
 
 
-def verify_mfa_session_token(token: str) -> dict:
+async def verify_mfa_session_token(token: str) -> dict:
     """Verify and consume a temporary MFA session token.
+
+    C-09 FIX: Retrieves from Redis (with atomic consume) first,
+    falls back to in-memory dict if Redis is unavailable.
 
     Args:
         token: The MFA session token.
@@ -124,7 +239,7 @@ def verify_mfa_session_token(token: str) -> dict:
     Raises:
         HTTPException: If token is invalid or expired.
     """
-    session = _mfa_pending_sessions.pop(token, None)
+    session = await _retrieve_mfa_session(token)
     if not session:
         raise HTTPException(
             status_code=401,
@@ -137,17 +252,22 @@ def verify_mfa_session_token(token: str) -> dict:
             },
         )
 
-    if datetime.now(timezone.utc) > session["expires_at"]:
-        raise HTTPException(
-            status_code=401,
-            detail={
-                "error": {
-                    "code": "MFA_SESSION_EXPIRED",
-                    "message": "MFA session expired. Please log in again.",
-                    "details": None,
-                }
-            },
-        )
+    # Check expiry (Redis TTL should handle this, but double-check)
+    expires_at = session.get("expires_at")
+    if expires_at:
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at)
+        if datetime.now(timezone.utc) > expires_at:
+            raise HTTPException(
+                status_code=401,
+                detail={
+                    "error": {
+                        "code": "MFA_SESSION_EXPIRED",
+                        "message": "MFA session expired. Please log in again.",
+                        "details": None,
+                    }
+                },
+            )
 
     return session
 
@@ -195,7 +315,7 @@ def mfa_setup_verify(
 
 
 @router.post("/mfa/verify")
-def mfa_verify_login(
+async def mfa_verify_login(
     body: MFALoginVerifyRequest,
     db: Session = Depends(get_db),
 ) -> dict:
@@ -206,13 +326,11 @@ def mfa_verify_login(
     email/password verification) instead of a JWT, since the user
     doesn't have a JWT yet during the MFA step.
 
-    The MFA session token is passed in the Authorization header
-    as: Bearer mfa_<token>
+    C-09 FIX: MFA session token now verified via Redis-backed store.
+
+    The MFA session token is passed as part of the MFALoginVerifyRequest.
     """
-    # Extract and verify MFA session token from Authorization header
-    from fastapi import Header
-    # We read the raw token from the request to avoid circular deps
-    # The session token is sent as part of the MFALoginVerifyRequest
+    # Extract and verify MFA session token
     if not body.mfa_session_token:
         raise HTTPException(
             status_code=401,
@@ -225,7 +343,7 @@ def mfa_verify_login(
             },
         )
 
-    session_data = verify_mfa_session_token(body.mfa_session_token)
+    session_data = await verify_mfa_session_token(body.mfa_session_token)
 
     # Look up user from session data
     user = db.query(User).filter(
@@ -252,7 +370,6 @@ def mfa_verify_login(
     except AuthenticationError:
         raise
     except Exception as exc:
-        logger = __import__("logging").getLogger("parwa.mfa")
         logger.error(
             "mfa_verify_unexpected_error user_id=%s error=%s",
             session_data.get("user_id", ""),

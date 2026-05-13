@@ -3,6 +3,9 @@ PARWA MCP Server Configuration
 
 Loads MCP-specific configuration from environment variables.
 Defaults to development settings when running outside Docker.
+
+C-04 FIX: MCP_AUTH_TOKEN now raises in production if not set.
+C-05 FIX: cors_origin_list no longer returns ["*"] as fallback.
 """
 
 import os
@@ -64,11 +67,33 @@ class MCPSettings(BaseSettings):
     @field_validator("MCP_AUTH_TOKEN")
     @classmethod
     def validate_auth_token(cls, v: str) -> str:
-        if not v and os.environ.get("ENVIRONMENT") == "production":
+        """C-04 FIX: MCP_AUTH_TOKEN is required in production."""
+        if not v:
+            env = os.environ.get("ENVIRONMENT", "development")
+            if env == "production":
+                raise ValueError(
+                    "MCP_AUTH_TOKEN is REQUIRED in production. "
+                    "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                )
             warnings.warn(
-                "MCP_AUTH_TOKEN is empty — set in production for security",
+                "MCP_AUTH_TOKEN is empty — all MCP requests are allowed "
+                "without authentication. Set MCP_AUTH_TOKEN before deploying!",
                 stacklevel=2,
             )
+        return v
+
+    @field_validator("ENVIRONMENT")
+    @classmethod
+    def validate_environment(cls, v: str) -> str:
+        """Also validate MCP_AUTH_TOKEN when ENVIRONMENT is set to production."""
+        # If environment is being set to production, ensure MCP_AUTH_TOKEN is also set
+        if v == "production":
+            token = os.environ.get("MCP_AUTH_TOKEN", "")
+            if not token:
+                raise ValueError(
+                    "MCP_AUTH_TOKEN is REQUIRED when ENVIRONMENT=production. "
+                    "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                )
         return v
 
     # ── Properties ───────────────────────────────────────────────
@@ -82,10 +107,18 @@ class MCPSettings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        """Parse CORS_ORIGINS into a list."""
+        """Parse CORS_ORIGINS into a list.
+
+        C-05 FIX: Never returns ["*"]. If no origins are configured,
+        returns an empty list (which denies all cross-origin requests).
+        This prevents the wildcard + credentials security violation.
+        """
         if self.CORS_ORIGINS:
             return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
-        return ["*"]
+        # C-05 FIX: Return empty list instead of ["*"]
+        # An empty list means all cross-origin requests are denied,
+        # which is the safe default. Configure CORS_ORIGINS explicitly.
+        return []
 
 
 def get_settings() -> MCPSettings:

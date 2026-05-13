@@ -181,6 +181,9 @@ class Settings(BaseSettings):
     @field_validator("JWT_SECRET_KEY")
     @classmethod
     def validate_jwt_key(cls, v: str) -> str:
+        """C-11 FIX: JWT_SECRET_KEY must be changed from default in production.
+        Also enforces minimum length in production (>=32 chars).
+        """
         if v.startswith("dev-") or v == "change-me":
             if os.environ.get("ENVIRONMENT") == "production":
                 raise ValueError(
@@ -190,6 +193,13 @@ class Settings(BaseSettings):
             warnings.warn(
                 "Using development JWT_SECRET_KEY — change in production!",
                 stacklevel=2,
+            )
+        # C-11 FIX: Enforce minimum key length in production
+        if os.environ.get("ENVIRONMENT") == "production" and len(v) < 32:
+            raise ValueError(
+                f"JWT_SECRET_KEY must be at least 32 characters in production, "
+                f"got {len(v)}. Generate one with: "
+                f"python -c \"import secrets; print(secrets.token_urlsafe(32))\""
             )
         return v
 
@@ -249,6 +259,23 @@ class Settings(BaseSettings):
     # ── MCP Server ───────────────────────────────────────────────
     MCP_SERVER_URL: str = ""
     MCP_AUTH_TOKEN: str = ""
+
+    @field_validator("MCP_AUTH_TOKEN")
+    @classmethod
+    def validate_mcp_auth_token(cls, v: str) -> str:
+        """C-11 FIX: MCP_AUTH_TOKEN must be set in production."""
+        if not v:
+            if os.environ.get("ENVIRONMENT") == "production":
+                raise ValueError(
+                    "MCP_AUTH_TOKEN is REQUIRED in production. "
+                    "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                )
+            warnings.warn(
+                "MCP_AUTH_TOKEN is empty — MCP server connections are unauthenticated. "
+                "Set MCP_AUTH_TOKEN before deploying!",
+                stacklevel=2,
+            )
+        return v
 
     # ── Pricing Integrity (H-09) ────────────────────────────────
     PRICING_SIGNING_KEY: str = "dev-pricing-key-change-in-prod-32c"

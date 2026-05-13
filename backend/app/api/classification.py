@@ -5,8 +5,10 @@ POST endpoint to classify ticket text using ClassificationEngine.
 Returns IntentResult as JSON.
 
 Follows PARWA conventions:
-- BC-001: company_id is the first parameter to engine.classify()
+- BC-001: company_id derived from authenticated user (NEVER from request body)
 - BC-008: Never crash — wrap everything in try/except
+- C-01 FIX: Requires JWT authentication via get_current_user dependency
+- C-12 FIX: company_id comes from JWT, not user-supplied (cross-tenant fix)
 
 Parent: Week 9 Day 6 (Monday)
 """
@@ -15,10 +17,14 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user, get_company_id
 from app.logger import get_logger
+from database.base import get_db
+from database.models.core import User
 
 logger = get_logger("classification_api")
 
@@ -32,10 +38,14 @@ router = APIRouter(
 
 
 class ClassifyRequest(BaseModel):
-    """Request body for text classification."""
+    """Request body for text classification.
+
+    C-12 FIX: company_id is NO LONGER accepted from the request body.
+    It is derived from the authenticated user's JWT token via
+    Depends(get_company_id) to prevent cross-tenant access.
+    """
 
     text: str = Field(..., min_length=1, description="Text to classify")
-    company_id: str = Field(..., description="Tenant company ID (BC-001)")
     variant_type: str = Field(
         default="parwa",
         description="PARWA variant: mini_parwa, parwa, parwa_high",
@@ -73,7 +83,14 @@ def _get_engine():
 
 
 @router.post("/classify")
-async def classify_text(req: ClassifyRequest) -> Dict[str, Any]:
+async def classify_text(
+    req: ClassifyRequest,
+    # C-01 FIX: Require JWT authentication
+    user: User = Depends(get_current_user),
+    # C-12 FIX: Derive company_id from authenticated user, not request body
+    company_id: str = Depends(get_company_id),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
     """Classify ticket text into primary + secondary intents.
 
     Uses ClassificationEngine from app.core.classification_engine.
@@ -81,8 +98,10 @@ async def classify_text(req: ClassifyRequest) -> Dict[str, Any]:
     secondary_intents, all_scores, classification_method, and
     processing_time_ms.
 
-    BC-001: company_id is the first parameter to engine.classify().
+    BC-001: company_id derived from authenticated user's JWT.
     BC-008: Returns a safe default result on any error.
+    C-01: Requires JWT authentication.
+    C-12: company_id comes from JWT, preventing cross-tenant access.
     """
     engine = _get_engine()
 
@@ -90,14 +109,14 @@ async def classify_text(req: ClassifyRequest) -> Dict[str, Any]:
     if engine is None:
         logger.error(
             "classify_failed_no_engine",
-            company_id=req.company_id,
+            company_id=company_id,
         )
         return _safe_default_result("engine_unavailable")
 
     try:
-        # BC-001: company_id is the FIRST parameter
+        # BC-001: company_id from JWT, not request body
         result = await engine.classify(
-            company_id=req.company_id,
+            company_id=company_id,
             text=req.text,
             variant_type=req.variant_type,
             use_ai=req.use_ai,
@@ -120,7 +139,7 @@ async def classify_text(req: ClassifyRequest) -> Dict[str, Any]:
         # BC-008: Never crash — log and return safe default
         logger.error(
             "classify_failed",
-            company_id=req.company_id,
+            company_id=company_id,
             variant_type=req.variant_type,
             error=str(exc),
         )

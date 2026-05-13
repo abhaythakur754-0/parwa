@@ -5,8 +5,10 @@ POST endpoint to extract signals from ticket text using SignalExtractor.
 Returns ExtractedSignals as JSON.
 
 Follows PARWA conventions:
-- BC-001: company_id is a required field
+- BC-001: company_id derived from authenticated user (NEVER from request body)
 - BC-008: Never crash — wrap everything in try/except
+- C-01 FIX: Requires JWT authentication via get_current_user dependency
+- C-12 FIX: company_id comes from JWT, not user-supplied (cross-tenant fix)
 
 Parent: Week 9 Day 6 (Monday)
 """
@@ -15,10 +17,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user, get_company_id
 from app.logger import get_logger
+from database.base import get_db
+from database.models.core import User
 
 logger = get_logger("signals_api")
 
@@ -32,10 +38,14 @@ router = APIRouter(
 
 
 class SignalRequest(BaseModel):
-    """Request body for signal extraction."""
+    """Request body for signal extraction.
+
+    C-12 FIX: company_id is NO LONGER accepted from the request body.
+    It is derived from the authenticated user's JWT token via
+    Depends(get_company_id) to prevent cross-tenant access.
+    """
 
     query: str = Field(..., min_length=1, description="Ticket text")
-    company_id: str = Field(..., description="Tenant company ID (BC-001)")
     variant_type: str = Field(
         default="parwa",
         description="PARWA variant: mini_parwa, parwa, parwa_high",
@@ -91,7 +101,14 @@ def _get_extractor():
 
 
 @router.post("/extract")
-async def extract_signals(req: SignalRequest) -> Dict[str, Any]:
+async def extract_signals(
+    req: SignalRequest,
+    # C-01 FIX: Require JWT authentication
+    user: User = Depends(get_current_user),
+    # C-12 FIX: Derive company_id from authenticated user, not request body
+    company_id: str = Depends(get_company_id),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
     """Extract 10 real-time signals from a ticket query.
 
     Uses SignalExtractor from app.core.signal_extraction.
@@ -100,8 +117,10 @@ async def extract_signals(req: SignalRequest) -> Dict[str, Any]:
     previous_response_status, reasoning_loop_detected,
     resolution_path_count, and query_breadth.
 
-    BC-001: company_id is validated and passed to the extractor.
+    BC-001: company_id derived from authenticated user's JWT.
     BC-008: Returns a safe default result on any error.
+    C-01: Requires JWT authentication.
+    C-12: company_id comes from JWT, preventing cross-tenant access.
     """
     extractor = _get_extractor()
 
@@ -109,7 +128,7 @@ async def extract_signals(req: SignalRequest) -> Dict[str, Any]:
     if extractor is None:
         logger.error(
             "extract_signals_failed_no_extractor",
-            company_id=req.company_id,
+            company_id=company_id,
         )
         return _safe_default_signals("extractor_unavailable")
 
@@ -120,7 +139,7 @@ async def extract_signals(req: SignalRequest) -> Dict[str, Any]:
 
         request = SignalExtractionRequest(
             query=req.query,
-            company_id=req.company_id,
+            company_id=company_id,  # C-12: From JWT, not request body
             variant_type=req.variant_type,
             customer_tier=req.customer_tier,
             turn_count=req.turn_count,
@@ -136,7 +155,7 @@ async def extract_signals(req: SignalRequest) -> Dict[str, Any]:
         # BC-008: Never crash — log and return safe default
         logger.error(
             "extract_signals_failed",
-            company_id=req.company_id,
+            company_id=company_id,
             variant_type=req.variant_type,
             error=str(exc),
         )

@@ -326,16 +326,19 @@ async def is_token_revoked(jti: str) -> bool:
     CROSS-6: Queries Redis to determine whether a token has been
     explicitly revoked (logged out, password changed, etc.).
 
-    If Redis is unavailable, this returns False (allow the token)
-    but logs an error.  This fail-open behaviour is intentional:
-    a Redis outage should not block all authenticated requests.
-    The in-process LRU cache acts as a secondary check.
+    C-02 FIX: In production, this fails CLOSED on Redis errors — if
+    Redis is unavailable, the token is rejected rather than allowed.
+    This prevents an attacker from bypassing revocation by taking
+    Redis offline. In non-production environments, fails open for
+    developer convenience but logs a strong warning.
 
     Args:
         jti: The JWT ID to check.
 
     Returns:
         True if the token has been revoked, False otherwise.
+        In production: True (reject) if Redis is unavailable.
+        In dev/staging/test: False (allow) if Redis is unavailable.
     """
     if not jti:
         return False
@@ -351,14 +354,28 @@ async def is_token_revoked(jti: str) -> bool:
             )
         return bool(result)
     except Exception as exc:
-        # Fail-open on Redis errors — don't block all auth on
-        # a Redis blip.  Tokens still expire via JWT expiry.
-        logger.error(
-            "is_token_revoked_failed jti=%s error=%s",
-            jti,
-            str(exc)[:200],
-        )
-        return False
+        # C-02 FIX: Fail-closed in production, fail-open in dev
+        environment = os.environ.get("ENVIRONMENT", "development")
+        if environment == "production":
+            # FAIL CLOSED: If we can't check the blacklist in production,
+            # assume the token IS revoked. This prevents an attacker from
+            # bypassing token revocation by causing Redis failures.
+            logger.critical(
+                "is_token_revoked_redis_failed_FAIL_CLOSED jti=%s error=%s "
+                "— token rejected because Redis is unavailable in production",
+                jti,
+                str(exc)[:200],
+            )
+            return True
+        else:
+            # Fail-open in non-production for developer convenience
+            logger.error(
+                "is_token_revoked_redis_failed_fail_open jti=%s error=%s "
+                "— token allowed because Redis unavailable (non-production)",
+                jti,
+                str(exc)[:200],
+            )
+            return False
 
 
 def get_token_jti(token: str) -> str | None:
