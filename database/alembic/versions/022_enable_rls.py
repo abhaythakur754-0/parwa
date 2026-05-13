@@ -20,6 +20,7 @@ Create Date: 2026-06-01
 """
 
 from alembic import op
+import sqlalchemy as sa
 import logging
 
 revision = "022_enable_rls"
@@ -269,8 +270,6 @@ def _disable_rls_for_table(table: str) -> None:
 # ═══════════════════════════════════════════════════════════════════
 
 def upgrade() -> None:
-    import sqlalchemy as sa
-
     conn = op.get_bind()
 
     # ── 1. Create the app schema (if missing) and helper function ──
@@ -297,8 +296,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    import sqlalchemy as sa
-
     conn = op.get_bind()
 
     # ── 1. Revoke BYPASSRLS from parwa_admin ─────────────────────

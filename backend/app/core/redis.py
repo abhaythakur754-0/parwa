@@ -34,6 +34,8 @@ Usage:
     result = await namespaced_get(RedisNamespace.CACHE, "acme", "key")
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import re
@@ -45,6 +47,7 @@ import redis.asyncio as aioredis
 
 from app.config import get_settings
 from app.logger import get_logger
+from app.core.redis_key_manager import RedisNamespace
 
 logger = get_logger("redis")
 

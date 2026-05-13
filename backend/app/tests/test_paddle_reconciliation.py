@@ -397,12 +397,14 @@ class TestReconciliation:
         mock_db.query.side_effect = query_side_effect
 
         # Paddle says canceled — discrepancy!
-        with patch.object(
-            service,
-            'paddle_client',
-            new_callable=lambda: property(lambda self: _mock_paddle_client()),
-        ):
-            pass  # Will use mock in the test below
+        mock_paddle = MagicMock()
+        mock_paddle.list_subscriptions = AsyncMock(return_value={
+            "data": [{
+                "id": "sub_test123",
+                "status": "canceled",  # DB says active, Paddle says canceled
+            }]
+        })
+        service._paddle_client = mock_paddle
 
         # Simulate the reconciliation with a direct call approach
         report = await service.reconcile_payment_state("co_test123")
