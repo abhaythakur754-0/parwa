@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { TierBadge } from '@/components/LockedFeature';
+import { VariantTier } from '@/lib/variant-store';
+import { useVariant } from '@/hooks/useVariant';
 
 // ── Navigation Items ──────────────────────────────────────────────────
 
@@ -13,6 +16,7 @@ interface NavItem {
   href: string;
   icon: React.ReactNode;
   badge?: string;
+  requiredTier?: VariantTier;
 }
 
 // ── Sidebar Props ─────────────────────────────────────────────────────
@@ -91,6 +95,11 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
     </svg>
   ),
+  lock: (
+    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+    </svg>
+  ),
 };
 
 // ── DashboardSidebar Component ───────────────────────────────────────
@@ -99,17 +108,18 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { tierLabel, tierColor } = useVariant();
 
   const navItems: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard', icon: Icons.dashboard },
     { label: 'Tickets', href: '/dashboard/tickets', icon: Icons.tickets },
     { label: 'Variants', href: '/dashboard/variants', icon: Icons.variants },
-    { label: 'AI Monitoring', href: '/dashboard/monitoring', icon: Icons.monitoring },
-    { label: 'Channels', href: '/dashboard/channels', icon: Icons.channels },
+    { label: 'AI Monitoring', href: '/dashboard/monitoring', icon: Icons.monitoring, requiredTier: 'pro' as VariantTier },
+    { label: 'Channels', href: '/dashboard/channels', icon: Icons.channels, requiredTier: undefined },
     { label: 'Billing', href: '/dashboard/billing', icon: Icons.billing },
     { label: 'Agents', href: '/dashboard/agents', icon: Icons.agents },
     { label: 'Knowledge Base', href: '/dashboard/knowledge', icon: Icons.knowledge },
-    { label: 'Jarvis CC', href: '/dashboard/jarvis', icon: Icons.jarvis },
+    { label: 'Jarvis CC', href: '/dashboard/jarvis', icon: Icons.jarvis, requiredTier: 'pro' as VariantTier },
   ];
 
   const bottomItems: NavItem[] = [
@@ -181,7 +191,17 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
               )}>
                 {item.icon}
               </span>
-              {!collapsed && <span>{item.label}</span>}
+              {!collapsed && (
+                <span className="flex items-center gap-1 flex-1">
+                  <span>{item.label}</span>
+                  {item.requiredTier && <TierBadge requiredTier={item.requiredTier} />}
+                </span>
+              )}
+              {collapsed && item.requiredTier && (
+                <span className="text-zinc-600" title="Tier-restricted">
+                  {Icons.lock}
+                </span>
+              )}
             </Link>
           ))}
         </div>
@@ -211,9 +231,23 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
           </Link>
         ))}
 
+        {/* ── Tier Indicator ─────────────────────────────────────── */}
+        {!collapsed && (
+          <div className="mt-3 pt-3 border-t border-white/[0.06]">
+            <div className="px-3 py-1.5">
+              <span className={cn(
+                'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-gradient-to-r text-white',
+                tierColor
+              )}>
+                {tierLabel}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* ── User Info + Logout ──────────────────────────────────── */}
         {!collapsed && user && (
-          <div className="mt-3 pt-3 border-t border-white/[0.06]">
+          <div className="mt-2 pt-3 border-t border-white/[0.06]">
             <div className="flex items-center gap-3 px-3 py-2">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center text-white text-xs font-semibold shrink-0">
                 {user.full_name?.charAt(0)?.toUpperCase() || 'U'}

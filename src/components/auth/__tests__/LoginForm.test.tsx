@@ -28,7 +28,7 @@ describe('LoginForm', () => {
 
     // Check for password field
     expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('••••••••')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Enter your password')).toBeInTheDocument();
 
     // Check for submit button
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
@@ -36,9 +36,9 @@ describe('LoginForm', () => {
     // Check for forgot password link
     expect(screen.getByText(/forgot password\?/i)).toBeInTheDocument();
 
-    // Check for signup link
-    expect(screen.getByText(/don't have an account\?/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /sign up/i })).toBeInTheDocument();
+    // Check for signup button (renders as button, not link)
+    expect(screen.getByText(/don.*t have an account/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /sign up/i })).toBeInTheDocument();
   });
 
   it('should call onSubmit with valid credentials', async () => {
