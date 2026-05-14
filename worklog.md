@@ -545,3 +545,86 @@ Stage Summary:
 - All Sprint 4 deliverables complete
 - Full BC-001/BC-008/BC-012/GDPR/NFR compliance
 - 400+ production readiness + integration tests
+---
+Task ID: 5
+Agent: Main Agent
+Task: Day 5 — "Make It Complete" — Settings, MFA, Email Verify, DemoBanner, ErrorBoundary, 404
+
+Work Log:
+- Created `src/lib/mfa-store.ts` — Zustand store for MFA (initiateSetup, verifyAndEnroll, verifyLogin, disableMfa, demo fallback)
+- Created `src/app/auth/mfa-verify/page.tsx` — MFA login verification page with 6-digit OTP input, paste support, backup code toggle
+- Created `src/app/auth/mfa-setup/page.tsx` — MFA enrollment page with QR code, secret key display, backup codes grid
+- Created `src/app/auth/verify-email/page.tsx` — Email verification flow (loading/success/expired/error states, resend with cooldown)
+- Created `src/components/DemoBanner.tsx` — Demo mode banner with dismiss functionality
+- Created `src/components/ErrorBoundary.tsx` — React error boundary with chunk error detection, retry, dev error details
+- Created `src/app/not-found.tsx` — Custom 404 page with dashboard link and go-back button
+- Wrote `src/lib/__tests__/mfa-store.test.ts` — 27 unit tests for MFA store
+- Wrote `src/components/__tests__/Day5Components.test.tsx` — 11 unit tests for DemoBanner, ErrorBoundary
+- Wrote `src/app/__tests__/not-found.test.tsx` — 4 unit tests for 404 page
+- Wrote `src/__tests__/integration/settings-mfa-email-flow.test.ts` — 9 integration tests for MFA flow, email verify, UI components
+
+Stage Summary:
+- Day 5 components: 6 new files (MFA store, MFA verify page, MFA setup page, email verify page, DemoBanner, ErrorBoundary, 404 page)
+- Day 5 tests: 4 new test files (51 new tests)
+- Total test suite: 28 suites, 456 tests — ALL PASSING
+- No git commit made per user instruction
+---
+Task ID: 6
+Agent: Main Agent
+Task: Day 6 — "Make It Resilient" — Presence, Typing, Collision, Polling
+
+Work Log:
+- Created `src/lib/presence-store.ts` — Zustand store for agent online/offline tracking (setOnline, setOffline, updateStatus, setBulk, fetchPresence, isOnline, getOnlineAgents)
+- Created `src/lib/typing-store.ts` — Zustand store for typing indicators with 5s auto-expiry, per-ticket tracking
+- Created `src/lib/collision-store.ts` — Zustand store for collision detection (viewing/editing, field updates)
+- Created `src/hooks/usePollingFallback.ts` — Polling hook for HTTP fallback when Socket.io is down
+- Created `src/components/TypingIndicator.tsx` — Typing indicator with animated dots, 1/2/3+ user display, aria-live
+- Created `src/components/CollisionBanner.tsx` — Collision banner with editing warning, viewing notification
+- Created `src/components/AgentPresenceBadge.tsx` — Agent presence dot with status colors and ping animation
+- Fixed Zustand + useSyncExternalStore infinite loop in TypingIndicator and CollisionBanner (must use primitive selectors)
+- Wrote `src/lib/__tests__/presence-store.test.ts` — 27 unit tests
+- Wrote `src/lib/__tests__/typing-collision-store.test.ts` — 34 unit tests (typing + collision)
+- Wrote `src/hooks/__tests__/usePollingFallback.test.ts` — 6 unit tests
+- Wrote `src/components/__tests__/Day6Components.test.tsx` — 13 unit tests
+- Wrote `src/__tests__/integration/resilience-presence-typing-collision.test.ts` — 9 integration tests
+
+Stage Summary:
+- Day 6 components: 6 new files (3 stores, 1 hook, 3 UI components)
+- Day 6 tests: 5 new test files (89 new tests)
+- Fixed Zustand infinite loop bug in component selectors
+- Total test suite: 33 suites, 542 tests — ALL PASSING
+- No git commit made per user instruction
+
+---
+Task ID: 7
+Agent: Main Agent
+Task: Day 7 — "Final Polish" — Resilience, Accessibility, Offline Detection, Keyboard Nav, Retry Logic, Skeleton Loading
+
+Work Log:
+- Created `src/hooks/useNetworkStatus.ts` — Hook for browser online/offline detection (navigator.onLine + online/offline events, wasOffline, offlineCount, lastChangedAt)
+- Created `src/components/OfflineBanner.tsx` — Full-width banner for offline/online states (role="alert", aria-live, keyboard dismiss, auto-hide "Back online")
+- Created `src/hooks/useFocusTrap.ts` — Focus trap hook for modals/dialogs (Tab cycling, Shift+Tab wrapping, Escape, auto-focus, restore focus)
+- Created `src/components/SkipLink.tsx` — WCAG 2.4.1 skip-to-content link (sr-only → focus:not-sr-only, custom target, smooth scroll)
+- Created `src/components/AccessibilityAnnouncer.tsx` — Screen reader announcement system (polite + assertive ARIA live regions, module-level announce() function)
+- Created `src/hooks/useRetryWithBackoff.ts` — Retry with exponential backoff hook (maxRetries, jitter, retryIf predicate, cancel, reset, callbacks)
+- Created `src/hooks/useKeyboardShortcut.ts` — Global keyboard shortcut hook (modifier keys, input field filtering, cleanup)
+- Created `src/components/DashboardSkeleton.tsx` — Skeleton loading states (KPICardSkeleton, ChartSkeleton, TableSkeleton, DashboardSkeleton with aria-busy)
+- Updated `src/components/notifications/RealtimeToast.tsx` — WCAG accessibility improvements (role="region", aria-live, role="alert"/"status", aria-hidden on icons, aria-label on dismiss buttons)
+- Wrote `src/hooks/__tests__/useNetworkStatus.test.ts` — 9 unit tests
+- Wrote `src/hooks/__tests__/useRetryWithBackoff.test.ts` — 10 unit tests
+- Wrote `src/hooks/__tests__/useFocusTrap.test.tsx` — 8 unit tests
+- Wrote `src/hooks/__tests__/useKeyboardShortcut.test.ts` — 11 unit tests
+- Wrote `src/components/__tests__/Day7Components.test.tsx` — 31 unit tests (OfflineBanner, SkipLink, AccessibilityAnnouncer, DashboardSkeleton, RealtimeToast accessibility)
+- Wrote `src/__tests__/integration/resilience-accessibility-flow.test.ts` — 10 integration tests (offline→retry→recovery, keyboard+accessibility, offline+notifications, retry+notifications, announcer+toast, full page accessibility)
+
+Stage Summary:
+- Day 7 new files: 8 components/hooks + 1 accessibility update
+- Day 7 new tests: 6 new test files (81 new tests)
+- Total test suite: 39 suites, 623 tests — ALL PASSING
+- No git commit made per user instruction
+- Key Day 7 deliverables:
+  1. Offline detection: useNetworkStatus hook + OfflineBanner component
+  2. Keyboard navigation: useFocusTrap hook + SkipLink component + useKeyboardShortcut hook
+  3. WCAG accessibility: AccessibilityAnnouncer + RealtimeToast ARIA improvements + DashboardSkeleton aria-busy
+  4. Retry logic: useRetryWithBackoff hook with exponential backoff + jitter
+  5. Skeleton loading: KPI, Chart, Table, and full Dashboard skeletons

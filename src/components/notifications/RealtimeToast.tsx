@@ -71,13 +71,20 @@ export function RealtimeToast() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm">
+    <div
+      role="region"
+      aria-label="Notifications"
+      aria-live="polite"
+      className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm"
+    >
       {toasts.map((toast) => (
         <div
           key={toast.id}
+          role={toast.type === 'error' ? 'alert' : 'status'}
+          aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
           className={`flex items-start gap-3 p-3 rounded-lg border bg-[#1A1A1A]/95 backdrop-blur-xl shadow-xl shadow-black/30 animate-in slide-in-from-right-5 fade-in duration-300 ${TOAST_BG[toast.type] || TOAST_BG.system}`}
         >
-          <ToastIcon type={toast.type} />
+          <span aria-hidden="true"><ToastIcon type={toast.type} /></span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white">{toast.title}</p>
             {toast.message && (
@@ -86,9 +93,10 @@ export function RealtimeToast() {
           </div>
           <button
             onClick={() => removeToast(toast.id)}
+            aria-label={`Dismiss notification: ${toast.title}`}
             className="p-1 rounded text-zinc-600 hover:text-zinc-300 transition-colors shrink-0"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
             </svg>
           </button>
