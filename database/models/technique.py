@@ -12,7 +12,7 @@ Tables:
   - technique_versions: Versioned technique implementations with A/B test metadata.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import uuid
 
@@ -72,8 +72,8 @@ class TechniqueConfiguration(Base):
     # Max execution time in ms; NULL = use system default
 
     updated_by = Column(String(36), ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         UniqueConstraint(
@@ -143,7 +143,7 @@ class TechniqueExecution(Base):
 
     error_message = Column(Text, nullable=True)
 
-    created_at = Column(DateTime, default=lambda: datetime.utcnow(), index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
     __table_args__ = (
         Index(
@@ -208,8 +208,8 @@ class TechniqueVersion(Base):
     # JSON blob with technique-specific parameters
 
     created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         UniqueConstraint(

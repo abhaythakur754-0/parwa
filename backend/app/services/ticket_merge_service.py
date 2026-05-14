@@ -31,27 +31,42 @@ from database.models.tickets import (
 
 class TicketMergeError(Exception):
     """Base exception for merge operations."""
-    pass
+    def __init__(self, message: str = "Ticket merge operation failed", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class TicketNotFoundError(TicketMergeError):
     """Raised when a ticket is not found."""
-    pass
+    def __init__(self, message: str = "Ticket not found", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class TicketAlreadyMergedError(TicketMergeError):
     """Raised when a ticket is already merged."""
-    pass
+    def __init__(self, message: str = "Ticket is already merged", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class MergeAlreadyUndoneError(TicketMergeError):
     """Raised when trying to undo an already undone merge."""
-    pass
+    def __init__(self, message: str = "Merge has already been undone", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class CrossTenantMergeError(TicketMergeError):
     """Raised when trying to merge tickets from different companies."""
-    pass
+    def __init__(self, message: str = "Cannot merge tickets from different companies", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class TicketMergeService:

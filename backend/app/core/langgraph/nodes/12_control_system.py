@@ -90,7 +90,7 @@ def _check_dnd_applies(
         return bool(result.get("dnd_active", False))
 
     except ImportError:
-        pass
+        logger.warning("dnd_engine_import_failed", tenant_id=tenant_id)
     except Exception as dnd_exc:
         logger.warning(
             "dnd_check_error",
@@ -134,9 +134,9 @@ def _is_vip_customer(
         return bool(is_vip(customer_id=customer_id, tenant_id=tenant_id))
 
     except ImportError:
-        pass
-    except Exception:
-        pass
+        logger.warning("vip_module_import_failed", tenant_id=tenant_id)
+    except Exception as vip_exc:
+        logger.warning("vip_check_error", tenant_id=tenant_id, error=str(vip_exc))
 
     return False
 

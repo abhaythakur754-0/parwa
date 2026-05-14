@@ -37,7 +37,7 @@ BC-008: Graceful degradation — null-safe columns.
 BC-012: All timestamps UTC.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import uuid
 
@@ -168,7 +168,7 @@ class JarvisAwarenessSnapshot(Base):
     # Complete ParwaGraphState GROUP 14 fields as JSON.
     # Used for crash recovery and debug replay.
 
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # ── Relationships ──
     session = relationship("JarvisSession", back_populates="awareness_snapshots")
@@ -270,11 +270,11 @@ class JarvisCommand(Base):
     # If this command was undone, link to the undo command
 
     # ── Timestamps ──
-    received_at = Column(DateTime, default=lambda: datetime.utcnow())
+    received_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     parsed_at = Column(DateTime, nullable=True)
     executed_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # ── Relationships ──
     session = relationship("JarvisSession")
@@ -391,11 +391,11 @@ class JarvisProactiveAlert(Base):
     related_command_id = Column(String(36), nullable=True)
     # FK to jarvis_commands.id if alert triggered a command
 
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime,
-        default=lambda: datetime.utcnow(),
-        onupdate=lambda: datetime.utcnow(),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     # ── Relationships ──

@@ -49,32 +49,50 @@ logger = logging.getLogger("parwa.services.subscription")
 
 class SubscriptionError(Exception):
     """Base exception for subscription errors."""
-    pass
+    def __init__(self, message: str = "Subscription operation failed", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class SubscriptionNotFoundError(SubscriptionError):
     """Subscription not found."""
-    pass
+    def __init__(self, message: str = "Subscription not found", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class SubscriptionAlreadyExistsError(SubscriptionError):
     """Company already has an active subscription."""
-    pass
+    def __init__(self, message: str = "Company already has an active subscription", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class InvalidVariantError(SubscriptionError):
     """Invalid variant specified."""
-    pass
+    def __init__(self, message: str = "Invalid variant specified", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class InvalidStatusTransitionError(SubscriptionError):
     """Invalid subscription status transition."""
-    pass
+    def __init__(self, message: str = "Invalid subscription status transition", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class PaddleOperationError(SubscriptionError):
     """Paddle operation failed — caller must handle this."""
-    pass
+    def __init__(self, message: str = "Paddle operation failed", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class SubscriptionService:

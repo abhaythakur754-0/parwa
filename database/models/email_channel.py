@@ -12,7 +12,7 @@ BC-006: Email communication.
 BC-010: Data lifecycle (raw emails retained for audit).
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import uuid
 
@@ -82,7 +82,7 @@ class InboundEmail(Base):
     processing_error = Column(Text, nullable=True)
     raw_size_bytes = Column(Integer, default=0, nullable=False)
 
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationship
     ticket = relationship("Ticket", foreign_keys=[ticket_id])
@@ -139,8 +139,8 @@ class EmailThread(Base):
     message_count = Column(Integer, default=1, nullable=False)
     participants_json = Column(Text, default="[]")
 
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationship
     ticket = relationship("Ticket", foreign_keys=[ticket_id])

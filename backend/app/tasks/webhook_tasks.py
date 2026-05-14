@@ -81,8 +81,8 @@ def process_webhook_event(
                 event_db_id, status="failed",
                 error=str(exc)[:500],
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("webhook_mark_failed_error", event_db_id=event_db_id, error=str(e))
 
 
 @app.task(
@@ -128,8 +128,8 @@ def process_paddle_webhook(
                 event_db_id, status="failed",
                 error=str(exc)[:500],
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("webhook_paddle_mark_failed_error", event_db_id=event_db_id, error=str(e))
 
 
 @app.task(
@@ -175,8 +175,8 @@ def process_twilio_webhook(
                 event_db_id, status="failed",
                 error=str(exc)[:500],
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("webhook_twilio_mark_failed_error", event_db_id=event_db_id, error=str(e))
 
 
 @app.task(
@@ -222,8 +222,8 @@ def process_brevo_webhook(
                 event_db_id, status="failed",
                 error=str(exc)[:500],
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("webhook_brevo_mark_failed_error", event_db_id=event_db_id, error=str(e))
 
 
 @app.task(
@@ -269,8 +269,8 @@ def process_shopify_webhook(
                 event_db_id, status="failed",
                 error=str(exc)[:500],
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("webhook_shopify_mark_failed_error", event_db_id=event_db_id, error=str(e))
 
 
 # ── Provider handlers now use registry (Day 23) ──────────

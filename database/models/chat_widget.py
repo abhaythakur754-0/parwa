@@ -18,7 +18,7 @@ Building Codes:
 - BC-012: Structured error responses
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import uuid
 
@@ -116,10 +116,10 @@ class ChatWidgetSession(Base):
     first_message_at = Column(DateTime, nullable=True)
     last_message_at = Column(DateTime, nullable=True)
     closed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
-        onupdate=lambda: datetime.utcnow(),
+        DateTime, default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     # Relationships
@@ -241,7 +241,7 @@ class ChatWidgetMessage(Base):
     read_at = Column(DateTime, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationship
     session = relationship(
@@ -319,10 +319,10 @@ class CannedResponse(Base):
     is_active = Column(Boolean, nullable=False, default=True)
     created_by = Column(String(36), nullable=True)
     updated_by = Column(String(36), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
-        onupdate=lambda: datetime.utcnow(),
+        DateTime, default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     __table_args__ = (
@@ -417,10 +417,10 @@ class ChatWidgetConfig(Base):
     require_visitor_name = Column(Boolean, nullable=False, default=False)
     require_visitor_email = Column(Boolean, nullable=False, default=False)
 
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
-        onupdate=lambda: datetime.utcnow(),
+        DateTime, default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     __table_args__ = (

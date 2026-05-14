@@ -9,7 +9,7 @@ BC-011: OTP codes are hashed (SHA-256).
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean, Column, DateTime, ForeignKey, Integer, String,
@@ -62,7 +62,7 @@ class BusinessEmailOTP(Base):
     attempts = Column(Integer, default=0, nullable=False)
     # Timestamps
     created_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime, default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
     verified_at = Column(DateTime, nullable=True)

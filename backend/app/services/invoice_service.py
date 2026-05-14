@@ -34,17 +34,26 @@ logger = logging.getLogger("parwa.services.invoice")
 
 class InvoiceError(Exception):
     """Base exception for invoice errors."""
-    pass
+    def __init__(self, message: str = "Invoice operation failed", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class InvoiceNotFoundError(InvoiceError):
     """Invoice not found."""
-    pass
+    def __init__(self, message: str = "Invoice not found", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class InvoiceAccessDeniedError(InvoiceError):
     """Access denied to invoice."""
-    pass
+    def __init__(self, message: str = "Access denied to invoice", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class InvoiceService:

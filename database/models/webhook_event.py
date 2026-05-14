@@ -7,7 +7,7 @@ BC-003: Unique constraint on (provider, event_id) for idempotency.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column, DateTime, Integer, JSON,
@@ -48,9 +48,9 @@ class WebhookEvent(Base):
         Integer, nullable=False, default=0,
     )
     created_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime, default=lambda: datetime.now(timezone.utc),
     )
     updated_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
-        onupdate=lambda: datetime.utcnow(),
+        DateTime, default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )

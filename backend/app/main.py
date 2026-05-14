@@ -39,6 +39,7 @@ from app.middleware.request_logger import RequestLoggerMiddleware
 from app.middleware.security_headers import (
     SecurityHeadersMiddleware,
 )
+from app.middleware.csrf import CSRFSecurityMiddleware
 from app.middleware.api_key_auth import APIKeyAuthMiddleware
 from app.middleware.ip_allowlist import (
     IPAllowlistMiddleware,
@@ -342,14 +343,17 @@ app.add_middleware(APIKeyAuthMiddleware)
 # 6. Security headers — BC-011/BC-012
 app.add_middleware(SecurityHeadersMiddleware)
 
-# 7. IP allowlist — BC-012 (disabled by default)
+# 7. CSRF protection — Origin/Referer validation + double-submit cookie
+app.add_middleware(CSRFSecurityMiddleware)
+
+# 8. IP allowlist — BC-012 (disabled by default)
 # Set IP_ALLOWLIST_ENABLED=true to activate
 app.add_middleware(IPAllowlistMiddleware)
 
-# 8. AI Entitlement — Week 8: feature gating for /api/ai/ paths
+# 9. AI Entitlement — Week 8: feature gating for /api/ai/ paths
 app.add_middleware(AIEntitlementMiddleware)
 
-# 9. CORS middleware (frontend cross-origin access)
+# 10. CORS middleware (frontend cross-origin access)
 # SECURITY (C-05, L-16): Never fall back to wildcard ["*"] when
 # allow_credentials=True. CORS origins must always be explicit,
 # even when OpenAPI docs are hidden in non-debug mode.

@@ -246,6 +246,23 @@ def authenticate_user(
                 email=user.email,
                 failed_count=user.failed_login_count,
             )
+            # Send lockout notification email
+            try:
+                from app.services.email_service import send_email
+                lockout_email_html = f"""
+    <html><body>
+    <h2>Account Temporarily Locked</h2>
+    <p>Your PARWA account has been temporarily locked due to multiple failed login attempts.</p>
+    <p>The lockout will expire automatically in {_LOCKOUT_DURATION_MINUTES} minutes. If this wasn't you, please contact support.</p>
+    </body></html>
+    """
+                send_email(
+                    to=user.email,
+                    subject="PARWA Account Temporarily Locked",
+                    html_content=lockout_email_html,
+                )
+            except Exception as e:
+                logger.warning("lockout_email_failed", error=str(e))
             raise AuthenticationError(
                 message=(
                     "Account temporarily locked due to too many failed attempts. Please try again later."

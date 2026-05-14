@@ -231,7 +231,7 @@ def _score_solution(
         return round(max(0.0, min(1.0, float(score))), 2)
 
     except ImportError:
-        pass
+        logger.warning("maker_scorer_import_failed", tenant_id=tenant_id)
     except Exception as score_exc:
         logger.warning(
             "maker_scorer_error",

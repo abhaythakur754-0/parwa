@@ -31,22 +31,34 @@ from database.models.tickets import (
 
 class BulkActionError(Exception):
     """Base exception for bulk action errors."""
-    pass
+    def __init__(self, message: str = "Bulk action operation failed", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class BulkActionNotFoundError(BulkActionError):
     """Raised when bulk action is not found."""
-    pass
+    def __init__(self, message: str = "Bulk action not found", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class BulkActionAlreadyUndoneError(BulkActionError):
     """Raised when trying to undo an already undone action."""
-    pass
+    def __init__(self, message: str = "Bulk action already undone", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class BulkActionUndoExpiredError(BulkActionError):
     """Raised when undo window has expired."""
-    pass
+    def __init__(self, message: str = "Bulk action undo window has expired", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class BulkActionService:

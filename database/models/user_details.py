@@ -14,7 +14,7 @@ Fields:
 - website: Optional company website
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import uuid
@@ -56,8 +56,8 @@ class UserDetails(Base):
     industry = Column(String(50), nullable=False)
     company_size = Column(String(20), nullable=True)
     website = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     def __repr__(self) -> str:
         return f"<UserDetails {self.id} user={self.user_id}>"

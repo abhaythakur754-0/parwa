@@ -8,7 +8,7 @@ BC-001: Tables with company_data have company_id.
 api_providers is global (no company_id).
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import uuid
 
@@ -36,7 +36,7 @@ class APIProvider(Base):
     optional_fields = Column(Text, default="[]")
     default_endpoint = Column(String(255))
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     service_configs = relationship(
         "ServiceConfig", back_populates="provider",
@@ -58,7 +58,7 @@ class ServiceConfig(Base):
     endpoint = Column(String(255))
     settings = Column(Text, default="{}")
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     provider = relationship("APIProvider", back_populates="service_configs")
 
@@ -78,8 +78,8 @@ class GSDSession(Base):
     current_step = Column(String(100), nullable=False)
     state_data = Column(Text, default="{}")
     status = Column(String(50), default="in_progress")
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class ConfidenceScore(Base):
@@ -99,7 +99,7 @@ class ConfidenceScore(Base):
     intent_score = Column(Numeric(5, 2))
     sentiment_score = Column(Numeric(5, 2))
     context_score = Column(Numeric(5, 2))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class GuardrailBlock(Base):
@@ -122,7 +122,7 @@ class GuardrailBlock(Base):
     status = Column(String(50), default="pending_review")
     reviewed_by = Column(String(36), ForeignKey("users.id"))
     reviewed_at = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class GuardrailRule(Base):
@@ -139,7 +139,7 @@ class GuardrailRule(Base):
     action = Column(String(50), nullable=False, default="block")
     severity = Column(String(20), default="medium")
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class PromptTemplate(Base):
@@ -155,8 +155,8 @@ class PromptTemplate(Base):
     template_text = Column(Text, nullable=False)
     version = Column(Integer, default=1)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class ModelUsageLog(Base):
@@ -175,4 +175,4 @@ class ModelUsageLog(Base):
     latency_ms = Column(Integer)
     status = Column(String(50), nullable=False)
     error_message = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

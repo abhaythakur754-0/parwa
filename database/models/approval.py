@@ -7,7 +7,7 @@ BC-001: Every table has company_id.
 BC-002: amount field DECIMAL(10,2).
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import uuid
 
@@ -39,7 +39,7 @@ class ApprovalQueue(Base):
     response_data = Column(Text)
     status = Column(String(50), default="pending")
     batch_id = Column(String(36))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     resolved_at = Column(DateTime)
     resolved_by = Column(String(36), ForeignKey("users.id"))
 
@@ -60,8 +60,8 @@ class AutoApproveRule(Base):
     created_by = Column(
         String(36), ForeignKey("users.id"), nullable=False,
     )
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class ExecutedAction(Base):
@@ -81,7 +81,7 @@ class ExecutedAction(Base):
     response_data = Column(Text)
     amount = Column(Numeric(10, 2))  # BC-002
     executed_by = Column(String(36), ForeignKey("users.id"))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class UndoLog(Base):
@@ -102,4 +102,4 @@ class UndoLog(Base):
     undo_data = Column(Text)
     undo_reason = Column(Text)
     undone_by = Column(String(36), ForeignKey("users.id"))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

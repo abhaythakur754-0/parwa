@@ -7,7 +7,7 @@ BC-001: Every table has company_id.
 BC-002: All money fields DECIMAL(10,2) — NEVER float.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import uuid
 
@@ -36,7 +36,7 @@ class Subscription(Base):
     current_period_end = Column(DateTime)
     cancel_at_period_end = Column(Boolean, default=False)
     paddle_subscription_id = Column(String(255))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Invoice(Base):
@@ -54,7 +54,7 @@ class Invoice(Base):
     invoice_date = Column(DateTime)
     due_date = Column(DateTime)
     paid_at = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class OverageCharge(Base):
@@ -72,7 +72,7 @@ class OverageCharge(Base):
     status = Column(String(50), default="pending")  # pending/charged/failed/retry_pending/pending_provider/skipped_below_minimum
     retry_count = Column(Integer, default=0)
     last_retry_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Transaction(Base):
@@ -89,7 +89,7 @@ class Transaction(Base):
     status = Column(String(50), nullable=False)
     transaction_type = Column(String(50), nullable=False)
     description = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class CancellationRequest(Base):
@@ -106,4 +106,4 @@ class CancellationRequest(Base):
     status = Column(String(50), default="pending")
     contacted_at = Column(DateTime)
     resolved_at = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

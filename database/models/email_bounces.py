@@ -13,7 +13,7 @@ Building Codes:
 - BC-010: GDPR (complaint = stop all emails)
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import uuid
 
@@ -76,7 +76,7 @@ class EmailBounce(Base):
     whitelisted_at = Column(DateTime, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict:
         return {
@@ -141,7 +141,7 @@ class CustomerEmailStatus(Base):
     whitelisted = Column(Boolean, nullable=False, default=False)
 
     # Timestamps
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict:
         return {
@@ -190,7 +190,7 @@ class EmailDeliverabilityAlert(Base):
     acknowledged_by = Column(String(36), nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict:
         return {

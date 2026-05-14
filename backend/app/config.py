@@ -10,6 +10,7 @@ import logging
 import os
 import warnings
 from enum import Enum
+from functools import lru_cache
 from typing import Literal
 
 from pydantic import field_validator
@@ -320,6 +321,10 @@ class Settings(BaseSettings):
     # ── GCP Storage (file uploads, model weights) ──────────────
     GCP_STORAGE_BUCKET: str = ""
 
+    # ── File Storage ─────────────────────────────────────────────
+    STORAGE_BACKEND: str = "local"  # "local" or "gcp"
+    STORAGE_LOCAL_PATH: str = "./storage"
+
     # ── Celery (Week 3: BC-004) ────────────────────────────────
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
@@ -396,6 +401,7 @@ class Settings(BaseSettings):
         return self.ENVIRONMENT == "test"
 
 
+@lru_cache()
 def get_settings() -> Settings:
-    """Get settings singleton, forcing required vars via validation."""
+    """Get cached settings singleton, forcing required vars via validation."""
     return Settings()  # pydantic raises ValidationError if required missing

@@ -288,7 +288,7 @@ class BaseDomainAgent(ABC):
             if callable(fn):
                 return fn
         except ImportError:
-            pass
+            logger.warning("base_domain_agent_technique_import_failed", technique_id=technique_id)
 
         # Try individual technique module import
         try:
@@ -298,7 +298,7 @@ class BaseDomainAgent(ABC):
             if callable(fn):
                 return fn
         except (ImportError, AttributeError):
-            pass
+            logger.warning("base_domain_agent_technique_module_failed", technique_id=technique_id)
 
         return None
 

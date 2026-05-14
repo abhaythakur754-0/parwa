@@ -303,6 +303,24 @@ def _build_config() -> dict:
             "app.tasks.jarvis_awareness_tasks",
             # Phase 6: Redis Key Namespace Audit & Cleanup
             "app.tasks.redis_cleanup_tasks",
+            # Missing task modules — SLA, self-healing, Jarvis commands,
+            # ticket lifecycle, tickets, notifications, knowledge,
+            # reconciliation, usage, payment failure, events, SMS,
+            # workflow, and health check
+            "app.tasks.sla_tasks",
+            "app.tasks.self_healing_tasks",
+            "app.tasks.jarvis_command_tasks",
+            "app.tasks.ticket_lifecycle_tasks",
+            "app.tasks.ticket_tasks",
+            "app.tasks.notification_tasks",
+            "app.tasks.knowledge_tasks",
+            "app.tasks.reconciliation_tasks",
+            "app.tasks.usage_tasks",
+            "app.tasks.payment_failure_tasks",
+            "app.tasks.event_tasks",
+            "app.tasks.sms_tasks",
+            "app.tasks.workflow_tasks",
+            "app.tasks.celery_health",
         ],
     }
 

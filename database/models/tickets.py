@@ -16,7 +16,7 @@ BC-002: Money fields use DECIMAL/Numeric, never Float.
 """
 
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 
 import uuid
 
@@ -25,6 +25,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -92,8 +93,12 @@ class Customer(Base):
     phone = Column(String(50))
     name = Column(String(255))
     metadata_json = Column(Text, default="{}")
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        UniqueConstraint("company_id", "email", name="uq_customer_company_email"),
+    )
 
 
 class Channel(Base):
@@ -105,7 +110,7 @@ class Channel(Base):
     channel_type = Column(String(50), nullable=False)
     description = Column(Text)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Ticket(Base):
@@ -177,14 +182,20 @@ class Ticket(Base):
     # PS23: client timezone for SLA
     client_timezone = Column(String(50))
 
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     closed_at = Column(DateTime)
 
     # Relationships
     messages = relationship(
         "TicketMessage", back_populates="ticket",
         cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        Index("ix_tickets_company_status", "company_id", "status"),
+        Index("ix_tickets_company_created", "company_id", "created_at"),
+        Index("ix_tickets_company_assignee", "company_id", "assigned_to"),
     )
 
 
@@ -221,7 +232,7 @@ class TicketMessage(Base):
     # F-049: intent classification per message
     classification = Column(String(100), nullable=True)
 
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     ticket = relationship("Ticket", back_populates="messages")
 
@@ -243,7 +254,7 @@ class TicketAttachment(Base):
     file_size = Column(Integer)
     mime_type = Column(String(100))
     uploaded_by = Column(String(36), ForeignKey("users.id"))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class TicketInternalNote(Base):
@@ -263,7 +274,7 @@ class TicketInternalNote(Base):
     )
     content = Column(Text, nullable=False)
     is_pinned = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 # ── Week 4 Support Models ────────────────────────────────────────
@@ -288,7 +299,7 @@ class TicketStatusChange(Base):
         String(36), ForeignKey("users.id"), nullable=False,
     )
     reason = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class SLAPolicy(Base):
@@ -309,8 +320,8 @@ class SLAPolicy(Base):
     resolution_minutes = Column(Integer, nullable=False)
     update_frequency_minutes = Column(Integer, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class SLATimer(Base):
@@ -334,8 +345,8 @@ class SLATimer(Base):
     resolved_at = Column(DateTime)
     breached_at = Column(DateTime)
     is_breached = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class TicketAssignment(Base):
@@ -360,7 +371,7 @@ class TicketAssignment(Base):
     # AI scoring for AI assignments
     score = Column(Numeric(5, 2), nullable=True)
     reason = Column(Text)
-    assigned_at = Column(DateTime, default=lambda: datetime.utcnow())
+    assigned_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class BulkActionLog(Base):
@@ -383,7 +394,7 @@ class BulkActionLog(Base):
     # Unique token for undo capability
     undo_token = Column(String(255), unique=True, nullable=True)
     undone = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class TicketMerge(Base):
@@ -407,7 +418,7 @@ class TicketMerge(Base):
     reason = Column(Text)
     undo_token = Column(String(255), unique=True, nullable=True)
     undone = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class NotificationTemplate(Base):
@@ -430,8 +441,8 @@ class NotificationTemplate(Base):
     subject_template = Column(Text)
     body_template = Column(Text, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class TicketFeedback(Base):
@@ -451,7 +462,7 @@ class TicketFeedback(Base):
     comment = Column(Text)
     # email, in_app
     feedback_source = Column(String(50))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class CustomerChannel(Base):
@@ -473,8 +484,8 @@ class CustomerChannel(Base):
     external_id = Column(String(255))
     is_verified = Column(Boolean, default=False, nullable=False)
     metadata_json = Column(Text, default="{}")
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class IdentityMatchLog(Base):
@@ -497,7 +508,7 @@ class IdentityMatchLog(Base):
     confidence_score = Column(Numeric(5, 2))
     # matched, created, flagged
     action_taken = Column(String(50))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 # ── Remaining BL02 Tables ────────────────────────────────────────
@@ -524,7 +535,7 @@ class TicketIntent(Base):
     confidence = Column(Numeric(5, 4), nullable=False)
     # Which AI variant produced this classification
     variant_version = Column(String(100))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class ClassificationCorrection(Base):
@@ -548,7 +559,7 @@ class ClassificationCorrection(Base):
         String(36), ForeignKey("users.id"), nullable=False,
     )
     reason = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class AssignmentRule(Base):
@@ -567,8 +578,8 @@ class AssignmentRule(Base):
     action = Column(Text, default="{}", nullable=False)
     priority_order = Column(Integer, default=0, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class BulkActionFailure(Base):
@@ -588,7 +599,7 @@ class BulkActionFailure(Base):
     error_message = Column(Text, nullable=False)
     # status conflict, permission denied, not found, etc.
     failure_reason = Column(String(100))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class ChannelConfig(Base):
@@ -613,8 +624,8 @@ class ChannelConfig(Base):
     allowed_file_types = Column(Text, default="[]")
     # Max file size in bytes
     max_file_size = Column(Integer, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class CustomerMergeAudit(Base):
@@ -639,7 +650,7 @@ class CustomerMergeAudit(Base):
     # merge_reason, unmerge
     action_type = Column(String(50), nullable=False)
     reason = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 # ── Ticket Triggers (MF08: Automated trigger rules) ────────────────
@@ -663,8 +674,8 @@ class TicketTrigger(Base):
     execution_count = Column(Integer, default=0)
     last_executed_at = Column(DateTime)
     created_by = Column(String(36), ForeignKey("users.id"))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 # ── Custom Fields (MF09: Custom ticket fields) ──────────────────────
@@ -687,8 +698,8 @@ class CustomField(Base):
     is_required = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     sort_order = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         UniqueConstraint(
@@ -711,10 +722,10 @@ class TicketCollision(Base):
     ticket_id = Column(String(36), ForeignKey("tickets.id"), nullable=False, index=True)
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     session_id = Column(String(100))  # Browser session identifier
-    started_at = Column(DateTime, default=lambda: datetime.utcnow())
-    last_activity_at = Column(DateTime, default=lambda: datetime.utcnow())
+    started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_activity_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 # ── Backward Compatibility Aliases ───────────────────────────────

@@ -42,12 +42,18 @@ logger = logging.getLogger("parwa.services.proration")
 
 class ProrationError(Exception):
     """Base exception for proration errors."""
-    pass
+    def __init__(self, message: str = "Proration calculation failed", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class InvalidProrationPeriodError(ProrationError):
     """Invalid billing period for proration."""
-    pass
+    def __init__(self, message: str = "Invalid billing period for proration", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class ProrationService:

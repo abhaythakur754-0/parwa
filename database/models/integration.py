@@ -7,7 +7,7 @@ Source: CORRECTED_PARWA_Complete_Backend_Documentation.md
 BC-001: Every table has company_id.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import uuid
 
@@ -37,8 +37,8 @@ class Integration(Base):
     settings = Column(Text, default="{}")
     last_sync = Column(DateTime)
     error_message = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class RESTConnector(Base):
@@ -59,8 +59,8 @@ class RESTConnector(Base):
     auth_config = Column(Text)  # encrypted
     headers = Column(Text, default="{}")
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class WebhookIntegration(Base):
@@ -79,7 +79,7 @@ class WebhookIntegration(Base):
     secret = Column(String(255))
     events = Column(Text, default="[]")
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class MCPConnection(Base):
@@ -95,8 +95,8 @@ class MCPConnection(Base):
     auth_token = Column(Text)  # encrypted
     status = Column(String(50), default="disconnected")
     capabilities = Column(Text, default="[]")
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class DBConnection(Base):
@@ -113,8 +113,8 @@ class DBConnection(Base):
     connection_string = Column(Text)  # encrypted
     is_readonly = Column(Boolean, default=True)
     status = Column(String(50), default="disconnected")
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class EventBuffer(Base):
@@ -130,7 +130,7 @@ class EventBuffer(Base):
     event_data = Column(Text)
     # 24h default (BC-005)
     ttl_seconds = Column(Integer, default=86400)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class ErrorLog(Base):
@@ -149,7 +149,7 @@ class ErrorLog(Base):
     status_code = Column(Integer)
     correlation_id = Column(String(36))
     resolved = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class AuditTrail(Base):
@@ -170,7 +170,7 @@ class AuditTrail(Base):
     new_value = Column(Text)
     ip_address = Column(String(45))
     user_agent = Column(String(500))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class OutgoingWebhook(Base):
@@ -189,5 +189,5 @@ class OutgoingWebhook(Base):
     last_delivery_at = Column(DateTime)
     last_status = Column(String(50))
     failure_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

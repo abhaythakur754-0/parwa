@@ -21,6 +21,7 @@ Error format: Matches PARWA standard {"error": {"code": ..., "message": ..., "de
 Based on: JARVIS_SPECIFICATION.md v3.0 / JARVIS_ROADMAP.md v4.0
 """
 
+import logging
 from typing import Optional
 
 import json
@@ -60,6 +61,8 @@ from database.base import get_db
 from database.models.core import User
 
 router = APIRouter(prefix="/api/jarvis", tags=["Jarvis"])
+
+logger = logging.getLogger("parwa.api.jarvis")
 
 
 # ── Session Endpoints ──────────────────────────────────────────────
@@ -571,8 +574,8 @@ def _session_to_response(
     ctx = {}
     try:
         ctx = json.loads(session.context_json) if session.context_json else {}
-    except (json.JSONDecodeError, TypeError):
-        pass
+    except (json.JSONDecodeError, TypeError) as e:
+        logger.warning("session_context_json_parse_error", error=str(e))
 
     return JarvisSessionResponse(
         id=session.id,
@@ -605,8 +608,8 @@ def _message_to_response(msg: object) -> JarvisMessageResponse:
     metadata = {}
     try:
         metadata = json.loads(msg.metadata_json) if msg.metadata_json else {}
-    except (json.JSONDecodeError, TypeError):
-        pass
+    except (json.JSONDecodeError, TypeError) as e:
+        logger.warning("message_metadata_json_parse_error", error=str(e))
 
     return JarvisMessageResponse(
         id=msg.id,
@@ -629,16 +632,16 @@ def _ticket_to_response(
     result = {}
     try:
         result = json.loads(ticket.result_json) if ticket.result_json else {}
-    except (json.JSONDecodeError, TypeError):
-        pass
+    except (json.JSONDecodeError, TypeError) as e:
+        logger.warning("ticket_result_json_parse_error", error=str(e))
 
     metadata = {}
     try:
         metadata = (
             json.loads(ticket.metadata_json) if ticket.metadata_json else {}
         )
-    except (json.JSONDecodeError, TypeError):
-        pass
+    except (json.JSONDecodeError, TypeError) as e:
+        logger.warning("ticket_metadata_json_parse_error", error=str(e))
 
     return JarvisActionTicketResponse(
         id=ticket.id,

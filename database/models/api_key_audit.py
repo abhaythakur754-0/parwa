@@ -5,7 +5,7 @@ Tracks all API key lifecycle events:
 created, rotated, revoked, used.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column, String, DateTime, ForeignKey,
@@ -34,5 +34,5 @@ class APIKeyAuditLog(Base):
     ip_address = Column(String(45), nullable=True)
     created_at = Column(
         DateTime,
-        default=lambda: datetime.utcnow(),
+        default=lambda: datetime.now(timezone.utc),
     )

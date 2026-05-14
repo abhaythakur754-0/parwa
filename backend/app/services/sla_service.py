@@ -34,22 +34,34 @@ from app.schemas.sla import Priority, PlanTier, BreachType
 
 class SLAError(Exception):
     """Base exception for SLA operations."""
-    pass
+    def __init__(self, message: str = "SLA operation failed", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class SLAPolicyNotFoundError(SLAError):
     """Raised when SLA policy is not found."""
-    pass
+    def __init__(self, message: str = "SLA policy not found", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class SLATimerNotFoundError(SLAError):
     """Raised when SLA timer is not found."""
-    pass
+    def __init__(self, message: str = "SLA timer not found", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class DuplicateSLAPolicyError(SLAError):
     """Raised when a duplicate SLA policy would be created."""
-    pass
+    def __init__(self, message: str = "Duplicate SLA policy already exists", **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+        super().__init__(self.message)
 
 
 class SLAService:

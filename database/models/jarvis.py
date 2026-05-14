@@ -24,7 +24,7 @@ Phase 1.3 additions:
 Based on: JARVIS_SPECIFICATION.md v3.0 / JARVIS_ROADMAP.md v4.0
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import uuid
 
@@ -101,8 +101,8 @@ class JarvisSession(Base):
     # Payment: 'none' | 'pending' | 'completed' | 'failed'
     payment_status = Column(String(15), nullable=False, default="none")
     handoff_completed = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # ── Relationships ──
     messages = relationship(
@@ -176,7 +176,7 @@ class JarvisMessage(Base):
     message_type = Column(String(25), nullable=False, default="text")
     # Extra data for card-type messages (variant details, payment info, etc.)
     metadata_json = Column(Text, default="{}")
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # ── Relationships ──
     session = relationship("JarvisSession", back_populates="messages")
@@ -212,7 +212,7 @@ class JarvisKnowledgeUsed(Base):
     # e.g. '01_pricing_tiers.json', '07_objection_handling.json'
     knowledge_file = Column(String(100), nullable=False)
     relevance_score = Column(Numeric(5, 2), default=1.0)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # ── Relationships ──
     message = relationship("JarvisMessage", back_populates="knowledge_used")
@@ -253,8 +253,8 @@ class JarvisActionTicket(Base):
     result_json = Column(Text, default="{}")
     # Extra data: phone, email, amounts, variant_ids, etc.
     metadata_json = Column(Text, default="{}")
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime, nullable=True)
 
     # ── Relationships ──

@@ -8,7 +8,7 @@ BC-001: Tables with tenant data have company_id.
 newsletter_subscribers and demo_sessions are public-facing (no company_id).
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import uuid
 
@@ -68,8 +68,8 @@ class OnboardingSession(Base):
     wizard_started = Column(Boolean, default=False)  # Wizard started
     first_victory_completed = Column(Boolean, default=False)  # First victory done
 
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime)
 
 
@@ -90,7 +90,7 @@ class ConsentRecord(Base):
     ip_address = Column(String(45))
     user_agent = Column(String(500))
     granted = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class KnowledgeDocument(Base):
@@ -117,8 +117,8 @@ class KnowledgeDocument(Base):
     retry_count = Column(Integer, default=0)  # Number of retry attempts
     failed_at = Column(DateTime, nullable=True)  # When the last failure occurred
 
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class DocumentChunk(Base):
@@ -140,7 +140,7 @@ class DocumentChunk(Base):
     # Runtime type selected by database/base.py engine
     embedding = Column(Text, nullable=True)
     chunk_index = Column(Integer, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class DemoSession(Base):
@@ -160,7 +160,7 @@ class DemoSession(Base):
     voice_call_sid = Column(String(255))
     status = Column(String(50), default="active")
     expires_at = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class NewsletterSubscriber(Base):
@@ -171,5 +171,5 @@ class NewsletterSubscriber(Base):
     name = Column(String(255))
     source = Column(String(100))
     is_active = Column(Boolean, default=True)
-    subscribed_at = Column(DateTime, default=lambda: datetime.utcnow())
+    subscribed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     unsubscribed_at = Column(DateTime)

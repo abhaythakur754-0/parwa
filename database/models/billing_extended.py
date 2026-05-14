@@ -19,7 +19,7 @@ BC-001: Every table has company_id
 BC-002: All money fields are DECIMAL(10,2) — NEVER float
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Optional
 import uuid
@@ -68,11 +68,11 @@ class ClientRefund(Base):
     status = Column(String(20), default="pending")  # pending/processed/failed
     external_ref = Column(String(255), nullable=True)  # Client's payment system ref
     processed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime,
-        default=lambda: datetime.utcnow(),
-        onupdate=lambda: datetime.utcnow(),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     # Relationships
@@ -99,11 +99,11 @@ class PaymentMethod(Base):
     expiry_year = Column(Integer)
     card_brand = Column(String(20))  # visa/mastercard/amex/etc
     is_default = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime,
-        default=lambda: datetime.utcnow(),
-        onupdate=lambda: datetime.utcnow(),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     # Relationships
@@ -130,7 +130,7 @@ class UsageRecord(Base):
     voice_minutes_used = Column(Numeric(10, 2), default=Decimal("0.00"))  # BC-002
     overage_tickets = Column(Integer, default=0)
     overage_charges = Column(Numeric(10, 2), default=Decimal("0.00"))  # BC-002
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Unique constraint: one record per company per day
     __table_args__ = (
@@ -155,11 +155,11 @@ class VariantLimit(Base):
     voice_slots = Column(Integer, nullable=False)
     kb_docs = Column(Integer, nullable=False)
     price_monthly = Column(Numeric(10, 2), nullable=False)  # BC-002
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime,
-        default=lambda: datetime.utcnow(),
-        onupdate=lambda: datetime.utcnow(),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
 
@@ -177,7 +177,7 @@ class IdempotencyKey(Base):
     request_body_hash = Column(String(64), nullable=True)  # SHA-256 hash
     response_status = Column(Integer, nullable=True)
     response_body = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     expires_at = Column(DateTime, nullable=False)
 
 
@@ -197,7 +197,7 @@ class WebhookSequence(Base):
     status = Column(String(20), default="pending")  # pending/processing/processed/failed
     error_message = Column(Text, nullable=True)
     retry_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 # ── Proration Audit Model ───────────────────────────────────────────────────
@@ -225,8 +225,8 @@ class ProrationAudit(Base):
     charge_applied = Column(Numeric(10, 2), default=Decimal("0.00"))  # BC-002
     billing_cycle_start = Column(Date, nullable=False)
     billing_cycle_end = Column(Date, nullable=False)
-    calculated_at = Column(DateTime, default=lambda: datetime.utcnow())
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    calculated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     company = relationship("Company", back_populates="proration_audits")
@@ -255,7 +255,7 @@ class PaymentFailure(Base):
     service_resumed_at = Column(DateTime, nullable=True)
     notification_sent = Column(Boolean, default=False)
     resolved = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     company = relationship("Company", back_populates="payment_failures")
@@ -340,11 +340,11 @@ class PaddleWebhookEvent(Base):
         index=True,
     )
     processed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime,
-        default=lambda: datetime.utcnow(),
-        onupdate=lambda: datetime.utcnow(),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
     result_json = Column(Text, nullable=True)  # JSON-encoded processing result
 
@@ -377,7 +377,7 @@ class PaddleReconciliationReport(Base):
     discrepancies_found = Column(Integer, nullable=False, default=0)
     corrections_applied = Column(Integer, nullable=False, default=0)
     report_json = Column(Text, nullable=False, default="{}")  # JSON-encoded full report
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     company = relationship("Company", back_populates="paddle_reconciliation_reports")

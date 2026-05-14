@@ -9,7 +9,7 @@ BC-001: Every table has company_id.
 BC-002: Money fields use DECIMAL(10,2).
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import uuid
 
@@ -44,8 +44,8 @@ class ResponseTemplate(Base):
     is_active = Column(Boolean, default=True)
     version = Column(Integer, default=1)
     created_by = Column(String(36), ForeignKey("users.id"))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 # ── Email Logs (Week 5/13 email tracking) ──────────────────────────
@@ -67,7 +67,7 @@ class EmailLog(Base):
     error_message = Column(Text)
     retries = Column(Integer, default=0)
     sent_at = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 # ── Rate Limit Counters (distributed rate limiting) ────────────────
@@ -90,8 +90,8 @@ class RateLimitCounter(Base):
     window_start = Column(DateTime, nullable=False)
     # Window end timestamp
     window_end = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         Index(
@@ -118,8 +118,8 @@ class FeatureFlag(Base):
     enabled_for_tiers = Column(Text, default="[]")  # JSON list of tiers
     enabled_for_roles = Column(Text, default="[]")  # JSON list of roles
     created_by = Column(String(36), ForeignKey("users.id"))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         UniqueConstraint(
@@ -148,7 +148,7 @@ class ClassificationLog(Base):
     model_name = Column(String(100))
     latency_ms = Column(Integer)
     metadata_json = Column(Text, default="{}")
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 # ── Guardrails Audit Log (Week 8: F-057) ──────────────────────────
@@ -172,7 +172,7 @@ class GuardrailsAuditLog(Base):
     severity = Column(String(20), default="info")
     reviewed_by = Column(String(36), ForeignKey("users.id"))
     reviewed_at = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 # ── Guardrails Blocked Queue (Week 8: F-057, F-058) ───────────────
@@ -195,7 +195,7 @@ class GuardrailsBlockedQueue(Base):
     resolved_by = Column(String(36), ForeignKey("users.id"))
     resolved_at = Column(DateTime)
     resolution_notes = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 # ── AI Response Feedback (Week 9: F-065 confidence scoring) ───────
@@ -215,7 +215,7 @@ class AIResponseFeedback(Base):
     ai_response_text = Column(Text)
     confidence_at_time = Column(Numeric(5, 2))
     provided_by = Column(String(36), ForeignKey("users.id"))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 # ── Confidence Thresholds (Week 8: F-059) ─────────────────────────
@@ -234,8 +234,8 @@ class ConfidenceThreshold(Base):
     min_confidence = Column(Numeric(5, 2), nullable=False)
     max_confidence = Column(Numeric(5, 2))
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         UniqueConstraint(
@@ -264,7 +264,7 @@ class HumanCorrection(Base):
     agent_id = Column(String(36), ForeignKey("agents.id"))
     used_in_training = Column(Boolean, default=False)
     training_run_id = Column(String(36))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 # ── Approval Batches (Week 7: batch approval processing) ──────────
@@ -285,8 +285,8 @@ class ApprovalBatch(Base):
     reviewed_by = Column(String(36), ForeignKey("users.id"))
     reviewed_at = Column(DateTime)
     notes = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 # ── Notifications (Week 7+: in-app notifications) ──────────────────
@@ -320,7 +320,7 @@ class Notification(Base):
     read_at = Column(DateTime)
     sent_at = Column(DateTime)
     expires_at = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 # ── Notification Preferences (Day 31: MF05) ────────────────────────
@@ -342,8 +342,8 @@ class NotificationPreference(Base):
     channels = Column(Text, default='["in_app"]')
     # Minimum priority threshold: low, medium, high, urgent
     priority_threshold = Column(String(20), default="low")
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         UniqueConstraint(
@@ -378,7 +378,7 @@ class NotificationLog(Base):
     confidence_score = Column(Numeric(5, 2))
     # Action taken: matched, created, suggested, none
     action_taken = Column(String(50))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 # ── First Victories (Week 6: customer onboarding milestones) ──────
@@ -395,12 +395,12 @@ class FirstVictory(Base):
     # first_ticket_resolved, first_agent_created, first_integration_connected,
     # first_knowledge_doc_uploaded, first_api_key_created
     milestone_type = Column(String(100), nullable=False)
-    achieved_at = Column(DateTime, default=lambda: datetime.utcnow())
+    achieved_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     # Optional related resource ID
     resource_id = Column(String(36))
     resource_type = Column(String(50))
     celebrated = Column(Boolean, default=False)  # UI celebration shown
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         UniqueConstraint(
