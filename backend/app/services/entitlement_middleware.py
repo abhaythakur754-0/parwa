@@ -32,31 +32,52 @@ from app.services.variant_capability_service import (
     _validate_variant_type,
 )
 from app.exceptions import ParwaBaseError
+from app.core.pricing_config import (
+    VariantType,
+    VARIANT_PRICES,
+    VARIANT_DISPLAY_NAMES,
+    normalize_variant_name,
+)
 
 
 # ══════════════════════════════════════════════════════════════════
-# PLAN DISPLAY NAMES FOR UPGRADE NUDGES
+# PLAN DISPLAY NAMES & PRICING FOR UPGRADE NUDGES — from pricing_config
 # ══════════════════════════════════════════════════════════════════
 
-PLAN_DISPLAY_NAMES = {
-    "mini_parwa": "Mini PARWA",
-    "parwa": "PARWA",
-    "parwa_high": "PARWA High",
+# Build display names and pricing from pricing_config, supporting both
+# old (mini_parwa, parwa, parwa_high) and new (starter, growth, high) names.
+_old_name_map = {
+    VariantType.STARTER: "mini_parwa",
+    VariantType.GROWTH: "parwa",
+    VariantType.HIGH: "parwa_high",
 }
 
-PLAN_PRICING = {
-    "mini_parwa": "$499/mo",
-    "parwa": "$2,499/mo",
-    "parwa_high": "$9,999/mo",
-}
+PLAN_DISPLAY_NAMES = {}
+PLAN_PRICING = {}
+for _vt in VariantType:
+    _display = VARIANT_DISPLAY_NAMES[_vt]
+    _price_str = f"${VARIANT_PRICES[_vt]:,.0f}/mo"
+    # New canonical name
+    PLAN_DISPLAY_NAMES[_vt.value] = _display
+    PLAN_PRICING[_vt.value] = _price_str
+    # Old name alias (backward compat)
+    _old = _old_name_map[_vt]
+    PLAN_DISPLAY_NAMES[_old] = _display
+    PLAN_PRICING[_old] = _price_str
 
 # Minimum variant type required for upgrade suggestion
-# ordered by level
+# ordered by level (canonical new names)
 ORDERED_VARIANT_TYPES = [
-    "mini_parwa",
-    "parwa",
-    "parwa_high",
+    "starter",
+    "growth",
+    "high",
 ]
+
+# Extend VARIANT_LEVELS to also accept new canonical names,
+# so level lookups work regardless of naming convention.
+VARIANT_LEVELS["starter"] = VARIANT_LEVELS["mini_parwa"]
+VARIANT_LEVELS["growth"] = VARIANT_LEVELS["parwa"]
+VARIANT_LEVELS["high"] = VARIANT_LEVELS["parwa_high"]
 
 
 # ══════════════════════════════════════════════════════════════════

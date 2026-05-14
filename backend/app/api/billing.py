@@ -29,9 +29,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from app.api.deps import require_roles
+from app.api.deps import require_roles, get_company_id as _get_company_id
 from database.models.core import User
 
 from app.schemas.billing import (
@@ -43,6 +43,7 @@ from app.schemas.billing import (
     VariantType,
     ProrationResult,
     ProrationAudit,
+    ClientRefundCreate,
 )
 from app.services.subscription_service import (
     SubscriptionService,
@@ -51,6 +52,7 @@ from app.services.subscription_service import (
     SubscriptionAlreadyExistsError,
     InvalidVariantError,
     InvalidStatusTransitionError,
+    PaddleOperationError,
     get_subscription_service,
 )
 from app.services.proration_service import (
@@ -127,21 +129,13 @@ class SubscriptionListResponse(BaseModel):
 
 # ── Dependency Injection ──────────────────────────────────────────────────
 
-def get_company_id(request: Request) -> UUID:
+def get_company_id(company_id: str = Depends(_get_company_id)) -> UUID:
     """
-    Extract company_id from request state.
+    Extract company_id from authenticated user.
 
-    Set by JWT middleware after authentication.
+    BC-001: Every authenticated request carries company_id.
+    BC-011: JWT verification via deps.get_current_user.
     """
-    company_id = request.state.company_id
-    if not company_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "code": "unauthorized",
-                "message": "Authentication required",
-            },
-        )
     return UUID(company_id)
 
 
@@ -172,9 +166,15 @@ async def get_subscription(
     )
 
 
+class CreateSubscriptionResponse(BaseModel):
+    """Response for subscription creation."""
+    subscription: SubscriptionInfo
+    checkout_url: Optional[str] = None
+
+
 @router.post(
     "/subscription",
-    response_model=SubscriptionInfo,
+    response_model=CreateSubscriptionResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_subscription(
@@ -182,31 +182,44 @@ async def create_subscription(
     data: SubscriptionCreate,
     company_id: UUID = Depends(get_company_id),
     user: User = Depends(require_roles("owner", "admin")),
-) -> SubscriptionInfo:
+) -> CreateSubscriptionResponse:
     """
     Create a new subscription.
 
     H-13: Only users with role 'owner' or 'admin' can create subscriptions.
 
+    For new customers (no payment_method_id):
+      - Creates a Paddle checkout transaction
+      - Returns checkout_url for frontend redirect
+      - Subscription starts as PENDING, activated by Paddle webhook
+
+    For existing customers (with payment_method_id):
+      - Creates subscription directly in Paddle
+      - Subscription starts as ACTIVE immediately
+
     Args:
         data: SubscriptionCreate with variant and optional payment_method_id
 
     Returns:
-        Created subscription info
+        Created subscription info with optional checkout_url
 
     Raises:
         400: Company already has active subscription
         400: Invalid variant
+        502: Paddle operation failed
     """
     service = get_subscription_service()
 
     try:
-        subscription = await service.create_subscription(
+        result = await service.create_subscription(
             company_id=company_id,
             variant=data.variant.value,
             payment_method_id=data.payment_method_id,
         )
-        return subscription
+        return CreateSubscriptionResponse(
+            subscription=result["subscription"],
+            checkout_url=result.get("checkout_url"),
+        )
 
     except SubscriptionAlreadyExistsError as e:
         raise HTTPException(
@@ -222,6 +235,15 @@ async def create_subscription(
             detail={
                 "code": "invalid_variant",
                 "message": str(e),
+            },
+        )
+    except PaddleOperationError as e:
+        logger.error("subscription_paddle_failed company_id=%s error=%s", company_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": "paddle_error",
+                "message": "Payment provider error. Please try again later.",
             },
         )
     except SubscriptionError as e:
@@ -324,6 +346,15 @@ async def update_subscription(
                 "message": str(e),
             },
         )
+    except PaddleOperationError as e:
+        logger.error("subscription_update_paddle_failed company_id=%s error=%s", company_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": "paddle_error",
+                "message": "Payment provider error. Please try again later.",
+            },
+        )
     except SubscriptionError as e:
         logger.error("subscription_update_failed company_id=%s error=%s", company_id, e)
         raise HTTPException(
@@ -380,6 +411,15 @@ async def cancel_subscription(
                 "message": str(e),
             },
         )
+    except PaddleOperationError as e:
+        logger.error("subscription_cancel_paddle_failed company_id=%s error=%s", company_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": "paddle_error",
+                "message": "Payment provider error. Please try again later.",
+            },
+        )
     except SubscriptionError as e:
         logger.error("subscription_cancel_failed company_id=%s error=%s", company_id, e)
         raise HTTPException(
@@ -418,6 +458,19 @@ async def reactivate_subscription(
             detail={
                 "code": "cannot_reactivate",
                 "message": str(e),
+            },
+        )
+    except PaddleOperationError as e:
+        logger.error(
+            "subscription_reactivate_paddle_failed company_id=%s error=%s",
+            company_id,
+            e,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": "paddle_error",
+                "message": "Payment provider error. Please try again later.",
             },
         )
     except SubscriptionError as e:
@@ -757,20 +810,15 @@ async def get_current_usage(
     """
     service = get_overage_service()
 
-    usage = await service.get_current_usage(company_id)
-    limit = await service.get_ticket_limit(company_id)
-
-    tickets_used = usage.get("tickets_used", 0)
-    ticket_limit = limit.get("limit", 2000)
-    overage = max(0, tickets_used - ticket_limit)
+    usage = await service.get_usage_info(company_id)
 
     return UsageResponse(
-        current_month=usage.get("month", date.today().strftime("%Y-%m")),
-        tickets_used=tickets_used,
-        ticket_limit=ticket_limit,
-        overage_tickets=overage,
-        overage_charges=str(Decimal(str(overage)) * Decimal("0.10")),
-        usage_percentage=min(1.0, tickets_used / ticket_limit) if ticket_limit > 0 else 0,
+        current_month=usage.record_month,
+        tickets_used=usage.tickets_used,
+        ticket_limit=usage.ticket_limit,
+        overage_tickets=usage.overage_tickets,
+        overage_charges=str(usage.overage_charges),
+        usage_percentage=round((usage.tickets_used / usage.ticket_limit) * 100, 2) if usage.ticket_limit > 0 else 0,
     )
 
 
@@ -791,26 +839,18 @@ async def get_usage_history(
     """
     service = get_overage_service()
 
-    history = await service.get_usage_history(
+    history = await service.get_overage_history(
         company_id=company_id,
-        months=min(months, 24),
+        limit=min(months, 24),
     )
 
     return UsageHistoryResponse(
-        history=history,
+        history=[h.model_dump(mode="json") for h in history],
         total=len(history),
     )
 
 
 # ── Client Refund Endpoints ────────────────────────────────────────────────
-
-class ClientRefundCreate(BaseModel):
-    """Request to create a client refund."""
-    amount: Decimal = Field(..., gt=0, description="Refund amount")
-    currency: str = Field(default="USD", max_length=3)
-    ticket_id: Optional[UUID] = None
-    reason: Optional[str] = None
-
 
 class ClientRefundResponse(BaseModel):
     """Response for client refund."""

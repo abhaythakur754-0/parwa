@@ -260,6 +260,25 @@ def _build_config() -> dict:
                 "schedule": 604800.0,  # Weekly
                 "kwargs": {"dry_run": True},
             },
+            # Billing reconciliation and maintenance tasks
+            "billing-reconcile-all-companies-daily-05utc": {
+                "task": ("app.tasks.billing_tasks"
+                          ".reconcile_all_companies"),
+                "schedule": {"hour": 5, "minute": 0},
+                "kwargs": {},
+            },
+            "billing-process-dead-letter-queue-6h": {
+                "task": ("app.tasks.billing_tasks"
+                          ".process_dead_letter_queue"),
+                "schedule": 21600.0,  # Every 6 hours
+                "kwargs": {},
+            },
+            "billing-cleanup-old-webhook-events-daily-07utc": {
+                "task": ("app.tasks.billing_tasks"
+                          ".cleanup_old_webhook_events"),
+                "schedule": {"hour": 7, "minute": 0},
+                "kwargs": {},
+            },
         },
         # Day 16: Task send events for monitoring
         "task_send_sent_event": True,

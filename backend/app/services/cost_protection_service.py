@@ -276,23 +276,24 @@ class CostProtectionService:
                 instance_id=instance_id,
             ).first()
 
-            # No budget record found — allow but warn (BC-008)
+            # No budget record found — FAIL CLOSED (deny on missing budget)
             if budget is None:
                 logger.warning(
-                    "no_budget_found_allowing",
+                    "no_budget_found_denying",
                     extra={
                         "company_id": company_id,
                         "budget_type": budget_type,
                         "period": period,
                     },
                 )
+                # FAIL CLOSED — deny on error, not allow
                 return BudgetCheckResult(
-                    allowed=True,
-                    remaining_tokens=requested_tokens,
+                    allowed=False,
+                    remaining_tokens=0,
                     usage_pct=0.0,
                     alert_level=AlertLevel.NONE,
                     budget_status=BudgetStatus.ACTIVE,
-                    reason="No budget record found — request allowed (graceful degradation)",
+                    reason="No budget record found — request denied (fail closed)",
                 )
 
             # Disabled budget — always allow
@@ -351,14 +352,14 @@ class CostProtectionService:
                 "budget_check_failed",
                 extra={"company_id": company_id, "error": str(exc)},
             )
-            # BC-008: Allow on error
+            # FAIL CLOSED — deny on error, not allow
             return BudgetCheckResult(
-                allowed=True,
+                allowed=False,
                 remaining_tokens=0,
                 usage_pct=0.0,
                 alert_level=AlertLevel.NONE,
                 budget_status=BudgetStatus.ACTIVE,
-                reason=f"Budget check error — request allowed (graceful degradation): {str(exc)}",
+                reason=f"Budget check error — request denied (fail closed): {str(exc)}",
             )
 
     # ── Usage Recording ──────────────────────────────────────────
@@ -1003,14 +1004,14 @@ class CostProtectionService:
                 "tier_budget_check_failed",
                 extra={"company_id": company_id, "tier": tier, "error": str(exc)},
             )
-            # BC-008: Allow on error
+            # FAIL CLOSED — deny on error, not allow
             return BudgetCheckResult(
-                allowed=True,
+                allowed=False,
                 remaining_tokens=0,
                 usage_pct=0.0,
                 alert_level=AlertLevel.NONE,
                 budget_status=BudgetStatus.ACTIVE,
-                reason=f"Tier budget check error — allowed (graceful degradation): {str(exc)}",
+                reason=f"Tier budget check error — denied (fail closed): {str(exc)}",
             )
 
     def record_tier_usage(

@@ -175,8 +175,9 @@ class OverageService:
                 UsageRecord.record_month == target_date.strftime("%Y-%m"),
             ).scalar() or 0
 
-            # Add current day's usage
-            total_tickets = int(month_usage) + usage_record.tickets_used
+            # The SQL SUM already includes today's UsageRecord, so no extra addition needed.
+            # (Previous code double-counted by adding usage_record.tickets_used on top of the SUM.)
+            total_tickets = int(month_usage)
 
             # Calculate overage
             overage_result = self._calculate_overage(total_tickets, ticket_limit)
@@ -278,22 +279,49 @@ class OverageService:
                     "overage_charge_id": overage_charge.id,
                 }
 
+            except AttributeError as e:
+                # PaddleClient.create_transaction() does not exist yet
+                # (being added separately). Mark as pending_provider so it can
+                # be retried later when the method is available.
+                logger.warning(
+                    "overage_paddle_method_missing company_id=%s error=%s",
+                    company_id,
+                    str(e),
+                )
+                overage_charge.status = "pending_provider"
+                overage_charge.retry_count = (overage_charge.retry_count or 0) + 1
+                overage_charge.last_retry_at = datetime.now(timezone.utc)
+                db.commit()
+
+                return {
+                    "status": "pending_provider",
+                    "company_id": str(company_id),
+                    "date": target_date.isoformat(),
+                    "overage_tickets": overage_result["overage_tickets"],
+                    "overage_charges": str(overage_result["overage_charges"]),
+                    "error": str(e),
+                    "message": "Paddle create_transaction not available yet; charge queued for retry",
+                }
+
             except PaddleError as e:
                 logger.error(
                     "overage_paddle_failed company_id=%s error=%s",
                     company_id,
                     str(e),
                 )
-                overage_charge.status = "failed"
+                overage_charge.status = "retry_pending"
+                overage_charge.retry_count = (overage_charge.retry_count or 0) + 1
+                overage_charge.last_retry_at = datetime.now(timezone.utc)
                 db.commit()
 
                 return {
-                    "status": "failed",
+                    "status": "retry_pending",
                     "company_id": str(company_id),
                     "date": target_date.isoformat(),
                     "overage_tickets": overage_result["overage_tickets"],
                     "overage_charges": str(overage_result["overage_charges"]),
                     "error": str(e),
+                    "retry_count": overage_charge.retry_count,
                 }
 
     def _calculate_overage(
@@ -630,6 +658,112 @@ class OverageService:
             "ticket_limit": usage.ticket_limit,
             "tickets_remaining": max(0, usage.ticket_limit - usage.tickets_used),
             "threshold": threshold,
+        }
+
+    # ── Retry mechanism for failed overage charges ─────────────────────
+
+    MAX_RETRY_ATTEMPTS = 5
+
+    async def retry_pending_charges(self) -> Dict[str, Any]:
+        """
+        Retry overage charges that are in retry_pending or pending_provider status.
+
+        Intended to be called by a Celery periodic task. Picks up charges
+        that failed previously and re-submits them to Paddle, up to
+        MAX_RETRY_ATTEMPTS times.
+
+        Returns:
+            Dict with retry summary (retried, succeeded, still_pending, dead).
+        """
+        retried = 0
+        succeeded = 0
+        still_pending = 0
+        dead = 0
+
+        with SessionLocal() as db:
+            charges = db.query(OverageCharge).filter(
+                OverageCharge.status.in_(["retry_pending", "pending_provider"]),
+                OverageCharge.retry_count < self.MAX_RETRY_ATTEMPTS,
+            ).all()
+
+            for charge in charges:
+                retried += 1
+
+                # Get related objects
+                company = db.query(Company).filter(
+                    Company.id == charge.company_id
+                ).first()
+                subscription = db.query(Subscription).filter(
+                    Subscription.company_id == charge.company_id,
+                    Subscription.status == "active",
+                ).first()
+
+                if not company or not subscription:
+                    logger.warning(
+                        "overage_retry_skip company_id=%s missing_company_or_subscription",
+                        charge.company_id,
+                    )
+                    still_pending += 1
+                    continue
+
+                try:
+                    paddle = await self._get_paddle()
+                    charge_result = await self._submit_paddle_charge(
+                        paddle=paddle,
+                        company=company,
+                        subscription=subscription,
+                        overage_charge=charge,
+                    )
+
+                    charge.status = "charged"
+                    charge.paddle_charge_id = charge_result.get("charge_id")
+                    charge.last_retry_at = datetime.now(timezone.utc)
+                    db.commit()
+                    succeeded += 1
+
+                    logger.info(
+                        "overage_retry_succeeded charge_id=%s company_id=%s",
+                        charge.id,
+                        charge.company_id,
+                    )
+
+                except AttributeError as e:
+                    # create_transaction still not available
+                    logger.warning(
+                        "overage_retry_method_missing charge_id=%s error=%s",
+                        charge.id,
+                        str(e),
+                    )
+                    charge.retry_count = (charge.retry_count or 0) + 1
+                    charge.last_retry_at = datetime.now(timezone.utc)
+                    if charge.retry_count >= self.MAX_RETRY_ATTEMPTS:
+                        charge.status = "dead"
+                        dead += 1
+                    else:
+                        still_pending += 1
+                    db.commit()
+
+                except (PaddleError, Exception) as e:
+                    logger.error(
+                        "overage_retry_failed charge_id=%s error=%s",
+                        charge.id,
+                        str(e),
+                    )
+                    charge.retry_count = (charge.retry_count or 0) + 1
+                    charge.last_retry_at = datetime.now(timezone.utc)
+                    if charge.retry_count >= self.MAX_RETRY_ATTEMPTS:
+                        charge.status = "dead"
+                        dead += 1
+                    else:
+                        charge.status = "retry_pending"
+                        still_pending += 1
+                    db.commit()
+
+        return {
+            "retried": retried,
+            "succeeded": succeeded,
+            "still_pending": still_pending,
+            "dead": dead,
         }
 
 

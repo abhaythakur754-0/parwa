@@ -31,6 +31,11 @@ from database.base import SessionLocal
 from database.models.billing_extended import VariantLimit, get_variant_limits
 from database.models.billing import Subscription
 from database.models.core import Company
+from app.core.pricing_config import (
+    VARIANT_LIMITS as _PC_VARIANT_LIMITS,
+    VARIANT_PRICES as _PC_VARIANT_PRICES,
+    normalize_variant_name as _normalize_variant,
+)
 
 logger = logging.getLogger("parwa.services.variant_limit")
 
@@ -54,20 +59,25 @@ _LIMIT_LABEL_MAP = {
     "kb_docs": "knowledge base documents",
 }
 
-_HARDCODED_LIMITS: Dict[str, Dict[str, Any]] = {
-    "starter": {
-        "monthly_tickets": 2000, "ai_agents": 1, "team_members": 3,
-        "voice_slots": 0, "kb_docs": 100, "price": "999.00",
-    },
-    "growth": {
-        "monthly_tickets": 5000, "ai_agents": 3, "team_members": 10,
-        "voice_slots": 2, "kb_docs": 500, "price": "2499.00",
-    },
-    "high": {
-        "monthly_tickets": 15000, "ai_agents": 5, "team_members": 25,
-        "voice_slots": 5, "kb_docs": 2000, "price": "3999.00",
-    },
-}
+# Build hardcoded fallback from pricing_config — single source of truth.
+# Includes both new canonical names and old aliases.
+from app.core.pricing_config import VariantType as _VT
+
+_HARDCODED_LIMITS: Dict[str, Dict[str, Any]] = {}
+for _vt in _VT:
+    _entry = {
+        **_PC_VARIANT_LIMITS[_vt],
+        "price": str(_PC_VARIANT_PRICES[_vt]),
+    }
+    # Canonical name
+    _HARDCODED_LIMITS[_vt.value] = _entry
+    # Old name aliases
+    if _vt == _VT.STARTER:
+        _HARDCODED_LIMITS["mini_parwa"] = _entry
+    elif _vt == _VT.GROWTH:
+        _HARDCODED_LIMITS["parwa"] = _entry
+    elif _vt == _VT.HIGH:
+        _HARDCODED_LIMITS["parwa_high"] = _entry
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -211,7 +221,11 @@ class VariantLimitService:
         Fallback: direct query of the ``VariantLimit`` DB table, then
         hardcoded defaults.
         """
-        variant_key = variant.lower().strip()
+        # Normalize old names (mini_parwa → starter, etc.)
+        try:
+            variant_key = _normalize_variant(variant.lower().strip())
+        except ValueError:
+            variant_key = variant.lower().strip()
 
         # Primary — billing_extended helper
         limits = get_variant_limits(variant_key)
@@ -223,12 +237,22 @@ class VariantLimitService:
             return limits
 
         # Fallback — VariantLimit DB table
+        # Try canonical name first, then try raw input (handles old names in DB)
         with SessionLocal() as db:
             row = (
                 db.query(VariantLimit)
                 .filter(VariantLimit.variant_name == variant_key)
                 .first()
             )
+            if not row:
+                # Try the original input in case DB stores old names
+                raw_key = variant.lower().strip()
+                if raw_key != variant_key:
+                    row = (
+                        db.query(VariantLimit)
+                        .filter(VariantLimit.variant_name == raw_key)
+                        .first()
+                    )
             if row:
                 limits = {
                     "monthly_tickets": row.monthly_tickets,

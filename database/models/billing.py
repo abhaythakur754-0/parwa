@@ -69,7 +69,9 @@ class OverageCharge(Base):
     tickets_over_limit = Column(Integer, nullable=False, default=0)
     charge_amount = Column(Numeric(10, 2), nullable=False, default=0)  # BC-002
     paddle_charge_id = Column(String(255))
-    status = Column(String(50), default="pending")
+    status = Column(String(50), default="pending")  # pending/charged/failed/retry_pending/pending_provider/skipped_below_minimum
+    retry_count = Column(Integer, default=0)
+    last_retry_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 

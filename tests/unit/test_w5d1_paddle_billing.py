@@ -433,7 +433,7 @@ class TestBillingExtendedModels:
         assert limits["team_members"] == 3
         assert limits["voice_slots"] == 0
         assert limits["kb_docs"] == 100
-        assert limits["price_monthly"] == Decimal("999.00")
+        assert limits["price"] == Decimal("999.00")
 
     def test_get_variant_limits_growth(self):
         """Test getting growth variant limits."""
@@ -444,7 +444,7 @@ class TestBillingExtendedModels:
         assert limits is not None
         assert limits["monthly_tickets"] == 5000
         assert limits["ai_agents"] == 3
-        assert limits["price_monthly"] == Decimal("2499.00")
+        assert limits["price"] == Decimal("2499.00")
 
     def test_get_variant_limits_high(self):
         """Test getting high variant limits."""
@@ -455,7 +455,7 @@ class TestBillingExtendedModels:
         assert limits is not None
         assert limits["monthly_tickets"] == 15000
         assert limits["ai_agents"] == 5
-        assert limits["price_monthly"] == Decimal("3999.00")
+        assert limits["price"] == Decimal("3999.00")
 
     def test_get_variant_limits_invalid(self):
         """Test getting invalid variant limits."""

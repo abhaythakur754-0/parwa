@@ -381,6 +381,44 @@ class PaddleClient:
 
     # ── Transaction Methods ───────────────────────────────────────────
 
+    async def create_checkout_transaction(
+        self,
+        customer_id: str,
+        price_id: str,
+        quantity: int = 1,
+        custom_data: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Create a Paddle checkout transaction for a new subscription.
+
+        API: POST /transactions
+
+        This is the correct flow for new customers without a saved payment
+        method. Paddle returns a transaction with a checkout URL that the
+        frontend redirects the customer to. After payment, Paddle sends a
+        webhook (transaction.completed) and the subscription is created
+        via the webhook handler.
+
+        Args:
+            customer_id: Paddle customer ID
+            price_id: Paddle price/variant ID
+            quantity: Number of seats/units
+            custom_data: Optional metadata to embed (e.g. company_id, variant)
+
+        Returns:
+            Paddle API response including transaction ID and checkout URL
+        """
+        data: Dict[str, Any] = {
+            "customer_id": customer_id,
+            "items": [{"price_id": price_id, "quantity": quantity}],
+            "billing_period": {
+                "starts_at": None,  # starts immediately after checkout
+            },
+        }
+        if custom_data:
+            data["custom_data"] = custom_data
+        return await self._request("POST", "/transactions", json=data)
+
     async def get_transaction(self, transaction_id: str) -> Dict[str, Any]:
         """
         Get transaction details by ID.
@@ -413,6 +451,45 @@ class PaddleClient:
             params["after"] = after
 
         return await self._request("GET", "/transactions", params=params)
+
+
+    async def create_transaction(
+        self,
+        customer_id: str,
+        price_id: str,
+        quantity: int = 1,
+        company_id: Optional[str] = None,
+        custom_data: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Create a one-time Paddle transaction (e.g. for overage charges).
+
+        API: POST /transactions
+
+        Args:
+            customer_id: Paddle customer ID
+            price_id: Paddle price ID for the item
+            quantity: Number of units (default: 1)
+            company_id: Optional company ID to embed in custom_data
+            custom_data: Optional additional custom_data dict
+
+        Returns:
+            Paddle API response with transaction details
+        """
+        data: Dict[str, Any] = {
+            "customer_id": customer_id,
+            "items": [{"price_id": price_id, "quantity": quantity}],
+        }
+
+        # Build custom_data with overage charge metadata
+        merged_custom: Dict[str, Any] = {"type": "overage_charge"}
+        if company_id:
+            merged_custom["company_id"] = company_id
+        if custom_data:
+            merged_custom.update(custom_data)
+        data["custom_data"] = merged_custom
+
+        return await self._request("POST", "/transactions", json=data)
 
     # ── Price Methods ────────────────────────────────────────────────
 

@@ -29,9 +29,15 @@ from app.clients.paddle_client import (
 from app.schemas.billing import (
     SubscriptionInfo,
     SubscriptionStatus,
+    VariantLimits,
+)
+from app.core.pricing_config import (
     VariantType,
     VARIANT_LIMITS,
-    VariantLimits,
+    VARIANT_PRICES,
+    VARIANT_TIER_ORDER,
+    get_variant_price as _get_price_from_config,
+    normalize_variant_name,
 )
 from database.base import SessionLocal
 from database.models.billing import Subscription, CancellationRequest, Invoice
@@ -66,6 +72,11 @@ class InvalidStatusTransitionError(SubscriptionError):
     pass
 
 
+class PaddleOperationError(SubscriptionError):
+    """Paddle operation failed — caller must handle this."""
+    pass
+
+
 class SubscriptionService:
     """
     Subscription lifecycle management service.
@@ -86,6 +97,7 @@ class SubscriptionService:
         SubscriptionStatus.PAUSED,
         SubscriptionStatus.CANCELED,
         SubscriptionStatus.PAYMENT_FAILED,
+        SubscriptionStatus.PENDING,
     }
 
     # Valid variant names
@@ -111,37 +123,94 @@ class SubscriptionService:
         return variant_lower
 
     def _get_variant_price(self, variant: str) -> Decimal:
-        """Get monthly price for a variant."""
-        variant_type = VariantType(variant)
-        return VARIANT_LIMITS[variant_type]["price"]
+        """Get monthly price for a variant — delegates to pricing_config."""
+        return _get_price_from_config(variant, billing_cycle="monthly")
+
+    # ── Bug 3 fix: Ensure Paddle customer exists before any Paddle call ──
+
+    async def _ensure_paddle_customer(
+        self, company: Company, db: Session
+    ) -> str:
+        """
+        Ensure the company has a Paddle customer ID.
+        Create one in Paddle if missing, and persist it on the company.
+
+        Returns:
+            The paddle_customer_id string.
+        """
+        if company.paddle_customer_id:
+            return company.paddle_customer_id
+
+        paddle = await self._get_paddle()
+
+        # Determine email/name for the Paddle customer record.
+        # Fall back to company name + placeholder email if needed.
+        customer_email = getattr(company, "billing_email", None) or getattr(company, "email", None)
+        if not customer_email:
+            # Use a deterministic placeholder so we don't block signup
+            customer_email = f"billing+{company.id}@parwa.placeholder"
+
+        customer_name = company.name or f"Company {company.id[:8]}"
+
+        try:
+            result = await paddle.create_customer(
+                email=customer_email,
+                name=customer_name,
+                custom_data={"company_id": company.id},
+            )
+            paddle_customer_id = result.get("data", {}).get("id")
+            if not paddle_customer_id:
+                raise PaddleOperationError(
+                    "Paddle create_customer returned no customer ID"
+                )
+            company.paddle_customer_id = paddle_customer_id
+            db.commit()
+            logger.info(
+                "paddle_customer_created company_id=%s paddle_customer_id=%s",
+                company.id,
+                paddle_customer_id,
+            )
+            return paddle_customer_id
+        except PaddleError as e:
+            raise PaddleOperationError(
+                f"Failed to create Paddle customer for company {company.id}: {e}"
+            ) from e
 
     async def create_subscription(
         self,
         company_id: UUID,
         variant: str,
         payment_method_id: Optional[str] = None,
-    ) -> SubscriptionInfo:
+    ) -> Dict[str, Any]:
         """
         Create a new subscription for a company.
 
-        Steps:
-        1. Validate variant
-        2. Check company doesn't already have active subscription
-        3. Create subscription in Paddle (if payment_method_id provided)
-        4. Create subscription record in database
-        5. Return subscription info
+        Correct Paddle Billing flow:
+        ─ New customers (no payment method):
+          1. Ensure Paddle customer exists
+          2. Create a Paddle checkout transaction
+          3. Return checkout URL + create local subscription as PENDING
+          4. Frontend redirects to Paddle checkout
+          5. Paddle webhook confirms payment → webhook handler activates subscription
+
+        ─ Existing customers (with saved payment method):
+          1. Ensure Paddle customer exists
+          2. Create subscription directly in Paddle
+          3. If Paddle succeeds, create local subscription as ACTIVE
+          4. If Paddle fails, do NOT create the subscription (Bug 1 fix)
 
         Args:
             company_id: Company UUID
             variant: Subscription variant (starter/growth/high)
-            payment_method_id: Paddle payment method ID (optional for trials)
+            payment_method_id: Paddle payment method ID (optional for new customers)
 
         Returns:
-            SubscriptionInfo with created subscription details
+            Dict with subscription info and optional checkout_url
 
         Raises:
             SubscriptionAlreadyExistsError: If company has active subscription
             InvalidVariantError: If variant is invalid
+            PaddleOperationError: If a Paddle call fails
         """
         variant = self._validate_variant(variant)
 
@@ -149,12 +218,15 @@ class SubscriptionService:
             # Check for existing subscription with row lock (GAP 1 fix)
             existing = db.query(Subscription).filter(
                 Subscription.company_id == str(company_id),
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
+                Subscription.status.in_([
+                    SubscriptionStatus.ACTIVE.value,
+                    SubscriptionStatus.PENDING.value,
+                ]),
             ).with_for_update().first()
 
             if existing:
                 raise SubscriptionAlreadyExistsError(
-                    f"Company {company_id} already has an active subscription"
+                    f"Company {company_id} already has an active or pending subscription"
                 )
 
             # Get company for paddle_customer_id
@@ -165,19 +237,28 @@ class SubscriptionService:
             if not company:
                 raise SubscriptionError(f"Company {company_id} not found")
 
-            # Create in Paddle if we have customer and payment method
-            paddle_subscription_id = None
-            if company.paddle_customer_id and payment_method_id:
+            # ── Bug 3 fix: Always ensure a Paddle customer exists ──
+            paddle_customer_id = await self._ensure_paddle_customer(company, db)
+
+            # Calculate billing period
+            now = datetime.now(timezone.utc)
+            period_end = self._calculate_period_end(now)
+            price_id = self._get_paddle_price_id(variant)
+
+            # ── Branch: existing customer with payment method vs new checkout ──
+            if payment_method_id:
+                # ── Existing customer: create subscription directly in Paddle ──
                 try:
                     paddle = await self._get_paddle()
-                    # Map variant to Paddle price ID
-                    price_id = self._get_paddle_price_id(variant)
-
                     result = await paddle.create_subscription(
-                        customer_id=company.paddle_customer_id,
+                        customer_id=paddle_customer_id,
                         price_id=price_id,
                     )
                     paddle_subscription_id = result.get("data", {}).get("id")
+                    if not paddle_subscription_id:
+                        raise PaddleOperationError(
+                            "Paddle create_subscription returned no subscription ID"
+                        )
                     logger.info(
                         "subscription_created_paddle "
                         "company_id=%s variant=%s paddle_sub_id=%s",
@@ -186,46 +267,111 @@ class SubscriptionService:
                         paddle_subscription_id,
                     )
                 except PaddleError as e:
+                    # ── Bug 1 fix: If Paddle fails, do NOT create the subscription ──
                     logger.error(
                         "subscription_paddle_failed company_id=%s error=%s",
                         company_id,
                         str(e),
                     )
-                    # Continue without Paddle subscription in test/dev
+                    raise PaddleOperationError(
+                        f"Failed to create subscription in Paddle: {e}"
+                    ) from e
 
-            # Calculate billing period
-            now = datetime.now(timezone.utc)
-            period_end = self._calculate_period_end(now)
+                # Paddle succeeded — create ACTIVE subscription locally
+                subscription = Subscription(
+                    company_id=str(company_id),
+                    tier=variant,
+                    status=SubscriptionStatus.ACTIVE.value,
+                    current_period_start=now,
+                    current_period_end=period_end,
+                    paddle_subscription_id=paddle_subscription_id,
+                )
 
-            # Create subscription record
-            subscription = Subscription(
-                company_id=str(company_id),
-                tier=variant,
-                status=SubscriptionStatus.ACTIVE.value,
-                current_period_start=now,
-                current_period_end=period_end,
-                paddle_subscription_id=paddle_subscription_id,
-            )
+                db.add(subscription)
 
-            db.add(subscription)
-
-            # Update company subscription info
-            company.subscription_tier = variant
-            company.subscription_status = SubscriptionStatus.ACTIVE.value
-            if paddle_subscription_id:
+                # Update company subscription info
+                company.subscription_tier = variant
+                company.subscription_status = SubscriptionStatus.ACTIVE.value
                 company.paddle_subscription_id = paddle_subscription_id
 
-            db.commit()
-            db.refresh(subscription)
+                db.commit()
+                db.refresh(subscription)
 
-            logger.info(
-                "subscription_created company_id=%s variant=%s sub_id=%s",
-                company_id,
-                variant,
-                subscription.id,
-            )
+                logger.info(
+                    "subscription_created company_id=%s variant=%s sub_id=%s",
+                    company_id,
+                    variant,
+                    subscription.id,
+                )
 
-            return self._to_subscription_info(subscription)
+                return {
+                    "subscription": self._to_subscription_info(subscription),
+                    "checkout_url": None,
+                }
+
+            else:
+                # ── New customer: create Paddle checkout transaction ──
+                # Bug 2 fix: Return checkout URL; subscription stays PENDING
+                try:
+                    paddle = await self._get_paddle()
+                    txn_result = await paddle.create_checkout_transaction(
+                        customer_id=paddle_customer_id,
+                        price_id=price_id,
+                        custom_data={
+                            "company_id": str(company_id),
+                            "variant": variant,
+                        },
+                    )
+                except PaddleError as e:
+                    logger.error(
+                        "checkout_paddle_failed company_id=%s error=%s",
+                        company_id,
+                        str(e),
+                    )
+                    raise PaddleOperationError(
+                        f"Failed to create Paddle checkout transaction: {e}"
+                    ) from e
+
+                checkout_url = txn_result.get("data", {}).get("checkout", {}).get("url")
+                paddle_transaction_id = txn_result.get("data", {}).get("id")
+
+                # Create subscription as PENDING — webhook will activate it
+                subscription = Subscription(
+                    company_id=str(company_id),
+                    tier=variant,
+                    status=SubscriptionStatus.PENDING.value,
+                    current_period_start=now,
+                    current_period_end=period_end,
+                    paddle_subscription_id=None,
+                )
+                # Store the transaction id in metadata so webhook can correlate
+                import json as _json
+                subscription.metadata_json = _json.dumps({
+                    "paddle_transaction_id": paddle_transaction_id,
+                    "checkout_url": checkout_url,
+                    "requested_variant": variant,
+                })
+
+                db.add(subscription)
+
+                # Update company status to pending
+                company.subscription_status = SubscriptionStatus.PENDING.value
+
+                db.commit()
+                db.refresh(subscription)
+
+                logger.info(
+                    "subscription_pending_checkout company_id=%s variant=%s sub_id=%s txn_id=%s",
+                    company_id,
+                    variant,
+                    subscription.id,
+                    paddle_transaction_id,
+                )
+
+                return {
+                    "subscription": self._to_subscription_info(subscription),
+                    "checkout_url": checkout_url,
+                }
 
     async def get_subscription(self, company_id: UUID) -> Optional[SubscriptionInfo]:
         """
@@ -272,7 +418,8 @@ class SubscriptionService:
         1. Calculate unused amount from current variant
         2. Calculate prorated charge for new variant
         3. Apply credit and charge
-        4. Update subscription immediately
+        4. Call Paddle FIRST (Bug 4 fix)
+        5. THEN update local DB
 
         Args:
             company_id: Company UUID
@@ -284,6 +431,7 @@ class SubscriptionService:
         Raises:
             SubscriptionNotFoundError: No active subscription
             InvalidVariantError: Invalid or non-upgrade variant
+            PaddleOperationError: If Paddle update fails
         """
         new_variant = self._validate_variant(new_variant)
 
@@ -324,7 +472,34 @@ class SubscriptionService:
                 billing_cycle_end=subscription.current_period_end,
             )
 
-            # Update subscription
+            # ── Bug 4 fix: Call Paddle FIRST, then update local DB ──
+            # If Paddle fails, we raise before committing any local changes.
+            if subscription.paddle_subscription_id:
+                try:
+                    paddle = await self._get_paddle()
+                    price_id = self._get_paddle_price_id(new_variant)
+                    await paddle.update_subscription(
+                        subscription.paddle_subscription_id,
+                        items=[{"price_id": price_id}],
+                    )
+                    logger.info(
+                        "subscription_upgraded_paddle "
+                        "company_id=%s old=%s new=%s",
+                        company_id,
+                        old_variant,
+                        new_variant,
+                    )
+                except PaddleError as e:
+                    logger.error(
+                        "subscription_paddle_upgrade_failed company_id=%s error=%s",
+                        company_id,
+                        str(e),
+                    )
+                    raise PaddleOperationError(
+                        f"Failed to upgrade subscription in Paddle: {e}"
+                    ) from e
+
+            # Paddle succeeded (or no Paddle subscription) — now update local DB
             subscription.tier = new_variant
 
             # Update company
@@ -351,27 +526,6 @@ class SubscriptionService:
                 billing_cycle_end=proration["billing_cycle_end"],
             )
             db.add(audit)
-
-            # Update Paddle if we have subscription ID
-            if subscription.paddle_subscription_id:
-                try:
-                    paddle = await self._get_paddle()
-                    price_id = self._get_paddle_price_id(new_variant)
-                    await paddle.update_subscription(
-                        subscription.paddle_subscription_id,
-                        items=[{"price_id": price_id}],
-                    )
-                    logger.info(
-                        "subscription_upgraded_paddle "
-                        "company_id=%s old=%s new=%s",
-                        company_id,
-                        old_variant,
-                        new_variant,
-                    )
-                except PaddleError as e:
-                    logger.warning(
-                        "subscription_paddle_update_failed error=%s", str(e)
-                    )
 
             db.commit()
             db.refresh(subscription)
@@ -403,6 +557,9 @@ class SubscriptionService:
         - Subscription continues at current tier until period end
         - New tier takes effect at next billing date
 
+        Bug 6 fix: Use scheduled_change_type / scheduled_change_variant
+        instead of reusing cancel_at_period_end for downgrades.
+
         Args:
             company_id: Company UUID
             new_variant: Target variant (must be lower tier)
@@ -413,6 +570,7 @@ class SubscriptionService:
         Raises:
             SubscriptionNotFoundError: No active subscription
             InvalidVariantError: Invalid or non-downgrade variant
+            PaddleOperationError: If Paddle update fails
         """
         new_variant = self._validate_variant(new_variant)
 
@@ -444,33 +602,53 @@ class SubscriptionService:
                     "message": "Already on this variant",
                 }
 
-            # Schedule downgrade at period end
-            # Store pending variant change on the subscription record (H2 fix)
+            # ── Bug 6 fix: Use scheduled_change approach, NOT cancel_at_period_end ──
+            # Store the pending downgrade distinctly from a cancellation.
+            subscription.scheduled_change_type = "downgrade"
+            subscription.scheduled_change_variant = new_variant
+            # Do NOT set cancel_at_period_end for downgrades — that flag
+            # is exclusively for cancellations now.
 
-            # Persist the pending downgrade on the subscription model.
-            # pending_downgrade_variant: the tier to switch to at period end.
-            # TODO(GAP-H2): Add a `pending_downgrade_variant` column to the
-            # Subscription DB model (String, nullable) if it doesn't exist yet.
-            # For now we use cancel_at_period_end as a signal flag and store
-            # the target variant as a JSON-serialisable attribute.
-            subscription.cancel_at_period_end = True
-            now_ts = datetime.now(timezone.utc)
-            if hasattr(subscription, "pending_downgrade_variant"):
-                subscription.pending_downgrade_variant = new_variant
-            if hasattr(subscription, "pending_downgrade_at"):
-                subscription.pending_downgrade_at = now_ts
-            else:
-                # Store in metadata_json if column doesn't exist yet
-                import json as _json
-                meta = {}
-                if subscription.metadata_json:
-                    try:
-                        meta = _json.loads(subscription.metadata_json)
-                    except (TypeError, ValueError):
-                        pass
-                meta["pending_downgrade_variant"] = new_variant
-                meta["pending_downgrade_at"] = now_ts.isoformat()
-                subscription.metadata_json = _json.dumps(meta)
+            # Also store in metadata_json for backward compatibility and
+            # for consumers that read the JSON blob directly.
+            import json as _json
+            meta = {}
+            if subscription.metadata_json:
+                try:
+                    meta = _json.loads(subscription.metadata_json)
+                except (TypeError, ValueError):
+                    pass
+            meta["scheduled_change_type"] = "downgrade"
+            meta["scheduled_change_variant"] = new_variant
+            subscription.metadata_json = _json.dumps(meta)
+
+            # Schedule the price change in Paddle (effective next period)
+            if subscription.paddle_subscription_id:
+                try:
+                    paddle = await self._get_paddle()
+                    price_id = self._get_paddle_price_id(new_variant)
+                    await paddle.update_subscription(
+                        subscription.paddle_subscription_id,
+                        items=[{"price_id": price_id}],
+                        effective_at=subscription.current_period_end.isoformat()
+                        if subscription.current_period_end else None,
+                    )
+                    logger.info(
+                        "subscription_downgrade_scheduled_paddle "
+                        "company_id=%s old=%s new=%s",
+                        company_id,
+                        old_variant,
+                        new_variant,
+                    )
+                except PaddleError as e:
+                    logger.error(
+                        "subscription_paddle_downgrade_failed company_id=%s error=%s",
+                        company_id,
+                        str(e),
+                    )
+                    raise PaddleOperationError(
+                        f"Failed to schedule downgrade in Paddle: {e}"
+                    ) from e
 
             db.commit()
             db.refresh(subscription)
@@ -487,6 +665,7 @@ class SubscriptionService:
             return {
                 "subscription": self._to_subscription_info(subscription),
                 "scheduled_change": {
+                    "change_type": "downgrade",
                     "current_variant": old_variant,
                     "new_variant": new_variant,
                     "effective_date": subscription.current_period_end,
@@ -511,17 +690,23 @@ class SubscriptionService:
         - Default: Access until end of current billing period
         - effective_immediately: Stop now (no refund)
 
+        Bug 5 fix: If Paddle cancel fails, raise an error instead of
+        silently continuing.
+
+        Bug 7 fix: user_id is nullable — don't fall back to company_id.
+
         Args:
             company_id: Company UUID
             reason: Optional cancellation reason
             effective_immediately: If True, cancel now; otherwise at period end
-            user_id: User who initiated cancellation
+            user_id: User who initiated cancellation (nullable)
 
         Returns:
             Dict with cancellation details
 
         Raises:
             SubscriptionNotFoundError: No active subscription
+            PaddleOperationError: If Paddle cancellation fails
         """
         with SessionLocal() as db:
             # GAP 1 fix: Use row-level lock to prevent race conditions
@@ -542,6 +727,9 @@ class SubscriptionService:
                 # Immediate cancellation
                 subscription.status = SubscriptionStatus.CANCELED.value
                 subscription.cancel_at_period_end = False
+                # Clear any scheduled change (downgrade) since we're canceling
+                subscription.scheduled_change_type = None
+                subscription.scheduled_change_variant = None
 
                 # Update company status
                 company = db.query(Company).filter(
@@ -560,12 +748,20 @@ class SubscriptionService:
                             reason=reason,
                         )
                     except PaddleError as e:
-                        logger.warning(
-                            "subscription_paddle_cancel_failed error=%s", str(e)
+                        # ── Bug 5 fix: Raise instead of silently swallowing ──
+                        logger.error(
+                            "subscription_paddle_cancel_failed company_id=%s error=%s",
+                            company_id,
+                            str(e),
                         )
+                        raise PaddleOperationError(
+                            f"Failed to cancel subscription in Paddle: {e}"
+                        ) from e
             else:
                 # Cancel at period end (Netflix style)
                 subscription.cancel_at_period_end = True
+                subscription.scheduled_change_type = "cancel"
+                subscription.scheduled_change_variant = None
                 # Status remains active until period end
 
                 # Schedule cancellation in Paddle
@@ -578,14 +774,20 @@ class SubscriptionService:
                             reason=reason,
                         )
                     except PaddleError as e:
-                        logger.warning(
-                            "subscription_paddle_cancel_failed error=%s", str(e)
+                        # ── Bug 5 fix: Raise instead of silently swallowing ──
+                        logger.error(
+                            "subscription_paddle_cancel_failed company_id=%s error=%s",
+                            company_id,
+                            str(e),
                         )
+                        raise PaddleOperationError(
+                            f"Failed to schedule cancellation in Paddle: {e}"
+                        ) from e
 
-            # Create cancellation request record
+            # ── Bug 7 fix: user_id is nullable — no company_id fallback ──
             cancellation = CancellationRequest(
                 company_id=str(company_id),
-                user_id=str(user_id) if user_id else str(company_id),
+                user_id=str(user_id) if user_id else None,
                 reason=reason or "",
                 status="completed" if effective_immediately else "scheduled",
             )
@@ -628,7 +830,10 @@ class SubscriptionService:
         Reactivate a canceled subscription (before period end).
 
         Only works for subscriptions that are canceled but still active
-        (cancel_at_period_end = True).
+        (cancel_at_period_end = True or scheduled_change_type = "cancel").
+
+        Bug 5 fix: If Paddle resume fails, raise an error instead of
+        silently continuing.
 
         Args:
             company_id: Company UUID
@@ -639,13 +844,19 @@ class SubscriptionService:
         Raises:
             SubscriptionNotFoundError: No subscription to reactivate
             InvalidStatusTransitionError: Cannot reactivate this subscription
+            PaddleOperationError: If Paddle resume fails
         """
         with SessionLocal() as db:
             # GAP 1 fix: Use row-level lock to prevent race conditions
+            # Match subscriptions that are pending cancellation — either via
+            # cancel_at_period_end flag OR scheduled_change_type == "cancel"
             subscription = db.query(Subscription).filter(
                 Subscription.company_id == str(company_id),
-                Subscription.cancel_at_period_end == True,
                 Subscription.status == SubscriptionStatus.ACTIVE.value,
+                or_(
+                    Subscription.cancel_at_period_end == True,
+                    Subscription.scheduled_change_type == "cancel",
+                ),
             ).with_for_update().first()
 
             if not subscription:
@@ -653,8 +864,10 @@ class SubscriptionService:
                     "No subscription pending cancellation to reactivate"
                 )
 
-            # Clear cancellation flag
+            # Clear cancellation / scheduled-change flags
             subscription.cancel_at_period_end = False
+            subscription.scheduled_change_type = None
+            subscription.scheduled_change_variant = None
 
             # Resume in Paddle
             if subscription.paddle_subscription_id:
@@ -664,9 +877,15 @@ class SubscriptionService:
                         subscription.paddle_subscription_id
                     )
                 except PaddleError as e:
-                    logger.warning(
-                        "subscription_paddle_resume_failed error=%s", str(e)
+                    # ── Bug 5 fix: Raise instead of silently swallowing ──
+                    logger.error(
+                        "subscription_paddle_resume_failed company_id=%s error=%s",
+                        company_id,
+                        str(e),
                     )
+                    raise PaddleOperationError(
+                        f"Failed to reactivate subscription in Paddle: {e}"
+                    ) from e
 
             db.commit()
             db.refresh(subscription)
@@ -679,15 +898,26 @@ class SubscriptionService:
 
     def _is_upgrade(self, old_variant: str, new_variant: str) -> bool:
         """Check if new_variant is an upgrade from old_variant."""
-        tier_order = {"starter": 1, "growth": 2, "high": 3}
-        return tier_order.get(new_variant, 0) > tier_order.get(old_variant, 0)
+        try:
+            old_vt = VariantType(normalize_variant_name(old_variant))
+            new_vt = VariantType(normalize_variant_name(new_variant))
+            return VARIANT_TIER_ORDER[new_vt] > VARIANT_TIER_ORDER[old_vt]
+        except ValueError:
+            return False
 
     def _calculate_period_end(self, start: datetime) -> datetime:
-        """Calculate billing period end (monthly)."""
-        # Add one month to start
-        if start.month == 12:
-            return start.replace(year=start.year + 1, month=1)
-        return start.replace(month=start.month + 1)
+        """Calculate the end of a billing period (1 month from start)."""
+        import calendar
+
+        month = start.month + 1
+        year = start.year
+        if month > 12:
+            month = 1
+            year += 1
+        # Get last day of target month to handle 31st-day edge cases
+        last_day = calendar.monthrange(year, month)[1]
+        day = min(start.day, last_day)
+        return start.replace(year=year, month=month, day=day)
 
     def _calculate_proration(
         self,
@@ -768,8 +998,9 @@ class SubscriptionService:
 
     def _to_subscription_info(self, subscription: Subscription) -> SubscriptionInfo:
         """Convert Subscription model to SubscriptionInfo schema."""
-        variant = VariantType(subscription.tier)
+        variant = VariantType(normalize_variant_name(subscription.tier))
         limits_data = VARIANT_LIMITS.get(variant)
+        price = VARIANT_PRICES.get(variant)
 
         limits = None
         if limits_data:
@@ -780,8 +1011,18 @@ class SubscriptionService:
                 team_members=limits_data["team_members"],
                 voice_slots=limits_data["voice_slots"],
                 kb_docs=limits_data["kb_docs"],
-                price=limits_data["price"],
+                price=price,
             )
+
+        # Extract checkout_url from metadata for pending subscriptions
+        checkout_url = None
+        if subscription.metadata_json:
+            try:
+                import json as _json
+                meta = _json.loads(subscription.metadata_json)
+                checkout_url = meta.get("checkout_url")
+            except (TypeError, ValueError):
+                pass
 
         return SubscriptionInfo(
             id=UUID(subscription.id),
@@ -793,6 +1034,9 @@ class SubscriptionService:
             cancel_at_period_end=subscription.cancel_at_period_end or False,
             paddle_subscription_id=subscription.paddle_subscription_id,
             created_at=subscription.created_at,
+            scheduled_change_type=getattr(subscription, "scheduled_change_type", None),
+            scheduled_change_variant=getattr(subscription, "scheduled_change_variant", None),
+            checkout_url=checkout_url,
             limits=limits,
         )
 

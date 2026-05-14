@@ -13,18 +13,22 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.core.pricing_config import (
+    VariantType,
+    VARIANT_LIMITS as _PC_VARIANT_LIMITS,
+    VARIANT_PRICES,
+)
+
 
 # ── Enums ────────────────────────────────────────────────────────────────
 
-class VariantType(str, Enum):
-    """PARWA subscription variants."""
-    STARTER = "starter"
-    GROWTH = "growth"
-    HIGH = "high"
+# VariantType is imported from app.core.pricing_config — the single
+# source of truth for all variant/price data.  Do NOT redefine it here.
 
 
 class SubscriptionStatus(str, Enum):
     """Subscription status values."""
+    PENDING = "pending"
     ACTIVE = "active"
     PAST_DUE = "past_due"
     PAUSED = "paused"
@@ -51,31 +55,12 @@ class PaymentMethodType(str, Enum):
 
 # ── Variant Limits ────────────────────────────────────────────────────────
 
+# VARIANT_LIMITS is built from pricing_config — the single source of truth.
+# pricing_config stores limits and prices separately to prevent accidental
+# misuse; here we combine them for backward-compat with VariantLimits schema.
 VARIANT_LIMITS = {
-    VariantType.STARTER: {
-        "monthly_tickets": 2000,
-        "ai_agents": 1,
-        "team_members": 3,
-        "voice_slots": 0,
-        "kb_docs": 100,
-        "price": Decimal("999.00"),
-    },
-    VariantType.GROWTH: {
-        "monthly_tickets": 5000,
-        "ai_agents": 3,
-        "team_members": 10,
-        "voice_slots": 2,
-        "kb_docs": 500,
-        "price": Decimal("2499.00"),
-    },
-    VariantType.HIGH: {
-        "monthly_tickets": 15000,
-        "ai_agents": 5,
-        "team_members": 25,
-        "voice_slots": 5,
-        "kb_docs": 2000,
-        "price": Decimal("3999.00"),
-    },
+    vt: {**_PC_VARIANT_LIMITS[vt], "price": VARIANT_PRICES[vt]}
+    for vt in VariantType
 }
 
 
@@ -125,6 +110,13 @@ class SubscriptionInfo(BaseModel):
     cancel_at_period_end: bool = False
     paddle_subscription_id: Optional[str] = None
     created_at: datetime
+
+    # Scheduled change fields (downgrade or cancel at period end)
+    scheduled_change_type: Optional[str] = None  # "downgrade" or "cancel"
+    scheduled_change_variant: Optional[str] = None  # target variant for downgrade
+
+    # Checkout URL for pending subscriptions (new customers)
+    checkout_url: Optional[str] = None
 
     # Computed limits for this variant
     limits: Optional[VariantLimits] = None

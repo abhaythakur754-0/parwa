@@ -138,6 +138,87 @@ class Settings(BaseSettings):
     # Format: JSON string {"demo_pack": "pri_xxx", "mini_parwa": "pri_xxx", ...}
     PADDLE_PRICE_IDS: str = ""  # Optional: JSON override for all price IDs
 
+    @field_validator("PADDLE_CLIENT_TOKEN")
+    @classmethod
+    def validate_paddle_client_token(cls, v: str) -> str:
+        if not v:
+            if os.environ.get("ENVIRONMENT") == "production":
+                raise ValueError(
+                    "PADDLE_CLIENT_TOKEN must be set in production. "
+                    "Set the value from your Paddle dashboard via the PADDLE_CLIENT_TOKEN env var."
+                )
+            warnings.warn(
+                "PADDLE_CLIENT_TOKEN is empty — Paddle client-side checkout will not work. "
+                "Set PADDLE_CLIENT_TOKEN in production!",
+                stacklevel=2,
+            )
+        return v
+
+    @field_validator("PADDLE_API_KEY")
+    @classmethod
+    def validate_paddle_api_key(cls, v: str) -> str:
+        if not v:
+            if os.environ.get("ENVIRONMENT") == "production":
+                raise ValueError(
+                    "PADDLE_API_KEY must be set in production. "
+                    "Set the value from your Paddle dashboard via the PADDLE_API_KEY env var."
+                )
+            warnings.warn(
+                "PADDLE_API_KEY is empty — Paddle server-side API calls will not work. "
+                "Set PADDLE_API_KEY in production!",
+                stacklevel=2,
+            )
+        return v
+
+    @field_validator("PADDLE_WEBHOOK_SECRET")
+    @classmethod
+    def validate_paddle_webhook_secret(cls, v: str) -> str:
+        if not v:
+            if os.environ.get("ENVIRONMENT") == "production":
+                raise ValueError(
+                    "PADDLE_WEBHOOK_SECRET must be set in production. "
+                    "Set the value from your Paddle dashboard via the PADDLE_WEBHOOK_SECRET env var."
+                )
+            warnings.warn(
+                "PADDLE_WEBHOOK_SECRET is empty — Paddle webhook signatures cannot be verified. "
+                "Set PADDLE_WEBHOOK_SECRET in production!",
+                stacklevel=2,
+            )
+        return v
+
+    @field_validator("PADDLE_PRICE_IDS")
+    @classmethod
+    def validate_paddle_price_ids(cls, v: str) -> str:
+        if not v:
+            if os.environ.get("ENVIRONMENT") == "production":
+                raise ValueError(
+                    "PADDLE_PRICE_IDS must be set in production. "
+                    "Set a JSON string mapping product keys to Paddle price IDs "
+                    "via the PADDLE_PRICE_IDS env var."
+                )
+            warnings.warn(
+                "PADDLE_PRICE_IDS is empty — Paddle product price mapping is not configured. "
+                "Set PADDLE_PRICE_IDS in production!",
+                stacklevel=2,
+            )
+        return v
+
+    @field_validator("NEXT_PUBLIC_PADDLE_KEY")
+    @classmethod
+    def validate_next_public_paddle_key(cls, v: str) -> str:
+        if not v:
+            if os.environ.get("ENVIRONMENT") == "production":
+                raise ValueError(
+                    "NEXT_PUBLIC_PADDLE_KEY must be set in production. "
+                    "Set the public Paddle key for the frontend via the NEXT_PUBLIC_PADDLE_KEY env var."
+                )
+            warnings.warn(
+                "NEXT_PUBLIC_PADDLE_KEY is empty — Paddle frontend integration will not work. "
+                "Set NEXT_PUBLIC_PADDLE_KEY in production!",
+                stacklevel=2,
+            )
+        return v
+
     # ── Shopify (F-131) ─────────────────────────────────────────
     SHOPIFY_WEBHOOK_SECRET: str = ""
 

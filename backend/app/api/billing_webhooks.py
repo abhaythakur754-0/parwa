@@ -12,13 +12,11 @@ BC-003: All responses under 3 seconds
 BC-011: Webhook signature verification
 """
 
-import hashlib
-import hmac
 import json
 import logging
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 from uuid import UUID
 
 # H-08: Maximum age for webhook events (5 minutes) — prevents replay attacks
@@ -29,12 +27,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_platform_admin
+from app.clients.paddle_client import get_paddle_client
 from app.config import get_settings
 from app.services.payment_failure_service import (
     get_payment_failure_service,
     PaymentFailureError,
 )
-from database.base import get_db
+from database.base import SessionLocal, get_db
 from database.models.core import User, Company
 
 logger = logging.getLogger("parwa.api.billing_webhooks")
@@ -86,29 +85,9 @@ class BillingStatusResponse(BaseModel):
 
 
 # ── Webhook Signature Verification ──────────────────────────────────────
-
-def verify_paddle_signature(
-    payload: bytes,
-    signature: str,
-    secret: str,
-) -> bool:
-    """
-    Verify Paddle webhook signature using HMAC-SHA256.
-
-    BC-011: Cryptographic verification of webhook authenticity.
-    """
-    if not secret:
-        logger.warning("paddle_webhook_no_secret_configured")
-        return False
-
-    expected = hmac.new(
-        secret.encode(),
-        payload,
-        hashlib.sha256,
-    ).hexdigest()
-
-    # Constant-time comparison to prevent timing attacks
-    return hmac.compare_digest(signature, expected)
+# BC-011: Signature verification is delegated to PaddleClient.verify_webhook_signature()
+# which implements the correct Paddle Billing format (ts=;h1=) rather than the
+# Paddle Classic HMAC-SHA256(secret, raw_body) format that was previously used here.
 
 
 def extract_company_id_from_event(data: Dict[str, Any]) -> Optional[str]:
@@ -166,13 +145,13 @@ async def handle_paddle_webhook(
     # Get raw body for signature verification
     body = await request.body()
 
-    # Verify signature
-    signature = request.headers.get("paddle_signature", "")
+    # Verify signature using PaddleClient (correct Paddle Billing ts=;h1= format)
+    # Paddle sends the header as "Paddle-Signature" (hyphen), not "paddle_signature" (underscore)
+    signature = request.headers.get("Paddle-Signature", "")
     webhook_secret = getattr(settings, "PADDLE_WEBHOOK_SECRET", "")
 
     # H-07/M-36 FIX: ALWAYS reject webhooks when no secret is configured.
     # No environment bypasses — fail closed in ALL environments.
-    # Tests should mock verify_paddle_signature, not skip verification.
     if not webhook_secret:
         logger.error(
             "paddle_webhook_no_secret_configured_rejected",
@@ -182,7 +161,10 @@ async def handle_paddle_webhook(
             status_code=500,
             detail="Webhook not configured — PADDLE_WEBHOOK_SECRET is required",
         )
-    if not verify_paddle_signature(body, signature, webhook_secret):
+
+    # Use PaddleClient.verify_webhook_signature() for correct Paddle Billing verification
+    paddle_client = get_paddle_client()
+    if not paddle_client.verify_webhook_signature(body, signature):
         logger.warning(
             "paddle_webhook_invalid_signature signature=%s",
             signature[:20] + "..." if signature else "missing",
@@ -291,22 +273,24 @@ async def handle_paddle_webhook(
         )
         return {"status": "duplicate", "message": "Event already processed"}
 
-    # Route to specific handlers
-    if event_type == "payment.failed":
-        # Trigger immediate service stop
+    # Route to specific handlers via event mapping
+    handler = EVENT_HANDLER_MAP.get(event_type)
+    if handler:
         background_tasks.add_task(
-            _process_payment_failed,
+            handler,
             company_id=company_id,
             event_id=event_id,
+            event_type=event_type,
             data=data,
         )
-    elif event_type == "payment.succeeded":
-        # Check if this resolves a previous failure
-        background_tasks.add_task(
-            _process_payment_succeeded,
-            company_id=company_id,
-            event_id=event_id,
-            data=data,
+    else:
+        # Unrecognised event types are still accepted (200) so Paddle
+        # doesn't retry, but we log them for observability.
+        logger.info(
+            "paddle_webhook_unhandled_event event_type=%s event_id=%s company_id=%s",
+            event_type,
+            event_id,
+            company_id,
         )
 
     return {"status": "accepted", "event_id": event_id}
@@ -438,6 +422,7 @@ async def get_billing_status(
 async def _process_payment_failed(
     company_id: str,
     event_id: str,
+    event_type: str,
     data: Dict[str, Any],
 ):
     """Process payment failed event in background."""
@@ -493,6 +478,7 @@ async def _process_payment_failed(
 async def _process_payment_succeeded(
     company_id: str,
     event_id: str,
+    event_type: str,
     data: Dict[str, Any],
 ):
     """Process payment succeeded event in background."""
@@ -528,3 +514,192 @@ async def _process_payment_succeeded(
             event_id,
             str(e)[:200],
         )
+
+
+async def _process_subscription_event(
+    company_id: str,
+    event_id: str,
+    event_type: str,
+    data: Dict[str, Any],
+):
+    """Process subscription lifecycle events (created, updated, activated)."""
+    try:
+        subscription_id = data.get("id", data.get("subscription_id", event_id))
+        status = data.get("status", "unknown")
+
+        logger.info(
+            "subscription_event_processed company_id=%s event_type=%s event_id=%s "
+            "subscription_id=%s status=%s",
+            company_id,
+            event_type,
+            event_id,
+            subscription_id,
+            status,
+        )
+
+        # Update local subscription record if we have a matching one
+        with SessionLocal() as db:
+            from database.models.billing import Subscription
+            sub = db.query(Subscription).filter(
+                Subscription.paddle_subscription_id == subscription_id,
+            ).first()
+            if sub and status != sub.status:
+                sub.status = status
+                db.commit()
+                logger.info(
+                    "subscription_status_updated company_id=%s sub_id=%s old=%s new=%s",
+                    company_id,
+                    subscription_id,
+                    sub.status,
+                    status,
+                )
+
+    except Exception as e:
+        logger.error(
+            "subscription_event_error company_id=%s event_id=%s error=%s",
+            company_id,
+            event_id,
+            str(e)[:200],
+        )
+
+
+async def _process_subscription_canceled(
+    company_id: str,
+    event_id: str,
+    event_type: str,
+    data: Dict[str, Any],
+):
+    """Process subscription canceled event."""
+    try:
+        subscription_id = data.get("id", data.get("subscription_id", event_id))
+
+        logger.info(
+            "subscription_canceled company_id=%s event_id=%s subscription_id=%s",
+            company_id,
+            event_id,
+            subscription_id,
+        )
+
+        # Update local subscription record
+        with SessionLocal() as db:
+            from database.models.billing import Subscription
+            sub = db.query(Subscription).filter(
+                Subscription.paddle_subscription_id == subscription_id,
+            ).first()
+            if sub:
+                sub.status = "canceled"
+                db.commit()
+
+    except Exception as e:
+        logger.error(
+            "subscription_canceled_error company_id=%s event_id=%s error=%s",
+            company_id,
+            event_id,
+            str(e)[:200],
+        )
+
+
+async def _process_subscription_past_due(
+    company_id: str,
+    event_id: str,
+    event_type: str,
+    data: Dict[str, Any],
+):
+    """Process subscription past_due event — triggers dunning."""
+    try:
+        subscription_id = data.get("id", data.get("subscription_id", event_id))
+
+        logger.warning(
+            "subscription_past_due company_id=%s event_id=%s subscription_id=%s",
+            company_id,
+            event_id,
+            subscription_id,
+        )
+
+        # Update local subscription record
+        with SessionLocal() as db:
+            from database.models.billing import Subscription
+            sub = db.query(Subscription).filter(
+                Subscription.paddle_subscription_id == subscription_id,
+            ).first()
+            if sub:
+                sub.status = "past_due"
+                db.commit()
+
+    except Exception as e:
+        logger.error(
+            "subscription_past_due_error company_id=%s event_id=%s error=%s",
+            company_id,
+            event_id,
+            str(e)[:200],
+        )
+
+
+async def _process_transaction_event(
+    company_id: str,
+    event_id: str,
+    event_type: str,
+    data: Dict[str, Any],
+):
+    """Process transaction lifecycle events (paid, completed)."""
+    try:
+        transaction_id = data.get("id", data.get("transaction_id", event_id))
+        status = data.get("status", "unknown")
+
+        logger.info(
+            "transaction_event_processed company_id=%s event_type=%s event_id=%s "
+            "transaction_id=%s status=%s",
+            company_id,
+            event_type,
+            event_id,
+            transaction_id,
+            status,
+        )
+
+        # If this is a successful payment and the service was stopped, resume it
+        if event_type in ("transaction.paid", "transaction.completed"):
+            service = get_payment_failure_service()
+            is_stopped = await service.is_service_stopped(UUID(company_id))
+            if is_stopped:
+                result = await service.resume_service(
+                    company_id=UUID(company_id),
+                    paddle_transaction_id=transaction_id,
+                )
+                if result.get("status") == "resumed":
+                    from app.tasks.payment_failure_tasks import resume_service
+                    resume_service.delay(
+                        company_id=company_id,
+                        transaction_id=transaction_id,
+                    )
+                logger.info(
+                    "transaction_resumed_service company_id=%s event_id=%s",
+                    company_id,
+                    event_id,
+                )
+
+    except Exception as e:
+        logger.error(
+            "transaction_event_error company_id=%s event_id=%s error=%s",
+            company_id,
+            event_id,
+            str(e)[:200],
+        )
+
+
+# ── Event Handler Mapping ────────────────────────────────────────────────
+
+EVENT_HANDLER_MAP: Dict[str, Callable] = {
+    # Payment events
+    "payment.failed": _process_payment_failed,
+    "payment.succeeded": _process_payment_succeeded,
+    # Transaction events
+    "transaction.paid": _process_transaction_event,
+    "transaction.completed": _process_transaction_event,
+    "transaction.payment_failed": _process_payment_failed,
+    # Subscription events
+    "subscription.created": _process_subscription_event,
+    "subscription.updated": _process_subscription_event,
+    "subscription.activated": _process_subscription_event,
+    "subscription.canceled": _process_subscription_canceled,
+    "subscription.past_due": _process_subscription_past_due,
+}

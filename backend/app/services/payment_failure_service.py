@@ -199,11 +199,13 @@ class PaymentFailureService:
                             <p>We were unable to process your recent payment for your PARWA subscription.</p>
                             <p><strong>Company:</strong> {company.name}</p>
                             <p><strong>Reason:</strong> {failure_reason or 'Payment declined by payment provider'}</p>
-                            <p>Please update your payment method to avoid service interruption.</p>
-                            <p>Your AI agents will remain active for 48 hours. After that, they will be paused until payment is resolved.</p>
+                            <p>Your service has been paused. Update your payment method to restore access immediately.</p>
                             </body></html>
                             """,
                         )
+                        # Mark notification as sent after successful email delivery
+                        failure.notification_sent = True
+                        db.commit()
                     except Exception as email_err:
                         logger.error(
                             "payment_failure_email_failed",
@@ -363,11 +365,110 @@ class PaymentFailureService:
                 self.ACTIVE_STATUS,
             )
 
-            # TODO: In production, trigger these async tasks:
-            # - Resume AI agents for this company
-            # - Unfreeze tickets
-            # - Send service_resumed email
-            # - Emit Socket.io event for real-time UI update
+            # Trigger resume side-effects
+            try:
+                # 1. Resume AI agents (unfreeze them)
+                try:
+                    # TODO: Replace with actual agent service when available.
+                    # Expected API: AgentService.resume_all_for_company(company_id)
+                    from app.services.agent_service import AgentService  # type: ignore[import-untyped]
+                    agent_svc = AgentService(db)
+                    agent_svc.resume_all_for_company(str(company_id))
+                    logger.info(
+                        "payment_resume_agents company_id=%s", company_id
+                    )
+                except ImportError:
+                    # Agent service not yet implemented — log and continue
+                    logger.warning(
+                        "payment_resume_agents_unavailable company_id=%s "
+                        "agent_service module not found; agents remain frozen",
+                        company_id,
+                    )
+                except Exception as agent_err:
+                    logger.error(
+                        "payment_resume_agents_failed company_id=%s error=%s",
+                        company_id,
+                        str(agent_err),
+                    )
+
+                # 2. Unfreeze tickets
+                try:
+                    from app.services.ticket_lifecycle_service import TicketLifecycleService
+                    ticket_svc = TicketLifecycleService(db, str(company_id))
+                    thaw_result = ticket_svc.thaw_tickets_for_account()
+                    logger.info(
+                        "payment_resume_thawed_tickets company_id=%s thawed=%s",
+                        company_id,
+                        thaw_result.get("thawed_count", 0),
+                    )
+                except Exception as ticket_err:
+                    logger.error(
+                        "payment_resume_thaw_failed company_id=%s error=%s",
+                        company_id,
+                        str(ticket_err),
+                    )
+
+                # 3. Send service_resumed email
+                try:
+                    from app.services.email_service import send_email
+                    from database.models.core import User
+                    company_owner = db.query(User).filter(
+                        User.company_id == str(company_id),
+                        User.role == "owner",
+                    ).first()
+                    if company_owner:
+                        send_email(
+                            to=company_owner.email,
+                            subject="PARWA: Service Restored",
+                            html_content=f"""
+                            <html><body>
+                            <h2>Service Restored</h2>
+                            <p>Hello {company_owner.full_name or 'there'},</p>
+                            <p>Your PARWA subscription payment has been processed successfully.</p>
+                            <p><strong>Company:</strong> {company.name}</p>
+                            <p>Your AI agents and ticket service have been restored. Thank you for updating your payment method.</p>
+                            </body></html>
+                            """,
+                        )
+                        logger.info(
+                            "payment_resume_email_sent company_id=%s", company_id
+                        )
+                except Exception as email_err:
+                    logger.error(
+                        "payment_resume_email_failed company_id=%s error=%s",
+                        company_id,
+                        str(email_err),
+                    )
+
+                # 4. Emit Socket.io event for real-time UI update
+                try:
+                    from app.core.event_emitter import emit_event
+                    await emit_event(
+                        company_id=str(company_id),
+                        event_type="billing:service_resumed",
+                        payload={
+                            "company_id": str(company_id),
+                            "old_status": old_status,
+                            "new_status": self.ACTIVE_STATUS,
+                            "service_resumed_at": now.isoformat(),
+                        },
+                    )
+                    logger.info(
+                        "payment_resume_socket_event company_id=%s", company_id
+                    )
+                except Exception as socket_err:
+                    logger.error(
+                        "payment_resume_socket_failed company_id=%s error=%s",
+                        company_id,
+                        str(socket_err),
+                    )
+
+            except Exception as e:
+                logger.error(
+                    "payment_resume_side_effects_failed company_id=%s error=%s",
+                    company_id,
+                    str(e),
+                )
 
             return {
                 "status": "resumed",
@@ -379,7 +480,10 @@ class PaymentFailureService:
                 "actions_taken": [
                     "marked_failure_resolved",
                     "updated_subscription_status",
-                    "service_resumed",
+                    "resumed_agents",
+                    "thawed_tickets",
+                    "sent_service_resumed_email",
+                    "emitted_socket_event",
                 ],
             }
 

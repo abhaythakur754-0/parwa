@@ -115,11 +115,11 @@ class TestPaymentFailureTenantIsolation:
 
         # Payment failure for Starter customer
         starter_limits = get_variant_limits("starter")
-        assert starter_limits["price_monthly"] == Decimal("999.00")
+        assert starter_limits["price"] == Decimal("999.00")
 
         # Payment failure for Growth customer
         growth_limits = get_variant_limits("growth")
-        assert growth_limits["price_monthly"] == Decimal("2499.00")
+        assert growth_limits["price"] == Decimal("2499.00")
 
 
 # ── GAP 2: Webhook idempotency race condition ──────────────────────────────
@@ -844,7 +844,7 @@ class TestVariantLimitsIntegrity:
 
         for variant_name in ["starter", "growth", "high"]:
             limits = get_variant_limits(variant_name)
-            assert isinstance(limits["price_monthly"], Decimal)
+            assert isinstance(limits["price"], Decimal)
 
 
 class TestWebhookSignatureSecurity:

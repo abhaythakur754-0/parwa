@@ -440,6 +440,7 @@ class AntiArbitrageService:
                 company_id=company_id,
                 error=str(exc),
             )
+            # FAIL CLOSED — block on error, not allow
             return CapacityCheck(
                 company_id=company_id,
                 current_weighted_capacity=0.0,
@@ -447,8 +448,8 @@ class AntiArbitrageService:
                 instance_count=0,
                 max_instances=self.config.max_instances_per_variant,
                 utilization_pct=0.0,
-                action=InstanceAction.ALLOWED,
-                reason=f"Capacity check error (graceful degradation): {exc}",
+                action=InstanceAction.BLOCKED,
+                reason=f"Capacity check error (fail closed): {exc}",
             )
 
     # ── Pre-check before creation (W9-GAP-014) ─────────────────
@@ -701,6 +702,7 @@ class AntiArbitrageService:
                 variant_type=variant_type,
                 error=str(exc),
             )
+            # FAIL CLOSED — block on error, not allow
             return CapacityCheck(
                 company_id=company_id,
                 current_weighted_capacity=0.0,
@@ -708,8 +710,8 @@ class AntiArbitrageService:
                 instance_count=0,
                 max_instances=self.config.max_instances_per_variant,
                 utilization_pct=0.0,
-                action=InstanceAction.ALLOWED,
-                reason=f"Pre-check error (graceful degradation): {exc}",
+                action=InstanceAction.BLOCKED,
+                reason=f"Pre-check error (fail closed): {exc}",
             )
 
     # ── Register Instance ───────────────────────────────────────
@@ -795,6 +797,7 @@ class AntiArbitrageService:
                 variant_type=variant_type,
                 error=str(exc),
             )
+            # FAIL CLOSED — block on error, not allow
             return CapacityCheck(
                 company_id=company_id,
                 current_weighted_capacity=0.0,
@@ -802,8 +805,8 @@ class AntiArbitrageService:
                 instance_count=0,
                 max_instances=self.config.max_instances_per_variant,
                 utilization_pct=0.0,
-                action=InstanceAction.ALLOWED,
-                reason=f"Registration error (graceful degradation): {exc}",
+                action=InstanceAction.BLOCKED,
+                reason=f"Registration error (fail closed): {exc}",
             )
 
     # ── Remove Instance ─────────────────────────────────────────

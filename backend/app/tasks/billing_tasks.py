@@ -243,7 +243,7 @@ def invoice_sync(self, company_id: str) -> dict:
             asyncio.set_event_loop(loop)
             try:
                 invoices = loop.run_until_complete(
-                    paddle.get_invoices(customer_id=company.paddle_customer_id)
+                    paddle.list_invoices(customer_id=company.paddle_customer_id)
                 )
             finally:
                 loop.close()

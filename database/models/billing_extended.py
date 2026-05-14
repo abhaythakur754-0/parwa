@@ -31,6 +31,11 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from database.base import Base
+from backend.app.core.pricing_config import (
+    VARIANT_LIMITS as _PC_VARIANT_LIMITS,
+    VARIANT_PRICES as _PC_VARIANT_PRICES,
+    normalize_variant_name as _normalize_variant_name,
+)
 
 
 def _uuid() -> str:
@@ -261,37 +266,28 @@ class PaymentFailure(Base):
 def get_variant_limits(variant_name: str) -> Optional[dict]:
     """
     Get variant limits by name.
-    
-    Returns dict with limits or None if not found.
+
+    Delegates to pricing_config — the single source of truth.
+    Returns dict with limits + price, or None if not found.
+
+    Note: key is "price" (not "price_monthly") for consistency
+    with the rest of the codebase.
     """
-    # Hardcoded fallback (matches migration data)
-    LIMITS = {
-        "starter": {
-            "monthly_tickets": 2000,
-            "ai_agents": 1,
-            "team_members": 3,
-            "voice_slots": 0,
-            "kb_docs": 100,
-            "price_monthly": Decimal("999.00"),
-        },
-        "growth": {
-            "monthly_tickets": 5000,
-            "ai_agents": 3,
-            "team_members": 10,
-            "voice_slots": 2,
-            "kb_docs": 500,
-            "price_monthly": Decimal("2499.00"),
-        },
-        "high": {
-            "monthly_tickets": 15000,
-            "ai_agents": 5,
-            "team_members": 25,
-            "voice_slots": 5,
-            "kb_docs": 2000,
-            "price_monthly": Decimal("3999.00"),
-        },
-    }
-    return LIMITS.get(variant_name.lower())
+    try:
+        canonical = _normalize_variant_name(variant_name.lower())
+    except ValueError:
+        return None
+
+    from backend.app.core.pricing_config import VariantType
+    try:
+        vt = VariantType(canonical)
+    except ValueError:
+        return None
+
+    if vt not in _PC_VARIANT_LIMITS:
+        return None
+
+    return {**_PC_VARIANT_LIMITS[vt], "price": _PC_VARIANT_PRICES[vt]}
 
 
 def calculate_overage(tickets_used: int, ticket_limit: int) -> dict:

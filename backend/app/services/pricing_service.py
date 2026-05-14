@@ -12,6 +12,15 @@ This is a simple service that could be extended to:
 
 from typing import Dict, List, Optional
 
+from app.core.pricing_config import (
+    VARIANT_PRICES,
+    VARIANT_ANNUAL_PRICES,
+    VARIANT_DISPLAY_NAMES,
+    VARIANT_LIMITS,
+    VariantType,
+    get_variant_price,
+)
+
 # Re-export constants from pricing API for service use
 VALID_INDUSTRIES = ["ecommerce", "saas", "logistics", "others"]
 
@@ -257,9 +266,9 @@ def calculate_totals(
     total_tickets = sum(s["tickets_per_month"] for s in validated_selections)
     total_monthly = sum(s["price_per_month"] for s in validated_selections)
 
-    # Annual pricing: 10 months (2 months free)
-    annual_cost = total_monthly * 10
-    annual_savings = total_monthly * 2
+    # Annual pricing: 12 × monthly — NO discounts (founder decision).
+    annual_cost = total_monthly * 12
+    annual_savings = 0  # No free months, no discounts
 
     return {
         "total_tickets": total_tickets,
